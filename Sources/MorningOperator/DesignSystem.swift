@@ -64,21 +64,25 @@ enum MorningStyle {
 }
 
 struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.headline)
             .padding(.horizontal, 22).padding(.vertical, 16)
             .foregroundStyle(.white)
             .background(MorningStyle.controlTint.opacity(configuration.isPressed ? 0.8 : 1), in: Capsule())
             .contentShape(Capsule())
+            .opacity(isEnabled ? 1 : 0.45)
     }
 }
 struct SecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.subheadline.weight(.semibold))
             .padding(.horizontal, 18).padding(.vertical, 14)
             .foregroundStyle(.primary)
             .background(MorningStyle.surface.opacity(configuration.isPressed ? 0.6 : 1), in: Capsule())
             .overlay(Capsule().strokeBorder(MorningStyle.line, lineWidth: 1))
+            .opacity(isEnabled ? 1 : 0.45)
     }
 }
 struct Eyebrow: View {

@@ -14,6 +14,23 @@ struct LearnView: View {
             PageHeading(eyebrow: "Your rhythm", title: "Make your morning yours.",
                 subtitle: "Start with what you already do. You'll review every suggestion before it becomes your routine.")
 
+            if store.busy {
+                Card {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label(store.analysisStatus, systemImage: "sparkles")
+                            .font(.subheadline.weight(.medium))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if store.progress > 0 {
+                            ProgressView(value: store.progress).tint(MorningStyle.accent)
+                        } else {
+                            ProgressView().controlSize(.small)
+                        }
+                        Button("Stop analysis") { store.cancelAnalysis() }
+                            .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
+                    }
+                }
+            }
+
             Card {
                 VStack(alignment: .leading, spacing: 18) {
                     sectionTitle("Show us your morning", symbol: "rectangle.on.rectangle")
@@ -25,7 +42,7 @@ struct LearnView: View {
                         Button { recording = true } label: {
                             Label("Record a little of my morning", systemImage: "record.circle")
                         }.buttonStyle(PrimaryButtonStyle())
-                            .disabled(store.busy || store.sessionActive)
+                            .disabled(!store.canStartRecording)
                             .accessibilityIdentifier("learn.record")
                     }
                     #endif
@@ -49,6 +66,11 @@ struct LearnView: View {
                         .font(.subheadline).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     notesEditor
+                    if !store.notes.isEmpty {
+                        Button("Clear this observation", role: .destructive) { store.clearObservation() }
+                            .buttonStyle(.borderless).font(.caption).disabled(store.busy)
+                            .accessibilityIdentifier("learn.clear")
+                    }
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 16) { analyzeControls }
                         VStack(alignment: .leading, spacing: 16) { analyzeControls }
@@ -57,23 +79,6 @@ struct LearnView: View {
                         Label("On-device suggestions aren't ready here yet. You can build and edit your routine yourself.", systemImage: "info.circle")
                             .font(.footnote).foregroundStyle(MorningStyle.muted)
                             .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-
-            if store.busy {
-                Card {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Label(store.analysisStatus, systemImage: "sparkles")
-                            .font(.subheadline.weight(.medium))
-                            .fixedSize(horizontal: false, vertical: true)
-                        if store.progress > 0 {
-                            ProgressView(value: store.progress).tint(MorningStyle.accent)
-                        } else {
-                            ProgressView().controlSize(.small)
-                        }
-                        Button("Stop analysis") { store.cancelAnalysis() }
-                            .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
                     }
                 }
             }
@@ -87,6 +92,7 @@ struct LearnView: View {
                 DisclosureGroup("About on-device learning") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.modelSummary)
+                        Text("Your latest extracted observation is saved on this device; Clear this observation removes that text. Evidence already attached to a saved routine remains with it.")
                         Text("A recording is sampled at up to 24 moments, so short clips work best and quick actions may be missed. Visible text helps suggest a routine; it doesn't reveal every tap or intention.")
                         Text("Analysis uses Apple's on-device model when available. It doesn't run other apps or approve a routine for you.")
                         Button("Check availability again") { store.refreshCapabilities() }
@@ -98,13 +104,18 @@ struct LearnView: View {
             }.padding(.horizontal, 4)
         }
         .foregroundStyle(MorningStyle.ink)
+        .task { store.importUITestObservationIfRequested() }
         #if os(iOS)
         .toolbar { ToolbarItemGroup(placement: .keyboard) {
             Spacer()
             Button("Done") { notesFocused = false }.accessibilityIdentifier("input.done")
         } }
         #endif
-        .sheet(isPresented: $recording) { RecordMorningView { url in store.importObservation(url) } }
+        .sheet(isPresented: $recording) {
+            RecordMorningView(canStartRecording: store.canStartRecording) { url in
+                store.importObservation(url, suggestRoutineWhenReady: true)
+            }
+        }
         .onChange(of: store.routine?.id) { _, _ in if !store.busy { dismiss() } }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.movie, .image, .plainText], allowsMultipleSelection: false) { result in
             switch result {

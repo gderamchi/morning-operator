@@ -143,6 +143,68 @@ final class FixtureJourneyTests: XCTestCase {
         assertState("stopped", in: app)
     }
 
+    func testImportedObservationPersistsAndStaysClearedAfterRelaunch() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let expected = "[Synthetic UI-test observation]\nI check my calendar, drink water, and enjoy ten minutes of chess."
+        app.launchArguments = ["--ui-testing", "--fixture-mode",
+                               "--ui-testing-workspace=\(UUID().uuidString)",
+                               "--ui-testing-import-observation"]
+        app.launch()
+
+        // The test hook imports a synthetic UTF-8 file while Learn is presented,
+        // through the real async importer and the already-mounted observation editor.
+        // This checks observation persistence; it does not exercise screen recording.
+        openLearnAndAssertNotes(expected, in: app)
+        attachScreenshot("synthetic-import-visible-notes", from: app)
+        closeLearn(in: app)
+        openLearnAndAssertNotes(expected, in: app)
+        closeLearn(in: app)
+
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-testing-import-observation" }
+        app.launch()
+        openLearnAndAssertNotes(expected, in: app)
+        attachScreenshot("synthetic-import-restored-without-reimport", from: app)
+
+        let clear = app.buttons["learn.clear"]
+        let learnScroll = app.scrollViews.containing(.textView, identifier: "learn.notes").firstMatch
+        for _ in 0..<3 where !clear.isHittable { learnScroll.swipeUp() }
+        XCTAssertTrue(clear.isHittable)
+        XCTAssertTrue(clear.isEnabled, "The async import must finish before clearing its saved text.")
+        clear.tap()
+        assertNotes("", in: app)
+        XCTAssertFalse(clear.exists)
+        app.terminate()
+        app.launch()
+        openLearnAndAssertNotes("", in: app)
+        XCTAssertFalse(app.buttons["learn.clear"].exists, "Cleared text must not return from disk or a test reimport.")
+        attachScreenshot("synthetic-import-cleared-after-relaunch", from: app)
+    }
+
+    private func openLearnAndAssertNotes(_ expected: String, in app: XCUIApplication) {
+        tapButton("learn.refine", in: app)
+        let editor = app.textViews["learn.notes"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        let learnScroll = app.scrollViews.containing(.textView, identifier: "learn.notes").firstMatch
+        for _ in 0..<3 where !editor.isHittable { learnScroll.swipeUp() }
+        XCTAssertTrue(editor.isHittable, "The extracted observation must be visible in Learn.")
+        assertNotes(expected, in: app)
+    }
+
+    private func assertNotes(_ expected: String, in app: XCUIApplication) {
+        let editor = app.textViews["learn.notes"]
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: editor)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed)
+    }
+
+    private func closeLearn(in app: XCUIApplication) {
+        let done = app.navigationBars["Learn my morning"].buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+        waitFor(app.textViews["learn.notes"], exists: false)
+    }
+
     private func launchFixture(workspaceID: UUID? = nil) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()

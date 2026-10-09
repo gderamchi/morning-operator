@@ -1,15 +1,17 @@
 import SwiftUI
 import MorningApple
 
-/// The caller imports the returned URL asynchronously, then removes the app-owned temporary file.
+/// The caller returns true after retaining the file for processing/retry. Only then is the
+/// recorder's ready URL released. Saved text or an explicit discard permits raw-file deletion.
 struct RecordMorningView: View {
-    let onRecorded: (URL) -> Void
+    var canStartRecording = true
+    let onRecorded: (URL) -> Bool
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
         if #available(iOS 27.0, *) {
-            RecordMorningContent(onRecorded: onRecorded)
+            RecordMorningContent(canStartRecording: canStartRecording, onRecorded: onRecorded)
         } else {
             unavailable
         }
@@ -39,9 +41,11 @@ struct RecordMorningView: View {
 #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
 @available(iOS 27.0, *)
 private struct RecordMorningContent: View {
-    let onRecorded: (URL) -> Void
+    let canStartRecording: Bool
+    let onRecorded: (URL) -> Bool
     @Environment(\.dismiss) private var dismiss
-    @ViewState<ScreenRecordingService> private var recording = ScreenRecordingService()
+    @Bindable private var recording = ScreenRecordingService.shared
+    @ViewState<ScreenRecordingDuration> private var duration = .twentyMinutes
 
     var body: some View {
         NavigationStack {
@@ -65,8 +69,8 @@ private struct RecordMorningContent: View {
                         .buttonStyle(PrimaryButtonStyle()).accessibilityIdentifier("record.stop")
                     } else if recording.state == .ready {
                         Button {
-                            guard let url = recording.takeRecording() else { return }
-                            onRecorded(url)
+                            guard let url = recording.recordedURL, onRecorded(url) else { return }
+                            _ = recording.takeRecording()
                             dismiss()
                         } label: {
                             Label("Use this recording", systemImage: "checkmark")
@@ -85,20 +89,30 @@ private struct RecordMorningContent: View {
                         Button("Cancel recording request") { recording.discard() }
                             .buttonStyle(SecondaryButtonStyle())
                     } else {
-                        Text("After you confirm Apple's picker, open the apps you usually check. Return here to stop when you've shown enough.")
+                        Text("Confirm Apple's picker, then go through your morning. This screen closes when recording begins. We stop at your chosen limit and prepare a draft when you return.")
                             .font(.subheadline).foregroundStyle(MorningStyle.muted)
-                        Button { recording.presentPicker() } label: {
+                        Picker("Stop automatically after", selection: $duration) {
+                            ForEach(ScreenRecordingDuration.allCases) { option in
+                                Text(option.displayName).tag(option)
+                            }
+                        }.pickerStyle(.menu)
+                        Button { recording.presentPicker(duration: duration) } label: {
                             Label("Start screen recording", systemImage: "record.circle")
                         }
                         .buttonStyle(PrimaryButtonStyle()).accessibilityIdentifier("record.start")
+                        .disabled(!canStartRecording)
+                        if !canStartRecording {
+                            Text("Finish the current activity, or retry or discard the saved recording, before starting another.")
+                                .font(.caption).foregroundStyle(MorningStyle.muted)
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
                         Label("You're in control", systemImage: "hand.raised")
                             .font(.subheadline.weight(.semibold)).foregroundStyle(MorningStyle.green)
                         Text("This records visible screen content without sound or camera video. Keep the part you want to teach short; other personal content on screen may also appear.")
-                        Text("Recording stops after ten minutes or at its file-size limit. You can also stop using the system's screen-sharing controls.")
-                        Text("The temporary file stays on this device. Choose Use this recording to extract text for review before asking for a routine suggestion.")
+                        Text("Recording stops at your chosen time limit or its file-size limit. This is a time limit, not a guess that you stopped using your phone. You can stop earlier using the app or the system controls.")
+                        Text("When recording finishes, visible text is extracted locally and Apple Intelligence prepares a draft when available. Review it before approving. The video stays on this device until its extracted text is saved, or until you discard it.")
                     }
                     .font(.footnote).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -113,12 +127,11 @@ private struct RecordMorningContent: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { recording.discard(); dismiss() }
+                    Button("Close") { dismiss() }
                         .disabled(!recording.canDismiss)
                 }
             }
             .interactiveDismissDisabled(!recording.canDismiss)
-            .onDisappear { recording.discard() }
         }
     }
 

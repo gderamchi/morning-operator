@@ -41,7 +41,8 @@ public enum MediaObservationError: LocalizedError, Sendable, Equatable {
 public actor MediaObservationService {
     public typealias ProgressHandler = @MainActor @Sendable (Double) -> Void
     public static let maximumFileBytes = 512 * 1_024 * 1_024
-    public static let maximumVideoSeconds: Double = 30 * 60
+    // Allow a minute of writer/stop finalization around the longest 30-minute recording preset.
+    public static let maximumVideoSeconds: Double = 31 * 60
     public static let maximumFrames = 24
 
     public init() {}

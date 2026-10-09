@@ -27,6 +27,17 @@ public enum ScreenRecordingState: String, Sendable, Equatable {
     case idle, choosing, starting, recording, stopping, ready, failed
 }
 
+/// An elapsed recording limit, not a measurement of device or user inactivity.
+public enum ScreenRecordingDuration: Int, CaseIterable, Identifiable, Sendable, Hashable {
+    case fiveMinutes = 300
+    case tenMinutes = 600
+    case twentyMinutes = 1_200
+    case thirtyMinutes = 1_800
+
+    public var id: Int { rawValue }
+    public var displayName: String { "\(rawValue / 60) minutes" }
+}
+
 #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
 @preconcurrency import ScreenCaptureKit
 import AVFoundation
@@ -36,6 +47,10 @@ import AVFoundation
 @available(iOS 27.0, *)
 @MainActor @Observable
 public final class ScreenRecordingService {
+    /// App-wide ownership lets recording survive dismissal of the recording sheet.
+    /// Dismissing UI does not call `discard()`; the app retains a Stop/status control.
+    public static let shared = ScreenRecordingService()
+
     // The picker is process-wide. An older cancelled request may finish after a new sheet
     // has taken ownership; its cleanup must never deactivate the new request's picker.
     private static var pickerOwnerID: UUID?
@@ -43,10 +58,21 @@ public final class ScreenRecordingService {
     public private(set) var message = "Choose what to share using Apple's screen-recording picker."
     public private(set) var elapsedSeconds = 0
     public private(set) var recordedURL: URL?
+    public private(set) var recordingInterruption: String?
+    /// Called directly on finalization, including while the app is backgrounded. Return true
+    /// only after durable ownership is accepted; false keeps the recorder's ready URL intact.
+    @ObservationIgnored public var onRecordingFinalized: (@MainActor (URL, String?) -> Bool)?
     public private(set) var needsStopRetry = false
-    public let maximumDurationSeconds = 600
+    public private(set) var selectedDuration: ScreenRecordingDuration = .tenMinutes
+    public var maximumDurationSeconds: Int { selectedDuration.rawValue }
+    public var remainingSeconds: Int { max(0, maximumDurationSeconds - elapsedSeconds) }
 
     public var isBusy: Bool { [.choosing, .starting, .recording, .stopping].contains(state) }
+    /// Conservative lifecycle signal: a start, active capture, or shutdown may still be pending.
+    /// `.recording` separately means the recording output acknowledged its start.
+    public var captureMayBeActive: Bool { [.starting, .recording, .stopping].contains(state) }
+    /// True only after stream stop and recording-output finalization have both completed.
+    public var hasRecordingToReview: Bool { state == .ready && recordedURL != nil }
     public var isAvailable: Bool { SCContentSharingPicker.shared.isAvailable }
     /// A cancelled, still-unresolved start can outlive its sheet. The start completion retains
     /// this service and stops any late successful start. An active capture cannot be dismissed.
@@ -80,7 +106,7 @@ public final class ScreenRecordingService {
     public init() {}
 
     /// Presents Apple's picker only in response to the user's Start recording button.
-    public func presentPicker() {
+    public func presentPicker(duration: ScreenRecordingDuration = .tenMinutes) {
         guard !isBusy, state != .ready else { return }
         guard isAvailable else {
             fail("Screen recording isn't available on this device or is restricted by its settings.")
@@ -93,8 +119,10 @@ public final class ScreenRecordingService {
         }
         let token = UUID()
         sessionID = token
+        selectedDuration = duration
         elapsedSeconds = 0
         recordedURL = nil
+        recordingInterruption = nil
         startPending = false
         startSucceeded = false
         outputStarted = false
@@ -253,7 +281,7 @@ public final class ScreenRecordingService {
         deadline?.cancel()
         deadline = nil
         state = .recording
-        message = "Go through a short part of your morning, then return here and stop."
+        message = "Go through your morning. Recording stops after \(selectedDuration.displayName), or you can stop it sooner."
         let started = ContinuousClock.now
         monitoring = Task { @MainActor [weak self] in
             while !Task.isCancelled {
@@ -261,7 +289,7 @@ public final class ScreenRecordingService {
                 guard let self, self.sessionID == token, self.state == .recording else { return }
                 self.elapsedSeconds = max(0, Int(started.duration(to: ContinuousClock.now).components.seconds))
                 if self.elapsedSeconds >= self.maximumDurationSeconds {
-                    self.requestShutdown(reason: "Stopped at the ten-minute limit. Your recording is ready to review.")
+                    self.requestShutdown(reason: "Stopped at your \(self.maximumDurationSeconds / 60)-minute limit. Your recording is ready to review.")
                     return
                 }
                 if (self.output?.recordedFileSize ?? 0) >= 256 * 1_024 * 1_024 {
@@ -296,10 +324,13 @@ public final class ScreenRecordingService {
         monitoring = nil
         state = .stopping
         if !wasUserStopped {
-            failureDetail = failureDetail ?? detail
-            discardWhenFinished = true
+            // A system interruption does not itself mean the writer's saved portion failed.
+            // Keep it if didFinishRecording succeeds; didFail/timeout still discard it.
+            recordingInterruption = "The system interrupted this recording. It may cover only part of your morning."
         }
-        stopReason = wasUserStopped ? "Stopped using the system controls. Your recording is ready to review." : detail
+        stopReason = wasUserStopped
+            ? "Stopped using the system controls. Your recording is ready to review."
+            : "Recording was interrupted. The saved portion is ready to review. \(detail)"
         message = "Screen capture has stopped. Finishing the recording…"
         armDeadline(seconds: 30, token: token, kind: .finalization)
         finishIfReady()
@@ -404,6 +435,9 @@ public final class ScreenRecordingService {
             recordedURL = url
             state = .ready
             message = finishedMessage ?? "Your recording is ready to review."
+            if onRecordingFinalized?(url, recordingInterruption) == true {
+                _ = takeRecording()
+            }
         } catch {
             removeTemporaryFile()
             state = .failed

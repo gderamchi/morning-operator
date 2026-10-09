@@ -1,43 +1,42 @@
 # Start working on Morning Operator
 
-For the two founders. Updated 9 October 2026. Start with the installed iPhone app or build from source, reproduce the basic journey, then choose the next issue together.
+For the two founders. Updated 9 October 2026. The iPhone is the sole active product. Start with the installed phone app or build it through Xcode, reproduce the basic journey, then choose the next issue together. The Mac is the development/test host and optional controller; no separate Mac app is required.
 
 ## What you can try today
 
 The current native interface has **Morning**, **Review** and **Notes** tabs. Morning contains the day strip and routine timeline; Learn and Settings open from their controls. You can build/review/approve a routine, run its steps, pause/resume/stop, edit a draft, restore the previous approved version, and export it. Notes captures local thoughts and dreams; reminder/calendar requests are reviewed separately before a system write. Review summarizes recorded mornings, with missing history kept distinct from measured activity.
 
-Selected text, screenshots and videos feed a reviewable observation field. Apple model analysis, speech, Calendar/Reminders and automatic step execution have different verification needs. Automatic progression waits for a supported operation to finish; speaking an instruction does not prove a real-world task was done. Interactive steps remain user-controlled.
+Selected text, screenshots and videos feed a reviewable observation field. The latest extracted text/source is saved locally; Clear this observation removes that text, while evidence quotes already saved in routines remain. The revised native recorder can prepare a draft automatically after foreground processing; selected file imports still use Suggest a routine. Apple model analysis, speech, Calendar/Reminders and automatic step execution have different verification needs. Automatic progression waits for a supported operation to finish; speaking an instruction does not prove a real-world task was done. Interactive steps remain user-controlled.
 
-**Xcode 27 is installed, and the native app is signed, installed and running on the owner's iPhone 15 Pro Max with iOS 27.0.1.** Three core phone journeys passed, along with a real local-model proposal and a read-only Clock navigation/scroll test. The expanded verification record is in [PHASE-ONE.md](PHASE-ONE.md). Siri, real Calendar/Reminders writes, HomePod routing and recording ingestion need their own individual checks.
+**Xcode 27 is installed, and the native app is signed, installed and running on the owner's iPhone 15 Pro Max with iOS 27.0.1.** Four core phone journeys passed, along with a real local-model proposal and a read-only Clock navigation/scroll test. The expanded verification record is in [PHASE-ONE.md](PHASE-ONE.md). Siri, real Calendar/Reminders writes, HomePod routing and recording ingestion need their own individual checks.
 
 ## First five minutes on your iPhone
 
 1. Open **Morning Operator** and choose **Learn my morning**.
-2. On iOS 27, choose **Record a little of my morning**, confirm Apple's sharing picker and show a short, harmless part of your routine. Return, stop, and use the recording. On earlier supported iOS versions, choose an existing recording or screenshot.
-3. Review the extracted text, choose **Suggest a routine**, then edit the suggested moments. Apple Intelligence must be available; **Build it myself** and **Explore a sample** work independently.
+2. On iOS 27, choose **Record a little of my morning**, select a 5/10/20/30-minute limit and confirm Apple's sharing picker. Show a short, harmless part of your routine. The revised app-owned Record/Learn sheets close after capture starts; Apple's system panel dismissal remains unverified. Use the in-app or system Stop control, or let the chosen bound request a stop. On earlier supported iOS versions, choose an existing recording or screenshot.
+3. In the revised flow, returning to the foreground with a finalized recording starts local OCR when no analysis or routine session is active. A ready Apple model can then propose an unapproved draft without a separate Use step. Review and edit it before approval. If the model is unavailable, review the saved text and choose **Suggest a routine** later; selected file imports also use that button. **Build it myself** and **Explore a sample** work independently.
 4. Choose **This feels like me**, then **OK, here we go**. Supported spoken actions can advance when finished; personal activities and unconnected apps wait for you. The playback controls include Pause, Next and End morning.
 5. Swipe between days in **Morning**, open **Review**, and save a dream or thought in **Notes**. Missing days stay empty. History currently measures app-run sessions; exact TikTok, Instagram and email behavior is a separate analytics milestone.
 6. In **Settings → Companion voice**, choose an installed Apple voice and preview it. The audio-output control is where you choose AirPods or an available AirPlay speaker.
 
-The recorder is a new device integration: use the current verification record to distinguish compiled code from an observed end-to-end recording result. No background week-long capture starts automatically.
+These recording and app-activity revisions are separate from the tested `b5914db` build. An initial revised phone build-for-testing and nine focused transition checks passed. A later full package run passed 64 with one intentional model opt-in skip, before the latest background handoff. The final iPhone build-for-testing and two recovery retests have since passed; new end-to-end device checks remain pending. The earlier recording test failed with empty notes after Use. A later owner Stop/Use sequence produced an Observation loaded banner, but the owner then found the ordinary-app Learn text box empty. The end-to-end user check remains failed/unresolved; that banner is not proof of usable extraction or a model result. See [verification](PHASE-ONE.md). First-use detection, Screen Time data access and scheduled recording are not implemented. No background week-long capture starts automatically.
 
 ## On the existing development Mac
 
-Use the existing `morning-operator` checkout; you do not need a second clone. Open a terminal in that repository folder, then run:
+Use the existing `morning-operator` checkout. The owner’s separate generated Mac app was moved to Trash; keep product work focused on the iPhone. From the repository, run the shared package checks and open the iPhone project:
 
 ```sh
-./scripts/build-mac-app.sh --open
+./scripts/test.sh
+open MorningOperator.xcodeproj
 ```
 
-This builds and opens `build/Morning Operator.app`. To reopen the existing build later, use Finder or `open "build/Morning Operator.app"` from the repository. Rebuild after changing source code. Quit the running app before replacing its bundle.
-
-The initial Mac build and package tests worked with Command Line Tools, Swift 6.4 and XcodeGen 2.45.3. Full Xcode 27 has since been installed and used for a successful signed iPhone build/install. Record the toolchain selected for each new run rather than treating the earlier Command Line Tools result as proof for every configuration.
+Choose the iPhone app target, your local development team and the explicitly selected paired phone. Build/run through Xcode, then follow [device setup](DEVICE-SETUP.md). Full Xcode is needed for phone installation and UI tests. The Mac may also host the bounded development controller; that is separate from shipping a native Mac app.
 
 ## On the partner's Mac
 
 1. Sign in with your own GitHub account and accept the invitation to the private [morning-operator repository](https://github.com/gibouu/morning-operator). If access is missing, ask the owner to check repository **Settings → Collaborators**. See [GitHub’s invitation guide](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/inviting-collaborators-to-a-personal-repository).
-2. Use **macOS 26 or later**. That is the application's minimum; the actual tested host was macOS 27.0.1 on a MacBook Air M4. Apple Intelligence analysis additionally needs compatible hardware and a ready local model. The minimum OS declaration does not prove every Mac/toolchain combination has been tested.
-3. Install/open [Apple Xcode](https://developer.apple.com/xcode/) compatible with the Mac's OS and, for phone work, the phone's installed iOS. Finish first-launch setup and select it in Xcode Settings → Locations → Command Line Tools. Record the actual version. The owner's successful signed phone installation used Xcode 27 with iOS 27.0.1; repeat setup with the partner's own machine and device. A compatible Command Line Tools installation may be enough for Mac-only work; the initial successful baseline was Swift 6.4, not every Swift 6 release.
+2. Use a development Mac compatible with the required Xcode; the shared package targets macOS 26 or later for local checks. The observed host is macOS 27.0.1 on a MacBook Air M4. The iPhone app requires iOS 26 or later, with iOS 27 for native recording and compatible Apple Intelligence hardware/model readiness. This does not establish every older device/toolchain combination.
+3. Install/open [Apple Xcode](https://developer.apple.com/xcode/) compatible with the Mac's OS and, for phone work, the phone's installed iOS. Finish first-launch setup and select it in Xcode Settings → Locations → Command Line Tools. Record the actual version. The owner's successful signed phone installation used Xcode 27 with iOS 27.0.1; repeat setup with the partner's own machine and device. A compatible Command Line Tools installation may be enough for shared package checks; the initial successful baseline was Swift 6.4, not every Swift 6 release.
 4. Clone into a folder you choose using your own authenticated GitHub account. GitHub Desktop is an alternative to the terminal commands below. Never put access tokens in a clone URL, project file or test report.
 
 ```sh
@@ -45,10 +44,11 @@ mkdir -p "$HOME/Developer"
 cd "$HOME/Developer"
 git clone https://github.com/gibouu/morning-operator.git
 cd morning-operator
-./scripts/build-mac-app.sh --open
+./scripts/test.sh
+open MorningOperator.xcodeproj
 ```
 
-There are no third-party Swift package dependencies, cloud-model keys or shared signing secrets to install for this Mac prototype. Homebrew is not required. The local build script creates an ad hoc signed app bundle; this is a source build on your own Mac, not a notarized installer or TestFlight release.
+There are no third-party Swift package dependencies, cloud-model keys or shared signing secrets. Homebrew is not required. Build/run the iPhone target with your own account/team and selected phone; do not recreate the separate Mac app as part of onboarding.
 
 If cloning says the repository is unavailable, check invitation acceptance and which GitHub account is authenticated before changing the URL or visibility. The original private product brief is deliberately excluded from Git; this guide and the checked-in setup/status documents are sufficient for the first build.
 
@@ -63,7 +63,7 @@ git status --short
 ./scripts/test.sh --with-model
 ```
 
-The environment script exits with code 2 when full Xcode is unavailable. That identifies the iPhone tooling gap; it does not mean the Mac tests failed. Run the test command separately even if that environment check reports the expected gap. The test script handles the Swift Testing macro plugin needed by the observed Command Line Tools 6.4 setup. It runs the local, dependency-free package with its package sandbox disabled; it does not install or control an iPhone.
+The environment script exits with code 2 when full Xcode is unavailable. That identifies the iPhone tooling gap; it does not mean the shared package tests failed. Run the test command separately even if that environment check reports the expected gap. The test script handles the Swift Testing macro plugin needed by the observed Command Line Tools 6.4 setup. It runs the local, dependency-free package with its package sandbox disabled; it does not install or control an iPhone.
 
 For model readiness, check that Apple Intelligence is enabled in the device’s Apple Intelligence & Siri settings, use a supported language/region, and allow the local models to finish downloading. Apple recommends keeping the device on Wi-Fi and power while the models download. See [Apple’s setup guide](https://support.apple.com/en-lamr/121115). The app’s reported local-model availability remains the deciding check; enabling a separate Siri feature does not prove the app’s model is ready.
 
@@ -76,43 +76,30 @@ mkdir -p work/test-reports
 cp docs/TEST-REPORT-TEMPLATE.md work/test-reports/first-mac-run.md
 ```
 
-## First Mac smoke test
+## First iPhone smoke test
 
-Start with synthetic data. The normal app saves its workspace at `~/Library/Application Support/MorningOperator/workspace.json`. Approving a replacement draft releases the one previous approved version; this is not unlimited undo or a version-history browser.
-
-For the manual sequence below, turn off automatic progression and spoken guidance in Settings first. Test automatic execution separately after the manual controls work. The `--ui-testing` fixture does this automatically so its step assertions do not race speech completion.
-
-To keep the following test separate from an existing personal routine, quit Morning Operator and launch the built executable with a dedicated local workspace:
-
-```sh
-mkdir -p work/onboarding
-MORNING_OPERATOR_DATA_DIR="$PWD/work/onboarding/app-data" \
-  "./build/Morning Operator.app/Contents/MacOS/MorningOperator"
-```
-
-Keep that terminal open while using the app. Reuse this exact command for the restart check so the same test workspace is loaded. A normal Finder launch uses the normal Application Support workspace instead. For a fresh test later, choose another local directory; you do not need to delete personal data.
+Use the isolated device fixture suite in [DEVICE-SETUP.md](DEVICE-SETUP.md) for the automated baseline. For a manual synthetic walkthrough, keep automatic progression and spoken guidance off while checking the controls, then verify those integrations separately. The basic phone journey is:
 
 | Step | Expected result |
 |---|---|
-| Choose **Explore a sample** | A routine is clearly labeled as demo/sample data and awaits review. It is not presented as learned from your behavior. |
-| Choose **This feels like me** | The routine is approved and can start. |
-| Choose **OK, here we go**, then **Next** | State is running; Next advances to another step. Note its title. |
-| Choose **Pause**, then **Continue** | State becomes paused, then running, with the same current step. |
-| Quit while running; relaunch using the same workspace command | The session returns paused at the same step; it requires an explicit Continue. |
-| Continue, then open **Morning controls → End morning** | State becomes stopped; the run no longer advances by itself. |
-| Edit a step and save | Changes create an unapproved next draft. **Restore previous approved routine** restores the earlier approved content. |
-| Export the approved routine | The native save panel writes JSON to the chosen local file. Review its content before sharing. |
-| In Learn, import a local UTF-8 text file containing only an invented morning | The selected text appears in the notes field for review. Import alone does not generate or approve a routine. |
-| Check Settings and Learn with an unavailable model | The unavailable reason is visible and analysis is disabled; sample/manual routines still work. Mark real inference skipped. |
-| If the model is available, review the notes and choose **Suggest a routine** | A generated routine remains a draft for review. Its steps and supporting quotes should match the selected observation; reject invented claims. |
+| Explore a sample, then This feels like me | Clearly synthetic draft becomes approved after review. |
+| OK, here we go → Next → Pause → Continue | Current step advances only as requested and survives pause/resume. |
+| Close/reopen the same installed app while a routine is running | Saved session reopens paused at the same step. |
+| Morning controls → End morning | Run stops and records its actual terminal state. |
+| Edit a step, then restore the previous approved routine | Edit creates an unapproved draft; restoration recovers the previous approved content. |
+| Save an invented Dream in Notes | It stays local, appears under the Dream filter and survives tab navigation. |
+| Swipe to an empty previous day | Empty history stays empty; today's routine is not invented as past activity. |
+| Import a synthetic text observation, then Suggest a routine when the model is ready | Text is visible and saved; proposal remains unapproved. A model-unavailable result is a skip, not successful inference. |
 
-Also try the newer screens with synthetic data: in Notes, open capture, select **Dream**, enter an invented dream and choose **Save my dream**. Confirm the Dream filter shows it after leaving and returning to Notes. Swipe Morning to an empty previous day and back; an empty day should not display today's routine as historical activity. These are explicit test steps, not assertions that every new device check has passed.
+The native recording path is a separate unresolved check: Learn was empty in the owner's ordinary-app test despite an Observation loaded banner. Validate the source recording, extracted text, saved workspace and visible field before accepting a result. Check Clear this observation and failed-recording Retry/Discard separately; saved routine quotes and raw recovery media have different lifecycles.
 
-Use **Build it myself** in Learn to test a manual routine independently of model availability. Imported observation notes are temporary UI content and do not survive quitting. Saved routines, the current session and one previous approved routine do persist.
+Test voice audibly on a known output, Calendar permission/read, and an intentionally reviewed Calendar/Reminders write as separate device checks. A saved local dream is not a system Reminder. Foreground Start morning requests an approved plan; Quick capture opens text for review. Neither intent approves changed routines or silently saves system items. Siri discovery/dictation and background app-transition logging need independent installed-device verification.
 
-Optional checks come after this basic journey: test voice audibly on a known output; connect Calendar deliberately and verify the local day/events. Calendar reading requests Apple's full calendar permission. The briefing reads events; saving a reviewed Calendar capture is a separate explicit write. Likewise, a local dream does not create an Apple Reminder. Record permission denial, an empty calendar and a successful read/write as distinct outcomes, and verify each against the detailed test record before claiming it works.
+## Optional app activity
 
-The source now exposes foreground Siri/Shortcuts actions: **Start morning** requests an approved routine, and **Quick capture** accepts a thought, dream, reminder request or calendar idea and opens it for review. The intent does not itself save to Calendar/Reminders or approve a changed routine. Siri phrase recognition and discovery still need a real installed-app test. System keyboard dictation and a Siri action are separate from continuous in-app voice commands.
+The new **Review → Connect app activity** setup explains how to create separate Is Opened/Is Closed automations for Instagram, TikTok or Snapchat. Each automation calls **Log an app transition** with the matching app and transition; leave Event ID empty for ordinary use. This background action is designed to log without opening Morning Operator. Its installation, background delivery and cold-launch behavior have not yet been verified. See [device setup](DEVICE-SETUP.md#optional-app-transition-logging).
+
+The Today card counts recorded entries and returns after another tracked app. It is not a complete app log, pickup counter, duration measurement or seven-day external-app report. Missing events and unconfigured apps can change the apparent sequence. The journal is local and separate from the workspace. The setup sheet now has Clear recorded app activity; disable the corresponding Shortcuts automations to stop new entries. Journal export and automatic retention limits remain future work, and the clear flow still needs device verification.
 
 ## Move to iPhone and HomePod
 
@@ -138,13 +125,13 @@ Use the [shared roadmap and issue links](ROADMAP.md) to claim work. Choose indep
 
 | Track | Small, reviewable outcome | Dependency |
 |---|---|---|
-| Product journey | Observe someone using sample/manual routines; fix one confusing interaction and reproduce the smoke test | Working Mac build |
+| Product journey | Observe someone using sample/manual routines; fix one confusing interaction and reproduce the smoke test | Working iPhone build |
 | Semantic learning | Resolve model readiness, analyze synthetic observations, record grounded/unsupported steps and cancellation behavior | Available local Apple model |
 | Phone proof | Compile/install the app, run fixture then Settings checks, document actual signing/SDK issues | Full Xcode and selected phone |
 | Voice and audio | Verify local speech first, then one HomePod route; separately design live command input | Actual audio devices; phone work for iOS routing |
 | Calendar | Test consent, denied/empty/event states and the correct day/timezone | A deliberately chosen local calendar |
 
-Agree on files/interfaces before starting overlapping changes, use short branches, and review a concrete diff with test evidence. Keep one report per device/build. Merge only the completed scope and state any skips. The next useful milestone is a repeatable native Mac-to-iPhone demonstration, followed by a separately proven audio route; do not bundle all remaining integrations into one change.
+Agree on files/interfaces before starting overlapping changes, use short branches, and review a concrete diff with test evidence. Keep one report per device/build. Merge only the completed scope and state any skips. The next useful milestone is a repeatable iPhone demonstration, followed by a separately proven audio route; do not bundle all remaining integrations into one change.
 
 ## Keep evidence useful and private
 

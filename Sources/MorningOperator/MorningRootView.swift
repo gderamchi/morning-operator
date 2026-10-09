@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import MorningCore
+import MorningApple
 
 struct MorningRootView: View {
     @Bindable var store: MorningStore
@@ -25,6 +26,14 @@ struct MorningRootView: View {
                 }
                 .tabItem { Label(tab.rawValue, systemImage: tab.symbol) }.tag(tab)
             }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+            if #available(iOS 27.0, *) {
+                MorningRecordingStatus(store: store, onStarted: { showingLearn = false },
+                                       onReview: { showingLearn = true })
+            }
+            #endif
         }
         .tint(MorningStyle.accent)
         .sheet(isPresented: $showingSettings, onDismiss: presentPendingIntentCapture) {

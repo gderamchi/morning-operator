@@ -31,6 +31,8 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var sessionTimingInterrupted: Bool?
     var pendingCaptures: [String: String]?
     var voiceIdentifier: String?
+    var observationNotes: String?
+    var observationSource: String?
 }
 
 @MainActor @Observable
@@ -44,6 +46,10 @@ final class MorningStore {
     private(set) var busy = false
     private(set) var progress = 0.0
     private(set) var analysisStatus = ""
+    private(set) var observationIssue: String?
+    private(set) var pendingRecordingURL: URL?
+    private(set) var pendingRecordingShouldAutoProcess = false
+    private var pendingRecordingInterruption: String?
     private(set) var calendarSnapshot: CalendarSnapshot?
     private(set) var calendarBusy = false
     var readAloud = true
@@ -67,6 +73,7 @@ final class MorningStore {
     private let calendar = CalendarObservationService()
     private var notesSourceLabel = "Your written observation"
     private let snapshot: AtomicJSONFile<WorkspaceSnapshot>
+    private let recordingRecovery: PendingScreenRecordingStore
     @ObservationIgnored private var snapshotRecoveryError: String?
     private var analysisTask: Task<Void, Never>?
 
@@ -85,6 +92,18 @@ final class MorningStore {
                 .appendingPathComponent("MorningOperator", isDirectory: true)
         }
         snapshot = AtomicJSONFile(url: directory.appendingPathComponent("workspace.json"))
+        recordingRecovery = PendingScreenRecordingStore(directory: directory)
+        defer { connectRecordingRecovery() }
+        do {
+            pendingRecordingURL = try recordingRecovery.recover()
+            if pendingRecordingURL != nil {
+                observationIssue = "Your saved recording is still on this device. Retry understanding it, or discard it."
+                do { pendingRecordingInterruption = try recordingRecovery.interruptionNote() }
+                catch { pendingRecordingInterruption = "The recording's coverage note could not be restored; its completeness is unknown." }
+            }
+        } catch {
+            observationIssue = "Recording recovery needs attention: \(error.localizedDescription)"
+        }
         if fixtureMode && !FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             routine = DemoFixtures.candidateRoutine
             automatic = false
@@ -107,6 +126,8 @@ final class MorningStore {
                 automatic = saved.automatic ?? true
                 readAloud = saved.readAloud ?? true
                 speech.voiceIdentifier = saved.voiceIdentifier
+                notes = saved.observationNotes ?? ""
+                notesSourceLabel = saved.observationSource ?? "Your written observation"
                 sessionTimingInterrupted = saved.sessionTimingInterrupted ?? false
                 pendingCaptures = saved.pendingCaptures ?? [:]
                 if !pendingCaptures.isEmpty { notice = "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again." }
@@ -123,6 +144,10 @@ final class MorningStore {
             }
         }
     }
+
+    var hasImportedObservation: Bool { !notes.isEmpty && notesSourceLabel != "Your written observation" }
+    var hasPendingRecording: Bool { pendingRecordingURL != nil }
+    var canStartRecording: Bool { !busy && !sessionActive && !hasPendingRecording }
 
     var totalMinutes: Int { routine?.steps.reduce(0) { $0 + $1.durationMinutes } ?? 0 }
     var stateLabel: String { session?.status.rawValue ?? (routine?.isApproved == true ? "ready" : "review") }
@@ -259,32 +284,143 @@ final class MorningStore {
         }
     }
 
-    func importObservation(_ url: URL) {
-        guard !busy, !sessionActive else { return }
+    /// Returns true only after accepting ownership or starting an ordinary file import.
+    /// The recorder must keep its ready URL until this returns true.
+    @discardableResult
+    func importObservation(_ url: URL, suggestRoutineWhenReady: Bool = false) -> Bool {
+        let ownedRecording = ScreenRecordingFiles.isOwnedRecording(url) || recordingRecovery.owns(url)
+        let selectedURL: URL
+        if ownedRecording {
+            guard retainRecording(url, interruptionNote: nil, automaticallyProcess: false),
+                  let retainedURL = pendingRecordingURL else { return false }
+            selectedURL = retainedURL
+        } else {
+            selectedURL = url
+        }
+        guard !busy, !sessionActive else {
+            if ownedRecording {
+                observationIssue = "Your recording is saved. Finish the current activity, then retry understanding it."
+                return true
+            }
+            notice = "Finish the current activity before importing another observation."
+            return false
+        }
         beginAnalysis()
         analysisStatus = "Reading your selected observation…"
+        let interruptionNote = ownedRecording ? pendingRecordingInterruption : nil
         analysisTask = Task { [weak self] in
             guard let self else { return }
-            let granted = url.startAccessingSecurityScopedResource()
-            defer {
-                if granted { url.stopAccessingSecurityScopedResource() }
-                // Only recordings created by this app are removed after extraction.
-                _ = try? ScreenRecordingFiles.removeIfOwned(url)
-            }
+            let granted = selectedURL.startAccessingSecurityScopedResource()
+            defer { if granted { selectedURL.stopAccessingSecurityScopedResource() } }
             do {
-                let extracted = try await media.extractText(from: url) { [weak self] fraction in
+                let visibleText = try await media.extractText(from: selectedURL) { [weak self] fraction in
                     self?.progress = fraction
                 }
+                let extracted = interruptionNote.map { "[Recording coverage: \($0)]\n\n\(visibleText)" } ?? visibleText
                 try Task.checkCancellation()
                 notes = extracted
-                notesSourceLabel = "Selected file, reviewed by you: \(url.lastPathComponent)"
-                busy = false
+                notesSourceLabel = ownedRecording ? "Your explicitly shared screen recording" : "Selected file: \(selectedURL.lastPathComponent)"
                 progress = 1
-                notice = "Observation loaded. Review or trim the extracted text, then choose Suggest a routine."
+                guard persist() else {
+                    busy = false
+                    observationIssue = notice ?? "The extracted text could not be saved. Your recording is kept for retry."
+                    return
+                }
+                if ownedRecording {
+                    do {
+                        try recordingRecovery.remove()
+                        pendingRecordingURL = nil
+                        pendingRecordingInterruption = nil
+                    } catch {
+                        busy = false
+                        observationIssue = "Your extracted text is saved, but the temporary recording could not be removed. You can discard it below. \(error.localizedDescription)"
+                        return
+                    }
+                }
+                if suggestRoutineWhenReady, intelligence.isAvailable {
+                    await createCandidate(text: extracted, source: notesSourceLabel)
+                } else {
+                    busy = false
+                    notice = "Observation loaded. Review or trim the extracted text, then choose Suggest a routine."
+                }
             } catch {
                 finishAnalysis(error: error)
+                observationIssue = notice
             }
         }
+        return true
+    }
+
+    func retryPendingRecording() {
+        guard let pendingRecordingURL, !busy, !sessionActive else { return }
+        pendingRecordingShouldAutoProcess = false
+        importObservation(pendingRecordingURL, suggestRoutineWhenReady: true)
+    }
+
+    /// Stages a finalized clip independently of scene visibility, app work, or routine state.
+    /// OCR is started by the foreground coordinator; recovered clips require an explicit Retry.
+    @discardableResult
+    func retainFinalizedRecording(_ url: URL, interruptionNote: String? = nil) -> Bool {
+        retainRecording(url, interruptionNote: interruptionNote, automaticallyProcess: true)
+    }
+
+    private func retainRecording(_ url: URL, interruptionNote: String?, automaticallyProcess: Bool) -> Bool {
+        if let pendingRecordingURL, pendingRecordingURL.standardizedFileURL != url.standardizedFileURL {
+            observationIssue = "Retry or discard your saved recording before adding another one."
+            return false
+        }
+        let coverageNote = recordingRecovery.owns(url) ? pendingRecordingInterruption : interruptionNote
+        do {
+            let retainedURL = try recordingRecovery.retain(url, interruptionNote: coverageNote)
+            pendingRecordingInterruption = coverageNote
+            pendingRecordingShouldAutoProcess = automaticallyProcess
+            pendingRecordingURL = retainedURL
+            observationIssue = nil
+            return true
+        } catch {
+            observationIssue = "Your recording has not been imported or discarded. \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private func connectRecordingRecovery() {
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        if #available(iOS 27.0, *) {
+            let recording = ScreenRecordingService.shared
+            recording.onRecordingFinalized = { [weak self] url, interruptionNote in
+                self?.retainFinalizedRecording(url, interruptionNote: interruptionNote) ?? false
+            }
+            if recording.hasRecordingToReview, let url = recording.recordedURL,
+               retainFinalizedRecording(url, interruptionNote: recording.recordingInterruption) {
+                _ = recording.takeRecording()
+            }
+        }
+        #endif
+    }
+
+    func discardPendingRecording() {
+        guard !busy, pendingRecordingURL != nil else { return }
+        do {
+            try recordingRecovery.remove()
+            pendingRecordingURL = nil
+            pendingRecordingShouldAutoProcess = false
+            pendingRecordingInterruption = nil
+            observationIssue = nil
+            notice = "Saved recording discarded. Any previously saved observation text remains available."
+        } catch {
+            observationIssue = "The saved recording could not be removed. \(error.localizedDescription)"
+        }
+    }
+
+    func dismissObservationIssue() {
+        observationIssue = nil
+    }
+
+    func clearObservation() {
+        guard !busy else { return }
+        notes = ""
+        notesSourceLabel = "Your written observation"
+        persist()
     }
 
     func cancelAnalysis() {
@@ -326,6 +462,7 @@ final class MorningStore {
         busy = true
         progress = 0
         notice = nil
+        observationIssue = nil
         analysisStatus = "Finding the meaningful steps…"
     }
 
@@ -347,6 +484,7 @@ final class MorningStore {
         busy = false
         progress = 0
         notice = error is CancellationError ? "Analysis stopped. Your existing routine is unchanged." : error.localizedDescription
+        if hasPendingRecording || hasImportedObservation { observationIssue = notice }
     }
 
     func saveVoicePreference() { persist() }
@@ -481,7 +619,8 @@ final class MorningStore {
             try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
                 automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
-                pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier))
+                pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
+                observationNotes: notes.isEmpty ? nil : notes, observationSource: notes.isEmpty ? nil : notesSourceLabel))
             return true
         } catch {
             notice = "Your change is in memory, but saving failed: \(error.localizedDescription)"

@@ -27,6 +27,7 @@ struct WeeklyReviewView: View {
                     }
                     Text("Routine timing excludes pauses. It doesn't measure time in other apps or time saved.")
                         .font(.caption).foregroundStyle(.secondary)
+                    AppActivityView()
                     Text("Inside your morning").font(.title3.weight(.semibold))
                     if week.apps.isEmpty {
                         EmptyMoment(symbol: "rectangle.stack", title: "Your habits, with context.",

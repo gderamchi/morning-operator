@@ -6,10 +6,10 @@ Start with [onboarding](ONBOARDING.md), then use [the test report template](TEST
 
 ## What is already done
 
-- Native Mac and iPhone UI with Morning/Review/Notes, routine editing and approval, local dreams/thoughts, recovery and history.
+- Native iPhone UI with Morning/Review/Notes, routine editing and approval, local dreams/thoughts, recovery and history. iPhone is the sole active product; the Mac is the development/test machine and optional controller.
 - Selected observation import and real Vision OCR; local model adapter; supported app-owned speech/calendar progression and foreground Siri/Shortcuts entry points.
-- Signed iPhone build, installation and launch succeeded. Three synthetic fixture checks passed, plus bounded read-only Clock navigation and real on-phone generation of a two-step unapproved routine. The latest completed package run recorded **53 passed and 1 Mac model-unavailable skip**; expanded recovery checks remain pending.
-- Native iOS 27 recording and built-in voice chooser compile; recording, audible voice selection, live EventKit writes and HomePod behavior still need hardware evidence. See [the verification record](PHASE-ONE.md) for the boundary of each result.
+- Signed iPhone build, installation and launch succeeded. Four synthetic fixture journeys passed, including draft/relaunch recovery, plus bounded read-only Clock navigation and real on-phone generation of a two-step unapproved routine. The `b5914db` package run recorded **53 passed and 1 Mac model-unavailable skip**.
+- The earlier native recording OCR journey failed. An initial revised phone build-for-testing and nine focused transition checks passed. A later working-tree full package run passed 64 with one intentional model opt-in skip. The final iPhone build-for-testing and two recovery retests have since passed. Automatic recording processing and installed app-transition delivery still need device evidence; a later owner import displayed Observation loaded, but the owner then found Learn empty. This end-to-end user check is failed/unresolved; the banner is not success evidence. Audible voice selection, live EventKit writes and HomePod behavior still need hardware checks. See [the verification record](PHASE-ONE.md) for each result and the [observation plan](OBSERVATION-PLAN.md) for the next slices.
 
 ## Start with two parallel tracks
 
@@ -67,7 +67,21 @@ These issues have no milestone or priority assigned yet.
 | Issue | Current position | Next evidence |
 |---|---|---|
 | [#20 — Choose a morning companion voice and investigate consented custom voices](https://github.com/gibouu/morning-operator/issues/20) | Built-in voice chooser, search, preview and saved preference are implemented and compile. The custom-voice investigation remains separate. | Verify audible selection, fallback, persistence and output route on hardware. No Personal Voice prompt or custom-voice cloning is implemented. |
-| [#21 — Turn recorded mornings into evidence-based daily and weekly analytics](https://github.com/gibouu/morning-operator/issues/21) | Local run history and evidence types exist, with unknown values and coverage kept explicit. No recording-to-analytics producer proves external-app time or action counts yet. | Connect reviewed recordings to time-linked observations, provenance and coverage; validate on deliberate examples before showing usage/read/reply counts. Coordinate with #8, #9 and #19. |
+| [#21 — Turn recorded mornings into evidence-based daily and weekly analytics](https://github.com/gibouu/morning-operator/issues/21) | Local run history/evidence types exist. New optional Shortcuts callback logging has nine passing focused checks; installed delivery and its Today entry/return card remain unverified; no complete external-app usage pipeline exists. | Validate selected-app delivery and counts; connect recordings to time-linked observations and coverage. DeviceActivity first-use/data access remain spikes. Coordinate with #8, #9 and #19; see OBSERVATION-PLAN. |
+
+## Next product slices from the latest owner feedback
+
+Fix the ordinary-app blank observation first under #19/#9. A successful banner cannot close that work: a short known recording must produce visible, nonempty, source-grounded Learn text that survives relaunch, followed by an inspectable unapproved proposal when the model is available.
+
+| Scope | Backlog home | Concrete next result |
+|---|---|---|
+| Controlled ground-truth capture benchmark | [#23 — controlled ground-truth benchmark](https://github.com/gibouu/morning-operator/issues/23); coordinates #2/#9/#19/#21 | Script known app entries, scrolls and selected synthetic emails; compare the actual captured evidence and model result against timestamped annotations, with precision/recall, omissions and unknowns. |
+| Screen narration and actions after learning | Extend #7 with #6/#12 | Explain the currently observed selected screen, perform one supported scoped action, reacquire evidence and verify its outcome on the personal development setup. |
+| Learn after every eligible morning | Extend #11 with #21 | Build an initial profile from four or five adequately observed comparable days, then refresh it after each consented morning. Preserve corrections and separate human behavior from automation/test traces. |
+| Optional reduction of a chosen habit | Extend #10; optional enforcement belongs to #17 | Let the person choose a habit, target and time period, including no reduction. Compare against an observed baseline and preserve required enjoyable rituals. |
+| Separately opted-in mobile-agent research data | [#24 — opt-in research-data feasibility](https://github.com/gibouu/morning-operator/issues/24); coordinates #8/#18 | Evaluate whether deliberately retained, reviewed/redacted interaction recordings could support a useful licensed research dataset. Decide consent, exclusions, redaction quality, retention, withdrawal and demand before building collection or export. |
+
+These are planned outcomes, not new test results. Four/five-day estimates expose their actual evidence-day denominator and remain separate from the seven-calendar-day history view. Continued learning means repeated bounded, consented sessions; it does not imply continuous background recording. Research participation is a separate optional purpose, disabled by default; this roadmap does not extend existing recovery retention or authorize any upload or sale.
 
 ## Later concepts without an implementation commitment
 
