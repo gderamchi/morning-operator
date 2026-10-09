@@ -1,0 +1,184 @@
+# System architecture
+
+Morning Operator is an iPhone app for observing a deliberately shared part of a morning, proposing a routine and helping the person run supported steps. The current implementation is local and has no backend or third-party runtime packages. The Mac is a development/test host and optional tethered controller; the separate native Mac app is not an active product.
+
+This guide describes source architecture and its limits. [PHASE-ONE](PHASE-ONE.md) is the authority for actual test results; [the roadmap](ROADMAP.md) separates upcoming work. MORE (MOrning REcap) is only a naming candidate.
+
+## Components and boundaries
+
+```mermaid
+flowchart TB
+    Person["Person and system consent"] --> UI["SwiftUI iPhone app"]
+    UI --> Store["MorningStore: workspace owner"]
+    Capture["ScreenCaptureKit or selected file"] --> Media["AVFoundation and Vision"]
+    Media --> Evidence["Evidence policy and source text"]
+    Evidence --> Model["Foundation Models: propose or abstain"]
+    Model --> Store
+    Store --> Core["MorningCore: versions, sessions, history"]
+    Store --> Disk["Local workspace and recording recovery"]
+    Store --> Runner["Supported step executor"]
+    Runner --> Speech["System speech"]
+    Runner --> Calendar["Authorized Calendar read"]
+    UI --> ReviewedSave["Reviewed reminder or event"]
+    ReviewedSave --> EventKit["EventKit with pending-write record"]
+    Shortcuts["User-configured app automations"] --> Journal["Separate app-transition journal"]
+    Journal --> UI
+    Harness["Separate Mac-hosted XCTest runner"] -. "bounded development control" .-> OtherApps["Selected installed apps"]
+```
+
+There is no app-runtime connection from the model to arbitrary phone controls. Recording can expose visible content; it cannot itself send a tap or grant access to an app's private data. The XCTest runner is a separate execution environment, not an entitlement held by the installed product.
+
+| Module | Responsibility | Main source |
+|---|---|---|
+| `MorningCore` | Codable domain objects, routine/session invariants, timing/history, atomic JSON and action-journal primitives | [Core sources](../Sources/MorningCore) |
+| `MorningApple` | Media extraction, evidence filtering, local inference, recording/recovery, speech, Calendar/Reminders and transition storage | [Apple adapters](../Sources/MorningApple) |
+| iPhone application | Views, one main-actor workspace owner, lifecycle coordination and App Intents | [App sources](../Sources/MorningOperator) |
+| Development harness | Isolated synthetic journeys and explicitly selected external-app checks | [UITests](../UITests) |
+
+The project targets iOS 26. Native ScreenCaptureKit recording is guarded for iOS 27; selected-file import remains available on the older baseline. Shared package checks target macOS 26 or later. Availability declarations do not replace actual device/model/permission checks.
+
+## Capture, recover, extract
+
+The person chooses **Record a little of my morning**, selects a duration and confirms Apple's picker. The current UI defaults to **20 minutes**, with 5/10/20/30-minute choices and a 256 MiB bound. This is an elapsed-time cap, not detection of inactivity. The stop request and confirmed stream/file completion can happen at different times.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> SystemPicker: Person starts
+    SystemPicker --> Starting: Person shares
+    SystemPicker --> Idle: Cancel
+    Starting --> Recording: Capture acknowledged
+    Recording --> Stopping: Stop, limit or interruption
+    Stopping --> Stopping: Stop uncertain; retain owner and retry
+    Stopping --> SavedClip: Confirmed stop and finalized file
+    SavedClip --> Extracting: Foreground and idle; same session or Retry
+    Extracting --> SavedClip: OCR, cancellation or save failure
+    Extracting --> SavedText: Extracted text durably saved
+    SavedText --> Draft: Eligible evidence and model available
+    SavedText --> NeedsReview: Insufficient evidence or model unavailable
+    SavedClip --> Idle: Explicit discard
+```
+
+`ScreenRecordingService.shared` owns the stream independently of sheets. Its finalization callback stages a successfully finalized clip into one durable recovery slot before releasing ownership. The foreground coordinator starts same-session extraction only when the app is active and no analysis or routine session is in progress. A clip recovered after app relaunch requires **Retry**; relaunch does not silently reprocess it.
+
+The app closes its own Record/Learn sheets when it can handle acknowledged capture in the active scene. Apple's sharing panel is a separate system surface: it remained visible seven seconds into an observed clip. Automatic dismissal is not established. Use the system's normal dismissal/navigation controls; do not interpret an open panel as proof that capture has not started.
+
+Non-user interruption can retain a successfully finalized clip with a coverage note. An unfinalized/writer-failed file is not treated as a usable recording. Stop errors keep resources/status for retry; a failed ownership handoff keeps the service's file rather than silently losing it. These source protections still need broad hardware coverage across interruption, locking and limits.
+
+The importer reads a selected image, video or UTF-8 file with scoped file access. Video is capped at 512 MiB and 31 minutes in current source, allowing a small completion margin around the 30-minute recording option. AVFoundation samples at most **24 frames**; Vision extracts visible text with actual sampled timestamps. The app does not persist sampled-frame images as an evidence library. The whole video can contain activity absent from those samples.
+
+The observed real clip proved capture → OCR → saved text → visible unapproved draft and readable text after ordinary-app relaunch. It also produced incorrect habits from setup/marketing text. The updated policy now rejects the same saved text in a deterministic local replay, without a new model call or changing the original text. This demonstrates why transport, visibility and semantic correctness need separate checks. [Apple iOS capture sample](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-on-ios), [Vision text recognition](https://developer.apple.com/documentation/vision/recognizetextrequest).
+
+## Foundation Models: inference, not training
+
+`AppleIntelligenceService` checks `SystemLanguageModel.default.availability`. If the device is ineligible, Apple Intelligence is disabled or the model is not ready, the app shows the reason. Manual routines and review remain available. There is no silent cloud fallback.
+
+The current evidence-policy revision separates user-reported activity from visible task content. It filters whole visual frames before chunking, rejects recognized setup/picker/launcher/marketing contexts, and allows an insufficient-evidence outcome. This is a targeted, incomplete heuristic. Rejection by that deterministic prefilter happens before model inference; it is distinct from the model returning its own insufficient-evidence outcome. Deterministic guard tests do not establish real-model abstention. The validation record is in [PHASE-ONE](PHASE-ONE.md).
+
+The original trimmed observation must fit within 8,000 characters before filtering; filtering does not rescue an oversized input. Equivalent eligible frames are deduplicated and coalesced into inference chunks of at most 1,500 characters. Dynamic guided-generation schemas constrain outcome, step category, evidence kind, quote and tentative duration. Post-generation checks require an eligible source context and exact supporting quotation, valid kind/duration and matching evidence type. Duplicate proposals are collapsed. The resulting routine is **unapproved**, with no inferred execution operation attached.
+
+A matching quote proves only that text appeared in the input. It does not prove that the person opened an app, read a message, performed the activity or repeats it daily. A screenshot is a moment. Durations generated by the model are suggestions, not measurements. Source text is untrusted data and cannot approve a plan, change consent, invoke an external tool or override app policy.
+
+“Learning” currently means interpreting the supplied observation and saving an editable routine/preferences. No fine-tuning, adapter training, weight update, persistent model memory, embedding index or research corpus is implemented. Future four/five-day estimates and continuous per-morning adaptation belong to [#11](https://github.com/gibouu/morning-operator/issues/11) and [#21](https://github.com/gibouu/morning-operator/issues/21); they need evidence and ordinary data aggregation, not a claim that the foundation model retrains each morning. [SystemLanguageModel](https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel), [guided generation](https://developer.apple.com/documentation/foundationmodels/generating-swift-data-structures-with-guided-generation).
+
+## Routine and session state
+
+`RoutineVersion` contains ordered `RoutineStep` records. Edits create an unapproved version; one prior approved version can be restored until the replacement is approved. This is not a complete version-history browser. A run pins a snapshot of its approved version.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Ready: Approved nonempty valid routine
+    Ready --> Running: Start
+    Running --> Paused: Pause or interruption
+    Paused --> Running: Explicit continue
+    Running --> Running: Complete or skip current step
+    Running --> Completed: Last step finished
+    Ready --> Stopped: Stop
+    Running --> Stopped: Stop
+    Paused --> Stopped: Stop
+    Completed --> [*]
+    Stopped --> [*]
+```
+
+An unapproved/empty/invalid routine cannot start. A repeated advance command ID cannot skip two steps. Pause, stop and manual advance cancel the current execution attempt; stale callbacks cannot advance another session or step. A running checkpoint restored at launch becomes paused, and its interrupted duration is unknown rather than including unobserved time.
+
+Automatic progression uses explicit `RoutineStepAutomation` operations: `spokenNote` and `todayCalendar`. A generated category such as messages/calendar is not an operation. Other steps wait for the person's Next. Speech completion proves synthesis finished; it does not prove the person heard it or performed a real-world activity. Calendar speech reads a fresh authorized day snapshot. The workspace is saved before dispatch; save failure pauses rather than continuing effects.
+
+## Notes, permissions and effects
+
+Thoughts and dreams save locally. Reminder/calendar ideas can remain local or be deliberately saved through EventKit after text/date review. The deterministic date parser supplies editable suggestions; it is not universal date understanding. Calendar reads need full access; event creation can use write-only access, and Reminders uses its relevant full-access permission.
+
+```mermaid
+sequenceDiagram
+    actor Person
+    participant UI as Reviewed capture
+    participant Store as MorningStore
+    participant Disk as Workspace
+    participant Apple as EventKit
+    Person->>UI: Choose Save to Apple app
+    UI->>Store: Validated draft and stable capture ID
+    Store->>Apple: Request needed access
+    Store->>Disk: Save capture and pending-write marker
+    alt Local save succeeds
+        Store->>Apple: Create reviewed item
+        Apple-->>Store: Receipt or uncertain error
+        Store->>Disk: Save receipt and clear pending on success
+    else Local save fails
+        Store-->>UI: Stop before external write
+    end
+```
+
+A receipt prevents an ordinary duplicate retry. If the process stops after an external write but before the receipt is saved, the outcome remains uncertain; inspect Calendar/Reminders before trying again. An EventKit receipt is a local system-store result, not proof of cloud sync or an alert being heard. Apple items follow their chosen accounts' sync policies.
+
+Core `ActionJournalStore` also implements scoped approvals and unknown-outcome recovery for future adapters. It is not yet a universal integrated cross-app action engine; current EventKit capture uses the explicit pending/receipt fields above. General observe → narrate → act → verify work is [#7](https://github.com/gibouu/morning-operator/issues/7), with effect integration in [#12](https://github.com/gibouu/morning-operator/issues/12). [Event-store access](https://developer.apple.com/documentation/eventkit/accessing-the-event-store).
+
+## Data retention today
+
+The following describes actual local storage and controls, not a proposed privacy policy. Ordinary app data lives under its Application Support directory. JSON uses a schema envelope and atomic replacement with owner-only file permissions; there is no app-level encrypted database or account/cloud-sync service. Do not equate local storage with exclusion from every device backup: only the recording-recovery directory is explicitly excluded in this implementation.
+
+| Data | Stored today | Retention / removal today |
+|---|---|---|
+| Routine, one previous approved version, current session, run history, voice/settings | `workspace.json` | Remain across launch; edits/approval replace the active/prior-version slots. No general history-expiry or delete-all UI. Archived runs retain their pinned routine content. |
+| Latest extracted observation and source label | Same workspace; one latest observation | Replaced by a subsequent import, or removed with Clear this observation. Manual corrections save when editing ends, Learn closes or the app becomes inactive, and before analysis/import. Failed writes retain edits in memory with Retry. Routine/history evidence quotes already saved remain. |
+| Thoughts/dreams/capture requests, pending effect markers, receipts | Same workspace | Persist locally. No general Notes deletion/expiry UI is currently implemented. Clearing observation text does not remove these items. |
+| Active app-created recording | App temporary recording directory | Moved after finalization into recovery, or removed on confirmed discard/failure cleanup. A force-terminated/unfinalized temporary file is not a guaranteed recoverable clip. |
+| One pending finalized clip and interruption metadata | `RecordingRecovery/pending-screen-recording.mp4` and `recording-info.json` | Directory excluded from backup. Kept after OCR/cancellation/save failure; Retry/Discard on relaunch. Removed after extracted text is saved or explicit discard. No automatic age expiry. Later model failure does not require retaining raw video. |
+| User-selected original media | Its original Files/Photos location | Only read through selected access; the app does not delete the original. |
+| Per-app callback journal | `app-transitions.json` | App/entry-exit/time/time-zone/source/ID, no screen/message contents. Clear recorded app activity removes it; enabled Shortcuts may add new events afterward. No automatic expiry/export UI. |
+| Calendar snapshot | In-memory adapter/store state | Refreshed on read; not part of workspace persistence. Reviewed items saved to Apple apps are managed by those apps/accounts. |
+| Routine export | Person-selected JSON file | Contains the selected routine, including evidence details; it is not a full workspace export or automatic redaction. Review before sharing. |
+| Device-test screenshots, recordings and result bundles | Local developer `work/` and `.build/` artifacts | Separate from app controls and ignored by Git. Cleanup is a deliberate developer action. Never attach personal artifacts to issues by default. |
+
+There is no telemetry upload, backend ingestion, HealthKit store or research-contribution pipeline in current source. No model training data is created automatically. The separate [research feasibility issue #24](https://github.com/gibouu/morning-operator/issues/24) considers deliberately selected, reviewed/redacted contributions only after distinct participation, retention, rights and export decisions. It does not repurpose recovery clips or extend retention today. Broader export/forgetting controls are [#8](https://github.com/gibouu/morning-operator/issues/8).
+
+## Daily review, app loops and the intended weekly view
+
+Current day/week history measures Morning Operator sessions, with planned duration separated from measured active/paused/elapsed time. Stopped and completed runs differ; interrupted timing and missing observations stay unknown; synthetic fixtures are excluded from personal aggregates. It does not establish total phone usage or time saved.
+
+Optional background `LogAppTransitionIntent` receives manually configured Shortcuts events for Instagram, TikTok and Snapchat. A separate actor serializes its same-process JSON writes. Supplied stable IDs deduplicate intentional retries; omitted IDs are new events. Review shows Today's entries and returns after another tracked app. Callbacks can be late/missing and unconfigured apps can be absent. These are not physical pickups, exact process launches, scroll counts or a full ordered device log. Installed Shortcuts delivery still needs its own evidence. [Apple App triggers](https://support.apple.com/guide/shortcuts/setting-triggers-apde31e9638b/ios).
+
+The intended product UI is a **simple weekly average** with understandable coverage, supported by four or five comparable mornings and continued bounded learning afterward. That external-app/habit average is planned, not implemented. Each metric needs its own evidence-day denominator; missing days are not zero. Separate human-led, assistant-executed, mixed and synthetic segments so automation does not teach itself a false human preference. Optional habit-reduction targets preserve enjoyment and belong to the person. Detailed contracts live in the [observation plan](OBSERVATION-PLAN.md); the simpler next interface is tracked in [V2 design work #25](https://github.com/gibouu/morning-operator/issues/25).
+
+## Start signals, voice and prepared briefings
+
+| Integration | Current behavior / boundary | Next work |
+|---|---|---|
+| Siri / App Intents | Foreground start of an already approved routine and capture text opened for review; no global custom wake word | Verify installed discovery, cold launch and locked-device behavior. Continuous app voice input remains separate work. |
+| Speech | `AVSpeechSynthesizer`, installed voice choice, completion/cancellation, output-route UI | Greeting callbacks and sample spoken-step advancement passed; listener audibility and interruptions still need checks. On-device Speech recognition remains future work. This is speech output, not a trained companion voice. |
+| Calendar / Reminders | Authorized reads and reviewed EventKit writes in source | Real-account permission/write checks with receipts and correct dates. |
+| Alarm / sleep Shortcuts | No wake-trigger automation installed by the app | Apple's Alarm stopped/snoozed/Wake-up and Sleep waking-up triggers can offer a start opportunity; they do not authorize a fresh screen capture. |
+| DeviceActivity | No first-use extension or usage-data connection implemented | Test first use within a scheduled interval and separately entitled aggregate data access; neither is a physical-lift sensor or live ordered tap stream. |
+| HomePod / AirPods / Apple TV | User-selected iPhone output route; one available HomePod mini | Verify audio output independently. No raw HomePod microphone, autonomous room detection or room-to-room transfer is established. |
+| Health, weather, email/messages, HomeKit | No complete connected pipeline in this app | Separate adapters, permissions, evidence and freshness checks. An observed message is not a mailbox connection. |
+
+Preparing a recap or speech buffer in advance is a useful future latency experiment. Cache only supported, authorized connected data with source time, generation time and expiry; revalidate calendar/date/account and volatile information before speaking. Do not describe preparation as overnight model training, assume access to unconnected inboxes, or promise guaranteed iOS background execution. It must preserve user stop and safe audio-route behavior. [Speech audio session](https://developer.apple.com/documentation/avfaudio/avspeechsynthesizer/usesapplicationaudiosession), [SpeechAnalyzer](https://developer.apple.com/documentation/speech/speechanalyzer).
+
+Official trigger references: [Alarm and Sleep automations](https://support.apple.com/en-ie/guide/shortcuts/apd932ff833f/ios), [DeviceActivity first-use callback](https://developer.apple.com/documentation/deviceactivity/deviceactivitymonitor/intervaldidstart(for:)), [direct usage-data API](https://developer.apple.com/documentation/deviceactivity/deviceactivitydata/activitydata(filteredby:using:)). Entitlement, authorization, region and freshness details remain in the [observation plan](OBSERVATION-PLAN.md).
+
+## Protected content and verification
+
+The owner reported a WhatsApp recording problem. A bounded tethered screenshot check later showed the ordinary Chats screen was readable, without opening a conversation or sending a message; it did not test native ScreenCaptureKit recording. Diagnose the particular screen and capture mode on the actual device; do not generalize from one failure to all chats or recordings. WhatsApp documents screenshot blocking for View Once content, which does not establish the behavior of ordinary text chats or every recording mode. Protected/blank/unavailable content stays unknown. No bypass is promised. [WhatsApp View Once guidance](https://faq.whatsapp.com/1077018839582332).
+
+Validate each boundary with controlled input: source media exists, expected visible text is extracted, persistence succeeds, UI matches, model claims are supported and actions have observable postconditions. [Benchmark #23](https://github.com/gibouu/morning-operator/issues/23) owns this measurement work. An insufficient-evidence result can be correct. A routine constructed from onboarding copy is not successful habit learning even when every lower-level data transfer worked.
+
+Use [tomorrow's short checklist](DEVICE-SETUP.md#tomorrow-morning-checklist) for the immediate phone trial. Keep broader control, automatic scheduling, multi-day inference and research collection in their own issues until they have evidence.
