@@ -22,6 +22,8 @@ public enum ObservationVideoEvidenceError: Error, LocalizedError, Sendable, Equa
 /// One request and its extraction result, including failures. IDs are created once per
 /// extraction and survive encoding/rendering; they are not content hashes across reimports.
 public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatable {
+    public static let maximumOCRLines = 256
+
     public let id: UUID
     public let requestedTimeSeconds: Double
     public let actualTimeSeconds: Double?
@@ -29,6 +31,10 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
     public let text: String
     public let textWasTruncated: Bool
     public let warnings: [String]
+    /// Nil means layout was not supplied (including legacy observations). An empty array
+    /// means no line spans were retained, not that OCR was blank. Any nonnil array may
+    /// be a bounded subset; its presence does not establish complete layout coverage.
+    public let ocrLines: [ObservationOCRLine]?
 
     public var timeSeconds: Double { actualTimeSeconds ?? requestedTimeSeconds }
     public var timeBasis: ObservationSampleTimeBasis { actualTimeSeconds == nil ? .requestedSamplingTime : .mediaPresentation }
@@ -37,7 +43,7 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
 
     public init(id: UUID = UUID(), requestedTimeSeconds: Double, actualTimeSeconds: Double? = nil,
                 outcome: ObservationSampleOutcome, text: String = "", textWasTruncated: Bool = false,
-                warnings: [String] = []) throws {
+                warnings: [String] = [], ocrLines: [ObservationOCRLine]? = nil) throws {
         guard requestedTimeSeconds.isFinite, requestedTimeSeconds >= 0,
               actualTimeSeconds.map({ $0.isFinite && $0 >= 0 }) ?? true,
               warnings.count <= 8, warnings.allSatisfy({ $0.count <= 256 }),
@@ -53,6 +59,29 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
             guard text.isEmpty, !textWasTruncated else { throw ObservationVideoEvidenceError.invalidFrame }
         }
         if outcome == .decodeFailed, actualTimeSeconds != nil { throw ObservationVideoEvidenceError.invalidFrame }
+        if let ocrLines {
+            guard ocrLines.count <= Self.maximumOCRLines else { throw ObservationVideoEvidenceError.invalidFrame }
+            var lineIDs = Set<UUID>()
+            let sourceCharacterCount = text.count
+            var previousEnd = 0
+            var sourceCursor = text.startIndex
+            for line in ocrLines {
+                guard lineIDs.insert(line.id).inserted,
+                      line.startCharacterOffset >= previousEnd,
+                      line.endCharacterOffset <= sourceCharacterCount else {
+                    throw ObservationVideoEvidenceError.invalidFrame
+                }
+                let start = text.index(sourceCursor, offsetBy: line.startCharacterOffset - previousEnd)
+                let end = text.index(start, offsetBy: line.endCharacterOffset - line.startCharacterOffset)
+                // Swift String equality permits canonical Unicode equivalence. Provenance
+                // requires the original scalar sequence, including whitespace and accents.
+                guard text[start..<end].unicodeScalars.elementsEqual(line.text.unicodeScalars) else {
+                    throw ObservationVideoEvidenceError.invalidFrame
+                }
+                previousEnd = line.endCharacterOffset
+                sourceCursor = end
+            }
+        }
         self.id = id
         self.requestedTimeSeconds = requestedTimeSeconds
         self.actualTimeSeconds = actualTimeSeconds
@@ -60,10 +89,11 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
         self.text = text
         self.textWasTruncated = textWasTruncated
         self.warnings = warnings
+        self.ocrLines = ocrLines
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, requestedTimeSeconds, actualTimeSeconds, outcome, text, textWasTruncated, warnings
+        case id, requestedTimeSeconds, actualTimeSeconds, outcome, text, textWasTruncated, warnings, ocrLines
     }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -73,7 +103,8 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
                       outcome: values.decode(ObservationSampleOutcome.self, forKey: .outcome),
                       text: values.decode(String.self, forKey: .text),
                       textWasTruncated: values.decode(Bool.self, forKey: .textWasTruncated),
-                      warnings: values.decode([String].self, forKey: .warnings))
+                      warnings: values.decode([String].self, forKey: .warnings),
+                      ocrLines: values.decodeIfPresent([ObservationOCRLine].self, forKey: .ocrLines))
     }
 }
 
@@ -164,7 +195,9 @@ public struct ObservationVideoEvidence: Codable, Identifiable, Sendable, Equatab
             case .identified(_, let reference), .ambiguous(let reference):
                 guard frame.canSupportIdentity, reference == frame.evidenceReference,
                       let quote = decision.evidenceQuote, !quote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                      quote.count <= 512, frame.text.contains(quote) else { throw ObservationVideoEvidenceError.invalidCitation }
+                      quote.count <= 512, Data(frame.text.utf8).range(of: Data(quote.utf8)) != nil else {
+                    throw ObservationVideoEvidenceError.invalidCitation
+                }
             }
             accepted[decision.sampleID] = decision.evidence
         }

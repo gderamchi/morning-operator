@@ -67,4 +67,67 @@ struct StructuredVideoExtractionTests {
         #expect(try builder.finish().frames.count == 24)
         #expect(try !builder.finish().hasRecognizedText)
     }
+
+    @Test("Character-budget clipping retains only complete original layout spans")
+    func characterBudgetPreservesWholeLineEvidence() throws {
+        var builder = try VideoObservationBuilder(durationSeconds: 4)
+        try builder.append(id: UUID(), requestedTimeSeconds: 0, actualTimeSeconds: 0, outcome: .observed,
+                           text: String(repeating: "x", count: ObservationVideoEvidence.maximumOCRCharacters - 15))
+        let header = try line("Cedar Mail", start: 0)
+        let partial = try line("Lumen Calendar", start: 11)
+        try builder.append(id: UUID(), requestedTimeSeconds: 1, actualTimeSeconds: 1, outcome: .observed,
+                           text: "Cedar Mail\nLumen Calendar", ocrLines: [header, partial])
+        try builder.append(id: UUID(), requestedTimeSeconds: 2, actualTimeSeconds: 2, outcome: .observed,
+                           text: "Later", ocrLines: [try line("Later", start: 0)])
+        let frames = try builder.finish().frames
+        #expect(frames[0].ocrLines == nil, "Legacy callers must not gain invented layout metadata.")
+        #expect(frames[1].text == "Cedar Mail\nLume")
+        #expect(frames[1].ocrLines == [header], "Do not shorten or relocate a clipped region's source span.")
+        #expect(frames[1].textWasTruncated && !frames[1].canSupportIdentity)
+        #expect(frames[1].warnings.contains { $0.contains("layout regions were omitted") })
+        #expect(frames[2].ocrLines == [] && frames[2].text.isEmpty)
+        #expect(frames[2].outcome == .observed && frames[2].textWasTruncated)
+    }
+
+    @Test("UTF-8 clipping preserves graphemes and drops partial geometry without relabeling OCR failure")
+    func byteBudgetPreservesWholeLineEvidence() throws {
+        var builder = try VideoObservationBuilder(durationSeconds: 4)
+        let family = "👨‍👩‍👧‍👦"
+        let padding = String(repeating: family, count: 10_000)
+        try builder.append(id: UUID(), requestedTimeSeconds: 0, actualTimeSeconds: 0, outcome: .observed, text: padding)
+        let header = try line("Cedar Mail", start: 0)
+        let body = String(repeating: family, count: 400)
+        try builder.append(id: UUID(), requestedTimeSeconds: 1, actualTimeSeconds: 1, outcome: .observed,
+                           text: "Cedar Mail\n" + body, ocrLines: [header, try line(body, start: 11)])
+        try builder.append(id: UUID(), requestedTimeSeconds: 2, actualTimeSeconds: nil, outcome: .decodeFailed)
+        let frames = try builder.finish().frames
+        #expect(frames[1].textWasTruncated && frames[1].outcome == .observed)
+        #expect(frames[1].text.hasPrefix("Cedar Mail\n"))
+        #expect(frames[1].text.dropFirst(11).allSatisfy { String($0) == family })
+        #expect(frames[1].ocrLines == [header])
+        #expect(frames[0].text.utf8.count + frames[1].text.utf8.count <= ObservationVideoEvidence.maximumOCRBytes)
+        #expect(frames[2].outcome == .decodeFailed && frames[2].ocrLines == nil)
+    }
+
+    @Test("The line cap omits metadata explicitly while preserving the complete flattened text")
+    func layoutCapDoesNotDiscardText() throws {
+        let labels = (0...ObservationFrameEvidence.maximumOCRLines).map { "Row \($0)" }
+        var offset = 0
+        let lines = try labels.map { text in
+            defer { offset += text.count + 1 }
+            return try line(text, start: offset)
+        }
+        var builder = try VideoObservationBuilder(durationSeconds: 1)
+        try builder.append(id: UUID(), requestedTimeSeconds: 0, actualTimeSeconds: 0,
+                           outcome: .observed, text: labels.joined(separator: "\n"), ocrLines: lines)
+        let frame = try #require(builder.finish().frames.first)
+        #expect(frame.text == labels.joined(separator: "\n") && !frame.textWasTruncated)
+        #expect(frame.ocrLines == Array(lines.prefix(ObservationFrameEvidence.maximumOCRLines)))
+        #expect(frame.warnings.contains { $0.contains("line limit; their text was preserved") })
+    }
+
+    private func line(_ text: String, start: Int) throws -> ObservationOCRLine {
+        try ObservationOCRLine(text: text, startCharacterOffset: start, endCharacterOffset: start + text.count,
+            bounds: ObservationNormalizedBounds(x: 0.1, y: 0.5, width: 0.6, height: 0.05), confidence: 0.9)
+    }
 }

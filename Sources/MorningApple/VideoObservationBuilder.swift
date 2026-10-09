@@ -18,9 +18,10 @@ struct VideoObservationBuilder {
     }
 
     mutating func append(id: UUID, requestedTimeSeconds: Double, actualTimeSeconds: Double?,
-                         outcome: ObservationSampleOutcome, text: String = "") throws {
+                         outcome: ObservationSampleOutcome, text: String = "",
+                         ocrLines: [ObservationOCRLine]? = nil, ocrWarnings: [String] = []) throws {
         guard frames.count < ObservationVideoEvidence.maximumFrames else { throw ObservationVideoEvidenceError.evidenceTooLarge }
-        var warnings: [String] = []
+        var warnings = ocrWarnings
         let actual = actualTimeSeconds.flatMap { $0.isFinite && $0 >= 0 && $0 <= durationSeconds ? $0 : nil }
         if outcome != .decodeFailed, actual == nil {
             warnings.append("Actual presentation time was unavailable; the requested sample time is retained as a fallback.")
@@ -30,9 +31,18 @@ struct VideoObservationBuilder {
         let bounded = Self.prefix(text, maximumCharacters: remainingCharacters, maximumBytes: remainingBytes)
         let truncated = bounded != text
         if truncated { warnings.append("OCR text was truncated or omitted to stay within the extraction budget.") }
+        let boundedCharacterCount = bounded.count
+        let completeLines = ocrLines.map { $0.filter { $0.endCharacterOffset <= boundedCharacterCount } }
+        let retainedLines = completeLines.map { Array($0.prefix(ObservationFrameEvidence.maximumOCRLines)) }
+        if let ocrLines, let completeLines, completeLines.count != ocrLines.count {
+            warnings.append("Some OCR layout regions were omitted because their complete text did not survive the extraction limits.")
+        }
+        if let completeLines, let retainedLines, retainedLines.count != completeLines.count {
+            warnings.append("Some OCR layout regions were omitted at the line limit; their text was preserved.")
+        }
         let evidence = try ObservationFrameEvidence(id: id, requestedTimeSeconds: requestedTimeSeconds,
             actualTimeSeconds: actual, outcome: outcome, text: bounded,
-            textWasTruncated: truncated, warnings: warnings)
+            textWasTruncated: truncated, warnings: warnings, ocrLines: retainedLines)
         frames.append(evidence)
         remainingCharacters -= bounded.count
         remainingBytes -= bounded.utf8.count

@@ -69,6 +69,15 @@ public struct ObservationContextExcerpt: Codable, Sendable, Equatable {
     public let endCharacterOffset: Int
     public let text: String
     public let wasExcerpted: Bool
+    /// Exact source lines whose optional layout hints were sent with this excerpt.
+    /// Nil means source geometry was unavailable; an empty list means none was selected.
+    public let ocrLineIDs: [UUID]?
+
+    fileprivate func withOCRLineIDs(_ ids: [UUID]?) -> Self {
+        .init(sampleID: sampleID, sourceCharacterCount: sourceCharacterCount,
+              startCharacterOffset: startCharacterOffset, endCharacterOffset: endCharacterOffset,
+              text: text, wasExcerpted: wasExcerpted, ocrLineIDs: ids)
+    }
 }
 
 /// Describes prepared input even when the model was unavailable. Presence does not imply
@@ -177,7 +186,7 @@ enum ObservationContextValidation {
             else if index >= ObservationContextLimits.maximumFrames { reason = "Excluded by the model frame limit." }
             else { reason = nil }
             if let reason { reasons[frame.id] = reason; continue }
-            let excerpt = headerExcerpt(frame)
+            var excerpt = headerExcerpt(frame)
             guard !excerpt.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 reasons[frame.id] = "No complete header line fits the model excerpt limit."
                 continue
@@ -186,7 +195,14 @@ enum ObservationContextValidation {
                 reasons[frame.id] = "Excluded by the total text limit."
                 continue
             }
-            let singlePrompt = try prompt(frames: [frame], excerpts: [excerpt], orders: [index], catalog: catalog)
+            var singlePrompt = try prompt(frames: [frame], excerpts: [excerpt], orders: [index], catalog: catalog)
+            // Optional geometry must never displace a frame's text from the model budget.
+            // Keep the exact selected IDs so a reviewer can reconstruct omitted hints.
+            while singlePrompt.count > ObservationContextLimits.maximumPromptCharacters,
+                  let ids = excerpt.ocrLineIDs, !ids.isEmpty {
+                excerpt = excerpt.withOCRLineIDs(Array(ids.dropLast()))
+                singlePrompt = try prompt(frames: [frame], excerpts: [excerpt], orders: [index], catalog: catalog)
+            }
             guard singlePrompt.count <= ObservationContextLimits.maximumPromptCharacters else {
                 reasons[frame.id] = "Excluded by the encoded model-context limit."
                 continue
@@ -201,7 +217,7 @@ enum ObservationContextValidation {
             reasons[frame.id] = "The local model has not classified this frame."
         }
         try flush()
-        let selection = ObservationContextInputSelection(policyIdentifier: "whole-line-source-prefix-v1",
+        let selection = ObservationContextInputSelection(policyIdentifier: "whole-line-source-prefix-layout-v2",
             maximumExcerptCharacters: ObservationContextLimits.maximumExcerptCharacters,
             maximumNonemptyLines: ObservationContextLimits.maximumExcerptNonemptyLines,
             excerpts: selectedExcerpts)
@@ -241,7 +257,9 @@ enum ObservationContextValidation {
             }
             let quote = proposal.evidenceQuote
             guard let excerpt = batch.excerpts.first(where: { $0.sampleID == frame.id }),
-                  !quote.isEmpty, quote.count <= 240, excerpt.text.contains(quote), frame.text.contains(quote),
+                  !quote.isEmpty, quote.count <= 240,
+                  Data(excerpt.text.utf8).range(of: Data(quote.utf8)) != nil,
+                  Data(frame.text.utf8).range(of: Data(quote.utf8)) != nil,
                   frame.outcome == .observed, !frame.textWasTruncated else {
                 diagnostics.append(.init(kind: .invalidEvidence, sampleID: frame.id))
                 return unknown(frame, reason: "The proposed quote was not grounded in this frame.")
@@ -313,8 +331,13 @@ enum ObservationContextValidation {
             cursor = afterNewline
         }
         let excerpt = String(text[..<selectedEnd])
+        let lineIDs = frame.ocrLines.map { lines in
+            Array(lines.filter { $0.endCharacterOffset <= excerpt.count }
+                .prefix(ObservationContextLimits.maximumExcerptNonemptyLines).map(\.id))
+        }
         return .init(sampleID: frame.id, sourceCharacterCount: text.count, startCharacterOffset: 0,
-                     endCharacterOffset: excerpt.count, text: excerpt, wasExcerpted: selectedEnd != text.endIndex)
+                     endCharacterOffset: excerpt.count, text: excerpt, wasExcerpted: selectedEnd != text.endIndex,
+                     ocrLineIDs: lineIDs)
     }
 
     /// These remain lexical lines; neither geometry nor an OS app identity is available.
@@ -362,6 +385,12 @@ enum ObservationContextValidation {
         let timeSeconds: Double
         let timeBasis: String
         let text: String
+        let layout: [InputLine]?
+    }
+    private struct InputLine: Encodable {
+        let range: [Int]
+        let box: [Double]
+        let confidence: Double
     }
     private struct Input: Encodable {
         let catalog: [ObservationContextCatalogEntry]
@@ -371,11 +400,23 @@ enum ObservationContextValidation {
                                orders: [Int], catalog: [ObservationContextCatalogEntry]) throws -> String {
         let input = Input(catalog: catalog, frames: zip(zip(frames, orders), excerpts).map { item, excerpt in
             let (frame, order) = item
+            let lines = excerpt.ocrLineIDs.map { ids in
+                ids.compactMap { id in frame.ocrLines?.first { $0.id == id } }.map { line in
+                    InputLine(range: [line.startCharacterOffset, line.endCharacterOffset],
+                              box: [line.bounds.x, line.bounds.y, line.bounds.width, line.bounds.height].map(roundedHint),
+                              confidence: roundedHint(line.confidence))
+                }
+            }
             return .init(sampleID: frame.id.uuidString, order: order, timeSeconds: frame.timeSeconds,
-                         timeBasis: frame.timeBasis.rawValue, text: excerpt.text)
+                         timeBasis: frame.timeBasis.rawValue, text: excerpt.text, layout: lines)
         })
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return String(decoding: try encoder.encode(input), as: UTF8.self)
+    }
+
+    /// Compact descriptive hints only. Exact Vision values stay in source evidence.
+    private static func roundedHint(_ value: Double) -> Double {
+        (value * 1_000_000).rounded() / 1_000_000
     }
 }
 

@@ -79,6 +79,23 @@ struct ObservationVideoEvidenceTests {
         #expect(throws: ObservationVideoEvidenceError.decisionTimeMismatch) { try evidence.makeTrace(decisions: [wrongBasis]) }
     }
 
+    @Test func visuallyEqualUnicodeQuoteMustRetainExactSourceBytes() throws {
+        let originalQuote = "Caf\u{00E9}"
+        let rewrittenQuote = "Cafe\u{0301}"
+        #expect(originalQuote == rewrittenQuote)
+        #expect(Array(originalQuote.utf8) != Array(rewrittenQuote.utf8))
+        let source = try frame(0, "Synthetic appointment at " + originalQuote)
+        let evidence = try ObservationVideoEvidence(durationSeconds: 1, frames: [source])
+        #expect(throws: ObservationVideoEvidenceError.invalidCitation) {
+            try evidence.makeTrace(decisions: [decision(source, quote: rewrittenQuote)])
+        }
+        let accepted = try evidence.makeTrace(decisions: [decision(source, quote: originalQuote)], origin: .synthetic)
+        #expect(accepted.samples.map(\.id) == [source.id])
+        let report = try accepted.report(maximumSampleGapSeconds: 2)
+        #expect(report.visits.count == 1)
+        #expect(report.visits.first?.app.key == "visible.inbox")
+    }
+
     @Test func truncatedOCRCannotSupportIdentityEvenWithAnExactVisibleQuote() throws {
         let source = try frame(0, "Demo Inbox", truncated: true)
         let evidence = try ObservationVideoEvidence(durationSeconds: 1, frames: [source])
