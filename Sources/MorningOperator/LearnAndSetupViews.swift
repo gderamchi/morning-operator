@@ -65,7 +65,7 @@ struct LearnView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     sectionTitle(store.hasImportedObservation ? "What we could see" : "Add context, if you like", symbol: "pencil.and.outline")
                     Text(store.hasImportedObservation
-                         ? "Review the text we found. Scroll inside it to see more, and correct anything we missed. Visible words don't always mean you performed an activity."
+                         ? "Review the text we found and correct anything we missed. The original stays in Review → Saved observations. Visible words don't always mean you performed an activity."
                          : "What do you check first? What helps you feel ready? Include the small things you want to make time for.")
                         .font(.subheadline).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -86,9 +86,9 @@ struct LearnView: View {
                                 .accessibilityIdentifier("learn.retrySave")
                         }
                     }
-                    if !store.notes.isEmpty || store.observationVideoEvidence != nil {
+                    if store.selectedObservationID != nil || !store.notes.isEmpty || store.observationVideoEvidence != nil {
                         Button("Clear this observation", role: .destructive) { store.clearObservation() }
-                            .buttonStyle(.borderless).font(.caption).disabled(store.busy)
+                            .buttonStyle(.borderless).font(.caption).disabled(store.busy || store.sessionActive)
                             .accessibilityIdentifier("learn.clear")
                     }
                     ViewThatFits(in: .horizontal) {
@@ -112,7 +112,7 @@ struct LearnView: View {
                 DisclosureGroup("About on-device learning") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.modelSummary)
-                        Text("Your latest extracted observation and sampled text are saved on this device; Clear this observation removes that text, frame evidence, and screen interpretation. Evidence already attached to a saved routine remains with it.")
+                        Text("Each observation is saved on this device, with its original text and your corrections kept separately. Find earlier observations in Review. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it.")
                         Text("A recording is sampled at up to 24 moments, so short clips work best and quick actions may be missed. Visible text helps suggest a routine; it doesn't reveal every tap or intention.")
                         Text("Analysis uses Apple's on-device model when available. It doesn't run other apps or approve a routine for you.")
                         Button("Check availability again") { store.refreshCapabilities() }

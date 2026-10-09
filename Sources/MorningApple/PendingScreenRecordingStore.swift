@@ -1,4 +1,5 @@
 import Foundation
+import MorningCore
 
 public enum PendingScreenRecordingError: LocalizedError, Sendable, Equatable {
     case appOwnedRecordingRequired
@@ -17,12 +18,17 @@ public enum PendingScreenRecordingError: LocalizedError, Sendable, Equatable {
 /// One local recovery slot. Moving a finalized recording here preserves it across launches;
 /// nothing is removed merely because processing, cancellation, or persistence fails.
 /// The caller explicitly removes it after saving extracted text, or when the person discards it.
+/// The owner serializes synchronous mutations (the app's store uses its main actor).
 public struct PendingScreenRecordingStore: Sendable {
     private let directory: URL
     public var recordingURL: URL { directory.appendingPathComponent("pending-screen-recording.mp4") }
     private var metadataURL: URL { directory.appendingPathComponent("recording-info.json") }
 
-    private struct Metadata: Codable { var interruptionNote: String? }
+    private struct Metadata: Codable {
+        var interruptionNote: String?
+        // Missing in older recovery files; an import/file date is never substituted.
+        var recordingContext: ObservationRecordingContext?
+    }
 
     public init(directory: URL) {
         self.directory = directory.appendingPathComponent("RecordingRecovery", isDirectory: true)
@@ -42,12 +48,25 @@ public struct PendingScreenRecordingStore: Sendable {
     }
 
     public func interruptionNote() throws -> String? {
-        guard FileManager.default.fileExists(atPath: metadataURL.path) else { return nil }
-        return try JSONDecoder().decode(Metadata.self, from: Data(contentsOf: metadataURL)).interruptionNote
+        try metadata()?.interruptionNote
+    }
+
+    public func recordingContext() throws -> ObservationRecordingContext? {
+        try metadata()?.recordingContext
+    }
+
+    private func metadata() throws -> Metadata? {
+        // A failed move/removal may leave metadata behind. It is never provenance for an
+        // absent file; a later successful retain writes its own metadata before moving.
+        guard try recover() != nil, FileManager.default.fileExists(atPath: metadataURL.path) else { return nil }
+        return try JSONDecoder().decode(Metadata.self, from: Data(contentsOf: metadataURL))
     }
 
     @discardableResult
-    public func retain(_ url: URL, interruptionNote: String? = nil) throws -> URL {
+    public func retain(_ url: URL, interruptionNote: String? = nil,
+                       recordingContext: ObservationRecordingContext? = nil) throws -> URL {
+        // An idempotent retry preserves the already accepted metadata, even if the
+        // caller no longer has the live recorder's context after a process restart.
         if owns(url), let existing = try recover() { return existing }
         guard ScreenRecordingFiles.isOwnedRecording(url) else {
             throw PendingScreenRecordingError.appOwnedRecordingRequired
@@ -63,9 +82,11 @@ public struct PendingScreenRecordingStore: Sendable {
         var protection = URLResourceValues()
         protection.isExcludedFromBackup = true
         try localDirectory.setResourceValues(protection)
-        // Metadata is committed first; a crash after the move still has its coverage note.
-        // It stores no absolute source path, only a plain-language interruption description.
-        try JSONEncoder().encode(Metadata(interruptionNote: interruptionNote)).write(to: metadataURL, options: .atomic)
+        // Metadata is committed first; a crash after the move still has its coverage note
+        // and observed session start. Neither the source path nor its filename is stored.
+        let metadata = Metadata(interruptionNote: interruptionNote, recordingContext: recordingContext)
+        try JSONEncoder().encode(metadata).write(to: metadataURL, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: metadataURL.path)
         // moveItem refuses an existing destination, so an overlapping handoff cannot replace it.
         try FileManager.default.moveItem(at: url, to: recordingURL)
         return recordingURL

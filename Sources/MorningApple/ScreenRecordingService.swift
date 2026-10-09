@@ -1,4 +1,5 @@
 import Foundation
+import MorningCore
 import Observation
 
 /// The importer owns a handed-off recording until extraction finishes. It can then remove
@@ -38,6 +39,31 @@ public enum ScreenRecordingDuration: Int, CaseIterable, Identifiable, Sendable, 
     public var displayName: String { "\(rawValue / 60) minutes" }
 }
 
+/// The service's provenance lifecycle is independent of capture-resource cleanup: a
+/// finalized URL keeps its context until durable handoff succeeds or it is discarded.
+/// Stale or duplicate native callbacks cannot replace the current session's first start.
+struct ScreenRecordingContextState {
+    private var sessionID: UUID?
+    private(set) var context: ObservationRecordingContext?
+
+    mutating func begin(sessionID: UUID) {
+        self.sessionID = sessionID
+        context = nil
+    }
+
+    mutating func recordingDidStart(sessionID: UUID, startedAt: Date, timeZoneIdentifier: String) {
+        guard self.sessionID == sessionID, context == nil else { return }
+        // Invalid metadata stays unknown; it must not turn a valid capture into a failure.
+        context = try? ObservationRecordingContext(id: sessionID, startedAt: startedAt,
+                                                  timeZoneIdentifier: timeZoneIdentifier)
+    }
+
+    mutating func clear() {
+        sessionID = nil
+        context = nil
+    }
+}
+
 #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
 @preconcurrency import ScreenCaptureKit
 import AVFoundation
@@ -59,8 +85,13 @@ public final class ScreenRecordingService {
     public private(set) var elapsedSeconds = 0
     public private(set) var recordedURL: URL?
     public private(set) var recordingInterruption: String?
+    /// Read this before accepting/taking the finalized URL. The time is captured at the
+    /// recording-output start callback, before any main-actor scheduling delay.
+    public var recordingContext: ObservationRecordingContext? { recordingProvenance.context }
+    private var recordingProvenance = ScreenRecordingContextState()
     /// Called directly on finalization, including while the app is backgrounded. Return true
     /// only after durable ownership is accepted; false keeps the recorder's ready URL intact.
+    /// `recordingContext` remains available throughout this callback; taking clears it.
     @ObservationIgnored public var onRecordingFinalized: (@MainActor (URL, String?) -> Bool)?
     public private(set) var needsStopRetry = false
     public private(set) var selectedDuration: ScreenRecordingDuration = .tenMinutes
@@ -119,6 +150,7 @@ public final class ScreenRecordingService {
         }
         let token = UUID()
         sessionID = token
+        recordingProvenance.begin(sessionID: token)
         selectedDuration = duration
         elapsedSeconds = 0
         recordedURL = nil
@@ -160,6 +192,7 @@ public final class ScreenRecordingService {
         if state == .choosing {
             detachPicker()
             releaseStoppedResources()
+            recordingProvenance.clear()
             state = .idle
         } else if isBusy {
             requestShutdown(reason: "Recording discarded.")
@@ -175,6 +208,7 @@ public final class ScreenRecordingService {
         guard state == .ready, let url = recordedURL else { return nil }
         recordedURL = nil
         temporaryURL = nil
+        recordingProvenance.clear()
         state = .idle
         elapsedSeconds = 0
         return url
@@ -260,6 +294,7 @@ public final class ScreenRecordingService {
         guard sessionID == token, Self.pickerOwnerID == token, state == .choosing else { return }
         detachPicker()
         releaseStoppedResources()
+        recordingProvenance.clear()
         state = .idle
         message = "Recording wasn't started."
     }
@@ -269,8 +304,11 @@ public final class ScreenRecordingService {
         fail(detail)
     }
 
-    fileprivate func recordingStarted(outputID: ObjectIdentifier, sessionID token: UUID) {
+    fileprivate func recordingStarted(outputID: ObjectIdentifier, sessionID token: UUID,
+                                      startedAt: Date, timeZoneIdentifier: String) {
         guard sessionID == token, let output, ObjectIdentifier(output) == outputID else { return }
+        recordingProvenance.recordingDidStart(sessionID: token, startedAt: startedAt,
+                                              timeZoneIdentifier: timeZoneIdentifier)
         outputStarted = true
         activeLifetime = self
         if discardWhenFinished || failureDetail != nil || state == .stopping {
@@ -420,6 +458,7 @@ public final class ScreenRecordingService {
             return
         }
         guard let url = temporaryURL else {
+            recordingProvenance.clear()
             state = .failed
             message = "The recording finished without a file to import."
             return
@@ -513,6 +552,7 @@ public final class ScreenRecordingService {
         if let temporaryURL { _ = try? ScreenRecordingFiles.removeIfOwned(temporaryURL) }
         temporaryURL = nil
         recordedURL = nil
+        recordingProvenance.clear()
     }
 }
 
@@ -558,7 +598,12 @@ fileprivate final class ScreenRecordingDelegateBridge: NSObject, SCContentSharin
     func recordingOutputDidStartRecording(_ recordingOutput: SCRecordingOutput) {
         let id = ObjectIdentifier(recordingOutput)
         let token = sessionID
-        Task { @MainActor [weak owner] in owner?.recordingStarted(outputID: id, sessionID: token) }
+        let startedAt = Date()
+        let timeZoneIdentifier = TimeZone.current.identifier
+        Task { @MainActor [weak owner] in
+            owner?.recordingStarted(outputID: id, sessionID: token,
+                                    startedAt: startedAt, timeZoneIdentifier: timeZoneIdentifier)
+        }
     }
 
     func recordingOutputDidFinishRecording(_ recordingOutput: SCRecordingOutput) {

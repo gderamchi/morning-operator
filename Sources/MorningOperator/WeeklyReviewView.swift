@@ -42,6 +42,7 @@ struct WeeklyReviewView: View {
                     Text("This period couldn't be displayed. Your saved mornings are unchanged.")
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
+                observationArchiveLinks
                 reviewActions
             }.padding(24).frame(maxWidth: 680).frame(maxWidth: .infinity)
         }
@@ -114,7 +115,9 @@ struct WeeklyReviewView: View {
                 Text(week.runCount == 0 ? "Your mornings will find their shape." : "A morning saved. Time still unknown.")
                     .font(.system(.title2, design: .serif, weight: .medium))
                 Text(week.runCount == 0
-                     ? "Finish a morning to begin your history. Days without a saved run stay empty."
+                     ? (hasObservationsInPeriod
+                        ? "Saved observations are below. Finish a routine to begin measuring routine time."
+                        : "Finish a morning to begin your history. Days without a saved run stay empty.")
                      : "\(week.runCount) saved \(week.runCount == 1 ? "run has" : "runs have") no complete timing. They stay out of the average.")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
@@ -136,11 +139,19 @@ struct WeeklyReviewView: View {
         return store.history.runs.contains { $0.isSynthetic && $0.dayKey >= first && $0.dayKey <= last }
     }
 
+    private var hasObservationsInPeriod: Bool {
+        guard let days = week?.days, let first = days.first?.dayKey, let last = days.last?.dayKey else { return false }
+        return store.observationArchive.entries.contains { entry in
+            guard let key = entry.observedDate?.dayKey else { return false }
+            return key >= first && key <= last
+        }
+    }
+
     private func days(in week: SevenDaySummary) -> some View {
         VStack(spacing: 0) {
             ForEach(week.days.reversed()) { day in
                 NavigationLink {
-                    ReviewDayDetail(day: day)
+                    ReviewDayDetail(store: store, day: day, onLearn: onLearn)
                 } label: {
                     HStack(spacing: 14) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -160,10 +171,37 @@ struct WeeklyReviewView: View {
     }
 
     private func daySummaryText(_ day: MorningDaySummary) -> String {
-        guard day.runCount > 0 else { return day.hasEvidence ? "App observations" : "Nothing saved" }
+        let observations = store.observationArchive.entries.filter { $0.observedDate?.dayKey == day.dayKey }.count
+        let observationSummary = "\(observations) \(observations == 1 ? "observation" : "observations")"
+        guard day.runCount > 0 else {
+            if observations > 0 { return observationSummary }
+            return day.hasEvidence ? "App observations" : "Nothing saved"
+        }
+        if observations > 0 { return "\(day.runCount) \(day.runCount == 1 ? "run" : "runs") · \(observationSummary)" }
         let time = day.timedRunCount == day.runCount
             ? MorningStyle.duration(day.totalActiveDurationSeconds) : "incomplete timing"
         return "\(day.runCount) \(day.runCount == 1 ? "run" : "runs") · \(time)"
+    }
+
+    private var observationArchiveLinks: some View {
+        VStack(spacing: 0) {
+            let undatedCount = store.observationArchive.entries.filter { $0.observedDate == nil }.count
+            if undatedCount > 0 {
+                NavigationLink {
+                    ObservationHistoryView(store: store, onlyUndated: true, onLearn: onLearn)
+                } label: {
+                    actionRow("Date needed", detail: "\(undatedCount) \(undatedCount == 1 ? "observation needs" : "observations need") an observed day", symbol: "calendar.badge.questionmark")
+                }.accessibilityIdentifier("review.undatedObservations")
+                Divider()
+            }
+            NavigationLink {
+                ObservationHistoryView(store: store, onLearn: onLearn)
+            } label: {
+                actionRow("Saved observations", detail: store.observationArchive.entries.isEmpty
+                          ? "Original evidence and your corrections" : "\(store.observationArchive.entries.count) saved · separate from routine runs",
+                          symbol: "doc.text.image")
+            }.accessibilityIdentifier("review.observations")
+        }.buttonStyle(.plain)
     }
 
     private var reviewActions: some View {
@@ -348,16 +386,37 @@ private struct RoutineReviewEditor: View {
 }
 
 private struct ReviewDayDetail: View {
+    @Bindable var store: MorningStore
     let day: MorningDaySummary
+    var onLearn: () -> Void
+
+    private var observations: [ObservationAcquisition] {
+        store.observationArchive.entries.filter { $0.observedDate?.dayKey == day.dayKey }
+            .sorted { ($0.importedAt ?? .distantPast) > ($1.importedAt ?? .distantPast) }
+    }
 
     var body: some View {
         List {
+            Section {
+                if observations.isEmpty {
+                    Text("No observation dated to this day.").foregroundStyle(.secondary)
+                } else {
+                    ForEach(observations) { entry in
+                        NavigationLink {
+                            ObservationHistoryDetail(store: store, observationID: entry.id, onLearn: onLearn)
+                        } label: { ObservationHistoryRow(entry: entry) }
+                            .accessibilityIdentifier("observation.row.\(entry.id.uuidString)")
+                    }
+                }
+            } header: { Text("Observed mornings") } footer: {
+                Text("Grouped by each observation's saved local day and time zone. Sampled evidence isn't routine time or complete phone-use measurement.")
+            }
             if day.runs.isEmpty {
                 Section {
                     Text("No routine saved for this day.").font(.headline)
                     Text("A missing run stays unknown. It isn't counted as a zero-minute morning.")
                         .font(.subheadline).foregroundStyle(.secondary)
-                }
+                } header: { Text("Routine runs") }
             }
             ForEach(Array(day.runs.enumerated()), id: \.element.id) { index, run in
                 Section {
@@ -381,7 +440,7 @@ private struct ReviewDayDetail: View {
                         }.padding(.vertical, 4)
                     }
                 } header: {
-                    Text("Morning \(index + 1) · \(run.outcome == .completed ? "completed" : "ended early")")
+                    Text("Routine run \(index + 1) · \(run.outcome == .completed ? "completed" : "ended early")")
                 } footer: {
                     Text("Saved routine version \(run.routineVersionNumber). Active time excludes pauses and doesn't measure activity in other apps.")
                 }

@@ -112,6 +112,7 @@ struct MorningRootView: View {
     private func presentPendingIntentCapture() {
         guard scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !showingSettings,
               !showingLearn, !showingRoutineEditor, !store.voiceCommandPresented,
+              !store.observationDetailPresented,
               let text = MorningIntentRouter.shared.pendingCaptureText else { return }
         presentingIntentCapture = true
         store.openCapture(text: text, source: .siri)
@@ -131,7 +132,7 @@ struct MorningRootView: View {
         if #available(iOS 27.0, *) { recordingBusy = ScreenRecordingService.shared.isBusy }
         #endif
         return showingSettings || showingLearn || showingRoutineEditor || presentingIntentCapture ||
-            store.capturePresented || store.voiceCommandPresented || store.morningDetailPresented || store.voiceInputBlocksPlayback ||
+            store.capturePresented || store.voiceCommandPresented || store.morningDetailPresented || store.observationDetailPresented || store.voiceInputBlocksPlayback ||
             store.busy || store.captureBusy || store.calendarBusy || store.hasPendingRecording ||
             recordingBusy || store.invitation.isBusy
     }

@@ -17,6 +17,22 @@ enum MorningTab: String, CaseIterable, Identifiable {
     }
 }
 
+/// Legacy derived output is optional. An unsupported model payload must not make
+/// the person's valid routine and original observation impossible to restore.
+private struct RecoverableObservationClassification: Codable, Sendable {
+    let value: ObservationContextClassification?
+    let wasInvalid: Bool
+    init(_ value: ObservationContextClassification) { self.value = value; wasInvalid = false }
+    init(from decoder: any Decoder) throws {
+        do { value = try ObservationContextClassification(from: decoder); wasInvalid = false }
+        catch { value = nil; wasInvalid = true }
+    }
+    func encode(to encoder: any Encoder) throws {
+        if let value { try value.encode(to: encoder) }
+        else { var container = encoder.singleValueContainer(); try container.encodeNil() }
+    }
+}
+
 private struct WorkspaceSnapshot: Codable, Sendable {
     var schemaVersion = 1
     var routine: RoutineVersion?
@@ -34,7 +50,9 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var observationNotes: String?
     var observationSource: String?
     var observationVideoEvidence: ObservationVideoEvidence?
-    var observationContextClassification: ObservationContextClassification?
+    var observationContextClassification: RecoverableObservationClassification?
+    var observationArchive: ObservationArchive?
+    var selectedObservationID: UUID?
     var consumedMorningEntryIDs: [UUID]?
 }
 
@@ -48,6 +66,9 @@ final class MorningStore {
     private(set) var observationVideoEvidence: ObservationVideoEvidence?
     private(set) var observationContextClassification: ObservationContextClassification?
     private(set) var observationSaveIssue: String?
+    private(set) var observationArchive = ObservationArchive()
+    private(set) var selectedObservationID: UUID?
+    var selectedObservation: ObservationAcquisition? { selectedObservationID.flatMap { observationArchive.entry(id: $0) } }
     private var observationEditsNeedSave = false
     var notice: String?
     private(set) var busy = false
@@ -57,6 +78,7 @@ final class MorningStore {
     private(set) var pendingRecordingURL: URL?
     private(set) var pendingRecordingShouldAutoProcess = false
     private var pendingRecordingInterruption: String?
+    private var pendingRecordingContext: ObservationRecordingContext?
     private(set) var calendarSnapshot: CalendarSnapshot?
     private(set) var calendarBusy = false
     var readAloud = true
@@ -82,6 +104,7 @@ final class MorningStore {
     var storageIsAvailable: Bool { snapshotRecoveryError == nil }
     var voiceCommandPresented = false
     var morningDetailPresented = false
+    var observationDetailPresented = false
     private(set) var voiceCommandPreparing = false
     private(set) var voiceCommandFeedback: String?
     @ObservationIgnored private var voiceCommandTask: Task<Void, Never>?
@@ -91,6 +114,7 @@ final class MorningStore {
         voiceCommandPreparing || voiceCommands.isBusy || voiceCommands.needsAudioRelease
     }
     private let media = MediaObservationService()
+    private let fingerprintService = ObservationFileFingerprintService()
     private let contextClassifier = ObservationContextClassifier()
     private let calendar = CalendarObservationService()
     private var notesSourceLabel = "Your written observation"
@@ -121,7 +145,10 @@ final class MorningStore {
             pendingRecordingURL = try recordingRecovery.recover()
             if pendingRecordingURL != nil {
                 observationIssue = "Your saved recording is still on this device. Retry understanding it, or discard it."
-                do { pendingRecordingInterruption = try recordingRecovery.interruptionNote() }
+                do {
+                    pendingRecordingInterruption = try recordingRecovery.interruptionNote()
+                    pendingRecordingContext = try recordingRecovery.recordingContext()
+                }
                 catch { pendingRecordingInterruption = "The recording's coverage note could not be restored; its completeness is unknown." }
             }
         } catch {
@@ -144,6 +171,7 @@ final class MorningStore {
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-approved") { routine = routine?.approved() }
             automatic = false
             readAloud = false
+            seedObservationArchiveIfRequested()
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             do {
                 let saved = try snapshot.load()
@@ -162,13 +190,28 @@ final class MorningStore {
                 automatic = saved.automatic ?? true
                 readAloud = saved.readAloud ?? true
                 speech.voiceIdentifier = saved.voiceIdentifier
-                notes = saved.observationNotes ?? ""
-                notesSourceLabel = saved.observationSource ?? "Your written observation"
-                if let evidence = saved.observationVideoEvidence {
-                    // Revalidate citations against their original frames after loading, too.
-                    _ = try evidence.makeTrace(decisions: saved.observationContextClassification?.decisions ?? [])
-                    observationVideoEvidence = evidence
-                    observationContextClassification = saved.observationContextClassification
+                if let archive = saved.observationArchive {
+                    observationArchive = archive
+                    projectObservation(saved.selectedObservationID.flatMap { archive.entry(id: $0)?.id })
+                } else {
+                    // Old builds retained a single observation with no wall-clock
+                    // metadata. Migration deliberately leaves both dates unknown.
+                    let original = saved.observationNotes ?? ""
+                    if !original.isEmpty || saved.observationVideoEvidence != nil {
+                        let source = saved.observationSource ?? "Your written observation"
+                        let entry = try ObservationAcquisition(importedAt: nil,
+                            sourceKind: saved.observationVideoEvidence == nil ? .unknown : .video,
+                            sourceLabel: String(source.prefix(256)), originalText: original,
+                            videoEvidence: saved.observationVideoEvidence,
+                            classification: saved.observationContextClassification?.value,
+                            warnings: saved.observationContextClassification?.wasInvalid == true ? [.invalidClassificationRemoved] : [])
+                        let id = try observationArchive.insert(entry)
+                        projectObservation(id)
+                    }
+                }
+                if saved.observationContextClassification?.wasInvalid == true ||
+                    observationArchive.entries.contains(where: { !$0.warnings.isEmpty }) {
+                    notice = "Your original observations are intact. An unsupported screen interpretation was removed and can be analyzed again."
                 }
                 sessionTimingInterrupted = saved.sessionTimingInterrupted ?? false
                 pendingCaptures = saved.pendingCaptures ?? [:]
@@ -180,6 +223,11 @@ final class MorningStore {
                     notice = "Your previous morning is paused. Resume when you're ready."
                     persist()
                 }
+                if saved.observationArchive == nil, !observationArchive.entries.isEmpty {
+                    // Save the migration once so its acquisition identity survives
+                    // another launch. A write failure leaves the original intact.
+                    persist()
+                }
             } catch {
                 let message = "Couldn't restore your saved workspace: \(error.localizedDescription)"
                 snapshotRecoveryError = message
@@ -188,7 +236,7 @@ final class MorningStore {
         }
     }
 
-    var hasImportedObservation: Bool { (!notes.isEmpty || observationVideoEvidence != nil) && notesSourceLabel != "Your written observation" }
+    var hasImportedObservation: Bool { (selectedObservationID != nil || !notes.isEmpty || observationVideoEvidence != nil) && notesSourceLabel != "Your written observation" }
     var hasPendingRecording: Bool { pendingRecordingURL != nil }
     var canStartRecording: Bool { !busy && !sessionActive && !hasPendingRecording }
 
@@ -440,7 +488,7 @@ final class MorningStore {
         let ownedRecording = ScreenRecordingFiles.isOwnedRecording(url) || recordingRecovery.owns(url)
         let selectedURL: URL
         if ownedRecording {
-            guard retainRecording(url, interruptionNote: nil, automaticallyProcess: false),
+            guard retainRecording(url, interruptionNote: nil, recordingContext: nil, automaticallyProcess: false),
                   let retainedURL = pendingRecordingURL else { return false }
             selectedURL = retainedURL
         } else {
@@ -460,11 +508,28 @@ final class MorningStore {
         beginAnalysis()
         analysisStatus = "Reading your selected observation…"
         let interruptionNote = ownedRecording ? pendingRecordingInterruption : nil
+        let recordingContext = ownedRecording ? pendingRecordingContext : nil
         analysisTask = Task { [weak self] in
             guard let self else { return }
             let granted = selectedURL.startAccessingSecurityScopedResource()
             defer { if granted { selectedURL.stopAccessingSecurityScopedResource() } }
             do {
+                let fingerprint = try await fingerprintService.fingerprint(of: selectedURL)
+                try Task.checkCancellation()
+                if let existing = observationArchive.entries.first(where: { $0.fileSHA256 == fingerprint.sha256 }) {
+                    // A retry never overwrites its original, corrections, or assigned day.
+                    projectObservation(existing.id)
+                    observationEditsNeedSave = true
+                    guard persist() else { busy = false; observationIssue = notice; return }
+                    guard finishOwnedRecordingImport(ownedRecording) else { return }
+                    if suggestRoutineWhenReady, intelligence.isAvailable {
+                        await createCandidate(text: notes, source: notesSourceLabel)
+                    } else {
+                        busy = false
+                        notice = "This observation is already saved. Your corrections and its date have been kept."
+                    }
+                    return
+                }
                 let observation = try await media.extract(from: selectedURL) { [weak self] fraction in
                     self?.progress = fraction
                 }
@@ -483,10 +548,28 @@ final class MorningStore {
                     notice = observationIssue
                     return
                 }
-                notes = extracted
-                observationVideoEvidence = observation.videoEvidence
-                observationContextClassification = nil
-                notesSourceLabel = ownedRecording ? "Your explicitly shared screen recording" : "Selected file: \(selectedURL.lastPathComponent)"
+                // File-provider content can change while Vision works. Never attach a
+                // digest for different bytes to the extracted observation.
+                let finalFingerprint = try await fingerprintService.fingerprint(of: selectedURL)
+                guard fingerprint.sha256 == finalFingerprint.sha256,
+                      fingerprint.byteCount == finalFingerprint.byteCount else {
+                    busy = false
+                    observationIssue = "The selected file changed during analysis. Your previous observation is unchanged. Choose the file again."
+                    return
+                }
+                try Task.checkCancellation()
+                let observedDate = try recordingContext.map {
+                    try ObservationObservedDate(date: $0.startedAt, timeZoneIdentifier: $0.timeZoneIdentifier,
+                        provenance: .recordingSession)
+                }
+                let entry = try ObservationAcquisition(id: recordingContext?.id ?? UUID(),
+                    fileSHA256: fingerprint.sha256, observedDate: observedDate,
+                    origin: ProcessInfo.processInfo.arguments.contains("--ui-testing") ? .synthetic : .unknown,
+                    sourceKind: ObservationAcquisitionSourceKind(rawValue: observation.kind.rawValue) ?? .unknown,
+                    sourceLabel: ownedRecording ? "Your explicitly shared screen recording" : String("Selected file: \(selectedURL.lastPathComponent)".prefix(256)),
+                    originalText: extracted, videoEvidence: observation.videoEvidence)
+                let id = try observationArchive.insert(entry)
+                projectObservation(id)
                 observationEditsNeedSave = true
                 progress = 1
                 guard persist() else {
@@ -494,17 +577,7 @@ final class MorningStore {
                     observationIssue = notice ?? "The extracted text could not be saved. Your recording is kept for retry."
                     return
                 }
-                if ownedRecording {
-                    do {
-                        try recordingRecovery.remove()
-                        pendingRecordingURL = nil
-                        pendingRecordingInterruption = nil
-                    } catch {
-                        busy = false
-                        observationIssue = "Your extracted text is saved, but the temporary recording could not be removed. You can discard it below. \(error.localizedDescription)"
-                        return
-                    }
-                }
+                guard finishOwnedRecordingImport(ownedRecording) else { return }
                 if suggestRoutineWhenReady, intelligence.isAvailable {
                     await createCandidate(text: extracted, source: notesSourceLabel)
                 } else {
@@ -528,19 +601,36 @@ final class MorningStore {
     /// Stages a finalized clip independently of scene visibility, app work, or routine state.
     /// OCR is started by the foreground coordinator; recovered clips require an explicit Retry.
     @discardableResult
-    func retainFinalizedRecording(_ url: URL, interruptionNote: String? = nil) -> Bool {
-        retainRecording(url, interruptionNote: interruptionNote, automaticallyProcess: true)
+    func retainFinalizedRecording(_ url: URL, interruptionNote: String? = nil,
+                                  recordingContext: ObservationRecordingContext? = nil) -> Bool {
+        retainRecording(url, interruptionNote: interruptionNote, recordingContext: recordingContext, automaticallyProcess: true)
     }
 
-    private func retainRecording(_ url: URL, interruptionNote: String?, automaticallyProcess: Bool) -> Bool {
+    private func retainRecording(_ url: URL, interruptionNote: String?, recordingContext: ObservationRecordingContext?,
+                                 automaticallyProcess: Bool) -> Bool {
         if let pendingRecordingURL, pendingRecordingURL.standardizedFileURL != url.standardizedFileURL {
             observationIssue = "Retry or discard your saved recording before adding another one."
             return false
         }
-        let coverageNote = recordingRecovery.owns(url) ? pendingRecordingInterruption : interruptionNote
+        var readyContext: ObservationRecordingContext?
+        var readyInterruption: String?
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        if #available(iOS 27.0, *) {
+            let recorder = ScreenRecordingService.shared
+            if recorder.recordedURL?.standardizedFileURL == url.standardizedFileURL {
+                readyContext = recorder.recordingContext
+                readyInterruption = recorder.recordingInterruption
+            }
+        }
+        #endif
+        // Both automatic finalization and a later manual retry carry the same
+        // provenance before the recorder releases its ready URL.
+        let coverageNote = recordingRecovery.owns(url) ? pendingRecordingInterruption : (interruptionNote ?? readyInterruption)
+        let context = recordingRecovery.owns(url) ? pendingRecordingContext : (recordingContext ?? readyContext)
         do {
-            let retainedURL = try recordingRecovery.retain(url, interruptionNote: coverageNote)
+            let retainedURL = try recordingRecovery.retain(url, interruptionNote: coverageNote, recordingContext: context)
             pendingRecordingInterruption = coverageNote
+            pendingRecordingContext = context
             pendingRecordingShouldAutoProcess = automaticallyProcess
             pendingRecordingURL = retainedURL
             observationIssue = nil
@@ -556,10 +646,12 @@ final class MorningStore {
         if #available(iOS 27.0, *) {
             let recording = ScreenRecordingService.shared
             recording.onRecordingFinalized = { [weak self] url, interruptionNote in
-                self?.retainFinalizedRecording(url, interruptionNote: interruptionNote) ?? false
+                self?.retainFinalizedRecording(url, interruptionNote: interruptionNote,
+                    recordingContext: recording.recordingContext) ?? false
             }
             if recording.hasRecordingToReview, let url = recording.recordedURL,
-               retainFinalizedRecording(url, interruptionNote: recording.recordingInterruption) {
+               retainFinalizedRecording(url, interruptionNote: recording.recordingInterruption,
+                    recordingContext: recording.recordingContext) {
                 _ = recording.takeRecording()
             }
         }
@@ -573,6 +665,7 @@ final class MorningStore {
             pendingRecordingURL = nil
             pendingRecordingShouldAutoProcess = false
             pendingRecordingInterruption = nil
+            pendingRecordingContext = nil
             observationIssue = nil
             notice = "Saved recording discarded. Any previously saved observation text remains available."
         } catch {
@@ -584,10 +677,28 @@ final class MorningStore {
         observationIssue = nil
     }
 
+    /// Raw media is removed only after its archive and selection have reached the
+    /// same durable workspace. A cleanup failure remains visible and retryable.
+    private func finishOwnedRecordingImport(_ owned: Bool) -> Bool {
+        guard owned else { return true }
+        do {
+            try recordingRecovery.remove()
+            pendingRecordingURL = nil
+            pendingRecordingInterruption = nil
+            pendingRecordingContext = nil
+            pendingRecordingShouldAutoProcess = false
+            return true
+        } catch {
+            busy = false
+            observationIssue = "Your extracted text is saved, but the temporary recording could not be removed. You can discard it below. \(error.localizedDescription)"
+            return false
+        }
+    }
+
     /// Editing keeps the original import/source context. The UI binds to this live value,
     /// so a later lifecycle save cannot restore a stale copy over newly imported text.
     func updateObservationNotes(_ text: String) {
-        guard !busy, !sessionActive, text != notes else { return }
+        guard !busy, !sessionActive, !text.utf8.elementsEqual(notes.utf8) else { return }
         notes = text
         // Edited prose cannot remain attached to the unedited video's interpretation.
         observationVideoEvidence = nil
@@ -604,13 +715,137 @@ final class MorningStore {
     }
 
     func clearObservation() {
-        guard !busy else { return }
-        notes = ""
-        notesSourceLabel = "Your written observation"
-        observationVideoEvidence = nil
-        observationContextClassification = nil
-        observationEditsNeedSave = true
-        persist()
+        guard !busy, !sessionActive else { return }
+        if let id = selectedObservationID { _ = deleteObservation(id: id) }
+        else {
+            projectObservation(nil)
+            observationEditsNeedSave = true
+            persist()
+        }
+    }
+
+    @discardableResult
+    func selectObservation(id: UUID) -> Bool {
+        guard !busy, !sessionActive, observationArchive.entry(id: id) != nil,
+              saveObservationEdits() else { return false }
+        return changeObservationArchive(selecting: id) { _ in }
+    }
+
+    @discardableResult
+    func assignObservationDate(id: UUID, date: Date?, timeZoneIdentifier: String,
+                               origin: ObservationAcquisitionOrigin) -> Bool {
+        guard !busy, !sessionActive, saveObservationEdits() else { return false }
+        do {
+            let observed = try date.map {
+                try ObservationObservedDate(date: $0, timeZoneIdentifier: timeZoneIdentifier, provenance: .userAssigned)
+            }
+            return changeObservationArchive(selecting: selectedObservationID) { archive in
+                try archive.assignObservedDate(id: id, value: observed, origin: origin)
+            }
+        } catch { notice = error.localizedDescription; return false }
+    }
+
+    @discardableResult
+    func deleteObservation(id: UUID) -> Bool {
+        guard !busy, !sessionActive else { return false }
+        // Deleting the selected entry intentionally discards its unsaved correction.
+        // Edits to a different entry must reach disk before this independent change.
+        if selectedObservationID != id, !saveObservationEdits() { return false }
+        return changeObservationArchive(selecting: selectedObservationID == id ? nil : selectedObservationID) {
+            try $0.delete(id: id)
+        }
+    }
+
+    @discardableResult
+    func clearAllObservations() -> Bool {
+        guard !busy, !sessionActive else { return false }
+        return changeObservationArchive(selecting: nil) { $0.clear() }
+    }
+
+    private func projectObservation(_ id: UUID?) {
+        let entry = id.flatMap { observationArchive.entry(id: $0) }
+        selectedObservationID = entry?.id
+        notes = entry?.effectiveText ?? ""
+        notesSourceLabel = entry?.sourceLabel ?? "Your written observation"
+        // Original video evidence remains inspectable in the observation detail.
+        // Edited notes must never masquerade as its unmodified OCR interpretation.
+        observationVideoEvidence = entry?.correctedText == nil ? entry?.videoEvidence : nil
+        observationContextClassification = entry?.correctedText == nil ? entry?.classification : nil
+    }
+
+    private func changeObservationArchive(selecting id: UUID?,
+                                          _ mutation: (inout ObservationArchive) throws -> Void) -> Bool {
+        let previousArchive = observationArchive
+        let previousID = selectedObservationID
+        let previousNotes = notes
+        let previousEvidence = observationVideoEvidence
+        let previousClassification = observationContextClassification
+        let previousSource = notesSourceLabel
+        let previousDirty = observationEditsNeedSave
+        do {
+            var next = observationArchive
+            try mutation(&next)
+            observationArchive = next
+            projectObservation(id)
+            observationEditsNeedSave = true
+            guard persist() else {
+                observationArchive = previousArchive
+                selectedObservationID = previousID
+                notes = previousNotes
+                observationVideoEvidence = previousEvidence
+                observationContextClassification = previousClassification
+                notesSourceLabel = previousSource
+                observationEditsNeedSave = previousDirty
+                notice = "The observation change could not be saved. Your previous observations are unchanged."
+                observationSaveIssue = notice
+                return false
+            }
+            return true
+        } catch { notice = error.localizedDescription; return false }
+    }
+
+    private func synchronizeObservationEdits() throws {
+        guard observationEditsNeedSave else { return }
+        if let entry = selectedObservation {
+            if !notes.utf8.elementsEqual(entry.effectiveText.utf8) {
+                try observationArchive.correct(id: entry.id,
+                    text: notes.utf8.elementsEqual(entry.originalText.utf8) ? nil : notes)
+            } else if observationContextClassification != entry.classification {
+                try observationArchive.classify(id: entry.id, result: observationContextClassification)
+            }
+        } else if !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let entry = try ObservationAcquisition(sourceKind: .manual,
+                sourceLabel: notesSourceLabel, originalText: notes)
+            selectedObservationID = try observationArchive.insert(entry)
+        }
+    }
+
+    /// Explicit isolated fixture data only; never substitutes for a real recording.
+    private func seedObservationArchiveIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("--ui-testing"), args.contains("--ui-testing-observation-archive"),
+              args.first(where: { $0.hasPrefix("--ui-testing-workspace=") })
+                .flatMap({ UUID(uuidString: String($0.dropFirst("--ui-testing-workspace=".count))) }) != nil else { return }
+        do {
+            let now = Date()
+            let zone = TimeZone.current.identifier
+            let today = try ObservationObservedDate(date: now, timeZoneIdentifier: zone, provenance: .userAssigned)
+            let yesterday = try ObservationObservedDate(date: Calendar.current.date(byAdding: .day, value: -1, to: now)!,
+                timeZoneIdentifier: zone, provenance: .userAssigned)
+            let a = try ObservationAcquisition(id: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!,
+                observedDate: today, origin: .synthetic, sourceKind: .text, sourceLabel: "Synthetic morning A",
+                originalText: "Original sample A: calendar, water, chess.",
+                correctedText: "Edited sample A: calendar, water, chess and tea.")
+            let b = try ObservationAcquisition(id: UUID(uuidString: "22222222-2222-4222-8222-222222222222")!,
+                observedDate: yesterday, origin: .synthetic, sourceKind: .text, sourceLabel: "Synthetic morning B",
+                originalText: "Original sample B: weather and a walk.")
+            let c = try ObservationAcquisition(id: UUID(uuidString: "33333333-3333-4333-8333-333333333333")!,
+                origin: .synthetic, sourceKind: .text, sourceLabel: "Synthetic import C",
+                originalText: "Original sample C: an undated imported recording.")
+            observationArchive = try ObservationArchive(entries: [a, b, c])
+            projectObservation(a.id)
+            persist()
+        } catch { notice = "Synthetic archive fixture could not be prepared." }
     }
 
     func cancelAnalysis() {
@@ -626,13 +861,15 @@ final class MorningStore {
         guard let evidence = observationVideoEvidence, !busy, !sessionActive,
               evidence.frames.contains(where: \.canSupportIdentity), saveObservationEdits() else { return }
         beginAnalysis()
+        let acquisitionID = selectedObservationID
         analysisStatus = "Recognizing the screens we sampled…"
         analysisTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let result = try await contextClassifier.classify(frames: evidence.frames)
                 try Task.checkCancellation()
-                guard observationVideoEvidence?.id == evidence.id else { throw CancellationError() }
+                guard observationVideoEvidence?.id == evidence.id,
+                      selectedObservationID == acquisitionID else { throw CancellationError() }
                 _ = try evidence.makeTrace(decisions: result.decisions)
                 observationContextClassification = result
                 observationEditsNeedSave = true
@@ -831,6 +1068,7 @@ final class MorningStore {
             return false
         }
         do {
+            try synchronizeObservationEdits()
             try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
                 automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
@@ -838,9 +1076,11 @@ final class MorningStore {
                 observationNotes: notes.isEmpty ? nil : notes,
                 observationSource: notes.isEmpty && observationVideoEvidence == nil ? nil : notesSourceLabel,
                 observationVideoEvidence: observationVideoEvidence,
-                observationContextClassification: observationContextClassification,
+                observationContextClassification: observationContextClassification.map(RecoverableObservationClassification.init),
+                observationArchive: observationArchive, selectedObservationID: selectedObservationID,
                 consumedMorningEntryIDs: consumedMorningEntryIDs))
             observationEditsNeedSave = false
+            projectObservation(selectedObservationID)
             if let observationSaveIssue, notice == observationSaveIssue { notice = nil }
             observationSaveIssue = nil
             return true
