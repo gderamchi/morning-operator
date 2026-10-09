@@ -70,6 +70,12 @@ struct LearnView: View {
                         .font(.subheadline).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     notesEditor
+                    if let evidence = store.observationVideoEvidence {
+                        ObservationEvidenceView(evidence: evidence,
+                            classification: store.observationContextClassification,
+                            isBusy: store.busy, canAnalyze: !store.sessionActive,
+                            analyze: store.recognizeObservationScreens)
+                    }
                     if let issue = store.observationSaveIssue {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(issue).font(.footnote).foregroundStyle(MorningStyle.muted)
@@ -80,7 +86,7 @@ struct LearnView: View {
                                 .accessibilityIdentifier("learn.retrySave")
                         }
                     }
-                    if !store.notes.isEmpty {
+                    if !store.notes.isEmpty || store.observationVideoEvidence != nil {
                         Button("Clear this observation", role: .destructive) { store.clearObservation() }
                             .buttonStyle(.borderless).font(.caption).disabled(store.busy)
                             .accessibilityIdentifier("learn.clear")
@@ -106,7 +112,7 @@ struct LearnView: View {
                 DisclosureGroup("About on-device learning") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.modelSummary)
-                        Text("Your latest extracted observation is saved on this device; Clear this observation removes that text. Evidence already attached to a saved routine remains with it.")
+                        Text("Your latest extracted observation and sampled text are saved on this device; Clear this observation removes that text, frame evidence, and screen interpretation. Evidence already attached to a saved routine remains with it.")
                         Text("A recording is sampled at up to 24 moments, so short clips work best and quick actions may be missed. Visible text helps suggest a routine; it doesn't reveal every tap or intention.")
                         Text("Analysis uses Apple's on-device model when available. It doesn't run other apps or approve a routine for you.")
                         Button("Check availability again") { store.refreshCapabilities() }

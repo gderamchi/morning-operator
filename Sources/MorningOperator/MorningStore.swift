@@ -33,6 +33,8 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var voiceIdentifier: String?
     var observationNotes: String?
     var observationSource: String?
+    var observationVideoEvidence: ObservationVideoEvidence?
+    var observationContextClassification: ObservationContextClassification?
     var consumedMorningEntryIDs: [UUID]?
 }
 
@@ -43,6 +45,8 @@ final class MorningStore {
     private(set) var session: RoutineSession?
     private(set) var previousRoutine: RoutineVersion?
     private(set) var notes = ""
+    private(set) var observationVideoEvidence: ObservationVideoEvidence?
+    private(set) var observationContextClassification: ObservationContextClassification?
     private(set) var observationSaveIssue: String?
     private var observationEditsNeedSave = false
     var notice: String?
@@ -87,6 +91,7 @@ final class MorningStore {
         voiceCommandPreparing || voiceCommands.isBusy || voiceCommands.needsAudioRelease
     }
     private let media = MediaObservationService()
+    private let contextClassifier = ObservationContextClassifier()
     private let calendar = CalendarObservationService()
     private var notesSourceLabel = "Your written observation"
     private let snapshot: AtomicJSONFile<WorkspaceSnapshot>
@@ -159,6 +164,12 @@ final class MorningStore {
                 speech.voiceIdentifier = saved.voiceIdentifier
                 notes = saved.observationNotes ?? ""
                 notesSourceLabel = saved.observationSource ?? "Your written observation"
+                if let evidence = saved.observationVideoEvidence {
+                    // Revalidate citations against their original frames after loading, too.
+                    _ = try evidence.makeTrace(decisions: saved.observationContextClassification?.decisions ?? [])
+                    observationVideoEvidence = evidence
+                    observationContextClassification = saved.observationContextClassification
+                }
                 sessionTimingInterrupted = saved.sessionTimingInterrupted ?? false
                 pendingCaptures = saved.pendingCaptures ?? [:]
                 consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
@@ -177,7 +188,7 @@ final class MorningStore {
         }
     }
 
-    var hasImportedObservation: Bool { !notes.isEmpty && notesSourceLabel != "Your written observation" }
+    var hasImportedObservation: Bool { (!notes.isEmpty || observationVideoEvidence != nil) && notesSourceLabel != "Your written observation" }
     var hasPendingRecording: Bool { pendingRecordingURL != nil }
     var canStartRecording: Bool { !busy && !sessionActive && !hasPendingRecording }
 
@@ -454,13 +465,29 @@ final class MorningStore {
             let granted = selectedURL.startAccessingSecurityScopedResource()
             defer { if granted { selectedURL.stopAccessingSecurityScopedResource() } }
             do {
-                let visibleText = try await media.extractText(from: selectedURL) { [weak self] fraction in
+                let observation = try await media.extract(from: selectedURL) { [weak self] fraction in
                     self?.progress = fraction
                 }
+                let visibleText = observation.text
                 let extracted = interruptionNote.map { "[Recording coverage: \($0)]\n\n\(visibleText)" } ?? visibleText
                 try Task.checkCancellation()
+                let hasReadableText = observation.videoEvidence?.hasRecognizedText ?? !visibleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                guard hasReadableText else {
+                    // An unsuccessful import must not erase the previous reviewed observation.
+                    // Structured failure samples remain available to the extraction caller;
+                    // an owned recording stays in recovery for retry or explicit discard.
+                    busy = false
+                    let sampleCount = observation.videoEvidence?.frames.count ?? observation.sampledFrameCount
+                    observationIssue = "No readable text was found in \(sampleCount) samples. Your previous observation is unchanged. " +
+                        (ownedRecording ? "The recording is kept for retry or discard." : "Try a clearer or shorter recording.")
+                    notice = observationIssue
+                    return
+                }
                 notes = extracted
+                observationVideoEvidence = observation.videoEvidence
+                observationContextClassification = nil
                 notesSourceLabel = ownedRecording ? "Your explicitly shared screen recording" : "Selected file: \(selectedURL.lastPathComponent)"
+                observationEditsNeedSave = true
                 progress = 1
                 guard persist() else {
                     busy = false
@@ -562,6 +589,9 @@ final class MorningStore {
     func updateObservationNotes(_ text: String) {
         guard !busy, !sessionActive, text != notes else { return }
         notes = text
+        // Edited prose cannot remain attached to the unedited video's interpretation.
+        observationVideoEvidence = nil
+        observationContextClassification = nil
         observationEditsNeedSave = true
     }
 
@@ -577,6 +607,8 @@ final class MorningStore {
         guard !busy else { return }
         notes = ""
         notesSourceLabel = "Your written observation"
+        observationVideoEvidence = nil
+        observationContextClassification = nil
         observationEditsNeedSave = true
         persist()
     }
@@ -586,6 +618,29 @@ final class MorningStore {
         analysisTask = nil
         // Retain busy until the worker acknowledges cancellation, so a second model run cannot overlap.
         analysisStatus = "Stopping analysis…"
+    }
+
+    /// Separate, explicit interpretation of the latest sampled screens. This never treats
+    /// OCR order as touch events, grants action authority, or changes the approved routine.
+    func recognizeObservationScreens() {
+        guard let evidence = observationVideoEvidence, !busy, !sessionActive,
+              evidence.frames.contains(where: \.canSupportIdentity), saveObservationEdits() else { return }
+        beginAnalysis()
+        analysisStatus = "Recognizing the screens we sampled…"
+        analysisTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await contextClassifier.classify(frames: evidence.frames)
+                try Task.checkCancellation()
+                guard observationVideoEvidence?.id == evidence.id else { throw CancellationError() }
+                _ = try evidence.makeTrace(decisions: result.decisions)
+                observationContextClassification = result
+                observationEditsNeedSave = true
+                busy = false
+                progress = 1
+                if persist() { notice = "Screen observations updated. Review what was recognized and what remains unknown." }
+            } catch { finishAnalysis(error: error) }
+        }
     }
 
     func useManualRoutine() {
@@ -780,7 +835,10 @@ final class MorningStore {
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
                 automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
                 pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
-                observationNotes: notes.isEmpty ? nil : notes, observationSource: notes.isEmpty ? nil : notesSourceLabel,
+                observationNotes: notes.isEmpty ? nil : notes,
+                observationSource: notes.isEmpty && observationVideoEvidence == nil ? nil : notesSourceLabel,
+                observationVideoEvidence: observationVideoEvidence,
+                observationContextClassification: observationContextClassification,
                 consumedMorningEntryIDs: consumedMorningEntryIDs))
             observationEditsNeedSave = false
             if let observationSaveIssue, notice == observationSaveIssue { notice = nil }
