@@ -1,16 +1,18 @@
 # Shared roadmap
 
-Updated 9 October 2026. The roadmap separates observed capability, implementation and later product work. Issues #1–#19 were organized into three milestones; the newer voice and evidence-analytics issues are listed separately below. Collaborators can choose ownership together. No deadline or partner access has been assumed.
+Updated 10 October 2026. The roadmap separates observed capability, implementation and later product work. Issues #1–#19 were organized into three milestones; the newer voice and evidence-analytics issues are listed separately below. Collaborators can choose ownership together. No deadline or partner access has been assumed.
 
 Start with [onboarding](ONBOARDING.md), then use [the test report template](TEST-REPORT-TEMPLATE.md). The existing app verification is recorded in [PHASE-ONE.md](PHASE-ONE.md).
 
 ## What is already done
 
-- Native iPhone UI with Morning/Review/Notes, routine editing and approval, local dreams/thoughts, recovery and history. iPhone is the sole active product; the Mac is the development/test machine and optional controller.
+- The V2 source has two native tabs, Morning and Review, with compact routine controls, review/edit/approval, local dreams/thoughts, recovery and history. The installed phone baseline still has the earlier interface; V2 has not replaced it. iPhone is the sole active product; the Mac is the development/test machine and optional controller.
 - Selected observation import and real Vision OCR; local model adapter; supported app-owned speech/calendar progression and foreground Siri/Shortcuts entry points.
 - Signed iPhone builds have installed and launched. Synthetic phone journeys, real on-device generation from synthetic notes and bounded read-only Clock navigation have passing evidence. The current source/install state and exact results are maintained in [the verification record](PHASE-ONE.md).
 - One real recording passed the narrow capture → OCR → saved text → visible unapproved draft path; its text also survived ordinary-app relaunch. Its draft incorrectly interpreted app setup/Review copy as habits. The corrected evidence policy passes focused tests and rejects that same saved input in a deterministic replay, without changing the text or making a new model call. General habit accuracy, broader recording lifecycle and installed app-transition delivery remain open. Earlier empty-observation failures remain in the verification record; they are not the latest ingestion result.
 - A phone greeting preview completed through the speech system, but there is no audible listener confirmation. Full routine narration, live EventKit writes and HomePod behavior require their own evidence. See [the observation plan](OBSERVATION-PLAN.md) for the next learning slices.
+
+The V2 branch now carries ordered samples from the finalized recording into saved observation evidence. A separate, explicitly requested Foundation Models classifier proposes quoted visible contexts and preserves unknowns. The first two-app controlled capture and its import/relaunch/blank-video checks passed; actual classification failed in the simulator’s unsupported native backend. No action-recognition accuracy or personal averages are established. See [the reproducible benchmark](OBSERVATION-BENCHMARK.md).
 
 ## Start with two parallel tracks
 
@@ -77,7 +79,7 @@ Preserve the now-demonstrated ingestion and relaunch path under #19/#9, then bro
 | Scope | Backlog home | Concrete next result |
 |---|---|---|
 | Simpler daily experience and weekly averages | [#25 — V2 design work](https://github.com/gibouu/morning-operator/issues/25); coordinates #11/#21 | Keep recording and the current morning easy to reach, then present evidence-based averages from comparable mornings with clear coverage. This habit-average view remains planned. |
-| Controlled ground-truth capture benchmark | [#23 — controlled ground-truth benchmark](https://github.com/gibouu/morning-operator/issues/23); coordinates #2/#9/#19/#21 | Script known app entries, scrolls and selected synthetic emails; compare the actual captured evidence and model result against timestamped annotations, with precision/recall, omissions and unknowns. |
+| Controlled ground-truth capture benchmark | [#23 — controlled ground-truth benchmark](https://github.com/gibouu/morning-operator/issues/23); coordinates #2/#9/#19/#21 | Repeat the implemented two-app recording on supported model hardware, then run the held-out sequence. Compare extracted evidence and model claims against independently logged postconditions; report precision/recall, omissions and unknowns before multi-day averages. |
 | Screen narration and actions after learning | Extend #7 with #6/#12 | Explain the currently observed selected screen, perform one supported scoped action, reacquire evidence and verify its outcome on the personal development setup. |
 | Learn after every eligible morning | Extend #11 with #21 | Build an initial profile from four or five adequately observed comparable days, then refresh it after each consented morning. Preserve corrections and separate human behavior from automation/test traces. |
 | Optional reduction of a chosen habit | Extend #10; optional enforcement belongs to #17 | Let the person choose a habit, target and time period, including no reduction. Compare against an observed baseline and preserve required enjoyable rituals. |

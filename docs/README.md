@@ -2,9 +2,11 @@
 
 The active product is the iPhone app. The Mac hosts development, package tests and optional tethered experiments. The repository and Xcode target still use Morning Operator naming.
 
-**Choose the right version:** `codex/more-quiet-morning` contains the in-progress two-tab V2. It has not been installed on the owner's phone; the physical baseline remains `8a640ea`. Source `6f647b4` has 138 passing shared checks, with two optional model skips. Earlier simulator journeys, largest-text and speech-output checks are preserved in [the verification record](PHASE-ONE.md). The [V2 design contract](V2-DESIGN.md) defines the new navigation; older phone walkthroughs describe the installed baseline.
+**Choose the right version:** `codex/more-quiet-morning` contains the in-progress two-tab V2. It has not been installed on the owner's phone; the physical baseline remains `8a640ea`. Latest source `e7666cd` adds ordered recording evidence and explicit screen-context recognition. Its checks are recorded by source and scope below. Earlier simulator journeys, largest-text and speech-output checks are preserved in [the verification record](PHASE-ONE.md). The [V2 design contract](V2-DESIGN.md) defines the new navigation; older phone walkthroughs describe the installed baseline.
 
 The [morning-entry slice](MORNING-ENTRY.md) adds a one-time local invitation. The real simulator delivery → tap → approved start rerun passed after a callback crash was corrected; five other entry checks passed before that fix. Physical delivery, cold launch, locked-device behavior and spoken Siri invocation still need separate trials.
+
+The first controlled recording and import/relaunch checks passed. Actual screen recognition remains unproved: the Mac model was unavailable, and the simulator model reported ready but failed all six requests in an unsupported backend. Shared logic, build and UI results are deliberately reported separately in [verification](PHASE-ONE.md).
 
 ## Use the app
 
@@ -25,7 +27,7 @@ The [morning-entry slice](MORNING-ENTRY.md) adds a one-time local invitation. Th
 | [Data retention today](ARCHITECTURE.md#data-retention-today) | What exists on disk, why it remains and what current controls remove |
 | [Apple capabilities](CAPABILITIES.md) | Framework-specific behavior, permission requirements and official documentation |
 | [Observation plan](OBSERVATION-PLAN.md) | Learning windows, evidence quality, app-return cycles, coverage and research hypotheses |
-| [Observation metrics](OBSERVATION-METRICS.md) | Implemented trace mathematics, unknowns and day denominators; pending recording adapter and benchmark |
+| [Observation metrics](OBSERVATION-METRICS.md) | Ordered recording samples, explicit model proposals, unknowns, trace mathematics and day denominators |
 | [Roadmap](ROADMAP.md) | Priorities, dependencies and GitHub issues |
 | [V2 issue #25](https://github.com/gibouu/morning-operator/issues/25) | Design acceptance criteria and the owner walkthrough still required |
 
@@ -35,6 +37,7 @@ The [morning-entry slice](MORNING-ENTRY.md) adds a one-time local invitation. Th
 |---|---|
 | [Physical verification record](PHASE-ONE.md) | Read source, device, scope and outcome before carrying a phone result over to new code |
 | [Test report template](TEST-REPORT-TEMPLATE.md) | Record a pass, failure, skip or environment block without uploading personal artifacts |
+| [Recording benchmark](OBSERVATION-BENCHMARK.md) | Reproduce real capture of two native fixture apps; distinguish extraction success, known actions and failed model inference |
 | [Controlled benchmark #23](https://github.com/gibouu/morning-operator/issues/23) | Compare known phone actions and visible evidence against extraction and model claims |
 
 **Implemented** means the source contains the behavior. **Verified** means a specified check actually passed. **Planned** means further design or implementation remains. A simulator navigation pass is not a physical recording test; a passing synthetic import is not native capture; successful capture is not proof that proposed habits are correct.

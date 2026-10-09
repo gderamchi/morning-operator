@@ -1,6 +1,6 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. The new **`codex/more-quiet-morning`** app source **`6f647b4`** was built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. It has not replaced the owner's phone build.
+The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** baseline checkpoint **`4ddb524`** and subsequent refinements were built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. The current source is **`e7666cd`**; checks below ran at **`dd611fd`**. The later copy-only change says “with complete text” because truncated OCR is excluded; no behavior changed and that label was not rerun. They have not replaced the owner's phone build; no physical phone was connected for the latest follow-up.
 
 ## V2 in this branch
 
@@ -8,9 +8,40 @@ Morning now contains the date, compact routine and start/run controls. Review ow
 
 Learning preserves complete required rituals from the person's previous routine, keeps proposals unapproved and strips model-assigned automation. Sample rituals stay out of personal learning. This is not a complete edit/removal preference journal or a multi-day habit-quality result.
 
-## Latest evidence — 10 October 2026
+## Recording benchmark refinement — 10 October 2026 (`dd611fd`)
 
-Source **`6f647b4`** adds [one-time morning invitations](MORNING-ENTRY.md), acknowledged foreground entry, and a [structured observation core](OBSERVATION-METRICS.md). The trace/report mathematics are implemented and tested; no recording adapter, app classifier or controlled movie benchmark is connected yet.
+The dense-frame exclusion is corrected through explicit exact-source header excerpts. Each complete frame contributes up to 320 characters/six nonempty lines, with original evidence and timestamps retained and selection ranges saved. Citations must match both excerpt and source. Leading punctuation/symbol decorations may match a catalog header, but alphabetic OCR noise is not repaired and competing app-name breadcrumbs remain ambiguous. This changes input eligibility, not model accuracy.
+
+| Check | Observed result and scope |
+|---|---|
+| Full shared package after excerpt refinement | **170 passed, four explicitly skipped**: 77 Core and 97 Apple cases including skips. This full run predates the three new sanitized-error mapping tests below. |
+| Preparation-only baseline replay | `preparation-v2.json`: **24/24 frames eligible**, **2,217 selected characters**, zero excluded frames, eight deterministic lexical candidate frames. No OCR or model inference was performed by the replay; candidates are not recognized app appearances or an AI-accuracy score. |
+| Corrected simulator app-process model attempt | `.build/more-recorded-model-fixed.xcresult` reached the actual recognition control after its accessibility correction. Availability reported available, but the saved result was **failed**: **six attempted, zero responded, six failed batches; all 24 decisions unknown**. No inference-response, abstention-quality or semantic-recognition pass. |
+| Own-process backend investigation | `simulator-model-log.txt` records `operationNotAllowed` / “Simulator is not supported” when a required model backend tries to fetch metadata. This identifies an environment/backend rejection for this attempt, not a finding that the synthetic content breached a content rule. Availability preflight alone was insufficient. |
+| Native error-category diagnostics | Additive optional fixed categories cover current and legacy Foundation Models errors; fallback stores only an allowlisted system domain/numeric code. SDK associated text, localized descriptions, prompts and responses are not persisted. Targeted checks: **22 passed, one optional preparation-replay check skipped** (23 listed); app build passed. The full shared package has not rerun since these three new mapping tests. |
+| Final diagnostic runtime check | `.build/more-recorded-model-diagnostics.xcresult`: **failed 1/1 in 31.936s**. Again available/six attempted/zero responded/six failed/24 unknown. `simulator-classification-diagnostics.json` saves only `{category: other}` for each native error; the unsupported-simulator finding comes from the separate own-process log. |
+
+The initial Mac-unavailable result and initial UI-identifier failure remain below as historical evidence. Their results have not been rewritten as passes. The 2,217-character total describes only the preparation replay; separate OCR reruns vary slightly. Original extraction and both failed app-process classifications remain local. No further unchanged simulator model retries are planned. A supported physical-device inference attempt and independent semantic scoring are still pending; the stable installed phone build was untouched. See [benchmark details](OBSERVATION-BENCHMARK.md).
+
+## Recording benchmark — 10 October 2026 (`4ddb524`)
+
+Ordered frame evidence is now connected to video extraction, durable latest-observation storage and a compact Learn disclosure. A separate Foundation Models classifier proposes visible-context labels with exact citations; it cannot emit gesture counts, reading intent or OS-verified app identities. See [the benchmark protocol and results](OBSERVATION-BENCHMARK.md).
+
+| Check | Observed result and scope |
+|---|---|
+| Shared package | **163 passed, four optional model skips**: 77 Core and 90 Apple cases including skips. Actual synthetic Vision OCR passed in 28.480s. Includes extraction budgets/failures, citation validation, model-input constraints and existing behavior. |
+| Native benchmark build and driver | Build succeeded; **1/1 passed**, 91.870s. Two separately installed synthetic apps followed Cedar → Lumen → Cedar. Two issued swipes had independently verified row movement, and a synthetic message detail appeared. Controller truth remained separate from movie analysis. |
+| Actual simulator movie | Finalized at **97.155s**. Vision returned text for all 24 requests, resolving to **14 distinct actual presentation times**. Readable text was available for all seven planned visible screen states. This is availability, not an OCR character-accuracy or model score. |
+| Mac movie/model attempt | **Failed the explicit model-availability requirement after saving diagnostics**: `modelNotReady`, zero generation attempts, 24 unknown decisions. No inference, abstention-quality or semantic-accuracy pass is claimed. |
+| App import and recovery | **2/2 passed**, 112.369s. Actual movie → visible notes and frame metadata → relaunch persistence → editing invalidates association → clear stays cleared (72.021s). Separate generated black-video fault case preserved previous text through failure and relaunch (40.348s). |
+| Initial app-process model UI check | **Failed before inference**, 89.208s. The disclosure opened but the visible recognition action's accessibility identifier could not be found. Removing the parent identifier and moving the action above the sample list are follow-up corrections, not a model result. |
+| First classifier limitations | Dense whole-frame text excluded 11 samples. Icon-prefixed headers and system return-to-app breadcrumbs prevented the remaining fixture samples satisfying the initial catalog predicate. Full A → B → A recognition and comparable-day averages remain unproven. |
+
+The first baseline is kept intact. The UI checks validate file import in the simulator, not native iPhone ScreenCaptureKit. Neither the phone build nor personal observations were changed. Raw movie, OCR, truth, test data and screenshots remain ignored/local.
+
+## Earlier invitation evidence — 10 October 2026 (`6f647b4`)
+
+Source **`6f647b4`** adds [one-time morning invitations](MORNING-ENTRY.md), acknowledged foreground entry, and a [structured observation core](OBSERVATION-METRICS.md). At this earlier checkpoint the trace/report mathematics were implemented and tested; the recording adapter, classifier and controlled movie benchmark were not connected yet.
 
 | Check | Observed result and scope |
 |---|---|

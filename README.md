@@ -23,7 +23,7 @@ This branch, `codex/more-quiet-morning`, introduces the V2 interface. It is **in
 |---|---|
 | Morning | A date, a compact routine and a clear start. Up to ten moments fit at default portrait size in the tested simulator; larger text and short layouts have a scrolling fallback. Pause and Stop remain reachable. |
 | Review | Open a seven-day period and its days; edit and approve your routine, correct observations, find saved thoughts, and open settings or connections. There is no separate Notes tab. |
-| Show your morning | Explicit iOS 27 screen recording, or selected text/image/video import. Local extraction keeps the latest observation available for review. The Apple model proposes an unapproved draft; manual setup also works. |
+| Show your morning | Explicit iOS 27 screen recording, or selected text/image/video import. Local extraction keeps the latest observation and ordered video samples available for review. Screen recognition is a separate, explicit action; routine proposals still require approval. Manual setup also works. |
 | Move through it | Supported spoken/calendar operations advance after completion. Other activities wait for you. A completion invitation opens capture; it is not yet a live spoken conversation. |
 | Begin with an invitation | Set one future notification in Review → Settings. Its tap or a foreground Start intent routes into an approved morning, waiting for a ready app. Physical delivery and Siri invocation remain unverified. [Morning entry](docs/MORNING-ENTRY.md). |
 | Speak a command | An explicit on-device English/French turn supports next, pause, resume, skip, repeat and stop. Entry/cancel behavior is tested; real microphone recognition remains a device check. [Voice guide](docs/VOICE.md). |
@@ -33,9 +33,13 @@ Review currently measures **routine runs**, not complete phone usage or learned 
 
 ## Where it stands
 
-**V2 source `6f647b4`:** 138 shared checks passed with two optional model skips. A real local invitation appeared while MORE was backgrounded in the simulator; tapping it started the approved routine after a callback crash was found and fixed. Five other entry checks passed before that final delegate fix. Earlier V2 checks cover the compact layout, saved observations, largest text and speech-output callbacks. [The verification record](docs/PHASE-ONE.md) preserves each run and failure; this is not one full-suite pass.
+**V2 source `e7666cd`:** the quieter interface now preserves ordered evidence from an imported recording, including repeated screens, unknown samples and their media times. A separate Apple model action can propose visible screen contexts without changing the approved routine. [How observation works](docs/OBSERVATION-METRICS.md).
 
-The [entry guide](docs/MORNING-ENTRY.md) explains scheduling and fallback. Physical V2, cold-launch/locked-device invitations, Siri invocation, microphone recognition, human-confirmed voice quality and real habit accuracy remain unverified. The new [observation metrics core](docs/OBSERVATION-METRICS.md) preserves ordered evidence and comparable-day denominators; its recording adapter and movie benchmark are still pending.
+The first controlled trial recorded two separate native test apps, two verified scroll movements and a selected synthetic message detail. MORE imported the actual 97-second video, retained its text after relaunch, and preserved existing notes when a later video contained no readable text. Those two app checks passed. The [repeatable benchmark guide](docs/OBSERVATION-BENCHMARK.md) separates the known actions from model input.
+
+**Recognition accuracy is still unproven.** The Mac model was unavailable. In the simulator, Apple reported the model available but its required backend rejected simulator use; all six requests failed and the screens remained unknown. The shared package passed 170 checks with four optional skips before the final diagnostic addition; the subsequent targeted checks and successful native build are recorded separately in [verification](docs/PHASE-ONE.md).
+
+Earlier V2 checks cover compact layout, large text, saved observations, speech callbacks and a real simulator notification tap that starts an approved routine. Physical V2, cold/locked-device invitations, Siri invocation, microphone recognition and human-confirmed voice quality remain open. [Morning entry](docs/MORNING-ENTRY.md) explains the current start options.
 
 **Installed phone baseline: `8a640ea`.** The signed app runs on the owner's iPhone. Six synthetic phone journeys passed, and a separate real on-device model example passed. A real short recording reached saved OCR, a visible unapproved draft and readable text after relaunch. These are results for the earlier phone interface, not a V2 installation.
 
@@ -58,7 +62,7 @@ The iPhone is the sole active product. The Mac is the development/test machine a
 
 ## Your data and the model
 
-Extraction and Foundation Models inference run locally. There is no cloud-model fallback, model fine-tuning, billing or research-data upload pipeline. Saved routines, latest observation text, thoughts and local activity logs have different lifecycles; a finalized app-owned clip can remain for recovery until its extracted text is saved or the person discards it. Review [what is retained and what each clear control removes](docs/ARCHITECTURE.md#data-retention-today).
+Extraction and Foundation Models inference run locally. There is no cloud-model fallback, model fine-tuning, billing or research-data upload pipeline. Saved routines, latest observation text and ordered video samples, thoughts and local activity logs have different lifecycles; a finalized app-owned clip can remain for recovery until its extracted text is saved or the person discards it. Review [what is retained and what each clear control removes](docs/ARCHITECTURE.md#data-retention-today).
 
 A later, separately opted-in mobile-agent research dataset is a [feasibility question](https://github.com/gibouu/morning-operator/issues/24), not current collection behavior.
 
@@ -70,6 +74,7 @@ A later, separately opted-in mobile-agent research dataset is a [feasibility que
 | [V2 design contract](docs/V2-DESIGN.md) | Morning/Review, completion capture, native glass and honest metrics |
 | [Morning entry](docs/MORNING-ENTRY.md) | One-time invitations, foreground Start, permissions and delayed-entry fallback |
 | [Architecture](docs/ARCHITECTURE.md) | Components, states, data flows, model boundaries and Apple integrations |
+| [Recording benchmark](docs/OBSERVATION-BENCHMARK.md) | Reproduce the controlled cross-app capture and inspect its measured limits |
 | [Observation plan](docs/OBSERVATION-PLAN.md) | Consent, evidence, cycles, unknowns and multi-day learning |
 | [Verified phone results](docs/PHASE-ONE.md) | Actual physical device/build/test evidence and open checks |
 | [Roadmap and issues](docs/ROADMAP.md) | The next product slices and collaboration plan |

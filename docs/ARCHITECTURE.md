@@ -4,6 +4,8 @@ MORE is an iPhone app for observing a deliberately shared part of a morning, pro
 
 This guide describes source architecture and its limits. [PHASE-ONE](PHASE-ONE.md) is the authority for actual test results; [the roadmap](ROADMAP.md) separates upcoming work. MORE (MOrning REcap) is the V2 display name; the bundle, repository and Xcode target retain Morning Operator identities.
 
+The structured extraction and latest-frame persistence path has controlled simulator recording/import evidence. Successful context inference and its semantic accuracy remain unverified: the Mac model was unavailable, and the subsequent simulator recognition requests failed in a required backend. These results do not replace the earlier physical-phone evidence. See [the benchmark record](OBSERVATION-BENCHMARK.md).
+
 ## Components and boundaries
 
 ```mermaid
@@ -11,6 +13,12 @@ flowchart TB
     Person["Person and system consent"] --> UI["SwiftUI iPhone app"]
     UI --> Store["MorningStore: workspace owner"]
     Capture["ScreenCaptureKit or selected file"] --> Media["AVFoundation and Vision"]
+    Media --> Frames["Ordered frame OCR and extraction outcomes"]
+    Frames --> Store
+    Frames --> Excerpts["Bounded exact-source header excerpts"]
+    Excerpts --> Context["Explicit local visible-context classification"]
+    Context --> Trace["Validated citations and ordered trace"]
+    Trace --> Store
     Media --> Evidence["Evidence policy and source text"]
     Evidence --> Model["Foundation Models: propose or abstain"]
     Model --> Store
@@ -36,9 +44,11 @@ There is no app-runtime connection from the model to arbitrary phone controls. R
 | `MorningCore` | Codable domain objects, routine/session invariants, timing/history, atomic JSON and action-journal primitives | [Core sources](../Sources/MorningCore) |
 | `MorningApple` | Media extraction, evidence filtering, local inference, recording/recovery, speech, Calendar/Reminders and transition storage | [Apple adapters](../Sources/MorningApple) |
 | iPhone application | Views, one main-actor workspace owner, lifecycle coordination and App Intents | [App sources](../Sources/MorningOperator) |
-| Development harness | Isolated synthetic journeys and explicitly selected external-app checks | [UITests](../UITests) |
+| Development harness | Isolated synthetic journeys, selected external-app checks and dedicated observation-benchmark fixture targets | [UITests](../UITests), [fixture apps](../Benchmarks/FixtureApps) |
 
 The project targets iOS 26. Native ScreenCaptureKit recording is guarded for iOS 27; selected-file import remains available on the older baseline. Shared package checks target macOS 26 or later. Availability declarations do not replace actual device/model/permission checks.
+
+`MorningBenchmarkInbox`, `MorningBenchmarkCalendar` and `MorningObservationBenchmarkUITests` belong to a dedicated benchmark scheme. Their synthetic inbox/calendar content and controller are not embedded in the shipping `MorningOperator` app; the ordinary UI-test target excludes the benchmark controller. These targets support a controlled comparison, not a runtime permission to control other apps.
 
 ## Capture, recover, extract
 
@@ -55,8 +65,8 @@ stateDiagram-v2
     Stopping --> Stopping: Stop uncertain; retain owner and retry
     Stopping --> SavedClip: Confirmed stop and finalized file
     SavedClip --> Extracting: Foreground and idle; same session or Retry
-    Extracting --> SavedClip: OCR, cancellation or save failure
-    Extracting --> SavedText: Extracted text durably saved
+    Extracting --> SavedClip: Blank, OCR, cancellation or save failure
+    Extracting --> SavedText: Readable text and frame evidence saved
     SavedText --> Draft: Eligible evidence and model available
     SavedText --> NeedsReview: Insufficient evidence or model unavailable
     SavedClip --> Idle: Explicit discard
@@ -68,7 +78,9 @@ The app closes its own Record/Learn sheets when it can handle acknowledged captu
 
 Non-user interruption can retain a successfully finalized clip with a coverage note. An unfinalized/writer-failed file is not treated as a usable recording. Stop errors keep resources/status for retry; a failed ownership handoff keeps the service's file rather than silently losing it. These source protections still need broad hardware coverage across interruption, locking and limits.
 
-The importer reads a selected image, video or UTF-8 file with scoped file access. Video is capped at 512 MiB and 31 minutes in current source, allowing a small completion margin around the 30-minute recording option. AVFoundation samples at most **24 frames**; Vision extracts visible text with actual sampled timestamps. The app does not persist sampled-frame images as an evidence library. The whole video can contain activity absent from those samples.
+The importer reads a selected image, video or UTF-8 file with scoped file access. Video is capped at 512 MiB and 31 minutes in current source, allowing a small completion margin around the 30-minute recording option. AVFoundation requests at most **24 frames**. One extraction pass retains a stable per-request ID, requested/actual timestamp or labeled fallback, OCR text, blank/decode/OCR outcome and warnings. A 30,000-character/256,000-byte OCR budget leaves room for labels within 32,000 rendered characters. Truncated/omitted text is explicit and cannot support context identification. Notes deduplication never removes the original structured samples.
+
+The latest bounded OCR bodies and frame metadata are saved with the observation in the workspace; sampled pixels are not persisted. All-blank extraction returns diagnostics to its caller, but the store preserves the previous observation and keeps an owned raw clip for retry rather than replacing good evidence with empty text. The whole video can contain activity absent from the samples. File duration does not declare wall-clock capture start or complete continuous coverage. [Detailed evidence contracts](OBSERVATION-METRICS.md).
 
 The observed real clip proved capture → OCR → saved text → visible unapproved draft and readable text after ordinary-app relaunch. It also produced incorrect habits from setup/marketing text. The updated policy now rejects the same saved text in a deterministic local replay, without a new model call or changing the original text. This demonstrates why transport, visibility and semantic correctness need separate checks. [Apple iOS capture sample](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-on-ios), [Vision text recognition](https://developer.apple.com/documentation/vision/recognizetextrequest).
 
@@ -81,6 +93,14 @@ The current evidence-policy revision separates user-reported activity from visib
 The original trimmed observation must fit within 8,000 characters before filtering; filtering does not rescue an oversized input. Equivalent eligible frames are deduplicated and coalesced into inference chunks of at most 1,500 characters. Dynamic guided-generation schemas constrain outcome, step category, evidence kind, quote and tentative duration. Post-generation checks require an eligible source context and exact supporting quotation, valid kind/duration and matching evidence type. Duplicate proposals are collapsed. The resulting routine is **unapproved**, with no inferred execution operation attached.
 
 A matching quote proves only that text appeared in the input. It does not prove that the person opened an app, read a message, performed the activity or repeats it daily. A screenshot is a moment. Durations generated by the model are suggestions, not measurements. Source text is untrusted data and cannot approve a plan, change consent, invoke an external tool or override app policy.
+
+The separate `ObservationContextClassifier` is explicitly invoked from Learn's **Recognize sampled screens** control. It preserves the original ordered frames and selects a contiguous, unmodified OCR prefix of at most **320 characters and six whole nonempty lines** from each eligible frame. An overlong line ends selection; later text is not substituted. These excerpts, IDs and media times enter bounded native-model batches, independently of routine-learning deduplication. Full bounded source OCR remains saved. Optional `inputSelection` metadata records the policy, source lengths, selected offsets and excerpt text; older saved classifications can omit it, and its presence does not imply a model request occurred.
+
+Validation binds each accepted decision to its exact sample ID, media time, source reference and a quote present in both the selected excerpt and original frame. Blank, failed, source-truncated, omitted or over-budget frames remain unknown. Deliberate header selection is distinct from source truncation. The latest classification is saved beside the frames, revalidated after reload, and cleared when the person edits or clears the observation or imports new readable evidence. Cancellation and evidence-ID checks prevent a stale result from attaching to another import.
+
+These are `visual-context:` labels, not verified app identities. Generic early-header matching can see Inbox → Alex → Inbox inside one app. Catalog matching permits leading punctuation/symbol decoration, but competing catalog mentions block identification and alphabetic OCR damage is not repaired. Neither rule proves foreground-app identity. Learn therefore displays recognized appearances rather than OS entry or scroll counts.
+
+The revised preparation replay retained all **24 baseline samples**, selecting **2,217 characters**, without changing the saved full source. This is input eligibility, not successful classification. The earlier Mac attempt reported **model not ready, with zero requests**. A subsequent simulator attempt reported availability, then **six failed requests, zero responses and 24 unknown decisions**. The app process's native log reported `operationNotAllowed: Simulator is not supported` in a required backend. That is a runtime support failure, not evidence that the synthetic content violated a policy or that the model abstained. No physical-device context-model benchmark has run. Earlier phone routine-generation results remain separate evidence. [Observation metrics](OBSERVATION-METRICS.md), [benchmark record](OBSERVATION-BENCHMARK.md).
 
 “Learning” currently means interpreting the supplied observation and saving an editable routine/preferences. No fine-tuning, adapter training, weight update, persistent model memory, embedding index or research corpus is implemented. Future four/five-day estimates and continuous per-morning adaptation belong to [#11](https://github.com/gibouu/morning-operator/issues/11) and [#21](https://github.com/gibouu/morning-operator/issues/21); they need evidence and ordinary data aggregation, not a claim that the foundation model retrains each morning. [SystemLanguageModel](https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel), [guided generation](https://developer.apple.com/documentation/foundationmodels/generating-swift-data-structures-with-guided-generation).
 
@@ -148,13 +168,13 @@ The following describes actual local storage and controls, not a proposed privac
 | Data | Stored today | Retention / removal today |
 |---|---|---|
 | Routine, one previous approved version, current session, run history, voice/settings | `workspace.json` | Remain across launch; edits/approval replace the active/prior-version slots. No general history-expiry or delete-all UI. Archived runs retain their pinned routine content. |
-| Latest extracted observation and source label | Same workspace; one latest observation | Replaced by a subsequent import, or removed with Clear this observation. Manual corrections save when editing ends, Learn closes or the app becomes inactive, and before analysis/import. Failed writes retain edits in memory with Retry. Routine/history evidence quotes already saved remain. |
+| Latest extracted observation/source, bounded frame OCR/metadata and optional context classification with input-selection metadata | Same `workspace.json`; one latest observation, not a longitudinal frame library | A readable new import replaces the slot. Blank imports preserve it. Editing notes invalidates attached frames/classification; Clear removes notes and attached evidence. Manual corrections save when editing ends, Learn closes or the app becomes inactive, and before analysis/import. Failed writes retain edits in memory with Retry. Routine/history evidence quotes already saved remain. No sampled pixels or extra raw archive are added. |
 | Thoughts/dreams/capture requests, pending effect markers, receipts | Same workspace | Persist locally. No general saved-thought deletion/expiry UI is currently implemented. Clearing observation text does not remove these items. |
 | One-time invitation | `morning-invitation.json` | One ID, scheduled instant, display zone, expiry, status and optional consumption time; no routine content. Replacement creates a new ID. Cancel removes this feature's native notification and may retain canceled metadata; Reset repairs unreadable invitation data without erasing the workspace. |
 | Recent morning-entry receipts | `workspace.json`; up to 64 IDs | Saved with the start/resume transition before dispatch. Separate from invitation consumption; a crash between files can require manual Start. |
 | Microphone command audio and transcript | In-memory only; no audio file or transcript in workspace/history | Audio input ends after the explicit turn. Temporary transcript can remain visible until another turn or the app lifetime ends. Resulting ordinary session events persist, but recognition text is not a learning dataset. |
 | Active app-created recording | App temporary recording directory | Moved after finalization into recovery, or removed on confirmed discard/failure cleanup. A force-terminated/unfinalized temporary file is not a guaranteed recoverable clip. |
-| One pending finalized clip and interruption metadata | `RecordingRecovery/pending-screen-recording.mp4` and `recording-info.json` | Directory excluded from backup. Kept after OCR/cancellation/save failure; Retry/Discard on relaunch. Removed after extracted text is saved or explicit discard. No automatic age expiry. Later model failure does not require retaining raw video. |
+| One pending finalized clip and interruption metadata | `RecordingRecovery/pending-screen-recording.mp4` and `recording-info.json` | Directory excluded from backup. Kept after blank/OCR/cancellation/save failure; Retry/Discard on relaunch. Removed after readable text and its evidence are saved or explicit discard. No automatic age expiry. Later model/classifier failure does not require retaining raw video. |
 | User-selected original media | Its original Files/Photos location | Only read through selected access; the app does not delete the original. |
 | Per-app callback journal | `app-transitions.json` | App/entry-exit/time/time-zone/source/ID, no screen/message contents. Clear recorded app activity removes it; enabled Shortcuts may add new events afterward. No automatic expiry/export UI. |
 | Calendar snapshot | In-memory adapter/store state | Refreshed on read; not part of workspace persistence. Reviewed items saved to Apple apps are managed by those apps/accounts. |
@@ -169,7 +189,7 @@ Current day/week history measures Morning Operator sessions, with planned durati
 
 Optional background `LogAppTransitionIntent` receives manually configured Shortcuts events for Instagram, TikTok and Snapchat. A separate actor serializes its same-process JSON writes. Supplied stable IDs deduplicate intentional retries; omitted IDs are new events. Review shows Today's entries and returns after another tracked app. Callbacks can be late/missing and unconfigured apps can be absent. These are not physical pickups, exact process launches, scroll counts or a full ordered device log. Installed Shortcuts delivery still needs its own evidence. [Apple App triggers](https://support.apple.com/guide/shortcuts/setting-triggers-apde31e9638b/ios).
 
-New `ObservationTrace` / `ObservationTraceWindow` core types model ordered samples, unknown coverage, minimum visible visits and comparable-day denominators. They are pure domain/aggregation code, not wired into recording ingestion or runtime Review analytics. They do not establish measured app-use durations, actual opens, scrolls or a learned personal average.
+`ObservationVideoEvidence.makeTrace` now connects validated classification decisions to ordered `ObservationTrace` samples. Learn reviews this latest trace's recognized appearances; the app supplies no trusted continuous-capture intervals, so capture-duration and sampled-time estimates remain unknown. `ObservationTraceWindowReport` implements comparable-day denominators, but multi-day collection and observed-habit averages are not connected to runtime history. The latest slot does not establish measured app use, OS opens, scrolls or a learned personal average.
 
 The intended product UI is a **simple weekly average** with understandable coverage, supported by four or five comparable mornings and continued bounded learning afterward. That external-app/habit average is planned, not implemented. Each metric needs its own evidence-day denominator; missing days are not zero. Separate human-led, assistant-executed, mixed and synthetic segments so automation does not teach itself a false human preference. Optional habit-reduction targets preserve enjoyment and belong to the person. Detailed contracts live in the [observation plan](OBSERVATION-PLAN.md); the simpler next interface is tracked in [V2 design work #25](https://github.com/gibouu/morning-operator/issues/25).
 
