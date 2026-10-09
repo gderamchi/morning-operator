@@ -12,16 +12,26 @@ struct MorningOperatorApp: App {
     @NSApplicationDelegateAdaptor(MorningAppDelegate.self) private var appDelegate
     #endif
 
+    init() { MorningAppShortcuts.updateAppShortcutParameters() }
+
+    private var testAppearance: ColorScheme? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("--ui-testing") else { return nil }
+        if arguments.contains("--light-preview") { return .light }
+        if arguments.contains("--dark-preview") { return .dark }
+        return nil
+    }
+
     var body: some Scene {
         WindowGroup {
             MorningRootView(store: store)
-                .preferredColorScheme(.light)
+                .preferredColorScheme(testAppearance)
                 #if os(macOS)
-                .frame(minWidth: 840, minHeight: 680)
+                .frame(minWidth: 420, minHeight: 680)
                 #endif
         }
         #if os(macOS)
-        .defaultSize(width: 1140, height: 820)
+        .defaultSize(width: 560, height: 860)
         .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(after: .newItem) {

@@ -2,89 +2,83 @@
 
 A personal Apple-native prototype for learning a morning routine, reviewing it, and moving through it with less phone handling.
 
-**Phase 1:** working native Mac app and shared SwiftUI iPhone source, local routine/session logic, Apple intelligence and media ingestion adapters, and a separate Xcode UI-test harness. Physical iPhone automation and HomePod handoff still need their first hardware proof.
+The native Mac app has been exercised, and the signed iPhone app has built, installed and launched on iOS 27.0.1. Three synthetic phone UI checks, one bounded external-app navigation and actual on-phone model generation have passed. The latest recorded package run passed **53 tests**, with **1 real-model test skipped** because the Mac model was not ready. Expanded recovery checks are pending; see [verification and remaining checks](docs/PHASE-ONE.md).
 
 ## Working together
 
-Start with the [onboarding and smoke-test guide](docs/ONBOARDING.md). Use the [prioritized roadmap](docs/ROADMAP.md), [GitHub issues](https://github.com/gibouu/morning-operator/issues), and [test report template](docs/TEST-REPORT-TEMPLATE.md) to split work and record what actually works. The original private PRD remains local.
+Start with [onboarding](docs/ONBOARDING.md), then use the [roadmap](docs/ROADMAP.md), [GitHub issues](https://github.com/gibouu/morning-operator/issues), and [test report template](docs/TEST-REPORT-TEMPLATE.md). The original private PRD stays local.
 
-## Try the Mac app
+## Try the app
 
-Requires macOS 26 or later and a compatible Swift toolchain. No third-party packages or cloud account are required.
+Requires macOS 26 or later, or iOS 26 or later, with a compatible Apple toolchain. In-app screen recording requires iOS 27. The project currently builds with Xcode 27. No third-party runtime packages or cloud account are required.
+
+For the Mac:
 
 ```sh
 ./scripts/build-mac-app.sh --open
 ```
 
-The app bundle is written to `build/Morning Operator.app`.
+The bundle is written to `build/Morning Operator.app`.
 
-1. Choose **Explore a sample** for an explicitly synthetic routine, or **Figure out my morning routine** to supply your own observation.
-2. Edit the steps and choose **This feels like me** to approve the routine. While reviewing a new draft, you can restore the previous approved version.
-3. Turn on spoken steps if you want, then choose **OK, here we go**. Next, skip, pause, resume and stop operate on the saved session.
-4. In **Learn**, import a local video/screenshot/text file or describe your morning. Review the extracted text before asking the local Apple model to propose steps.
-5. In **Setup**, test system speech and optionally connect Calendar. The app only reads events, although Apple's permission is full calendar access.
-
-Apple Intelligence must be enabled and its local model available for actual model analysis. Unavailable models produce a clear message; manual/sample routines still work. There is no silent cloud-model fallback.
-
-## iPhone and developer controller
-
-Full Xcode with its iOS platform is required. The app and UI-test bundle are separate targets; XCTest is not embedded in the normal application.
+For the iPhone:
 
 ```sh
 ./scripts/check-environment.sh
-./scripts/generate-project.sh
 open MorningOperator.xcodeproj
 ```
 
-Choose your personal development team and the paired iPhone in Xcode. Start with the synthetic fixture suite before trying a selected external app. See [device setup](docs/DEVICE-SETUP.md) for exact commands, required local configuration, and the HomePod experiment.
+Choose your own development team and paired, unlocked iPhone in Xcode. The checked-in project can be opened directly; after source additions, regenerate it with `./scripts/generate-project.sh` if XcodeGen is installed. See [device setup](docs/DEVICE-SETUP.md) for signing, explicit device selection and test commands.
 
-The driver can capture selected installed apps and exercise a bounded, read-only navigation target. It is not yet a persistent model-driven phone controller. Capturing screenshots in a UI test does not give the ordinary application continuous cross-app access.
+1. Open a clearly labeled sample, build a routine yourself, or use **Learn & refine** to describe your morning or import an observation.
+2. Review and edit the steps, then approve. Editing an approved routine creates a new draft; the previous approved version can be restored.
+3. Start your morning. Hands-free mode advances supported spoken steps after synthesis finishes. Interactive rituals wait for **Next**; pause, resume, skip and stop remain available.
+4. Use **Notes** for a thought or dream. Reminder/calendar requests can stay local or be saved to the chosen Apple app after reviewing the text and time.
+5. Use **Settings** to connect Calendar, choose a built-in voice and preview speech. On iPhone, the system audio picker lets you choose an available output.
 
-## What's included
+## Implemented features
 
-| Area | Implemented behavior |
+| Area | Current behavior |
 |---|---|
-| Native UI | Today, Learn and Setup; editable routines, explicit approval, guidance and export |
-| Shared core | Codable models, pinned routine versions, session state machine and command deduplication |
-| Local persistence | Atomic versioned JSON, recovery checkpoint, portable exports |
-| Action journal | Exact/standing approval matching and durable pre-dispatch/unknown-outcome states; no live send adapter |
-| Apple intelligence | Real Foundation Models schema-constrained analysis with source-quote validation; no action tools |
-| Observation import | Selected local notes/images/video; AVFoundation sampling and Vision OCR; review before generation |
-| Audio | AVSpeechSynthesizer output, pause/resume/stop, iOS interruption/route-loss handling |
-| Calendar | User-initiated EventKit read and timestamped day snapshot |
-| Device tests | Fixture journey, Settings navigation, missing-target refusal and opt-in external-app capture |
+| Native interface | Morning, Review and Notes tabs; timeline, day navigation, Learn and Settings sheets |
+| Routines and recovery | Editable versions, explicit approval, pinned run state, atomic local saves, interrupted runs reopen paused |
+| Learning | Reviewed notes/images/video → bounded frame sampling and Vision OCR → Foundation Models proposal with source-quote validation |
+| Recording | iOS 27 ScreenCaptureKit picker and explicitly started screen-only recording → temporary local video → reviewed OCR text; compiled, hardware verification pending |
+| Supported automatic steps | Read a step aloud or query/read today's authorized Calendar; completion callbacks advance the run, with cancellation and duplicate-callback protection |
+| Notes and Apple apps | Local thoughts/dreams; reviewed EventKit reminder/event creation with durable pending-write tracking and receipts |
+| Siri and Shortcuts | Foreground start and quick-capture intents; drafts still need approval, and capture text opens for review before saving |
+| Audio | Built-in voice selection and preview, speech pause/resume/stop, iOS route-loss/interruption handling and system output picker |
+| Review | Local routine-run history and seven-day summaries; unknown measurements and missing days stay unknown |
+| Development harness | Separate XCTest target for synthetic journeys, Settings navigation and opt-in external-app capture |
 
-Not yet implemented: automatic recording schedules, multi-day habit aggregation, live voice-command input, email sending, autonomous cross-app model loop, HealthKit, Screen Time shields, Live Activities, proactive room detection or automatic HomePod transfer. No private inbox or social account is connected by default.
+Apple Intelligence must be enabled and its local model ready for model analysis. Unavailable models produce a clear status; sample/manual routines and local notes remain usable. There is no silent cloud-model fallback.
 
-## Tests and evidence
+The app does not yet measure exact cross-app usage, reels viewed, likes or emails read/replied/discarded. The evidence data model supports provenance and incomplete coverage, but the real recording-to-analytics pipeline remains [issue #21](https://github.com/gibouu/morning-operator/issues/21). A recording's visible text does not establish every tap, intention or read.
 
-Core and Apple library checks are Swift package tests; physical iPhone UI tests are a separate verification layer. See [phase-one status](docs/PHASE-ONE.md) for actual results and unrun checks.
+Continuous voice-command listening, autonomous cross-app control, email sending, multi-day habit learning, automatic recording schedules, HealthKit, Screen Time shields, Live Activities and proactive HomePod handoff remain future work. The separate development test runner does not grant the ordinary app continuous control of other apps.
+
+## Tests
 
 ```sh
 ./scripts/test.sh
 ```
 
-The script uses the selected toolchain's default build engine, explicitly loads its bundled Swift Testing macro plugin when present, and disables the XCTest runner for Command Line Tools compatibility. Build/cache files stay under `.build/testing*`; the local dependency-free package runs with its package sandbox disabled. Add `--with-model` to attempt the optional real Apple model test; an unavailable model is reported as skipped. Device UI tests still use XCTest under full Xcode.
+Add `--with-model` to attempt the optional real Foundation Models integration check. An unavailable model is a skip, not a successful inference. The script supports the selected Apple toolchain and keeps local build/cache files under `.build/testing*`; device UI tests use XCTest through full Xcode. Current pass/fail/skip evidence and unrun hardware checks are in [PHASE-ONE.md](docs/PHASE-ONE.md).
 
 ## Local data
 
-The Mac app saves routines and session state in `~/Library/Application Support/MorningOperator/workspace.json`. `MORNING_OPERATOR_DATA_DIR` can override that location for local development. UI-test fixture launches use an isolated temporary directory.
+The Mac app saves the workspace in `~/Library/Application Support/MorningOperator/workspace.json`; iPhone uses its app container. This includes routines, run state/history, saved notes, write receipts and voice preferences. `MORNING_OPERATOR_DATA_DIR` overrides the location for development. UI tests use isolated temporary workspaces.
 
-Imported media is read locally and not copied into the repository or uploaded. Extracted text remains in the active UI until the app closes; approved routine details may retain short evidence quotes. Exports can include those quotes, so review them before sharing.
+Selected media and OCR/model analysis remain local. Extracted observation text is temporary UI content; routine details may retain evidence quotes. App-created recording files are removed after extraction; user-selected source files are preserved. Review exports before sharing. Apple Calendar/Reminders saves follow those accounts' existing sync settings.
 
-Build outputs, device screenshots/results, local recordings, signing credentials and the original private PRD are ignored by Git. Xcode can create additional test recordings and result bundles: inspect their retention separately from the application's data.
-
-## Layout
+Build outputs, recordings, screenshots/results, signing credentials and the private PRD are excluded from Git. Inspect local test-result media separately from the app's own data.
 
 ```text
-Sources/MorningCore         Models, state, persistence, action journal
-Sources/MorningApple        Apple inference, OCR/media, speech, calendar
-Sources/MorningOperator     Shared SwiftUI app and local store
-Tests/                     Swift package invariant/integration tests
+Sources/MorningCore         Models, state, persistence, history and action journal
+Sources/MorningApple        Apple model, media/recording, speech and EventKit adapters
+Sources/MorningOperator     SwiftUI app, intents and local store
+Tests/                     Swift package tests
 UITests/                   Separate personal-device development harness
 Configuration/             App metadata and purpose strings
-scripts/                   Mac build, project generation, device testing
-docs/                      Setup, verification and project decisions
+scripts/                   Build, environment, generation and test helpers
+docs/                      Setup, verification and roadmap
 ```
-
-This is an early personal-development project. A successful tethered experiment is not a claim that the same control is available to a standalone public iPhone app.

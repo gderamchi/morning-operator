@@ -7,12 +7,12 @@ let package = Package(
     products: [
         .library(name: "MorningCore", targets: ["MorningCore"]),
         .library(name: "MorningApple", targets: ["MorningApple"]),
-        .executable(name: "MorningOperator", targets: ["MorningOperator"])
+        .executable(name: "MorningOperatorDesktop", targets: ["MorningOperatorDesktop"])
     ],
     targets: [
         .target(name: "MorningCore"),
         .target(name: "MorningApple", dependencies: ["MorningCore"]),
-        .executableTarget(name: "MorningOperator", dependencies: ["MorningCore", "MorningApple"]),
+        .executableTarget(name: "MorningOperatorDesktop", dependencies: ["MorningCore", "MorningApple"], path: "Sources/MorningOperator"),
         .testTarget(name: "MorningCoreTests", dependencies: ["MorningCore"]),
         .testTarget(name: "MorningAppleTests", dependencies: ["MorningApple", "MorningCore"])
     ]

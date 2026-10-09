@@ -5,6 +5,18 @@ public enum StepKind: String, Codable, CaseIterable, Sendable {
     public var displayName: String { rawValue.capitalized }
 }
 
+/// A concrete app-owned operation, separate from an inferred activity category.
+/// A nil operation remains manual, including routines decoded from older files.
+public enum RoutineStepAutomation: String, Codable, CaseIterable, Sendable {
+    case spokenNote, todayCalendar
+    public var displayName: String {
+        switch self {
+        case .spokenNote: "Read this note aloud"
+        case .todayCalendar: "Read today's calendar"
+        }
+    }
+}
+
 public struct RoutineStep: Codable, Sendable, Identifiable, Equatable {
     public let id: UUID
     public var title: String
@@ -12,10 +24,12 @@ public struct RoutineStep: Codable, Sendable, Identifiable, Equatable {
     public var kind: StepKind
     public var durationMinutes: Int
     public var isRequired: Bool
+    public var automation: RoutineStepAutomation?
     public init(id: UUID = UUID(), title: String, detail: String = "", kind: StepKind = .custom,
-                durationMinutes: Int = 5, isRequired: Bool = false) {
+                durationMinutes: Int = 5, isRequired: Bool = false, automation: RoutineStepAutomation? = nil) {
         self.id = id; self.title = title; self.detail = detail; self.kind = kind
         self.durationMinutes = max(1, durationMinutes); self.isRequired = isRequired
+        self.automation = automation
     }
 }
 
@@ -73,10 +87,10 @@ public enum DemoFixtures {
     /// Synthetic demonstration data, never a recorded personal morning.
     public static var candidateRoutine: RoutineVersion {
         RoutineVersion(sourceLabel: "Demo fixture — synthetic morning, not observed personal data", steps: [
-            RoutineStep(title: "A calm start", detail: "Sample briefing. Connect real sources before claiming live day context.", kind: .briefing, durationMinutes: 3),
-            RoutineStep(title: "People and messages", detail: "Review a chosen conversation. This fixture connects no external app or account.", kind: .messages, durationMinutes: 5),
-            RoutineStep(title: "Make room for the day", detail: "Review priorities in this sample routine.", kind: .calendar, durationMinutes: 3),
-            RoutineStep(title: "Keep something enjoyable", detail: "A short chess game or chosen entertainment belongs in your morning.", kind: .entertainment, durationMinutes: 8, isRequired: true)
+            RoutineStep(title: "A calm start", detail: "Take a breath. Let your morning begin at your own pace.", kind: .briefing, durationMinutes: 3, automation: .spokenNote),
+            RoutineStep(title: "People and messages", detail: "Check in with the people who matter.", kind: .messages, durationMinutes: 5),
+            RoutineStep(title: "Make room for the day", detail: "Read today’s events from your connected calendar.", kind: .calendar, durationMinutes: 3, automation: .todayCalendar),
+            RoutineStep(title: "A little time to play", detail: "A little chess. A little joy. Keep this time for yourself.", kind: .entertainment, durationMinutes: 8, isRequired: true)
         ])
     }
     public static var routine: RoutineVersion { candidateRoutine.approved() }

@@ -1,20 +1,20 @@
 # Shared roadmap
 
-Updated 9 October 2026. The repository started with no issues. The 19 issues across three milestones separate observed capability, implementation and later product work. Issues are unassigned so the two collaborators can choose ownership together. No deadline or partner access has been assumed.
+Updated 9 October 2026. The roadmap separates observed capability, implementation and later product work. Issues #1–#19 were organized into three milestones; the newer voice and evidence-analytics issues are listed separately below. Collaborators can choose ownership together. No deadline or partner access has been assumed.
 
 Start with [onboarding](ONBOARDING.md), then use [the test report template](TEST-REPORT-TEMPLATE.md). The existing app verification is recorded in [PHASE-ONE.md](PHASE-ONE.md).
 
 ## What is already done
 
-- Native Mac UI for review, edits, approval, a guided routine and recovery after closing the app.
-- Local selected observation import and real Apple Vision OCR; JSON export.
-- Shared state, persistence and durable action journal; Apple model, speech and Calendar adapter code.
-- Last recorded verification: **17 tests passed, 1 real-model test skipped, 0 failures** at application commit `b065bf4`. The Mac interface was exercised. iPhone and HomePod behavior remains unrun.
+- Native Mac and iPhone UI with Morning/Review/Notes, routine editing and approval, local dreams/thoughts, recovery and history.
+- Selected observation import and real Vision OCR; local model adapter; supported app-owned speech/calendar progression and foreground Siri/Shortcuts entry points.
+- Signed iPhone build, installation and launch succeeded. Three synthetic fixture checks passed, plus bounded read-only Clock navigation and real on-phone generation of a two-step unapproved routine. The latest completed package run recorded **53 passed and 1 Mac model-unavailable skip**; expanded recovery checks remain pending.
+- Native iOS 27 recording and built-in voice chooser compile; recording, audible voice selection, live EventKit writes and HomePod behavior still need hardware evidence. See [the verification record](PHASE-ONE.md) for the boundary of each result.
 
 ## Start with two parallel tracks
 
-1. **Device and audio:** take #1 first, then #3; begin #4 on Mac while phone setup progresses.
-2. **App and learning:** take #2 first, then #9. If model downloads block progress, work on #10 or #8.
+1. **Device and audio:** finish the expanded #1 checks, build on the bounded #3 proof, then verify #4 and the built-in portion of #20.
+2. **App and learning:** broaden the successful #2 phone generation check, then connect #9/#19 observation evidence to #21 analytics. Work on #8 retention controls alongside that pipeline.
 
 Agree jointly on interfaces before #7 and #12. Integrate at #14. These tracks are suggestions, not assignments to particular people. Keep one active coding ticket per person where possible.
 
@@ -59,6 +59,15 @@ Optional native surfaces, health, limits and repeat-use/pricing work after the l
 | [#16 — Add a supported morning start action and Live Activity progress](https://github.com/gibouu/morning-operator/issues/16) | P2 | app | [#1](https://github.com/gibouu/morning-operator/issues/1) |
 | [#17 — Prototype optional Screen Time limits that preserve chosen rituals](https://github.com/gibouu/morning-operator/issues/17) | P2 | integrations | [#1](https://github.com/gibouu/morning-operator/issues/1) |
 | [#18 — Run a small repeat-use trial and define the first pricing hypothesis](https://github.com/gibouu/morning-operator/issues/18) | P2 | app | [#14](https://github.com/gibouu/morning-operator/issues/14) |
+
+## New follow-ups awaiting prioritization
+
+These issues have no milestone or priority assigned yet.
+
+| Issue | Current position | Next evidence |
+|---|---|---|
+| [#20 — Choose a morning companion voice and investigate consented custom voices](https://github.com/gibouu/morning-operator/issues/20) | Built-in voice chooser, search, preview and saved preference are implemented and compile. The custom-voice investigation remains separate. | Verify audible selection, fallback, persistence and output route on hardware. No Personal Voice prompt or custom-voice cloning is implemented. |
+| [#21 — Turn recorded mornings into evidence-based daily and weekly analytics](https://github.com/gibouu/morning-operator/issues/21) | Local run history and evidence types exist, with unknown values and coverage kept explicit. No recording-to-analytics producer proves external-app time or action counts yet. | Connect reviewed recordings to time-linked observations, provenance and coverage; validate on deliberate examples before showing usage/read/reply counts. Coordinate with #8, #9 and #19. |
 
 ## Later concepts without an implementation commitment
 

@@ -1,23 +1,42 @@
 # Personal device setup
 
-This is a development prototype for the owner's iPhone 15 Pro Max, MacBook Air M4 and one HomePod mini. The Mac package can be built independently. Installing the iPhone app and running XCUI tests requires full Xcode; Command Line Tools are insufficient. No App Store submission or distribution entitlement approval is needed for this setup.
+This is a development prototype for the owner's iPhone 15 Pro Max, MacBook Air M4 and one HomePod mini. The Mac package can be built independently. Installing the iPhone app and running XCUI tests requires full Xcode; Command Line Tools are insufficient. Full Xcode 27 is now installed, and a signed development build has been installed on the owner's phone. No App Store submission is needed for this personal setup.
 
 ## What was actually checked
 
-On 9 October 2026, `scripts/check-environment.sh` reported macOS **27.0.1**, Apple Swift **6.4**, XcodeGen **2.45.3**, and developer directory `/Library/Developer/CommandLineTools`. Full Xcode was not selected. The iPhone's installed OS, pairing, Developer Mode, signing and Apple Intelligence readiness have not been checked. No iPhone or HomePod test has run.
+On 9 October 2026, the initial Mac checks used macOS **27.0.1**, Apple Swift **6.4**, XcodeGen **2.45.3** and Command Line Tools. Setup has since progressed: **full Xcode 27 is installed**, the physical **iPhone 15 Pro Max running iOS 27.0.1** was detected with **Developer Mode enabled**, and the iOS application **built, signed and installed successfully**.
 
-The project targets iOS 26.0 and the Swift package targets iOS/macOS 26.0. This is a minimum, not an assertion about the phone's installed software. Newer SDK-only experiments need separate availability checks.
+The app launched successfully. Three core fixture journeys passed on the physical phone, as did a real Foundation Models proposal from synthetic notes and a bounded read-only Clock navigation/scroll test. Expanded editing/recovery checks and recording validation are tracked individually; Siri, EventKit writes and HomePod audio have not been proved by these tests. [PHASE-ONE.md](PHASE-ONE.md) holds the detailed verification record as checks finish.
+
+The project targets iOS 26.0 and the Swift package targets iOS/macOS 26.0. The tested installation used iOS 27.0.1 and Xcode 27; support for every older deployment-target/device combination has not been demonstrated. Newer SDK-only experiments need separate availability checks.
 
 ## Prepare Xcode and the phone
 
 1. Install/open a full Xcode version that supports the phone's OS and install its iOS platform support. Complete any first-launch component setup. In Xcode Settings → Locations, select that Xcode as Command Line Tools.
-2. Connect the phone by USB, unlock it and complete Trust/Developer Mode prompts. Inspect its status in Xcode → Window → Devices and Simulators. Do not run against a locked or unidentified phone.
+2. Connect the phone by USB, unlock it and complete Trust/Developer Mode prompts. Inspect its status in Xcode’s device manager (Device Hub in Xcode 27; Devices and Simulators in older Xcode). Do not run against a locked or unidentified phone.
 3. Run `scripts/check-environment.sh` from this repository. Record Xcode, iOS, device model and build numbers in the local test notes. Its exit code 2 means full Xcode is unavailable, not that an iPhone test failed.
-4. Run `scripts/generate-project.sh`, then open `MorningOperator.xcodeproj`. The iOS application uses the local package's `MorningCore` and `MorningApple` products; XCUI code belongs only to `MorningOperatorUITests`.
+4. Open the checked-in `MorningOperator.xcodeproj`. Regenerate it with `scripts/generate-project.sh` after source additions/removals or `project.yml` changes; generation needs XcodeGen. The command-line device-test runner regenerates the project automatically and therefore requires XcodeGen. The iOS application uses the local package's `MorningCore` and `MorningApple` products; XCUI code belongs only to `MorningOperatorUITests`.
 5. Select your own development team for the application and UI-test targets in Xcode. The repository deliberately contains no team ID or signing credentials. The app bundle is `com.gibouu.morningoperator`; the test bundle is `com.gibouu.morningoperator.uitests`. Resolve signing through Xcode before invoking command-line tests. The script does not register devices or modify provisioning automatically.
 6. Build/run the app on the explicitly selected phone. Verify the native interface first. A Mac package build does not validate the iOS SDK or device installation.
 
-The iOS/macOS configuration plists declare microphone and speech-recognition purpose strings plus Calendar access for the user-initiated read-only briefing integration. EventKit reading requires full calendar permission even when the app chooses not to modify events. A purpose string is not permission approval. There are no HealthKit, Family Controls, HomeKit, ReplayKit, background-audio or other capability entitlements in this first configuration; add only the capability required by a concrete integration and validate it. Audio currently playing in a foreground app does not establish background operation.
+The owner's current checkout has completed signed installation and launch; leave the phone unlocked for test runs. A partner repeats setup on their own Mac and phone, with their own account, development team and device selection. Keep those identifiers in local configuration and test evidence rather than shared documentation.
+
+## Check the installed app
+
+The current native interface has **Morning**, **Review** and **Notes** tabs. Morning contains the day strip, routine timeline and run controls; **Learn & refine** opens learning, and the toolbar opens **Settings**. Use synthetic content for the first device walkthrough.
+
+- [x] Unlock the selected phone and confirm the installed app launches. Record an actual launch result separately from installation.
+- [x] Review and approve a sample, start it, move to another step, pause and continue without losing the current step. Open **Morning controls → End morning** and confirm the stopped state.
+- [x] In Notes, create a **Dream** with invented text and choose **Save my dream**. Confirm it appears under the Dream filter and survives switching tabs. This path saves locally and does not write to Calendar or Reminders.
+- [x] Swipe Morning to yesterday. An empty day must show an empty-history message rather than today's draft. Swipe back to today. Review should distinguish missing history from measured activity; no cross-app usage is implied.
+- [ ] Check Learn and Settings on the physical screen, including unavailable-model messaging. A successful routine proposal requires a separate real model test.
+- [ ] Exercise automatic progression separately: a supported spoken briefing can advance after synthesis finishes; interactive steps wait for the user. Pausing, stopping, interruptions and unavailable adapters must not count as completed actions.
+- [ ] Verify Siri/Shortcuts discovery and foreground routing separately. **Start morning** requests an already approved routine; **Quick capture** takes a thought, dream, reminder request or calendar idea into the app for review. The intent itself does not approve a draft, save a system item or prove that Siri worked on this phone.
+- [ ] In Settings, test voice audibly and use the real iPhone audio-output picker. Confirm the selected speaker/headphones and actual sound. AirPlay output does not expose the HomePod microphone; the Mac companion instead points to Control Center.
+
+Checked items have recorded device evidence; unchecked items are still pending. Calendar/Reminders permissions and writes, microphone input, HomePod transfer and external-app observation are separate deliberate tests. A local dream fixture must not request or exercise those integrations.
+
+Permission purpose strings explain user-initiated microphone, speech and EventKit requests; they are not permission approval. The Calendar briefing reads events. EventKit reading requires full calendar permission even when the current operation does not modify events. Saving a reviewed reminder/calendar capture is a separate explicit write and needs its corresponding authorization. Validate each integration separately rather than inferring HealthKit, Screen Time, HomeKit or recording support from successful app installation. Audio playing in a foreground app does not establish background operation.
 
 ## Run the fixture journey
 
@@ -27,9 +46,26 @@ Find the exact device identifier with the full Xcode device UI or `xcrun devicec
 scripts/run-device-tests.sh --device YOUR_DEVICE_ID --team YOUR_TEAM_ID --suite fixture
 ```
 
-The fixture test starts the app with `--ui-testing --fixture-mode`, then exercises approve → start → next → pause → resume → stop. It checks the actual displayed run state and preserved current item. This is synthetic app data; it does not inspect a personal inbox or prove external-app control.
+The fixture suite starts the app with `--ui-testing --fixture-mode`, which creates an isolated temporary workspace and disables automatic progression and speech. It exercises approve → start → next → pause → resume → Morning controls → stop, checking the actual displayed state and preserved current item. Additional tests save a synthetic local dream, verify its category and tab navigation, and swipe to an empty past day and back. They request no external permissions and create no Calendar or Reminders items. The first three journeys passed; the expanded suite also covers editing, approved-version restoration and recovery across relaunch. See PHASE-ONE for the latest full run. They do not inspect a personal inbox or prove external-app control.
 
-The test runner uses an amended local `.xctestrun` file so environment settings reach XCTest. It builds once and runs without rebuilding. Results and screenshots are in a unique `work/device-runs/.../Results.xcresult`; build/test logs are beside the result. Open that result in Xcode and distinguish **passed**, **failed** and **skipped**. An exit status alone must not turn a skipped hardware check into a pass.
+The test runner uses an amended local `.xctestrun` file so environment settings reach XCTest. It reuses `.build/iphone` across suites, builds incrementally, then runs without rebuilding. Results and screenshots are in a unique `work/device-runs/.../Results.xcresult`; build/test logs are beside the result. Open that result in Xcode and distinguish **passed**, **failed** and **skipped**. An exit status alone must not turn a skipped hardware check into a pass.
+
+## Local model and Clock checks
+
+```sh
+scripts/run-device-tests.sh --device YOUR_DEVICE_ID --team YOUR_TEAM_ID --suite learning
+scripts/run-device-tests.sh --device YOUR_DEVICE_ID --team YOUR_TEAM_ID --suite clock
+```
+
+The learning test supplies synthetic calendar/chess notes to the actual local model. It explicitly skips if unavailable; once an attempt begins, generation failure is a failure. A result must be a new unapproved draft. This passed on the owner's phone on 9 October 2026.
+
+The Clock test switches between World Clock and Alarms, performs one upward list gesture, compares visible row positions, and returns to World Clock. It never changes alarms or starts timers. It passed on the owner's phone. This proves bounded developer-test control, not unrestricted control from the ordinary app.
+
+## Record a short morning
+
+On iOS 27, open **Learn my morning → Record a little of my morning**. Choose **Start screen recording**, review Apple’s picker and select the scope yourself. Keep the first clip short and use harmless content. Return to Morning Operator, choose **Stop recording → Use this recording**, review the extracted text, then choose **Suggest a routine**. Correct the draft before approval.
+
+The native recording has a ten-minute/256 MB bound and does not request microphone or camera input. It can include personal material shown on screen. The temporary file remains local and is removed after extraction/discard. On iOS 26, choose an existing recording, screenshot or text file instead. Current extraction samples up to 24 moments; it does not yet produce a complete daily app-usage report or prove which messages were read.
 
 ## Settings smoke test
 

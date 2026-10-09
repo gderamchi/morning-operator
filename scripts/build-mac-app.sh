@@ -17,11 +17,11 @@ export SWIFTPM_MODULECACHE_OVERRIDE="${SWIFTPM_MODULECACHE_OVERRIDE:-$repo_dir/.
 mkdir -p "$CLANG_MODULE_CACHE_PATH" "$repo_dir/.build/cache"
 cd "$repo_dir"
 # The native builder supports this dependency-free package with Command Line Tools as well as Xcode.
-swift build --build-system native --cache-path "$repo_dir/.build/cache" --configuration "$configuration" --product MorningOperator
+swift build --build-system native --cache-path "$repo_dir/.build/cache" --configuration "$configuration" --product MorningOperatorDesktop
 binary_dir="$(swift build --build-system native --cache-path "$repo_dir/.build/cache" --configuration "$configuration" --show-bin-path)"
 app_dir="$repo_dir/build/Morning Operator.app"
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
-cp "$binary_dir/MorningOperator" "$app_dir/Contents/MacOS/MorningOperator"
+cp "$binary_dir/MorningOperatorDesktop" "$app_dir/Contents/MacOS/MorningOperator"
 cp "$repo_dir/Configuration/macOS-Info.plist" "$app_dir/Contents/Info.plist"
 chmod +x "$app_dir/Contents/MacOS/MorningOperator"
 codesign --force --sign - "$app_dir"

@@ -4,11 +4,13 @@ import MorningCore
 import MorningApple
 
 enum MorningTab: String, CaseIterable, Identifiable {
-    case today = "Today", learn = "Learn", setup = "Setup"
+    case today = "Morning", review = "Review", captures = "Notes", learn = "Learn", setup = "Settings"
     var id: String { rawValue }
     var symbol: String {
         switch self {
-        case .today: "sun.max"
+        case .today: "sun.horizon"
+        case .review: "chart.bar.xaxis"
+        case .captures: "square.and.pencil"
         case .learn: "sparkles"
         case .setup: "slider.horizontal.3"
         }
@@ -20,6 +22,15 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var routine: RoutineVersion?
     var session: RoutineSession?
     var previousRoutine: RoutineVersion?
+    var history: MorningHistory?
+    var captures: [QuickCapture]?
+    var receipts: [String: String]?
+    var sessionTimeZone: String?
+    var automatic: Bool?
+    var readAloud: Bool?
+    var sessionTimingInterrupted: Bool?
+    var pendingCaptures: [String: String]?
+    var voiceIdentifier: String?
 }
 
 @MainActor @Observable
@@ -35,21 +46,38 @@ final class MorningStore {
     private(set) var analysisStatus = ""
     private(set) var calendarSnapshot: CalendarSnapshot?
     private(set) var calendarBusy = false
-    var readAloud = false
+    var readAloud = true
+    var automatic = true
+    var capturePresented = false
+    var capturePrefill = ""
+    var captureSource: QuickCaptureSource = .typed
+    private(set) var captureBusy = false
+    private(set) var history = MorningHistory()
+    private(set) var captures: [QuickCapture] = []
+    private(set) var receipts: [String: String] = [:]
+    private(set) var pendingCaptures: [String: String] = [:]
+    private var sessionTimingInterrupted = false
+    private var sessionTimeZone = TimeZone.current.identifier
+    let reminders = ReminderService()
+    @ObservationIgnored private lazy var stepExecutor = MorningAppStepExecutor(speech: speech, calendar: calendar)
+    @ObservationIgnored lazy var automation = MorningAutomationCoordinator(executor: stepExecutor)
     let intelligence = AppleIntelligenceService()
     let speech = SpeechCoordinator()
     private let media = MediaObservationService()
     private let calendar = CalendarObservationService()
     private var notesSourceLabel = "Your written observation"
     private let snapshot: AtomicJSONFile<WorkspaceSnapshot>
+    @ObservationIgnored private var snapshotRecoveryError: String?
     private var analysisTask: Task<Void, Never>?
 
     init() {
         let fixtureMode = ProcessInfo.processInfo.arguments.contains("--ui-testing")
         let directory: URL
         if fixtureMode {
+            let suppliedID = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--ui-testing-workspace=") }
+                .flatMap { UUID(uuidString: String($0.dropFirst("--ui-testing-workspace=".count))) }
             directory = FileManager.default.temporaryDirectory
-                .appendingPathComponent("MorningOperatorUITests-\(UUID().uuidString)")
+                .appendingPathComponent("MorningOperatorUITests-\((suppliedID ?? UUID()).uuidString)")
         } else if let override = ProcessInfo.processInfo.environment["MORNING_OPERATOR_DATA_DIR"] {
             directory = URL(fileURLWithPath: override, isDirectory: true)
         } else {
@@ -57,25 +85,41 @@ final class MorningStore {
                 .appendingPathComponent("MorningOperator", isDirectory: true)
         }
         snapshot = AtomicJSONFile(url: directory.appendingPathComponent("workspace.json"))
-        if fixtureMode {
+        if fixtureMode && !FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             routine = DemoFixtures.candidateRoutine
+            automatic = false
+            readAloud = false
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             do {
                 let saved = try snapshot.load()
                 guard saved.schemaVersion == 1 else {
-                    notice = "This saved routine uses a newer format. Your file has been kept intact."
+                    snapshotRecoveryError = "This saved routine uses a newer format. Your file has been kept intact."
+                    notice = snapshotRecoveryError
                     return
                 }
                 routine = saved.routine
                 session = saved.session
                 previousRoutine = saved.previousRoutine
+                history = saved.history ?? MorningHistory()
+                captures = saved.captures ?? []
+                receipts = saved.receipts ?? [:]
+                sessionTimeZone = saved.sessionTimeZone ?? TimeZone.current.identifier
+                automatic = saved.automatic ?? true
+                readAloud = saved.readAloud ?? true
+                speech.voiceIdentifier = saved.voiceIdentifier
+                sessionTimingInterrupted = saved.sessionTimingInterrupted ?? false
+                pendingCaptures = saved.pendingCaptures ?? [:]
+                if !pendingCaptures.isEmpty { notice = "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again." }
                 if session?.status == .running {
+                    sessionTimingInterrupted = true
                     try session?.pause()
                     notice = "Your previous morning is paused. Resume when you're ready."
                     persist()
                 }
             } catch {
-                notice = "Couldn't restore your last routine: \(error.localizedDescription)"
+                let message = "Couldn't restore your saved workspace: \(error.localizedDescription)"
+                snapshotRecoveryError = message
+                notice = "\(message) Your existing file is protected from changes."
             }
         }
     }
@@ -121,46 +165,58 @@ final class MorningStore {
         do {
             if session?.status == .paused { try session?.resume() }
             else if session?.status != .running {
+                archiveTerminalSession()
+                sessionTimeZone = TimeZone.current.identifier
+                sessionTimingInterrupted = false
                 session = RoutineSession(routine: routine)
                 try session?.start()
             }
             notice = nil
-            persist()
-            speakCurrentIfEnabled()
+            guard persist() else { pauseAfterSaveFailure(); return }
+            runCurrentIfEnabled()
         } catch { notice = error.localizedDescription }
     }
 
     func pause() {
-        do { try session?.pause(); speech.pause(); notice = nil; persist() }
+        automation.cancel()
+        do { try session?.pause(); speech.stop(); notice = nil; persist() }
         catch { notice = error.localizedDescription }
     }
 
     func resume() {
-        do { try session?.resume(); notice = nil; persist(); speakCurrentIfEnabled() }
+        do {
+            try session?.resume(); notice = nil
+            guard persist() else { pauseAfterSaveFailure(); return }
+            runCurrentIfEnabled()
+        }
         catch { notice = error.localizedDescription }
     }
 
-    func advance(skipping: Bool = false) {
+    func advance(skipping: Bool = false, commandID: UUID = UUID()) {
+        automation.cancel()
         do {
-            try session?.advance(skipping: skipping)
+            try session?.advance(skipping: skipping, commandID: commandID)
             speech.stop()
             notice = nil
             if session?.status == .completed {
                 notice = "Morning complete. Your progress is saved on this device."
             }
-            persist()
-            if session?.status != .completed { speakCurrentIfEnabled() }
+            archiveTerminalSession()
+            guard persist() else { pauseAfterSaveFailure(); return }
+            if session?.status != .completed { runCurrentIfEnabled() }
         } catch { notice = error.localizedDescription }
     }
 
     func stop() {
+        automation.cancel()
         speech.stop()
-        do { try session?.stop(); notice = nil; persist() }
+        do { try session?.stop(); archiveTerminalSession(); notice = nil; persist() }
         catch { notice = error.localizedDescription }
     }
 
     func readCurrent() {
         guard let step = currentStep else { return }
+        automation.cancel()
         speech.speak("\(step.title). \(step.detail)")
     }
 
@@ -210,7 +266,11 @@ final class MorningStore {
         analysisTask = Task { [weak self] in
             guard let self else { return }
             let granted = url.startAccessingSecurityScopedResource()
-            defer { if granted { url.stopAccessingSecurityScopedResource() } }
+            defer {
+                if granted { url.stopAccessingSecurityScopedResource() }
+                // Only recordings created by this app are removed after extraction.
+                _ = try? ScreenRecordingFiles.removeIfOwned(url)
+            }
             do {
                 let extracted = try await media.extractText(from: url) { [weak self] fraction in
                     self?.progress = fraction
@@ -220,7 +280,7 @@ final class MorningStore {
                 notesSourceLabel = "Selected file, reviewed by you: \(url.lastPathComponent)"
                 busy = false
                 progress = 1
-                notice = "Observation loaded. Review or trim the extracted text, then choose Find my routine."
+                notice = "Observation loaded. Review or trim the extracted text, then choose Suggest a routine."
             } catch {
                 finishAnalysis(error: error)
             }
@@ -237,7 +297,7 @@ final class MorningStore {
     func useManualRoutine() {
         guard !sessionActive, !busy else { notice = "Stop this morning before creating another routine."; return }
         installCandidate(RoutineVersion(number: 1, sourceLabel: "Created by you", steps: [
-            RoutineStep(title: "A calm start", detail: "Review what matters today.", kind: .briefing, durationMinutes: 3, isRequired: true)
+            RoutineStep(title: "A calm start", detail: "Review what matters today.", kind: .briefing, durationMinutes: 3, isRequired: true, automation: .spokenNote)
         ], isApproved: false))
         tab = .today
         persist()
@@ -289,10 +349,143 @@ final class MorningStore {
         notice = error is CancellationError ? "Analysis stopped. Your existing routine is unchanged." : error.localizedDescription
     }
 
-    private func speakCurrentIfEnabled() { if readAloud { readCurrent() } }
+    func saveVoicePreference() { persist() }
 
-    private func persist() {
-        do { try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine)) }
-        catch { notice = "Your change is in memory, but saving failed: \(error.localizedDescription)" }
+    func executionPreferencesChanged() {
+        automation.cancel()
+        speech.stop()
+        guard persist() else { pauseAfterSaveFailure(); return }
+        runCurrentIfEnabled()
+    }
+
+    func openCapture(text: String = "", source: QuickCaptureSource = .typed) {
+        capturePrefill = text
+        captureSource = source
+        capturePresented = true
+    }
+
+    @discardableResult
+    func saveCapture(kind: QuickCaptureKind, text: String, date: Date?, duration: Int = 30,
+                     saveToSystem: Bool, id: UUID) async -> Bool {
+        guard !captureBusy else { return false }
+        guard pendingCaptures[id.uuidString] == nil else {
+            notice = "This save has an unconfirmed outcome. Check the Apple app before trying again."
+            return false
+        }
+        captureBusy = true
+        defer { captureBusy = false }
+        do {
+            let capture = try QuickCapture(id: id, kind: kind, text: text, requestedDate: date, source: captureSource)
+            if saveToSystem {
+                if kind == .reminder {
+                    try ReminderDraft(title: text, dueDate: date, notifyAtDueTime: date != nil).validate()
+                } else if kind == .calendarIdea {
+                    guard let date else { notice = "Choose a date and time for the calendar event."; return false }
+                    try CalendarEventDraft(title: text, startDate: date,
+                        endDate: date.addingTimeInterval(Double(duration) * 60)).validate()
+                }
+            }
+            // A retry after a known successful write must never create a duplicate system item.
+            if saveToSystem && receipts[id.uuidString] == nil {
+                let receipt: EventKitWriteReceipt
+                switch kind {
+                case .reminder:
+                    try await reminders.requestReminderAccess()
+                    pendingCaptures[id.uuidString] = "Reminders"
+                    upsertCapture(capture)
+                    guard persist() else { pendingCaptures[id.uuidString] = nil; return false }
+                    receipt = try reminders.createReminder(from: ReminderDraft(title: text, dueDate: date,
+                        notifyAtDueTime: date != nil))
+                case .calendarIdea:
+                    guard let date else { notice = "Choose a date and time for the calendar event."; return false }
+                    try await reminders.requestCalendarWriteAccess()
+                    pendingCaptures[id.uuidString] = "Calendar"
+                    upsertCapture(capture)
+                    guard persist() else { pendingCaptures[id.uuidString] = nil; return false }
+                    receipt = try reminders.createCalendarEvent(from: CalendarEventDraft(title: text,
+                        startDate: date, endDate: date.addingTimeInterval(Double(duration) * 60)))
+                default: notice = "Choose a reminder or calendar event to save to Apple apps."; return false
+                }
+                receipts[id.uuidString] = receipt.id
+                pendingCaptures[id.uuidString] = nil
+            }
+            upsertCapture(capture)
+            notice = saveToSystem ? "Saved in Apple \(kind == .reminder ? "Reminders" : "Calendar") and your notes." : "Saved on this device."
+            let saved = persist()
+            if !saved && saveToSystem {
+                notice = "Apple saved this item, but the local receipt could not be saved. Check Apple \(kind == .reminder ? "Reminders" : "Calendar") before trying again."
+            }
+            // A completed external write dismisses the draft even if the local disk write failed.
+            return saved || saveToSystem
+        } catch {
+            notice = pendingCaptures[id.uuidString] == nil ? error.localizedDescription :
+                "The Apple app save could not be confirmed. Check it before retrying. \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private func upsertCapture(_ capture: QuickCapture) {
+        if let index = captures.firstIndex(where: { $0.id == capture.id }) { captures[index] = capture }
+        else { captures.insert(capture, at: 0) }
+    }
+
+    func daySummary(_ date: Date) -> MorningDaySummary? {
+        try? history.day(containing: date)
+    }
+
+    var weekSummary: SevenDaySummary? { try? history.sevenDaySummary(endingOn: Date()) }
+
+    private func runCurrentIfEnabled() {
+        guard let session, session.status == .running else { return }
+        if automatic {
+            stepExecutor.spokenEnabled = readAloud
+            automation.runCurrentStep(in: session) { [weak self] context in
+                guard let self, self.session?.id == context.executionID.sessionID,
+                      self.session?.currentStep?.id == context.executionID.stepID,
+                      self.session?.status == .running else { return }
+                self.advance(commandID: context.commandID)
+            }
+        } else if readAloud { readCurrent() }
+    }
+
+    func handleSpeechInterruption() {
+        guard session?.status == .running, speech.state == .paused else { return }
+        let message = speech.lastError ?? "Audio was interrupted. Continue when you're ready."
+        pause()
+        notice = message
+    }
+
+    private func pauseAfterSaveFailure() {
+        automation.cancel()
+        speech.stop()
+        if session?.status == .running { try? session?.pause() }
+        // Preserve the disk-error message and do not dispatch another action.
+    }
+
+    private func archiveTerminalSession() {
+        guard let session, session.status == .completed || session.status == .stopped else { return }
+        do {
+            history.upsert(try MorningRunRecord(session: session, timeZoneIdentifier: sessionTimeZone,
+                isSynthetic: session.routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture"),
+                timingInterrupted: sessionTimingInterrupted))
+        } catch { notice = "This morning could not be added to history: \(error.localizedDescription)" }
+    }
+
+    @discardableResult
+    private func persist() -> Bool {
+        if let snapshotRecoveryError {
+            notice = "\(snapshotRecoveryError) Your existing file is protected; new changes cannot be saved until it can be restored."
+            return false
+        }
+        do {
+            try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
+                history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
+                automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
+                pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier))
+            return true
+        } catch {
+            notice = "Your change is in memory, but saving failed: \(error.localizedDescription)"
+            return false
+        }
     }
 }
