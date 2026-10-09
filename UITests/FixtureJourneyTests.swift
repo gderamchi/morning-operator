@@ -11,9 +11,7 @@ final class VoicePlaybackTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode"]
         app.launch()
-        let settings = app.buttons["navigation.setup"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 10))
-        settings.tap()
+        MorningUITestNavigation.reviewAction("navigation.setup", in: app)
         let readAloud = app.switches["setup.readAloud"]
         XCTAssertTrue(readAloud.waitForExistence(timeout: 5))
         let sheet = app.scrollViews.containing(.switch, identifier: "setup.readAloud").firstMatch
@@ -22,14 +20,19 @@ final class VoicePlaybackTests: XCTestCase {
         readAloud.tap()
         XCTAssertEqual(readAloud.value as? String, "1")
         app.navigationBars["Settings"].buttons["Done"].tap()
+        MorningUITestNavigation.openRoutine(in: app)
         app.buttons["routine.approve"].tap()
+        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
         app.buttons["run.start"].tap()
         let step = app.staticTexts["run.step"]
         XCTAssertTrue(step.waitForExistence(timeout: 5))
         XCTAssertEqual(step.label, "A calm start")
         // The first fixture step is a real spokenNote operation; the next is manual.
         // Enabling automatic progression dispatches the production speech executor.
-        let handsFree = app.switches["Hands free"]
+        app.buttons["run.controls"].tap()
+        // SwiftUI exposes a menu Toggle as a menu button on iOS and as a switch
+        // on some test runtimes. Both represent the same visible Hands free action.
+        let handsFree = app.switches["Hands free"].exists ? app.switches["Hands free"] : app.buttons["Hands free"]
         XCTAssertTrue(handsFree.waitForExistence(timeout: 5))
         handsFree.tap()
         let advanced = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "People and messages"), object: step)
@@ -51,9 +54,7 @@ final class VoicePlaybackTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode"]
         app.launch()
-        let settings = app.buttons["navigation.setup"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 10))
-        settings.tap()
+        MorningUITestNavigation.reviewAction("navigation.setup", in: app)
         let preview = app.buttons["setup.testVoice"]
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
         let sheet = app.scrollViews.containing(.button, identifier: "setup.testVoice").firstMatch
@@ -93,6 +94,7 @@ final class FixtureJourneyTests: XCTestCase {
         let app = launchFixture()
         attachScreenshot("fixture-initial-timeline-before-approval", from: app)
 
+        MorningUITestNavigation.openRoutine(in: app)
         tapButton("routine.approve", in: app)
         tapButton("run.start", in: app)
         assertState("running", in: app)
@@ -118,11 +120,11 @@ final class FixtureJourneyTests: XCTestCase {
         attachScreenshot("fixture-stopped", from: app)
     }
 
-    func testDreamIsSavedLocallyAndRetainedAcrossTabNavigation() throws {
+    func testDreamIsSavedLocallyAndRetainedAcrossReviewNavigation() throws {
         let app = launchFixture()
         let dream = "I dreamed of a blue library above the sea."
 
-        selectTab("Notes", in: app)
+        MorningUITestNavigation.reviewAction("review.thoughts", in: app)
         tapButton("capture.open", in: app)
         tapButton("capture.kind.dream", in: app)
         let editor = app.textViews["capture.text"]
@@ -147,37 +149,62 @@ final class FixtureJourneyTests: XCTestCase {
         tapButton("capture.filter.dream", in: app)
         XCTAssertTrue(app.staticTexts[dream].waitForExistence(timeout: 5))
         selectTab("Morning", in: app)
-        selectTab("Notes", in: app)
+        selectTab("Review", in: app)
         XCTAssertTrue(app.staticTexts[dream].waitForExistence(timeout: 5), "The saved dream must survive leaving its screen.")
         XCTAssertEqual(app.alerts.count, 0, "Local capture must not request external permissions.")
         attachScreenshot("fixture-local-dream", from: app)
     }
 
-    func testSwipingToAnEmptyDayDoesNotInventMorningHistory() throws {
+    func testReviewPeriodAndEmptyDayDoNotInventMorningHistory() throws {
         let app = launchFixture()
-        let yesterday = app.buttons["history.day.-1"]
-        let today = app.buttons["history.day.0"]
-        XCTAssertTrue(today.waitForExistence(timeout: 5))
-        XCTAssertTrue(today.isSelected)
+        selectTab("Review", in: app)
+        let period = app.buttons["review.period"]
+        XCTAssertTrue(period.waitForExistence(timeout: 5))
+        let currentPeriod = period.label
+        XCTAssertFalse(app.staticTexts["review.average"].exists, "A sample plan must not create a measured average.")
+        XCTAssertFalse(app.buttons["review.nextWeek"].isEnabled)
+        tapButton("review.previousWeek", in: app)
+        XCTAssertNotEqual(period.label, currentPeriod)
+        XCTAssertTrue(app.buttons["review.nextWeek"].isEnabled)
+        XCTAssertFalse(app.staticTexts["review.average"].exists)
+        tapButton("review.nextWeek", in: app)
+        XCTAssertEqual(period.label, currentPeriod)
+        XCTAssertFalse(app.buttons["review.nextWeek"].isEnabled)
+        tapButton("review.period", in: app)
 
-        let morning = app.scrollViews.firstMatch
-        XCTAssertTrue(morning.exists)
-        morning.swipeRight()
-        waitForSelection(yesterday)
-        XCTAssertTrue(app.staticTexts["A little space in your story."].waitForExistence(timeout: 5))
+        let yesterday = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
+        let dateKey = DateFormatter()
+        dateKey.calendar = Calendar(identifier: .gregorian)
+        dateKey.locale = Locale(identifier: "en_US_POSIX")
+        dateKey.timeZone = .current
+        dateKey.dateFormat = "yyyy-MM-dd"
+        if !app.buttons["review.day.\(dateKey.string(from: yesterday))"].waitForExistence(timeout: 3) {
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "synthetic-review-days-accessibility"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        tapButton("review.day.\(dateKey.string(from: yesterday))", in: app)
+        XCTAssertTrue(app.staticTexts["No routine saved for this day."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["A missing run stays unknown. It isn't counted as a zero-minute morning."].exists)
         XCTAssertFalse(app.buttons["routine.approve"].exists, "An empty past day must not show today's draft as history.")
         XCTAssertFalse(app.buttons["run.start"].exists)
-        attachScreenshot("fixture-empty-history-day", from: app)
-
-        morning.swipeLeft()
-        waitForSelection(today)
-        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["A little space in your story."].exists)
+        XCTAssertFalse(app.buttons["routine.step.0"].exists)
+        XCTAssertFalse(app.staticTexts["Active routine time"].exists)
+        attachScreenshot("fixture-review-empty-history-day", from: app)
+        selectTab("Morning", in: app)
+        XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5), "The current draft must remain intact outside history.")
+        tapButton("morning.date", in: app)
+        XCTAssertTrue(app.buttons["review.period"].waitForExistence(timeout: 5), "The date must reopen the period, not a previously pushed day detail.")
+        XCTAssertFalse(app.staticTexts["No routine saved for this day."].exists)
     }
 
     func testEditedDraftRestoresApprovedRoutineAndRunningSessionRecoversAfterRelaunch() throws {
         let app = launchFixture(workspaceID: UUID())
+        MorningUITestNavigation.openRoutine(in: app)
         tapButton("routine.approve", in: app)
+        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
+        MorningUITestNavigation.openRoutine(in: app)
         tapButton("routine.step.0", in: app)
 
         let name = app.textFields["Step name"]
@@ -195,20 +222,27 @@ final class FixtureJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["run.start"].exists, "Editing an approved version creates a draft that cannot start yet.")
         XCTAssertTrue(app.buttons["routine.step.0"].label.contains(editedName))
+        MorningUITestNavigation.closeRoutine(in: app)
+        selectTab("Morning", in: app)
+        XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["run.start"].exists, "An edited draft must not start from Morning.")
 
         // Reuse only this test's UUID under the application's temporary fixture directory.
         // Relaunch must load the existing draft and retained approved version rather than reseed.
         app.terminate()
         app.launch()
+        MorningUITestNavigation.openRoutine(in: app)
         XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["routine.step.0"].label.contains(editedName), "The edited draft must survive relaunch.")
         XCTAssertTrue(app.buttons["routine.restore"].exists, "The previous approved version must also survive relaunch.")
         attachScreenshot("fixture-persisted-draft-before-restore", from: app)
         tapButton("routine.restore", in: app)
-        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["routine.step.0"].label.contains(originalName))
         XCTAssertFalse(app.buttons["routine.step.0"].label.contains("test revision"))
         XCTAssertFalse(app.buttons["routine.approve"].exists)
+        MorningUITestNavigation.closeRoutine(in: app)
+        selectTab("Morning", in: app)
+        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
 
         tapButton("run.start", in: app)
         tapButton("run.next", in: app)
@@ -281,7 +315,7 @@ final class FixtureJourneyTests: XCTestCase {
     }
 
     private func openLearnAndAssertNotes(_ expected: String, in app: XCUIApplication) {
-        tapButton("learn.refine", in: app)
+        MorningUITestNavigation.reviewAction("review.learn", in: app)
         let editor = app.textViews["learn.notes"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         let learnScroll = app.scrollViews.containing(.textView, identifier: "learn.notes").firstMatch
@@ -320,10 +354,7 @@ final class FixtureJourneyTests: XCTestCase {
     }
 
     private func selectTab(_ title: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        let tab = app.tabBars.buttons[title]
-        XCTAssertTrue(tab.waitForExistence(timeout: 5), "Missing native tab: \(title)", file: file, line: line)
-        XCTAssertTrue(tab.isHittable, file: file, line: line)
-        tab.tap()
+        MorningUITestNavigation.selectTab(title, in: app, file: file, line: line)
     }
 
     private func attachScreenshot(_ name: String, from app: XCUIApplication) {
@@ -338,20 +369,8 @@ final class FixtureJourneyTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed, file: file, line: line)
     }
 
-    private func waitForSelection(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertTrue(element.waitForExistence(timeout: 5), file: file, line: line)
-        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed, file: file, line: line)
-    }
-
     private func tapButton(_ identifier: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        let button = app.buttons[identifier]
-        XCTAssertTrue(button.waitForExistence(timeout: 10), "Missing fixture control: \(identifier)", file: file, line: line)
-        for _ in 0..<3 where !button.isHittable {
-            app.scrollViews.firstMatch.swipeUp()
-        }
-        XCTAssertTrue(button.isHittable, "Fixture control is not hittable: \(identifier)", file: file, line: line)
-        button.tap()
+        MorningUITestNavigation.tapButton(identifier, in: app, file: file, line: line)
     }
 
     private func assertState(_ expected: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
@@ -367,10 +386,70 @@ final class FixtureJourneyTests: XCTestCase {
     private func stepTitle(in app: XCUIApplication) -> String {
         let step = app.staticTexts["run.step"]
         XCTAssertTrue(step.waitForExistence(timeout: 5))
-        return accessibleText(step)
+        // A SwiftUI Text uses its accessibility label; its value can be an empty
+        // string even when the title is visible. Values belong to the state/editor.
+        return step.label
     }
 
     private func accessibleText(_ element: XCUIElement) -> String {
         (element.value as? String) ?? element.label
+    }
+}
+
+/// Shared navigation for the two-tab UI. Every action still requires an existing,
+/// visible control; scrolling targets its own sheet/list rather than a hidden page.
+@MainActor
+enum MorningUITestNavigation {
+    static func selectTab(_ title: String, in app: XCUIApplication,
+                          file: StaticString = #filePath, line: UInt = #line) {
+        let tab = app.tabBars.buttons[title]
+        XCTAssertTrue(tab.waitForExistence(timeout: 5), "Missing native tab: \(title)", file: file, line: line)
+        XCTAssertTrue(tab.isHittable, "Native tab must be tappable: \(title)", file: file, line: line)
+        tab.tap()
+    }
+
+    static func reviewAction(_ identifier: String, in app: XCUIApplication,
+                             file: StaticString = #filePath, line: UInt = #line) {
+        selectTab("Review", in: app, file: file, line: line)
+        tapButton(identifier, in: app, file: file, line: line)
+    }
+
+    static func openRoutine(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        reviewAction("review.routine", in: app, file: file, line: line)
+        XCTAssertTrue(app.navigationBars["Your routine"].waitForExistence(timeout: 5), file: file, line: line)
+    }
+
+    static func closeRoutine(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let sheet = app.navigationBars["Your routine"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), file: file, line: line)
+        let done = sheet.buttons["Done"]
+        XCTAssertTrue(done.isHittable, file: file, line: line)
+        done.tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: sheet)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed, file: file, line: line)
+    }
+
+    static func tapButton(_ identifier: String, in app: XCUIApplication,
+                          file: StaticString = #filePath, line: UInt = #line) {
+        let button = app.buttons[identifier]
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "Missing control: \(identifier)", file: file, line: line)
+        for _ in 0..<4 where !button.isHittable {
+            let collection = app.collectionViews.containing(.button, identifier: identifier).firstMatch
+            let table = app.tables.containing(.button, identifier: identifier).firstMatch
+            let scroll = app.scrollViews.containing(.button, identifier: identifier).firstMatch
+            let container: XCUIElement
+            if collection.exists { container = collection }
+            else if table.exists { container = table }
+            else {
+                XCTAssertTrue(scroll.exists, "No visible scroll container for \(identifier)", file: file, line: line)
+                container = scroll
+            }
+            // Review preserves its scroll position after Settings/Learn closes. A row
+            // above that position needs the opposite gesture from a row below it.
+            if button.frame.height > 0, button.frame.midY < container.frame.midY { container.swipeDown() }
+            else { container.swipeUp() }
+        }
+        XCTAssertTrue(button.isHittable, "Control is not hittable: \(identifier)", file: file, line: line)
+        button.tap()
     }
 }

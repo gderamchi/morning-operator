@@ -222,7 +222,7 @@ struct SetupView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text("Companion voice").font(.subheadline.weight(.semibold))
-                                Text(store.speech.availableVoices.first { $0.id == store.speech.voiceIdentifier }?.name ?? "System default")
+                                Text(store.speech.selectedVoiceSummary)
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -242,7 +242,7 @@ struct SetupView: View {
                         HStack(spacing: 12) { voiceControls }
                         VStack(alignment: .leading, spacing: 12) { voiceControls }
                     }
-                    Text(store.speech.lastError ?? (store.speech.state == .speaking ? "Speaking…" : store.speech.state == .paused ? "Paused" : "Ready to speak"))
+                    Text(store.speech.statusText)
                         .font(.caption).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("setup.speechStatus")
@@ -304,7 +304,7 @@ struct SetupView: View {
 
     @ViewBuilder private var voiceControls: some View {
         Button("Try the voice") {
-            store.speech.speak("Good morning. Let's make room for the things that matter to you.")
+            store.speech.speak(store.speech.previewText)
         }
         .buttonStyle(PrimaryButtonStyle()).disabled(store.sessionActive).accessibilityIdentifier("setup.testVoice")
         Button("Stop") { store.speech.stop() }.buttonStyle(SecondaryButtonStyle()).disabled(store.sessionActive)

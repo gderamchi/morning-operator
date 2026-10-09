@@ -44,6 +44,22 @@ enum LearningEvidenceFixtures {
 
 @Suite("Conservative observation evidence")
 struct LearningEvidencePolicyTests {
+    @Test("MORE's compact setup and routine surfaces remain interface content")
+    func compactMoreScreensAreNotObservedHabits() {
+        let screens = [
+            "A little more morning.\nShow MORE a little of your morning.\nWe’ll find the rhythm together.",
+            "Good morning.\n19 min planned\n09:00 Team planning meeting\nStart my morning\nUpdate my morning",
+            "Good morning.\nYour first draft is ready to review.\nPeople and messages\nReview my morning",
+            "A little perspective.\nAverage routine time\nSettings & connections\nRecord, describe or refine",
+            "More room for your day.\nAnything you’d like to remember?\nA thought, a dream, a reminder"
+        ]
+        for screen in screens {
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[User-selected screenshot; one moment, not a confirmed habit]\n" + screen)
+            }
+        }
+    }
+
     @Test("Setup, picker, app marketing and launcher frames abstain without inference")
     func setupOnlyHasNoActivityEvidence() {
         #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {

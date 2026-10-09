@@ -92,7 +92,10 @@ enum LearningEvidencePolicy {
             "app library", "bibliotheque d apps", "home screen", "ecran d accueil",
             "learn my morning", "show your morning", "make your morning yours", "your rhythm",
             "your routine stays in your hands", "suggest a routine", "stop automatically after",
-            "record a little of my morning", "on device learning", "enable screen recording"
+            "record a little of my morning", "on device learning", "enable screen recording",
+            "your first draft is ready to review", "sample morning not your observed activity",
+            "your mornings will find their shape", "your approved routine", "a draft for you to review",
+            "your morning voice", "more natural voices"
         ]
         if excludedContexts.contains(where: lines.contains) || containsOwnMarketing(value) { return true }
         // Our Review screen describes this app's routine history, not external activity.
@@ -102,6 +105,15 @@ enum LearningEvidencePolicy {
         let ownReviewMarkerCount = ownReviewHeadings.filter { lines.contains($0) }.count
             + (value.contains("routine timing excludes pauses") ? 1 : 0)
         if ownReviewMarkerCount >= 2 { return true }
+        // The V2 shell deliberately removes the persistent brand heading. Use paired,
+        // distinctive controls/copy, not generic words such as Morning, planned or MORE.
+        let moreScreenPairs = [
+            ["start my morning", "update my morning"],
+            ["a little perspective", "settings connections"],
+            ["more room for your day", "anything you d like to remember"],
+            ["show more a little of your morning", "we ll find the rhythm together"]
+        ]
+        if moreScreenPairs.contains(where: { pair in pair.allSatisfy(value.contains) }) { return true }
         let onboardingControls = ["free trial", "subscribe now", "create your account", "sign up to continue", "get started"]
         if onboardingControls.filter({ lines.contains($0) }).count >= 2 { return true }
         // Launcher category grids can remain after a heading is missed by OCR.

@@ -1,102 +1,405 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import MorningCore
+import MorningApple
 
 struct WeeklyReviewView: View {
     @Bindable var store: MorningStore
+    var onLearn: () -> Void
+    var onSettings: () -> Void
+    @Binding var showingRoutineEditor: Bool
+    @ViewState<Int> private var weekOffset = 0
+    @ViewState<Date> private var today = Date()
+    @ViewState<Bool> private var showingDays = false
+    @ViewState<Bool> private var learnAfterDismissal = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var periodEnd: Date {
+        Calendar.current.date(byAdding: .day, value: weekOffset * 7, to: today) ?? today
+    }
+    private var week: SevenDaySummary? { try? store.history.sevenDaySummary(endingOn: periodEnd) }
+    private var periodTitle: String {
+        let start = Calendar.current.date(byAdding: .day, value: -6, to: periodEnd) ?? periodEnd
+        return "\(start.formatted(.dateTime.month(.abbreviated).day())) – \(periodEnd.formatted(.dateTime.month(.abbreviated).day().year()))"
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                PageHeading(eyebrow: "The last seven mornings", title: "Find your rhythm.",
-                            subtitle: "Small moments add up. Here's what your mornings are telling you.")
-                if let week = store.weekSummary {
-                    VStack(alignment: .leading, spacing: 22) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text("\(week.recordedDayCount)").font(.system(size: 54, weight: .light, design: .rounded))
-                            Text("of 7 days recorded").font(.subheadline).foregroundStyle(.secondary)
-                            Spacer()
-                            Image(systemName: "leaf").font(.title).foregroundStyle(MorningStyle.green)
+                Text("A little perspective.")
+                    .font(.system(.largeTitle, design: .serif, weight: .medium))
+                periodSelector
+                activeRecordingStatus
+                if let week {
+                    weekSummary(week)
+                    if showingDays { days(in: week) }
+                    if !week.apps.isEmpty {
+                        DisclosureGroup("Observed app time") {
+                            ForEach(week.apps) { app in observedApp(app) }
+                        }.font(.subheadline).tint(MorningStyle.accent)
+                    }
+                } else {
+                    Text("This period couldn't be displayed. Your saved mornings are unchanged.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                reviewActions
+            }.padding(24).frame(maxWidth: 680).frame(maxWidth: .infinity)
+        }
+        .accessibilityIdentifier("review.week")
+        .sheet(isPresented: $showingRoutineEditor, onDismiss: {
+            if learnAfterDismissal { learnAfterDismissal = false; onLearn() }
+        }) {
+            RoutineReviewEditor(store: store, onLearn: {
+                learnAfterDismissal = true
+                showingRoutineEditor = false
+            })
+        }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { today = Date() } }
+    }
+
+    @ViewBuilder private var activeRecordingStatus: some View {
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        if #available(iOS 27.0, *) {
+            let recording = ScreenRecordingService.shared
+            if recording.captureMayBeActive || recording.hasRecordingToReview || recording.state == .failed
+                || store.busy || store.hasPendingRecording || store.observationIssue != nil {
+                MorningRecordingStatus(store: store, onReview: onLearn)
+            }
+        }
+        #endif
+    }
+
+    private var periodSelector: some View {
+        HStack(spacing: 8) {
+            Button { changeWeek(by: -1) } label: {
+                Image(systemName: "chevron.left").frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Previous seven days").accessibilityIdentifier("review.previousWeek")
+            Button {
+                withAnimation(.snappy) { showingDays.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(periodTitle).font(.subheadline.weight(.medium)).multilineTextAlignment(.center)
+                    Image(systemName: showingDays ? "chevron.up" : "chevron.down").font(.caption2.weight(.semibold))
+                }.frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .accessibilityLabel("\(periodTitle), \(showingDays ? "hide" : "show") days")
+            .accessibilityIdentifier("review.period")
+            Button { changeWeek(by: 1) } label: {
+                Image(systemName: "chevron.right").frame(width: 44, height: 44)
+            }
+            .disabled(weekOffset == 0)
+            .accessibilityLabel("Next seven days").accessibilityIdentifier("review.nextWeek")
+        }
+        .buttonStyle(.plain).foregroundStyle(MorningStyle.accent)
+        .background(.regularMaterial, in: Capsule())
+        .simultaneousGesture(DragGesture(minimumDistance: 55).onEnded { value in
+            guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+            changeWeek(by: value.translation.width > 0 ? -1 : 1)
+        })
+    }
+
+    private func weekSummary(_ week: SevenDaySummary) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let average = week.averageActiveDurationSeconds {
+                Text("Average routine time").font(.subheadline).foregroundStyle(.secondary)
+                Text(MorningStyle.duration(average))
+                    .font(.system(size: 44, weight: .regular, design: .serif))
+                    .accessibilityIdentifier("review.average")
+                Text("Across \(week.timedRunCount) timed \(week.timedRunCount == 1 ? "run" : "runs")")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Text("Time in your routine, excluding pauses. Other app use isn't measured here.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text(week.runCount == 0 ? "Your mornings will find their shape." : "A morning saved. Time still unknown.")
+                    .font(.system(.title2, design: .serif, weight: .medium))
+                Text(week.runCount == 0
+                     ? "Finish a morning to begin your history. Days without a saved run stay empty."
+                     : "\(week.runCount) saved \(week.runCount == 1 ? "run has" : "runs have") no complete timing. They stay out of the average.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            if week.runCount > week.timedRunCount, week.timedRunCount > 0 {
+                Text("Runs with incomplete timing are excluded from this average.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if hasSampleRunsInPeriod {
+                Label("Sample runs stay out of your personal averages.", systemImage: "sparkles")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(22).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 26))
+    }
+
+    private var hasSampleRunsInPeriod: Bool {
+        guard let days = week?.days, let first = days.first?.dayKey, let last = days.last?.dayKey else { return false }
+        return store.history.runs.contains { $0.isSynthetic && $0.dayKey >= first && $0.dayKey <= last }
+    }
+
+    private func days(in week: SevenDaySummary) -> some View {
+        VStack(spacing: 0) {
+            ForEach(week.days.reversed()) { day in
+                NavigationLink {
+                    ReviewDayDetail(day: day)
+                } label: {
+                    HStack(spacing: 14) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(day.date.formatted(.dateTime.weekday(.wide))).font(.subheadline.weight(.medium))
+                            Text(day.date.formatted(.dateTime.month(.abbreviated).day())).font(.caption).foregroundStyle(.secondary)
                         }
-                        weekChart(week)
-                        Text(week.recordedDayCount < 7 ? "Each morning adds a little clarity. Missing days stay open, not zero." : "A week of mornings, in your own rhythm.")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                    }.padding(24).background(MorningStyle.sage.opacity(0.65), in: RoundedRectangle(cornerRadius: 28))
-                    HStack(alignment: .top, spacing: 12) {
-                        metric("Average routine", value: MorningStyle.duration(week.averageActiveDurationSeconds),
-                               detail: "Across \(week.timedRunCount) timed runs")
-                        metric("Completed", value: "\(week.completedRunCount)", detail: "\(week.stoppedRunCount) ended early")
-                    }
-                    Text("Routine timing excludes pauses. It doesn't measure time in other apps or time saved.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    AppActivityView()
-                    Text("Inside your morning").font(.title3.weight(.semibold))
-                    if week.apps.isEmpty {
-                        EmptyMoment(symbol: "rectangle.stack", title: "Your habits, with context.",
-                            detail: "App time, reels and email counts will appear when supported observations are connected. A routine plan alone can't measure them.")
-                    } else {
-                        ForEach(week.apps) { app in appSummary(app) }
-                    }
-                    if !store.history.runs.filter(\.isSynthetic).isEmpty {
-                        Label("Sample runs are kept out of your personal averages.", systemImage: "sparkles")
+                        Spacer()
+                        Text(daySummaryText(day))
                             .font(.caption).foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                    }.padding(.vertical, 13).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).accessibilityIdentifier("review.day.\(day.dayKey)")
+                if day.id != week.days.first?.id { Divider() }
+            }
+        }.accessibilityElement(children: .contain).accessibilityIdentifier("review.days")
+    }
+
+    private func daySummaryText(_ day: MorningDaySummary) -> String {
+        guard day.runCount > 0 else { return day.hasEvidence ? "App observations" : "Nothing saved" }
+        let time = day.timedRunCount == day.runCount
+            ? MorningStyle.duration(day.totalActiveDurationSeconds) : "incomplete timing"
+        return "\(day.runCount) \(day.runCount == 1 ? "run" : "runs") · \(time)"
+    }
+
+    private var reviewActions: some View {
+        VStack(spacing: 0) {
+            Button { showingRoutineEditor = true } label: {
+                actionRow("Your routine", detail: routineDetail, symbol: "list.bullet")
+            }.accessibilityIdentifier("review.routine")
+            Divider()
+            Button(action: onLearn) {
+                actionRow(store.hasImportedObservation ? "Review your observation" : "Learn from a morning",
+                          detail: store.hasPendingRecording ? "A saved recording needs attention" : "Record, describe or refine", symbol: "sparkles")
+            }.accessibilityIdentifier("review.learn")
+            Divider()
+            NavigationLink {
+                CapturesView(store: store).navigationTitle("Saved thoughts").background(MorningStyle.background)
+            } label: {
+                actionRow("Saved thoughts", detail: store.captures.isEmpty ? "A place for what comes to mind" : "\(store.captures.count) saved", symbol: "text.bubble")
+            }.accessibilityIdentifier("review.thoughts")
+            Divider()
+            NavigationLink {
+                ScrollView { AppActivityView().padding(24).frame(maxWidth: 680).frame(maxWidth: .infinity) }
+                    .background(MorningStyle.background).navigationTitle("App activity")
+            } label: {
+                actionRow("App activity", detail: "Today's connected app entries", symbol: "arrow.triangle.2.circlepath")
+            }.accessibilityIdentifier("review.appActivity")
+            Divider()
+            Button(action: onSettings) {
+                actionRow("Settings & connections", detail: "Voice, calendar and preferences", symbol: "slider.horizontal.3")
+            }.accessibilityIdentifier("navigation.setup")
+        }.buttonStyle(.plain)
+    }
+
+    private var routineDetail: String {
+        guard let routine = store.routine else { return "Build a routine that feels like you" }
+        return "\(routine.steps.count) moments · \(routine.isApproved ? "approved" : "ready for your review")"
+    }
+
+    private func actionRow(_ title: String, detail: String, symbol: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol).font(.body).foregroundStyle(MorningStyle.accent).frame(width: 24)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.subheadline.weight(.medium))
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+        }.padding(.vertical, 16).contentShape(Rectangle()).foregroundStyle(.primary)
+    }
+
+    private func observedApp(_ app: AppUsageSummary) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack { Text(app.appName); Spacer(); Text(MorningStyle.duration(app.averageObservedDurationSeconds)) }
+            Text("Average across \(app.daysWithDurationEvidence) days with time evidence. \(app.partialWindowDayCount) partial windows; \(app.unknownCoverageDayCount) with unknown coverage.")
+                .font(.caption).foregroundStyle(.secondary)
+        }.padding(.top, 12)
+    }
+
+    private func changeWeek(by offset: Int) {
+        withAnimation(.snappy) { weekOffset = min(0, weekOffset + offset) }
+    }
+}
+
+private struct RoutineReviewEditor: View {
+    @Bindable var store: MorningStore
+    var onLearn: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @ViewState<RoutineStep?> private var editingStep = nil
+    @ViewState<Bool> private var exporting = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let routine = store.routine {
+                    Section {
+                        ForEach(Array(routine.steps.enumerated()), id: \.element.id) { index, step in
+                            Button { editingStep = step } label: { stepRow(step) }
+                                .buttonStyle(.plain).disabled(store.busy || store.sessionActive)
+                                .accessibilityIdentifier("routine.step.\(index)")
+                        }
+                        .onMove { source, destination in
+                            var steps = store.routine?.steps ?? []
+                            steps.move(fromOffsets: source, toOffset: destination)
+                            store.updateSteps(steps)
+                        }
+                        .moveDisabled(store.busy || store.sessionActive)
+                        Button {
+                            editingStep = RoutineStep(title: "", kind: .custom, durationMinutes: 5)
+                        } label: { Label("Add a moment", systemImage: "plus") }
+                            .disabled(store.busy || store.sessionActive).accessibilityIdentifier("routine.add")
+                    } header: {
+                        Text(routine.isApproved ? "Your approved routine" : "A draft for you to review")
+                    } footer: {
+                        Text("Minutes are planned. Editing creates a new draft; your saved mornings keep their original routine.")
                     }
-                    if week.recordedDayCount == 0 {
-                        Button("Go to my morning") { store.tab = .today }.buttonStyle(SecondaryButtonStyle())
+                    Section {
+                        if store.previousRoutine != nil, !routine.isApproved {
+                            Button("Restore previous routine") { store.restorePreviousRoutine() }
+                                .disabled(store.busy || store.sessionActive).accessibilityIdentifier("routine.restore")
+                        }
+                        Button("Export routine", systemImage: "square.and.arrow.up") { exporting = true }
+                        Button("Learn from an observation", systemImage: "sparkles", action: onLearn)
+                            .disabled(store.busy || store.sessionActive).accessibilityIdentifier("learn.refine")
+                    }
+                    if routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
+                        Label("Sample routine · not observed behavior", systemImage: "sparkles")
+                            .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("routine.source")
+                    }
+                } else {
+                    Section {
+                        Text("Start with a small part of your morning. You can change every step before approving it.")
+                            .foregroundStyle(.secondary)
+                        Button("Learn my morning", systemImage: "sparkles", action: onLearn)
+                            .accessibilityIdentifier("learn.begin")
+                        Button("Build it myself") { store.useManualRoutine() }
+                        Button("Explore a sample") { store.loadSample() }.accessibilityIdentifier("routine.sample")
                     }
                 }
-            }.padding(24).frame(maxWidth: 680).frame(maxWidth: .infinity)
-        }.accessibilityIdentifier("review.week")
-    }
-
-    private func metric(_ title: String, value: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.system(.title, design: .rounded, weight: .medium)).minimumScaleFactor(0.7)
-            Text(detail).font(.caption2).foregroundStyle(.secondary)
-        }.padding(20).frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
-            .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 24))
-    }
-
-    private func weekChart(_ week: SevenDaySummary) -> some View {
-        let highest = max(week.days.compactMap(\.totalActiveDurationSeconds).max() ?? 0, 1)
-        return HStack(alignment: .bottom, spacing: 10) {
-            ForEach(week.days) { day in
-                VStack(spacing: 10) {
-                    if let duration = day.totalActiveDurationSeconds {
-                        RoundedRectangle(cornerRadius: 9)
-                            .fill(MorningStyle.green.opacity(0.65))
-                            .frame(height: max(6, 76 * duration / highest))
-                            .frame(height: 80, alignment: .bottom)
-                    } else {
-                        VStack { Spacer(); Circle().strokeBorder(MorningStyle.green.opacity(0.3), lineWidth: 1).frame(width: 7, height: 7) }
-                            .frame(height: 80)
+                if let notice = store.notice { Text(notice).font(.caption).foregroundStyle(.secondary) }
+            }
+            .scrollContentBackground(.hidden).background(MorningStyle.background)
+            .navigationTitle("Your routine")
+            .toolbar {
+                #if os(iOS)
+                ToolbarItem(placement: .primaryAction) {
+                    EditButton().disabled(store.routine == nil || store.busy || store.sessionActive)
+                        .accessibilityIdentifier("routine.edit")
+                }
+                #endif
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if let routine = store.routine, !routine.isApproved {
+                    Button {
+                        guard store.approve(), store.routine?.isApproved == true else { return }
+                        dismiss()
+                        store.tab = .today
+                    } label: {
+                        Label("Approve this routine", systemImage: "checkmark").frame(maxWidth: .infinity)
                     }
-                    Text(day.date.formatted(.dateTime.weekday(.narrow))).font(.caption).foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(day.date.formatted(.dateTime.weekday(.wide))): \(day.totalActiveDurationSeconds == nil ? "not recorded" : MorningStyle.duration(day.totalActiveDurationSeconds))")
+                    .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large)
+                    .disabled(store.busy || store.sessionActive || routine.steps.isEmpty)
+                    .accessibilityIdentifier("routine.approve")
+                    .padding(20).background(.regularMaterial)
+                }
+            }
+            .sheet(item: $editingStep) { step in
+                StepEditor(step: step, onSave: { edited in
+                    var steps = store.routine?.steps ?? []
+                    if let index = steps.firstIndex(where: { $0.id == edited.id }) { steps[index] = edited }
+                    else { steps.append(edited) }
+                    store.updateSteps(steps)
+                    editingStep = nil
+                }, onDelete: {
+                    store.updateSteps((store.routine?.steps ?? []).filter { $0.id != step.id })
+                    editingStep = nil
+                })
+            }
+            .fileExporter(isPresented: $exporting, document: store.routine.map(RoutineExportDocument.init),
+                          contentType: .json, defaultFilename: "Morning-Routine") { result in
+                if case .failure(let error) = result { store.notice = error.localizedDescription }
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 480, minHeight: 580)
+        #endif
     }
 
-    private func appSummary(_ app: AppUsageSummary) -> some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack { Text(app.appName).font(.headline); Spacer(); Text(MorningStyle.duration(app.averageObservedDurationSeconds)).font(.headline) }
-                Text("Average observed time · \(app.daysWithDurationEvidence) days with time evidence").font(.caption).foregroundStyle(.secondary)
-                countLine("Reels viewed", app.reelsViewed)
-                countLine("Likes", app.likes)
-                countLine("Emails read", app.emailsRead)
-                countLine("Emails replied to", app.emailsReplied)
-                Text("\(app.completeWindowDayCount) complete windows · \(app.partialWindowDayCount) partial windows")
-                    .font(.caption2).foregroundStyle(.secondary)
+    private func stepRow(_ step: RoutineStep) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: MorningStyle.symbol(for: step.kind))
+                .font(.body).frame(width: 34, height: 34)
+                .background(MorningStyle.color(for: step.kind), in: RoundedRectangle(cornerRadius: 11))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(step.title).font(.subheadline.weight(.medium))
+                Text("\(step.durationMinutes) min planned · \(step.automation == nil ? "Your own pace" : "Spoken guidance")")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+        }.foregroundStyle(.primary).padding(.vertical, 4)
+    }
+}
+
+private struct ReviewDayDetail: View {
+    let day: MorningDaySummary
+
+    var body: some View {
+        List {
+            if day.runs.isEmpty {
+                Section {
+                    Text("No routine saved for this day.").font(.headline)
+                    Text("A missing run stays unknown. It isn't counted as a zero-minute morning.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            ForEach(Array(day.runs.enumerated()), id: \.element.id) { index, run in
+                Section {
+                    LabeledContent("Active routine time", value: MorningStyle.duration(run.activeDurationSeconds))
+                    LabeledContent("Planned time", value: "\(run.plannedDurationMinutes) min")
+                    if run.activeDurationSeconds == nil {
+                        Text("Timing is incomplete or unavailable; this run is excluded from time averages.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    ForEach(run.routine.steps) { step in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: run.completedStepIDs.contains(step.id) ? "checkmark.circle" : run.skippedStepIDs.contains(step.id) ? "forward.end.circle" : "circle")
+                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(step.title).font(.subheadline)
+                                Text(run.completedStepIDs.contains(step.id) ? "Marked complete" : run.skippedStepIDs.contains(step.id) ? "Skipped" : "Not completed")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text("\(step.durationMinutes) min planned").font(.caption).foregroundStyle(.secondary)
+                        }.padding(.vertical, 4)
+                    }
+                } header: {
+                    Text("Morning \(index + 1) · \(run.outcome == .completed ? "completed" : "ended early")")
+                } footer: {
+                    Text("Saved routine version \(run.routineVersionNumber). Active time excludes pauses and doesn't measure activity in other apps.")
+                }
+            }
+            if !day.appObservations.isEmpty {
+                Section("App observations") {
+                    ForEach(day.appObservations) { observation in
+                        VStack(alignment: .leading, spacing: 6) {
+                            LabeledContent(observation.appName, value: MorningStyle.duration(observation.observedDurationSeconds))
+                            Text(observation.coverage == .completeWindow ? "Complete for the declared observation window" : observation.coverage == .partialWindow ? "Partial observation window" : "Coverage unknown")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
         }
-    }
-    @ViewBuilder private func countLine(_ title: String, _ count: CountSummary) -> some View {
-        if let average = count.averagePerEvidenceDay {
-            HStack { Text(title); Spacer(); Text(average.formatted(.number.precision(.fractionLength(0...1)))) }
-                .font(.subheadline)
-            Text("Average across \(count.daysWithEvidence) days with evidence").font(.caption2).foregroundStyle(.secondary)
-        }
+        .scrollContentBackground(.hidden).background(MorningStyle.background)
+        .navigationTitle(day.date.formatted(.dateTime.month(.abbreviated).day()))
+        .accessibilityIdentifier("review.dayDetail")
     }
 }

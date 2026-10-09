@@ -32,20 +32,20 @@ private enum MorningIntentError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyText: "Add a few words to capture."
-        case .captureWaiting: "Review the capture already waiting in Morning Operator, then try again."
+        case .captureWaiting: "Review the capture already waiting in MORE, then try again."
         }
     }
 }
 
 struct StartMorningIntent: AppIntent {
     static let title: LocalizedStringResource = "Start morning"
-    static let description = IntentDescription("Open Morning Operator and request your approved morning routine. A draft still needs your approval in the app.")
+    static let description = IntentDescription("Open MORE and request your approved morning routine. A draft still needs your approval in the app.")
     static let supportedModes: IntentModes = .foreground(.immediate)
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         MorningIntentRouter.shared.startRequested = true
-        return .result(dialog: "Opening your morning in Morning Operator.")
+        return .result(dialog: "Opening your morning in MORE.")
     }
 }
 
@@ -89,7 +89,7 @@ struct CaptureMorningIntent: AppIntent {
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { throw MorningIntentError.emptyText }
         try MorningIntentRouter.shared.requestCapture("\(kind.textPrefix): \(content)")
-        return .result(dialog: "Ready for review in Morning Operator.")
+        return .result(dialog: "Ready for review in MORE.")
     }
 }
 

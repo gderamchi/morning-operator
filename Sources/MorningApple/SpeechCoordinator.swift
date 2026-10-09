@@ -3,13 +3,7 @@ import Foundation
 import Observation
 
 public enum SpeechPlaybackState: String, Sendable, Equatable {
-    case idle, speaking, paused
-}
-
-public struct SpeechVoiceDescriptor: Identifiable, Sendable, Equatable {
-    public let id: String
-    public let name: String
-    public let language: String
+    case idle, preparing, speaking, paused
 }
 
 public enum SpeechPlaybackError: LocalizedError, Sendable, Equatable {
@@ -33,15 +27,56 @@ public final class SpeechCoordinator: NSObject {
     /// Identifies the current utterance so a preview cannot stop later routine speech.
     public private(set) var playbackID: UUID?
     /// A persisted choice may become unavailable after a system voice is removed.
-    /// Nil, unknown, and unavailable choices use the current system language.
+    /// Nil, unknown, and unavailable choices use an available voice matching the system language.
     public var voiceIdentifier: String?
     public var isSpeaking: Bool { state == .speaking }
+    public var preferredLanguage: String { AVSpeechSynthesisVoice.currentLanguageCode() }
+
+    public var statusText: String {
+        if let lastError { return lastError }
+        switch state {
+        case .idle: return "Ready to speak"
+        case .preparing: return "Preparing audio…"
+        case .speaking: return "Speaking…"
+        case .paused: return "Paused"
+        }
+    }
+
+    public var recommendedVoice: SpeechVoiceDescriptor? {
+        SpeechVoicePolicy.recommended(from: availableVoices, language: preferredLanguage,
+            systemVoiceID: AVSpeechSynthesisVoice(language: preferredLanguage)?.identifier)
+    }
+
+    public var selectedVoice: SpeechVoiceDescriptor? {
+        let voices = availableVoices
+        if let voiceIdentifier, let selected = voices.first(where: { $0.id == voiceIdentifier }) { return selected }
+        return SpeechVoicePolicy.recommended(from: voices, language: preferredLanguage,
+            systemVoiceID: AVSpeechSynthesisVoice(language: preferredLanguage)?.identifier)
+    }
+
+    public var selectedVoiceSummary: String {
+        guard let voice = selectedVoice else { return "Device language" }
+        return "\(voice.name) · \(voice.quality.displayName)"
+    }
+
+    public var previewText: String {
+        SpeechVoicePolicy.previewText(language: selectedVoice?.language ?? preferredLanguage)
+    }
+
+    public func matchesPreferredLanguage(_ language: String) -> Bool {
+        SpeechVoicePolicy.languageMatch(language, preferredLanguage) > 0
+    }
 
     public var availableVoices: [SpeechVoiceDescriptor] {
         AVSpeechSynthesisVoice.speechVoices()
             .filter { Self.isBuiltInVoice($0) }
-            .map { SpeechVoiceDescriptor(id: $0.identifier, name: $0.name, language: $0.language) }
+            .map { SpeechVoiceDescriptor(id: $0.identifier, name: $0.name, language: $0.language,
+                quality: SpeechVoiceQuality(rawValue: $0.quality.rawValue) ?? .standard) }
             .sorted {
+                let leftMatch = SpeechVoicePolicy.languageMatch($0.language, preferredLanguage)
+                let rightMatch = SpeechVoicePolicy.languageMatch($1.language, preferredLanguage)
+                if leftMatch != rightMatch { return leftMatch > rightMatch }
+                if $0.quality != $1.quality { return $0.quality.rawValue > $1.quality.rawValue }
                 let nameOrder = $0.name.localizedStandardCompare($1.name)
                 if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
                 if $0.language != $1.language { return $0.language < $1.language }
@@ -55,6 +90,11 @@ public final class SpeechCoordinator: NSObject {
     @ObservationIgnored private var completion: CheckedContinuation<Void, any Error>?
     @ObservationIgnored private var routeTask: Task<Void, Never>?
     @ObservationIgnored private var interruptionTask: Task<Void, Never>?
+    @ObservationIgnored private var activationTask: Task<Void, Never>?
+    @ObservationIgnored private lazy var audioSession = SpeechAudioSessionGate(
+        activate: { try await Self.activateAudioSession() },
+        deactivate: { try await Self.deactivateAudioSession() }
+    )
 
     public override init() {
         super.init()
@@ -67,8 +107,7 @@ public final class SpeechCoordinator: NSObject {
                 guard !Task.isCancelled else { return }
                 let reason = AVAudioSession.RouteChangeReason(rawValue: rawReason)
                 if reason == .oldDeviceUnavailable {
-                    self?.pause()
-                    self?.lastError = "Audio output changed. Resume when you are ready to listen."
+                    self?.handleAudioInterruption(outputChanged: true)
                 }
             }
         }
@@ -79,8 +118,7 @@ public final class SpeechCoordinator: NSObject {
                 guard !Task.isCancelled else { return }
                 let type = AVAudioSession.InterruptionType(rawValue: rawType)
                 if type == .began {
-                    self?.pause()
-                    self?.lastError = "Speech was interrupted. Resume when you are ready."
+                    self?.handleAudioInterruption(outputChanged: false)
                 }
             }
         }
@@ -90,11 +128,12 @@ public final class SpeechCoordinator: NSObject {
     deinit {
         routeTask?.cancel()
         interruptionTask?.cancel()
+        activationTask?.cancel()
     }
 
     public func speak(_ text: String) {
         stop()
-        beginSpeech(text)
+        beginSpeech(text, requestID: UUID())
     }
 
     /// Returns only when AVSpeechSynthesizer reports didFinish for this exact utterance.
@@ -112,7 +151,7 @@ public final class SpeechCoordinator: NSObject {
                 stop()
                 speechRequestID = requestID
                 completion = continuation
-                beginSpeech(text)
+                beginSpeech(text, requestID: requestID)
             }
         } onCancel: {
             Task { @MainActor [weak self] in
@@ -123,67 +162,134 @@ public final class SpeechCoordinator: NSObject {
         }
     }
 
-    private func beginSpeech(_ text: String) {
+    private func beginSpeech(_ text: String, requestID: UUID) {
         lastError = nil
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
             failBeforeSpeaking(SpeechPlaybackError.emptyText)
             return
         }
-        #if os(iOS)
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try session.setActive(true)
-        } catch {
-            failBeforeSpeaking(SpeechPlaybackError.audioUnavailable(error.localizedDescription))
-            return
+        playbackID = requestID
+        speechRequestID = requestID
+        state = .preparing
+        activationTask = Task { [weak self] in
+            guard let self, !Task.isCancelled, speechRequestID == requestID else { return }
+            do {
+                let prepared = try await audioSession.prepare(for: requestID).value
+                guard prepared, !Task.isCancelled, speechRequestID == requestID else { return }
+                enqueueSpeech(text)
+            } catch {
+                guard speechRequestID == requestID else { return }
+                failBeforeSpeaking(SpeechPlaybackError.audioUnavailable(error.localizedDescription))
+            }
         }
-        #endif
+    }
+
+    private func enqueueSpeech(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        if let voiceIdentifier,
-           let selectedVoice = AVSpeechSynthesisVoice(identifier: voiceIdentifier),
-           Self.isBuiltInVoice(selectedVoice) {
-            utterance.voice = selectedVoice
+        if let selected = selectedVoice, let voice = AVSpeechSynthesisVoice(identifier: selected.id), Self.isBuiltInVoice(voice) {
+            utterance.voice = voice
+        } else if let voice = AVSpeechSynthesisVoice(language: preferredLanguage), Self.isBuiltInVoice(voice) {
+            // No foreign-language or novelty fallback is chosen by our ranking policy.
+            utterance.voice = voice
         } else {
-            utterance.voice = AVSpeechSynthesisVoice(language: AVSpeechSynthesisVoice.currentLanguageCode())
+            failBeforeSpeaking(.audioUnavailable("No supported system voice is available for this language. Choose an installed voice in Settings."))
+            return
         }
-        playbackID = UUID()
         currentUtterance = ObjectIdentifier(utterance)
         synthesizer.speak(utterance)
     }
 
     public func pause() {
-        if synthesizer.pauseSpeaking(at: .immediate) { state = .paused }
+        guard currentUtterance != nil else { return }
+        if synthesizer.isPaused || synthesizer.pauseSpeaking(at: .immediate) { state = .paused }
     }
 
     public func resume() {
+        guard state == .paused, currentUtterance != nil, let requestID = speechRequestID else { return }
+        activationTask?.cancel()
+        let activationID = UUID()
         lastError = nil
-        if synthesizer.continueSpeaking() { state = .speaking }
+        state = .preparing
+        activationTask = Task { [weak self] in
+            guard let self, !Task.isCancelled, speechRequestID == requestID else { return }
+            do {
+                let prepared = try await audioSession.prepare(for: activationID).value
+                guard prepared, !Task.isCancelled, speechRequestID == requestID else { return }
+                if synthesizer.continueSpeaking() { state = .speaking }
+                else { failBeforeSpeaking(.audioUnavailable("This speech could not resume. Play it again when ready.")) }
+            } catch {
+                guard speechRequestID == requestID else { return }
+                failBeforeSpeaking(.audioUnavailable(error.localizedDescription))
+            }
+        }
     }
 
     public func stop() {
+        stopPlayback()
+    }
+
+    /// Stops synthesis and waits until its pending activation and audio release finish.
+    /// A microphone owner must await this before activating its own session, and must
+    /// still validate its own listening request after the await. Cancellation or newer
+    /// speech supersedes the handoff; release errors are surfaced rather than ignored.
+    public func stopAndRelease() async throws {
+        let preparing = activationTask
+        let release = stopPlayback()
+        await preparing?.value
+        try await release.task.value
+        try Task.checkCancellation()
+        guard speechRequestID == nil, audioSession.isCurrent(release) else { throw CancellationError() }
+    }
+
+    @discardableResult
+    private func stopPlayback() -> SpeechAudioSessionGate.Release {
         // Invalidate first, so a late callback from the previous utterance cannot stop a new one.
         currentUtterance = nil
         playbackID = nil
         speechRequestID = nil
+        activationTask?.cancel()
+        activationTask = nil
         let pending = completion
         completion = nil
         synthesizer.stopSpeaking(at: .immediate)
         state = .idle
-        deactivateAudioSession()
+        lastError = nil
+        let release = audioSession.cancel()
         pending?.resume(throwing: CancellationError())
+        return release
+    }
+
+    /// Notification handlers must not invent a resumable session after playback has ended.
+    func handleAudioInterruption(outputChanged: Bool) {
+        guard playbackID != nil else { return }
+        // A pending initial activation or resume must not finish and start audio after
+        // an interruption. It cannot be represented as a safely resumable utterance yet.
+        if state == .preparing { stop() }
+        else { pause() }
+        if state == .paused {
+            lastError = outputChanged ? "Audio output changed. Resume when you are ready to listen."
+                : "Speech was interrupted. Resume when you are ready."
+        } else {
+            stop()
+            lastError = outputChanged ? "Audio output changed. Play the voice again when ready."
+                : "Speech stopped during an interruption. Play it again when ready."
+        }
     }
 
     private func failBeforeSpeaking(_ error: SpeechPlaybackError) {
         lastError = error.localizedDescription
+        currentUtterance = nil
         playbackID = nil
         speechRequestID = nil
+        activationTask?.cancel()
+        activationTask = nil
         let pending = completion
         completion = nil
+        synthesizer.stopSpeaking(at: .immediate)
         state = .idle
-        deactivateAudioSession()
+        audioSession.cancel()
         pending?.resume(throwing: error)
     }
 
@@ -195,17 +301,40 @@ public final class SpeechCoordinator: NSObject {
             currentUtterance = nil
             playbackID = nil
             speechRequestID = nil
+            lastError = nil
             let pending = completion
             completion = nil
-            deactivateAudioSession()
+            audioSession.cancel()
             if cancelled { pending?.resume(throwing: CancellationError()) }
             else { pending?.resume() }
         }
     }
 
-    private func deactivateAudioSession() {
+    private static func activateAudioSession() async throws {
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        if #available(iOS 27.0, *) {
+            // Xcode 27 AVAudioSession.h makes this public on iOS 27, not just watchOS.
+            let activated = try await session.activate(options: [])
+            guard activated else { throw SpeechPlaybackError.audioUnavailable("The audio session did not activate.") }
+        } else {
+            try session.setActive(true)
+        }
+        #endif
+    }
+
+    private static func deactivateAudioSession() async throws {
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        if #available(iOS 27.0, *) {
+            let deactivated = try await session.deactivate(options: .notifyOthersOnDeactivation)
+            guard deactivated else {
+                throw SpeechPlaybackError.audioUnavailable("The audio session could not be released. Try again before listening.")
+            }
+        } else {
+            try session.setActive(false, options: .notifyOthersOnDeactivation)
+        }
         #endif
     }
 
@@ -213,7 +342,9 @@ public final class SpeechCoordinator: NSObject {
         // speechVoices() also includes third-party providers. Apple exposes no provider
         // ownership property, so use a conservative namespace filter for this chooser.
         // Personal Voice stays excluded even if another app flow previously authorized it.
-        voice.identifier.hasPrefix("com.apple.") && !voice.voiceTraits.contains(.isPersonalVoice)
+        voice.identifier.hasPrefix("com.apple.")
+            && !voice.voiceTraits.contains(.isPersonalVoice)
+            && !voice.voiceTraits.contains(.isNoveltyVoice)
     }
 }
 

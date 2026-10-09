@@ -40,7 +40,7 @@ struct CapturesView: View {
                 let items = store.captures.filter { filter == nil || $0.kind == filter }
                 if items.isEmpty {
                     EmptyMoment(symbol: filter?.symbol ?? "sparkles", title: filter == .dream ? "A home for your dreams." : "Room for a new idea.",
-                        detail: "Write it here, use your keyboard's dictation, or ask Siri to capture it with Morning Operator.")
+                        detail: "Write it here, use your keyboard's dictation, or ask Siri to capture it with MORE.")
                 } else {
                     ForEach(items) { capture in
                         Card {

@@ -71,6 +71,16 @@ final class MorningStore {
     @ObservationIgnored lazy var automation = MorningAutomationCoordinator(executor: stepExecutor)
     let intelligence = AppleIntelligenceService()
     let speech = SpeechCoordinator()
+    let voiceCommands = MorningVoiceCommandListener()
+    var voiceCommandPresented = false
+    private(set) var voiceCommandPreparing = false
+    private(set) var voiceCommandFeedback: String?
+    @ObservationIgnored private var voiceCommandTask: Task<Void, Never>?
+    @ObservationIgnored private var voiceCommandAttempt: UUID?
+    private var voiceCommandDeduplicator = MorningVoiceCommandDeduplicator()
+    var voiceInputBlocksPlayback: Bool {
+        voiceCommandPreparing || voiceCommands.isBusy || voiceCommands.needsAudioRelease
+    }
     private let media = MediaObservationService()
     private let calendar = CalendarObservationService()
     private var notesSourceLabel = "Your written observation"
@@ -109,6 +119,18 @@ final class MorningStore {
         let seedFixture = fixtureMode && !ProcessInfo.processInfo.arguments.contains("--ui-testing-empty-workspace")
         if seedFixture && !FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             routine = DemoFixtures.candidateRoutine
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-ten-moments") {
+                let titles = ["A calm start", "The weather", "Today's calendar", "Your reminders", "People and messages",
+                              "A little reading", "Make some tea", "A moment to move", "A little time to play", "One thought for later"]
+                let kinds: [StepKind] = [.briefing, .briefing, .calendar, .custom, .messages,
+                                         .entertainment, .custom, .wellbeing, .entertainment, .custom]
+                routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic ten-moment morning", steps:
+                    titles.enumerated().map { index, title in
+                        RoutineStep(title: title, detail: "Synthetic layout example.",
+                                    kind: kinds[index], durationMinutes: 2)
+                    })
+            }
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-approved") { routine = routine?.approved() }
             automatic = false
             readAloud = false
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
@@ -169,14 +191,23 @@ final class MorningStore {
         persist()
     }
 
-    func approve() {
-        guard let routine, !busy, !sessionActive else { return }
-        guard !routine.steps.isEmpty else { notice = "Add at least one step before approving."; return }
+    @discardableResult
+    func approve() -> Bool {
+        guard let routine, !busy, !sessionActive else { return false }
+        guard !routine.steps.isEmpty else { notice = "Add at least one step before approving."; return false }
+        let savedPrevious = previousRoutine
+        let savedSession = session
         self.routine = routine.approved()
         previousRoutine = nil
         session = self.routine.map { RoutineSession(routine: $0) }
         notice = "Routine approved. You're ready for your first morning."
-        persist()
+        guard persist() else {
+            self.routine = routine
+            previousRoutine = savedPrevious
+            session = savedSession
+            return false
+        }
+        return true
     }
 
     func updateSteps(_ steps: [RoutineStep]) {
@@ -189,7 +220,7 @@ final class MorningStore {
     }
 
     func start() {
-        guard let routine, !busy else { return }
+        guard let routine, !busy, !voiceInputBlocksPlayback else { return }
         do {
             if session?.status == .paused { try session?.resume() }
             else if session?.status != .running {
@@ -206,12 +237,14 @@ final class MorningStore {
     }
 
     func pause() {
+        cancelVoiceCommandTurn()
         automation.cancel()
         do { try session?.pause(); speech.stop(); notice = nil; persist() }
         catch { notice = error.localizedDescription }
     }
 
     func resume() {
+        guard !voiceInputBlocksPlayback else { return }
         do {
             try session?.resume(); notice = nil
             guard persist() else { pauseAfterSaveFailure(); return }
@@ -221,6 +254,7 @@ final class MorningStore {
     }
 
     func advance(skipping: Bool = false, commandID: UUID = UUID()) {
+        guard !voiceInputBlocksPlayback else { return }
         automation.cancel()
         do {
             try session?.advance(skipping: skipping, commandID: commandID)
@@ -236,6 +270,7 @@ final class MorningStore {
     }
 
     func stop() {
+        cancelVoiceCommandTurn()
         automation.cancel()
         speech.stop()
         do { try session?.stop(); archiveTerminalSession(); notice = nil; persist() }
@@ -243,9 +278,71 @@ final class MorningStore {
     }
 
     func readCurrent() {
-        guard let step = currentStep else { return }
+        guard !voiceInputBlocksPlayback, let step = currentStep else { return }
         automation.cancel()
         speech.speak("\(step.title). \(step.detail)")
+    }
+
+    func openVoiceCommands() {
+        guard sessionActive else { return }
+        if session?.status == .running { pause() }
+        voiceCommandFeedback = nil
+        voiceCommandPresented = true
+    }
+
+    private var voiceContext: MorningVoiceCommandContext? {
+        guard sessionActive, let session, let step = session.currentStep else { return nil }
+        return .init(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
+    }
+
+    func listenForCommand(language: MorningVoiceCommandLanguage) {
+        guard !voiceInputBlocksPlayback, session?.status == .paused, let context = voiceContext else { return }
+        voiceCommandPreparing = true
+        voiceCommandFeedback = nil
+        let attempt = UUID()
+        voiceCommandAttempt = attempt
+        voiceCommandTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if voiceCommandAttempt == attempt {
+                    voiceCommandPreparing = false
+                    voiceCommandAttempt = nil
+                    voiceCommandTask = nil
+                }
+            }
+            do {
+                try await speech.stopAndRelease()
+                try Task.checkCancellation()
+                guard voiceContext == context else { throw CancellationError() }
+                let result = try await voiceCommands.listen(context: context, language: language)
+                try Task.checkCancellation()
+                guard let current = voiceContext,
+                      let command = voiceCommandDeduplicator.consume(result, currentContext: current),
+                      !voiceCommands.isBusy, !voiceCommands.needsAudioRelease else { throw CancellationError() }
+                // Mic release is confirmed before any command can request new speech.
+                voiceCommandPreparing = false
+                try session?.applyVoiceCommand(command: command, commandID: result.id)
+                archiveTerminalSession()
+                guard persist() else { pauseAfterSaveFailure(); return }
+                voiceCommandFeedback = "Heard: \(result.transcript)"
+                voiceCommandPresented = false
+                if command == .repeatStep { readCurrent() }
+                else if session?.status == .running { runCurrentIfEnabled() }
+            } catch {
+                voiceCommandFeedback = error is CancellationError
+                    ? "Listening stopped. Your morning is still paused." : error.localizedDescription
+            }
+        }
+    }
+
+    func cancelVoiceCommandTurn() {
+        guard voiceInputBlocksPlayback else { return }
+        voiceCommandTask?.cancel()
+        Task { [weak self] in
+            guard let self else { return }
+            do { try await voiceCommands.cancel() }
+            catch { voiceCommandFeedback = error.localizedDescription }
+        }
     }
 
     func refreshCapabilities() { intelligence.refreshCapabilities() }
@@ -265,7 +362,7 @@ final class MorningStore {
     }
 
     func readCalendar() {
-        guard let snapshot = calendarSnapshot else { return }
+        guard !voiceInputBlocksPlayback, let snapshot = calendarSnapshot else { return }
         guard Calendar.current.isDateInToday(snapshot.dayStart) else {
             notice = "This schedule is from an earlier day. Refresh it before reading."
             return
@@ -496,7 +593,7 @@ final class MorningStore {
             analysisStatus = "Apple Intelligence is shaping your routine…"
             let candidate = try await intelligence.analyze(text: text, sourceLabel: source)
             try Task.checkCancellation()
-            installCandidate(candidate)
+            installCandidate(RoutineVersion.inferredDraft(from: candidate, preserving: routine))
             busy = false
             progress = 1
             tab = .today
@@ -599,6 +696,7 @@ final class MorningStore {
     var weekSummary: SevenDaySummary? { try? history.sevenDaySummary(endingOn: Date()) }
 
     private func runCurrentIfEnabled() {
+        guard !voiceInputBlocksPlayback else { return }
         guard let session, session.status == .running else { return }
         if automatic {
             stepExecutor.spokenEnabled = readAloud

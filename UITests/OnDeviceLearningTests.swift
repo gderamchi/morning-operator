@@ -13,9 +13,10 @@ final class OnDeviceLearningTests: XCTestCase {
         let sampleLabel = app.staticTexts["routine.source"]
         XCTAssertTrue(sampleLabel.waitForExistence(timeout: 10))
         let originalSource = sampleLabel.label
-        tapButton("learn.refine", in: app)
+        MorningUITestNavigation.reviewAction("review.learn", in: app)
         let notes = app.textViews["learn.notes"]
         XCTAssertTrue(notes.waitForExistence(timeout: 10))
+        revealNotes(in: app)
         XCTAssertEqual(notes.value as? String ?? "", "")
         let observation = """
         [User-selected video: 00:40.3; 3 frames sampled. This is partial visual evidence, not a complete interaction log.]
@@ -54,7 +55,8 @@ final class OnDeviceLearningTests: XCTestCase {
         XCTAssertTrue(notes.exists, "Insufficient evidence must leave the observation available to review.")
         XCTAssertEqual(notes.value as? String, observation)
         attachScreenshot("setup-only-observation-rejected", from: app)
-        app.buttons["Done"].firstMatch.tap()
+        app.navigationBars["Learn my morning"].buttons["Done"].tap()
+        MorningUITestNavigation.selectTab("Morning", in: app)
         XCTAssertTrue(sampleLabel.waitForExistence(timeout: 5))
         XCTAssertEqual(sampleLabel.label, originalSource, "An insufficient recording must not replace the existing routine.")
         XCTAssertFalse(app.buttons["run.start"].exists)
@@ -70,10 +72,11 @@ final class OnDeviceLearningTests: XCTestCase {
         let sampleLabel = app.staticTexts["routine.source"]
         XCTAssertTrue(sampleLabel.waitForExistence(timeout: 10), "Start from the explicitly synthetic sample.")
         attachScreenshot("learning-synthetic-start", from: app)
-        tapButton("learn.refine", in: app)
+        MorningUITestNavigation.reviewAction("review.learn", in: app)
 
         let notes = app.textViews["learn.notes"]
         XCTAssertTrue(notes.waitForExistence(timeout: 10))
+        revealNotes(in: app)
         XCTAssertTrue(notes.isEnabled, "The isolated fixture must not have an active run or analysis.")
         // Fixture launches create a fresh workspace. Refuse to append to unexpected prior content.
         XCTAssertEqual((notes.value as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines), "")
@@ -99,29 +102,28 @@ final class OnDeviceLearningTests: XCTestCase {
         let generationResult = XCTWaiter.wait(for: [sheetDismissed], timeout: 120)
         attachScreenshot("learning-generation-outcome", from: app)
         XCTAssertEqual(generationResult, .completed, "Real inference must return a new draft and dismiss Learn within 120 seconds.")
-        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 5), "A generated routine must still require approval.")
+        XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5), "A generated routine must return as a draft to review.")
         XCTAssertFalse(sampleLabel.exists, "Successful generation must replace the sample label; a fixture is not an inference result.")
         XCTAssertFalse(app.buttons["run.start"].exists, "Generation must not approve or start the routine.")
         XCTAssertFalse(notes.exists)
+        MorningUITestNavigation.openRoutine(in: app)
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 5), "A generated routine must still require approval in Review.")
+        XCTAssertFalse(app.staticTexts["routine.source"].exists, "The editor must not present the synthetic sample as learned evidence.")
         XCTAssertTrue(app.buttons["routine.step.0"].exists, "The new draft must contain a visible first step.")
         attachScreenshot("learning-generated-draft-needs-approval", from: app)
     }
 
     private func tapButton(_ identifier: String, in app: XCUIApplication,
                            file: StaticString = #filePath, line: UInt = #line) {
-        let button = app.buttons[identifier]
-        XCTAssertTrue(button.waitForExistence(timeout: 10), "Missing learning control: \(identifier)", file: file, line: line)
-        for _ in 0..<4 where !button.isHittable {
-            if identifier == "learn.analyze" {
-                let learnSheet = app.scrollViews.containing(.textView, identifier: "learn.notes").firstMatch
-                XCTAssertTrue(learnSheet.exists, "Scroll the active Learn sheet rather than the background timeline.", file: file, line: line)
-                learnSheet.swipeUp()
-            } else {
-                app.scrollViews.firstMatch.swipeUp()
-            }
-        }
-        XCTAssertTrue(button.isHittable, "Learning control is not hittable: \(identifier)", file: file, line: line)
-        button.tap()
+        MorningUITestNavigation.tapButton(identifier, in: app, file: file, line: line)
+    }
+
+    private func revealNotes(in app: XCUIApplication) {
+        let notes = app.textViews["learn.notes"]
+        let sheet = app.scrollViews.containing(.textView, identifier: "learn.notes").firstMatch
+        XCTAssertTrue(sheet.exists, "The editor must belong to the active Learn sheet.")
+        for _ in 0..<4 where !notes.isHittable { sheet.swipeUp() }
+        XCTAssertTrue(notes.isHittable, "The observation editor must be visible before typing.")
     }
 
     private func attachScreenshot(_ name: String, from app: XCUIApplication) {

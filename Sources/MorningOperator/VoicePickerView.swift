@@ -7,6 +7,7 @@ struct VoicePickerView: View {
     @Bindable var speech: SpeechCoordinator
     @Environment(\.dismiss) private var dismiss
     @ViewState<String> private var search = ""
+    @ViewState<Bool> private var showingAllLanguages = false
     @ViewState<[SpeechVoiceDescriptor]> private var voices = []
     @ViewState<UUID?> private var previewID = nil
 
@@ -14,26 +15,15 @@ struct VoicePickerView: View {
         NavigationStack {
             List {
                 Section {
-                    voiceRow(name: "System default", detail: "Follow this device’s language", identifier: nil)
+                    voiceRow(name: "Automatic", detail: automaticDetail, identifier: nil)
                         .accessibilityIdentifier("voice.default")
                 } footer: {
-                    Text("Choose a voice already available on this device. Your choice applies to spoken morning steps.")
-                }
-
-                Section("Available voices") {
-                    ForEach(filteredVoices) { voice in
-                        voiceRow(name: voice.name, detail: languageName(voice.language), identifier: voice.id)
-                            .accessibilityIdentifier("voice.option.\(voice.id)")
-                    }
-                    if filteredVoices.isEmpty {
-                        Text(search.isEmpty ? "No additional built-in voices are available here." : "No matching voices.")
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("Matches your device’s language and dialect, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps.")
                 }
 
                 Section {
                     Button {
-                        speech.speak("Good morning. Let’s make a little room for your day.")
+                        speech.speak(speech.previewText)
                         previewID = speech.playbackID
                     } label: {
                         Label("Preview selected voice", systemImage: "speaker.wave.2")
@@ -41,6 +31,12 @@ struct VoicePickerView: View {
                     .accessibilityIdentifier("voice.preview")
 
                     if let previewID, speech.playbackID == previewID {
+                        if speech.state == .preparing {
+                            ProgressView("Preparing audio…")
+                        } else if speech.state == .paused {
+                            Button("Resume preview") { speech.resume() }
+                                .accessibilityIdentifier("voice.resumePreview")
+                        }
                         Button {
                             stopPreview()
                         } label: {
@@ -53,10 +49,45 @@ struct VoicePickerView: View {
                     }
                 } footer: {
                     if let selected = speech.voiceIdentifier, !voices.contains(where: { $0.id == selected }) {
-                        Text("Your saved voice is unavailable on this device. Speech will use the system default until you choose another.")
+                        Text("Your saved voice is unavailable. Speech uses the automatic choice until you select another.")
                     } else {
-                        Text("The preview uses your current audio output. More voices can be downloaded in the device’s accessibility settings.")
+                        Text("Listen through your current audio output. These are Apple system speech voices; Siri may use a different voice.")
                     }
+                }
+
+                Section {
+                    Toggle("Show all languages", isOn: $showingAllLanguages)
+                        .accessibilityIdentifier("voice.allLanguages")
+                    ForEach(filteredVoices) { voice in
+                        voiceRow(name: voice.name,
+                            detail: "\(languageName(voice.language)) · \(voice.quality.displayName)", identifier: voice.id)
+                            .accessibilityIdentifier("voice.option.\(voice.id)")
+                    }
+                    if filteredVoices.isEmpty {
+                        Text(search.isEmpty ? "No matching installed voices. Try showing all languages." : "No matching voices.")
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Installed voices")
+                } footer: {
+                    Text("A voice’s language affects pronunciation. Choosing it does not translate your routine.")
+                }
+
+                Section("More natural voices") {
+                    if !hasHigherQualityVoiceForDeviceLanguage {
+                        Text("No Enhanced or Premium voice is available here for your device’s language yet.")
+                            .font(.subheadline)
+                    }
+                    #if os(iOS)
+                    Text("In Settings → Accessibility → Read & Speak → Voices, choose your language and download an Enhanced or Premium voice if offered. Return here after the download finishes.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Link("Apple’s voice settings guide", destination: URL(string: "https://support.apple.com/en-ie/guide/iphone/iph96b214f0/27/ios/27")!)
+                    #else
+                    Text("More voices can be downloaded through the accessibility voice controls in System Settings. Return here when the download finishes.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    #endif
+                    Button("Refresh installed voices") { voices = speech.availableVoices }
+                        .accessibilityIdentifier("voice.refresh")
                 }
             }
             .navigationTitle("Your morning voice")
@@ -81,12 +112,24 @@ struct VoicePickerView: View {
 
     private var filteredVoices: [SpeechVoiceDescriptor] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return voices }
+        guard !query.isEmpty else {
+            return showingAllLanguages ? voices : voices.filter { speech.matchesPreferredLanguage($0.language) }
+        }
         return voices.filter {
             $0.name.localizedStandardContains(query)
                 || $0.language.localizedStandardContains(query)
                 || languageName($0.language).localizedStandardContains(query)
+                || $0.quality.displayName.localizedStandardContains(query)
         }
+    }
+
+    private var automaticDetail: String {
+        guard let voice = speech.recommendedVoice else { return "Follow this device’s language" }
+        return "\(voice.name) · \(languageName(voice.language)) · \(voice.quality.displayName)"
+    }
+
+    private var hasHigherQualityVoiceForDeviceLanguage: Bool {
+        voices.contains { speech.matchesPreferredLanguage($0.language) && $0.quality != .standard }
     }
 
     private func voiceRow(name: String, detail: String, identifier: String?) -> some View {
