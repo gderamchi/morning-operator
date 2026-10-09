@@ -5,11 +5,9 @@ import MorningApple
 @available(iOS 27.0, *)
 struct MorningRecordingStatus: View {
     @Bindable var store: MorningStore
-    var onStarted: () -> Void
     var onReview: () -> Void
     @Bindable private var recording = ScreenRecordingService.shared
     @Environment(\.scenePhase) private var scenePhase
-    @ViewState<Bool> private var didAnnounceStart = false
 
     var body: some View {
         Group {
@@ -68,7 +66,9 @@ struct MorningRecordingStatus: View {
             } else if recording.hasRecordingToReview {
                 VStack(alignment: .leading, spacing: 8) {
                     if let issue = store.observationIssue { Text(issue).font(.caption) }
-                    Button("Your recording is ready · Review") { processRecordingIfReady() }
+                    Button("Your recording is ready · Review") {
+                        transferAndProcessRecordingIfReady(store: store, sceneIsActive: scenePhase == .active, onReview: onReview)
+                    }
                         .buttonStyle(.glass).accessibilityIdentifier("record.review")
                 }.padding(10)
             } else if recording.state == .failed {
@@ -99,6 +99,25 @@ struct MorningRecordingStatus: View {
                 }.buttonStyle(.glass).padding(8).accessibilityIdentifier("observation.review")
             }
         }
+    }
+
+    private var remainingTime: String {
+        String(format: "%02d:%02d", recording.remainingSeconds / 60, recording.remainingSeconds % 60)
+    }
+}
+
+/// One nonvisual owner keeps lifecycle effects independent of the three tab layouts.
+@available(iOS 27.0, *)
+struct MorningRecordingCoordinator: View {
+    @Bindable var store: MorningStore
+    var onStarted: () -> Void
+    var onReview: () -> Void
+    @Bindable private var recording = ScreenRecordingService.shared
+    @Environment(\.scenePhase) private var scenePhase
+    @ViewState<Bool> private var didAnnounceStart = false
+
+    var body: some View {
+        Color.clear.frame(width: 0, height: 0).accessibilityHidden(true)
         .onChange(of: recording.state, initial: true) { _, state in
             if state != .recording { didAnnounceStart = false }
             announceStartedIfActive()
@@ -114,16 +133,12 @@ struct MorningRecordingStatus: View {
         .onChange(of: store.sessionActive) { _, active in
             if !active { processRecordingIfReady() }
         }
-        .onChange(of: store.hasPendingRecording) { _, pending in
+        .onChange(of: store.hasPendingRecording) { _, _ in
             processRecordingIfReady()
         }
         .onChange(of: store.pendingRecordingShouldAutoProcess) { _, _ in
             processRecordingIfReady()
         }
-    }
-
-    private var remainingTime: String {
-        String(format: "%02d:%02d", recording.remainingSeconds / 60, recording.remainingSeconds % 60)
     }
 
     private func announceStartedIfActive() {
@@ -135,16 +150,23 @@ struct MorningRecordingStatus: View {
     }
 
     private func processRecordingIfReady() {
-        // The service's finalization callback normally stages this without any view rendering.
-        // Retry staging here only if its earlier attempt could not accept ownership.
-        if !store.hasPendingRecording, recording.hasRecordingToReview, let url = recording.recordedURL,
-           store.retainFinalizedRecording(url, interruptionNote: recording.recordingInterruption) {
-            _ = recording.takeRecording()
-        }
-        guard scenePhase == .active, !store.busy, !store.sessionActive,
-              store.hasPendingRecording, store.pendingRecordingShouldAutoProcess else { return }
-        store.retryPendingRecording()
-        if !store.intelligence.isAvailable { onReview() }
+        transferAndProcessRecordingIfReady(store: store, sceneIsActive: scenePhase == .active, onReview: onReview)
     }
+}
+
+@available(iOS 27.0, *)
+@MainActor
+private func transferAndProcessRecordingIfReady(store: MorningStore, sceneIsActive: Bool, onReview: () -> Void) {
+    let recording = ScreenRecordingService.shared
+    // The service's finalization callback normally stages this without any view rendering.
+    // Retry staging here only if its earlier attempt could not accept ownership.
+    if !store.hasPendingRecording, recording.hasRecordingToReview, let url = recording.recordedURL,
+       store.retainFinalizedRecording(url, interruptionNote: recording.recordingInterruption) {
+        _ = recording.takeRecording()
+    }
+    guard sceneIsActive, !store.busy, !store.sessionActive,
+          store.hasPendingRecording, store.pendingRecordingShouldAutoProcess else { return }
+    store.retryPendingRecording()
+    if !store.intelligence.isAvailable { onReview() }
 }
 #endif

@@ -1,8 +1,94 @@
 import XCTest
 
+/// An opt-in audible device check. A passing callback check is not listener confirmation.
+@MainActor
+final class VoicePlaybackTests: XCTestCase {
+    func testSpokenRoutineStepAdvancesOnlyAfterPlayback() throws {
+        guard ProcessInfo.processInfo.environment["MO_VOICE_TEST_ENABLED"] == "1" else {
+            throw XCTSkip("Opt in before playing a sample routine on the selected phone.")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--fixture-mode"]
+        app.launch()
+        let settings = app.buttons["navigation.setup"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        let readAloud = app.switches["setup.readAloud"]
+        XCTAssertTrue(readAloud.waitForExistence(timeout: 5))
+        let sheet = app.scrollViews.containing(.switch, identifier: "setup.readAloud").firstMatch
+        for _ in 0..<4 where !readAloud.isHittable { sheet.swipeUp() }
+        XCTAssertTrue(readAloud.isHittable)
+        readAloud.tap()
+        XCTAssertEqual(readAloud.value as? String, "1")
+        app.navigationBars["Settings"].buttons["Done"].tap()
+        app.buttons["routine.approve"].tap()
+        app.buttons["run.start"].tap()
+        let step = app.staticTexts["run.step"]
+        XCTAssertTrue(step.waitForExistence(timeout: 5))
+        XCTAssertEqual(step.label, "A calm start")
+        // The first fixture step is a real spokenNote operation; the next is manual.
+        // Enabling automatic progression dispatches the production speech executor.
+        let handsFree = app.switches["Hands free"]
+        XCTAssertTrue(handsFree.waitForExistence(timeout: 5))
+        handsFree.tap()
+        let advanced = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "People and messages"), object: step)
+        XCTAssertEqual(XCTWaiter.wait(for: [advanced], timeout: 30), .completed)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "synthetic-routine-spoken-step-completed-manual-step-waiting"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.buttons["run.controls"].tap()
+        app.buttons["run.stop"].tap()
+        // Does not establish listener audibility, calendar access or cross-app narration.
+    }
+
+    func testSystemVoicePreviewStartsAndFinishes() throws {
+        guard ProcessInfo.processInfo.environment["MO_VOICE_TEST_ENABLED"] == "1" else {
+            throw XCTSkip("Opt in before playing speech on the selected phone.")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--fixture-mode"]
+        app.launch()
+        let settings = app.buttons["navigation.setup"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        let preview = app.buttons["setup.testVoice"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        let sheet = app.scrollViews.containing(.button, identifier: "setup.testVoice").firstMatch
+        for _ in 0..<4 where !preview.isHittable { sheet.swipeUp() }
+        XCTAssertTrue(preview.isHittable)
+        preview.tap()
+        let status = app.staticTexts["setup.speechStatus"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        let started = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "speaking"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [started], timeout: 5), .completed)
+        let finished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND label == %@", "idle", "Ready to speak"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 25), .completed)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "system-voice-preview-completed-listener-confirmation-separate"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+}
+
 /// Exercises only Morning Operator's synthetic fixture, never an external inbox.
 @MainActor
 final class FixtureJourneyTests: XCTestCase {
+    func testFirstUseCanStartLearningWithoutScrolling() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-workspace=\(UUID().uuidString)"]
+        app.launch()
+        let begin = app.buttons["learn.begin"]
+        XCTAssertTrue(begin.waitForExistence(timeout: 10))
+        XCTAssertTrue(begin.isHittable, "The first-use learning action must be available before any scroll.")
+        attachScreenshot("first-use-learning-above-fold", from: app)
+        begin.tap()
+        XCTAssertTrue(app.navigationBars["Learn my morning"].waitForExistence(timeout: 5))
+    }
+
     func testApproveRunPauseResumeAndStop() throws {
         let app = launchFixture()
         attachScreenshot("fixture-initial-timeline-before-approval", from: app)
@@ -167,6 +253,18 @@ final class FixtureJourneyTests: XCTestCase {
         openLearnAndAssertNotes(expected, in: app)
         attachScreenshot("synthetic-import-restored-without-reimport", from: app)
 
+        let editor = app.textViews["learn.notes"]
+        editor.tap()
+        editor.typeText(" I also make tea.")
+        let corrected = try XCTUnwrap(editor.value as? String)
+        XCTAssertNotEqual(corrected, expected)
+        XCTAssertTrue(corrected.contains("I also make tea."))
+        closeLearn(in: app)
+        app.terminate()
+        app.launch()
+        openLearnAndAssertNotes(corrected, in: app)
+        attachScreenshot("corrected-observation-restored-after-relaunch", from: app)
+
         let clear = app.buttons["learn.clear"]
         let learnScroll = app.scrollViews.containing(.textView, identifier: "learn.notes").firstMatch
         for _ in 0..<3 where !clear.isHittable { learnScroll.swipeUp() }
@@ -194,8 +292,14 @@ final class FixtureJourneyTests: XCTestCase {
 
     private func assertNotes(_ expected: String, in app: XCUIApplication) {
         let editor = app.textViews["learn.notes"]
-        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: editor)
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed)
+        // UIKit may expose an empty editor as nil rather than the empty string.
+        // Nonempty evidence still requires an exact match; disappearance of Clear
+        // and the subsequent relaunch also verify the underlying saved state.
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (editor.value as? String ?? "") == expected
+        }, object: editor)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed,
+                       "Unexpected observation editor value: \(String(describing: editor.value))")
     }
 
     private func closeLearn(in app: XCUIApplication) {

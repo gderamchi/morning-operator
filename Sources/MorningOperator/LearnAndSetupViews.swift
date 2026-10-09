@@ -7,7 +7,9 @@ struct LearnView: View {
     @ViewState<Bool> private var importing = false
     @ViewState<Bool> private var recording = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @FocusState private var notesFocused: Bool
+    @ScaledMetric(relativeTo: .body) private var notesEditorHeight: CGFloat = 220
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -61,11 +63,23 @@ struct LearnView: View {
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
-                    sectionTitle("Add context, if you like", symbol: "pencil.and.outline")
-                    Text("What do you check first? What helps you feel ready? Include the small things you want to make time for.")
+                    sectionTitle(store.hasImportedObservation ? "What we could see" : "Add context, if you like", symbol: "pencil.and.outline")
+                    Text(store.hasImportedObservation
+                         ? "Review the text we found. Scroll inside it to see more, and correct anything we missed. Visible words don't always mean you performed an activity."
+                         : "What do you check first? What helps you feel ready? Include the small things you want to make time for.")
                         .font(.subheadline).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     notesEditor
+                    if let issue = store.observationSaveIssue {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(issue).font(.footnote).foregroundStyle(MorningStyle.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("learn.saveError")
+                            Button("Retry saving this observation") { store.saveObservationEdits() }
+                                .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
+                                .accessibilityIdentifier("learn.retrySave")
+                        }
+                    }
                     if !store.notes.isEmpty {
                         Button("Clear this observation", role: .destructive) { store.clearObservation() }
                             .buttonStyle(.borderless).font(.caption).disabled(store.busy)
@@ -108,9 +122,19 @@ struct LearnView: View {
         #if os(iOS)
         .toolbar { ToolbarItemGroup(placement: .keyboard) {
             Spacer()
-            Button("Done") { notesFocused = false }.accessibilityIdentifier("input.done")
+            Button("Done") {
+                store.saveObservationEdits()
+                notesFocused = false
+            }.accessibilityIdentifier("input.done")
         } }
         #endif
+        .onChange(of: notesFocused) { _, focused in
+            if !focused { store.saveObservationEdits() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { store.saveObservationEdits() }
+        }
+        .onDisappear { store.saveObservationEdits() }
         .sheet(isPresented: $recording) {
             RecordMorningView(canStartRecording: store.canStartRecording) { url in
                 store.importObservation(url, suggestRoutineWhenReady: true)
@@ -132,9 +156,9 @@ struct LearnView: View {
                     .font(.body).foregroundStyle(MorningStyle.muted.opacity(0.7))
                     .padding(12).allowsHitTesting(false)
             }
-            TextEditor(text: $store.notes)
+            TextEditor(text: Binding(get: { store.notes }, set: { store.updateObservationNotes($0) }))
                 .font(.body).scrollContentBackground(.hidden)
-                .padding(6).frame(minHeight: 155)
+                .padding(6).frame(height: notesEditorHeight)
                 .accessibilityLabel("Describe your morning").accessibilityIdentifier("learn.notes")
                 .focused($notesFocused)
                 .disabled(store.busy || store.sessionActive)
@@ -218,6 +242,11 @@ struct SetupView: View {
                         HStack(spacing: 12) { voiceControls }
                         VStack(alignment: .leading, spacing: 12) { voiceControls }
                     }
+                    Text(store.speech.lastError ?? (store.speech.state == .speaking ? "Speaking…" : store.speech.state == .paused ? "Paused" : "Ready to speak"))
+                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("setup.speechStatus")
+                        .accessibilityValue(store.speech.state.rawValue)
                     Divider().overlay(MorningStyle.line)
                     VStack(alignment: .leading, spacing: 9) {
                         Text("Listen where you like").font(.subheadline.weight(.medium))

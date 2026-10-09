@@ -17,6 +17,15 @@ struct MorningRootView: View {
                 NavigationStack {
                     content(tab)
                         .background(MorningStyle.background)
+                        .safeAreaInset(edge: .top, spacing: 0) {
+                            #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+                            if #available(iOS 27.0, *) {
+                                MorningRecordingStatus(store: store, onReview: { showingLearn = true })
+                                    .frame(maxWidth: .infinity)
+                                    .background(MorningStyle.background)
+                            }
+                            #endif
+                        }
                         .toolbar {
                             ToolbarItem(placement: .primaryAction) {
                                 Button { showingSettings = true } label: { Image(systemName: "slider.horizontal.3") }
@@ -27,11 +36,12 @@ struct MorningRootView: View {
                 .tabItem { Label(tab.rawValue, systemImage: tab.symbol) }.tag(tab)
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
+        .background {
             #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
             if #available(iOS 27.0, *) {
-                MorningRecordingStatus(store: store, onStarted: { showingLearn = false },
-                                       onReview: { showingLearn = true })
+                // A single owner coordinates recording even when the selected tab changes.
+                MorningRecordingCoordinator(store: store, onStarted: { showingLearn = false },
+                                            onReview: { showingLearn = true })
             }
             #endif
         }
@@ -125,12 +135,14 @@ struct TodayView: View {
     private var day: MorningDaySummary? { store.daySummary(date) }
     private var historical: MorningRunRecord? { day?.runs.last }
     private var visibleRoutine: RoutineVersion? { dayOffset == 0 ? store.routine : historical?.routine }
+    private var isFirstUse: Bool { dayOffset == 0 && store.routine == nil }
 
     var body: some View {
         ScrollViewReader { scrollProxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: isFirstUse ? 18 : 26) {
                     header.id("morning.top")
+                    if isFirstUse { welcome }
                     dayStrip
                     if dayOffset == 0 {
                         if let routine = store.routine {
@@ -145,7 +157,7 @@ struct TodayView: View {
                                     Button { store.openCapture() } label: { Label("A thought?", systemImage: "square.and.pencil") }
                                 }.font(.subheadline).buttonStyle(.borderless)
                             }
-                        } else { welcome }
+                        }
                     } else if let historical {
                         historyOverview(historical)
                         timeline(historical.routine, historical: historical)
@@ -410,24 +422,25 @@ struct TodayView: View {
     }
 
     private var welcome: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 24) {
-                Image(systemName: "sun.horizon.fill").font(.system(size: 52, weight: .light)).foregroundStyle(MorningStyle.accent)
-                    .padding(.top, 12).accessibilityHidden(true)
-                Text("Less handling.\nMore morning.").font(.system(.largeTitle, design: .serif, weight: .medium))
-                Text("The briefing. The messages. That game of chess. Let's make space for the things you care about.")
-                    .font(.body).foregroundStyle(.secondary)
-                Button(action: showLearn) { Label("Learn my morning", systemImage: "sparkles").frame(maxWidth: .infinity) }
-                    .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large).accessibilityIdentifier("learn.begin")
-            }.padding(26).background(MorningStyle.lavender.opacity(0.65), in: RoundedRectangle(cornerRadius: 30))
+        VStack(alignment: .leading, spacing: 16) {
+            Button(action: showLearn) {
+                Label("Learn my morning", systemImage: "sparkles")
+                    .frame(maxWidth: .infinity).padding(.vertical, 8)
+            }
+            .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large)
+            .accessibilityIdentifier("learn.begin")
+            Text("Record or describe your morning, then review your first routine.")
+                .font(.subheadline).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Build it myself") { store.useManualRoutine() }
                 Spacer()
                 Button("Explore a sample") { store.loadSample() }.accessibilityIdentifier("routine.sample")
             }.font(.subheadline).buttonStyle(.borderless)
-            Label("A private little ritual. Saved on your device.", systemImage: "lock")
+            Label("Saved on your device. You approve every routine.", systemImage: "lock")
                 .font(.caption).foregroundStyle(.secondary)
         }
+        .padding(20).background(MorningStyle.lavender.opacity(0.65), in: RoundedRectangle(cornerRadius: 26))
     }
 }
 

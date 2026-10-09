@@ -4,6 +4,63 @@ import XCTest
 /// This is separate from deterministic fixture checks: model unavailability is an explicit skip.
 @MainActor
 final class OnDeviceLearningTests: XCTestCase {
+    /// This validates a deterministic evidence guard. It does not claim model inference.
+    func testSetupOnlyRecordingDoesNotReplaceTheExistingRoutine() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--fixture-mode"]
+        app.launch()
+        let sampleLabel = app.staticTexts["routine.source"]
+        XCTAssertTrue(sampleLabel.waitForExistence(timeout: 10))
+        let originalSource = sampleLabel.label
+        tapButton("learn.refine", in: app)
+        let notes = app.textViews["learn.notes"]
+        XCTAssertTrue(notes.waitForExistence(timeout: 10))
+        XCTAssertEqual(notes.value as? String ?? "", "")
+        let observation = """
+        [User-selected video: 00:40.3; 3 frames sampled. This is partial visual evidence, not a complete interaction log.]
+
+        [Observed frame at 00:00.0]
+        Screen Sharing
+        Morning Operator
+        Share Screen
+        Cancel
+
+        [Observed frame at 00:10.0]
+        Less handling. More morning.
+        The briefing. The messages. That game of chess. Let's make space for the things you care about.
+        Learn my morning
+
+        [Observed frame at 00:20.0]
+        App Library
+        Suggestions
+        Recently Added
+        Social
+        Entertainment
+        """
+        notes.tap()
+        notes.typeText(observation)
+        XCTAssertEqual(notes.value as? String, observation)
+        if app.buttons["input.done"].waitForExistence(timeout: 2) { app.buttons["input.done"].tap() }
+        let analyze = app.buttons["learn.analyze"]
+        XCTAssertTrue(analyze.waitForExistence(timeout: 5))
+        guard analyze.isEnabled else {
+            throw XCTSkip("The UI analysis action is unavailable on this device; the evidence guard was not exercised through the UI.")
+        }
+        tapButton("learn.analyze", in: app)
+        let message = "Not enough activity evidence yet. Show a real activity or describe what you did; setup screens, sharing controls and app lists do not establish a routine."
+        let insufficientEvidence = app.staticTexts.matching(NSPredicate(format: "label == %@", message)).firstMatch
+        XCTAssertTrue(insufficientEvidence.waitForExistence(timeout: 15))
+        XCTAssertTrue(notes.exists, "Insufficient evidence must leave the observation available to review.")
+        XCTAssertEqual(notes.value as? String, observation)
+        attachScreenshot("setup-only-observation-rejected", from: app)
+        app.buttons["Done"].firstMatch.tap()
+        XCTAssertTrue(sampleLabel.waitForExistence(timeout: 5))
+        XCTAssertEqual(sampleLabel.label, originalSource, "An insufficient recording must not replace the existing routine.")
+        XCTAssertFalse(app.buttons["run.start"].exists)
+        attachScreenshot("setup-only-observation-preserves-routine", from: app)
+    }
+
     func testAvailableLocalModelProducesANewUnapprovedRoutine() throws {
         continueAfterFailure = false
         let app = XCUIApplication()

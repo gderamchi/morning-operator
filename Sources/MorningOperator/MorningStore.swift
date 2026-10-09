@@ -41,7 +41,9 @@ final class MorningStore {
     private(set) var routine: RoutineVersion?
     private(set) var session: RoutineSession?
     private(set) var previousRoutine: RoutineVersion?
-    var notes = ""
+    private(set) var notes = ""
+    private(set) var observationSaveIssue: String?
+    private var observationEditsNeedSave = false
     var notice: String?
     private(set) var busy = false
     private(set) var progress = 0.0
@@ -104,7 +106,8 @@ final class MorningStore {
         } catch {
             observationIssue = "Recording recovery needs attention: \(error.localizedDescription)"
         }
-        if fixtureMode && !FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
+        let seedFixture = fixtureMode && !ProcessInfo.processInfo.arguments.contains("--ui-testing-empty-workspace")
+        if seedFixture && !FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             routine = DemoFixtures.candidateRoutine
             automatic = false
             readAloud = false
@@ -277,10 +280,12 @@ final class MorningStore {
     func analyzeNotes() {
         let input = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty, !busy, !sessionActive else { return }
+        guard saveObservationEdits() else { return }
+        let source = notesSourceLabel
         beginAnalysis()
         analysisTask = Task { [weak self] in
             guard let self else { return }
-            await self.createCandidate(text: input, source: self.notesSourceLabel)
+            await self.createCandidate(text: input, source: source)
         }
     }
 
@@ -305,6 +310,9 @@ final class MorningStore {
             notice = "Finish the current activity before importing another observation."
             return false
         }
+        // Save current corrections before a new import can replace the latest observation.
+        // An app-owned recording has already been retained even if this write fails.
+        guard saveObservationEdits() else { return ownedRecording }
         beginAnalysis()
         analysisStatus = "Reading your selected observation…"
         let interruptionNote = ownedRecording ? pendingRecordingInterruption : nil
@@ -416,10 +424,27 @@ final class MorningStore {
         observationIssue = nil
     }
 
+    /// Editing keeps the original import/source context. The UI binds to this live value,
+    /// so a later lifecycle save cannot restore a stale copy over newly imported text.
+    func updateObservationNotes(_ text: String) {
+        guard !busy, !sessionActive, text != notes else { return }
+        notes = text
+        observationEditsNeedSave = true
+    }
+
+    /// Flush on explicit editing/lifecycle boundaries, not on every keystroke or load.
+    /// Failed writes keep the current text and dirty state available for retry.
+    @discardableResult
+    func saveObservationEdits() -> Bool {
+        guard observationEditsNeedSave else { return true }
+        return persist()
+    }
+
     func clearObservation() {
         guard !busy else { return }
         notes = ""
         notesSourceLabel = "Your written observation"
+        observationEditsNeedSave = true
         persist()
     }
 
@@ -613,6 +638,7 @@ final class MorningStore {
     private func persist() -> Bool {
         if let snapshotRecoveryError {
             notice = "\(snapshotRecoveryError) Your existing file is protected; new changes cannot be saved until it can be restored."
+            if observationEditsNeedSave { observationSaveIssue = notice }
             return false
         }
         do {
@@ -621,9 +647,13 @@ final class MorningStore {
                 automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
                 pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
                 observationNotes: notes.isEmpty ? nil : notes, observationSource: notes.isEmpty ? nil : notesSourceLabel))
+            observationEditsNeedSave = false
+            if let observationSaveIssue, notice == observationSaveIssue { notice = nil }
+            observationSaveIssue = nil
             return true
         } catch {
             notice = "Your change is in memory, but saving failed: \(error.localizedDescription)"
+            if observationEditsNeedSave { observationSaveIssue = notice }
             return false
         }
     }
