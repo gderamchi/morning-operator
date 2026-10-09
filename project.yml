@@ -1,0 +1,67 @@
+name: MorningOperator
+options:
+  minimumXcodeGenVersion: 2.45.0
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  xcodeVersion: "26.0"
+packages:
+  MorningOperatorShared:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  MorningOperator:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/MorningOperator
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Configuration/iOS-Info.plist
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    dependencies:
+      - package: MorningOperatorShared
+        product: MorningCore
+      - package: MorningOperatorShared
+        product: MorningApple
+  MorningOperatorUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: MorningOperator
+    dependencies:
+      - target: MorningOperator
+schemes:
+  MorningOperator:
+    build:
+      targets:
+        MorningOperator: all
+        MorningOperatorUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - name: MorningOperatorUITests
+          parallelizable: false
+          randomExecutionOrder: false
+    archive:
+      config: Release

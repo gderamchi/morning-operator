@@ -1,0 +1,480 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */; };
+		3E8251A48B7A61848C80FF10 /* MorningCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BCA4BB59BEA5A48B77C4A6C /* MorningCore */; };
+		5680C59276CBE799A48EED85 /* MorningApple in Frameworks */ = {isa = PBXBuildFile; productRef = B7FD4DEE56FB0CA68AC509D1 /* MorningApple */; };
+		5E40933188691C5EAA5A47E4 /* MorningOperatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B12EF7D60AB60D6F04CA6C /* MorningOperatorApp.swift */; };
+		655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */; };
+		9A8B244DD216406D67AD84A3 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */; };
+		9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */; };
+		D3E9DB5BEC04C3AE555CACB2 /* MorningStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D556BEEB3AC9A6AC02E433A /* MorningStore.swift */; };
+		FE568D140D396486190C7678 /* MorningRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6747EA739E37D1BC16D620F8 /* MorningRootView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FD581DAAA93F1918FD4B948C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CDF8ADEC890B572A7A408C6D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C434BBF063E1A8207CA5AED0;
+			remoteInfo = MorningOperator;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureJourneyTests.swift; sourceTree = "<group>"; };
+		3D556BEEB3AC9A6AC02E433A /* MorningStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningStore.swift; sourceTree = "<group>"; };
+		57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceObservationTests.swift; sourceTree = "<group>"; };
+		6747EA739E37D1BC16D620F8 /* MorningRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningRootView.swift; sourceTree = "<group>"; };
+		719F926FA3B95A7CE588E497 /* morning-operator */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "morning-operator"; path = .; sourceTree = SOURCE_ROOT; };
+		725CA4C297C15A6795DCDFC1 /* MorningOperatorUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MorningOperatorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		823DC3878AEC67AE33FE7B03 /* MorningOperator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MorningOperator.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		86B12EF7D60AB60D6F04CA6C /* MorningOperatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningOperatorApp.swift; sourceTree = "<group>"; };
+		AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnAndSetupViews.swift; sourceTree = "<group>"; };
+		F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		99BCCD1EAF62DF2AD3672E29 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3E8251A48B7A61848C80FF10 /* MorningCore in Frameworks */,
+				5680C59276CBE799A48EED85 /* MorningApple in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		159866F1FDFE6438D4F08CA7 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				719F926FA3B95A7CE588E497 /* morning-operator */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		21C25D62EAF57DB69918D3E8 = {
+			isa = PBXGroup;
+			children = (
+				159866F1FDFE6438D4F08CA7 /* Packages */,
+				C8213501A13EC35BEF289A15 /* Sources */,
+				2EDDE75052C48F0841A86AF6 /* UITests */,
+				B67122DA87190D80D4683386 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2EDDE75052C48F0841A86AF6 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */,
+				129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		B67122DA87190D80D4683386 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				823DC3878AEC67AE33FE7B03 /* MorningOperator.app */,
+				725CA4C297C15A6795DCDFC1 /* MorningOperatorUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B85A9C9668908E5EDC3AC769 /* MorningOperator */ = {
+			isa = PBXGroup;
+			children = (
+				F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */,
+				AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */,
+				86B12EF7D60AB60D6F04CA6C /* MorningOperatorApp.swift */,
+				6747EA739E37D1BC16D620F8 /* MorningRootView.swift */,
+				3D556BEEB3AC9A6AC02E433A /* MorningStore.swift */,
+			);
+			path = MorningOperator;
+			sourceTree = "<group>";
+		};
+		C8213501A13EC35BEF289A15 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				B85A9C9668908E5EDC3AC769 /* MorningOperator */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C434BBF063E1A8207CA5AED0 /* MorningOperator */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DCDA10CCE1BD5E5B8CEFE63A /* Build configuration list for PBXNativeTarget "MorningOperator" */;
+			buildPhases = (
+				E58E9B067CBF9E5903416157 /* Sources */,
+				99BCCD1EAF62DF2AD3672E29 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MorningOperator;
+			packageProductDependencies = (
+				9BCA4BB59BEA5A48B77C4A6C /* MorningCore */,
+				B7FD4DEE56FB0CA68AC509D1 /* MorningApple */,
+			);
+			productName = MorningOperator;
+			productReference = 823DC3878AEC67AE33FE7B03 /* MorningOperator.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DC491EE4D5E8611F255E7271 /* MorningOperatorUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BBA2190BC552DCAA8D26085A /* Build configuration list for PBXNativeTarget "MorningOperatorUITests" */;
+			buildPhases = (
+				DBBEC9FBD2E18B6E481CE229 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AAE1FA1EE7A245C18D1ABD64 /* PBXTargetDependency */,
+			);
+			name = MorningOperatorUITests;
+			packageProductDependencies = (
+			);
+			productName = MorningOperatorUITests;
+			productReference = 725CA4C297C15A6795DCDFC1 /* MorningOperatorUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CDF8ADEC890B572A7A408C6D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					C434BBF063E1A8207CA5AED0 = {
+						ProvisioningStyle = Automatic;
+					};
+					DC491EE4D5E8611F255E7271 = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = C434BBF063E1A8207CA5AED0;
+					};
+				};
+			};
+			buildConfigurationList = 58E87C74F647324A719025EA /* Build configuration list for PBXProject "MorningOperator" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 21C25D62EAF57DB69918D3E8;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9BFD73358F753A6F5C19A097 /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B67122DA87190D80D4683386 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C434BBF063E1A8207CA5AED0 /* MorningOperator */,
+				DC491EE4D5E8611F255E7271 /* MorningOperatorUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DBBEC9FBD2E18B6E481CE229 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */,
+				9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E58E9B067CBF9E5903416157 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9A8B244DD216406D67AD84A3 /* DesignSystem.swift in Sources */,
+				067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */,
+				5E40933188691C5EAA5A47E4 /* MorningOperatorApp.swift in Sources */,
+				FE568D140D396486190C7678 /* MorningRootView.swift in Sources */,
+				D3E9DB5BEC04C3AE555CACB2 /* MorningStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AAE1FA1EE7A245C18D1ABD64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C434BBF063E1A8207CA5AED0 /* MorningOperator */;
+			targetProxy = FD581DAAA93F1918FD4B948C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0193E37F5772BE644DC75C90 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2FB75C48568B4CE585589CF8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/iOS-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gibouu.morningoperator;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9C682C4CD0382E240FEDA194 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9F0DB67C038269E56CA04D19 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/iOS-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gibouu.morningoperator;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A4ED1877FFB381D1B1182644 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gibouu.morningoperator.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = MorningOperator;
+			};
+			name = Debug;
+		};
+		E91DC75B116717F3A5038B5B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.gibouu.morningoperator.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = MorningOperator;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		58E87C74F647324A719025EA /* Build configuration list for PBXProject "MorningOperator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0193E37F5772BE644DC75C90 /* Debug */,
+				9C682C4CD0382E240FEDA194 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BBA2190BC552DCAA8D26085A /* Build configuration list for PBXNativeTarget "MorningOperatorUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A4ED1877FFB381D1B1182644 /* Debug */,
+				E91DC75B116717F3A5038B5B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DCDA10CCE1BD5E5B8CEFE63A /* Build configuration list for PBXNativeTarget "MorningOperator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2FB75C48568B4CE585589CF8 /* Debug */,
+				9F0DB67C038269E56CA04D19 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		9BFD73358F753A6F5C19A097 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9BCA4BB59BEA5A48B77C4A6C /* MorningCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MorningCore;
+		};
+		B7FD4DEE56FB0CA68AC509D1 /* MorningApple */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MorningApple;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = CDF8ADEC890B572A7A408C6D /* Project object */;
+}

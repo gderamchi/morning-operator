@@ -1,0 +1,14 @@
+# Morning Operator
+
+Personal Apple development prototype. The product brief is in `docs/PROJECT-BRIEF.md`.
+
+- Build real, inspectable behavior; label fixtures and unavailable capabilities.
+- Keep XCTest phone control in the UI-test target, never in the ordinary app target.
+- Keep Apple inference and screen content local. No silent remote-model fallback.
+- Do not commit recordings, screenshots, inbox content, tokens, pairing secrets or signing credentials.
+- The first useful slice is teach → review/edit → approve → run with local speech.
+- Model output proposes actions; validated application policy decides execution.
+- An ambiguous external effect must be reconciled before retrying it.
+- Use Swift Package Manager tests for shared logic. Xcode/device checks are separate; do not claim they passed when only package tests ran.
+- Preserve user edits and distinguish retained semantic learning from expiring raw media.
+- Do not modify the parent project's read-only `sources/` directory.
