@@ -1,12 +1,28 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. Current source **`fb0e4a2`** adds optional native OCR layout evidence; all layout checks below ran on that exact source. The historical **`e7666cd`/`dd611fd`** refinement and **`4ddb524`** baseline retain their separate results. None of these follow-ups replaced the owner's phone build, and no physical phone was connected for them.
+The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. Current source **`d9a6120`** adds dated observation history and preserves original evidence alongside corrections. The preceding source **`fb0e4a2`** added optional native OCR layout evidence; its historical checks remain separate below. The historical **`e7666cd`/`dd611fd`** refinement and **`4ddb524`** baseline retain their separate results. None of these follow-ups replaced the owner's phone build, and no physical phone was connected for them.
 
 ## V2 in this branch
 
 Morning now contains the date, compact routine and start/run controls. Review owns history, routine edits, approval, observations, thoughts and connections. Installed Apple voice selection considers language, dialect and quality; an explicit voice-command turn pauses the routine and releases playback before using on-device speech recognition. [Design](V2-DESIGN.md) · [Voice behavior](VOICE.md) · [Architecture](ARCHITECTURE.md).
 
 Learning preserves complete required rituals from the person's previous routine, keeps proposals unapproved and strips model-assigned automation. Sample rituals stay out of personal learning. This is not a complete edit/removal preference journal or a multi-day habit-quality result.
+
+## Dated observation history — 10 October 2026 (`d9a6120`)
+
+Review now saves separate observations across imports, places explicitly dated observations under their local day, and provides Date needed for unknown dates. Originals and corrections are retained separately. Same-file SHA-256 deduplication preserves the acquisition identity, corrections and date; single/all deletion removes its advertised evidence scope and leaves routines intact. Native recording-start metadata survives the recovery slot, but its physical callback path still needs a phone trial.
+
+| Check | Result and scope |
+|---|---|
+| Shared logic and native adapters | **214 distinct checks passed across the full and focused runs; six optional checks skipped.** Core: 89 passed. Apple: 125 passed across runs, six skipped. New archive, recording metadata, recovery and fingerprint checks are included. |
+| Native service failures retained | The restricted package attempt could not create Vision pixel buffers for two existing image tests. Retrying with native-service access passed the layout test (49.987s), while the screenshot test encountered an `e5rt` execution error. A focused rerun passed that actual Vision screenshot check (26.796s) and all 12 final archive checks. This is not one uninterrupted all-green suite. |
+| Final iOS build | **Succeeded**, Xcode 27 / iPhone 15 Pro Max simulator / iOS 27.0. Includes final archive validation and Store integration. |
+| Initial archive UI attempt | Original/correction/relaunch/scoped-deletion passed (84.046s); real text reimport/deduplication passed (74.917s). The date journey could not find a standalone date string; its screenshot shows that value during the detail transition. The staged legacy test was skipped because that first invocation did not supply its opt-in workspace. Readiness waits were added, and the subsequent run exposed the grouped-accessibility selector issue below. |
+| Archive/import UI run | **Four passed, two failed; no skips**, 318.700s. Original/correction/scoped deletion passed (90.550s), same-file real text reimport passed (74.623s), blank-video preservation passed (40.101s), and the actual fixture-app recording import/edit/clear passed (71.400s). Date and legacy journeys failed to locate standalone strings inside native grouped metadata rows. Local inspection confirmed migration had saved one entry, retained the routine, kept both dates unknown and removed the invalid derived result. |
+| Final accessibility correction and affected journeys | Added explicit spoken labels/values for observed date, import date and origin, then rebuilt successfully. **2/2 passed, no skips**, 120.360s: a freshly staged old-format workspace migrated and survived relaunch (48.566s); assigning day/origin, opening the dated day, unassigning and relaunching passed (71.795s). The other four UI journeys were not repeated after this accessibility-only change. |
+| Visual review | Inspected the saved original/correction detail and final undated-observation screenshots. The native lists and disclosure controls remain in Review; no new controls or counters were added to Morning. This is not a full spoken VoiceOver or physical-device audit. |
+
+Synthetic origins remain separate from human activity. The local-day archive does not provide complete capture intervals, actual app dwell time, gestures, reading intent or comparable-day habit averages. No new model call, physical phone install, Siri/microphone or HomePod trial was performed in this slice. The device query found only a simulated device; listener-confirmed phone speech remains open.
 
 ## Native OCR layout evidence — 10 October 2026 (`fb0e4a2`)
 

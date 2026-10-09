@@ -14,6 +14,8 @@ Morning has no inline editing. “Update my morning” opens Review. More than t
 
 Active recording status and Stop remain available; completed observations and corrections live in Review. Apple's consent/picker remains system UI. A wake-time entry point never substitutes for a new required recording choice.
 
+Review now keeps saved observations across imports. Its day pages distinguish observations from routine runs; **Saved observations** reaches older entries and **Date needed** handles missing observed dates. Original extraction and corrected notes are separate, with explicit day/zone/origin assignment and scoped deletion. The compact Morning gains no archive controls or counters. These dated glimpses still do not establish comparable full mornings or observed-habit averages.
+
 ## Native presentation
 
 Use SwiftUI's native tab bar and control styles. Apply Liquid Glass selectively to controls, leaving content readable; use `GlassEffectContainer` when custom glass controls should interact. Prefer system transitions over custom tab-bar offsets or imitation blur. [Apple's Liquid Glass guide](https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views), [glassEffect(_:in:)](https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:)), [GlassEffectContainer](https://developer.apple.com/documentation/swiftui/glasseffectcontainer).
