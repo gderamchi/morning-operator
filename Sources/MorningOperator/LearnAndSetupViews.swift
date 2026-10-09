@@ -187,11 +187,26 @@ struct LearnView: View {
 struct SetupView: View {
     @Bindable var store: MorningStore
     @ViewState<Bool> private var choosingVoice = false
+    @ViewState<Bool> private var choosingInvitation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeading(eyebrow: "Make yourself at home", title: "A few things, your way.",
                 subtitle: "Choose what to connect and how you'd like your morning to sound.")
+
+            Card {
+                Button { choosingInvitation = true } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "sun.horizon").font(.title2)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Your next morning").font(.headline)
+                            Text(store.invitation.statusText).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption)
+                    }
+                }.buttonStyle(.plain).accessibilityIdentifier("setup.invitation")
+            }
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
@@ -300,6 +315,7 @@ struct SetupView: View {
             .padding(.horizontal, 4)
         }.foregroundStyle(MorningStyle.ink)
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
+        .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
     }
 
     @ViewBuilder private var voiceControls: some View {

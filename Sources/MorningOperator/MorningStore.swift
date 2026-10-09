@@ -33,6 +33,7 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var voiceIdentifier: String?
     var observationNotes: String?
     var observationSource: String?
+    var consumedMorningEntryIDs: [UUID]?
 }
 
 @MainActor @Observable
@@ -72,7 +73,11 @@ final class MorningStore {
     let intelligence = AppleIntelligenceService()
     let speech = SpeechCoordinator()
     let voiceCommands = MorningVoiceCommandListener()
+    let invitation: MorningInvitationService
+    private(set) var consumedMorningEntryIDs: [UUID] = []
+    var storageIsAvailable: Bool { snapshotRecoveryError == nil }
     var voiceCommandPresented = false
+    var morningDetailPresented = false
     private(set) var voiceCommandPreparing = false
     private(set) var voiceCommandFeedback: String?
     @ObservationIgnored private var voiceCommandTask: Task<Void, Never>?
@@ -105,6 +110,7 @@ final class MorningStore {
         }
         snapshot = AtomicJSONFile(url: directory.appendingPathComponent("workspace.json"))
         recordingRecovery = PendingScreenRecordingStore(directory: directory)
+        invitation = MorningInvitationService(directory: directory)
         defer { connectRecordingRecovery() }
         do {
             pendingRecordingURL = try recordingRecovery.recover()
@@ -155,6 +161,7 @@ final class MorningStore {
                 notesSourceLabel = saved.observationSource ?? "Your written observation"
                 sessionTimingInterrupted = saved.sessionTimingInterrupted ?? false
                 pendingCaptures = saved.pendingCaptures ?? [:]
+                consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
                 if !pendingCaptures.isEmpty { notice = "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again." }
                 if session?.status == .running {
                     sessionTimingInterrupted = true
@@ -219,8 +226,13 @@ final class MorningStore {
         persist()
     }
 
-    func start() {
-        guard let routine, !busy, !voiceInputBlocksPlayback else { return }
+    @discardableResult
+    func start(entryID: UUID? = nil) -> Bool {
+        guard let routine, !busy, !voiceInputBlocksPlayback else { return false }
+        if let entryID, consumedMorningEntryIDs.contains(entryID) { return false }
+        // Revealing an already running morning must not dispatch its speech again.
+        if session?.status == .running { return true }
+        let previousEntryIDs = consumedMorningEntryIDs
         do {
             if session?.status == .paused { try session?.resume() }
             else if session?.status != .running {
@@ -231,9 +243,33 @@ final class MorningStore {
                 try session?.start()
             }
             notice = nil
-            guard persist() else { pauseAfterSaveFailure(); return }
+            if let entryID { rememberMorningEntry(entryID) }
+            guard persist() else {
+                consumedMorningEntryIDs = previousEntryIDs
+                pauseAfterSaveFailure()
+                return false
+            }
             runCurrentIfEnabled()
-        } catch { notice = error.localizedDescription }
+            return true
+        } catch { notice = error.localizedDescription; return false }
+    }
+
+    /// This receipt and a starting/resuming transition share workspace.json. A
+    /// notification's separate durable consumption is intentionally at-most-once:
+    /// if a save fails after consumption, the person uses the ordinary Start button.
+    @discardableResult
+    func handleMorningEntry(_ request: MorningEntryRequest, destination: MorningEntryDestination) -> Bool {
+        guard destination != .wait else { return false }
+        if destination == .start || destination == .resume { return start(entryID: request.id) }
+        guard !consumedMorningEntryIDs.contains(request.id), storageIsAvailable else { return true }
+        let previous = consumedMorningEntryIDs
+        rememberMorningEntry(request.id)
+        guard persist() else { consumedMorningEntryIDs = previous; return false }
+        return true
+    }
+
+    private func rememberMorningEntry(_ id: UUID) {
+        consumedMorningEntryIDs = Array((consumedMorningEntryIDs + [id]).suffix(64))
     }
 
     func pause() {
@@ -744,7 +780,8 @@ final class MorningStore {
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
                 automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
                 pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
-                observationNotes: notes.isEmpty ? nil : notes, observationSource: notes.isEmpty ? nil : notesSourceLabel))
+                observationNotes: notes.isEmpty ? nil : notes, observationSource: notes.isEmpty ? nil : notesSourceLabel,
+                consumedMorningEntryIDs: consumedMorningEntryIDs))
             observationEditsNeedSave = false
             if let observationSaveIssue, notice == observationSaveIssue { notice = nil }
             observationSaveIssue = nil

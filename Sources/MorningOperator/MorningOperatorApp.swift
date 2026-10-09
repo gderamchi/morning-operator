@@ -4,6 +4,7 @@ import MorningApple
 
 @main
 struct MorningOperatorApp: App {
+    @UIApplicationDelegateAdaptor(MorningNotificationDelegate.self) private var notificationDelegate
     @ViewState<MorningStore> private var store = MorningStore()
 
     init() { MorningAppShortcuts.updateAppShortcutParameters() }

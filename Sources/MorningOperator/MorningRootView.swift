@@ -10,6 +10,7 @@ struct MorningRootView: View {
     @ViewState<Bool> private var showingRoutineEditor = false
     @ViewState<UUID> private var reviewRootIdentity = UUID()
     @ViewState<Bool> private var presentingIntentCapture = false
+    @ViewState<Bool> private var testObservedBackground = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -43,10 +44,10 @@ struct MorningRootView: View {
             #endif
         }
         .tint(MorningStyle.accent)
-        .sheet(isPresented: $showingSettings, onDismiss: presentPendingIntentCapture) {
+        .sheet(isPresented: $showingSettings, onDismiss: processPendingEntries) {
             detailSheet("Settings") { SetupView(store: store) }
         }
-        .sheet(isPresented: $showingLearn, onDismiss: presentPendingIntentCapture) {
+        .sheet(isPresented: $showingLearn, onDismiss: processPendingEntries) {
             detailSheet("Learn my morning") { LearnView(store: store) }
         }
         .sheet(isPresented: $store.capturePresented, onDismiss: captureReviewDismissed) {
@@ -54,9 +55,9 @@ struct MorningRootView: View {
         }
         .sheet(isPresented: $store.voiceCommandPresented, onDismiss: {
             store.cancelVoiceCommandTurn()
-            presentPendingIntentCapture()
+            processPendingEntries()
         }) { MorningVoiceCommandView(store: store) }
-        .onChange(of: showingRoutineEditor) { _, showing in if !showing { presentPendingIntentCapture() } }
+        .onChange(of: showingRoutineEditor) { _, showing in if !showing { processPendingEntries() } }
         .onChange(of: store.tab) { _, value in
             if value == .learn { store.tab = .review; showingLearn = true }
             if value == .setup { store.tab = .review; showingSettings = true }
@@ -68,19 +69,38 @@ struct MorningRootView: View {
         .onChange(of: store.speech.state) { store.handleSpeechInterruption() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
+                #endif
                 store.cancelVoiceCommandTurn()
                 if store.session?.status == .running { store.pause() }
+            } else if phase == .active {
+                #if DEBUG
+                let args = ProcessInfo.processInfo.arguments
+                if testObservedBackground, args.contains("--ui-testing"), args.contains("--ui-testing-start-entry-on-return") {
+                    testObservedBackground = false
+                    MorningIntentRouter.shared.requestStart()
+                }
+                #endif
+                Task { await store.invitation.reconcile(); processPendingEntries() }
             }
         }
         .onChange(of: MorningIntentRouter.shared.pendingCaptureText, initial: true) { _, _ in
             presentPendingIntentCapture()
         }
-        .onChange(of: MorningIntentRouter.shared.startRequested, initial: true) { _, requested in
-            if requested {
-                MorningIntentRouter.shared.startRequested = false
-                if store.routine?.isApproved == true { store.tab = .today; store.start() }
-                else { openRoutineReview() }
+        .onChange(of: MorningIntentRouter.shared.pendingStart, initial: true) { _, _ in processPendingEntries() }
+        .onChange(of: entryIsOccupied) { _, occupied in if !occupied { processPendingEntries() } }
+        .task {
+            await store.invitation.reconcile()
+            #if DEBUG
+            // Explicit isolated fixture entry tests exercise routing, not Siri or
+            // notification delivery. They never request notification permission.
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("--ui-testing"), args.contains("--ui-testing-start-entry") {
+                MorningIntentRouter.shared.requestStart()
             }
+            #endif
+            processPendingEntries()
         }
     }
 
@@ -90,7 +110,7 @@ struct MorningRootView: View {
     }
 
     private func presentPendingIntentCapture() {
-        guard !presentingIntentCapture, !store.capturePresented, !showingSettings,
+        guard scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !showingSettings,
               !showingLearn, !showingRoutineEditor, !store.voiceCommandPresented,
               let text = MorningIntentRouter.shared.pendingCaptureText else { return }
         presentingIntentCapture = true
@@ -102,7 +122,59 @@ struct MorningRootView: View {
             MorningIntentRouter.shared.finishCaptureReview()
             presentingIntentCapture = false
         }
+        processPendingEntries()
+    }
+
+    private var entryIsOccupied: Bool {
+        var recordingBusy = false
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        if #available(iOS 27.0, *) { recordingBusy = ScreenRecordingService.shared.isBusy }
+        #endif
+        return showingSettings || showingLearn || showingRoutineEditor || presentingIntentCapture ||
+            store.capturePresented || store.voiceCommandPresented || store.morningDetailPresented || store.voiceInputBlocksPlayback ||
+            store.busy || store.captureBusy || store.calendarBusy || store.hasPendingRecording ||
+            recordingBusy || store.invitation.isBusy
+    }
+
+    private func processPendingEntries() {
+        // A thought already waiting for review keeps priority over a start request.
         presentPendingIntentCapture()
+        let router = MorningIntentRouter.shared
+        guard let request = router.pendingStart else { return }
+        var destination = MorningEntryPolicy.destination(for: request,
+            context: .init(sceneIsActive: scenePhase == .active, isOccupied: entryIsOccupied,
+                storageIsAvailable: store.storageIsAvailable, hasRoutine: store.routine != nil,
+                routineIsApproved: store.routine?.isApproved == true, sessionStatus: store.session?.status),
+            consumedIDs: store.consumedMorningEntryIDs)
+        let waitingNotice = "Your morning is waiting. Finish what you're doing here, then MORE can begin."
+        guard destination != .wait else {
+            if scenePhase == .active, store.notice == nil { store.notice = waitingNotice }
+            return
+        }
+        if store.notice == waitingNotice { store.notice = nil }
+        if Date.now >= request.expiresAt {
+            store.notice = "Your morning is ready when you are. Tap Start to begin."
+        }
+        if let payload = router.invitationPayload {
+            do {
+                if try store.invitation.consume(payload) == nil { destination = .revealMorning }
+            } catch {
+                destination = .revealMorning
+                store.notice = "Your invitation couldn't be saved. Start your morning when you're ready."
+            }
+        }
+        // Acknowledge before navigation changes trigger another view update. The
+        // synchronous store transition saves its receipt before executing a step.
+        router.finishStart(request.id)
+        guard store.handleMorningEntry(request, destination: destination) else {
+            store.tab = .today
+            return
+        }
+        switch destination {
+        case .reviewDraft: openRoutineReview()
+        case .learn: store.tab = .review; showingLearn = true
+        default: store.tab = .today
+        }
     }
 
     private func detailSheet<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -153,6 +225,9 @@ struct TodayView: View {
             .frame(maxWidth: 600).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .background(MorningStyle.background)
+        .onChange(of: viewingStep != nil || showingNotice, initial: true) { _, presented in
+            store.morningDetailPresented = presented
+        }
         .sheet(item: $viewingStep) { step in
             NavigationStack {
                 ScrollView {
@@ -160,6 +235,10 @@ struct TodayView: View {
                         Text(step.title).font(.title2.weight(.semibold))
                         Text(step.detail).textSelection(.enabled)
                             .accessibilityIdentifier("run.detail")
+                        if store.session?.status == .paused {
+                            Text("Your morning is paused.").font(.caption).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("run.detailPaused")
+                        }
                         Text("\(step.durationMinutes) minutes planned").font(.caption).foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
                 }.navigationTitle("This moment").navigationBarTitleDisplayMode(.inline)

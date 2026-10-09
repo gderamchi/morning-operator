@@ -1,6 +1,8 @@
 import AppIntents
 import Foundation
 import Observation
+import MorningCore
+import MorningApple
 
 /// Foreground intents only enqueue UI requests. A request stays held throughout its review sheet.
 /// Nothing here approves a routine, writes to EventKit, or persists captured text.
@@ -9,9 +11,24 @@ import Observation
 final class MorningIntentRouter {
     static let shared = MorningIntentRouter()
     private(set) var pendingCaptureText: String?
-    var startRequested = false
+    private(set) var pendingStart: MorningEntryRequest?
+    private(set) var invitationPayload: MorningInvitationPayload?
 
     private init() {}
+
+    func requestStart(invitation: MorningInvitationPayload? = nil) {
+        // Repeated Siri phrases or duplicate notification callbacks cannot extend a
+        // waiting request's lifetime or queue a second run behind the first.
+        guard pendingStart == nil else { return }
+        invitationPayload = invitation
+        pendingStart = MorningEntryRequest(id: invitation?.occurrenceID ?? UUID())
+    }
+
+    func finishStart(_ id: UUID) {
+        guard pendingStart?.id == id else { return }
+        pendingStart = nil
+        invitationPayload = nil
+    }
 
     func requestCapture(_ text: String) throws {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,10 +58,11 @@ struct StartMorningIntent: AppIntent {
     static let title: LocalizedStringResource = "Start morning"
     static let description = IntentDescription("Open MORE and request your approved morning routine. A draft still needs your approval in the app.")
     static let supportedModes: IntentModes = .foreground(.immediate)
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        MorningIntentRouter.shared.startRequested = true
+        MorningIntentRouter.shared.requestStart()
         return .result(dialog: "Opening your morning in MORE.")
     }
 }
