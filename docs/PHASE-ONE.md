@@ -1,12 +1,28 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** baseline checkpoint **`4ddb524`** and subsequent refinements were built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. The current source is **`e7666cd`**; checks below ran at **`dd611fd`**. The later copy-only change says “with complete text” because truncated OCR is excluded; no behavior changed and that label was not rerun. They have not replaced the owner's phone build; no physical phone was connected for the latest follow-up.
+The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. Current source **`fb0e4a2`** adds optional native OCR layout evidence; all layout checks below ran on that exact source. The historical **`e7666cd`/`dd611fd`** refinement and **`4ddb524`** baseline retain their separate results. None of these follow-ups replaced the owner's phone build, and no physical phone was connected for them.
 
 ## V2 in this branch
 
 Morning now contains the date, compact routine and start/run controls. Review owns history, routine edits, approval, observations, thoughts and connections. Installed Apple voice selection considers language, dialect and quality; an explicit voice-command turn pauses the routine and releases playback before using on-device speech recognition. [Design](V2-DESIGN.md) · [Voice behavior](VOICE.md) · [Architecture](ARCHITECTURE.md).
 
 Learning preserves complete required rituals from the person's previous routine, keeps proposals unapproved and strips model-assigned automation. Sample rituals stay out of personal learning. This is not a complete edit/removal preference journal or a multi-day habit-quality result.
+
+## Native OCR layout evidence — 10 October 2026 (`fb0e4a2`)
+
+The existing single Vision pass now also retains optional line/region evidence: exact text and Swift Character spans, extraction-local IDs, approximate normalized lower-left bounds for the oriented image, and OCR candidate confidence. Invalid or missing geometry leaves readable text intact with a warning. Character/UTF-8 limits preserve only complete region spans, and a separate 256-region cap limits metadata. Legacy observations remain readable without geometry.
+
+Optional classifier hints refer only to exact source lines inside the bounded prefix. Rounded hints cannot displace text from the prompt budget or resolve competing catalog names by themselves. Exact citation checks now compare source UTF-8 bytes rather than accepting Unicode canonical equivalence. No new model call or supported-device inference result is claimed.
+
+| Check | Observed result and scope |
+|---|---|
+| Full shared package | **190 passed, six optional checks skipped**: 86 Core passes plus 110 Apple cases including the skips. Both real synthetic-image Vision checks passed in approximately 28.3 seconds each. Includes geometry/range validation, legacy decoding, clipping, metadata caps and conservative classifier hints. |
+| Native app build | Passed. This is a build result, not a new physical-phone installation. |
+| Complete saved-movie layout extraction | **1/1 passed in 83.642s**. `baseline-01/layout-01.json`: 24/24 observed samples, 647 native OCR regions, zero frame warnings; 24 selected frames/140 selected hints/12 prepared batches. No model was called. |
+| Recorded-movie import regression | `.build/more-ocr-layout-import.xcresult`: actual movie → notes/frame evidence → relaunch → edit invalidates association → clear stays cleared **passed in 71.113s**. The blank-video test **skipped in 0.05s** because its separate opt-in was missing; this was one pass plus one skip. |
+| Blank-video fault regression with corrected opt-in | `.build/more-ocr-layout-blank.xcresult`: **1/1 passed in 39.404s, no skips**. Failed extraction preserved the previous observation across relaunch. This separate pass does not erase the earlier missing-opt-in skip or establish native capture. |
+
+See [the benchmark guide](OBSERVATION-BENCHMARK.md#native-ocr-layout-evidence--10-october-2026) for geometry semantics and the explicit no-model extraction command. Layout is approximate visual evidence, not a foreground-app identity, action counter or habit measurement.
 
 ## Recording benchmark refinement — 10 October 2026 (`dd611fd`)
 
@@ -18,7 +34,7 @@ The dense-frame exclusion is corrected through explicit exact-source header exce
 | Preparation-only baseline replay | `preparation-v2.json`: **24/24 frames eligible**, **2,217 selected characters**, zero excluded frames, eight deterministic lexical candidate frames. No OCR or model inference was performed by the replay; candidates are not recognized app appearances or an AI-accuracy score. |
 | Corrected simulator app-process model attempt | `.build/more-recorded-model-fixed.xcresult` reached the actual recognition control after its accessibility correction. Availability reported available, but the saved result was **failed**: **six attempted, zero responded, six failed batches; all 24 decisions unknown**. No inference-response, abstention-quality or semantic-recognition pass. |
 | Own-process backend investigation | `simulator-model-log.txt` records `operationNotAllowed` / “Simulator is not supported” when a required model backend tries to fetch metadata. This identifies an environment/backend rejection for this attempt, not a finding that the synthetic content breached a content rule. Availability preflight alone was insufficient. |
-| Native error-category diagnostics | Additive optional fixed categories cover current and legacy Foundation Models errors; fallback stores only an allowlisted system domain/numeric code. SDK associated text, localized descriptions, prompts and responses are not persisted. Targeted checks: **22 passed, one optional preparation-replay check skipped** (23 listed); app build passed. The full shared package has not rerun since these three new mapping tests. |
+| Native error-category diagnostics | Additive optional fixed categories cover current and legacy Foundation Models errors; fallback stores only an allowlisted system domain/numeric code. SDK associated text, localized descriptions, prompts and responses are not persisted. Targeted checks: **22 passed, one optional preparation-replay check skipped** (23 listed); app build passed. At this checkpoint the full shared package had not rerun since these three new mapping tests. |
 | Final diagnostic runtime check | `.build/more-recorded-model-diagnostics.xcresult`: **failed 1/1 in 31.936s**. Again available/six attempted/zero responded/six failed/24 unknown. `simulator-classification-diagnostics.json` saves only `{category: other}` for each native error; the unsupported-simulator finding comes from the separate own-process log. |
 
 The initial Mac-unavailable result and initial UI-identifier failure remain below as historical evidence. Their results have not been rewritten as passes. The 2,217-character total describes only the preparation replay; separate OCR reruns vary slightly. Original extraction and both failed app-process classifications remain local. No further unchanged simulator model retries are planned. A supported physical-device inference attempt and independent semantic scoring are still pending; the stable installed phone build was untouched. See [benchmark details](OBSERVATION-BENCHMARK.md).
