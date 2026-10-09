@@ -1,6 +1,6 @@
 # Morning Operator
 
-Personal Apple development prototype. The product brief is in `docs/PROJECT-BRIEF.md`.
+Personal Apple development prototype. Shared setup, priorities and verified results are in `docs/ONBOARDING.md`, `docs/ROADMAP.md` and `docs/PHASE-ONE.md`. An optional owner-only product brief may exist at `docs/PROJECT-BRIEF.md`; it is ignored by Git and is not required for a fresh clone. Do not upload or copy it into shared documentation.
 
 - Build real, inspectable behavior; label fixtures and unavailable capabilities.
 - Keep XCTest phone control in the UI-test target, never in the ordinary app target.

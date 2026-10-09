@@ -4,6 +4,10 @@ A personal Apple-native prototype for learning a morning routine, reviewing it, 
 
 **Phase 1:** working native Mac app and shared SwiftUI iPhone source, local routine/session logic, Apple intelligence and media ingestion adapters, and a separate Xcode UI-test harness. Physical iPhone automation and HomePod handoff still need their first hardware proof.
 
+## Working together
+
+Start with the [onboarding and smoke-test guide](docs/ONBOARDING.md). Use the [prioritized roadmap](docs/ROADMAP.md), [GitHub issues](https://github.com/gibouu/morning-operator/issues), and [test report template](docs/TEST-REPORT-TEMPLATE.md) to split work and record what actually works. The original private PRD remains local.
+
 ## Try the Mac app
 
 Requires macOS 26 or later and a compatible Swift toolchain. No third-party packages or cloud account are required.
