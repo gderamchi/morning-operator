@@ -1,6 +1,6 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. The new **`codex/more-quiet-morning`** app source **`52cbe56`** was built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. It has not replaced the owner's phone build.
+The installed iPhone app remains at **`8a640ea`**. The new **`codex/more-quiet-morning`** app source **`6f647b4`** was built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. It has not replaced the owner's phone build.
 
 ## V2 in this branch
 
@@ -8,7 +8,23 @@ Morning now contains the date, compact routine and start/run controls. Review ow
 
 Learning preserves complete required rituals from the person's previous routine, keeps proposals unapproved and strips model-assigned automation. Sample rituals stay out of personal learning. This is not a complete edit/removal preference journal or a multi-day habit-quality result.
 
-## Latest evidence — 9 October 2026
+## Latest evidence — 10 October 2026
+
+Source **`6f647b4`** adds [one-time morning invitations](MORNING-ENTRY.md), acknowledged foreground entry, and a [structured observation core](OBSERVATION-METRICS.md). The trace/report mathematics are implemented and tested; no recording adapter, app classifier or controlled movie benchmark is connected yet.
+
+| Check | Observed result and scope |
+|---|---|
+| Full shared package run | **138 passed, two optional model skips**: 69 Core and 71 Apple cases including skips. Includes 11 trace/window checks, five entry-policy checks, 16 invitation model/service checks, earlier voice/learning checks, and real synthetic Vision OCR (26.978s). The first attempt failed to compile mutating calls inside test macros; evaluating those calls before assertions fixed the tests. |
+| Scheduler race review | Passive foreground refresh could suppress a pending explicit permission request. The corrected service preserves that intent for the same occurrence, claims it once, and never restores permission intent from disk. A held-callback regression passed. |
+| Initial entry UI checks | **4/4 passed**, 33.195s: approved start, draft review, first-use learning, invitation settings without a permission prompt. This preceded recovery/detail-sheet changes. |
+| Revised entry suite | **Five passed, one failed**, 142.396s. Approved/draft/empty routing, settings and deferral behind an open detail sheet passed. The real local notification registered, appeared and was tapped, then the app crashed before a run appeared. The crash stack showed the SDK async delegate completion entering UIKit state restoration from a cooperative worker. |
+| Corrected real local notification handoff | **1/1 passed**, 59.100s after changing notification delegate callbacks to explicit completions on the main actor. A native calendar-triggered local invitation appeared while the app was backgrounded; tapping it foregrounded MORE and started the approved synthetic routine. This used real UserNotifications delivery, not injected push delivery. The existing grant was used on this rerun; the earlier attempt had exercised the permission prompt. |
+| Final app build | **Succeeded** with Xcode 27 / iPhone 15 Pro Max simulator / iOS 27.0, including the delegate correction. The earlier five entry UI checks were not rerun after that callback-only fix. |
+| Remaining entry trials | Physical phone, terminated/cold app, locked phone, notification action button, actual Siri voice/discovery, Focus behavior and physical cancellation/replacement remain pending. |
+
+The simulator's notification identifier and fixture workspace are separate from ordinary app data; notification permission itself remains app-wide. No physical phone build was replaced in this slice. All screenshots, logs, crash evidence, test workspaces and result bundles remain local and ignored.
+
+## Earlier V2 evidence — 9 October 2026 (`52cbe56`)
 
 | Check | Observed result and scope |
 |---|---|

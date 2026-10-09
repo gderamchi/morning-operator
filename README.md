@@ -25,6 +25,7 @@ This branch, `codex/more-quiet-morning`, introduces the V2 interface. It is **in
 | Review | Open a seven-day period and its days; edit and approve your routine, correct observations, find saved thoughts, and open settings or connections. There is no separate Notes tab. |
 | Show your morning | Explicit iOS 27 screen recording, or selected text/image/video import. Local extraction keeps the latest observation available for review. The Apple model proposes an unapproved draft; manual setup also works. |
 | Move through it | Supported spoken/calendar operations advance after completion. Other activities wait for you. A completion invitation opens capture; it is not yet a live spoken conversation. |
+| Begin with an invitation | Set one future notification in Review → Settings. Its tap or a foreground Start intent routes into an approved morning, waiting for a ready app. Physical delivery and Siri invocation remain unverified. [Morning entry](docs/MORNING-ENTRY.md). |
 | Speak a command | An explicit on-device English/French turn supports next, pause, resume, skip, repeat and stop. Entry/cancel behavior is tested; real microphone recognition remains a device check. [Voice guide](docs/VOICE.md). |
 | Keep what matters | Save local dreams and thoughts. Review reminder/calendar requests before an optional save to the corresponding Apple app. Preserve the rituals you want when shaping a routine. |
 
@@ -32,7 +33,9 @@ Review currently measures **routine runs**, not complete phone usage or learned 
 
 ## Where it stands
 
-**V2 source `52cbe56`:** 106 shared checks passed with two optional model skips. Corrected simulator journeys passed 5/5; the largest-text check passed after improving Stop access; final speech-output and dark-layout checks passed 3/3. First use, saved thoughts, corrected observation persistence and the ten-moment layout also have recorded checks. [The verification record](docs/PHASE-ONE.md) preserves the earlier failures and separates runs; this is not a single full-suite pass. Physical V2, microphone recognition, voice quality and real habit accuracy remain unverified.
+**V2 source `6f647b4`:** 138 shared checks passed with two optional model skips. A real local invitation appeared while MORE was backgrounded in the simulator; tapping it started the approved routine after a callback crash was found and fixed. Five other entry checks passed before that final delegate fix. Earlier V2 checks cover the compact layout, saved observations, largest text and speech-output callbacks. [The verification record](docs/PHASE-ONE.md) preserves each run and failure; this is not one full-suite pass.
+
+The [entry guide](docs/MORNING-ENTRY.md) explains scheduling and fallback. Physical V2, cold-launch/locked-device invitations, Siri invocation, microphone recognition, human-confirmed voice quality and real habit accuracy remain unverified. The new [observation metrics core](docs/OBSERVATION-METRICS.md) preserves ordered evidence and comparable-day denominators; its recording adapter and movie benchmark are still pending.
 
 **Installed phone baseline: `8a640ea`.** The signed app runs on the owner's iPhone. Six synthetic phone journeys passed, and a separate real on-device model example passed. A real short recording reached saved OCR, a visible unapproved draft and readable text after relaunch. These are results for the earlier phone interface, not a V2 installation.
 
@@ -65,6 +68,7 @@ A later, separately opted-in mobile-agent research dataset is a [feasibility que
 |---|---|
 | [Documentation hub](docs/README.md) | Find the right guide quickly |
 | [V2 design contract](docs/V2-DESIGN.md) | Morning/Review, completion capture, native glass and honest metrics |
+| [Morning entry](docs/MORNING-ENTRY.md) | One-time invitations, foreground Start, permissions and delayed-entry fallback |
 | [Architecture](docs/ARCHITECTURE.md) | Components, states, data flows, model boundaries and Apple integrations |
 | [Observation plan](docs/OBSERVATION-PLAN.md) | Consent, evidence, cycles, unknowns and multi-day learning |
 | [Verified phone results](docs/PHASE-ONE.md) | Actual physical device/build/test evidence and open checks |
