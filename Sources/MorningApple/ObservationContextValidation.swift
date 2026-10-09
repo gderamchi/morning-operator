@@ -27,6 +27,24 @@ public enum ObservationContextInferenceStatus: String, Codable, Sendable {
     case noEligibleFrames, unavailable, completed, partialFailure, failed
 }
 
+/// Fixed error categories only. Associated SDK contexts may contain user text and are
+/// deliberately never inspected. Unknown NSError domains and their codes are omitted.
+public struct ObservationContextNativeError: Codable, Sendable, Equatable {
+    public enum Category: String, Codable, Sendable {
+        case contextSizeExceeded, assetsUnavailable, guardrailViolation, unsupportedGuide
+        case unsupportedLanguageOrLocale, decodingFailure, rateLimited, concurrentRequests, refusal
+        case unsupportedCapability, unsupportedTranscriptContent, timeout, transcriptMutationWhileResponding
+        case unknownFoundationModelsError, other
+    }
+    public let category: Category
+    public let systemDomain: String?
+    public let errorCode: Int?
+
+    init(category: Category, systemDomain: String? = nil, errorCode: Int? = nil) {
+        self.category = category; self.systemDomain = systemDomain; self.errorCode = errorCode
+    }
+}
+
 public struct ObservationContextDiagnostic: Codable, Sendable, Equatable {
     public enum Kind: String, Codable, Sendable {
         case unknownSampleID, duplicateSampleID, invalidResponse, invalidEvidence
@@ -34,7 +52,32 @@ public struct ObservationContextDiagnostic: Codable, Sendable, Equatable {
     }
     public let kind: Kind
     public let sampleID: UUID?
-    public init(kind: Kind, sampleID: UUID? = nil) { self.kind = kind; self.sampleID = sampleID }
+    /// Optional so classifications saved before sanitized diagnostics still decode.
+    public let nativeError: ObservationContextNativeError?
+    public init(kind: Kind, sampleID: UUID? = nil, nativeError: ObservationContextNativeError? = nil) {
+        self.kind = kind; self.sampleID = sampleID; self.nativeError = nativeError
+    }
+}
+
+/// An exact, whole-line source prefix selected for model input. Offsets count Swift
+/// Characters, not UTF-8 bytes or UTF-16 code units; the end offset is exclusive.
+/// This is deliberate input selection, distinct from truncated/incomplete source OCR.
+public struct ObservationContextExcerpt: Codable, Sendable, Equatable {
+    public let sampleID: UUID
+    public let sourceCharacterCount: Int
+    public let startCharacterOffset: Int
+    public let endCharacterOffset: Int
+    public let text: String
+    public let wasExcerpted: Bool
+}
+
+/// Describes prepared input even when the model was unavailable. Presence does not imply
+/// an inference attempt; consult the classification status and attempted batch count.
+public struct ObservationContextInputSelection: Codable, Sendable, Equatable {
+    public let policyIdentifier: String
+    public let maximumExcerptCharacters: Int
+    public let maximumNonemptyLines: Int
+    public let excerpts: [ObservationContextExcerpt]
 }
 
 /// Inference completion is not a claim that all frames were identified or correctly classified.
@@ -48,21 +91,26 @@ public struct ObservationContextClassification: Codable, Sendable, Equatable {
     public let diagnostics: [ObservationContextDiagnostic]
     public let modelAvailability: String
     public let modelIdentifier: String
+    /// Nil for classifications saved before explicit excerpt metadata was introduced.
+    public let inputSelection: ObservationContextInputSelection?
 
     init(decisions: [ObservationFrameIdentityDecision], status: ObservationContextInferenceStatus,
          attemptedBatchCount: Int, respondedBatchCount: Int, failedBatchCount: Int,
-         diagnostics: [ObservationContextDiagnostic], modelAvailability: String) {
+         diagnostics: [ObservationContextDiagnostic], modelAvailability: String,
+         inputSelection: ObservationContextInputSelection? = nil) {
         self.decisions = decisions; self.status = status
         self.attemptedBatchCount = attemptedBatchCount; self.respondedBatchCount = respondedBatchCount
         self.failedBatchCount = failedBatchCount; self.diagnostics = diagnostics
         self.modelAvailability = modelAvailability
         self.modelIdentifier = "Apple Foundation Models / SystemLanguageModel.default"
+        self.inputSelection = inputSelection
     }
 }
 
 public enum ObservationContextLimits {
     public static let maximumFrames = 24
-    public static let maximumFrameCharacters = 900
+    public static let maximumExcerptCharacters = 320
+    public static let maximumExcerptNonemptyLines = 6
     public static let maximumTotalTextCharacters = 9_000
     public static let maximumBatchFrames = 4
     public static let maximumPromptCharacters = 2_000
@@ -73,6 +121,7 @@ public enum ObservationContextLimits {
 
 struct ObservationContextBatch: Sendable {
     let frames: [ObservationFrameEvidence]
+    let excerpts: [ObservationContextExcerpt]
     let prompt: String
 }
 
@@ -81,6 +130,7 @@ struct ObservationContextPreparedInput: Sendable {
     let catalog: [ObservationContextCatalogEntry]
     let batches: [ObservationContextBatch]
     let initialDecisions: [ObservationFrameIdentityDecision]
+    let inputSelection: ObservationContextInputSelection
 }
 
 struct ObservationContextValidatedBatch: Sendable {
@@ -109,38 +159,55 @@ enum ObservationContextValidation {
         var totalText = 0
         var batches: [ObservationContextBatch] = []
         var current: [ObservationFrameEvidence] = []
+        var currentExcerpts: [ObservationContextExcerpt] = []
         var currentOrders: [Int] = []
+        var selectedExcerpts: [ObservationContextExcerpt] = []
         func flush() throws {
             guard !current.isEmpty else { return }
-            batches.append(.init(frames: current, prompt: try prompt(frames: current, orders: currentOrders, catalog: catalog)))
-            current = []; currentOrders = []
+            batches.append(.init(frames: current, excerpts: currentExcerpts,
+                                 prompt: try prompt(frames: current, excerpts: currentExcerpts,
+                                                    orders: currentOrders, catalog: catalog)))
+            current = []; currentExcerpts = []; currentOrders = []
         }
         for (index, frame) in frames.enumerated() {
-            let text = frame.text
             let reason: String?
             if frame.outcome != .observed { reason = "The source frame was blank or could not be extracted." }
             else if frame.textWasTruncated { reason = "The source text was truncated; context remains unknown." }
-            else if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { reason = "No visible text was extracted." }
+            else if frame.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { reason = "No visible text was extracted." }
             else if index >= ObservationContextLimits.maximumFrames { reason = "Excluded by the model frame limit." }
-            else if text.count > ObservationContextLimits.maximumFrameCharacters { reason = "Excluded by the per-frame text limit." }
-            else if totalText + text.count > ObservationContextLimits.maximumTotalTextCharacters { reason = "Excluded by the total text limit." }
             else { reason = nil }
             if let reason { reasons[frame.id] = reason; continue }
-            let singlePrompt = try prompt(frames: [frame], orders: [index], catalog: catalog)
+            let excerpt = headerExcerpt(frame)
+            guard !excerpt.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                reasons[frame.id] = "No complete header line fits the model excerpt limit."
+                continue
+            }
+            guard totalText + excerpt.text.count <= ObservationContextLimits.maximumTotalTextCharacters else {
+                reasons[frame.id] = "Excluded by the total text limit."
+                continue
+            }
+            let singlePrompt = try prompt(frames: [frame], excerpts: [excerpt], orders: [index], catalog: catalog)
             guard singlePrompt.count <= ObservationContextLimits.maximumPromptCharacters else {
                 reasons[frame.id] = "Excluded by the encoded model-context limit."
                 continue
             }
-            let candidate = try prompt(frames: current + [frame], orders: currentOrders + [index], catalog: catalog)
+            let candidate = try prompt(frames: current + [frame], excerpts: currentExcerpts + [excerpt],
+                                       orders: currentOrders + [index], catalog: catalog)
             if current.count >= ObservationContextLimits.maximumBatchFrames || candidate.count > ObservationContextLimits.maximumPromptCharacters {
                 try flush()
             }
-            current.append(frame); currentOrders.append(index); totalText += text.count
+            current.append(frame); currentExcerpts.append(excerpt); currentOrders.append(index)
+            selectedExcerpts.append(excerpt); totalText += excerpt.text.count
             reasons[frame.id] = "The local model has not classified this frame."
         }
         try flush()
+        let selection = ObservationContextInputSelection(policyIdentifier: "whole-line-source-prefix-v1",
+            maximumExcerptCharacters: ObservationContextLimits.maximumExcerptCharacters,
+            maximumNonemptyLines: ObservationContextLimits.maximumExcerptNonemptyLines,
+            excerpts: selectedExcerpts)
         return .init(frames: frames, catalog: catalog, batches: batches,
-                     initialDecisions: frames.map { unknown($0, reason: reasons[$0.id] ?? "Context remains unknown.") })
+                     initialDecisions: frames.map { unknown($0, reason: reasons[$0.id] ?? "Context remains unknown.") },
+                     inputSelection: selection)
     }
 
     static func validate(json: String, batch: ObservationContextBatch,
@@ -173,7 +240,8 @@ enum ObservationContextValidation {
                 return unknown(frame, reason: "The local model abstained.")
             }
             let quote = proposal.evidenceQuote
-            guard !quote.isEmpty, quote.count <= 240, frame.text.contains(quote),
+            guard let excerpt = batch.excerpts.first(where: { $0.sampleID == frame.id }),
+                  !quote.isEmpty, quote.count <= 240, excerpt.text.contains(quote), frame.text.contains(quote),
                   frame.outcome == .observed, !frame.textWasTruncated else {
                 diagnostics.append(.init(kind: .invalidEvidence, sampleID: frame.id))
                 return unknown(frame, reason: "The proposed quote was not grounded in this frame.")
@@ -183,7 +251,7 @@ enum ObservationContextValidation {
                              evidence: .ambiguous(reference: frame.evidenceReference), evidenceQuote: quote,
                              reason: "The local model reported ambiguous visible context.")
             }
-            guard proposal.outcome == "identified", let identity = identity(for: proposal, frame: frame, catalog: catalog) else {
+            guard proposal.outcome == "identified", let identity = identity(for: proposal, excerpt: excerpt.text, catalog: catalog) else {
                 diagnostics.append(.init(kind: .unsupportedIdentity, sampleID: frame.id))
                 return unknown(frame, reason: "The proposed visual identity was unsupported.")
             }
@@ -199,18 +267,23 @@ enum ObservationContextValidation {
               evidence: .unknown, evidenceQuote: nil, reason: reason)
     }
 
-    private static func identity(for proposal: ContextModelProposal, frame: ObservationFrameEvidence,
+    private static func identity(for proposal: ContextModelProposal, excerpt: String,
                                  catalog: [ObservationContextCatalogEntry]) -> ObservationAppIdentity? {
-        let headers = headerLines(frame.text)
+        let headers = headerLines(excerpt)
         let label: String
         if catalog.isEmpty {
             guard isSafeLabel(proposal.contextLabel), proposal.contextLabel == proposal.evidenceQuote,
                   headers.contains(proposal.evidenceQuote) else { return nil }
             label = proposal.contextLabel
         } else {
-            let visibleCatalog = catalog.filter { headers.contains($0.headerText) }
-            guard visibleCatalog.count == 1, let entry = visibleCatalog.first,
-                  proposal.contextLabel == entry.label, proposal.evidenceQuote == entry.headerText else { return nil }
+            let comparableHeaders = headers.map(removingLeadingDecoration)
+            let visibleCatalog = catalog.filter { comparableHeaders.contains($0.headerText) }
+            // A second catalog name is still a competing mention when OCR corrupts its
+            // icon into a letter. A mention can block identity, never establish it.
+            let mentionedCatalog = catalog.filter { entry in headers.contains { $0.contains(entry.headerText) } }
+            guard visibleCatalog.count == 1, mentionedCatalog.count == 1, let entry = visibleCatalog.first,
+                  proposal.contextLabel == entry.label, headers.contains(proposal.evidenceQuote),
+                  removingLeadingDecoration(proposal.evidenceQuote) == entry.headerText else { return nil }
             label = entry.label
         }
         // Generic casing/diacritics may vary between OCR frames. Canonicalize the
@@ -219,18 +292,40 @@ enum ObservationContextValidation {
         return .init(key: "visual-context:\(canonical)", displayName: catalog.isEmpty ? canonical : label)
     }
 
-    /// A lexical first-lines guard, not a claim about the pixels' layout or a verified app.
-    private static func headerLines(_ text: String) -> [String] {
-        var lines: [String] = []
-        var characterCount = 0
-        for line in text.components(separatedBy: .newlines) {
-            characterCount += line.count + 1
-            guard characterCount <= 320 else { break }
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if !trimmed.isEmpty { lines.append(trimmed) }
-            if lines.count == 6 { break }
+    /// Select a contiguous prefix without rewriting whitespace, newline sequences or OCR.
+    /// An overlong line stops selection; later lines cannot jump ahead of unknown content.
+    private static func headerExcerpt(_ frame: ObservationFrameEvidence) -> ObservationContextExcerpt {
+        let text = frame.text
+        var cursor = text.startIndex
+        var selectedEnd = text.startIndex
+        var nonemptyLines = 0
+        while cursor < text.endIndex {
+            let lineStart = cursor
+            while cursor < text.endIndex, !text[cursor].isNewline { cursor = text.index(after: cursor) }
+            let lineEnd = cursor
+            let afterNewline = cursor < text.endIndex ? text.index(after: cursor) : cursor
+            guard text.distance(from: text.startIndex, to: lineEnd) <= ObservationContextLimits.maximumExcerptCharacters else { break }
+            selectedEnd = lineEnd
+            let includesNewline = text.distance(from: text.startIndex, to: afterNewline) <= ObservationContextLimits.maximumExcerptCharacters
+            if includesNewline { selectedEnd = afterNewline }
+            if !text[lineStart..<lineEnd].trimmingCharacters(in: .whitespaces).isEmpty { nonemptyLines += 1 }
+            if nonemptyLines >= ObservationContextLimits.maximumExcerptNonemptyLines || !includesNewline { break }
+            cursor = afterNewline
         }
-        return lines
+        let excerpt = String(text[..<selectedEnd])
+        return .init(sampleID: frame.id, sourceCharacterCount: text.count, startCharacterOffset: 0,
+                     endCharacterOffset: excerpt.count, text: excerpt, wasExcerpted: selectedEnd != text.endIndex)
+    }
+
+    /// These remain lexical lines; neither geometry nor an OS app identity is available.
+    private static func headerLines(_ excerpt: String) -> [String] {
+        excerpt.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+
+    /// Do not repair alphabetic OCR noise (for example J/y), internal text or suffixes.
+    private static func removingLeadingDecoration(_ line: String) -> String {
+        let decorations = CharacterSet.punctuationCharacters.union(.symbols).union(.whitespaces)
+        return String(String.UnicodeScalarView(line.unicodeScalars.drop(while: { decorations.contains($0) })))
     }
 
     private static func validatedCatalog(_ entries: [ObservationContextCatalogEntry]) throws -> [ObservationContextCatalogEntry] {
@@ -272,11 +367,12 @@ enum ObservationContextValidation {
         let catalog: [ObservationContextCatalogEntry]
         let frames: [InputFrame]
     }
-    private static func prompt(frames: [ObservationFrameEvidence], orders: [Int],
-                               catalog: [ObservationContextCatalogEntry]) throws -> String {
-        let input = Input(catalog: catalog, frames: zip(frames, orders).map { frame, order in
-            .init(sampleID: frame.id.uuidString, order: order, timeSeconds: frame.timeSeconds,
-                  timeBasis: frame.timeBasis.rawValue, text: frame.text)
+    private static func prompt(frames: [ObservationFrameEvidence], excerpts: [ObservationContextExcerpt],
+                               orders: [Int], catalog: [ObservationContextCatalogEntry]) throws -> String {
+        let input = Input(catalog: catalog, frames: zip(zip(frames, orders), excerpts).map { item, excerpt in
+            let (frame, order) = item
+            return .init(sampleID: frame.id.uuidString, order: order, timeSeconds: frame.timeSeconds,
+                         timeBasis: frame.timeBasis.rawValue, text: excerpt.text)
         })
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return String(decoding: try encoder.encode(input), as: UTF8.self)

@@ -20,7 +20,7 @@ struct ObservationEvidenceView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("A glimpse of this recording", systemImage: "film.stack")
                 .font(.subheadline.weight(.semibold))
-            Text("\(Int(evidence.durationSeconds.rounded())) seconds · \(evidence.frames.count) samples · \(readableCount) with usable text")
+            Text("\(Int(evidence.durationSeconds.rounded())) seconds · \(evidence.frames.count) samples · \(readableCount) with text")
                 .font(.caption).foregroundStyle(MorningStyle.muted)
                 .accessibilityIdentifier("learn.videoEvidence")
             DisclosureGroup("See sampled screens") {
@@ -36,6 +36,10 @@ struct ObservationEvidenceView: View {
                         Text(classificationStatus(classification))
                             .accessibilityIdentifier("learn.contextStatus")
                     }
+                    Button(classification == nil ? "Recognize sampled screens" : "Try recognizing screens again", action: analyze)
+                        .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
+                        .disabled(isBusy || !canAnalyze || readableCount == 0)
+                        .accessibilityIdentifier("learn.recognizeScreens")
                     ForEach(evidence.frames) { frame in
                         HStack(alignment: .top, spacing: 12) {
                             Text(timestamp(frame.timeSeconds)).monospacedDigit()
@@ -50,15 +54,10 @@ struct ObservationEvidenceView: View {
                     ForEach(Array(evidence.warnings.enumerated()), id: \.offset) { _, warning in
                         Text(warning)
                     }
-                    Button(classification == nil ? "Recognize sampled screens" : "Try recognizing screens again", action: analyze)
-                        .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
-                        .disabled(isBusy || !canAnalyze || readableCount == 0)
-                        .accessibilityIdentifier("learn.recognizeScreens")
                     Text("Uses Apple Intelligence on this device. Editing the observation removes its attached frame evidence and screen interpretation.")
                 }.font(.caption).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true).padding(.top, 12)
             }.font(.subheadline).tint(MorningStyle.accent)
-                .accessibilityIdentifier("learn.sampleDetails")
         }
     }
 

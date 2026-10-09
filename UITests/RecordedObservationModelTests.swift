@@ -26,7 +26,7 @@ final class RecordedObservationModelTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 120), .completed,
                        "Both fixture headings must come from OCR of the staged movie, with no substitute notes.")
 
-        let details = app.buttons["learn.sampleDetails"]
+        let details = app.buttons["See sampled screens"]
         reveal(details, in: app)
         details.tap()
         let recognize = app.buttons["learn.recognizeScreens"]
