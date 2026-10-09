@@ -1,8 +1,8 @@
 # System architecture
 
-Morning Operator is an iPhone app for observing a deliberately shared part of a morning, proposing a routine and helping the person run supported steps. The current implementation is local and has no backend or third-party runtime packages. The Mac is a development/test host and optional tethered controller; the separate native Mac app is not an active product.
+MORE is an iPhone app for observing a deliberately shared part of a morning, proposing a routine and helping the person run supported steps. The current implementation is local and has no backend or third-party runtime packages. The Mac is a development/test host and optional tethered controller; there is no separate Mac product target.
 
-This guide describes source architecture and its limits. [PHASE-ONE](PHASE-ONE.md) is the authority for actual test results; [the roadmap](ROADMAP.md) separates upcoming work. MORE (MOrning REcap) is only a naming candidate.
+This guide describes source architecture and its limits. [PHASE-ONE](PHASE-ONE.md) is the authority for actual test results; [the roadmap](ROADMAP.md) separates upcoming work. MORE (MOrning REcap) is the V2 display name; the bundle, repository and Xcode target retain Morning Operator identities.
 
 ## Components and boundaries
 
@@ -18,6 +18,9 @@ flowchart TB
     Store --> Disk["Local workspace and recording recovery"]
     Store --> Runner["Supported step executor"]
     Runner --> Speech["System speech"]
+    UI --> Listener["Explicit on-device listening turn"]
+    Listener --> Command["Final command, pinned context and duplicate guard"]
+    Command --> Store
     Runner --> Calendar["Authorized Calendar read"]
     UI --> ReviewedSave["Reviewed reminder or event"]
     ReviewedSave --> EventKit["EventKit with pending-write record"]
@@ -85,6 +88,8 @@ A matching quote proves only that text appeared in the input. It does not prove 
 
 `RoutineVersion` contains ordered `RoutineStep` records. Edits create an unapproved version; one prior approved version can be restored until the replacement is approved. This is not a complete version-history browser. A run pins a snapshot of its approved version.
 
+An inferred draft retains the previous personal routine's required rituals with their full user-owned values. Unique stable identities or unambiguous normalized title/category matches prevent obvious duplication; uncertain matches remain separate for review. Sample rituals do not transfer into personal learning. There is no persisted journal of every correction or removal yet, so non-required edits are not comprehensively reconciled across future proposals.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Ready: Approved nonempty valid routine
@@ -103,6 +108,8 @@ stateDiagram-v2
 An unapproved/empty/invalid routine cannot start. A repeated advance command ID cannot skip two steps. Pause, stop and manual advance cancel the current execution attempt; stale callbacks cannot advance another session or step. A running checkpoint restored at launch becomes paused, and its interrupted duration is unknown rather than including unobserved time.
 
 Automatic progression uses explicit `RoutineStepAutomation` operations: `spokenNote` and `todayCalendar`. A generated category such as messages/calendar is not an operation. Other steps wait for the person's Next. Speech completion proves synthesis finished; it does not prove the person heard it or performed a real-world activity. Calendar speech reads a fresh authorized day snapshot. The workspace is saved before dispatch; save failure pauses rather than continuing effects.
+
+The explicit [voice-command turn](VOICE.md) pauses first, awaits speech-output release, then permits a bounded on-device microphone turn. A whole-turn final hypothesis must match a strict command grammar; microphone release, the pinned session/version/step and an unused turn ID must all be confirmed before applying it. Next/skip from paused apply an atomic resume-and-advance transition without first dispatching the old step. Repeat reads the current detail while leaving the run paused. New speech stays blocked while input or unresolved microphone cleanup owns audio. This is a command flow, not a continuously listening conversation.
 
 ## Notes, permissions and effects
 
@@ -140,7 +147,8 @@ The following describes actual local storage and controls, not a proposed privac
 |---|---|---|
 | Routine, one previous approved version, current session, run history, voice/settings | `workspace.json` | Remain across launch; edits/approval replace the active/prior-version slots. No general history-expiry or delete-all UI. Archived runs retain their pinned routine content. |
 | Latest extracted observation and source label | Same workspace; one latest observation | Replaced by a subsequent import, or removed with Clear this observation. Manual corrections save when editing ends, Learn closes or the app becomes inactive, and before analysis/import. Failed writes retain edits in memory with Retry. Routine/history evidence quotes already saved remain. |
-| Thoughts/dreams/capture requests, pending effect markers, receipts | Same workspace | Persist locally. No general Notes deletion/expiry UI is currently implemented. Clearing observation text does not remove these items. |
+| Thoughts/dreams/capture requests, pending effect markers, receipts | Same workspace | Persist locally. No general saved-thought deletion/expiry UI is currently implemented. Clearing observation text does not remove these items. |
+| Microphone command audio and transcript | In-memory only; no audio file or transcript in workspace/history | Audio input ends after the explicit turn. Temporary transcript can remain visible until another turn or the app lifetime ends. Resulting ordinary session events persist, but recognition text is not a learning dataset. |
 | Active app-created recording | App temporary recording directory | Moved after finalization into recovery, or removed on confirmed discard/failure cleanup. A force-terminated/unfinalized temporary file is not a guaranteed recoverable clip. |
 | One pending finalized clip and interruption metadata | `RecordingRecovery/pending-screen-recording.mp4` and `recording-info.json` | Directory excluded from backup. Kept after OCR/cancellation/save failure; Retry/Discard on relaunch. Removed after extracted text is saved or explicit discard. No automatic age expiry. Later model failure does not require retaining raw video. |
 | User-selected original media | Its original Files/Photos location | Only read through selected access; the app does not delete the original. |
@@ -164,7 +172,8 @@ The intended product UI is a **simple weekly average** with understandable cover
 | Integration | Current behavior / boundary | Next work |
 |---|---|---|
 | Siri / App Intents | Foreground start of an already approved routine and capture text opened for review; no global custom wake word | Verify installed discovery, cold launch and locked-device behavior. Continuous app voice input remains separate work. |
-| Speech | `AVSpeechSynthesizer`, installed voice choice, completion/cancellation, output-route UI | Greeting callbacks and sample spoken-step advancement passed; listener audibility and interruptions still need checks. On-device Speech recognition remains future work. This is speech output, not a trained companion voice. |
+| Speech output | `AVSpeechSynthesizer`, installed language/dialect/quality-aware voice choice, awaited audio ownership, completion/cancellation and output-route UI | Earlier phone callbacks passed; V2 has separate checks. Human-confirmed voice quality, interruptions and HomePod remain open. This is not a trained companion voice. |
+| Voice commands | Explicit on-device `SFSpeechRecognizer` turn with local-only requirement, strict English/French grammar and touch fallback | Source compiles and entry/cancel UI is tested; actual microphone/recognition/route trials remain pending. See [voice guide](VOICE.md). No global wake word or continuous conversation. |
 | Calendar / Reminders | Authorized reads and reviewed EventKit writes in source | Real-account permission/write checks with receipts and correct dates. |
 | Alarm / sleep Shortcuts | No wake-trigger automation installed by the app | Apple's Alarm stopped/snoozed/Wake-up and Sleep waking-up triggers can offer a start opportunity; they do not authorize a fresh screen capture. |
 | DeviceActivity | No first-use extension or usage-data connection implemented | Test first use within a scheduled interval and separately entitled aggregate data access; neither is a physical-lift sensor or live ordered tap stream. |

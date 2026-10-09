@@ -1,4 +1,39 @@
-# Phase one: native app and device proof
+# MORE: implementation and verification
+
+The installed iPhone app remains at **`8a640ea`**. The new **`codex/more-quiet-morning`** app source **`52cbe56`** was built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. It has not replaced the owner's phone build.
+
+## V2 in this branch
+
+Morning now contains the date, compact routine and start/run controls. Review owns history, routine edits, approval, observations, thoughts and connections. Installed Apple voice selection considers language, dialect and quality; an explicit voice-command turn pauses the routine and releases playback before using on-device speech recognition. [Design](V2-DESIGN.md) · [Voice behavior](VOICE.md) · [Architecture](ARCHITECTURE.md).
+
+Learning preserves complete required rituals from the person's previous routine, keeps proposals unapproved and strips model-assigned automation. Sample rituals stay out of personal learning. This is not a complete edit/removal preference journal or a multi-day habit-quality result.
+
+## Latest evidence — 9 October 2026
+
+| Check | Observed result and scope |
+|---|---|
+| Shared package suite after the new voice/ritual changes | **106 passed, two optional model skips**: 48 Core cases and 60 Apple cases including the skips. Actual Vision OCR of a synthetic image passed. Command grammar, final-result gating, stale-context refusal, session transitions and audio-release races are deterministic checks; they do not prove microphone accuracy. |
+| iOS simulator build for testing | **Succeeded** with the native listener and two-tab app. No compiler errors; only the UI-test target's unrelated App Intents metadata warning. |
+| Initial compact layout suite | **3/3 passed**, 31.347 seconds: first use, ten moments without scrolling, Review-owned approval and date entry. |
+| Expanded simulator attempt | Test log records **8 passed, three failures** over 11 tests. Five layout/detail/dark checks, local dream retention, first-use learning and observation correction/relaunch/clear passed. Two failures read an empty accessibility value instead of the visible title; the third could not locate a day link. Xcode then stalled finalizing diagnostics; that collector was stopped after preserving the log. Its unfinished result bundle is not treated as a complete xcresult. |
+| Corrected navigation and new voice-entry checks, before final menu/copy polish | **5/5 passed**, 166.111 seconds: approve/run/pause/resume/stop; edited-draft restoration and paused recovery after relaunch; empty-day/history/date routing; ten active moments without scrolling; explicit voice entry/close without microphone permission. |
+| Largest accessibility text size | Initial check reached Start and full instructions but failed to find End morning at the bottom of the long native menu. Moving End morning to the top fixed it: **1/1 passed**, 16.932 seconds; start → read detail → stop. Normal simulator text size restored. |
+| Final synthetic voice output and dark layout | **3/3 passed**, 56.568 seconds: dark ten-moment fit (5.555s), actual system-speech step completion → next manual step (34.634s), preview speaking → idle (16.379s). These are simulator callbacks, not microphone recognition or listener-confirmed quality. |
+| Landscape, VoiceOver, Reduce Motion/Transparency and physical V2 | Pending separate checks. |
+
+Opening the voice-command sheet does not itself listen. Real microphone permission, recognition quality, selected input route, audio interruptions and listener-confirmed output still require device trials. The owner did not hear or was not listening to the earlier phone greeting. The existing callback proofs do not establish audibility or HomePod output.
+
+## Keep the boundaries clear
+
+- The earlier real recording proved one capture → OCR → saved-text path. Its proposed habits were wrong; deterministic rejection now covers the known setup-only input, not general habit accuracy.
+- Review averages describe actual app-owned routine runs. Samples, missing days and incomplete timings do not become measured personal app usage.
+- Native recording of WhatsApp, selected-message reading, narrated cross-app actions, first-pickup/alarm behavior and HomePod transfer remain separate open checks.
+- Recordings, observation text, workspace snapshots, screenshots and result bundles stay local and ignored by Git. Only reviewed aggregate results belong here.
+
+<details>
+<summary>Earlier physical-phone results and investigation history</summary>
+
+The following record preserves the original test chronology. References to the “current working tree” or a pending rebuild describe the stage at which they were written; the installed baseline and new V2 status above take precedence.
 
 Updated 9 October 2026. The earlier Mac application was built, launched and exercised, then its generated bundle was moved to Trash at the owner’s request. The iPhone is now the sole active product; the Mac remains a development/test machine and optional controller. Full Xcode 27 is now installed, and the signed iPhone application has built, installed and launched on a physical iPhone running iOS 27.0.1. The latest six-fixture phone suite and real on-device positive model example passed. Shared package checks passed 73 with two optional model skips. The negative phone evidence-guard check passed its targeted rerun after an XCTest query exception. The final focused evidence-policy suite passed 11/11, and a deterministic replay rejected the earlier problematic observation without changing it. The final iPhone rebuild/install after that correction is pending; broader integrations still need their own evidence.
 
@@ -111,3 +146,6 @@ No exact count of reels, likes, emails read/replied/discarded, or total cross-ap
 Raw HomePod microphone access, proactive room detection, automatic speaker transfer and two-speaker continuation remain unproved. HealthKit, Screen Time, Live Activities, billing and public distribution remain separate work.
 
 Use the [test report template](TEST-REPORT-TEMPLATE.md) to record each device/software version, scoped source, observed result and evidence location. Keep raw personal recordings and device logs local; share only reviewed evidence. Regenerating the Xcode project does not itself compile, sign, install or test it.
+
+
+</details>

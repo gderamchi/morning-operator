@@ -1,19 +1,19 @@
-# Get started with Morning Operator
+# Get started with MORE
 
 The iPhone is the active product. Use the Mac for Xcode, shared package tests and optional tethered experiments. There is no separate Mac app to install for this workflow.
 
-Already have the phone build? Start with [tomorrow's short recording checklist](DEVICE-SETUP.md#tomorrow-morning-checklist). For implementation detail, use the [documentation hub](README.md).
+This guide's first-morning steps follow V2 on `codex/more-quiet-morning`: **Morning** and **Review**. The installed phone baseline, `8a640ea`, still has the earlier labels and Notes tab; use its [short recording checklist](DEVICE-SETUP.md#tomorrow-morning-checklist). The [V2 design contract](V2-DESIGN.md) and [documentation hub](README.md) distinguish new source from verified device behavior.
 
 ## Your first morning
 
-1. Open **Morning Operator → Learn my morning**. Show a small, harmless part of your actual morning using the explicit recording flow, or import selected media. Recording comes first; the text field is optional context.
-2. Stop the recording and return to the app. Foreground processing extracts and saves visible text; a ready local Apple model may propose an unapproved routine. Open the observation and read the actual text. A success banner alone is insufficient.
-3. Review the proposal. Keep enjoyable rituals, correct unsupported steps and change suggested durations. A proposed duration is an estimate, not measured screen time. If evidence is insufficient, keep the text and try a clearer observation; **Build it myself** is also available.
-4. Choose **This feels like me**, then **OK, here we go**. Supported spoken operations can advance after completion. Personal activities and unconnected apps wait for Next. Pause, continue or use **Morning controls → End morning** whenever needed.
-5. Save a dream or thought in **Notes**. Reminder/calendar ideas can stay local or be reviewed before a separate save to Apple Reminders/Calendar.
-6. Browse days in **Morning** and review recorded runs in **Review**. Missing days stay empty. The planned weekly average of observed app habits is separate from today's routine-run history.
+1. On first use, open **Morning → Learn my morning**. Show a short, harmless part of your actual morning using the explicit recording flow, or import selected media. Recording comes first; the text field is optional context. On later visits, open **Review → Learn from a morning** or **Review your observation**.
+2. Stop recording and return to the app. Foreground processing extracts and saves visible text; a ready local Apple model may propose an unapproved routine. Read the actual observation and correct it if needed, then choose Done. A success banner alone is insufficient.
+3. Open **Review → Your routine** to inspect and edit the proposal. Keep enjoyable rituals, correct unsupported steps and change suggested durations. Planned minutes are estimates, not measured screen time. If evidence is insufficient, try a clearer observation or use **Build it myself**. **Update my morning** on Morning also opens this routine review.
+4. Choose **Approve this routine**. Back in **Morning**, choose **Start my morning**. Supported spoken operations can advance after completion; personal activities and unconnected apps wait for **Next moment**. Pause, Continue or use **Morning controls → End morning** whenever needed.
+5. At completion, **A thought, a dream, a reminder** opens capture. Save a local thought/dream or review an optional save to Apple Reminders/Calendar. Find saved items under **Review → Saved thoughts**. There is no Notes tab in V2, and this invitation is not yet a live spoken conversation.
+6. In **Review**, tap the date range to reveal its days, then open a day. Use the period arrows or swipe the date range to move between seven-day periods. Missing days stay empty; current averages measure recorded routine runs, not observed app usage. Settings and connections also live in Review.
 
-The signed build has run on the owner's iPhone 15 Pro Max with iOS 27.0.1. One real short recording reached OCR, saved text, a visible draft and readable text after relaunch. Its habit interpretation was wrong: setup text became activities. A targeted evidence guard addresses that failure class, but accurate habit learning still requires the [controlled benchmark](https://github.com/gibouu/morning-operator/issues/23). See the [verification record](PHASE-ONE.md) for current results and earlier failures.
+The earlier `8a640ea` build has run on the owner's iPhone 15 Pro Max with iOS 27.0.1; those physical results do not verify the V2 interface. One real short recording reached OCR, saved text, a visible draft and readable text after relaunch. Its habit interpretation was wrong: setup text became activities. A targeted evidence guard addresses that failure class, but accurate habit learning still requires the [controlled benchmark](https://github.com/gibouu/morning-operator/issues/23). See the [verification record](PHASE-ONE.md) for current results and earlier failures.
 
 ## Set up the development Mac
 
@@ -61,7 +61,7 @@ Copy [TEST-REPORT-TEMPLATE.md](TEST-REPORT-TEMPLATE.md) into an ignored local re
 
 | Connection | Try deliberately | Boundary |
 |---|---|---|
-| Voice and audio | In Settings, choose an installed voice, preview it and choose an output route | Hear the actual output. A visible AirPlay picker does not prove sound or HomePod microphone access. |
+| Voice and audio | In Review → Settings & connections, choose an installed voice, preview it and choose an output route | Hear the actual output. A visible AirPlay picker does not prove sound or HomePod microphone access. |
 | Calendar / Reminders | Read an authorized day; review an invented item before intentionally saving it | Verify permissions, date/timezone and the Apple app's result. A local note is not a system reminder. |
 | Siri / Shortcuts | Discover Start morning and Quick capture, then verify the received request | They open app-owned review/start flows; invocation and locked-device behavior need their own checks. |
 | App transitions | Configure Opened/Closed automations for selected Instagram, TikTok or Snapchat activity | Delivery is a separate hardware check. These callbacks are not complete usage, pickup or scrolling metrics. |
