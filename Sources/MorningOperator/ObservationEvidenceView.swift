@@ -20,7 +20,7 @@ struct ObservationEvidenceView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("A glimpse of this recording", systemImage: "film.stack")
                 .font(.subheadline.weight(.semibold))
-            Text("\(Int(evidence.durationSeconds.rounded())) seconds · \(evidence.frames.count) samples · \(readableCount) with text")
+            Text("\(Int(evidence.durationSeconds.rounded())) seconds · \(evidence.frames.count) samples · \(readableCount) with complete text")
                 .font(.caption).foregroundStyle(MorningStyle.muted)
                 .accessibilityIdentifier("learn.videoEvidence")
             DisclosureGroup("See sampled screens") {
