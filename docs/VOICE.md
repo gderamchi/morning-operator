@@ -1,8 +1,8 @@
 # Voice with MORE
 
-**Current branch source `aec8fc8`; physical microphone validation pending.** MORE now offers a spoken invitation after a newly completed morning and a separately requested, bounded dictation turn for a thought, dream or reminder. The latest package run has **279 passed and 6 optional skips**. All three synthetic completion-capture journeys and the existing command-entry check passed in the final scoped simulator run. The capture editor still emits a keyboard-transition layout warning; see the verification record. The physical iPhone is absent, so recognition, microphone handoff and actual audibility remain unconfirmed for this change.
+MORE uses native system speech for approved notes, selected historical excerpts and prepared Calendar/Weather recaps. Command input and spoken capture each require an explicit listening turn. There is no continuously listening custom wake word.
 
-Earlier command-sheet entry/close and touch fallback passed in the iPhone simulator without requesting microphone access; separate synthetic speech-output checks passed. The new completion checks validate synthetic text handoff, editable review and explicit persistence. Neither they nor the installed `8a640ea` baseline establish a physical microphone result. See [verification history](PHASE-ONE.md) for dated results.
+Physical microphone recognition, HomePod routing and listener-confirmed speech quality remain open. An earlier phone greeting reached speech completion, but the owner did not confirm hearing it. [Verification](PHASE-ONE.md) separates native simulator speech callbacks, injected text tests and actual phone evidence.
 
 ## Use it
 
@@ -100,10 +100,14 @@ Keep any diagnostic transcripts synthetic and any device artifacts private. Log 
 
 ## Still ahead
 
-Always-listening MORE detection, conversational interruptions, open-ended dialogue, prepared/cached morning recaps, and HomePod microphone input remain future work. Bounded dictation for explicit capture is implemented in this branch; it is not a continuous conversation or a background wake word. The existing Siri capture entry and spoken-output voice chooser remain separate features. A future prepared recap needs connected source data, source timestamps and freshness rules; hearing a command or capturing a thought does not grant access to messages, health data or another app's interface.
+Always-listening MORE detection, conversational interruptions, open-ended dialogue, fresh inbox preparation and HomePod microphone input remain future work. Bounded dictation for explicit capture is implemented in this branch; it is not a continuous conversation or a background wake word. The existing Siri capture entry and spoken-output voice chooser remain separate features. A future inbox recap needs connected source data, source timestamps and freshness rules; hearing a command or capturing a thought does not grant access to messages, health data or another app's interface.
 
 Implementation: [command sheet](../Sources/MorningOperator/MorningVoiceCommandView.swift), [capture sheet](../Sources/MorningOperator/MorningCaptureVoiceView.swift), [editable capture review](../Sources/MorningOperator/QuickCaptureView.swift), [store orchestration](../Sources/MorningOperator/MorningStore.swift), [shared listener](../Sources/MorningApple/MorningVoiceCommandListener.swift), [strict command grammar](../Sources/MorningCore/MorningVoiceCommand.swift), [bounded capture policy](../Sources/MorningCore/MorningCaptureTurn.swift). Related work: [voice #4](https://github.com/gibouu/morning-operator/issues/4), [V2 #25](https://github.com/gibouu/morning-operator/issues/25).
 
 ### Prepared calendar and weather speech
 
 The V2 [Your day](YOUR-DAY.md) operation supplies exactly the prepared sentences shown on screen. Repeat preserves the current moment's facts while valid; an expired recap requires an explicit update. Preview refresh never advances a routine. This uses system speech and deterministic source formatting, with no local or remote model rewriting the facts. Actual listener audibility remains unconfirmed.
+
+### Historical excerpts in a routine
+
+[Saved moments](SAVED-MOMENTS.md) lets the person select one exact line from a dated observation, hear a preview and add it as an unapproved routine step. The spoken sentence includes its date. Native synthesis completion can advance the approved step; changing or deleting its source blocks replay instead of speaking a stale stored copy. This is deterministic quotation, not model-generated summary or live message access.

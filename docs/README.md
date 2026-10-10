@@ -2,11 +2,11 @@
 
 MORE is a native iPhone app. The Mac is its development and test environment. The repository and Xcode project retain the Morning Operator name.
 
-**Current source: `0d7171a` on `codex/more-quiet-morning`.** V2 separates a compact Morning from Review, with saved observations, reviewed routine proposals, prepared Calendar/Weather recaps and optional Lock Screen progress. Recording details preserve the original start independently of the assigned day, and saved recordings remain recoverable without live capture support.
+**Current source: `e150bfc` on `codex/more-quiet-morning`.** V2 separates a compact Morning from Review: saved observations, cited proposals, dated spoken excerpts, prepared Calendar/Weather recaps and optional Lock Screen progress. Recording metadata and recovery remain separate from learned interpretations.
 
-**Testing on your phone:** the installed baseline is still `8a640ea`. V2 needs the Xcode developer account and WeatherKit signing setup before installation. Start with the [device guide](DEVICE-SETUP.md); its morning checklist describes the installed version.
+**Testing on your phone:** the last verified installed baseline is `8a640ea`. V2 needs the Xcode developer account and WeatherKit signing setup before installation. Start with the [device guide](DEVICE-SETUP.md); its morning checklist describes the installed version.
 
-**Verification:** 69 focused recording checks and both final simulator recovery journeys pass. These establish storage, OCR and review behavior for controlled inputs. Actual habit recognition, physical V2, microphone/Siri, HomePod and listener-confirmed speech remain open. The [verification record](PHASE-ONE.md) keeps the complete results, earlier failures and hardware boundaries.
+**Verification:** 79 focused narration/provenance checks and both final native simulator journeys pass. They establish source validation, native speech callbacks and progression with synthetic inputs. Physical V2, actual habit recognition, microphone/Siri, HomePod and listener-confirmed speech remain open. The [verification record](PHASE-ONE.md) keeps earlier results and failures.
 
 ## Use the app
 
@@ -19,6 +19,7 @@ MORE is a native iPhone app. The Mac is its development and test environment. Th
 | [Morning entry](MORNING-ENTRY.md) | Schedule one invitation, enter through Start, and understand permissions, expiry and manual fallback |
 | [Lock Screen progress](LIVE-ACTIVITY.md) | Opt into a generic Live Activity, understand its paused/stale state, and return to Morning without starting a run |
 | [Your day](YOUR-DAY.md) | Select calendars and a city, preview a sourced recap, and add it to an approved morning |
+| [Saved moments](SAVED-MOMENTS.md) | Select an exact historical excerpt, preview it and hear it in an approved routine |
 | [Voice commands](VOICE.md) | Use an explicit listening turn; understand commands, audio handoff and outstanding device checks |
 | [V2 design contract](V2-DESIGN.md) | Morning and Review, explicit spoken/typed completion capture, and accessible layout fallbacks |
 | [Short morning trial checklist](DEVICE-SETUP.md#tomorrow-morning-checklist) | How to try recording, stop, review saved text and recover a failed import on the installed baseline |

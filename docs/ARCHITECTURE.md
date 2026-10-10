@@ -4,11 +4,9 @@ MORE is an iPhone app for observing a deliberately shared part of a morning, pro
 
 This guide describes source architecture and its limits. [PHASE-ONE](PHASE-ONE.md) is the authority for actual test results; [the roadmap](ROADMAP.md) separates upcoming work. MORE (MOrning REcap) is the V2 display name; the bundle, repository and Xcode target retain Morning Operator identities.
 
-The structured extraction and latest-frame persistence path has controlled simulator recording/import evidence. Successful context inference and its semantic accuracy remain unverified: the Mac model was unavailable, and the subsequent simulator recognition requests failed in a required backend. The layout evidence slice is source `fb0e4a2`; its shared checks, native build, real Vision movie extraction and simulator import/edit/clear/blank-preservation checks passed. Those results do not establish semantic accuracy or replace the earlier physical-phone evidence. See [observation metrics](OBSERVATION-METRICS.md) and [the benchmark record](OBSERVATION-BENCHMARK.md).
+Three distinct source paths reach the routine. Imported or recorded evidence can support a **model-proposed draft**, which needs cited support and approval. An explicitly selected **saved excerpt** supplies deterministic, dated narration with a reference checked on every playback. **Your day** supplies fresh selected Calendar/Weather facts with an expiry. None grants arbitrary app control. See [routine learning](ROUTINE-LEARNING.md), [saved moments](SAVED-MOMENTS.md) and [Your day](YOUR-DAY.md).
 
-Source `d9a6120` adds the observation archive, recording-date provenance and local file fingerprint described below. Shared checks and the native build pass, and six archive/import journeys have passing results across the initial and corrected runs. [Verification](PHASE-ONE.md) preserves the native-service and accessibility-test failures and their targeted reruns. Physical recording-date behavior and V2 installation remain unverified.
-
-The saved-observation proposal slice at `4a2fd30` adds [reviewed routine updates](ROUTINE-LEARNING.md), with its initial failure and six passing synthetic journeys preserved in verification. The newer unified Learn/import slice (`48e5c95`) uses that pending review with explicit provenance and no inference during acquisition. Its full shared run passed **235 checks with six optional skips**; the native simulator build and three UI journeys passed. Those journeys cover import preservation/relaunch, provenance → single-source pending review → approval/relaunch, and setup-only rejection. No Apple model call or phone installation occurred. Two further notice-review journeys passed after the final routing changes, and the unsigned iPhone target also builds; [PHASE-ONE](PHASE-ONE.md) records the exact scopes.
+Controlled recording/import and synthetic native UI checks have scoped evidence. Successful local model recognition and its semantic accuracy remain unverified on the intended phone. The complete versioned test history, including earlier failures, is kept in [verification](PHASE-ONE.md) and the [benchmark](OBSERVATION-BENCHMARK.md).
 
 ## Components and boundaries
 
@@ -28,6 +26,9 @@ flowchart TB
     Store --> Archive["Dated acquisitions: original evidence and corrections"]
     Archive --> EvidenceReview["Pure clip / date / zone / origin projection"]
     EvidenceReview --> UI
+    Archive --> Quotation["Selected exact excerpt and source revision"]
+    Quotation --> ApprovedQuote["Dated preview and routine approval"]
+    ApprovedQuote --> Runner
     Archive --> Selection["Explicit suggestion and eligible source selection"]
     Selection --> Model["Bounded Foundation Models: propose or abstain"]
     Model --> Citations["Validate exact source quotations"]

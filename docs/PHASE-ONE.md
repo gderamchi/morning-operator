@@ -1,6 +1,22 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. Current **`codex/more-quiet-morning`** source is **`0d7171a`**, preserving recording-start provenance, native frame times and accessible recovery after source-linked sampled-morning review (`2f7e136`). The new simulator and unsigned generic iPhone builds pass. The previously observed signing blocker remains unresolved: Xcode reports no developer account, and its cached wildcard profile lacks WeatherKit. Signing was not retried without changed account evidence. No new signed candidate or phone installation is claimed.
+The last verified installed iPhone build is **`8a640ea`**. Current **`codex/more-quiet-morning`** source is **`e150bfc`**, adding reviewed historical narration and preserving sample provenance through later routine updates, alongside the recording-start callback-ordering fix. Simulator and unsigned generic iPhone compilation pass. The previously observed signing blocker remains unresolved: Xcode reports no developer account, and its cached wildcard profile lacks WeatherKit. Signing was not retried without changed account evidence. No new signed candidate or phone installation is claimed.
+
+## Spoken saved moments and callback ordering — 10 October 2026 (`e150bfc`)
+
+Review now offers **Read a saved moment**: choose a complete line from a dated observation, preview the exact sentence and add it as an unapproved draft step. A normal approved run can speak it and progress through supported moments. The sentence dates its historical source. Every play and repeat resolves the source revision; changes, deletion or substituted text block playback. Model-generated rows cannot authorize a source reference, while explicit keep choices retain valid references. Synthetic provenance survives later human-evidence proposals, saved choices, history and portable export. [User flow and data lifecycle](SAVED-MOMENTS.md).
+
+Native recording delegates now preserve the first matching start callback synchronously before scheduling main-actor work. Finalization reads that evidence before resource release, so reordered start/finish/stop tasks cannot discard an already observed start. Missing starts remain unknown; stale and duplicate callbacks cannot replace metadata. This is a source fix with deterministic ordering coverage, not a physical capture callback trial.
+
+| Check | Actual result |
+|---|---|
+| Final focused shared checks | **79 declarations / 89 expanded cases passed; no skips.** Core: 19 in 3 suites (0.031s); Apple: 60 in 6 suites (0.014s). Covers exact quotations, eligibility, changed/deleted sources, cancellation, legacy decoding, model/portable boundaries, retained synthetic provenance and recording callback order. The initial focused run passed 63 declarations before the additional sample-provenance checks. |
+| Final native journeys | **2/2 passed in 232.717s**, no skips. Deleted-source refusal after relaunch: 117.428s. Real native preview/Stop → unapproved draft → relaunch/exact sentence → approve → speech enabled → Hands free → automatic advancement through two spoken steps to a manual step: 115.289s. No Next action causes that advancement. |
+| Independent saved-file checks | Both final isolated workspaces retain the approved exact sentence and an explicitly synthetic source reference. One archive retains the quoted source; the deletion journey has removed it. Each saved stopped run remains synthetic. The checker reads the versioned workspace envelope and does not inspect production user data. |
+| Build scope | Final simulator build-for-testing and unsigned generic iPhone compilation pass. No signing retry, signed candidate, phone installation or physical capture trial occurred. |
+| Earlier attempts | The initial two journeys exposed an Add confirmation below the virtualized excerpt list. Moving it next to Add fixed visibility. The next run passed narration/progression but the other test could not install because the disk was full. After removing regenerable shared-test outputs, both journeys passed in 234.669s. The final pair above reran after the additional sample-provenance fix. |
+
+The simulator inputs are explicitly manufactured observations; speech uses the production AVSpeechSynthesizer path, not a mocked completion. Screenshots show the dated preview, current-source refusal, and two completed spoken moments on the compact Morning page. This does not establish listener audibility, OCR/model accuracy, live message access, microphone recognition or HomePod routing. The earlier phone greeting remains unconfirmed by a listener. Logs, screenshots and test workspaces remain local.
 
 ## Recording provenance and recovery — 10 October 2026 (`0d7171a`)
 
