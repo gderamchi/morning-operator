@@ -144,7 +144,11 @@ final class MorningLiveActivityTests: XCTestCase {
         // or an injected stale flag. The app remains in the background throughout.
         let stale = springboard.descendants(matching: .any).matching(NSPredicate(
             format: "label CONTAINS %@ AND label CONTAINS %@", "MORE.", "Update needed")).firstMatch
-        XCTAssertTrue(stale.waitForExistence(timeout: 75))
+        // Native logs on iOS 27 show the requested 60-second stale date is
+        // retained, but its nonwaking presentation task may run about 120
+        // seconds after an update. Wait for that real transition, with margin;
+        // this is not a promise that any OS renders exactly at either deadline.
+        XCTAssertTrue(stale.waitForExistence(timeout: 150))
         stale.press(forDuration: 1)
         attach("native-island-stale-progress", springboard)
         stale.tap()

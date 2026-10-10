@@ -128,6 +128,9 @@ private struct MorningActivityIslandDetail: View {
             Text(presentation.isStale ? "Open MORE to update." : presentation.progress)
                 .font(.caption).foregroundStyle(.white.opacity(0.8))
                 .fixedSize(horizontal: false, vertical: true)
+            Text(presentation.lastUpdate)
+                .font(.caption2).foregroundStyle(.white.opacity(0.65))
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
@@ -145,9 +148,12 @@ private struct MorningActivityPresentation {
     var status: String { isStale ? "Update needed" : state.status.displayName }
     var shortProgress: String { "\(state.completedSteps)/\(state.totalSteps)" }
     var progress: String { "\(state.completedSteps) of \(state.totalSteps) moments passed" }
+    // A static timestamp remains truthful even when the system defers a stale
+    // presentation refresh. No timer implies that the app is still executing.
+    var lastUpdate: String { "Last update \(state.updatedAt.formatted(date: .omitted, time: .shortened))" }
     var accessibilitySummary: String {
-        if isStale { return "MORE. Update needed. Last saved progress: \(progress). Open MORE to update." }
-        return "MORE. \(state.category.displayName). \(status). \(progress)."
+        if isStale { return "MORE. Update needed. Last saved progress: \(progress). \(lastUpdate). Open MORE to update." }
+        return "MORE. \(state.category.displayName). \(status). \(progress). \(lastUpdate)."
     }
     var statusSymbol: String {
         if isStale { return "exclamationmark.circle" }
