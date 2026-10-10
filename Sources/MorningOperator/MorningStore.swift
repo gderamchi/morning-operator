@@ -133,8 +133,7 @@ final class MorningStore {
     private(set) var pendingRecordingShouldAutoProcess = false
     private var pendingRecordingInterruption: String?
     private var pendingRecordingContext: ObservationRecordingContext?
-    private(set) var calendarSnapshot: CalendarSnapshot?
-    private(set) var calendarBusy = false
+    var calendarBusy: Bool { briefing.isConnectingCalendar }
     var readAloud = true
     var automatic = true
     var capturePresented = false
@@ -148,12 +147,14 @@ final class MorningStore {
     private var sessionTimingInterrupted = false
     private var sessionTimeZone = TimeZone.current.identifier
     let reminders = ReminderService()
-    @ObservationIgnored private lazy var stepExecutor = MorningAppStepExecutor(speech: speech, calendar: calendar)
+    @ObservationIgnored private lazy var stepExecutor = MorningAppStepExecutor(speech: speech, briefing: briefing)
     @ObservationIgnored lazy var automation = MorningAutomationCoordinator(executor: stepExecutor)
     let intelligence = AppleIntelligenceService()
     let speech = SpeechCoordinator()
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
+    let briefing: MorningBriefingController
+    let usesSyntheticBriefing: Bool
     private(set) var consumedMorningEntryIDs: [UUID] = []
     var storageIsAvailable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
     var voiceCommandPresented = false
@@ -194,14 +195,14 @@ final class MorningStore {
     private let media = MediaObservationService()
     private let fingerprintService = ObservationFileFingerprintService()
     private let contextClassifier = ObservationContextClassifier()
-    private let calendar = CalendarObservationService()
     private var notesSourceLabel = "Your written observation"
     private let snapshot: AtomicJSONFile<WorkspaceSnapshot>
     private let recordingRecovery: PendingScreenRecordingStore
     @ObservationIgnored private var snapshotRecoveryError: String?
     private var analysisTask: Task<Void, Never>?
     private var analysisAttempt: UUID?
-    private var calendarTask: Task<Void, Never>?
+    @ObservationIgnored private var repeatTask: Task<Void, Never>?
+    @ObservationIgnored private var repeatAttempt: UUID?
     private let privacyControl: LocalDataControl
     #if DEBUG
     private var privacyTestAnalysisGate: CheckedContinuation<Void, Never>?
@@ -224,6 +225,14 @@ final class MorningStore {
         snapshot = AtomicJSONFile(url: directory.appendingPathComponent("workspace.json"))
         recordingRecovery = PendingScreenRecordingStore(directory: directory)
         invitation = MorningInvitationService(directory: directory)
+        #if DEBUG
+        let testBriefing = MorningBriefingFixture.makeController(directory: directory)
+        usesSyntheticBriefing = testBriefing != nil
+        briefing = testBriefing ?? MorningBriefingController(directory: directory)
+        #else
+        usesSyntheticBriefing = false
+        briefing = MorningBriefingController(directory: directory)
+        #endif
         #if DEBUG
         repairPrivacyFixtureIfRequested(directory: directory)
         #endif
@@ -578,7 +587,7 @@ final class MorningStore {
     func pause() {
         guard !privacyBlocksWork else { return }
         cancelVoiceCommandTurn()
-        automation.cancel()
+        cancelStepPlayback()
         do { try session?.pause(); speech.stop(); notice = nil; persist() }
         catch { notice = error.localizedDescription }
     }
@@ -597,7 +606,7 @@ final class MorningStore {
     func advance(skipping: Bool = false, commandID: UUID = UUID()) {
         guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
-        automation.cancel()
+        cancelStepPlayback()
         do {
             try session?.advance(skipping: skipping, commandID: commandID)
             speech.stop()
@@ -615,17 +624,81 @@ final class MorningStore {
     func stop() {
         guard !privacyBlocksWork else { return }
         cancelVoiceCommandTurn()
-        automation.cancel()
+        cancelStepPlayback()
         speech.stop()
         do { try session?.stop(); archiveTerminalSession(); notice = nil; persist() }
         catch { notice = error.localizedDescription }
     }
 
+    /// Reading again never advances the session. A sourced moment reuses its
+    /// pinned text, while a moment not yet prepared goes through freshness checks.
     func readCurrent() {
-        guard !privacyBlocksWork else { return }
-        guard !voiceInputBlocksPlayback, let step = currentStep else { return }
+        guard !privacyBlocksWork, !voiceInputBlocksPlayback,
+              let session, let step = currentStep else { return }
+        cancelStepPlayback()
+        if step.automation == nil {
+            speech.speak("\(step.title). \(step.detail)")
+            return
+        }
+        let attempt = UUID()
+        repeatAttempt = attempt
+        let context = MorningStepContext(executionID: .init(sessionID: session.id,
+            routineVersionID: session.routine.id, stepID: step.id))
+        stepExecutor.spokenEnabled = true
+        repeatTask = Task { [weak self] in
+            guard let self else { return }
+            defer { if repeatAttempt == attempt { repeatTask = nil; repeatAttempt = nil } }
+            do {
+                let outcome = try await stepExecutor.execute(step: step, context: context)
+                guard repeatAttempt == attempt, !Task.isCancelled, !privacyBlocksWork else { return }
+                switch outcome {
+                case .completed: break
+                case .needsUser(let reason), .unavailable(let reason): notice = reason
+                }
+            } catch {
+                guard repeatAttempt == attempt, !Task.isCancelled, !privacyBlocksWork else { return }
+                notice = error.localizedDescription
+            }
+        }
+    }
+
+    private func cancelStepPlayback() {
+        repeatAttempt = nil
+        repeatTask?.cancel(); repeatTask = nil
         automation.cancel()
-        speech.speak("\(step.title). \(step.detail)")
+        stepExecutor.cancelPlayback()
+    }
+
+    func preparedBriefing(for step: RoutineStep) -> PreparedMorningBriefing? {
+        guard !privacyBlocksWork, let session,
+              stepExecutor.pinnedExecutionID == MorningExecutionID(sessionID: session.id,
+                routineVersionID: session.routine.id, stepID: step.id) else { return nil }
+        return stepExecutor.pinnedBriefing
+    }
+
+    func updateCurrentBriefing() {
+        guard !privacyBlocksWork, !voiceInputBlocksPlayback, session?.status == .paused,
+              let operation = currentStep?.automation,
+              operation == .todayCalendar || operation == .morningBriefing else { return }
+        cancelStepPlayback()
+        stepExecutor.clear()
+        briefing.cancelAndClear()
+        readCurrent()
+    }
+
+    func prepareDayIfConfigured() async {
+        guard !privacyBlocksWork,
+              !briefing.settings.calendarIDs.isEmpty || briefing.settings.weatherLocation != nil else { return }
+        _ = await briefing.refresh()
+    }
+
+    @discardableResult
+    func addBriefingToRoutine() -> Bool {
+        guard let routine, !sessionActive, !privacyBlocksWork else { return false }
+        if routine.steps.contains(where: { $0.automation == .morningBriefing }) { return true }
+        let step = RoutineStep(title: "Your day", detail: "Hear your selected calendar and current weather.",
+            kind: .briefing, durationMinutes: 2, automation: .morningBriefing)
+        return updateSteps([step] + routine.steps)
     }
 
     func openVoiceCommands() {
@@ -877,39 +950,6 @@ final class MorningStore {
     #endif
 
     func refreshCapabilities() { intelligence.refreshCapabilities() }
-
-    func connectCalendar() {
-        guard !privacyBlocksWork, !calendarBusy else { return }
-        let generation = dataGeneration
-        calendarBusy = true
-        calendarTask = Task { [weak self] in
-            guard let self else { return }
-            defer { if dataGeneration == generation { calendarBusy = false; calendarTask = nil } }
-            do {
-                try await calendar.requestAccess()
-                guard dataGeneration == generation, !privacyBlocksWork, !Task.isCancelled else { return }
-                calendarSnapshot = try calendar.snapshot()
-                notice = "Today's schedule was read from the local calendar store. No events were changed."
-            } catch {
-                guard dataGeneration == generation, !privacyBlocksWork else { return }
-                notice = error.localizedDescription
-            }
-        }
-    }
-
-    func readCalendar() {
-        guard !privacyBlocksWork else { return }
-        guard !voiceInputBlocksPlayback, let snapshot = calendarSnapshot else { return }
-        guard Calendar.current.isDateInToday(snapshot.dayStart) else {
-            notice = "This schedule is from an earlier day. Refresh it before reading."
-            return
-        }
-        let events = snapshot.events.prefix(5).map { event in
-            let time = event.isAllDay ? "All day" : event.start.formatted(date: .omitted, time: .shortened)
-            return "\(time), \(event.title)."
-        }.joined(separator: " ")
-        speech.speak(events.isEmpty ? "There are no events in today's local calendar snapshot." : "Here's your schedule. \(events)")
-    }
 
     /// Written notes and ordinary imports have no inferred observed day or origin.
     /// The UI can present the existing provenance editor after preparation succeeds.
@@ -1600,7 +1640,7 @@ final class MorningStore {
 
     func executionPreferencesChanged() {
         guard !privacyBlocksWork else { return }
-        automation.cancel()
+        cancelStepPlayback()
         speech.stop()
         guard persist() else { pauseAfterSaveFailure(); return }
         runCurrentIfEnabled()
@@ -1713,7 +1753,7 @@ final class MorningStore {
     }
 
     private func pauseAfterSaveFailure() {
-        automation.cancel()
+        cancelStepPlayback()
         speech.stop()
         if session?.status == .running { try? session?.pause() }
         // Preserve the disk-error message and do not dispatch another action.
@@ -1794,9 +1834,9 @@ final class MorningStore {
         analysisAttempt = nil
         let oldAnalysis = analysisTask
         oldAnalysis?.cancel()
-        calendarTask?.cancel()
-        calendarTask = nil
-        automation.cancel()
+        briefing.cancelAndClear()
+        stepExecutor.clear()
+        cancelStepPlayback()
         speech.stop()
         cancelVoiceCommandTurn()
         cancelCompletionCapture()
@@ -1822,7 +1862,7 @@ final class MorningStore {
             try await invitation.forget()
             try privacyControl.withForgetAccess(expectedGeneration: generation) {
                 try recordingRecovery.removeAllOwnedData()
-                for name in ["app-transitions.json", "morning-invitation.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json"] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -1841,6 +1881,7 @@ final class MorningStore {
             }
             clearForgottenMemory()
             try privacyControl.finishForget(expectedGeneration: generation)
+            briefing.reloadSettings()
             privacyNeedsCleanup = false
             privacyHasInterruptedRemoval = false
             privacyIsForgetting = false
@@ -1888,7 +1929,6 @@ final class MorningStore {
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
         pendingRecordingInterruption = nil; pendingRecordingContext = nil
-        calendarSnapshot = nil; calendarBusy = false
         captureBusy = false; capturePresented = false; capturePrefill = ""; captureSource = .typed
         voiceCommandPresented = false; captureVoicePresented = false
         voiceCommandFeedback = nil; completionCaptureFeedback = nil
@@ -1925,6 +1965,10 @@ final class MorningStore {
             }
             try Data("SYNTHETIC_PRIVACY_SNAPSHOT_LEFTOVER".utf8)
                 .write(to: directory.appendingPathComponent(".morning-save-privacy-fixture"))
+            // A deliberately unreadable settings payload exercises full removal
+            // without configuring a live Calendar or Weather request.
+            try Data("SYNTHETIC_PRIVACY_BRIEFING_SETTINGS".utf8)
+                .write(to: directory.appendingPathComponent("briefing-settings.json"))
             try Data("SYNTHETIC_IMPORTED_ORIGINAL_KEEP".utf8)
                 .write(to: directory.appendingPathComponent("imported-original-sentinel.txt"))
             try Data("SYNTHETIC_EXPORTED_COPY_KEEP".utf8)

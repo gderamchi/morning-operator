@@ -8,11 +8,12 @@ public enum StepKind: String, Codable, CaseIterable, Sendable {
 /// A concrete app-owned operation, separate from an inferred activity category.
 /// A nil operation remains manual, including routines decoded from older files.
 public enum RoutineStepAutomation: String, Codable, CaseIterable, Sendable {
-    case spokenNote, todayCalendar
+    case spokenNote, todayCalendar, morningBriefing
     public var displayName: String {
         switch self {
         case .spokenNote: "Read this note aloud"
         case .todayCalendar: "Read today's calendar"
+        case .morningBriefing: "Read today's briefing"
         }
     }
 }

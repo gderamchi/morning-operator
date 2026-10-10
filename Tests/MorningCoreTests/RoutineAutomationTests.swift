@@ -18,8 +18,8 @@ struct RoutineAutomationTests {
         #expect(restored.automation == nil)
     }
 
-    @Test func approvedOperationsRoundTripAndRemainPinnedDuringEdits() throws {
-        let operation = RoutineStep(title: "Read today's schedule", kind: .calendar, automation: .todayCalendar)
+    @Test(arguments: RoutineStepAutomation.allCases) func approvedOperationsRoundTripAndRemainPinnedDuringEdits(_ automation: RoutineStepAutomation) throws {
+        let operation = RoutineStep(title: "Read today's schedule", kind: .calendar, automation: automation)
         let approved = RoutineVersion(sourceLabel: "Chosen explicitly", steps: [operation], isApproved: true)
         var session = RoutineSession(routine: approved)
         try session.start()
@@ -28,9 +28,9 @@ struct RoutineAutomationTests {
         let draft = approved.revised(steps: [edited])
         #expect(!draft.isApproved)
         #expect(draft.steps[0].automation == nil)
-        #expect(session.routine.steps[0].automation == .todayCalendar)
+        #expect(session.routine.steps[0].automation == automation)
         let restored = try JSONDecoder().decode(RoutineSession.self, from: JSONEncoder().encode(session))
-        #expect(restored.routine.steps[0].automation == .todayCalendar)
+        #expect(restored.routine.steps[0].automation == automation)
         #expect(restored == session)
     }
 }

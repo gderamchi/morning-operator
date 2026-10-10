@@ -307,6 +307,7 @@ struct SetupView: View {
     @ViewState<Bool> private var choosingVoice = false
     @ViewState<Bool> private var choosingInvitation = false
     @ViewState<Bool> private var showingPrivacy = false
+    @ViewState<Bool> private var choosingBriefing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -328,24 +329,18 @@ struct SetupView: View {
             }
 
             Card {
-                VStack(alignment: .leading, spacing: 18) {
-                    Label("Your calendar", systemImage: "calendar")
-                        .font(.title3.weight(.semibold))
-                    Text("Bring today's schedule into your morning. Apple asks for full calendar access to read events; any new event is saved only when you choose to save it.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button(store.calendarSnapshot == nil ? "Connect Calendar" : "Refresh today's schedule") { store.connectCalendar() }
-                        .buttonStyle(SecondaryButtonStyle()).disabled(store.calendarBusy)
-                        .accessibilityIdentifier("setup.calendar")
-                    if store.calendarBusy {
-                        ProgressView("Getting your schedule…").font(.footnote)
-                    } else if let snapshot = store.calendarSnapshot {
-                        Label(snapshot.events.isEmpty ? "No events in today's calendar snapshot" : "\(snapshot.events.count) events in today's calendar snapshot",
-                              systemImage: "checkmark.circle")
-                            .font(.footnote).foregroundStyle(MorningStyle.green)
-                            .fixedSize(horizontal: false, vertical: true)
+                Button { choosingBriefing = true } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "sun.max").font(.title2)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Your day").font(.headline)
+                            Text("A little context before your morning begins.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption)
                     }
-                }
+                }.buttonStyle(.plain).accessibilityIdentifier("setup.briefing")
             }
 
             Card {
@@ -438,6 +433,7 @@ struct SetupView: View {
         }.foregroundStyle(MorningStyle.ink)
         .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
         .task { if store.privacyNeedsCleanup { showingPrivacy = true } }
+        .sheet(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
     }
@@ -514,6 +510,7 @@ struct StepEditor: View {
                         Text("User-led moment").tag(Optional<RoutineStepAutomation>.none)
                         Text("Read this text aloud").tag(Optional(RoutineStepAutomation.spokenNote))
                         Text("Read today's calendar").tag(Optional(RoutineStepAutomation.todayCalendar))
+                        Text("Read today's briefing").tag(Optional(RoutineStepAutomation.morningBriefing))
                     }
                     .accessibilityIdentifier("step.automation")
                 } header: {
@@ -575,7 +572,9 @@ struct StepEditor: View {
         case .spokenNote:
             "Reads the text you approve for this step. Speaking the instructions doesn't carry out the activity they describe."
         case .todayCalendar:
-            "Reads today's actual events from your connected Calendar. Calendar access and spoken guidance are required."
+            "Reads today's remaining events from calendars you select in Your day. Calendar access and spoken guidance are required."
+        case .morningBriefing:
+            "Reads a current recap from the calendars and optional city you choose in Your day. Available sources are prepared before speech; no events are changed."
         }
     }
 }

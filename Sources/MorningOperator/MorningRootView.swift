@@ -122,6 +122,7 @@ struct MorningRootView: View {
                 }
                 #endif
                 Task { await store.invitation.reconcile(); processPendingEntries() }
+                Task { await store.prepareDayIfConfigured() }
             }
         }
         .onChange(of: MorningIntentRouter.shared.pendingCaptureText, initial: true) { _, _ in
@@ -140,6 +141,7 @@ struct MorningRootView: View {
                 if store.privacyHasInterruptedRemoval { await store.forgetLocalData() }
                 return
             }
+            Task { await store.prepareDayIfConfigured() }
             await store.invitation.reconcile()
             #if DEBUG
             // Explicit isolated fixture entry tests exercise routing, not Siri or
@@ -339,8 +341,17 @@ struct TodayView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         Text(step.title).font(.title2.weight(.semibold))
-                        Text(step.detail).textSelection(.enabled)
-                            .accessibilityIdentifier("run.detail")
+                        if let briefing = store.preparedBriefing(for: step) {
+                            MorningBriefingDocumentView(document: briefing, operation: step.automation, synthetic: store.usesSyntheticBriefing)
+                        } else {
+                            Text(step.detail).textSelection(.enabled)
+                                .accessibilityIdentifier("run.detail")
+                        }
+                        if store.session?.status == .paused,
+                           step.automation == .morningBriefing || step.automation == .todayCalendar {
+                            Button("Update this recap") { store.updateCurrentBriefing() }
+                                .buttonStyle(.glass).accessibilityIdentifier("briefing.updateCurrent")
+                        }
                         if store.session?.status == .paused {
                             Text("Your morning is paused.").font(.caption).foregroundStyle(.secondary)
                                 .accessibilityIdentifier("run.detailPaused")
@@ -580,7 +591,7 @@ struct TodayView: View {
                 } else {
                     Button { store.pause() } label: { Label("Pause", systemImage: "pause.fill").frame(maxWidth: .infinity).padding(.vertical, 9) }
                         .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).accessibilityIdentifier("run.pause")
-                    if !store.automatic || store.automation.status == .waitingForUser {
+                    if !store.automatic || [.waitingForUser, .unavailable, .failed].contains(store.automation.status) {
                         Button { store.advance() } label: { Image(systemName: "arrow.right").frame(width: 32, height: 32) }
                             .buttonStyle(.glass).accessibilityLabel("Next moment").accessibilityIdentifier("run.next")
                     }
