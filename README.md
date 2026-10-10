@@ -43,10 +43,11 @@ French support is partial: the greeting, optional sample and some moment-purpose
 
 ## Where it stands
 
-**Current source is a design revision, not a newly verified installation.** The centered sunrise, Ready → Start flow, duration tiles and optional eight-moment sample replace the rejected corner-popover presentation. Long saved observations still run in small sequential analysis requests with progress and cancellation, replacing the 8,000-character whole-input rejection. Review retains observed mornings, day-by-day sampled sequences and exact-quote narration. Design acceptance remains open; [verification](docs/PHASE-ONE.md) is the authority for the final source and results.
+**The sunrise revision is installed and launched on the owner’s iPhone.** The centered sunrise, Ready → Start flow, duration tiles and optional eight-moment sample replace the rejected corner-popover presentation. Long saved observations still run in small sequential analysis requests with progress and cancellation, replacing the 8,000-character whole-input rejection. Review retains observed mornings, day-by-day sampled sequences and exact-quote narration. Design acceptance remains open; [verification](docs/PHASE-ONE.md) is the authority for the final source and results.
 
-| Historical verification, before this design revision | Evidence |
+| Verification | Evidence |
 |---|---|
+| Current sunrise revision (`8af8de8`) | Signed and installed on the owner’s iPhone. Focused shared sample/evidence/recovery checks pass; corrected native UI failure reruns, French appearance and largest-text checks pass. The scoped runs and initial failures are preserved in [verification](docs/PHASE-ONE.md); they are not a new full-suite or physical capture/model result. |
 | Long-input learning and evidence | **322 shared checks passed; 6 optional checks skipped.** A final **62-test** focused run passes after the request-wrapper correction. Covers long sources, Unicode, exact offsets, final-batch coverage, cancellation, late failure and rejection of the app's own overview as habit evidence. Model generation/accuracy was not tested. |
 | Review navigation | Both corrected native simulator journeys pass: week → day → source → correction/relaunch, and exact quote → preview → explicitly added unapproved draft. Four existing review/home checks passed in the initial run. Initial failures and fixes remain in [verification](docs/PHASE-ONE.md). |
 | Earlier physical installation | **`0f94f6d` signed, verified, installed and launched on the owner's iPhone, 10 October**, preserving the user store. No new physical capture, connected-service, model or listener test accompanied installation; the owner walkthrough remains open. |
