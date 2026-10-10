@@ -50,6 +50,7 @@ struct MorningActivityWidget: Widget {
             }
             .widgetURL(MorningActivityPresentation.destination)
             .keylineTint(MorningActivityPalette.islandAccent)
+            .contentMargins(.all, 24, for: .expanded)
         }
     }
 }

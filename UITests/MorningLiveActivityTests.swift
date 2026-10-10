@@ -139,7 +139,7 @@ final class MorningLiveActivityTests: XCTestCase {
             format: "label CONTAINS %@ AND label CONTAINS %@ AND label CONTAINS %@",
             "MORE.", "Paused", "moments passed")).firstMatch
         XCTAssertTrue(paused.waitForExistence(timeout: 5))
-        attach("native-expanded-island-paused-morning", springboard)
+        attachExpandedPresentation("native-expanded-island-paused-morning", springboard)
         // Observe the actual OS stale-date presentation, not a rendered preview
         // or an injected stale flag. The app remains in the background throughout.
         let stale = springboard.descendants(matching: .any).matching(NSPredicate(
@@ -150,7 +150,7 @@ final class MorningLiveActivityTests: XCTestCase {
         // this is not a promise that any OS renders exactly at either deadline.
         XCTAssertTrue(stale.waitForExistence(timeout: 150))
         stale.press(forDuration: 1)
-        attach("native-island-stale-progress", springboard)
+        attachExpandedPresentation("native-island-stale-progress", springboard)
         stale.tap()
         XCTAssertTrue(app.buttons["run.resume"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.state, .runningForeground)
@@ -207,5 +207,14 @@ final class MorningLiveActivityTests: XCTestCase {
     private func attach(_ name: String, _ app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    private func attachExpandedPresentation(_ name: String, _ app: XCUIApplication) {
+        // Accessibility appears before the system's expansion animation settles.
+        // This bounded delay affects visual evidence only, never state assertions.
+        let settled = expectation(description: "Native expansion presentation settled")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { settled.fulfill() }
+        wait(for: [settled], timeout: 2)
+        attach(name, app)
     }
 }
