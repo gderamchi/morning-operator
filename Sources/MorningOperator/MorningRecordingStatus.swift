@@ -1,6 +1,38 @@
 import SwiftUI
 import MorningApple
 
+/// Saved media remains recoverable without the native screen-capture framework.
+/// Simulator, older supported OS versions and live capture share these controls.
+struct SavedRecordingRecoveryView: View {
+    @Bindable var store: MorningStore
+    var onReview: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(store.busy ? "Reading your recording" : "Your recording is saved", systemImage: "externaldrive.badge.checkmark")
+                .font(.subheadline.weight(.medium))
+            Text(store.busy ? store.analysisStatus : (store.observationIssue ?? "Retry understanding it, or discard the recording."))
+                .font(.caption).foregroundStyle(.secondary)
+            if store.sessionActive {
+                Text("Finish or stop the current morning before retrying.").font(.caption)
+            }
+            HStack {
+                Button("Retry") { store.retryPendingRecording() }
+                    .buttonStyle(.glass).disabled(store.busy || store.sessionActive)
+                    .accessibilityIdentifier("record.retryImport")
+                Button("Discard recording", role: .destructive) { store.discardPendingRecording() }
+                    .buttonStyle(.borderless).accessibilityIdentifier("record.discardPending")
+                    .disabled(store.busy)
+            }
+            if store.hasImportedObservation {
+                Button("Review text", action: onReview).buttonStyle(.borderless).font(.caption)
+            }
+        }
+        .padding(14).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
+        .padding(.horizontal, 16).padding(.vertical, 6)
+    }
+}
+
 #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
 @available(iOS 27.0, *)
 struct MorningRecordingStatus: View {
@@ -42,27 +74,7 @@ struct MorningRecordingStatus: View {
                 .padding(14).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
                 .padding(.horizontal, 16).padding(.vertical, 6)
             } else if store.hasPendingRecording {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Your recording is saved", systemImage: "externaldrive.badge.checkmark")
-                        .font(.subheadline.weight(.medium))
-                    Text(store.observationIssue ?? "Retry understanding it, or discard the recording.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if store.sessionActive {
-                        Text("Finish or stop the current morning before retrying.").font(.caption)
-                    }
-                    HStack {
-                        Button("Retry") { store.retryPendingRecording() }
-                            .buttonStyle(.glass).disabled(store.sessionActive)
-                            .accessibilityIdentifier("record.retryImport")
-                        Button("Discard recording", role: .destructive) { store.discardPendingRecording() }
-                            .buttonStyle(.borderless).accessibilityIdentifier("record.discardPending")
-                    }
-                    if store.hasImportedObservation {
-                        Button("Review text", action: onReview).buttonStyle(.borderless).font(.caption)
-                    }
-                }
-                .padding(14).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
-                .padding(.horizontal, 16).padding(.vertical, 6)
+                SavedRecordingRecoveryView(store: store, onReview: onReview)
             } else if recording.hasRecordingToReview {
                 VStack(alignment: .leading, spacing: 8) {
                     if let issue = store.observationIssue { Text(issue).font(.caption) }

@@ -19,10 +19,14 @@ struct VideoObservationBuilder {
 
     mutating func append(id: UUID, requestedTimeSeconds: Double, actualTimeSeconds: Double?,
                          outcome: ObservationSampleOutcome, text: String = "",
-                         ocrLines: [ObservationOCRLine]? = nil, ocrWarnings: [String] = []) throws {
+                         ocrLines: [ObservationOCRLine]? = nil, ocrWarnings: [String] = [],
+                         originalPresentationTime: ObservationMediaTime? = nil) throws {
         guard frames.count < ObservationVideoEvidence.maximumFrames else { throw ObservationVideoEvidenceError.evidenceTooLarge }
         var warnings = ocrWarnings
         let actual = actualTimeSeconds.flatMap { $0.isFinite && $0 >= 0 && $0 <= durationSeconds ? $0 : nil }
+        // Decimal fallback and native metadata are one admission decision. Keep neither
+        // native time nor a manufactured replacement when the source time is out of range.
+        let original = outcome != .decodeFailed && actual == nil ? nil : originalPresentationTime
         if outcome != .decodeFailed, actual == nil {
             warnings.append("Actual presentation time was unavailable; the requested sample time is retained as a fallback.")
         }
@@ -42,7 +46,8 @@ struct VideoObservationBuilder {
         }
         let evidence = try ObservationFrameEvidence(id: id, requestedTimeSeconds: requestedTimeSeconds,
             actualTimeSeconds: actual, outcome: outcome, text: bounded,
-            textWasTruncated: truncated, warnings: warnings, ocrLines: retainedLines)
+            textWasTruncated: truncated, warnings: warnings, ocrLines: retainedLines,
+            originalPresentationTime: original)
         frames.append(evidence)
         remainingCharacters -= bounded.count
         remainingBytes -= bounded.utf8.count

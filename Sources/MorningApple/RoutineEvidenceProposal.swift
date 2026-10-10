@@ -534,8 +534,10 @@ private enum EvidenceRevision {
         value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
     }
     static func source(_ value: ObservationAcquisition) throws -> String {
-        // Derived classification/warnings are intentionally excluded. All source, date,
-        // correction, origin and extraction fields are included, not just the immutable ID.
+        // Hash the source, date, correction, origin and extraction used by the learner.
+        // Derived classification/warnings and recordingContext are deliberately excluded:
+        // native start metadata is not model input and does not change the assigned day.
+        // Adding it to an exact-file retry must not stale an otherwise unchanged proposal.
         struct Payload: Encodable {
             let id: UUID; let importedAt: Date?; let fileSHA256: String?
             let observedDate: ObservationObservedDate?; let origin: ObservationAcquisitionOrigin

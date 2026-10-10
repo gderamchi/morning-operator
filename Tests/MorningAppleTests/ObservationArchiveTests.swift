@@ -196,6 +196,184 @@ struct ObservationArchiveTests {
         #expect(archive.entry(id: legacy.id)?.importedAt == nil)
     }
 
+    @Test func nativeRecordingContextSurvivesDateChangesCorrectionsAndReclassification() throws {
+        let evidence = try video()
+        let context = try ObservationRecordingContext(startedAt: imported, timeZoneIdentifier: "Europe/Paris")
+        let observed = try ObservationObservedDate(date: imported, timeZoneIdentifier: "Europe/Paris", provenance: .recordingSession)
+        let source = try ObservationAcquisition(importedAt: imported.addingTimeInterval(90), observedDate: observed,
+            sourceKind: .video, sourceLabel: "Synthetic native recording", originalText: evidence.renderedText,
+            videoEvidence: evidence, classification: interpretation(evidence), recordingContext: context)
+        var archive = try ObservationArchive(entries: [source])
+        let editedDay = try ObservationObservedDate(date: imported.addingTimeInterval(-86_400),
+            timeZoneIdentifier: "America/New_York", provenance: .userAssigned)
+        try archive.assignObservedDate(id: source.id, value: editedDay, origin: .human)
+        try archive.correct(id: source.id, text: "A reviewed synthetic correction")
+        #expect(archive.entry(id: source.id)?.recordingContext == context)
+        #expect(archive.entry(id: source.id)?.observedDate == editedDay)
+        #expect(archive.entry(id: source.id)?.classification == nil)
+        try archive.assignObservedDate(id: source.id, value: nil)
+        try archive.correct(id: source.id, text: nil)
+        try archive.classify(id: source.id, result: interpretation(evidence))
+        let restored = try JSONDecoder().decode(ObservationArchive.self, from: JSONEncoder().encode(archive))
+        let retained = try #require(restored.entry(id: source.id))
+        #expect(retained.recordingContext == context)
+        #expect(retained.observedDate == nil)
+        #expect(retained.origin == .human)
+        #expect(retained.originalText == source.originalText)
+        #expect(retained.videoEvidence == evidence)
+        #expect(retained.classification == source.classification)
+        #expect(retained.importedAt == source.importedAt)
+    }
+
+    @Test func legacyRecordingDateDoesNotInventNativeContext() throws {
+        let observed = try ObservationObservedDate(date: imported, timeZoneIdentifier: "UTC", provenance: .recordingSession)
+        let evidence = try video()
+        let source = try ObservationAcquisition(observedDate: observed, sourceKind: .video,
+            sourceLabel: "Legacy synthetic recording", originalText: evidence.renderedText, videoEvidence: evidence)
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(source)) as? [String: Any])
+        #expect(json["recordingContext"] == nil)
+        let missing = try JSONDecoder().decode(ObservationAcquisition.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(missing.recordingContext == nil)
+        #expect(missing.observedDate == observed)
+        json["recordingContext"] = NSNull()
+        let null = try JSONDecoder().decode(ObservationAcquisition.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(null.recordingContext == nil)
+        #expect(null.warnings.isEmpty)
+        #expect(null.observedDate == observed)
+    }
+
+    @Test func malformedRecordingMetadataIsRemovedWithoutLosingSourceOrEditedDay() throws {
+        let evidence = try video()
+        let context = try ObservationRecordingContext(startedAt: imported, timeZoneIdentifier: "Europe/Paris")
+        let observed = try ObservationObservedDate(date: imported.addingTimeInterval(86_400), timeZoneIdentifier: "UTC", provenance: .userAssigned)
+        let source = try ObservationAcquisition(observedDate: observed, sourceKind: .video,
+            sourceLabel: "Synthetic source", originalText: evidence.renderedText, videoEvidence: evidence,
+            classification: interpretation(evidence), recordingContext: context)
+        let base = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(source)) as? [String: Any])
+        let encodedContext = try #require(base["recordingContext"] as? [String: Any])
+        var badZone = encodedContext; badZone["timeZoneIdentifier"] = "Not/A_Zone"
+        var badDate = encodedContext; badDate["startedAt"] = 1e30
+        var missingID = encodedContext; missingID.removeValue(forKey: "id")
+        let payloads: [Any] = ["Malformed context", badZone, badDate, missingID]
+        for payload in payloads {
+            var json = base; json["recordingContext"] = payload
+            let restored = try JSONDecoder().decode(ObservationAcquisition.self, from: JSONSerialization.data(withJSONObject: json))
+            #expect(restored.recordingContext == nil)
+            #expect(restored.warnings == [.invalidRecordingContextRemoved])
+            #expect(restored.originalText == source.originalText)
+            #expect(restored.videoEvidence == evidence)
+            #expect(restored.observedDate == observed)
+            #expect(restored.classification == source.classification)
+            let again = try JSONDecoder().decode(ObservationAcquisition.self, from: JSONEncoder().encode(restored))
+            #expect(again == restored)
+        }
+    }
+
+    @Test func recordingContextRequiresVideoAndBoundedArchiveDate() throws {
+        let context = try ObservationRecordingContext(startedAt: imported, timeZoneIdentifier: "UTC")
+        for kind in [ObservationAcquisitionSourceKind.text, .image, .manual, .unknown] {
+            #expect(throws: ObservationArchiveError.invalidRecordingContext) {
+                try ObservationAcquisition(sourceKind: kind, sourceLabel: "Synthetic non-video",
+                    originalText: "Synthetic source", recordingContext: context)
+            }
+            let ordinary = try ObservationAcquisition(sourceKind: kind, sourceLabel: "Synthetic source", originalText: "Source remains")
+            var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(ordinary)) as? [String: Any])
+            json["recordingContext"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(context))
+            let restored = try JSONDecoder().decode(ObservationAcquisition.self, from: JSONSerialization.data(withJSONObject: json))
+            #expect(restored.recordingContext == nil)
+            #expect(restored.originalText == ordinary.originalText)
+            #expect(restored.warnings == [.invalidRecordingContextRemoved])
+        }
+        let farFuture = try ObservationRecordingContext(startedAt: Date(timeIntervalSince1970: 1e30), timeZoneIdentifier: "UTC")
+        #expect(throws: ObservationArchiveError.invalidRecordingContext) {
+            try ObservationAcquisition(sourceKind: .video, sourceLabel: "Synthetic recording",
+                originalText: "Synthetic source", recordingContext: farFuture)
+        }
+    }
+
+    @Test func repeatedRestoredWarningsLeaveRoomForMetadataRecovery() throws {
+        let source = try ObservationAcquisition(sourceKind: .video, sourceLabel: "Synthetic recovery",
+            originalText: "Keep this original observation")
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(source)) as? [String: Any])
+        json["warnings"] = Array(repeating: "invalidClassificationRemoved", count: 4)
+        json["recordingContext"] = "Malformed optional metadata"
+        let restored = try JSONDecoder().decode(ObservationAcquisition.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(restored.originalText == source.originalText)
+        #expect(restored.recordingContext == nil)
+        #expect(restored.warnings == [.invalidClassificationRemoved, .invalidRecordingContextRemoved])
+        json["warnings"] = Array(repeating: "invalidClassificationRemoved", count: 5)
+        #expect(throws: ObservationArchiveError.invalidSource) {
+            try JSONDecoder().decode(ObservationAcquisition.self, from: JSONSerialization.data(withJSONObject: json))
+        }
+    }
+
+    @Test func exactFileEnrichmentPreservesEditableFieldsAndNeverReplacesFirstContext() throws {
+        let evidence = try video()
+        let digest = String(repeating: "d", count: 64)
+        let observed = try ObservationObservedDate(date: imported.addingTimeInterval(-86_400), timeZoneIdentifier: "UTC", provenance: .userAssigned)
+        let original = try ObservationAcquisition(importedAt: imported, fileSHA256: digest, observedDate: observed,
+            origin: .human, sourceKind: .video, sourceLabel: "Manually imported synthetic recording",
+            originalText: evidence.renderedText, correctedText: "My reviewed correction", videoEvidence: evidence)
+        var archive = try ObservationArchive(entries: [original])
+        let first = try ObservationRecordingContext(startedAt: imported, timeZoneIdentifier: "Europe/Paris")
+        let attached = try archive.attachRecordingContext(first, to: original.id, matchingFileSHA256: digest.uppercased())
+        #expect(attached)
+        let retained = try #require(archive.entry(id: original.id))
+        #expect(retained.recordingContext == first)
+        #expect(retained.id == original.id)
+        #expect(retained.observedDate == observed)
+        #expect(retained.origin == .human)
+        #expect(retained.importedAt == imported)
+        #expect(retained.effectiveText == original.effectiveText)
+        #expect(retained.originalText == original.originalText)
+        #expect(retained.sourceLabel == original.sourceLabel)
+        #expect(retained.videoEvidence == evidence)
+        let before = archive
+        let repeated = try archive.attachRecordingContext(first, to: original.id, matchingFileSHA256: digest)
+        let second = try ObservationRecordingContext(startedAt: imported.addingTimeInterval(400), timeZoneIdentifier: "Asia/Tokyo")
+        let replacement = try archive.attachRecordingContext(second, to: original.id, matchingFileSHA256: digest)
+        #expect(!repeated && !replacement)
+        #expect(archive == before)
+        let reimport = try ObservationAcquisition(fileSHA256: digest, sourceKind: .video, sourceLabel: "Another synthetic import",
+            originalText: evidence.renderedText, videoEvidence: evidence, recordingContext: second)
+        let selected = try archive.insert(reimport)
+        #expect(selected == original.id)
+        #expect(archive == before)
+        let restored = try JSONDecoder().decode(ObservationArchive.self, from: JSONEncoder().encode(archive))
+        #expect(restored == archive)
+    }
+
+    @Test func enrichmentRequiresMatchingDigestAndIsTransactional() throws {
+        let evidence = try video()
+        let digest = String(repeating: "e", count: 64)
+        let original = try ObservationAcquisition(fileSHA256: digest, sourceKind: .video, sourceLabel: "Synthetic recording",
+            originalText: evidence.renderedText, videoEvidence: evidence, classification: interpretation(evidence))
+        var archive = try ObservationArchive(entries: [original])
+        let context = try ObservationRecordingContext(startedAt: imported, timeZoneIdentifier: "UTC")
+        for wrongDigest in [String(repeating: "f", count: 64), "invalid", ""] {
+            let before = archive
+            #expect(throws: ObservationArchiveError.invalidDigest) {
+                try archive.attachRecordingContext(context, to: original.id, matchingFileSHA256: wrongDigest)
+            }
+            #expect(archive == before)
+        }
+        let attached = try archive.attachRecordingContext(context, to: original.id, matchingFileSHA256: digest)
+        #expect(attached)
+        #expect(archive.entry(id: original.id)?.classification == original.classification)
+        let nonVideo = try written(digest: String(repeating: "b", count: 64))
+        var textArchive = try ObservationArchive(entries: [nonVideo])
+        #expect(throws: ObservationArchiveError.invalidRecordingContext) {
+            try textArchive.attachRecordingContext(context, to: nonVideo.id, matchingFileSHA256: nonVideo.fileSHA256!)
+        }
+        #expect(textArchive.entries == [nonVideo])
+        let unlinked = try movie(evidence)
+        var noDigestArchive = try ObservationArchive(entries: [unlinked])
+        #expect(throws: ObservationArchiveError.invalidDigest) {
+            try noDigestArchive.attachRecordingContext(context, to: unlinked.id, matchingFileSHA256: digest)
+        }
+        #expect(noDigestArchive.entries == [unlinked])
+    }
+
     @Test func deleteRemovesOnlyChosenAcquisitionAndClearRemovesAll() throws {
         let first = try written("First day")
         let second = try written("Second day")

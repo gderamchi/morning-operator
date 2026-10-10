@@ -390,9 +390,9 @@ struct TodayView: View {
                         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
                         if #available(iOS 27.0, *) {
                             MorningRecordingStatus(store: store, onReview: reviewAfterNotice)
-                        } else { savedObservationReview }
+                        } else { storedObservationStatus }
                         #else
-                        savedObservationReview
+                        storedObservationStatus
                         #endif
                     }.padding(24)
                 }.navigationTitle("Your morning").navigationBarTitleDisplayMode(.inline)
@@ -404,6 +404,12 @@ struct TodayView: View {
     private func reviewAfterNotice() {
         learnAfterNoticeDismissal = true
         showingNotice = false
+    }
+
+    @ViewBuilder private var storedObservationStatus: some View {
+        if store.hasPendingRecording {
+            SavedRecordingRecoveryView(store: store, onReview: reviewAfterNotice)
+        } else { savedObservationReview }
     }
 
     /// Reviewing an imported file does not require the native recording framework.

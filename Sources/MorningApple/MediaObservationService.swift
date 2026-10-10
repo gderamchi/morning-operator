@@ -130,10 +130,10 @@ public actor MediaObservationService {
         for (index, seconds) in times.enumerated() {
             try Task.checkCancellation()
             let sampleID = UUID()
-            let decoded: (image: CGImage, actualSeconds: Double)
+            let decoded: (image: CGImage, actualTime: CMTime)
             do {
                 let frame = try await generator.image(at: CMTime(seconds: seconds, preferredTimescale: 600))
-                decoded = (frame.image, frame.actualTime.seconds)
+                decoded = (frame.image, frame.actualTime)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -142,6 +142,9 @@ public actor MediaObservationService {
                 await progress?(Double(index + 1) / Double(times.count))
                 continue
             }
+            // Convert metadata outside the image-decode catch. Unsupported native timing
+            // cannot relabel a successfully decoded image as a decode failure.
+            let timing = DecodedFrameTiming(decoded.actualTime)
             let recognized: RecognizedFrameText
             do {
                 recognized = try await recognizeFrame(in: decoded.image)
@@ -150,13 +153,15 @@ public actor MediaObservationService {
             } catch {
                 try Task.checkCancellation()
                 try builder.append(id: sampleID, requestedTimeSeconds: seconds,
-                                   actualTimeSeconds: decoded.actualSeconds, outcome: .ocrFailed)
+                                   actualTimeSeconds: timing.seconds, outcome: .ocrFailed,
+                                   ocrWarnings: timing.warnings, originalPresentationTime: timing.original)
                 await progress?(Double(index + 1) / Double(times.count))
                 continue
             }
-            try builder.append(id: sampleID, requestedTimeSeconds: seconds, actualTimeSeconds: decoded.actualSeconds,
+            try builder.append(id: sampleID, requestedTimeSeconds: seconds, actualTimeSeconds: timing.seconds,
                                outcome: recognized.text.isEmpty ? .blank : .observed, text: recognized.text,
-                               ocrLines: recognized.lines, ocrWarnings: recognized.warnings)
+                               ocrLines: recognized.lines, ocrWarnings: recognized.warnings + timing.warnings,
+                               originalPresentationTime: timing.original)
             await progress?(Double(index + 1) / Double(times.count))
         }
         try Task.checkCancellation()
@@ -276,5 +281,21 @@ enum FrameSampling {
     static func timestampLabel(_ seconds: Double) -> String {
         let value = max(0, min(seconds.isFinite ? seconds : 0, 86_400))
         return String(format: "%02d:%04.1f", Int(value) / 60, value.truncatingRemainder(dividingBy: 60))
+    }
+}
+
+/// Native source-field transfer only. It does not seek, rescale, round, or derive intervals.
+struct DecodedFrameTiming: Sendable {
+    let seconds: Double
+    let original: ObservationMediaTime?
+    let warnings: [String]
+
+    init(_ time: CMTime) {
+        seconds = time.seconds
+        original = try? ObservationMediaTime(value: time.value, timescale: time.timescale,
+                                              epoch: time.epoch, flags: time.flags.rawValue)
+        warnings = original == nil ? [
+            "Original media timing could not be preserved; the decoded image and available decimal sample time were retained."
+        ] : []
     }
 }

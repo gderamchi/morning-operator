@@ -281,6 +281,22 @@ struct ObservationHistoryDetail: View {
                     Text("Import time is separate from the day you observed. These dates don't establish how long you used your phone.")
                 }
 
+                if let context = entry.recordingContext {
+                    Section {
+                        DisclosureGroup("Recording details") {
+                            LabeledContent("Started", value: observationRecordingStartLabel(context))
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("Recording started")
+                                .accessibilityValue(observationRecordingStartLabel(context))
+                                .accessibilityIdentifier("observation.recordingStart")
+                            LabeledContent("Recording time zone", value: context.timeZoneIdentifier)
+                                .accessibilityIdentifier("observation.recordingTimeZone")
+                            Text("Saved when recording began. Changing the observed day keeps this information. It doesn't measure time spent in apps.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section {
                     Button {
                         if store.selectObservation(id: observationID) { onLearn() }
@@ -309,8 +325,9 @@ struct ObservationHistoryDetail: View {
 
                 if !entry.warnings.isEmpty {
                     Section {
-                        Text("An unsupported screen interpretation was removed. Original evidence is intact.")
-                            .font(.caption).foregroundStyle(.secondary)
+                        ForEach(entry.warnings, id: \.rawValue) { warning in
+                            Text(warning.message).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -473,6 +490,15 @@ private func observationOriginLabel(_ origin: ObservationAcquisitionOrigin) -> S
 
 private func observationImportDateLabel(_ entry: ObservationAcquisition) -> String {
     entry.importedAt?.formatted(date: .abbreviated, time: .shortened) ?? "Import date unknown"
+}
+
+private func observationRecordingStartLabel(_ context: ObservationRecordingContext) -> String {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .medium
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.timeZone = TimeZone(identifier: context.timeZoneIdentifier)
+    return formatter.string(from: context.startedAt)
 }
 
 private func observationClassificationLabel(_ status: ObservationContextInferenceStatus) -> String {

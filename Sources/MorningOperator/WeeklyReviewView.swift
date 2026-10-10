@@ -69,6 +69,12 @@ struct WeeklyReviewView: View {
                 || store.busy || store.hasPendingRecording || store.observationIssue != nil {
                 MorningRecordingStatus(store: store, onReview: onLearn)
             }
+        } else if store.hasPendingRecording {
+            SavedRecordingRecoveryView(store: store, onReview: onLearn)
+        }
+        #else
+        if store.hasPendingRecording {
+            SavedRecordingRecoveryView(store: store, onReview: onLearn)
         }
         #endif
     }

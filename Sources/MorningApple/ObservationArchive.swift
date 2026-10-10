@@ -2,13 +2,14 @@ import Foundation
 import MorningCore
 
 public enum ObservationArchiveError: Error, LocalizedError, Sendable, Equatable {
-    case invalidSource, invalidDate, invalidDigest, duplicateAcquisition, duplicateDigest
+    case invalidSource, invalidDate, invalidDigest, invalidRecordingContext, duplicateAcquisition, duplicateDigest
     case archiveFull, archiveTooLarge, unknownAcquisition, invalidClassification, correctedObservation
     public var errorDescription: String? {
         switch self {
         case .invalidSource: "An observation contains invalid or inconsistent source evidence."
         case .invalidDate: "Choose a valid observed date and time zone."
         case .invalidDigest: "The observation file fingerprint is invalid."
+        case .invalidRecordingContext: "The recording-start metadata is invalid for this observation."
         case .duplicateAcquisition: "Two observations use the same acquisition identifier."
         case .duplicateDigest: "The archive contains the same file more than once."
         case .archiveFull: "The observation archive is full. Delete an observation before adding another."
@@ -73,9 +74,14 @@ public struct ObservationObservedDate: Codable, Sendable, Equatable {
 }
 
 public enum ObservationAcquisitionWarning: String, Codable, Sendable {
-    case invalidClassificationRemoved
+    case invalidClassificationRemoved, invalidRecordingContextRemoved
     public var message: String {
-        "An unsupported saved interpretation was removed. The original observation is still available."
+        switch self {
+        case .invalidClassificationRemoved:
+            "An unsupported saved interpretation was removed. The original observation is still available."
+        case .invalidRecordingContextRemoved:
+            "Unsupported recording-start metadata was removed. The original observation and its chosen day are still available."
+        }
     }
 }
 
@@ -86,6 +92,10 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
     public let importedAt: Date?
     public let fileSHA256: String?
     public let observedDate: ObservationObservedDate?
+    /// Immutable native output-start callback metadata, independent of the editable day.
+    /// It does not establish physical pickup, PTS-zero alignment or continuous coverage.
+    /// Legacy and externally imported recordings have no inferred recording context.
+    public let recordingContext: ObservationRecordingContext?
     public let origin: ObservationAcquisitionOrigin
     public let sourceKind: ObservationAcquisitionSourceKind
     public let sourceLabel: String
@@ -101,7 +111,11 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                 sourceKind: ObservationAcquisitionSourceKind, sourceLabel: String, originalText: String,
                 correctedText: String? = nil, videoEvidence: ObservationVideoEvidence? = nil,
                 classification: ObservationContextClassification? = nil,
-                warnings: [ObservationAcquisitionWarning] = []) throws {
+                warnings: [ObservationAcquisitionWarning] = [],
+                recordingContext: ObservationRecordingContext? = nil) throws {
+        if let recordingContext, !Self.recordingContextIsValid(recordingContext, sourceKind: sourceKind) {
+            throw ObservationArchiveError.invalidRecordingContext
+        }
         guard importedAt.map(archiveDateIsValid) ?? true else { throw ObservationArchiveError.invalidDate }
         guard !sourceLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               sourceLabel.count <= 256, !originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -124,6 +138,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
         self.importedAt = importedAt
         self.fileSHA256 = digest
         self.observedDate = observedDate
+        self.recordingContext = recordingContext
         self.origin = origin
         self.sourceKind = sourceKind
         self.sourceLabel = sourceLabel
@@ -141,6 +156,15 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
             self.classification = classification
         }
         self.warnings = retainedWarnings
+    }
+
+    private static func recordingContextIsValid(_ context: ObservationRecordingContext,
+                                                sourceKind: ObservationAcquisitionSourceKind) -> Bool {
+        guard sourceKind == .video else { return false }
+        // Apply the same finite Gregorian date/zone bounds as archived dates, without
+        // assigning or reconstructing an editable observedDate from this metadata.
+        return (try? ObservationObservedDate(date: context.startedAt,
+            timeZoneIdentifier: context.timeZoneIdentifier, provenance: .recordingSession)) != nil
     }
 
     private static func textIsBounded(_ text: String, maximumCharacters: Int) -> Bool {
@@ -161,7 +185,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
         try .init(id: id, importedAt: importedAt, fileSHA256: fileSHA256, observedDate: observedDate,
                   origin: origin ?? self.origin, sourceKind: sourceKind, sourceLabel: sourceLabel, originalText: originalText,
                   correctedText: correctedText, videoEvidence: videoEvidence,
-                  classification: classification, warnings: warnings)
+                  classification: classification, warnings: warnings, recordingContext: recordingContext)
     }
 
     /// Derived interpretation can be discarded independently of valid source. Exact source
@@ -239,11 +263,28 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
 
     private enum CodingKeys: String, CodingKey {
         case id, importedAt, fileSHA256, observedDate, origin, sourceKind, sourceLabel, originalText
-        case correctedText, videoEvidence, classification, warnings
+        case correctedText, videoEvidence, classification, warnings, recordingContext
     }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         var warnings = try values.decodeIfPresent([ObservationAcquisitionWarning].self, forKey: .warnings) ?? []
+        guard warnings.count <= 4 else { throw ObservationArchiveError.invalidSource }
+        // Legal repeated warnings must not exhaust the room for recovery diagnostics.
+        warnings = warnings.reduce(into: []) { result, value in
+            if !result.contains(value) { result.append(value) }
+        }
+        let sourceKind = try values.decode(ObservationAcquisitionSourceKind.self, forKey: .sourceKind)
+        let restoredContext: ObservationRecordingContext?
+        do {
+            let context = try values.decodeIfPresent(ObservationRecordingContext.self, forKey: .recordingContext)
+            if let context, !Self.recordingContextIsValid(context, sourceKind: sourceKind) {
+                throw ObservationArchiveError.invalidRecordingContext
+            }
+            restoredContext = context
+        } catch {
+            restoredContext = nil
+            if !warnings.contains(.invalidRecordingContextRemoved) { warnings.append(.invalidRecordingContextRemoved) }
+        }
         let restoredClassification: ObservationContextClassification?
         do { restoredClassification = try values.decodeIfPresent(ObservationContextClassification.self, forKey: .classification) }
         catch {
@@ -255,12 +296,12 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                       fileSHA256: values.decodeIfPresent(String.self, forKey: .fileSHA256),
                       observedDate: values.decodeIfPresent(ObservationObservedDate.self, forKey: .observedDate),
                       origin: values.decode(ObservationAcquisitionOrigin.self, forKey: .origin),
-                      sourceKind: values.decode(ObservationAcquisitionSourceKind.self, forKey: .sourceKind),
+                      sourceKind: sourceKind,
                       sourceLabel: values.decode(String.self, forKey: .sourceLabel),
                       originalText: values.decode(String.self, forKey: .originalText),
                       correctedText: values.decodeIfPresent(String.self, forKey: .correctedText),
                       videoEvidence: values.decodeIfPresent(ObservationVideoEvidence.self, forKey: .videoEvidence),
-                      classification: restoredClassification, warnings: warnings)
+                      classification: restoredClassification, warnings: warnings, recordingContext: restoredContext)
     }
 }
 
@@ -305,6 +346,28 @@ public struct ObservationArchive: Codable, Sendable, Equatable {
         if let digest = acquisition.fileSHA256, let existing = entries.first(where: { $0.fileSHA256 == digest }) { return existing.id }
         self = try Self(entries: entries + [acquisition])
         return acquisition.id
+    }
+
+    /// Enrich an existing exact-file copy only with metadata retained by the caller's
+    /// native recording session. This is not date inference or a metadata replacement.
+    /// The workspace owner must atomically save success before deleting raw recovery.
+    @discardableResult public mutating func attachRecordingContext(_ context: ObservationRecordingContext,
+        to id: UUID, matchingFileSHA256 digest: String) throws -> Bool {
+        let current = try required(id)
+        let normalizedDigest = digest.lowercased()
+        guard normalizedDigest.utf8.count == 64,
+              normalizedDigest.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+              current.fileSHA256 == normalizedDigest else { throw ObservationArchiveError.invalidDigest }
+        guard current.sourceKind == .video else { throw ObservationArchiveError.invalidRecordingContext }
+        // Validate even if this is a no-op; malformed supplied metadata is never accepted.
+        let enriched = try ObservationAcquisition(id: current.id, importedAt: current.importedAt,
+            fileSHA256: current.fileSHA256, observedDate: current.observedDate, origin: current.origin,
+            sourceKind: current.sourceKind, sourceLabel: current.sourceLabel, originalText: current.originalText,
+            correctedText: current.correctedText, videoEvidence: current.videoEvidence,
+            classification: current.classification, warnings: current.warnings, recordingContext: context)
+        guard current.recordingContext == nil else { return false }
+        try replace(enriched)
+        return true
     }
 
     public mutating func correct(id: UUID, text: String?) throws {

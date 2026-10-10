@@ -281,10 +281,13 @@ final class MorningStore {
             if pendingRecordingURL != nil {
                 observationIssue = "Your saved recording is still on this device. Retry understanding it, or discard it."
                 do {
-                    pendingRecordingInterruption = try recordingRecovery.interruptionNote()
-                    pendingRecordingContext = try recordingRecovery.recordingContext()
+                    let metadata = try recordingRecovery.recoveredMetadata()
+                    pendingRecordingInterruption = metadata?.interruptionNote
+                    pendingRecordingContext = metadata?.recordingContext
                 }
-                catch { pendingRecordingInterruption = "The recording's coverage note could not be restored; its completeness is unknown." }
+                catch {
+                    observationIssue = "Your recording is kept on this device, but its saved information could not be read. It has not been analyzed or discarded. \(error.localizedDescription)"
+                }
             }
         } catch {
             observationIssue = "Recording recovery needs attention: \(error.localizedDescription)"
@@ -372,9 +375,10 @@ final class MorningStore {
                         projectObservation(id)
                     }
                 }
-                if saved.observationContextClassification?.wasInvalid == true ||
-                    observationArchive.entries.contains(where: { !$0.warnings.isEmpty }) {
-                    notice = "Your original observations are intact. An unsupported screen interpretation was removed and can be analyzed again."
+                let restorationWarnings = Set(observationArchive.entries.flatMap(\.warnings) +
+                    (saved.observationContextClassification?.wasInvalid == true ? [.invalidClassificationRemoved] : []))
+                if !restorationWarnings.isEmpty {
+                    notice = restorationWarnings.sorted { $0.rawValue < $1.rawValue }.map(\.message).joined(separator: " ")
                 }
                 if routinePreferencesIssue == nil, let proposal = saved.pendingRoutineProposal?.value,
                    proposal.isCurrent(archive: observationArchive, baseRoutine: routine, preferences: routinePreferences) {
@@ -1259,6 +1263,12 @@ final class MorningStore {
                 guard acceptsAnalysis(attempt) else { return }
                 if let existing = observationArchive.entries.first(where: { $0.fileSHA256 == fingerprint.sha256 }) {
                     // A retry never overwrites its original, corrections, or assigned day.
+                    // Native context may fill a previously missing field only for the
+                    // exact same bytes. A second session never replaces the first.
+                    if let recordingContext {
+                        try observationArchive.attachRecordingContext(recordingContext, to: existing.id,
+                            matchingFileSHA256: fingerprint.sha256)
+                    }
                     projectObservation(existing.id)
                     observationEditsNeedSave = true
                     guard persist() else { busy = false; observationIssue = notice; return }
@@ -1308,7 +1318,8 @@ final class MorningStore {
                     origin: ProcessInfo.processInfo.arguments.contains("--ui-testing") ? .synthetic : .unknown,
                     sourceKind: ObservationAcquisitionSourceKind(rawValue: observation.kind.rawValue) ?? .unknown,
                     sourceLabel: ownedRecording ? "Your explicitly shared screen recording" : String("Selected file: \(selectedURL.lastPathComponent)".prefix(256)),
-                    originalText: extracted, videoEvidence: observation.videoEvidence)
+                    originalText: extracted, videoEvidence: observation.videoEvidence,
+                    recordingContext: recordingContext)
                 let id = try observationArchive.insert(entry)
                 projectObservation(id)
                 observationEditsNeedSave = true
@@ -1369,8 +1380,12 @@ final class MorningStore {
         let context = recordingRecovery.owns(url) ? pendingRecordingContext : (recordingContext ?? readyContext)
         do {
             let retainedURL = try recordingRecovery.retain(url, interruptionNote: coverageNote, recordingContext: context)
-            pendingRecordingInterruption = coverageNote
-            pendingRecordingContext = context
+            // Read the persisted handoff afresh. A retry after relaunch must not
+            // turn unreadable metadata into a successful undated import.
+            pendingRecordingURL = retainedURL
+            let metadata = try recordingRecovery.recoveredMetadata()
+            pendingRecordingInterruption = metadata?.interruptionNote
+            pendingRecordingContext = metadata?.recordingContext
             pendingRecordingShouldAutoProcess = automaticallyProcess
             pendingRecordingURL = retainedURL
             observationIssue = nil

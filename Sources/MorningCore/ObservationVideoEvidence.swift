@@ -27,6 +27,9 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
     public let id: UUID
     public let requestedTimeSeconds: Double
     public let actualTimeSeconds: Double?
+    /// Exact native fields, when retained at extraction. Nil includes legacy frames and
+    /// unsupported/restored timing metadata; never reconstruct this value from seconds.
+    public let originalPresentationTime: ObservationMediaTime?
     public let outcome: ObservationSampleOutcome
     public let text: String
     public let textWasTruncated: Bool
@@ -43,7 +46,8 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
 
     public init(id: UUID = UUID(), requestedTimeSeconds: Double, actualTimeSeconds: Double? = nil,
                 outcome: ObservationSampleOutcome, text: String = "", textWasTruncated: Bool = false,
-                warnings: [String] = [], ocrLines: [ObservationOCRLine]? = nil) throws {
+                warnings: [String] = [], ocrLines: [ObservationOCRLine]? = nil,
+                originalPresentationTime: ObservationMediaTime? = nil) throws {
         guard requestedTimeSeconds.isFinite, requestedTimeSeconds >= 0,
               actualTimeSeconds.map({ $0.isFinite && $0 >= 0 }) ?? true,
               warnings.count <= 8, warnings.allSatisfy({ $0.count <= 256 }),
@@ -59,6 +63,12 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
             guard text.isEmpty, !textWasTruncated else { throw ObservationVideoEvidenceError.invalidFrame }
         }
         if outcome == .decodeFailed, actualTimeSeconds != nil { throw ObservationVideoEvidenceError.invalidFrame }
+        if let originalPresentationTime {
+            guard outcome != .decodeFailed,
+                  actualTimeSeconds == originalPresentationTime.seconds else {
+                throw ObservationVideoEvidenceError.invalidFrame
+            }
+        }
         if let ocrLines {
             guard ocrLines.count <= Self.maximumOCRLines else { throw ObservationVideoEvidenceError.invalidFrame }
             var lineIDs = Set<UUID>()
@@ -85,6 +95,7 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
         self.id = id
         self.requestedTimeSeconds = requestedTimeSeconds
         self.actualTimeSeconds = actualTimeSeconds
+        self.originalPresentationTime = originalPresentationTime
         self.outcome = outcome
         self.text = text
         self.textWasTruncated = textWasTruncated
@@ -94,17 +105,36 @@ public struct ObservationFrameEvidence: Codable, Identifiable, Sendable, Equatab
 
     private enum CodingKeys: String, CodingKey {
         case id, requestedTimeSeconds, actualTimeSeconds, outcome, text, textWasTruncated, warnings, ocrLines
+        case originalPresentationTime
     }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        try self.init(id: values.decode(UUID.self, forKey: .id),
-                      requestedTimeSeconds: values.decode(Double.self, forKey: .requestedTimeSeconds),
-                      actualTimeSeconds: values.decodeIfPresent(Double.self, forKey: .actualTimeSeconds),
-                      outcome: values.decode(ObservationSampleOutcome.self, forKey: .outcome),
-                      text: values.decode(String.self, forKey: .text),
-                      textWasTruncated: values.decode(Bool.self, forKey: .textWasTruncated),
-                      warnings: values.decode([String].self, forKey: .warnings),
-                      ocrLines: values.decodeIfPresent([ObservationOCRLine].self, forKey: .ocrLines))
+        // Validate source text/layout/decimal timing independently. A broken optional native
+        // timestamp must not strand otherwise valid OCR, and cannot rescue invalid source.
+        let source = try Self(id: values.decode(UUID.self, forKey: .id),
+            requestedTimeSeconds: values.decode(Double.self, forKey: .requestedTimeSeconds),
+            actualTimeSeconds: values.decodeIfPresent(Double.self, forKey: .actualTimeSeconds),
+            outcome: values.decode(ObservationSampleOutcome.self, forKey: .outcome),
+            text: values.decode(String.self, forKey: .text),
+            textWasTruncated: values.decode(Bool.self, forKey: .textWasTruncated),
+            warnings: values.decode([String].self, forKey: .warnings),
+            ocrLines: values.decodeIfPresent([ObservationOCRLine].self, forKey: .ocrLines))
+        do {
+            let original = try values.decodeIfPresent(ObservationMediaTime.self, forKey: .originalPresentationTime)
+            self = try Self(id: source.id, requestedTimeSeconds: source.requestedTimeSeconds,
+                actualTimeSeconds: source.actualTimeSeconds, outcome: source.outcome, text: source.text,
+                textWasTruncated: source.textWasTruncated, warnings: source.warnings,
+                ocrLines: source.ocrLines, originalPresentationTime: original)
+        } catch {
+            let warning = "Original media timing metadata was invalid or inconsistent and was omitted; saved sample time and text were preserved."
+            let warnings: [String]
+            if source.warnings.contains(warning) { warnings = source.warnings }
+            else if source.warnings.count < 8 { warnings = source.warnings + [warning] }
+            else { warnings = Array(source.warnings.prefix(7)) + [warning + " One prior warning was omitted."] }
+            self = try Self(id: source.id, requestedTimeSeconds: source.requestedTimeSeconds,
+                actualTimeSeconds: source.actualTimeSeconds, outcome: source.outcome, text: source.text,
+                textWasTruncated: source.textWasTruncated, warnings: warnings, ocrLines: source.ocrLines)
+        }
     }
 }
 
