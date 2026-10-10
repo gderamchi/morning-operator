@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4E040D4129BB24A1C644C8F1 /* MorningSunriseMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16414DAD2328E81BF69B93EF /* MorningSunriseMark.swift */; };
+		D633DB0B238F8307DCA8A408 /* MorningDockGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C4366B8F8DDBA7FF27FCDB /* MorningDockGlyph.swift */; };
 		026CCCD1AF6995B662735A45 /* RoutineTransferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A6237A39EB8759262EEFC1F /* RoutineTransferTests.swift */; };
 		067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */; };
 		06E46596DA50049E51AAAE76 /* MorningPrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25987AA3F93570E4CED0B631 /* MorningPrivacyView.swift */; };
@@ -121,6 +123,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		16414DAD2328E81BF69B93EF /* MorningSunriseMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningSunriseMark.swift; sourceTree = "<group>"; };
+		80C4366B8F8DDBA7FF27FCDB /* MorningDockGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningDockGlyph.swift; sourceTree = "<group>"; };
 		02C6CF87FDCFB10E818EADD0 /* RecordedObservationModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordedObservationModelTests.swift; sourceTree = "<group>"; };
 		0814A1DE4C0A82002840418D /* MorningActivitySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningActivitySettingsView.swift; sourceTree = "<group>"; };
 		0B13EE8866E05CC2C7EF64E1 /* BlankObservationImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlankObservationImportTests.swift; sourceTree = "<group>"; };
@@ -319,6 +323,8 @@
 				86B12EF7D60AB60D6F04CA6C /* MorningOperatorApp.swift */,
 				25987AA3F93570E4CED0B631 /* MorningPrivacyView.swift */,
 				236ACA44D0A812AC0CFA3A5C /* MorningRecordingStatus.swift */,
+				80C4366B8F8DDBA7FF27FCDB /* MorningDockGlyph.swift */,
+				16414DAD2328E81BF69B93EF /* MorningSunriseMark.swift */,
 				6747EA739E37D1BC16D620F8 /* MorningRootView.swift */,
 				3D556BEEB3AC9A6AC02E433A /* MorningStore.swift */,
 				3BD6C7D6B53E7A1D66705679 /* MorningStore+UITestObservation.swift */,
@@ -618,6 +624,8 @@
 				5E40933188691C5EAA5A47E4 /* MorningOperatorApp.swift in Sources */,
 				06E46596DA50049E51AAAE76 /* MorningPrivacyView.swift in Sources */,
 				DCFA9E0C4B6CEA64FF05E07B /* MorningRecordingStatus.swift in Sources */,
+				D633DB0B238F8307DCA8A408 /* MorningDockGlyph.swift in Sources */,
+				4E040D4129BB24A1C644C8F1 /* MorningSunriseMark.swift in Sources */,
 				FE568D140D396486190C7678 /* MorningRootView.swift in Sources */,
 				3DAD6D551A8D23872EB45AEF /* MorningStore+UITestObservation.swift in Sources */,
 				D3E9DB5BEC04C3AE555CACB2 /* MorningStore.swift in Sources */,

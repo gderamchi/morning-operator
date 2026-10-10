@@ -889,7 +889,7 @@ struct NoticeView: View {
     }
 }
 
-/// One native glass surface morphs between a sunrise and four explicit actions.
+/// The artwork has no glass shell. Only the revealed command bar uses native glass.
 private struct MorningActionDock: View {
     @Bindable var store: MorningStore
     @Binding var expanded: Bool
@@ -905,7 +905,10 @@ private struct MorningActionDock: View {
     @Environment(\.dynamicTypeSize) private var dynamicType
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let sunriseGold = Color(red: 0.94, green: 0.63, blue: 0.22)
+
+    private var barWidth: CGFloat {
+        min(max(0, availableWidth - 40), dynamicType.isAccessibilitySize ? 360 : 286)
+    }
 
     var body: some View {
         GlassEffectContainer(spacing: 8) {
@@ -913,25 +916,23 @@ private struct MorningActionDock: View {
                 actionBar
                     .glassEffect(.regular, in: Capsule())
                     .glassEffectID("sunrise-dock", in: glassNamespace)
+                    .glassEffectTransition(.materialize)
                     .accessibilityAction(.escape) { expanded = false }
             } else {
                 Button { expanded = true } label: {
-                    Image(systemName: "sun.horizon.fill")
-                        .font(.system(size: 31, weight: .regular))
-                        .foregroundStyle(sunriseGold.gradient)
-                        .frame(width: 68, height: 68)
-                        .contentShape(Circle())
+                    MorningSunriseMark()
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.tint(sunriseGold.opacity(0.12)).interactive(), in: Circle())
-                .glassEffectID("sunrise-dock", in: glassNamespace)
+                .buttonStyle(SunriseTouchStyle())
+                .transition(.opacity)
                 .accessibilityLabel("Morning actions")
                 .accessibilityValue("Collapsed")
+                .accessibilityHint("Opens playback, learning, history and settings")
                 .accessibilityIdentifier("morning.actions")
                 .disabled(store.privacyBlocksWork || transitionPending)
             }
         }
-        .animation(reduceMotion ? nil : .smooth(duration: 0.30), value: expanded)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.28), value: expanded)
         .onChange(of: expanded) { _, open in if !open { clearReadyState() } }
         .onChange(of: store.routine) { _, _ in clearReadyState() }
         .onChange(of: store.sessionActive) { _, active in if active { clearReadyState() } }
@@ -943,23 +944,23 @@ private struct MorningActionDock: View {
         Group {
             if let routine = readyRoutine {
                 readyBar(routine)
-            } else if dynamicType.isAccessibilitySize {
+            } else if dynamicType.isAccessibilitySize || barWidth < 248 {
                 ScrollView(.horizontal) {
-                    HStack(spacing: 8) { actionItems }.padding(8)
+                    HStack(spacing: 8) { actionItems }.padding(dynamicType.isAccessibilitySize ? 8 : 4)
                 }.scrollIndicators(.hidden)
                     .scrollBounceBehavior(.basedOnSize)
                     .accessibilityIdentifier("morning.actionsScroll")
             } else {
-                HStack(spacing: 0) { actionItems }.padding(6)
+                HStack(spacing: 0) { actionItems }.padding(4)
             }
-        }.frame(width: min(max(240, availableWidth - 40), 360),
-                height: readyRoutine != nil && dynamicType.isAccessibilitySize ? nil : dynamicType.isAccessibilitySize ? 104 : 68)
+        }.frame(width: barWidth,
+                height: readyRoutine != nil ? nil : dynamicType.isAccessibilitySize ? 104 : 58)
     }
 
     @ViewBuilder private var actionItems: some View {
         if let session = store.session, store.sessionActive {
             let intendsResume = session.status == .paused
-            action(intendsResume ? "Continue" : "Pause", symbol: intendsResume ? "play.fill" : "pause.fill",
+            action(intendsResume ? "Continue" : "Pause", symbol: intendsResume ? .play : .pause,
                    id: "morning.playback") {
                 // Honor the displayed command and original session, never toggle
                 // whatever state an interruption may have produced meanwhile.
@@ -975,7 +976,7 @@ private struct MorningActionDock: View {
         } else if let routine = store.routine {
             let generation = store.dataGeneration
             action(routine.isApproved ? "Play" : "Review",
-                   symbol: routine.isApproved ? "play.fill" : "checkmark",
+                   symbol: routine.isApproved ? .play : .review,
                    id: routine.isApproved ? "run.start" : "morning.reviewDraft",
                    keepsExpanded: routine.isApproved) {
                 guard store.routine == routine, !store.sessionActive else { return }
@@ -985,14 +986,14 @@ private struct MorningActionDock: View {
                 } else { edit() }
             }
         } else {
-            action("Sample", symbol: "play.fill", id: "morning.sample") { store.loadSample() }
+            action("Sample", symbol: .play, id: "morning.sample") { store.loadSample() }
         }
-        action("Learn", symbol: "record.circle", id: "morning.learn", disabled: store.sessionActive, learn)
-        action("History", symbol: "calendar", id: "morning.review", review)
-        action("Settings", symbol: "gearshape", id: "morning.settings", settings)
+        action("Learn", symbol: .learn, id: "morning.learn", disabled: store.sessionActive, learn)
+        action("History", symbol: .history, id: "morning.review", review)
+        action("Settings", symbol: .settings, id: "morning.settings", settings)
     }
 
-    private func action(_ title: String, symbol: String, id: String, disabled: Bool = false,
+    private func action(_ title: String, symbol: MorningDockSymbol, id: String, disabled: Bool = false,
                         keepsExpanded: Bool = false, _ perform: @escaping () -> Void) -> some View {
         let generation = store.dataGeneration
         return Button {
@@ -1006,15 +1007,15 @@ private struct MorningActionDock: View {
             if !keepsExpanded { expanded = false }
             transitionPending = false
         } label: {
-            VStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 21, weight: .regular))
+            VStack(spacing: 3) {
+                MorningDockGlyph(symbol: symbol).frame(width: 23, height: 23)
                 Text(title).font(.caption2.weight(.medium)).fixedSize(horizontal: true, vertical: false)
             }
             .foregroundStyle(.primary)
-            .frame(minWidth: 58, maxWidth: dynamicType.isAccessibilitySize ? nil : .infinity, minHeight: 56)
+            .frame(minWidth: 54, maxWidth: dynamicType.isAccessibilitySize ? nil : .infinity, minHeight: 48)
             .padding(.horizontal, 3)
             .contentShape(Capsule())
-        }.buttonStyle(.plain)
+        }.buttonStyle(DockActionTouchStyle())
             .disabled(disabled || store.busy || store.privacyBlocksWork || transitionPending)
             .opacity(disabled ? 0.4 : 1).accessibilityLabel(title).accessibilityIdentifier(id)
     }
@@ -1060,6 +1061,22 @@ private struct MorningActionDock: View {
         clearReadyState()
         transitionPending = false
         expanded = false
+    }
+}
+
+private struct SunriseTouchStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.78 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.95 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: configuration.isPressed)
+    }
+}
+
+private struct DockActionTouchStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.opacity(configuration.isPressed ? 0.55 : 1)
     }
 }
 
