@@ -34,14 +34,14 @@ Review currently measures **routine runs**, not complete phone usage or learned 
 
 ## Where it stands
 
-**Current V2 source: `4022a0e`.** Review now saves optional keep, exclude and timing choices for future suggestions. Clear a choice without changing the current routine; unreadable choices have an explicit reset path. Recording and importing save evidence; an explicit suggestion request saves a separate proposal for approval. Your current routine remains in place during proposal review, and the previous approved version remains recoverable. [How learning works](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROUTINE-LEARNING.md).
+**Current V2 source: `943766e`.** Review now lets you preview a portable routine file before exporting or importing it. Notes and source text stay out of exports by default. An imported plan becomes an unapproved manual draft; its file cannot enable app operations. [Routine files](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROUTINE-FILES.md). Saved keep/exclude/timing choices and evidence-based proposals remain separate [learning controls](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROUTINE-LEARNING.md).
 
 | Verified development behavior | Evidence |
 |---|---|
-| Shared logic, storage and Apple adapters | 259 checks passed in the latest full run; six optional checks skipped. Includes 24 new journal, recovery and proposal checks. |
-| App builds | Simulator, unsigned generic iPhone and signed generic iPhone builds succeeded with Xcode 27; strict signature verification passed. The signed build is ready but not installed. |
-| Saved routine choices | Five simulator journeys have passing results across scoped runs, covering persistence, citations, exclusion and recovery. The verification record includes initial failures and corrected reruns. |
-| Earlier unified learning review | Five simulator journeys passed across scoped runs, including import/relaunch, approval and deferred error review. Their chronology remains separate from the new preference checks. |
+| Shared logic, storage and Apple adapters | 271 checks passed, six optional checks skipped, and two Vision checks failed in the latest full run. All 14 new routine-format/file-reader checks passed. The focused Vision retry and one isolated screenshot check also failed. |
+| App builds | Simulator and signed generic iPhone builds succeeded with Xcode 27; strict signature verification passed. The signed build is ready but not installed. |
+| Routine files | Export preview/default reset, reviewed real-file import/persistence/restoration, and malformed-file preservation have passing simulator results. Native dialog cancellation: passed in a corrected scoped run. Actual native file save/selection remains unverified. |
+| Earlier learning and choices | Five preference/recovery journeys and five unified-learning journeys have passing results across their own scoped runs. Initial failures and corrected reruns remain in the verification record. |
 | Earlier controlled recording | Two separate native fixture apps, two verified scrolls and a synthetic message detail; the actual 97-second video reached saved text and survived relaunch. These checks do not establish detected scroll counts or reading intent. [Benchmark](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/OBSERVATION-BENCHMARK.md). |
 
 **Recognition accuracy remains unproven.** The latest Mac model preflight returned `modelNotReady`; the earlier simulator backend rejected inference. No physical iPhone was available for this slice. Synthetic suggestions test the app's review flow, not model quality, capture or audio. [Verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md) preserves actual runs, earlier failures and corrected reruns.
@@ -55,7 +55,6 @@ Observed-habit averages, ongoing adaptation, first-use/alarm opportunities and n
 The app targets iOS 26 or later; native recording needs iOS 27. Use full Xcode on the development Mac, your own signing team and a paired phone. The observed physical setup is Xcode 27 with iOS 27.0.1.
 
 ```sh
-git switch codex/more-quiet-morning
 ./scripts/check-environment.sh
 open MorningOperator.xcodeproj
 ```
@@ -80,6 +79,7 @@ A later, separately opted-in mobile-agent research dataset is a [feasibility que
 | [Architecture](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ARCHITECTURE.md) | Components, states, data flows, model boundaries and Apple integrations |
 | [Recording benchmark](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/OBSERVATION-BENCHMARK.md) | Reproduce the controlled cross-app capture and inspect its measured limits |
 | [Routine learning](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROUTINE-LEARNING.md) | Saved mornings, exact quotations, pending proposals and approval |
+| [Routine files](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROUTINE-FILES.md) | Review a portable plan before saving or importing it; notes stay out by default |
 | [Observation plan](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/OBSERVATION-PLAN.md) | Consent, evidence, cycles, unknowns and multi-day learning |
 | [Verified phone results](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md) | Actual physical device/build/test evidence and open checks |
 | [Roadmap and issues](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROADMAP.md) | The next product slices and collaboration plan |
