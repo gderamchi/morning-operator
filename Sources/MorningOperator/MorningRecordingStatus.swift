@@ -15,7 +15,7 @@ struct MorningRecordingStatus: View {
                 HStack(spacing: 12) {
                     Image(systemName: "record.circle.fill").foregroundStyle(.red)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(recording.state == .recording ? "Learning your morning" : "Finishing your recording")
+                        Text(recording.state == .recording ? "Recording your morning" : "Finishing your recording")
                             .font(.subheadline.weight(.medium))
                         Text(recording.state == .recording
                              ? "Stops in \(remainingTime) · visible screen only"
@@ -94,7 +94,7 @@ struct MorningRecordingStatus: View {
                 .padding(.horizontal, 16).padding(.vertical, 6)
             } else if store.hasImportedObservation {
                 Button(action: onReview) {
-                    Label("Review your latest observation", systemImage: "text.viewfinder")
+                    Label("Review your saved observation", systemImage: "text.viewfinder")
                         .font(.caption.weight(.medium))
                 }.buttonStyle(.glass).padding(8).accessibilityIdentifier("observation.review")
             }
@@ -106,10 +106,11 @@ struct MorningRecordingStatus: View {
     }
 }
 
-/// One nonvisual owner keeps lifecycle effects independent of the three tab layouts.
+/// One nonvisual owner keeps lifecycle effects independent of the tab layouts.
 @available(iOS 27.0, *)
 struct MorningRecordingCoordinator: View {
     @Bindable var store: MorningStore
+    var canProcessRecording: Bool
     var onStarted: () -> Void
     var onReview: () -> Void
     @Bindable private var recording = ScreenRecordingService.shared
@@ -139,6 +140,9 @@ struct MorningRecordingCoordinator: View {
         .onChange(of: store.pendingRecordingShouldAutoProcess) { _, _ in
             processRecordingIfReady()
         }
+        .onChange(of: canProcessRecording) { _, allowed in
+            if allowed { processRecordingIfReady() }
+        }
     }
 
     private func announceStartedIfActive() {
@@ -150,6 +154,7 @@ struct MorningRecordingCoordinator: View {
     }
 
     private func processRecordingIfReady() {
+        guard canProcessRecording else { return }
         transferAndProcessRecordingIfReady(store: store, sceneIsActive: scenePhase == .active, onReview: onReview)
     }
 }
@@ -167,6 +172,8 @@ private func transferAndProcessRecordingIfReady(store: MorningStore, sceneIsActi
     guard sceneIsActive, !store.busy, !store.sessionActive,
           store.hasPendingRecording, store.pendingRecordingShouldAutoProcess else { return }
     store.retryPendingRecording()
-    if !store.intelligence.isAvailable { onReview() }
+    // The root queues review until extraction is idle and no other task owns the
+    // presentation. Saved evidence is useful even when the model isn't available.
+    onReview()
 }
 #endif

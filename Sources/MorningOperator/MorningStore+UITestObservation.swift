@@ -28,7 +28,7 @@ extension MorningStore {
                 notice = "Blank fault-test video is missing from the isolated workspace."
                 return
             }
-            importObservation(file, suggestRoutineWhenReady: false)
+            importObservation(file)
             return
         }
         if arguments.contains("--ui-testing-import-recorded-video") {
@@ -39,7 +39,7 @@ extension MorningStore {
                 notice = "Recorded UI-test video is missing from the isolated workspace."
                 return
             }
-            importObservation(file, suggestRoutineWhenReady: false)
+            importObservation(file)
             return
         }
         let file = directory.appendingPathComponent("UITestSyntheticObservation.txt")
@@ -47,7 +47,7 @@ extension MorningStore {
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try text.write(to: file, atomically: true, encoding: .utf8)
-            importObservation(file, suggestRoutineWhenReady: false)
+            importObservation(file)
         } catch {
             notice = "Synthetic UI-test observation import failed: \(error.localizedDescription)"
         }

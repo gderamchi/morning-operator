@@ -89,7 +89,7 @@ private struct RecordMorningContent: View {
                         Button("Cancel recording request") { recording.discard() }
                             .buttonStyle(SecondaryButtonStyle())
                     } else {
-                        Text("Confirm Apple's picker, then go through your morning. This screen closes when recording begins. We stop at your chosen limit and prepare a draft when you return.")
+                        Text("Confirm Apple's picker, then go through your morning. This screen closes when recording begins. We stop at your chosen limit and save the visible text for you to review when you return.")
                             .font(.subheadline).foregroundStyle(MorningStyle.muted)
                         Picker("Stop automatically after", selection: $duration) {
                             ForEach(ScreenRecordingDuration.allCases) { option in
@@ -112,7 +112,7 @@ private struct RecordMorningContent: View {
                             .font(.subheadline.weight(.semibold)).foregroundStyle(MorningStyle.green)
                         Text("This records visible screen content without sound or camera video. Keep the part you want to teach short; other personal content on screen may also appear.")
                         Text("Recording stops at your chosen time limit or its file-size limit. This is a time limit, not a guess that you stopped using your phone. You can stop earlier using the app or the system controls.")
-                        Text("When recording finishes, visible text is extracted locally and Apple Intelligence prepares a draft when available. Review it before approving. The video stays on this device until its extracted text is saved, or until you discard it.")
+                        Text("When recording finishes, visible text is extracted and saved locally. Review the text, then choose whether to ask Apple Intelligence for a routine suggestion. Your routine changes only after you approve. The video stays on this device until its extracted text is saved, or until you discard it.")
                     }
                     .font(.footnote).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true)

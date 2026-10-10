@@ -505,16 +505,56 @@ final class MorningStore {
         speech.speak(events.isEmpty ? "There are no events in today's local calendar snapshot." : "Here's your schedule. \(events)")
     }
 
-    func analyzeNotes() {
-        let input = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !input.isEmpty, !busy, !sessionActive else { return }
-        guard saveObservationEdits() else { return }
-        let source = notesSourceLabel
-        beginAnalysis()
-        analysisTask = Task { [weak self] in
-            guard let self else { return }
-            await self.createCandidate(text: input, source: source)
+    /// Written notes and ordinary imports have no inferred observed day or origin.
+    /// The UI can present the existing provenance editor after preparation succeeds.
+    var currentObservationNeedsProvenance: Bool {
+        guard let entry = selectedObservation else {
+            return !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
+        return entry.observedDate == nil || entry.origin == .unknown
+    }
+
+    /// Preliminary requirements for the selected source. Evidence and input-budget
+    /// validation still run through the shared preparation policy before inference.
+    var currentObservationSuggestionIssue: String? {
+        guard !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "Add notes or import a readable observation before suggesting a routine."
+        }
+        guard let entry = selectedObservation else {
+            return "Save this observation before suggesting a routine."
+        }
+        if entry.observedDate == nil {
+            return "Confirm the observed day before using this observation. Import time doesn't establish when it happened."
+        }
+        if entry.origin == .unknown {
+            return "Confirm whether this observation is your morning or a sample before using it."
+        }
+        if entry.origin == .automated {
+            return "Automated observations aren't used to suggest a personal morning. Choose your own observation or a separate sample."
+        }
+        return nil
+    }
+
+    /// Saves the current notes and materializes a manual acquisition if needed.
+    /// This performs no inference and never changes a routine, session or provenance.
+    @discardableResult
+    func prepareCurrentObservationForSuggestion() -> Bool {
+        guard !busy, !sessionActive, storageIsAvailable else { return false }
+        guard !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            notice = currentObservationSuggestionIssue
+            return false
+        }
+        guard saveObservationEdits(), selectedObservationID != nil else { return false }
+        return true
+    }
+
+    /// First routines and updates share the same saved, source-linked review flow.
+    /// A generated result becomes pending; only explicit approval installs it.
+    func analyzeNotes() {
+        guard prepareCurrentObservationForSuggestion() else { return }
+        if let issue = currentObservationSuggestionIssue { notice = issue; return }
+        guard let id = selectedObservationID else { return }
+        suggestRoutine(from: [id])
     }
 
     /// Selection is independent of the Learn editor. A bounded snapshot goes to
@@ -621,9 +661,11 @@ final class MorningStore {
     }
 
     /// Returns true only after accepting ownership or starting an ordinary file import.
-    /// The recorder must keep its ready URL until this returns true.
+    /// The recorder must keep its ready URL until this returns true. Import saves
+    /// evidence only and never starts routine inference.
+    /// Suggesting a routine is a separate explicit action after provenance review.
     @discardableResult
-    func importObservation(_ url: URL, suggestRoutineWhenReady: Bool = false) -> Bool {
+    func importObservation(_ url: URL) -> Bool {
         let ownedRecording = ScreenRecordingFiles.isOwnedRecording(url) || recordingRecovery.owns(url)
         let selectedURL: URL
         if ownedRecording {
@@ -661,12 +703,8 @@ final class MorningStore {
                     observationEditsNeedSave = true
                     guard persist() else { busy = false; observationIssue = notice; return }
                     guard finishOwnedRecordingImport(ownedRecording) else { return }
-                    if suggestRoutineWhenReady, intelligence.isAvailable {
-                        await createCandidate(text: notes, source: notesSourceLabel)
-                    } else {
-                        busy = false
-                        notice = "This observation is already saved. Your corrections and its date have been kept."
-                    }
+                    busy = false
+                    notice = "This observation is already saved. Your corrections and its date have been kept. Your routine is unchanged."
                     return
                 }
                 let observation = try await media.extract(from: selectedURL) { [weak self] fraction in
@@ -717,12 +755,8 @@ final class MorningStore {
                     return
                 }
                 guard finishOwnedRecordingImport(ownedRecording) else { return }
-                if suggestRoutineWhenReady, intelligence.isAvailable {
-                    await createCandidate(text: extracted, source: notesSourceLabel)
-                } else {
-                    busy = false
-                    notice = "Observation loaded. Review or trim the extracted text, then choose Suggest a routine."
-                }
+                busy = false
+                notice = "Observation saved. Review the text and its observed day before asking for a routine suggestion. Your routine is unchanged."
             } catch {
                 finishAnalysis(error: error)
                 observationIssue = notice
@@ -734,7 +768,7 @@ final class MorningStore {
     func retryPendingRecording() {
         guard let pendingRecordingURL, !busy, !sessionActive else { return }
         pendingRecordingShouldAutoProcess = false
-        importObservation(pendingRecordingURL, suggestRoutineWhenReady: true)
+        importObservation(pendingRecordingURL)
     }
 
     /// Stages a finalized clip independently of scene visibility, app work, or routine state.
@@ -1064,20 +1098,6 @@ final class MorningStore {
         notice = nil
         observationIssue = nil
         analysisStatus = "Finding the meaningful steps…"
-    }
-
-    private func createCandidate(text: String, source: String) async {
-        do {
-            analysisStatus = "Apple Intelligence is shaping your routine…"
-            let candidate = try await intelligence.analyze(text: text, sourceLabel: source)
-            try Task.checkCancellation()
-            installCandidate(RoutineVersion.inferredDraft(from: candidate, preserving: routine))
-            busy = false
-            progress = 1
-            tab = .today
-            notice = "Here's a first interpretation. Edit anything that doesn't fit, then approve it."
-            persist()
-        } catch { finishAnalysis(error: error) }
     }
 
     private func finishAnalysis(error: Error) {

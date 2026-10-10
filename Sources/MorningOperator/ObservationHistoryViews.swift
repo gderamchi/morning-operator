@@ -355,7 +355,7 @@ struct ObservationHistoryDetail: View {
     }
 }
 
-private struct ObservationDateEditor: View {
+struct ObservationDateEditor: View {
     @Bindable var store: MorningStore
     let entry: ObservationAcquisition
     @ViewState<Date> private var date: Date

@@ -10,6 +10,7 @@ struct MorningRootView: View {
     @ViewState<Bool> private var showingRoutineEditor = false
     @ViewState<UUID> private var reviewRootIdentity = UUID()
     @ViewState<Bool> private var presentingIntentCapture = false
+    @ViewState<Bool> private var pendingObservationReview = false
     @ViewState<Bool> private var testObservedBackground = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -17,6 +18,7 @@ struct MorningRootView: View {
         TabView(selection: $store.tab) {
             NavigationStack {
                 TodayView(store: store, showLearn: { showingLearn = true },
+                          reviewObservation: requestObservationReview,
                           showReview: { reviewRootIdentity = UUID(); store.tab = .review }, editRoutine: openRoutineReview)
                     .toolbar(.hidden, for: .navigationBar)
             }
@@ -38,8 +40,9 @@ struct MorningRootView: View {
         .background {
             #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
             if #available(iOS 27.0, *) {
-                MorningRecordingCoordinator(store: store, onStarted: { showingLearn = false },
-                                            onReview: { store.tab = .review; showingLearn = true })
+                MorningRecordingCoordinator(store: store, canProcessRecording: recordingCanProcess,
+                                            onStarted: { showingLearn = false },
+                                            onReview: requestObservationReview)
             }
             #endif
         }
@@ -90,6 +93,8 @@ struct MorningRootView: View {
         }
         .onChange(of: MorningIntentRouter.shared.pendingStart, initial: true) { _, _ in processPendingEntries() }
         .onChange(of: entryIsOccupied) { _, occupied in if !occupied { processPendingEntries() } }
+        .onChange(of: observationReviewCanPresent) { _, ready in if ready { processPendingEntries() } }
+        .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
         .task {
             await store.invitation.reconcile()
             #if DEBUG
@@ -126,6 +131,36 @@ struct MorningRootView: View {
         processPendingEntries()
     }
 
+    private func requestObservationReview() {
+        pendingObservationReview = true
+        processPendingEntries()
+    }
+
+    private func presentPendingObservationReview() {
+        guard pendingObservationReview, observationReviewCanPresent else { return }
+        // Learn may already be visible because the person opened the saved recording.
+        // Consume the request once; don't reopen it after they dismiss it.
+        pendingObservationReview = false
+        store.tab = .review
+        showingLearn = true
+    }
+
+    /// Unlike start-entry occupancy, a saved raw recording must not block its own
+    /// review. Watch this eligibility separately so closing another detail or
+    /// ending a session resumes review even when a failed recording stays pending.
+    private var observationReviewCanPresent: Bool {
+        guard scenePhase == .active, !store.busy, !store.sessionActive,
+              !showingSettings, !showingRoutineEditor, !presentingIntentCapture,
+              !store.capturePresented, !store.voiceCommandPresented, !store.voiceInputBlocksPlayback,
+              !store.morningDetailPresented, !store.observationDetailPresented,
+              !store.observationSelectionPresented, !store.routineProposalPresented,
+              !store.captureBusy, !store.calendarBusy else { return false }
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        if #available(iOS 27.0, *), ScreenRecordingService.shared.isBusy { return false }
+        #endif
+        return true
+    }
+
     private var entryIsOccupied: Bool {
         var recordingBusy = false
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
@@ -138,9 +173,18 @@ struct MorningRootView: View {
             recordingBusy || store.invitation.isBusy
     }
 
+    private var recordingCanProcess: Bool {
+        !showingSettings && !showingLearn && !showingRoutineEditor && !presentingIntentCapture &&
+        !store.capturePresented && !store.voiceCommandPresented && !store.voiceInputBlocksPlayback &&
+        !store.morningDetailPresented && !store.observationDetailPresented &&
+        !store.observationSelectionPresented && !store.routineProposalPresented &&
+        !store.captureBusy && !store.calendarBusy
+    }
+
     private func processPendingEntries() {
         // A thought already waiting for review keeps priority over a start request.
         presentPendingIntentCapture()
+        presentPendingObservationReview()
         let router = MorningIntentRouter.shared
         guard let request = router.pendingStart else { return }
         var destination = MorningEntryPolicy.destination(for: request,
@@ -201,10 +245,12 @@ struct MorningRootView: View {
 struct TodayView: View {
     @Bindable var store: MorningStore
     var showLearn: () -> Void
+    var reviewObservation: () -> Void
     var showReview: () -> Void
     var editRoutine: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicType
     @ViewState<Bool> private var showingNotice = false
+    @ViewState<Bool> private var learnAfterNoticeDismissal = false
     @ViewState<RoutineStep?> private var viewingStep = nil
     private var terminal: Bool { store.session?.status == .completed || store.session?.status == .stopped }
 
@@ -247,22 +293,41 @@ struct TodayView: View {
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { viewingStep = nil } } }
             }.presentationDetents([.medium, .large])
         }
-        .sheet(isPresented: $showingNotice) {
+        .sheet(isPresented: $showingNotice, onDismiss: {
+            guard learnAfterNoticeDismissal else { return }
+            learnAfterNoticeDismissal = false
+            reviewObservation()
+        }) {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         if let notice = store.notice { Text(notice).textSelection(.enabled) }
                         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
                         if #available(iOS 27.0, *) {
-                            MorningRecordingStatus(store: store, onReview: {
-                                showingNotice = false; showLearn()
-                            })
-                        }
+                            MorningRecordingStatus(store: store, onReview: reviewAfterNotice)
+                        } else { savedObservationReview }
+                        #else
+                        savedObservationReview
                         #endif
                     }.padding(24)
                 }.navigationTitle("Your morning").navigationBarTitleDisplayMode(.inline)
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingNotice = false } } }
             }.presentationDetents([.medium, .large])
+        }
+    }
+
+    private func reviewAfterNotice() {
+        learnAfterNoticeDismissal = true
+        showingNotice = false
+    }
+
+    /// Reviewing an imported file does not require the native recording framework.
+    @ViewBuilder private var savedObservationReview: some View {
+        if store.hasImportedObservation {
+            Button(action: reviewAfterNotice) {
+                Label("Review your saved observation", systemImage: "text.viewfinder")
+                    .font(.caption.weight(.medium))
+            }.buttonStyle(.glass).padding(8).accessibilityIdentifier("observation.review")
         }
     }
 

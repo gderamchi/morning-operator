@@ -1,23 +1,12 @@
 import XCTest
 
-/// Attempts real Foundation Models inference on the selected test device using only synthetic notes.
-/// This is separate from deterministic fixture checks: model unavailability is an explicit skip.
+/// Synthetic source data only. The negative journey exercises deterministic validation;
+/// the positive journey attempts the actual local model without a fixture-generation flag.
 @MainActor
 final class OnDeviceLearningTests: XCTestCase {
-    /// This validates a deterministic evidence guard. It does not claim model inference.
+    /// This validates a deterministic evidence guard, not model inference or screen capture.
     func testSetupOnlyRecordingDoesNotReplaceTheExistingRoutine() throws {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--fixture-mode"]
-        app.launch()
-        let sampleLabel = app.staticTexts["routine.source"]
-        XCTAssertTrue(sampleLabel.waitForExistence(timeout: 10))
-        let originalSource = sampleLabel.label
-        MorningUITestNavigation.reviewAction("review.learn", in: app)
-        let notes = app.textViews["learn.notes"]
-        XCTAssertTrue(notes.waitForExistence(timeout: 10))
-        revealNotes(in: app)
-        XCTAssertEqual(notes.value as? String ?? "", "")
+        let app = launch(useSyntheticProposal: true)
         let observation = """
         [User-selected video: 00:40.3; 3 frames sampled. This is partial visual evidence, not a complete interaction log.]
 
@@ -39,78 +28,111 @@ final class OnDeviceLearningTests: XCTestCase {
         Social
         Entertainment
         """
-        notes.tap()
-        notes.typeText(observation)
-        XCTAssertEqual(notes.value as? String, observation)
-        if app.buttons["input.done"].waitForExistence(timeout: 2) { app.buttons["input.done"].tap() }
-        let analyze = app.buttons["learn.analyze"]
-        XCTAssertTrue(analyze.waitForExistence(timeout: 5))
-        guard analyze.isEnabled else {
-            throw XCTSkip("The UI analysis action is unavailable on this device; the evidence guard was not exercised through the UI.")
-        }
+        enterNotes(observation, in: app)
+        assignSyntheticProvenance(in: app)
+        XCTAssertFalse(app.buttons["proposal.approve"].exists,
+                       "Saving provenance cannot start analysis.")
         tapButton("learn.analyze", in: app)
-        let message = "Not enough activity evidence yet. Show a real activity or describe what you did; setup screens, sharing controls and app lists do not establish a routine."
-        let insufficientEvidence = app.staticTexts.matching(NSPredicate(format: "label == %@", message)).firstMatch
-        XCTAssertTrue(insufficientEvidence.waitForExistence(timeout: 15))
-        XCTAssertTrue(notes.exists, "Insufficient evidence must leave the observation available to review.")
+        let message = "Each selected observation needs usable activity evidence. Review its notes or choose another observation."
+        let insufficient = app.staticTexts.matching(NSPredicate(format: "label == %@", message)).firstMatch
+        XCTAssertTrue(insufficient.waitForExistence(timeout: 15))
+        let notes = app.textViews["learn.notes"]
+        XCTAssertTrue(notes.exists)
         XCTAssertEqual(notes.value as? String, observation)
-        attachScreenshot("setup-only-observation-rejected", from: app)
-        app.navigationBars["Learn my morning"].buttons["Done"].tap()
-        MorningUITestNavigation.selectTab("Morning", in: app)
-        XCTAssertTrue(sampleLabel.waitForExistence(timeout: 5))
-        XCTAssertEqual(sampleLabel.label, originalSource, "An insufficient recording must not replace the existing routine.")
-        XCTAssertFalse(app.buttons["run.start"].exists)
-        attachScreenshot("setup-only-observation-preserves-routine", from: app)
+        XCTAssertFalse(app.buttons["proposal.approve"].exists)
+        attachScreenshot("setup-only-source-rejected-before-model", from: app)
+        closeLearn(in: app)
+        assertOriginalApprovedRoutine(in: app)
+        attachScreenshot("setup-only-source-preserves-approved-routine", from: app)
     }
 
+    /// Historical method name retained for existing explicit device-test invocations.
+    /// The new unapproved routine is now a pending proposal, never an immediate replacement.
     func testAvailableLocalModelProducesANewUnapprovedRoutine() throws {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--fixture-mode"]
-        app.launch()
-
-        let sampleLabel = app.staticTexts["routine.source"]
-        XCTAssertTrue(sampleLabel.waitForExistence(timeout: 10), "Start from the explicitly synthetic sample.")
-        attachScreenshot("learning-synthetic-start", from: app)
-        MorningUITestNavigation.reviewAction("review.learn", in: app)
-
-        let notes = app.textViews["learn.notes"]
-        XCTAssertTrue(notes.waitForExistence(timeout: 10))
-        revealNotes(in: app)
-        XCTAssertTrue(notes.isEnabled, "The isolated fixture must not have an active run or analysis.")
-        // Fixture launches create a fresh workspace. Refuse to append to unexpected prior content.
-        XCTAssertEqual((notes.value as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines), "")
-        notes.tap()
+        let app = launch(useSyntheticProposal: false)
         let observation = "I check today's calendar for three minutes, then play chess for ten minutes. Keep chess as a ritual."
-        notes.typeText(observation)
-        XCTAssertEqual(notes.value as? String, observation)
-        let dismissKeyboard = app.buttons["input.done"]
-        if dismissKeyboard.waitForExistence(timeout: 2) { dismissKeyboard.tap() }
-
+        enterNotes(observation, in: app)
+        assignSyntheticProvenance(in: app)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "learn.fixtureMode").firstMatch.exists,
+                       "This path must never substitute deterministic assembly for native inference.")
         let analyze = app.buttons["learn.analyze"]
         XCTAssertTrue(analyze.waitForExistence(timeout: 5))
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: analyze)
         guard XCTWaiter.wait(for: [ready], timeout: 5) == .completed else {
             attachScreenshot("learning-skipped-model-unavailable", from: app)
-            throw XCTSkip("Actual on-device learning was not run: Suggest a routine is disabled after valid synthetic input in an idle fixture. The local model is unavailable; no generated result is claimed.")
+            throw XCTSkip("Actual local-model learning was not run: the analysis action remains disabled after valid synthetic notes and explicit day/origin. No generated result is claimed.")
         }
-
         tapButton("learn.analyze", in: app)
-        // Generation is asynchronous and hardware-dependent. An enabled attempt that fails or
-        // times out is a test failure, not a model-unavailable skip or a fixture fallback.
-        let sheetDismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: notes)
-        let generationResult = XCTWaiter.wait(for: [sheetDismissed], timeout: 120)
-        attachScreenshot("learning-generation-outcome", from: app)
-        XCTAssertEqual(generationResult, .completed, "Real inference must return a new draft and dismiss Learn within 120 seconds.")
-        XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5), "A generated routine must return as a draft to review.")
-        XCTAssertFalse(sampleLabel.exists, "Successful generation must replace the sample label; a fixture is not an inference result.")
-        XCTAssertFalse(app.buttons["run.start"].exists, "Generation must not approve or start the routine.")
-        XCTAssertFalse(notes.exists)
+        // Once an actual attempt starts, errors/timeouts fail. This is never a model-
+        // unavailable skip after the fact and never an automatic fixture fallback.
+        XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 120),
+                      "Actual native inference must produce a validated pending proposal within 120 seconds.")
+        let first = app.descendants(matching: .any).matching(identifier: "proposal.step.0").firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        XCTAssertFalse((first.value as? String ?? "").isEmpty)
+        XCTAssertTrue(app.buttons["proposal.keepCurrent"].exists)
+        XCTAssertEqual(app.alerts.count, 0)
+        attachScreenshot("actual-local-model-pending-proposal-needs-review", from: app)
+        tapButton("proposal.close", in: app)
+        waitAbsent(app.buttons["proposal.approve"])
+        XCTAssertTrue(app.textViews["learn.notes"].waitForExistence(timeout: 5))
+        closeLearn(in: app)
+        assertOriginalApprovedRoutine(in: app)
+        attachScreenshot("actual-local-model-proposal-preserves-current-morning", from: app)
+    }
+
+    private func launch(useSyntheticProposal: Bool) -> XCUIApplication {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
+            "--ui-testing-workspace=\(UUID().uuidString)"]
+        if useSyntheticProposal { app.launchArguments.append("--ui-testing-evidence-proposals") }
+        app.launch()
+        return app
+    }
+
+    private func enterNotes(_ observation: String, in app: XCUIApplication) {
+        MorningUITestNavigation.reviewAction("review.learn", in: app)
+        let notes = app.textViews["learn.notes"]
+        XCTAssertTrue(notes.waitForExistence(timeout: 10))
+        revealNotes(in: app)
+        XCTAssertTrue(notes.isEnabled)
+        XCTAssertEqual(notes.value as? String ?? "", "", "Never append synthetic notes to an unexpected existing workspace.")
+        notes.tap()
+        notes.typeText(observation)
+        XCTAssertEqual(notes.value as? String, observation)
+        let dismissKeyboard = app.buttons["input.done"]
+        if dismissKeyboard.waitForExistence(timeout: 2), dismissKeyboard.isHittable { dismissKeyboard.tap() }
+    }
+
+    private func assignSyntheticProvenance(in app: XCUIApplication) {
+        tapButton("learn.analyze", in: app)
+        XCTAssertTrue(app.buttons["observation.saveDate"].waitForExistence(timeout: 5))
+        tapButton("observation.originPicker", in: app)
+        tapButton("Sample or test", in: app)
+        tapButton("observation.saveDate", in: app)
+        waitAbsent(app.buttons["observation.saveDate"])
+        XCTAssertTrue(app.textViews["learn.notes"].exists)
+        XCTAssertFalse(app.buttons["proposal.approve"].exists)
+    }
+
+    private func closeLearn(in app: XCUIApplication) {
+        let done = app.navigationBars["Learn my morning"].buttons["Done"]
+        XCTAssertTrue(done.isHittable)
+        done.tap()
+        waitAbsent(app.textViews["learn.notes"])
+    }
+
+    private func assertOriginalApprovedRoutine(in app: XCUIApplication) {
         MorningUITestNavigation.openRoutine(in: app)
-        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 5), "A generated routine must still require approval in Review.")
-        XCTAssertFalse(app.staticTexts["routine.source"].exists, "The editor must not present the synthetic sample as learned evidence.")
-        XCTAssertTrue(app.buttons["routine.step.0"].exists, "The new draft must contain a visible first step.")
-        attachScreenshot("learning-generated-draft-needs-approval", from: app)
+        let first = app.buttons["routine.step.0"]
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        XCTAssertTrue(first.label.contains("A calm start"))
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "routine.step.")).count, 4)
+        XCTAssertFalse(app.buttons["routine.approve"].exists)
+        MorningUITestNavigation.closeRoutine(in: app)
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
     }
 
     private func tapButton(_ identifier: String, in app: XCUIApplication,
@@ -121,9 +143,14 @@ final class OnDeviceLearningTests: XCTestCase {
     private func revealNotes(in app: XCUIApplication) {
         let notes = app.textViews["learn.notes"]
         let sheet = app.scrollViews.containing(.textView, identifier: "learn.notes").firstMatch
-        XCTAssertTrue(sheet.exists, "The editor must belong to the active Learn sheet.")
+        XCTAssertTrue(sheet.exists)
         for _ in 0..<4 where !notes.isHittable { sheet.swipeUp() }
-        XCTAssertTrue(notes.isHittable, "The observation editor must be visible before typing.")
+        XCTAssertTrue(notes.isHittable)
+    }
+
+    private func waitAbsent(_ element: XCUIElement) {
+        let absent = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [absent], timeout: 5), .completed)
     }
 
     private func attachScreenshot(_ name: String, from app: XCUIApplication) {

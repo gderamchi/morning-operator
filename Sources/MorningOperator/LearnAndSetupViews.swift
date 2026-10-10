@@ -6,15 +6,34 @@ struct LearnView: View {
     @Bindable var store: MorningStore
     @ViewState<Bool> private var importing = false
     @ViewState<Bool> private var recording = false
+    @ViewState<Bool> private var confirmingObservation = false
+    @ViewState<Bool> private var showingProposal = false
+    @ViewState<Bool> private var awaitingSuggestion = false
+    @ViewState<UUID?> private var proposalBeforeRequest = nil
+    @ViewState<Bool> private var closeAfterProposal = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var notesFocused: Bool
     @ScaledMetric(relativeTo: .body) private var notesEditorHeight: CGFloat = 220
 
-    var body: some View {
+    private var learningContent: some View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeading(eyebrow: "Your rhythm", title: "Make your morning yours.",
                 subtitle: "Start with what you already do. You'll review every suggestion before it becomes your routine.")
+
+            if let issue = store.observationIssue {
+                Card {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Your recording needs attention", systemImage: "exclamationmark.circle")
+                            .font(.subheadline.weight(.medium))
+                        Text(issue).font(.footnote)
+                        Text("Any text below belongs to the named saved observation; it may be from an earlier import.")
+                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("learn.observationIssue")
+                }
+            }
 
             if store.busy {
                 Card {
@@ -69,6 +88,10 @@ struct LearnView: View {
                          : "What do you check first? What helps you feel ready? Include the small things you want to make time for.")
                         .font(.subheadline).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let observation = store.selectedObservation {
+                        Text(observation.sourceLabel).font(.caption).foregroundStyle(MorningStyle.muted)
+                            .accessibilityIdentifier("learn.observationSource")
+                    }
                     notesEditor
                     if let evidence = store.observationVideoEvidence {
                         ObservationEvidenceView(evidence: evidence,
@@ -91,22 +114,14 @@ struct LearnView: View {
                             .buttonStyle(.borderless).font(.caption).disabled(store.busy || store.sessionActive)
                             .accessibilityIdentifier("learn.clear")
                     }
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 16) { analyzeControls }
-                        VStack(alignment: .leading, spacing: 16) { analyzeControls }
-                    }
-                    if !store.intelligence.isAvailable {
-                        Label("On-device suggestions aren't ready here yet. You can build and edit your routine yourself.", systemImage: "info.circle")
-                            .font(.footnote).foregroundStyle(MorningStyle.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    learningReviewControls
                 }
             }
 
             VStack(alignment: .leading, spacing: 12) {
                 Label("Your routine stays in your hands", systemImage: "hand.raised")
                     .font(.subheadline.weight(.medium)).foregroundStyle(MorningStyle.green)
-                Text("Suggestions are a starting point. Change the order, add a step, or remove anything that doesn't fit before you approve it.")
+                Text("Your current routine stays ready while you review a suggestion. Approve it when it fits, or keep the morning you already have.")
                     .font(.footnote).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 DisclosureGroup("About on-device learning") {
@@ -123,6 +138,10 @@ struct LearnView: View {
                 .font(.footnote.weight(.medium)).tint(MorningStyle.accent)
             }.padding(.horizontal, 4)
         }
+    }
+
+    var body: some View {
+        learningContent
         .foregroundStyle(MorningStyle.ink)
         .task { store.importUITestObservationIfRequested() }
         #if os(iOS)
@@ -138,20 +157,71 @@ struct LearnView: View {
             if !focused { store.saveObservationEdits() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { store.saveObservationEdits() }
+            if phase != .active { _ = store.saveObservationEdits() }
+            else { finishSuggestionIfReady() }
         }
         .onDisappear { store.saveObservationEdits() }
         .sheet(isPresented: $recording) {
             RecordMorningView(canStartRecording: store.canStartRecording) { url in
-                store.importObservation(url, suggestRoutineWhenReady: true)
+                store.importObservation(url)
             }
         }
-        .onChange(of: store.routine?.id) { _, _ in if !store.busy { dismiss() } }
+        .sheet(isPresented: $confirmingObservation) {
+            if let entry = store.selectedObservation {
+                ObservationDateEditor(store: store, entry: entry)
+            }
+        }
+        .sheet(isPresented: $showingProposal, onDismiss: {
+            if closeAfterProposal { dismiss() }
+        }) {
+            RoutineEvidenceProposalView(store: store, onLearn: { showingProposal = false })
+        }
+        .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
+        .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
+        .onChange(of: store.routine?.id) { _, _ in
+            if showingProposal { closeAfterProposal = true }
+            else if !store.busy, !awaitingSuggestion { dismiss() }
+        }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.movie, .image, .plainText], allowsMultipleSelection: false) { result in
             switch result {
             case .success(let urls): if let url = urls.first { store.importObservation(url) }
             case .failure(let error): store.notice = error.localizedDescription
             }
+        }
+    }
+
+    @ViewBuilder private var learningReviewControls: some View {
+        if store.selectedObservation != nil {
+            Button("Day and source") { openObservationDetails() }
+                .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
+                .disabled(store.busy || store.sessionActive)
+                .accessibilityIdentifier("learn.observationDetails")
+        }
+        if let issue = store.currentObservationSuggestionIssue, !store.notes.isEmpty {
+            Text(issue).font(.footnote).foregroundStyle(MorningStyle.muted)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("learn.suggestionIssue")
+        }
+        if store.usesSyntheticProposalFixture {
+            Text("Synthetic suggestion test — no Apple model call")
+                .font(.caption).foregroundStyle(MorningStyle.muted)
+                .accessibilityIdentifier("learn.fixtureMode")
+        }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) { analyzeControls }
+            VStack(alignment: .leading, spacing: 16) { analyzeControls }
+        }
+        if store.pendingRoutineProposal != nil {
+            Button { showingProposal = true } label: {
+                Label("Review suggested update", systemImage: "list.bullet.clipboard")
+            }.buttonStyle(SecondaryButtonStyle())
+                .disabled(store.busy || store.sessionActive)
+                .accessibilityIdentifier("learn.reviewProposal")
+        }
+        if !store.canSuggestSavedObservations {
+            Label("On-device suggestions aren't ready here yet. You can build and edit your routine yourself.", systemImage: "info.circle")
+                .font(.footnote).foregroundStyle(MorningStyle.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -174,13 +244,41 @@ struct LearnView: View {
     }
 
     @ViewBuilder private var analyzeControls: some View {
-        Button { store.analyzeNotes() } label: { Label("Suggest a routine", systemImage: "sparkles") }
+        Button { requestSuggestion() } label: {
+            Label(store.currentObservationNeedsProvenance ? "Confirm this observation"
+                  : store.routine == nil ? "Suggest a routine" : "Suggest an update", systemImage: "sparkles")
+        }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(store.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.busy || store.sessionActive || !store.intelligence.isAvailable)
+            .disabled(store.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.busy || store.sessionActive ||
+                      !store.storageIsAvailable || (!store.currentObservationNeedsProvenance && !store.canSuggestSavedObservations))
             .accessibilityIdentifier("learn.analyze")
         Button("Build it myself") { store.useManualRoutine() }
             .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
             .disabled(store.busy || store.sessionActive)
+    }
+
+    private func openObservationDetails() {
+        notesFocused = false
+        if store.prepareCurrentObservationForSuggestion() { confirmingObservation = true }
+    }
+
+    private func requestSuggestion() {
+        notesFocused = false
+        guard store.prepareCurrentObservationForSuggestion() else { return }
+        if store.currentObservationNeedsProvenance {
+            confirmingObservation = true
+            return
+        }
+        proposalBeforeRequest = store.pendingRoutineProposal?.id
+        awaitingSuggestion = true
+        store.analyzeNotes()
+        finishSuggestionIfReady()
+    }
+
+    private func finishSuggestionIfReady() {
+        guard awaitingSuggestion, !store.busy, scenePhase == .active else { return }
+        awaitingSuggestion = false
+        if let id = store.pendingRoutineProposal?.id, id != proposalBeforeRequest { showingProposal = true }
     }
 
     private func sectionTitle(_ title: String, symbol: String) -> some View {
