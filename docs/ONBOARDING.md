@@ -15,7 +15,17 @@ This guide's first-morning steps follow V2 on `codex/more-quiet-morning`: **Morn
 
 **Find an earlier recording:** open **Review → Saved observations**. A new import keeps earlier observations; importing the same file again keeps the existing entry and its corrections. **Date needed** contains imports whose observed day is unknown. Open one to assign its day, time zone and whether it describes your own morning or test activity. Import time is never substituted for recording time.
 
-An observation's detail keeps the original extraction separate from current notes. **Edit in Learn** changes the notes used for suggestions and clears the original's attached interpretation. **Delete this observation**, Learn's **Clear this observation**, or **Delete all observations** removes the stated observations and their retained originals/corrections. Saved routines and any quotations already in them remain. A pending raw recording has its own Retry/Discard controls; see [retention](ARCHITECTURE.md#data-retention-today).
+An observation's detail keeps the original extraction separate from current notes. **Edit in Learn** changes the notes used for suggestions and clears the original's attached interpretation. **Delete this observation**, Learn's **Clear this observation**, or **Delete all observations** removes the stated observations and their retained originals/corrections. A pending update that depends on an edited/deleted source is invalidated; saved routines and any quotations already in them remain. A pending raw recording has its own Retry/Discard controls; see [retention](ARCHITECTURE.md#data-retention-today).
+
+## Update a routine from saved mornings
+
+In **Review → Saved observations → Choose mornings**, select one to five dated observations from the same time zone. Choose either your mornings or synthetic samples; they cannot mix. Undated or unknown-origin entries show what needs correcting in their detail. The current routine stays unchanged while you choose and review.
+
+Choose **Suggest an update** when the local model is available. Review the planned moments, exact supporting quotations and any omitted samples; **Compare with current routine** shows the existing plan. Preserved required rituals are labeled separately. **Done** keeps the suggestion for later, including after relaunch. **Keep current** discards it; without an existing routine, this button is **Discard**. **Approve update** saves the new approved version, then **Start my morning** remains a separate action. An active or paused morning blocks replacement.
+
+To correct a source, open it from the suggestion and use **Edit in Learn**. Changing its text, date or origin—or changing the current routine—invalidates that dependent suggestion so you can request a fresh one. Candidate editing is not part of this sheet; ordinary routine editing remains under **Review → Your routine**. [The learning guide](ROUTINE-LEARNING.md) explains the input limits, citations and previous-version restoration. Planned minutes and selected dates do not establish measured app use or habit averages.
+
+This V2 flow has passing shared checks, a native build and six synthetic UI journeys across scoped runs, including the final compact approval layout. It has not been installed on the owner's phone or verified with real multi-observation model output. See [verification](PHASE-ONE.md) for final results rather than carrying earlier archive checks over to this flow.
 
 The earlier `8a640ea` build has run on the owner's iPhone 15 Pro Max with iOS 27.0.1; those physical results do not verify the V2 interface. One real short recording reached OCR, saved text, a visible draft and readable text after relaunch. Its habit interpretation was wrong: setup text became activities. A targeted evidence guard addresses that failure class, but accurate habit learning still requires the [controlled benchmark](https://github.com/gibouu/morning-operator/issues/23). See the [verification record](PHASE-ONE.md) for current results and earlier failures.
 
@@ -26,6 +36,7 @@ Use your own GitHub account and accept access to the private [repository](https:
 ```sh
 git clone https://github.com/gibouu/morning-operator.git
 cd morning-operator
+git switch codex/more-quiet-morning
 ./scripts/check-environment.sh
 ./scripts/test.sh
 open MorningOperator.xcodeproj

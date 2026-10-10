@@ -1,12 +1,32 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. Current source **`d9a6120`** adds dated observation history and preserves original evidence alongside corrections. The preceding source **`fb0e4a2`** added optional native OCR layout evidence; its historical checks remain separate below. The historical **`e7666cd`/`dd611fd`** refinement and **`4ddb524`** baseline retain their separate results. None of these follow-ups replaced the owner's phone build, and no physical phone was connected for them.
+The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. The current saved-observation proposal source **`4a2fd30`** builds on **`d9a6120`**, which added dated observation history and preserved original evidence alongside corrections. The preceding source **`fb0e4a2`** added optional native OCR layout evidence; its historical checks remain separate below. The historical **`e7666cd`/`dd611fd`** refinement and **`4ddb524`** baseline retain their separate results. None of these follow-ups replaced the owner's phone build, and no physical phone was connected for them.
 
 ## V2 in this branch
 
 Morning now contains the date, compact routine and start/run controls. Review owns history, routine edits, approval, observations, thoughts and connections. Installed Apple voice selection considers language, dialect and quality; an explicit voice-command turn pauses the routine and releases playback before using on-device speech recognition. [Design](V2-DESIGN.md) · [Voice behavior](VOICE.md) · [Architecture](ARCHITECTURE.md).
 
 Learning preserves complete required rituals from the person's previous routine, keeps proposals unapproved and strips model-assigned automation. Sample rituals stay out of personal learning. This is not a complete edit/removal preference journal or a multi-day habit-quality result.
+
+## Saved-observation routine proposals — 10 October 2026 (`4a2fd30`)
+
+**Review → Saved observations → Choose mornings** now prepares one separately saved proposal from one to five dated observations. Selection requires the same time zone and human-or-synthetic origin. Exact source-unit citations, corrections, declared frame exclusions, full source/base-routine revisions, required-ritual preservation and a ten-moment final limit keep the result reviewable. Approval, rejection and source invalidation are separate transitions; the current routine stays in place during this flow. The older single-observation Learn path still installs an unapproved draft. [Detailed flow and retention](ROUTINE-LEARNING.md).
+
+| Check | Result and scope |
+|---|---|
+| Shared logic and adapters | **232 distinct passing checks across full and focused runs, six optional skips.** Core: 89 passed. Apple: 143 distinct passed across runs, six skipped. Includes all 18 new source-selection, exact-quotation, staleness, restoration-bound and ritual-preservation checks. |
+| Native OCR failure and retry | Full native-access run: the existing screenshot OCR test failed with an `e5rt` execution error (13.542s), while the native layout extraction check passed (26.681s). The focused rerun passed **17/17**: all 16 proposal checks plus the isolated actual Vision screenshot check (28.353s). This is not one uninterrupted all-green suite. |
+| Final restoration regressions | **18/18 proposal checks passed**, no skips, after requiring embedded quotations to survive restoration and candidate versions to follow the current base safely. A saved derived proposal cannot approve missing quotation content or an invalid version. |
+| Native build | **Succeeded** after the final restoration guards, Xcode 27 / iPhone 15 Pro Max simulator / iOS 27.0, including app and UI-test targets. |
+| Initial proposal app journeys | **4 passed, 1 failed; no skips**, 495.490s. Correction invalidation, paused-run protection, date/deletion invalidation and quotation/relaunch/approval/restore passed. Keep current was below the visible list and could not be reached by the test. |
+| Fixed actions and affected rerun | Moved Keep current and Approve update into one fixed bottom bar. **2/2 passed; no skips**, 227.579s: discard/current-routine start (74.945s) and quotation/relaunch/approval/restore (152.634s). |
+| Final compact review | Reduced the introductory copy and put further explanation in a disclosure. **1/1 passed; no skips**, 30.200s: suggested moment and both review actions were reachable without scrolling at default portrait size. Inspected the exported synthetic screenshot. This is not a large-text or physical VoiceOver check. |
+| Final app recovery after restore guards | **1/1 passed; no skips**, 151.270s on final source `4a2fd30`: exact quotations/source links, dismissal/relaunch with current routine intact, approval, approved-version relaunch and previous-version restoration/relaunch. Other UI journeys were not repeated after the two shared validation guards. |
+| Supported-model readiness | A fresh native Mac probe outside the tool sandbox returned `.unavailable(.modelNotReady)` on macOS 27.0.1. The device listing contained only a simulator, with no physical iPhone reachable. Zero generation/prewarm calls were made. No retry of the unsupported simulator model backend. |
+
+The six distinct app journeys above use explicitly labeled synthetic assembly and make no Foundation Models call. They are passing results across separate scoped runs, not one uninterrupted all-green suite.
+
+No real multi-observation model result, measured personal habit average, physical V2 install, microphone recognition or HomePod transfer is established by this slice. Approved step content retains embedded quotations; pending typed citations are removed on approval, discard or invalidation. Listener-confirmed physical speech is still open.
 
 ## Dated observation history — 10 October 2026 (`d9a6120`)
 

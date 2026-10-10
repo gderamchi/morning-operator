@@ -1,6 +1,6 @@
 # What an observation can tell us
 
-**Current source retains a bounded archive of observations with explicit date provenance, original evidence and separate corrections. Review exposes saved observations and Learn works on the selected acquisition. Local model accuracy remains unverified. See [the benchmark record](OBSERVATION-BENCHMARK.md).** Retaining several dated observations does not establish comparable morning windows or measured habit averages; that integration remains pending.
+**Current source retains a bounded archive of observations with explicit date provenance, original evidence and separate corrections. Review exposes saved observations and source-linked pending routine updates; Learn works on the selected acquisition. Local model accuracy remains unverified. See [the benchmark record](OBSERVATION-BENCHMARK.md).** Retaining several dated observations or approving a proposed routine does not establish comparable morning windows or measured habit averages; that integration remains pending.
 
 The layout slice at source `fb0e4a2` passed **190 shared checks with six optional tests skipped**: 86 Core checks passed, while the Apple suite reported 110 checks including those six skips. The native Xcode build also passed. A real Vision test on a generated synthetic image passed in **28.318 seconds**, checking exact joined text spans and normalized lower-left placement. These checks do not establish app recognition, model accuracy or physical-phone behavior.
 
@@ -25,7 +25,8 @@ flowchart TD
     X --> D[Explicit local visible-context classification]
     D --> E[Validated decisions and core trace]
     E --> F[Sample outcomes and recognized appearances in Learn]
-    C --> R[Separate unapproved routine proposal]
+    C -->|Selected observation| R[Unapproved routine draft]
+    C -->|Choose dated sources| P[Source-linked pending routine update]
     E --> J[Update analysis on the same acquisition]
     J --> C
     C -. Pending comparable coverage/window integration .-> G[Implemented comparable-day calculations]
@@ -41,7 +42,7 @@ Core accepts at most **256 line records per frame**. Initializers and decoding v
 
 One Vision pass preserves the existing trimmed-line order and newline joining before the usual text budgets. Unavailable, invalid or excess geometry is omitted with warnings while its text remains; no bounds are guessed or clamped. When a budget truncates OCR, only whole original line spans inside the retained prefix survive. A remaining partial text line is not given a fabricated shortened box, and source-truncated frames still cannot support identity.
 
-The notes renderer collapses adjacent identical OCR, while structured frames retain their IDs and order. The routine-learning policy still globally deduplicates its own eligible text; context classification uses the original structured frames instead. `extractText` renders the same extraction rather than running OCR a second time. A routine proposal's planned minutes are not observed duration.
+The notes renderer collapses adjacent identical OCR, while structured frames retain their IDs and order. The single-observation routine-learning path globally deduplicates its eligible text. The separate [saved-observation proposal flow](ROUTINE-LEARNING.md) preserves independent source identities even when their text matches; it uses eligible original frames or labeled corrections and discloses excluded samples. Context classification also uses the original structured frames. `extractText` renders the same extraction rather than running OCR a second time. Planned proposal minutes and selected-date counts are not measured duration or habit averages.
 
 ## The trace contract
 
