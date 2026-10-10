@@ -1202,7 +1202,13 @@ final class MorningStore {
                         #endif
                         proposal = try syntheticEvidenceProposal(evidence: evidence, preserving: base, preferences: preferences)
                     } else {
-                        proposal = try await intelligence.propose(evidence: evidence, preserving: base, preferences: preferences)
+                        proposal = try await intelligence.propose(evidence: evidence, preserving: base, preferences: preferences) { [weak self] completed, total in
+                            guard let self, self.acceptsAnalysis(attempt), !Task.isCancelled, total > 0 else { return }
+                            self.progress = Double(completed) / Double(total)
+                            self.analysisStatus = completed < total
+                                ? "Understanding part \(completed + 1) of \(total)…"
+                                : "Bringing your morning together…"
+                        }
                     }
                     try Task.checkCancellation()
                     guard acceptsAnalysis(attempt) else { return }

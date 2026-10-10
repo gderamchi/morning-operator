@@ -105,6 +105,13 @@ enum LearningEvidencePolicy {
         let ownReviewMarkerCount = ownReviewHeadings.filter { lines.contains($0) }.count
             + (value.contains("routine timing excludes pauses") ? 1 : 0)
         if ownReviewMarkerCount >= 2 { return true }
+        // The observed-first overview displays earlier derived labels. Feeding
+        // those labels back as new activity would reinforce our own output.
+        // Require its heading plus separate public UI copy, not either alone.
+        if lines.contains("your observed mornings"),
+           value.contains("with labeled samples") || value.contains("a recorded glimpse not time spent") {
+            return true
+        }
         // The V2 shell deliberately removes the persistent brand heading. Use paired,
         // distinctive controls/copy, not generic words such as Morning, planned or MORE.
         let moreScreenPairs = [

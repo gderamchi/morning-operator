@@ -69,6 +69,17 @@ public enum ObservationNarrationComposer {
         return result
     }
 
+    /// Direct sample handoff preserves the exact selected line and frame. A
+    /// substring, different frame or unavailable source never chooses a fallback.
+    public static func prepare(acquisition: ObservationAcquisition, frameID: UUID,
+                               quote: String) throws -> PreparedObservationNarration {
+        try validateEligibility(acquisition)
+        guard let candidate = candidates(for: acquisition).first(where: {
+            $0.frameID == frameID && $0.text.utf8.elementsEqual(quote.utf8)
+        }) else { throw ObservationNarrationError.invalidExcerpt }
+        return try prepare(acquisition: acquisition, candidate: candidate)
+    }
+
     public static func prepare(acquisition: ObservationAcquisition,
                                candidate: ObservationNarrationCandidate) throws -> PreparedObservationNarration {
         try validateEligibility(acquisition)

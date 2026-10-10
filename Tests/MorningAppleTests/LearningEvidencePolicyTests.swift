@@ -40,10 +40,72 @@ enum LearningEvidenceFixtures {
 
     static let calendarContent = "Calendar\nToday\n09:00 Team planning meeting\n10:30 Review project milestones"
     static let messageContent = "Messages\nAlex\nPlease bring the printed meeting notes tomorrow."
+
+    // Current public UI wording plus invented visual labels, never personal OCR.
+    static let observedOverview = """
+    Your observed mornings
+    My mornings
+    Europe/Paris
+    2 days with labeled samples · 3 days with observations
+    Cedar
+    2 of 2 labeled days
+    Lumen
+    1 of 2 labeled days
+    1 observed day without labels · 4 dates without observations
+    A recorded glimpse, not time spent. These samples don't establish app opens, reads or scrolls.
+    From your observations
+    Sampled screens across days
+    """
 }
 
 @Suite("Conservative observation evidence")
 struct LearningEvidencePolicyTests {
+    @Test("Observed-first overview cannot feed its derived labels back as new activity")
+    func observedOverviewRejectsFeedbackAndKeepsIndependentFrames() throws {
+        let overview = LearningEvidenceFixtures.observedOverview
+        for source in ["[User-selected screenshot; one moment, not a confirmed habit]\n" + overview,
+                       "[Observed frame at 00:00.0]\n" + overview] {
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare(source)
+            }
+        }
+        let quote = "These samples don't establish app opens, reads or scrolls."
+        #expect(ProposalValidation.step(title: "Review mornings", detail: "", kind: "custom", durationMinutes: 3,
+            evidenceQuote: quote, source: quote, sourceContext: overview,
+            sourceKind: .visibleTaskContent, claimedEvidenceKind: "visibleTaskContent") == nil)
+
+        let recording = "[Observed frame at 00:00.0]\n" + overview
+            + "\n[Observed frame at 00:12.0]\n" + LearningEvidenceFixtures.calendarContent
+            + "\n[Observed frame at 00:24.0]\n" + LearningEvidenceFixtures.messageContent
+        let original = Data(recording.utf8)
+        let retained = try LearningEvidencePolicy.prepare(recording)
+        try #require(retained.count == 2)
+        #expect(retained[0].text.trimmingCharacters(in: .whitespacesAndNewlines).utf8.elementsEqual(LearningEvidenceFixtures.calendarContent.utf8))
+        #expect(retained[1].text.trimmingCharacters(in: .whitespacesAndNewlines).utf8.elementsEqual(LearningEvidenceFixtures.messageContent.utf8))
+        #expect(Data(recording.utf8) == original)
+    }
+
+    @Test("Overview rejection requires paired UI markers and preserves written reports")
+    func observedOverviewRequiresIndependentMarkers() throws {
+        for marker in ["Your observed mornings", "2 days with labeled samples · 3 days with observations",
+                       "A recorded glimpse, not time spent."] {
+            #expect(LearningEvidencePolicy.isEligibleVisualContext(
+                "Calendar\n\(marker)\n09:00 Team planning meeting"))
+        }
+        // The heading can remain visible while scrolling hides either the
+        // denominator or the footer. Both independently identify this overview.
+        for marker in ["1 day with labeled samples · 1 day with observations",
+                       "A recorded glimpse, not time spent."] {
+            #expect(!LearningEvidencePolicy.isEligibleVisualContext(
+                "Your observed mornings\n\(marker)\n09:00 Team planning meeting"))
+        }
+        let report = "I opened Your observed mornings and reviewed the days with labeled samples. Then I read my calendar."
+        let retained = try LearningEvidencePolicy.prepare(report)
+        #expect(retained.count == 1)
+        #expect(retained.first?.kind == .userReportedActivity)
+        #expect(retained.first?.text == report)
+    }
+
     @Test("MORE's compact setup and routine surfaces remain interface content")
     func compactMoreScreensAreNotObservedHabits() {
         let screens = [

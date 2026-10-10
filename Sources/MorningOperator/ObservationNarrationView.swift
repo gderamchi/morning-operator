@@ -6,11 +6,13 @@ import MorningApple
 struct ObservationNarrationView: View {
     @Bindable var store: MorningStore
     let observationID: UUID
+    var requestedNarration: PreparedObservationNarration? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @ViewState<String?> private var selectedID = nil
     @ViewState<UUID?> private var previewID = nil
     @ViewState<Bool> private var added = false
+    @ViewState<Bool> private var appliedRequestedSelection = false
     @ViewState<String?> private var message = nil
 
     private var entry: ObservationAcquisition? { store.observationArchive.entry(id: observationID) }
@@ -31,6 +33,12 @@ struct ObservationNarrationView: View {
                     Text("Keep a thought from a morning you've saved. Choose the words you want to hear again.")
                         .font(.subheadline).foregroundStyle(.secondary)
                     if let entry { Text(entry.sourceLabel).font(.caption).foregroundStyle(.secondary) }
+                }
+                if prepared == nil, let message {
+                    Section {
+                        Text(message).font(.subheadline).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("narration.requestUnavailable")
+                    }
                 }
                 if let prepared {
                     Section {
@@ -98,10 +106,34 @@ struct ObservationNarrationView: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) {
                 Button("Done") { dismiss() }.accessibilityIdentifier("narration.done")
             } }
-            .onChange(of: entry) { _, _ in stopPreview(); selectedID = nil; added = false }
+            .onAppear { applyRequestedSelection() }
+            .onChange(of: entry) { _, _ in
+                stopPreview(); selectedID = nil; added = false
+                if requestedNarration != nil {
+                    message = "This saved source changed. Choose the excerpt again before adding it."
+                }
+            }
             .onChange(of: scenePhase) { _, phase in if phase != .active { stopPreview() } }
             .onDisappear { stopPreview() }
         }.tint(MorningStyle.accent)
+    }
+
+    private func applyRequestedSelection() {
+        guard !appliedRequestedSelection else { return }
+        appliedRequestedSelection = true
+        guard let requestedNarration else { return }
+        guard requestedNarration.reference.acquisitionID == observationID,
+              let current = try? ObservationNarrationComposer.resolve(reference: requestedNarration.reference,
+                  archive: store.observationArchive),
+              current.spokenText.utf8.elementsEqual(requestedNarration.spokenText.utf8),
+              let candidate = candidates.first(where: {
+                  $0.frameID == current.reference.frameID &&
+                      $0.text.utf8.elementsEqual(current.reference.quote.utf8)
+              }) else {
+            message = "This exact excerpt is no longer available. Return to its source or choose a saved line yourself."
+            return
+        }
+        selectedID = candidate.id
     }
 
     private func stopPreview() {

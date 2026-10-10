@@ -151,4 +151,59 @@ struct ObservationNarrationComposerTests {
         }
     }
 
+    @Test func directSampleQuoteRequiresTheSameFrameAndWholeExactLine() throws {
+        let frames = try [
+            ObservationFrameEvidence(requestedTimeSeconds: 0, actualTimeSeconds: 0, outcome: .observed,
+                text: "Cedar Mail\nA synthetic visible line."),
+            ObservationFrameEvidence(requestedTimeSeconds: 1, actualTimeSeconds: 1, outcome: .observed,
+                text: "Cedar Mail\nAnother synthetic line.")
+        ]
+        let evidence = try ObservationVideoEvidence(durationSeconds: 2, frames: frames)
+        let source = try ObservationAcquisition(observedDate: notes().observedDate, origin: .human,
+            sourceKind: .video, sourceLabel: "Synthetic direct-handoff test", originalText: evidence.renderedText,
+            videoEvidence: evidence)
+        let prepared = try ObservationNarrationComposer.prepare(acquisition: source, frameID: frames[1].id, quote: "Cedar Mail")
+        #expect(prepared.reference.frameID == frames[1].id)
+        #expect(prepared.reference.quote == "Cedar Mail")
+        #expect(prepared.spokenText.hasSuffix("\nCedar Mail"))
+        for (id, quote) in [(frames[1].id, "A synthetic visible line."), (frames[0].id, "synthetic visible"),
+                            (UUID(), "Cedar Mail"), (frames[0].id, " Cedar Mail")] {
+            #expect(throws: ObservationNarrationError.invalidExcerpt) {
+                try ObservationNarrationComposer.prepare(acquisition: source, frameID: id, quote: quote)
+            }
+        }
+    }
+
+    @Test func directHandoffCannotReplaceUnavailableOrCorrectedSourceWithAnotherLine() throws {
+        let source = try video()
+        let frame = try #require(source.videoEvidence?.frames.first)
+        let archive = try ObservationArchive(entries: [source])
+        let prepared = try ObservationNarrationComposer.prepare(acquisition: source, frameID: frame.id, quote: "Cedar Mail")
+        #expect(try ObservationNarrationComposer.resolve(reference: prepared.reference, archive: archive) == prepared)
+        var changed = archive
+        try changed.correct(id: source.id, text: "Cedar Mail")
+        let corrected = try #require(changed.entry(id: source.id))
+        #expect(throws: ObservationNarrationError.invalidExcerpt) {
+            try ObservationNarrationComposer.prepare(acquisition: corrected, frameID: frame.id, quote: "Cedar Mail")
+        }
+        #expect(throws: ObservationNarrationError.sourceChanged) {
+            try ObservationNarrationComposer.resolve(reference: prepared.reference, archive: changed)
+        }
+        let truncated = try video(truncated: true)
+        let truncatedFrame = try #require(truncated.videoEvidence?.frames.first)
+        #expect(throws: ObservationNarrationError.invalidExcerpt) {
+            try ObservationNarrationComposer.prepare(acquisition: truncated, frameID: truncatedFrame.id, quote: "Cedar Mail")
+        }
+        try changed.assignObservedDate(id: source.id, value: nil)
+        let undated = try #require(changed.entry(id: source.id))
+        #expect(throws: ObservationNarrationError.dateRequired) {
+            try ObservationNarrationComposer.prepare(acquisition: undated, frameID: frame.id, quote: "Cedar Mail")
+        }
+        try changed.assignObservedDate(id: source.id, value: source.observedDate, origin: .unknown)
+        let unknown = try #require(changed.entry(id: source.id))
+        #expect(throws: ObservationNarrationError.originNotEligible) {
+            try ObservationNarrationComposer.prepare(acquisition: unknown, frameID: frame.id, quote: "Cedar Mail")
+        }
+    }
+
 }

@@ -20,7 +20,7 @@ public enum AppleIntelligenceError: LocalizedError, Sendable, Equatable {
         case .emptyInput:
             "Add observations or import a readable screen recording before analyzing."
         case .inputTooLong(let maximum):
-            "These observations are too long for this first prototype. Trim them to \(maximum) characters or analyze a shorter recording."
+            "These observations exceed the saved-source limit of \(maximum) characters. Longer saved observations within that limit are analyzed in smaller requests."
         case .alreadyAnalyzing:
             "An analysis is already running. Wait for it to finish or cancel it."
         case .noGroundedSteps:
@@ -38,7 +38,7 @@ public final class AppleIntelligenceService {
     public private(set) var isAvailable = false
     public private(set) var capabilitySummary = "Checking Apple's local model…"
     public private(set) var isAnalyzing = false
-    public static let maximumInputCharacters = 8_000
+    public static let maximumInputCharacters = ObservationArchive.maximumOriginalTextCharacters
 
     public init() {
         refreshCapabilities()
@@ -75,10 +75,23 @@ public final class AppleIntelligenceService {
 
     public func analyze(
         text: String,
-        sourceLabel: String = "Selected observation"
+        sourceLabel: String = "Selected observation",
+        progress: (@MainActor @Sendable (_ completedRequests: Int, _ totalRequests: Int) -> Void)? = nil
     ) async throws -> RoutineVersion {
         let input = try ObservationText.validated(text, maximumCharacters: Self.maximumInputCharacters)
+        guard input.utf8.count <= ObservationArchive.maximumTextBytes else {
+            throw RoutineEvidenceProposalError.inputBudgetExceeded
+        }
         let evidence = try LearningEvidencePolicy.prepare(input)
+        let sourceKind = evidence[0].kind
+        let promptPrefix = "Evidence type: \(sourceKind.rawValue). Decide whether there is actual activity evidence; an empty result is valid.\n<observations>\n"
+        let promptSuffix = "\n</observations>"
+        let chunks = try LearningTextChunker.split(evidence.map(\.text).joined(separator: "\n\n"),
+            maximumCharacters: LearningEvidencePreparation.maximumBatchCharacters - promptPrefix.count - promptSuffix.count,
+            maximumUTF8Bytes: LearningEvidencePreparation.maximumBatchUTF8Bytes - promptPrefix.utf8.count - promptSuffix.utf8.count)
+        guard chunks.count <= LearningEvidencePreparation.maximumModelCalls else {
+            throw RoutineEvidenceProposalError.inputBudgetExceeded
+        }
         guard !isAnalyzing else { throw AppleIntelligenceError.alreadyAnalyzing }
         refreshCapabilities()
         guard isAvailable else { throw AppleIntelligenceError.unavailable(capabilitySummary) }
@@ -90,18 +103,21 @@ public final class AppleIntelligenceService {
         var seen = Set<String>()
         let schema = try RoutineGenerationSchema.make()
         // Small independent sessions keep the OS 26 path bounded, including non-Latin input.
-        let sourceKind = evidence[0].kind
-        for chunk in LearningEvidencePolicy.inferenceChunks(evidence, maximumCharacters: 1_500) {
+        progress?(0, chunks.count)
+        for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
             let session = LanguageModelSession(model: SystemLanguageModel.default, instructions: Self.instructions)
             let response = try await session.respond(
-                to: "Evidence type: \(sourceKind.rawValue). Decide whether there is actual activity evidence; an empty result is valid.\n<observations>\n\(chunk)\n</observations>",
+                to: promptPrefix + chunk + promptSuffix,
                 schema: schema,
                 options: GenerationOptions(temperature: 0, maximumResponseTokens: 1_100)
             )
             try Task.checkCancellation()
             let proposal = try JSONDecoder().decode(ModelRoutineProposal.self, from: Data(response.content.jsonString.utf8))
-            guard proposal.outcome == .supportedActivities else { continue }
+            guard proposal.outcome == .supportedActivities else {
+                progress?(index + 1, chunks.count)
+                continue
+            }
             for item in proposal.steps {
                 let quote = item.evidenceQuote.trimmingCharacters(in: .whitespacesAndNewlines)
                 // A quote must belong to one eligible original frame/description, not span
@@ -121,7 +137,9 @@ public final class AppleIntelligenceService {
                 let key = "\(step.kind.rawValue):\(ObservationText.normalized(step.title))"
                 if seen.insert(key).inserted { accepted.append(step) }
             }
+            progress?(index + 1, chunks.count)
         }
+        try Task.checkCancellation()
         guard !accepted.isEmpty else { throw AppleIntelligenceError.insufficientActivityEvidence }
         return RoutineVersion(
             sourceLabel: String(sourceLabel.prefix(160)),
@@ -137,7 +155,8 @@ public final class AppleIntelligenceService {
     /// No tools execute actions, and the current approved routine is not mutated here.
     public func propose(evidence: PreparedLearningEvidence,
                         preserving routine: RoutineVersion?,
-                        preferences: RoutinePreferenceJournal? = nil) async throws -> EvidenceRoutineProposal {
+                        preferences: RoutinePreferenceJournal? = nil,
+                        progress: (@MainActor @Sendable (_ completedRequests: Int, _ totalRequests: Int) -> Void)? = nil) async throws -> EvidenceRoutineProposal {
         try preferences?.validate()
         guard !isAnalyzing else { throw AppleIntelligenceError.alreadyAnalyzing }
         guard !evidence.units.isEmpty,
@@ -151,8 +170,7 @@ public final class AppleIntelligenceService {
         isAnalyzing = true
         defer { isAnalyzing = false }
         #if canImport(FoundationModels)
-        var steps: [EvidenceRoutineStepInput] = []
-        for (batch, prompt) in zip(evidence.batches, evidence.prompts) {
+        let steps = try await LearningBatchRunner.run(evidence: evidence, progress: progress) { batch, prompt in
             try Task.checkCancellation()
             let ids = Set(batch.map(\.id))
             let session = LanguageModelSession(model: SystemLanguageModel.default,
@@ -165,12 +183,12 @@ public final class AppleIntelligenceService {
                 from: Data(response.content.jsonString.utf8))
             if result.outcome == "insufficientEvidence" {
                 guard result.steps.isEmpty else { throw RoutineEvidenceProposalError.invalidProposal }
-                continue
+                return []
             }
             guard result.outcome == "supportedActivities", result.steps.count <= 4 else {
                 throw RoutineEvidenceProposalError.invalidProposal
             }
-            for item in result.steps {
+            return try result.steps.map { item in
                 guard let kind = StepKind(rawValue: item.kind) else { throw RoutineEvidenceProposalError.invalidProposal }
                 let citations = try item.citations.map { citation -> RoutineEvidenceCitationInput in
                     guard let id = UUID(uuidString: citation.unitID), ids.contains(id) else {
@@ -178,8 +196,8 @@ public final class AppleIntelligenceService {
                     }
                     return .init(unitID: id, quote: citation.quote)
                 }
-                steps.append(.init(title: item.title, detail: item.detail, kind: kind,
-                    durationMinutes: item.durationMinutes, citations: citations))
+                return .init(title: item.title, detail: item.detail, kind: kind,
+                    durationMinutes: item.durationMinutes, citations: citations)
             }
         }
         try Task.checkCancellation()
@@ -211,7 +229,10 @@ public final class AppleIntelligenceService {
     Include a short exact verbatim quote from the observations as evidence.
     A screenshot shows a moment, not an established habit. Note uncertainty in the detail.
     Propose reading, reviewing or drafting only; never promise to send, delete or change accounts.
-    Use a short title and one concise detail sentence. Durations are tentative estimates, not measured facts.
+    Use a short, reusable activity title and one concise detail sentence. Name the broad supported activity
+    (for example Review calendar), not each event, message, person or screen as a separate routine step.
+    Different snippets of the same activity should use the same title and kind. Never merge unrelated
+    activities just to fill a category. Durations are tentative planning estimates, not measured facts.
     Return no steps when there is no useful evidence. The person will review and approve the result later.
     """
 }

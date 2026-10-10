@@ -11,6 +11,7 @@ struct WeeklyReviewView: View {
     @ViewState<Int> private var weekOffset = 0
     @ViewState<Date> private var today = Date()
     @ViewState<Bool> private var showingDays = false
+    @ViewState<Bool> private var showingRoutineTiming = false
     @ViewState<Bool> private var learnAfterDismissal = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -18,6 +19,10 @@ struct WeeklyReviewView: View {
         Calendar.current.date(byAdding: .day, value: weekOffset * 7, to: today) ?? today
     }
     private var week: SevenDaySummary? { try? store.history.sevenDaySummary(endingOn: periodEnd) }
+    private var observedPeriod: ObservationReviewPeriod? {
+        try? ObservationReviewPeriod(archive: store.observationArchive, endingOn: periodEnd,
+                                     calendarTimeZoneIdentifier: TimeZone.current.identifier)
+    }
     private var periodTitle: String {
         let start = Calendar.current.date(byAdding: .day, value: -6, to: periodEnd) ?? periodEnd
         return "\(start.formatted(.dateTime.month(.abbreviated).day())) – \(periodEnd.formatted(.dateTime.month(.abbreviated).day().year()))"
@@ -26,21 +31,25 @@ struct WeeklyReviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                Text("A little perspective.")
-                    .font(.system(.largeTitle, design: .serif, weight: .medium))
                 periodSelector
                 activeRecordingStatus
                 if let week {
-                    weekSummary(week)
-                    if hasObservationsInPeriod {
-                        ObservationPeriodReviewLink(store: store, endingOn: periodEnd, onLearn: onLearn)
-                    }
                     if showingDays { days(in: week) }
-                    if !week.apps.isEmpty {
-                        DisclosureGroup("Observed app time") {
-                            ForEach(week.apps) { app in observedApp(app) }
-                        }.font(.subheadline).tint(MorningStyle.accent)
+                    if let observedPeriod, !observedPeriod.partitions.isEmpty {
+                        ObservedMorningOverviewView(store: store, report: observedPeriod,
+                                                    endingOn: periodEnd, onLearn: onLearn)
+                        DisclosureGroup(isExpanded: $showingRoutineTiming) {
+                            weekSummary(week).padding(.top, 12)
+                        } label: {
+                            Text("Routine-run timing")
+                                .font(.subheadline.weight(.medium))
+                                .accessibilityValue(showingRoutineTiming ? "Expanded" : "Collapsed")
+                                .accessibilityIdentifier("review.routineTiming")
+                        }.tint(MorningStyle.accent)
+                    } else {
+                        weekSummary(week)
                     }
+                    observedAppTimes(week)
                 } else {
                     Text("This period couldn't be displayed. Your saved mornings are unchanged.")
                         .font(.subheadline).foregroundStyle(.secondary)
@@ -107,6 +116,14 @@ struct WeeklyReviewView: View {
             guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
             changeWeek(by: value.translation.width > 0 ? -1 : 1)
         })
+    }
+
+    @ViewBuilder private func observedAppTimes(_ week: SevenDaySummary) -> some View {
+        if !week.apps.isEmpty {
+            DisclosureGroup("Observed app time") {
+                ForEach(week.apps) { app in observedApp(app) }
+            }.font(.subheadline).tint(MorningStyle.accent)
+        }
     }
 
     private func weekSummary(_ week: SevenDaySummary) -> some View {
@@ -269,7 +286,10 @@ struct WeeklyReviewView: View {
     }
 
     private func changeWeek(by offset: Int) {
-        withAnimation(.snappy) { weekOffset = min(0, weekOffset + offset) }
+        withAnimation(.snappy) {
+            weekOffset = min(0, weekOffset + offset)
+            showingRoutineTiming = false
+        }
     }
 }
 
@@ -584,19 +604,12 @@ private struct ReviewDayDetail: View {
 
     var body: some View {
         List {
-            Section {
-                if observations.isEmpty {
+            if observations.isEmpty {
+                Section("Observed mornings") {
                     Text("No observation dated to this day.").foregroundStyle(.secondary)
-                } else {
-                    ForEach(observations) { entry in
-                        NavigationLink {
-                            ObservationHistoryDetail(store: store, observationID: entry.id, onLearn: onLearn)
-                        } label: { ObservationHistoryRow(entry: entry) }
-                            .accessibilityIdentifier("observation.row.\(entry.id.uuidString)")
-                    }
                 }
-            } header: { Text("Observed mornings") } footer: {
-                Text("Saved under this local date, with each recording’s time zone shown separately. Recordings are not joined into one timeline or a measurement of phone use.")
+            } else {
+                ObservedMorningDaySections(store: store, dayKey: day.dayKey, onLearn: onLearn)
             }
             if day.runs.isEmpty {
                 Section {

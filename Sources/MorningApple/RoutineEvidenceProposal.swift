@@ -4,7 +4,7 @@ import MorningCore
 
 public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equatable {
     case invalidSelection, dateRequired, incompatibleSources, unsupportedSource, insufficientEvidence
-    case inputBudgetExceeded, tooManySteps, invalidCitation, invalidProposal
+    case inputBudgetExceeded, outputBudgetExceeded, tooManySteps, invalidCitation, invalidProposal
     public var errorDescription: String? {
         switch self {
         case .invalidSelection: "Select one to five different saved observations."
@@ -12,7 +12,8 @@ public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equat
         case .incompatibleSources: "Select observations in the same time zone and with the same human or synthetic origin."
         case .unsupportedSource: "This source needs a reviewed written correction before it can support a proposal."
         case .insufficientEvidence: "Each selected observation needs usable activity evidence. Review its notes or choose another observation."
-        case .inputBudgetExceeded: "These observations exceed the local proposal budget. Select fewer observations or add shorter reviewed corrections. Nothing was silently shortened."
+        case .inputBudgetExceeded: "These saved observations exceed the bounded local workload or contain a text unit too large to send safely. Your complete saved source is unchanged; nothing was silently shortened."
+        case .outputBudgetExceeded: "The combined suggestion contains more distinct supporting text than can fit in one reviewable plan. Your complete observations are still saved; choose a smaller set of observations. Nothing was silently shortened."
         case .tooManySteps: "This proposal needs more than ten moments, including your kept rituals. Select fewer observations; no kept ritual was removed."
         case .invalidCitation: "A proposed step could not be tied to the exact supplied evidence. Your current routine is unchanged."
         case .invalidProposal: "This proposal is incomplete or inconsistent with its saved evidence. Create another proposal."
@@ -244,10 +245,10 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
             guard let step = routine.steps.first(where: { $0.id == item.stepID }),
                   !step.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   step.title.count <= (inferred ? 120 : 2_000),
-                  step.detail.count <= (inferred ? 8_000 : 32_000),
+                  step.detail.count <= LearningEvidencePreparation.maximumDetailCharacters,
                   (1...(item.reason == .inferredEvidence ? 60 : 1_440)).contains(step.durationMinutes),
                   !inferred || (!step.isRequired && step.automation == nil && step.observationReference == nil),
-                  item.citations.count <= 24,
+                  item.citations.count <= LearningEvidencePreparation.maximumCitationsPerStep,
                   item.preferenceIDs.count <= 100,
                   Set(item.preferenceIDs).count == item.preferenceIDs.count,
                   Set(item.preferenceIDs).isSubset(of: preferenceIDs),
@@ -346,10 +347,16 @@ public struct EvidenceRoutineStepInput: Equatable, Sendable {
 }
 
 public enum LearningEvidencePreparation {
-    public static let maximumSubmittedCharacters = 8_000
-    public static let maximumModelCalls = 6
-    private static let maximumBatchCharacters = 1_500
+    // Work is bounded by the existing 1–5 saved acquisitions, not by an 8k
+    // whole-morning cutoff. Requests remain small, sequential, and cancellable.
+    public static let maximumModelCalls = 768
+    public static let maximumBatchCharacters = 1_500
+    public static let maximumBatchUTF8Bytes = 6_000
+    public static let maximumSubmittedCharacters = maximumModelCalls * maximumBatchCharacters
+    public static let maximumCitationsPerStep = 512
+    public static let maximumDetailCharacters = 32_000
     private static let maximumUnitCharacters = 1_100
+    private static let maximumUnitUTF8Bytes = 3_000
 
     public static func prepare(acquisitions: [ObservationAcquisition]) throws -> PreparedLearningEvidence {
         guard (1...5).contains(acquisitions.count), Set(acquisitions.map(\.id)).count == acquisitions.count else {
@@ -369,7 +376,7 @@ public enum LearningEvidencePreparation {
             let previousCount = units.count
             if let correction = entry.correctedText {
                 guard LearningEvidencePolicy.isEligibleWrittenContext(correction) else { throw RoutineEvidenceProposalError.insufficientEvidence }
-                units += makeUnits(text: correction, entry: entry, layer: .correction, sampleID: nil, kind: .userReportedActivity)
+                units += try makeUnits(text: correction, entry: entry, layer: .correction, sampleID: nil, kind: .userReportedActivity)
             } else if let video = entry.videoEvidence {
                 for frame in video.frames {
                     let review = entry.frameReviews.first { $0.sampleID == frame.id }
@@ -386,7 +393,7 @@ public enum LearningEvidencePreparation {
                         guard let label = review.label, let quote = review.evidenceQuote else { return nil }
                         return .init(label: label, evidenceQuote: quote, reviewedAt: review.reviewedAt)
                     }
-                    units += makeUnits(text: frame.text, entry: entry, layer: .videoFrame, sampleID: frame.id,
+                    units += try makeUnits(text: frame.text, entry: entry, layer: .videoFrame, sampleID: frame.id,
                         kind: .visibleTaskContent, reviewedContext: reviewedContext)
                 }
             } else {
@@ -406,20 +413,20 @@ public enum LearningEvidencePreparation {
                 let valid = kind == .userReportedActivity ? LearningEvidencePolicy.isEligibleWrittenContext(text)
                     : LearningEvidencePolicy.isEligibleVisualContext(text)
                 guard valid else { throw RoutineEvidenceProposalError.insufficientEvidence }
-                units += makeUnits(text: text, entry: entry, layer: .original, sampleID: nil, kind: kind, startingOffset: sourceOffset)
+                units += try makeUnits(text: text, entry: entry, layer: .original, sampleID: nil, kind: kind, startingOffset: sourceOffset)
             }
             guard units.count > previousCount else { throw RoutineEvidenceProposalError.insufficientEvidence }
         }
         // No cross-day deduplication. Even identical text keeps independent source IDs.
-        // Each prompt includes its identifiers/type overhead in the overall 8k limit.
+        // Every eligible source character is retained. Both request limits include identifiers and review metadata.
         var batches: [[PreparedLearningEvidenceUnit]] = []
         var current: [PreparedLearningEvidenceUnit] = []
         for unit in units {
-            if prompt(current + [unit]).count > maximumBatchCharacters, !current.isEmpty {
+            if !fitsRequest(prompt(current + [unit])), !current.isEmpty {
                 batches.append(current); current = []
             }
             current.append(unit)
-            guard prompt(current).count <= maximumBatchCharacters else { throw RoutineEvidenceProposalError.inputBudgetExceeded }
+            guard fitsRequest(prompt(current)) else { throw RoutineEvidenceProposalError.inputBudgetExceeded }
         }
         if !current.isEmpty { batches.append(current) }
         let prompts = batches.map(prompt)
@@ -437,7 +444,7 @@ public enum LearningEvidencePreparation {
                                 preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal? = nil,
                                 at date: Date = Date()) throws -> EvidenceRoutineProposal {
         try preferences?.validate()
-        guard !steps.isEmpty, steps.count <= 24, date.timeIntervalSince1970.isFinite else {
+        guard !steps.isEmpty, steps.count <= maximumModelCalls * 4, date.timeIntervalSince1970.isFinite else {
             throw RoutineEvidenceProposalError.insufficientEvidence
         }
         if let base {
@@ -472,7 +479,7 @@ public enum LearningEvidencePreparation {
                 let id = proposed[index].id
                 var existing = citationsByStep[id] ?? []
                 for citation in citations where !existing.contains(citation) { existing.append(citation) }
-                guard existing.count <= 24 else { throw RoutineEvidenceProposalError.invalidProposal }
+                guard existing.count <= maximumCitationsPerStep else { throw RoutineEvidenceProposalError.outputBudgetExceeded }
                 citationsByStep[id] = existing
             } else {
                 let step = RoutineStep(title: title,
@@ -490,7 +497,7 @@ public enum LearningEvidencePreparation {
                 seenQuotes.insert(Data(citation.quote.utf8)).inserted ? citation.quote : nil
             }
             proposed[index].detail += "\nEvidence: " + quotes.map { "“\($0)”" }.joined(separator: "\nEvidence: ")
-            guard proposed[index].detail.count <= 8_000 else { throw RoutineEvidenceProposalError.invalidProposal }
+            guard proposed[index].detail.count <= maximumDetailCharacters else { throw RoutineEvidenceProposalError.outputBudgetExceeded }
         }
         let synthetic = evidence.sourceSnapshots.first?.origin == .synthetic
         let source = synthetic ? "Demo fixture — synthetic saved observations" : "Selected saved observations — tentative proposal"
@@ -536,23 +543,46 @@ public enum LearningEvidencePreparation {
             sourceLayer: entry.correctedText != nil ? .correction : (entry.videoEvidence != nil ? .videoFrame : .original))
     }
 
+    /// Validate each request before reporting completion or retaining its result.
+    /// A later failure still aborts the whole proposal; there is no partial-success draft.
+    static func validateBatchResult(_ steps: [EvidenceRoutineStepInput], units: [PreparedLearningEvidenceUnit]) throws {
+        guard steps.count <= 4 else { throw RoutineEvidenceProposalError.invalidProposal }
+        for step in steps {
+            guard !step.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  step.title.count <= 120, step.detail.count <= 500,
+                  (1...60).contains(step.durationMinutes), (1...5).contains(step.citations.count) else {
+                throw RoutineEvidenceProposalError.invalidProposal
+            }
+            for citation in step.citations {
+                guard let unit = units.first(where: { $0.id == citation.unitID }),
+                      (8...240).contains(citation.quote.count),
+                      EvidenceText.exactRange(of: citation.quote, in: unit.text) != nil,
+                      LearningEvidencePolicy.supports(quote: citation.quote, source: unit.text, context: unit.context,
+                        kind: unit.kind, claimedKind: unit.kind.rawValue) else {
+                    throw RoutineEvidenceProposalError.invalidCitation
+                }
+            }
+        }
+    }
+
+    private static func fitsRequest(_ prompt: String) -> Bool {
+        prompt.count <= maximumBatchCharacters && prompt.utf8.count <= maximumBatchUTF8Bytes
+    }
+
     private static func makeUnits(text: String, entry: ObservationAcquisition, layer: RoutineEvidenceSourceLayer,
                                   sampleID: UUID?, kind: LearningEvidenceKind, startingOffset: Int = 0,
-                                  reviewedContext: PreparedLearningReviewedContext? = nil) -> [PreparedLearningEvidenceUnit] {
-        var result: [PreparedLearningEvidenceUnit] = []
+                                  reviewedContext: PreparedLearningReviewedContext? = nil) throws -> [PreparedLearningEvidenceUnit] {
+        let metadata = reviewPromptMetadata(reviewedContext)
+        let chunks = try LearningTextChunker.split(text,
+            maximumCharacters: maximumUnitCharacters - metadata.count,
+            maximumUTF8Bytes: maximumUnitUTF8Bytes - metadata.utf8.count)
         var offset = startingOffset
-        var index = text.startIndex
-        // Keep the same whole-operation budget without dropping OCR to make room
-        // for review metadata. Smaller exact chunks may require another batch.
-        let chunkSize = max(1, maximumUnitCharacters - reviewPromptMetadata(reviewedContext).count)
-        while index < text.endIndex {
-            let end = text.index(index, offsetBy: chunkSize, limitedBy: text.endIndex) ?? text.endIndex
-            let chunk = String(text[index..<end])
-            result.append(.init(id: UUID(), acquisitionID: entry.id, text: chunk, sourceLayer: layer,
-                sampleID: sampleID, startCharacterOffset: offset, reviewedContext: reviewedContext, context: text, evidenceKind: kind))
-            offset += chunk.count; index = end
+        return chunks.map { chunk in
+            defer { offset += chunk.count }
+            return .init(id: UUID(), acquisitionID: entry.id, text: chunk, sourceLayer: layer,
+                sampleID: sampleID, startCharacterOffset: offset, reviewedContext: reviewedContext,
+                context: text, evidenceKind: kind)
         }
-        return result
     }
 
     private static func prompt(_ units: [PreparedLearningEvidenceUnit]) -> String {

@@ -211,6 +211,7 @@ private struct ObservationSampleDetail: View {
     let timelineOrderIsValid: Bool
     @Environment(\.dismiss) private var dismiss
     @ViewState<ScreenReviewSelection?> private var reviewSelection = nil
+    @ViewState<SampleNarrationSelection?> private var narrationSelection = nil
 
     var body: some View {
         List {
@@ -260,6 +261,8 @@ private struct ObservationSampleDetail: View {
                             Text(quote).font(.subheadline).textSelection(.enabled)
                                 .accessibilityIdentifier("observation.sample.quote.\(sample.id.uuidString)")
                         }
+                        narrationAction(quote: quote, sampleID: sample.id,
+                            identifier: "observation.sample.readMoment.\(sample.id.uuidString)")
                     } else {
                         Text("No original interpretation quote is attached to this sample.")
                             .font(.caption).foregroundStyle(MorningStyle.muted)
@@ -272,6 +275,8 @@ private struct ObservationSampleDetail: View {
                             Text(reviewedQuote).font(.subheadline).textSelection(.enabled)
                                 .accessibilityIdentifier("observation.sample.userQuote.\(sample.id.uuidString)")
                         }
+                        narrationAction(quote: reviewedQuote, sampleID: sample.id,
+                            identifier: "observation.sample.readReviewedMoment.\(sample.id.uuidString)")
                     }
                     if acquisition.correctedText == nil {
                         Button(userReview == nil ? "Correct label" : "Edit your label") {
@@ -307,6 +312,24 @@ private struct ObservationSampleDetail: View {
         }
         .sheet(item: $reviewSelection) { selected in
             ObservationScreenReviewView(store: store, acquisition: selected.acquisition, sampleID: selected.id)
+        }
+        .sheet(item: $narrationSelection) { selected in
+            ObservationNarrationView(store: store, observationID: acquisition.id,
+                requestedNarration: selected.prepared)
+        }
+    }
+
+    @ViewBuilder private func narrationAction(quote: String, sampleID: UUID, identifier: String) -> some View {
+        if let prepared = try? ObservationNarrationComposer.prepare(acquisition: acquisition,
+            frameID: sampleID, quote: quote) {
+            Button {
+                narrationSelection = .init(prepared: prepared)
+            } label: {
+                Label("Read this saved moment", systemImage: "speaker.wave.2")
+            }
+            .buttonStyle(.borderless)
+            .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.voiceInputBlocksPlayback)
+            .accessibilityIdentifier(identifier)
         }
     }
 
@@ -346,4 +369,10 @@ struct ObservationSampleSourceView: View {
 private struct ScreenReviewSelection: Identifiable {
     let id: UUID
     let acquisition: ObservationAcquisition
+}
+
+/// Keeps the exact prepared reference while presenting, not a mutable selected-line index.
+private struct SampleNarrationSelection: Identifiable {
+    let id = UUID()
+    let prepared: PreparedObservationNarration
 }

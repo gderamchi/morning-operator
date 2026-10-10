@@ -87,12 +87,13 @@ struct RoutineEvidenceProposalTests {
         }
     }
 
-    @Test("Whole operation budget never silently truncates sources or selected acquisitions")
-    func excessiveEvidenceFailsBeforeInference() throws {
+    @Test("Long sources are batched completely and empty selected corrections still fail")
+    func longEvidenceIsNotSilentlyTruncated() throws {
         let long = String(repeating: "I review the calendar after breakfast. ", count: 220)
-        #expect(throws: RoutineEvidenceProposalError.inputBudgetExceeded) {
-            try LearningEvidencePreparation.prepare(acquisitions: [source(text: long)])
-        }
+        let longEvidence = try LearningEvidencePreparation.prepare(acquisitions: [source(text: long)])
+        #expect(longEvidence.modelRequestCount > 6)
+        #expect(longEvidence.units.map(\.text).joined().utf8.elementsEqual(long.utf8))
+        #expect(longEvidence.prompts.allSatisfy { $0.count <= 1_500 && $0.utf8.count <= 6_000 })
         #expect(throws: RoutineEvidenceProposalError.insufficientEvidence) {
             try LearningEvidencePreparation.prepare(acquisitions: [source(), source(day: 1, correction: "")])
         }
@@ -453,7 +454,7 @@ struct RoutineEvidenceProposalTests {
         var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         var routine = try #require(object["routine"] as? [String: Any])
         var steps = try #require(routine["steps"] as? [[String: Any]])
-        steps[0]["detail"] = String(repeating: "x", count: 8_001)
+        steps[0]["detail"] = String(repeating: "x", count: LearningEvidencePreparation.maximumDetailCharacters + 1)
         routine["steps"] = steps; object["routine"] = routine
         #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
             try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONSerialization.data(withJSONObject: object))
