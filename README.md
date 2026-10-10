@@ -19,7 +19,7 @@ flowchart LR
 
 ## A quieter morning
 
-**App source `8af8de8` is installed and launched on the owner’s iPhone; owner acceptance remains open.** The owner rejected the previous corner-popover design. Source on `codex/more-quiet-morning` now centers a warm sunrise beneath the plan, expands it into four horizontal actions, and asks for an explicit Start after Play. Moment durations, concise details and an optional English/French sample sit over a dawn/sunset-inspired background. [PHASE-ONE](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md) records actual builds, installations and test outcomes; this description does not establish them.
+**App source `1952d9f` is installed and launched on the owner’s iPhone; owner acceptance remains open.** The owner rejected the previous corner-popover design. Source on `codex/more-quiet-morning` now centers a shell-free glowing sunrise beneath the plan, reveals four custom-icon actions in a compact native-glass bar, and asks for an explicit Start after Play. Moment durations, concise details and an optional English/French sample sit over a dawn/sunset-inspired background. [PHASE-ONE](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md) records actual builds, installations and test outcomes; this description does not establish them.
 
 | Experience | V2 source behavior |
 |---|---|
@@ -49,7 +49,7 @@ French support is partial: the greeting, optional sample and some moment-purpose
 
 | Verification | Evidence |
 |---|---|
-| Current sunrise revision (`8af8de8`) | Signed and installed on the owner’s iPhone. Focused shared sample/evidence/recovery checks pass; corrected native UI failure reruns, French appearance and largest-text checks pass. The scoped runs and initial failures are preserved in [verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md); they are not a new full-suite or physical capture/model result. |
+| Current sunrise revision (`1952d9f`) | Signed, installed and launched on the owner’s iPhone. Six native checks passed, including four built sunrise alternatives in light/dark; one actual largest-text check passed separately. The previous sample/evidence/recovery results retain their earlier source scope. The scoped runs and initial failures are preserved in [verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md); they are not a new full-suite or physical capture/model result. |
 | Long-input learning and evidence | **322 shared checks passed; 6 optional checks skipped.** A final **62-test** focused run passes after the request-wrapper correction. Covers long sources, Unicode, exact offsets, final-batch coverage, cancellation, late failure and rejection of the app's own overview as habit evidence. Model generation/accuracy was not tested. |
 | Review navigation | Both corrected native simulator journeys pass: week → day → source → correction/relaunch, and exact quote → preview → explicitly added unapproved draft. Four existing review/home checks passed in the initial run. Initial failures and fixes remain in [verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md). |
 | Earlier physical installation | **`0f94f6d` signed, verified, installed and launched on the owner's iPhone, 10 October**, preserving the user store. No new physical capture, connected-service, model or listener test accompanied installation; the owner walkthrough remains open. |
