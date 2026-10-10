@@ -2,6 +2,10 @@
 
 **Current installed app source: `1952d9f`, 10 October 2026, on `codex/more-quiet-morning`.** Simulator compilation, signed iPhone compilation and deep/strict signature verification passed. Ordinary installation and launch returned success, preserving the owner's data. Design acceptance remains open. This is a testable revision, not evidence of complete morning ingestion, connected inboxes, real speech recognition or HomePod operation.
 
+## Evidence retained during local cleanup — 10 October 2026
+
+At the owner’s request, Xcode, the task runtime/simulator and regenerable builds were removed after the verified Horizon installation. The historical `.xcresult` paths below identify where checks originally ran; 92 result bundles now live in the verified local `work/pause-retained/native-test-results.tar.gz` archive. Simulator app data, recovery media and runner screenshots were separately archived and verified before deleting only MORE Design. Plain test summaries, source, original benchmark recordings and output previews remain. This cleanup adds no new feature or test pass, leaves the iPhone app in place and preserves all open acceptance boundaries.
+
 ## Shell-free Horizon revision — 10 October 2026 (`1952d9f`)
 
 The closed dock is custom vector sunrise artwork with a soft warm glow and no glass/button shell. Tapping materializes a compact 286 × 58-point native Liquid Glass command bar. All six action states use app-owned vector glyphs and readable labels. Minimum touch targets, explicit Ready → Start, session/approval guards and navigation remain intact. Four actual native alternatives—Horizon, Halo, Radiance and Ember—were rendered in light/dark using isolated synthetic data; Horizon was selected. Alternatives are DEBUG/fixture-only and do not change normal app preferences.

@@ -1,5 +1,7 @@
 # Get started with MORE
 
+**Owner’s Mac paused:** Xcode and task simulator/build caches were removed at the owner’s request on 10 October. The iPhone app and GitHub source remain. Teammates should install the compatible toolchain and use their own signing account; the steps below describe rebuilding, not tools currently present on that Mac.
+
 **Installed checkpoint: `1952d9f`, 10 October 2026.** The ordinary signed app is installed and launched with existing data preserved. Exact test scope and outstanding work are in [verification](PHASE-ONE.md).
 
 The iPhone is the active product. Use the Mac for Xcode, shared package tests and optional tethered experiments. There is no separate Mac app to install for this workflow.

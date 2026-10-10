@@ -2,6 +2,10 @@
 
 **10 October 2026 · bounded delivery.** Work on `codex/more-quiet-morning`, the branch behind draft [PR #26](https://github.com/gibouu/morning-operator/pull/26), stacked on [PR #22](https://github.com/gibouu/morning-operator/pull/22). The default-branch README points to development work; default-branch app code is not this implementation. Follow [onboarding](ONBOARDING.md), [verification](PHASE-ONE.md) and the [digest protocol](DIGEST-TEST-PROTOCOL.md) before expanding scope.
 
+## Local development paused — 10 October 2026
+
+The owner paused local development and handed the project to teammates. Xcode and the project’s iOS 27 runtime, MORE Design simulator and regenerable build caches were removed from the owner’s Mac. The installed iPhone app at `1952d9f` was left in place. Source, local recordings, previews and verified compressed test/simulator evidence were preserved. Recreate the toolchain using [onboarding](ONBOARDING.md) on the next development Mac; use the review branch, your own signing account and fresh synthetic tests. Do not transfer signing credentials or personal recordings. Existing issues #1, #2, #3, #19, #21 and #27 were refreshed for the handoff; all broader acceptance remains open.
+
 ## Current revision and acceptance
 
 The owner rejected the previous `0f94f6d` visual design. Its passing UI checks did not establish design acceptance. The new sunrise app source `1952d9f` is signed, installed and launched on the owner’s iPhone. Six focused native checks and one largest-text check pass; use [PHASE-ONE](PHASE-ONE.md) for its exact source, installation and results. The product goal remains open.
