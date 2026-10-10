@@ -69,6 +69,40 @@ public enum ScreenRecordingDuration: Int, CaseIterable, Identifiable, Sendable, 
     public var displayName: String { "\(rawValue / 60) minutes" }
 }
 
+/// The writer's deadline is a waiting state, not a terminal error. This is the
+/// native service's authoritative completion policy, shared with deterministic
+/// tests. File validation and durable recovery ownership still follow retention.
+struct ScreenRecordingFinalizationState: Sendable {
+    enum Disposition: Equatable { case waiting, retain, discard }
+
+    private(set) var writerFinished = false
+    private(set) var discardRequested = false
+    private(set) var failureDetail: String?
+    private(set) var deadlineExceeded = false
+
+    mutating func requestDiscard() { discardRequested = true }
+
+    mutating func fail(_ detail: String) {
+        failureDetail = failureDetail ?? detail
+        discardRequested = true
+    }
+
+    mutating func writerDidFinish(error: String?) {
+        writerFinished = true
+        if let error { fail(error) }
+    }
+
+    mutating func finalizationTimedOut() {
+        // No discard/failure mutation: a later successful close stays recoverable.
+        deadlineExceeded = true
+    }
+
+    func disposition(streamStopped: Bool, startPending: Bool) -> Disposition {
+        guard streamStopped, writerFinished, !startPending else { return .waiting }
+        return discardRequested || failureDetail != nil ? .discard : .retain
+    }
+}
+
 /// The service's provenance lifecycle is independent of capture-resource cleanup: a
 /// finalized URL keeps its context until durable handoff succeeds or it is discarded.
 /// Stale or duplicate native callbacks cannot replace the current session's first start.
@@ -170,7 +204,7 @@ public final class ScreenRecordingService {
     /// A cancelled, still-unresolved start can outlive its sheet. The start completion retains
     /// this service and stops any late successful start. An active capture cannot be dismissed.
     public var canDismiss: Bool {
-        !isBusy || (discardWhenFinished && startPending && stream?.isCapturing == false)
+        !isBusy || (finalization.discardRequested && startPending && stream?.isCapturing == false)
     }
 
     @ObservationIgnored private var stream: SCStream?
@@ -186,10 +220,8 @@ public final class ScreenRecordingService {
     @ObservationIgnored private var stopPending = false
     @ObservationIgnored private var stopAttemptID: UUID?
     @ObservationIgnored private var streamStopped = false
-    @ObservationIgnored private var recordingFinished = false
-    @ObservationIgnored private var discardWhenFinished = false
+    @ObservationIgnored private var finalization = ScreenRecordingFinalizationState()
     @ObservationIgnored private var stopReason: String?
-    @ObservationIgnored private var failureDetail: String?
     // Only an acknowledged active capture takes this lease. Start/stop completion closures
     // retain their own operation until it returns, including if the sheet has gone away.
     @ObservationIgnored private var activeLifetime: ScreenRecordingService?
@@ -229,12 +261,10 @@ public final class ScreenRecordingService {
         outputStarted = false
         stopPending = false
         stopAttemptID = nil
-        recordingFinished = false
+        finalization = ScreenRecordingFinalizationState()
         streamStopped = false
-        discardWhenFinished = false
         needsStopRetry = false
         stopReason = nil
-        failureDetail = nil
         let delegate = ScreenRecordingDelegateBridge(owner: self, sessionID: token)
         bridge = delegate
         let picker = SCContentSharingPicker.shared
@@ -257,7 +287,7 @@ public final class ScreenRecordingService {
     }
 
     public func discard() {
-        discardWhenFinished = true
+        finalization.requestDiscard()
         if state == .choosing {
             detachPicker()
             releaseStoppedResources()
@@ -280,7 +310,7 @@ public final class ScreenRecordingService {
     public func discardAndWait() async throws {
         if let task = forgetCleanupTask { try await task.value; return }
         isDiscardingForForget = true
-        discardWhenFinished = true
+        finalization.requestDiscard()
         let task = Task { @MainActor [self] in
             defer { forgetCleanupTask = nil }
             discard()
@@ -321,7 +351,7 @@ public final class ScreenRecordingService {
         guard sessionID == token, Self.pickerOwnerID == token, state == .choosing, selection.existingStreamID == nil,
               let bridge else { return }
         if let issue = recordingAdmissionIssue() {
-            discardWhenFinished = true
+            finalization.requestDiscard()
             requestShutdown(reason: issue)
             return
         }
@@ -375,12 +405,11 @@ public final class ScreenRecordingService {
         reconcileOutputStart()
         startPending = false
         if let error {
-            failureDetail = failureDetail ?? error
-            discardWhenFinished = true
+            finalization.fail(error)
             if stream?.isCapturing != true && !outputStarted {
                 // The start operation actually failed, and no writer ever started.
                 streamStopped = true
-                recordingFinished = true
+                finalization.writerDidFinish(error: error)
                 finishIfReady()
             } else {
                 requestShutdown(reason: error)
@@ -393,7 +422,7 @@ public final class ScreenRecordingService {
             activeLifetime = self
             streamStopped = false
         }
-        if discardWhenFinished || failureDetail != nil || state == .stopping {
+        if finalization.discardRequested || finalization.failureDetail != nil || state == .stopping {
             requestShutdown(reason: stopReason ?? "Stopping the cancelled recording request…")
         } else if state == .starting {
             armDeadline(seconds: 20, token: token, kind: .start)
@@ -417,7 +446,7 @@ public final class ScreenRecordingService {
     fileprivate func recordingStarted(outputID: ObjectIdentifier, sessionID token: UUID) {
         guard sessionID == token, let output, ObjectIdentifier(output) == outputID,
               reconcileOutputStart() else { return }
-        if discardWhenFinished || failureDetail != nil || state == .stopping {
+        if finalization.discardRequested || finalization.failureDetail != nil || state == .stopping {
             requestShutdown(reason: stopReason ?? "Stopping the cancelled recording request…")
             return
         }
@@ -446,11 +475,7 @@ public final class ScreenRecordingService {
 
     fileprivate func recordingEnded(outputID: ObjectIdentifier, sessionID token: UUID, error: String?) {
         guard sessionID == token, let output, ObjectIdentifier(output) == outputID else { return }
-        recordingFinished = true
-        if let error {
-            failureDetail = failureDetail ?? error
-            discardWhenFinished = true
-        }
+        finalization.writerDidFinish(error: error)
         if !streamStopped {
             requestShutdown(reason: stopReason ?? "Your recording finished and is ready to review.")
         }
@@ -490,8 +515,8 @@ public final class ScreenRecordingService {
             let removed = removeTemporaryFile()
             releaseStoppedResources()
             if removed {
-                state = failureDetail == nil ? .idle : .failed
-                message = failureDetail ?? reason
+                state = finalization.failureDetail == nil ? .idle : .failed
+                message = finalization.failureDetail ?? reason
             }
             return
         }
@@ -505,7 +530,7 @@ public final class ScreenRecordingService {
         }
         if !startPending && !startSucceeded && !outputStarted && !stream.isCapturing {
             streamStopped = true
-            recordingFinished = true
+            finalization.writerDidFinish(error: nil)
             finishIfReady()
             return
         }
@@ -513,7 +538,7 @@ public final class ScreenRecordingService {
             message = "Screen capture has stopped. Finishing the recording…"
             // The previous finalization deadline may have elapsed while start was still
             // pending. A late start completion must establish a fresh bounded writer wait.
-            if !startPending && !recordingFinished {
+            if !startPending && !finalization.writerFinished {
                 needsStopRetry = false
                 armDeadline(seconds: 30, token: token, kind: .finalization)
             }
@@ -555,16 +580,16 @@ public final class ScreenRecordingService {
     }
 
     private func finishIfReady() {
-        guard streamStopped, recordingFinished, !startPending else { return }
+        let disposition = finalization.disposition(streamStopped: streamStopped, startPending: startPending)
+        guard disposition != .waiting else { return }
         // didFinish/stream-stop tasks may reach the main actor before the start task.
         // Atomically recover/close callback-entry evidence before releasing its delegate.
         reconcileOutputStart(closing: true)
-        let detail = failureDetail
-        let discarded = discardWhenFinished
+        let detail = finalization.failureDetail
         let finishedMessage = stopReason
         detachPicker()
         releaseStoppedResources()
-        if discarded || detail != nil {
+        if disposition == .discard {
             if removeTemporaryFile() {
                 state = detail == nil ? .idle : .failed
                 message = detail ?? "Recording discarded."
@@ -632,19 +657,19 @@ public final class ScreenRecordingService {
                 }
             case .finalization:
                 guard self.streamStopped, !self.startPending else { return }
-                // A deadline is not a writer completion. Retain ownership and suppress
-                // handoff until the native writer actually finishes; cleanup may be retried.
-                self.failureDetail = self.failureDetail ?? "Screen capture stopped, but the recording hasn't finished closing. Retry cleanup after the system finishes."
-                self.discardWhenFinished = true
+                // Keep ownership without converting a slow successful close into deletion.
+                // Explicit discard/Forget and actual writer failures remain sticky.
+                self.finalization.finalizationTimedOut()
                 self.needsStopRetry = true
-                self.message = self.failureDetail ?? "The recording is still closing. Retry cleanup."
+                self.message = self.finalization.failureDetail ?? (self.finalization.discardRequested
+                    ? "Screen capture stopped. Waiting for the recording to finish closing before it can be removed. Retry cleanup after it closes."
+                    : "Screen capture stopped. The recording is still closing and is being kept. Wait or retry Stop; it will be available after it finishes closing.")
             }
         }
     }
 
     private func fail(_ detail: String) {
-        failureDetail = failureDetail ?? detail
-        discardWhenFinished = true
+        finalization.fail(detail)
         recordedURL = nil
         requestShutdown(reason: detail)
     }

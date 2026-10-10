@@ -191,6 +191,10 @@ final class ObservationNarrationTests: XCTestCase {
     }
 
     private func tap(_ identifier: String, in app: XCUIApplication) {
+        if identifier == "run.start" {
+            MorningUITestNavigation.tapButton(identifier, in: app)
+            return
+        }
         reveal(app.buttons[identifier], in: app).tap()
     }
 

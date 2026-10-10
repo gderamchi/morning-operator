@@ -24,7 +24,7 @@ final class VoicePlaybackTests: XCTestCase {
         app.buttons["routine.approve"].tap()
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
-        app.buttons["run.start"].tap()
+        MorningUITestNavigation.tapButton("run.start", in: app)
         let step = app.staticTexts["run.step"]
         XCTAssertTrue(step.waitForExistence(timeout: 5))
         XCTAssertEqual(step.label, "Your morning")
@@ -422,6 +422,8 @@ enum MorningUITestNavigation {
                 XCTAssertTrue(home.isHittable, app.debugDescription, file: file, line: line)
                 home.tap()
             }
+            let closeActions = app.buttons["morning.closeActions"]
+            if closeActions.exists, closeActions.isHittable { closeActions.tap() }
             XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 5),
                           "Morning must expose its sunrise control.\n\(app.debugDescription)", file: file, line: line)
         case "Review":
@@ -449,10 +451,20 @@ enum MorningUITestNavigation {
         let action = app.buttons[identifier]
         if action.exists, action.isHittable { return }
         let sunrise = app.buttons["morning.actions"]
-        XCTAssertTrue(sunrise.waitForExistence(timeout: 5), app.debugDescription, file: file, line: line)
-        XCTAssertTrue(sunrise.isHittable, app.debugDescription, file: file, line: line)
-        sunrise.tap()
+        if sunrise.exists {
+            XCTAssertTrue(sunrise.isHittable, app.debugDescription, file: file, line: line)
+            sunrise.tap()
+        } else if !app.buttons["morning.closeActions"].exists {
+            XCTAssertTrue(sunrise.waitForExistence(timeout: 5), app.debugDescription, file: file, line: line)
+            XCTAssertTrue(sunrise.isHittable, app.debugDescription, file: file, line: line)
+            sunrise.tap()
+        }
         XCTAssertTrue(action.waitForExistence(timeout: 5), "Missing morning action: \(identifier)\n\(app.debugDescription)", file: file, line: line)
+        let horizontal = app.scrollViews["morning.actionsScroll"]
+        for _ in 0..<4 where !action.isHittable && horizontal.exists {
+            if action.frame.midX < horizontal.frame.midX { horizontal.swipeRight() }
+            else { horizontal.swipeLeft() }
+        }
         XCTAssertTrue(action.isHittable, app.debugDescription, file: file, line: line)
     }
 
@@ -479,7 +491,7 @@ enum MorningUITestNavigation {
 
     static func tapButton(_ identifier: String, in app: XCUIApplication,
                           file: StaticString = #filePath, line: UInt = #line) {
-        if ["run.start", "run.resume", "morning.reviewDraft", "morning.update", "morning.review", "morning.learn", "morning.settings"].contains(identifier) {
+        if ["run.start", "run.resume", "morning.reviewDraft", "morning.review", "morning.learn", "morning.settings"].contains(identifier) {
             revealMorningAction(identifier, in: app, file: file, line: line)
         }
         let button = app.buttons[identifier]
@@ -502,5 +514,13 @@ enum MorningUITestNavigation {
         }
         XCTAssertTrue(button.isHittable, "Control is not hittable: \(identifier)", file: file, line: line)
         button.tap()
+        if identifier == "run.start" {
+            let confirm = app.buttons["morning.confirmStart"]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 5),
+                          "Play must open the explicit ready state.\n\(app.debugDescription)", file: file, line: line)
+            XCTAssertTrue(confirm.isHittable && confirm.isEnabled, app.debugDescription, file: file, line: line)
+            confirm.tap()
+            XCTAssertTrue(confirm.waitForNonExistence(timeout: 5), app.debugDescription, file: file, line: line)
+        }
     }
 }

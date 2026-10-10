@@ -83,7 +83,7 @@ final class MorningEntryUITests: XCTestCase {
         let app = launch(["--ui-testing-approved", "--ui-testing-start-entry-on-return"])
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 10))
-        app.buttons["run.start"].tap()
+        MorningUITestNavigation.tapButton("run.start", in: app)
         app.buttons["run.controls"].tap()
         app.buttons["run.about"].tap()
         XCTAssertTrue(app.navigationBars["This moment"].waitForExistence(timeout: 5))

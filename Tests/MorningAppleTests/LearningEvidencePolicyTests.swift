@@ -63,7 +63,8 @@ struct LearningEvidencePolicyTests {
     @Test("Simplified home uses paired visible recording identity before learning")
     func nativeRecordingHomeDoesNotBecomeObservedActivity() {
         for markers in ["morning\nMORE · Recording", "MORNING\nmore • RECORDING",
-                        "morning   MORE · Recording"] {
+                        "morning   MORE · Recording", "good morning\nMORE · Recording",
+                        "bonjour\nMORE · Recording", "bonjour MORE · Recording"] {
             let screen = markers + "\n19 min\n09:00 Team planning meeting"
             #expect(!LearningEvidencePolicy.isEligibleVisualContext(screen))
             #expect(ProposalValidation.step(title: "Review calendar", detail: "", kind: "calendar", durationMinutes: 3,

@@ -16,6 +16,7 @@ struct MorningRootView: View {
     @ViewState<Bool> private var testObservedBackground = false
     @ViewState<Bool> private var showingActions = false
     @ViewState<Bool> private var actionTransitionPending = false
+    @ViewState<CGFloat> private var dockWidth = 430
     @Environment(\.scenePhase) private var scenePhase
 
     private var presentedContent: some View {
@@ -25,8 +26,8 @@ struct MorningRootView: View {
                           reviewObservation: requestObservationReview,
                           showReview: { reviewRootIdentity = UUID(); store.tab = .review }, editRoutine: openRoutineReview,
                           showInvitation: openMorningInvitation, canEditInvitation: !entryIsOccupied)
-                    .padding(.bottom, 60)
-                    .background(MorningStyle.background)
+                    .padding(.bottom, 84)
+                    .background(MorningLightBackdrop())
                     .toolbar(.hidden, for: .navigationBar)
                     .accessibilityHidden(showingActions)
             }
@@ -51,11 +52,23 @@ struct MorningRootView: View {
         #if os(iOS)
         .toolbar(.hidden, for: .tabBar)
         #endif
-        .overlay(alignment: .bottomTrailing) {
+        .background(MorningLightBackdrop())
+        .overlay {
+            if showingActions {
+                Button {
+                    showingActions = false
+                } label: {
+                    Color.clear.contentShape(Rectangle())
+                }.buttonStyle(.plain).ignoresSafeArea()
+                    .accessibilityLabel("Close morning actions")
+                    .accessibilityIdentifier("morning.closeActions")
+            }
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { dockWidth = $0 }
+        .overlay(alignment: .bottom) {
             if store.tab == .today {
-                GeometryReader { geometry in
-                    MorningActionDock(store: store, expanded: $showingActions,
-                    transitionPending: $actionTransitionPending, availableHeight: geometry.size.height,
+                MorningActionDock(store: store, expanded: $showingActions,
+                    transitionPending: $actionTransitionPending, availableWidth: dockWidth,
                     edit: openRoutineReview,
                     learn: { showingLearn = true },
                     review: { reviewRootIdentity = UUID(); store.tab = .review },
@@ -64,8 +77,7 @@ struct MorningRootView: View {
                         else { showingSettings = true }
                     })
                     .padding(.horizontal, 20).padding(.bottom, 8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                }
+                    .frame(maxWidth: .infinity)
             }
         }
         .background {
@@ -373,6 +385,7 @@ struct TodayView: View {
     var showInvitation: () -> Void
     var canEditInvitation: Bool
     @Environment(\.dynamicTypeSize) private var dynamicType
+    @Environment(\.locale) private var locale
     @ViewState<Bool> private var showingNotice = false
     @ViewState<Bool> private var learnAfterNoticeDismissal = false
     @ViewState<RoutineStep?> private var viewingStep = nil
@@ -396,7 +409,6 @@ struct TodayView: View {
             .padding(.top, 0).padding(.bottom, 8)
             .frame(maxWidth: 600).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .background(MorningLightBackdrop())
         .onChange(of: store.routine?.id) { _, _ in viewingStep = nil }
         .onChange(of: store.dataGeneration) { _, _ in viewingStep = nil; showingNotice = false }
         .onChange(of: viewingStep != nil || showingNotice, initial: true) { _, presented in
@@ -406,17 +418,37 @@ struct TodayView: View {
             NavigationStack {
                 if let step = store.routine?.steps.first(where: { $0.id == selection.id }) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        Text(step.title).font(.title3.weight(.semibold))
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Goal").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                            Text(goal(for: step)).font(.subheadline)
+                    VStack(alignment: .leading, spacing: 24) {
+                        HStack(alignment: .center, spacing: 14) {
+                            Image(systemName: MorningStyle.symbol(for: step.kind))
+                                .font(.title3).foregroundStyle(MorningStyle.accent)
+                                .frame(width: 48, height: 48)
+                                .glassEffect(.regular, in: Circle())
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(step.title).font(.title3.weight(.semibold))
+                                Text("\(step.durationMinutes) min").font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        Text(purpose(for: step)).font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("moment.purpose")
                         if let briefing = store.preparedBriefing(for: step) {
                             MorningBriefingDocumentView(document: briefing, operation: step.automation, synthetic: store.usesSyntheticBriefing)
-                        } else {
-                            Text(step.detail).textSelection(.enabled)
+                        } else if step.automation == .spokenNote || step.automation == .savedObservation {
+                            Text(step.detail).font(.subheadline).textSelection(.enabled)
                                 .accessibilityIdentifier("run.detail")
+                        } else if !step.detail.isEmpty {
+                            DisclosureGroup(isFrench ? "Détails enregistrés" : "Saved details") {
+                                Text(step.detail).font(.subheadline).foregroundStyle(.secondary)
+                                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+                                    .accessibilityIdentifier("run.detail")
+                            }.font(.subheadline).tint(MorningStyle.accent)
+                        }
+                        if step.automation == nil {
+                            Label(step.kind == .messages ? (isFrench ? "Non connecté" : "Not connected") : (isFrench ? "À votre rythme" : "At your pace"), systemImage: step.kind == .messages ? "arrow.up.forward.app" : "hand.tap")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("moment.manual")
                         }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
@@ -428,32 +460,30 @@ struct TodayView: View {
                             Text("Your morning is paused.").font(.caption).foregroundStyle(.secondary)
                                 .accessibilityIdentifier("run.detailPaused")
                         }
-                        Text("\(step.durationMinutes) min").font(.caption).foregroundStyle(.secondary)
-                            .accessibilityLabel("\(step.durationMinutes) minutes planned")
                         if store.sessionActive, store.currentStep?.id == step.id {
                             currentStepCommands
                         }
                         if canArrange, let routine = store.routine,
                            let index = routine.steps.firstIndex(where: { $0.id == step.id }) {
                             let generation = store.dataGeneration
-                            Divider().padding(.vertical, 4)
-                            Text("Order").font(.caption.weight(.medium)).foregroundStyle(.secondary)
                             HStack(spacing: 12) {
+                                Text("Move").font(.caption).foregroundStyle(.secondary)
+                                Spacer()
                                 if index > 0 {
                                     Button("Move earlier", systemImage: "arrow.up") {
                                         store.moveStep(step.id, onto: routine.steps[index - 1].id,
                                             expectedRoutineID: routine.id, expectedGeneration: generation)
-                                    }.accessibilityIdentifier("morning.moveEarlier")
+                                    }.labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                                        .accessibilityIdentifier("morning.moveEarlier")
                                 }
                                 if index + 1 < routine.steps.count {
                                     Button("Move later", systemImage: "arrow.down") {
                                         store.moveStep(step.id, onto: routine.steps[index + 1].id,
                                             expectedRoutineID: routine.id, expectedGeneration: generation)
-                                    }.accessibilityIdentifier("morning.moveLater")
+                                    }.labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                                        .accessibilityIdentifier("morning.moveLater")
                                 }
                             }.buttonStyle(.glass).controlSize(.regular)
-                            Text("A changed order becomes a draft for you to review.")
-                                .font(.caption).foregroundStyle(.secondary)
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
                 }.navigationTitle("This moment").navigationBarTitleDisplayMode(.inline)
@@ -544,7 +574,7 @@ struct TodayView: View {
                     Text(Date.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
                         .font(.caption.weight(.medium))
                     Image(systemName: "chevron.down").font(.caption2.weight(.regular))
-                }.foregroundStyle(.primary).frame(minHeight: 44)
+                }.foregroundStyle(.primary).frame(minHeight: 44).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityIdentifier("morning.date")
                 .accessibilityHint("Review this week and previous mornings")
             Spacer()
@@ -581,7 +611,7 @@ struct TodayView: View {
 
     private func routineHeading(_ routine: RoutineVersion, compact: Bool) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("morning").font(.title3.weight(.semibold))
+            Text(isFrench ? "bonjour" : "good morning").font(.title3.weight(.semibold))
                 .accessibilityIdentifier("morning.heading")
                 .accessibilityValue(store.session?.status == .stopped ? "stopped" : "")
             morningInvitationButton
@@ -609,7 +639,7 @@ struct TodayView: View {
                     if let upcoming {
                         Text(upcoming.formatted(date: .omitted, time: .shortened)).monospacedDigit()
                     }
-                }.font(.caption2).foregroundStyle(.secondary).frame(minWidth: 44, minHeight: 44)
+                }.font(.caption2).foregroundStyle(.secondary).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
             }.buttonStyle(.plain)
                 .accessibilityLabel(upcoming == nil ? "Set morning invitation" : "Edit morning invitation")
                 .accessibilityValue(upcoming?.formatted(date: .complete, time: .shortened) ?? "No upcoming invitation")
@@ -618,33 +648,55 @@ struct TodayView: View {
         }
     }
 
-    private func goal(for step: RoutineStep) -> String {
+    private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
+
+    private func purpose(for step: RoutineStep) -> String {
+        func text(_ english: String, _ french: String) -> String { isFrench ? french : english }
         switch step.automation {
-        case .spokenNote: "Hear the text you approved for this moment."
-        case .todayCalendar: "Review today’s available calendar events."
-        case .morningBriefing: "Review the available calendar and weather recap."
-        case .savedObservation: "Hear the saved observation you selected."
-        case nil: step.kind == .messages ? "Catch up on messages in their app." : "Follow your saved plan for this moment."
+        case .spokenNote: return text("Listen to your saved words.", "Écoutez vos mots enregistrés.")
+        case .todayCalendar: return text("Hear what’s on your calendar today.", "Écoutez votre programme du jour.")
+        case .morningBriefing: return text("Your day ahead, in a few words.", "Votre journée, en quelques mots.")
+        case .savedObservation: return text("Listen back to the observation you saved.", "Réécoutez l’observation enregistrée.")
+        case nil:
+            switch step.kind {
+            case .messages:
+                return text("Read your messages. Reply in the app.",
+                            "Retrouvez vos messages. Répondez dans l’application.")
+            case .entertainment:
+                return text("Make room for something you enjoy. You choose when to move on.",
+                            "Un moment pour ce qui vous plaît. Vous choisissez quand passer à la suite.")
+            case .briefing, .calendar:
+                return text("See what’s ahead. Check your calendar and weather in their apps.",
+                            "Préparez la journée. Consultez le calendrier et la météo dans leurs applications.")
+            case .custom, .wellbeing:
+                return text("A moment you’ve made room for.",
+                            "Un moment que vous avez choisi.")
+            }
         }
     }
 
     private var currentStepCommands: some View {
+        let sessionID = store.session?.id
+        let stepID = store.currentStep?.id
+        let generation = store.dataGeneration
+        let current = { store.session?.id == sessionID && store.currentStep?.id == stepID && store.dataGeneration == generation }
         let layout = dynamicType.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
             : AnyLayout(HStackLayout(spacing: 12))
         return layout {
             if store.session?.status == .paused {
-                Button("Continue", systemImage: "play.fill") { store.resume() }
+                Button("Continue", systemImage: "play.fill") { if current() { store.resume() } }
                     .accessibilityIdentifier("run.detailResume")
             } else {
-                Button("Pause", systemImage: "pause.fill") { store.pause() }
+                Button("Pause", systemImage: "pause.fill") { if current() { store.pause() } }
                     .accessibilityIdentifier("run.detailPause")
                 Button("Next", systemImage: "arrow.right") {
+                    guard current() else { return }
                     viewingStep = nil
                     store.advance()
                 }.accessibilityIdentifier("run.detailNext")
             }
-            Button("Again", systemImage: "arrow.counterclockwise") { store.readCurrent() }
+            Button("Again", systemImage: "arrow.counterclockwise") { if current() { store.readCurrent() } }
                 .accessibilityIdentifier("run.detailAgain")
         }.buttonStyle(.glass).controlSize(.small)
             .disabled(store.privacyBlocksWork || store.voiceInputBlocksPlayback)
@@ -705,7 +757,6 @@ struct TodayView: View {
         let complete = store.session?.completedStepIDs.contains(step.id) == true
         let skipped = store.session?.skippedStepIDs.contains(step.id) == true
         let current = store.sessionActive && store.currentStep?.id == step.id
-        let plannedOffset = routine.steps.prefix(index).reduce(0) { $0 + $1.durationMinutes }
         return Button { viewingStep = step } label: {
             HStack(spacing: 13) {
                 Image(systemName: complete ? "checkmark" : skipped ? "forward.end" : MorningStyle.symbol(for: step.kind))
@@ -714,7 +765,7 @@ struct TodayView: View {
                 Text(step.title).font(.subheadline.weight(.medium))
                     .lineLimit(dynamicType.isAccessibilitySize ? nil : 1)
                 Spacer(minLength: 4)
-                Text(complete ? "Done" : skipped ? "Skipped" : "+\(plannedOffset)m")
+                Text("\(step.durationMinutes) min")
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)
@@ -725,7 +776,7 @@ struct TodayView: View {
         .buttonStyle(.plain)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: dense ? 20 : 24))
         .overlay(RoundedRectangle(cornerRadius: dense ? 20 : 24).strokeBorder(current ? Color.primary.opacity(0.35) : .clear))
-        .accessibilityLabel("\(index + 1). \(step.title), \(step.durationMinutes) minutes planned, planned start \(plannedOffset) minutes after Start\(complete ? ", completed" : skipped ? ", skipped" : "")")
+        .accessibilityLabel("\(index + 1). \(step.title), \(step.durationMinutes) minutes\(complete ? ", completed" : skipped ? ", skipped" : "")")
         .accessibilityHint(canArrange ? "Opens details. Hold to move this moment." : "Opens details")
         .accessibilityIdentifier("morning.step.\(index)")
         .accessibilityActions {
@@ -838,133 +889,177 @@ struct NoticeView: View {
     }
 }
 
-/// A system popover keeps presentation ownership explicit while destinations open.
+/// One native glass surface morphs between a sunrise and four explicit actions.
 private struct MorningActionDock: View {
     @Bindable var store: MorningStore
     @Binding var expanded: Bool
     @Binding var transitionPending: Bool
-    var availableHeight: CGFloat
+    var availableWidth: CGFloat
     var edit: () -> Void
     var learn: () -> Void
     var review: () -> Void
     var settings: () -> Void
     @Namespace private var glassNamespace
-    @ViewState<CGFloat> private var actionHeight = 276
-    @ViewState<PendingDockAction?> private var pendingAction = nil
+    @ViewState<RoutineVersion?> private var readyRoutine = nil
+    @ViewState<UUID?> private var readyGeneration = nil
     @Environment(\.dynamicTypeSize) private var dynamicType
     @Environment(\.scenePhase) private var scenePhase
-
-    private struct PendingDockAction {
-        let generation: UUID
-        let perform: () -> Void
-    }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let sunriseGold = Color(red: 0.94, green: 0.63, blue: 0.22)
 
     var body: some View {
-        Button { expanded.toggle() } label: {
-            Image(systemName: "sun.horizon")
-                .font(.system(size: 21, weight: .regular))
-                .foregroundStyle(.primary.opacity(0.85))
-                .frame(width: 48, height: 48)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: Circle())
-        .glassEffectID("sunrise", in: glassNamespace)
-        .accessibilityLabel("Morning actions")
-        .accessibilityValue(expanded ? "Expanded" : "Collapsed")
-        .accessibilityIdentifier("morning.actions")
-        .disabled(store.privacyBlocksWork || transitionPending)
-        .popover(isPresented: $expanded, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
-            VStack(spacing: 0) {
-                HStack {
-                    Spacer()
-                    Button { expanded = false } label: {
-                        Image(systemName: "xmark").font(.caption.weight(.semibold)).frame(width: 44, height: 44)
-                    }.buttonStyle(.plain).accessibilityLabel("Close morning actions")
-                        .accessibilityIdentifier("morning.closeActions")
-                }
-                ScrollView {
-                    actionRows.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { actionHeight = $0 }
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .accessibilityIdentifier("morning.actionsScroll")
-                .frame(height: min(max(44, availableHeight - 126), max(44, actionHeight)))
-            }
-            .frame(width: dynamicType.isAccessibilitySize ? 320 : 264)
-            .presentationCompactAdaptation(.popover)
-            .onDisappear { finishSelectedAction() }
-        }
-        .onChange(of: store.dataGeneration) { _, _ in discardSelectedAction() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { discardSelectedAction() }
-        }
-    }
-
-    private func finishSelectedAction() {
-        let selected = pendingAction
-        pendingAction = nil
-        defer { transitionPending = false }
-        guard let selected, selected.generation == store.dataGeneration,
-              scenePhase == .active, !store.privacyBlocksWork, !store.busy else { return }
-        // Reserve the destination before releasing pending-entry occupancy.
-        selected.perform()
-    }
-
-    private func discardSelectedAction() {
-        pendingAction = nil
-        transitionPending = false
-        expanded = false
-    }
-
-    private var actionRows: some View {
-        VStack(spacing: 0) {
-            if let session = store.session, store.sessionActive {
-                let intendsResume = session.status == .paused
-                action(intendsResume ? "Continue morning" : "Pause morning",
-                       symbol: intendsResume ? "play" : "pause", id: "morning.playback") {
-                    // Native dismissal can outlive an interruption. Preserve the
-                    // displayed command and session, never toggle the latest state.
-                    guard store.session?.id == session.id else { return }
-                    if intendsResume {
-                        guard store.session?.status == .paused else { return }
-                        store.resume()
-                    } else {
-                        guard store.session?.status == .running else { return }
-                        store.pause()
-                    }
-                }
-            } else if let routine = store.routine {
-                action(routine.isApproved ? "Start my morning" : "Review my morning",
-                       symbol: routine.isApproved ? "play" : "checkmark", id: routine.isApproved ? "run.start" : "morning.reviewDraft") {
-                    if routine.isApproved { store.start() } else { edit() }
-                }
+        GlassEffectContainer(spacing: 8) {
+            if expanded {
+                actionBar
+                    .glassEffect(.regular, in: Capsule())
+                    .glassEffectID("sunrise-dock", in: glassNamespace)
+                    .accessibilityAction(.escape) { expanded = false }
             } else {
-                action("Try a sample", symbol: "play", id: "morning.sample") { store.loadSample() }
+                Button { expanded = true } label: {
+                    Image(systemName: "sun.horizon.fill")
+                        .font(.system(size: 31, weight: .regular))
+                        .foregroundStyle(sunriseGold.gradient)
+                        .frame(width: 68, height: 68)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.tint(sunriseGold.opacity(0.12)).interactive(), in: Circle())
+                .glassEffectID("sunrise-dock", in: glassNamespace)
+                .accessibilityLabel("Morning actions")
+                .accessibilityValue("Collapsed")
+                .accessibilityIdentifier("morning.actions")
+                .disabled(store.privacyBlocksWork || transitionPending)
             }
-            action("Update my morning", symbol: "slider.horizontal.3", id: "morning.update", disabled: store.sessionActive || store.routine == nil, edit)
-            action("Past mornings", symbol: "calendar", id: "morning.review", review)
-            action("Learn my morning", symbol: "record.circle", id: "morning.learn", disabled: store.sessionActive, learn)
-            action("Settings", symbol: "gearshape", id: "morning.settings", settings)
-        }.padding(8)
+        }
+        .animation(reduceMotion ? nil : .smooth(duration: 0.30), value: expanded)
+        .onChange(of: expanded) { _, open in if !open { clearReadyState() } }
+        .onChange(of: store.routine) { _, _ in clearReadyState() }
+        .onChange(of: store.sessionActive) { _, active in if active { clearReadyState() } }
+        .onChange(of: store.dataGeneration) { _, _ in collapse() }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { collapse() } }
+    }
+
+    private var actionBar: some View {
+        Group {
+            if let routine = readyRoutine {
+                readyBar(routine)
+            } else if dynamicType.isAccessibilitySize {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) { actionItems }.padding(8)
+                }.scrollIndicators(.hidden)
+                    .scrollBounceBehavior(.basedOnSize)
+                    .accessibilityIdentifier("morning.actionsScroll")
+            } else {
+                HStack(spacing: 0) { actionItems }.padding(6)
+            }
+        }.frame(width: min(max(240, availableWidth - 40), 360),
+                height: readyRoutine != nil && dynamicType.isAccessibilitySize ? nil : dynamicType.isAccessibilitySize ? 104 : 68)
+    }
+
+    @ViewBuilder private var actionItems: some View {
+        if let session = store.session, store.sessionActive {
+            let intendsResume = session.status == .paused
+            action(intendsResume ? "Continue" : "Pause", symbol: intendsResume ? "play.fill" : "pause.fill",
+                   id: "morning.playback") {
+                // Honor the displayed command and original session, never toggle
+                // whatever state an interruption may have produced meanwhile.
+                guard store.session?.id == session.id else { return }
+                if intendsResume {
+                    guard store.session?.status == .paused else { return }
+                    store.resume()
+                } else {
+                    guard store.session?.status == .running else { return }
+                    store.pause()
+                }
+            }
+        } else if let routine = store.routine {
+            let generation = store.dataGeneration
+            action(routine.isApproved ? "Play" : "Review",
+                   symbol: routine.isApproved ? "play.fill" : "checkmark",
+                   id: routine.isApproved ? "run.start" : "morning.reviewDraft",
+                   keepsExpanded: routine.isApproved) {
+                guard store.routine == routine, !store.sessionActive else { return }
+                if routine.isApproved {
+                    readyRoutine = routine
+                    readyGeneration = generation
+                } else { edit() }
+            }
+        } else {
+            action("Sample", symbol: "play.fill", id: "morning.sample") { store.loadSample() }
+        }
+        action("Learn", symbol: "record.circle", id: "morning.learn", disabled: store.sessionActive, learn)
+        action("History", symbol: "calendar", id: "morning.review", review)
+        action("Settings", symbol: "gearshape", id: "morning.settings", settings)
     }
 
     private func action(_ title: String, symbol: String, id: String, disabled: Bool = false,
-                        _ perform: @escaping () -> Void) -> some View {
-        Button {
-            // Keep occupancy through native popover dismissal; execute only if
-            // the same local data generation is still foreground and available.
-            pendingAction = .init(generation: store.dataGeneration, perform: perform)
+                        keepsExpanded: Bool = false, _ perform: @escaping () -> Void) -> some View {
+        let generation = store.dataGeneration
+        return Button {
+            guard generation == store.dataGeneration, scenePhase == .active,
+                  !store.privacyBlocksWork, !store.busy, !transitionPending else { return }
+            // This is an in-place glass transition, not a modal dismissal. Reserve
+            // and establish the destination synchronously before releasing entry
+            // occupancy; no timer or delayed closure can reopen a forgotten session.
             transitionPending = true
-            expanded = false
+            perform()
+            if !keepsExpanded { expanded = false }
+            transitionPending = false
         } label: {
-            HStack(spacing: 14) {
-                Image(systemName: symbol).font(.system(size: 17, weight: .regular)).frame(width: 24)
-                Text(title).font(.subheadline.weight(.medium)).multilineTextAlignment(.leading)
-                Spacer(minLength: 0)
-            }.foregroundStyle(.primary).padding(.horizontal, 15).padding(.vertical, 13)
-                .frame(minHeight: 48).contentShape(RoundedRectangle(cornerRadius: 18))
-        }.buttonStyle(.plain).disabled(disabled || store.busy || store.privacyBlocksWork)
-            .opacity(disabled ? 0.4 : 1).accessibilityIdentifier(id)
+            VStack(spacing: 5) {
+                Image(systemName: symbol).font(.system(size: 21, weight: .regular))
+                Text(title).font(.caption2.weight(.medium)).fixedSize(horizontal: true, vertical: false)
+            }
+            .foregroundStyle(.primary)
+            .frame(minWidth: 58, maxWidth: dynamicType.isAccessibilitySize ? nil : .infinity, minHeight: 56)
+            .padding(.horizontal, 3)
+            .contentShape(Capsule())
+        }.buttonStyle(.plain)
+            .disabled(disabled || store.busy || store.privacyBlocksWork || transitionPending)
+            .opacity(disabled ? 0.4 : 1).accessibilityLabel(title).accessibilityIdentifier(id)
+    }
+
+    private func readyBar(_ routine: RoutineVersion) -> some View {
+        let layout = dynamicType.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 10))
+        return layout {
+            Text(routine.isSynthetic ? "Ready for this sample morning?" : "Ready for your morning?")
+                .font(.caption.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("morning.ready")
+            HStack(spacing: 12) {
+                Button("Cancel") { clearReadyState() }
+                    .font(.caption).frame(minWidth: 44, minHeight: 44)
+                    .accessibilityIdentifier("morning.cancelStart")
+                Button("Start") {
+                    guard readyGeneration == store.dataGeneration, store.routine == routine,
+                          routine.isApproved, !store.sessionActive, scenePhase == .active,
+                          !store.privacyBlocksWork, !store.busy, !store.voiceInputBlocksPlayback else {
+                        clearReadyState()
+                        return
+                    }
+                    transitionPending = true
+                    store.start()
+                    clearReadyState()
+                    expanded = false
+                    transitionPending = false
+                }.font(.subheadline.weight(.semibold)).foregroundStyle(MorningStyle.accent)
+                    .frame(minWidth: 48, minHeight: 44)
+                    .accessibilityIdentifier("morning.confirmStart")
+            }.buttonStyle(.plain)
+                .disabled(store.busy || store.privacyBlocksWork || transitionPending || store.voiceInputBlocksPlayback)
+        }.padding(.horizontal, 14).padding(.vertical, 6)
+    }
+
+    private func clearReadyState() {
+        readyRoutine = nil
+        readyGeneration = nil
+    }
+
+    private func collapse() {
+        clearReadyState()
+        transitionPending = false
+        expanded = false
     }
 }
 
@@ -977,14 +1072,14 @@ private struct MorningLightBackdrop: View {
             ZStack {
                 MorningStyle.background
                 if !reduceTransparency {
+                    LinearGradient(colors: scheme == .dark
+                        ? [Color(red: 0.13, green: 0.10, blue: 0.13), Color(red: 0.24, green: 0.16, blue: 0.13), Color(red: 0.14, green: 0.11, blue: 0.13)]
+                        : [Color(red: 0.97, green: 0.94, blue: 0.87), Color(red: 0.96, green: 0.88, blue: 0.73), Color(red: 0.98, green: 0.94, blue: 0.86)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing)
                     Ellipse()
-                        .fill(Color(red: 0.90, green: 0.70, blue: 0.42).opacity(scheme == .dark ? 0.12 : 0.16))
-                        .frame(width: geometry.size.width * 1.3, height: geometry.size.height * 0.50)
-                        .blur(radius: 65).offset(x: geometry.size.width * 0.40, y: -geometry.size.height * 0.10)
-                    Ellipse()
-                        .fill(Color(red: 0.40, green: 0.60, blue: 0.66).opacity(scheme == .dark ? 0.12 : 0.11))
-                        .frame(width: geometry.size.width * 1.1, height: geometry.size.height * 0.48)
-                        .blur(radius: 70).offset(x: -geometry.size.width * 0.42, y: geometry.size.height * 0.24)
+                        .fill(Color(red: 1.0, green: 0.66, blue: 0.28).opacity(scheme == .dark ? 0.16 : 0.20))
+                        .frame(width: geometry.size.width * 1.6, height: geometry.size.height * 0.40)
+                        .blur(radius: 65).offset(y: geometry.size.height * 0.48)
                 }
             }
         }.ignoresSafeArea().accessibilityHidden(true).allowsHitTesting(false)

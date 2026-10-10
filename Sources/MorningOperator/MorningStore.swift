@@ -506,7 +506,7 @@ final class MorningStore {
             notice = "Finish or stop this morning before changing the routine."
             return
         }
-        installCandidate(DemoFixtures.candidateRoutine)
+        installCandidate(PhoneMorningSample.routine())
         tab = .today
         notice = "Sample routine loaded. Review and edit it before starting. This is demo data, not learned behavior."
         persist()

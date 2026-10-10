@@ -16,6 +16,88 @@ final class QuietMorningTests: XCTestCase {
         attach("more-first-use-one-screen", app)
     }
 
+    func testTryPhoneSampleKeepsSeparateAppsManualAndPersistsAsDraft() {
+        let app = launch(["--ui-testing-empty-workspace", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
+        let sample = app.buttons["routine.sample"]
+        XCTAssertTrue(sample.waitForExistence(timeout: 10), app.debugDescription)
+        sample.tap()
+        let expected: [(String, Int)] = [
+            ("Calendar & weather", 5), ("iMessage", 5), ("WhatsApp", 6),
+            ("WhatsApp Business", 5), ("Messenger", 4), ("Mail", 7),
+            ("Scroll a little", 10), ("A thought for later", 3)
+        ]
+        for (index, item) in expected.enumerated() {
+            let tile = app.buttons["morning.step.\(index)"]
+            assertTitle(item.0, on: tile, in: app)
+            XCTAssertTrue(tile.isHittable, app.debugDescription)
+            XCTAssertTrue(tile.label.contains("\(item.1) minutes"), tile.label)
+            XCTAssertFalse(tile.label.contains("+"), "A moment shows its own minutes, not a cumulative offset.")
+        }
+        XCTAssertFalse(app.buttons["morning.step.8"].exists)
+        XCTAssertTrue(app.staticTexts["45 minutes planned"].exists)
+        XCTAssertTrue(app.staticTexts["morning.draft"].exists)
+        XCTAssertFalse(app.buttons["run.pause"].exists)
+        attach("more-phone-sample-eight-manual-moments", app)
+
+        app.buttons["morning.step.1"].tap()
+        XCTAssertTrue(app.navigationBars["This moment"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "moment.manual").firstMatch.exists)
+        XCTAssertEqual(app.staticTexts["moment.purpose"].label, "Read your messages. Reply in the app.")
+        XCTAssertTrue(app.staticTexts["Not connected"].exists)
+        XCTAssertFalse(app.staticTexts["run.detail"].isHittable, "Manual saved text starts in its disclosure.")
+        attach("more-phone-sample-manual-details-collapsed", app)
+        expandSavedDetails(in: app)
+        XCTAssertEqual(app.staticTexts["run.detail"].label,
+                       "Open Messages and choose the conversations you want to catch up on. MORE is not connected to this inbox and does not read or reply for you.")
+        XCTAssertFalse(app.buttons["run.detailAgain"].exists, "Opening a sample does not start a session or playback.")
+        attach("more-phone-sample-manual-source-details", app)
+        app.navigationBars["This moment"].buttons["Done"].tap()
+        assertDetailDismissed(in: app)
+        MorningUITestNavigation.openRoutine(in: app)
+        let synthetic = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label == %@", "Sample routine · not observed behavior")
+        ).firstMatch
+        for _ in 0..<5 where !synthetic.exists { app.collectionViews.firstMatch.swipeUp() }
+        XCTAssertTrue(synthetic.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.buttons["routine.approve"].exists)
+        MorningUITestNavigation.closeRoutine(in: app)
+
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.staticTexts["morning.draft"].waitForExistence(timeout: 10), app.debugDescription)
+        for (index, item) in expected.enumerated() {
+            assertTitle(item.0, on: app.buttons["morning.step.\(index)"], in: app)
+        }
+        XCTAssertTrue(app.staticTexts["45 minutes planned"].exists)
+        XCTAssertFalse(app.buttons["run.pause"].exists)
+        attach("more-phone-sample-persists-unapproved", app)
+    }
+
+    func testFrenchSampleUsesBonjourAndKeepsReadyStartExplicit() {
+        let app = launch(["--ui-testing-empty-workspace", "--dark-preview", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"])
+        XCTAssertTrue(app.buttons["routine.sample"].waitForExistence(timeout: 10))
+        app.buttons["routine.sample"].tap()
+        XCTAssertEqual(app.staticTexts["morning.heading"].label, "bonjour")
+        assertTitle("Calendrier et météo", on: app.buttons["morning.step.0"], in: app)
+        assertTitle("Une pensée pour plus tard", on: app.buttons["morning.step.7"], in: app)
+        XCTAssertTrue(app.buttons["morning.step.7"].isHittable)
+        attach("more-french-sunset-sample", app)
+        MorningUITestNavigation.revealMorningAction("morning.reviewDraft", in: app)
+        app.buttons["morning.reviewDraft"].tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 5))
+        app.buttons["routine.approve"].tap()
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        MorningUITestNavigation.revealMorningAction("run.start", in: app)
+        attach("more-french-sunset-actions", app)
+        app.buttons["run.start"].tap()
+        XCTAssertTrue(app.buttons["morning.confirmStart"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["run.pause"].exists)
+        attach("more-french-sunset-ready", app)
+        app.buttons["morning.cancelStart"].tap()
+        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["run.pause"].exists)
+    }
+
     func testHomeClockOpensInvitationWithoutSchedulingAndReturnsHome() {
         let app = launch(["--ui-testing-approved", "--fixture-mode"])
         let clock = app.buttons["morning.invitation"]
@@ -75,18 +157,19 @@ final class QuietMorningTests: XCTestCase {
 
         row.tap()
         XCTAssertTrue(app.navigationBars["This moment"].waitForExistence(timeout: 5))
+        expandSavedDetails(in: app)
         XCTAssertEqual(app.staticTexts["run.detail"].label, "Synthetic layout example.")
         XCTAssertFalse(app.buttons["routine.approve"].exists)
         app.navigationBars["This moment"].buttons["Done"].tap()
 
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
-        for identifier in ["run.start", "morning.update", "morning.review", "morning.learn", "morning.settings"] {
+        for identifier in ["run.start", "morning.review", "morning.learn", "morning.settings"] {
             XCTAssertTrue(app.buttons[identifier].isHittable, "Every sunrise action must be visible: \(identifier)\n\(app.debugDescription)")
         }
         attach("more-expanded-sunrise-actions", app)
         app.buttons["morning.closeActions"].tap()
         XCTAssertFalse(app.buttons["run.start"].exists)
-        MorningUITestNavigation.tapButton("morning.update", in: app)
+        MorningUITestNavigation.openRoutine(in: app)
         XCTAssertTrue(app.buttons["routine.step.0"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Your routine"].exists)
     }
@@ -118,7 +201,7 @@ final class QuietMorningTests: XCTestCase {
         let app = launch(["--ui-testing-approved", "--fixture-mode"])
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 10))
-        app.buttons["run.start"].tap()
+        MorningUITestNavigation.tapButton("run.start", in: app)
         app.buttons["run.controls"].tap()
         app.buttons["run.about"].tap()
         let instructions = app.staticTexts["run.detail"]
@@ -158,10 +241,11 @@ final class QuietMorningTests: XCTestCase {
         let app = launch(["--ui-testing-ten-moments", "--ui-testing-approved"])
         XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
         app.buttons["morning.actions"].tap()
-        let tray = app.scrollViews["morning.actionsScroll"]
-        XCTAssertTrue(tray.waitForExistence(timeout: 5))
+        for identifier in ["run.start", "morning.learn", "morning.review", "morning.settings"] {
+            XCTAssertTrue(app.buttons[identifier].waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(app.buttons[identifier].isHittable, app.debugDescription)
+        }
         let settings = app.buttons["morning.settings"]
-        for _ in 0..<5 where !settings.isHittable { tray.swipeUp() }
         XCTAssertTrue(settings.isHittable, app.debugDescription)
         XCTAssertTrue(app.buttons["morning.closeActions"].isHittable)
         attach("more-sunrise-landscape", app)
@@ -170,7 +254,7 @@ final class QuietMorningTests: XCTestCase {
         XCTAssertTrue(app.buttons["morning.date"].isHittable)
     }
 
-    func testNativePopoverDismissesOutsideAndStoppedMorningStaysQuiet() {
+    func testSunriseDockDismissesOutsideAndStoppedMorningStaysQuiet() {
         let app = launch(["--ui-testing-approved", "--fixture-mode"])
         XCTAssertTrue(app.buttons["morning.date"].waitForExistence(timeout: 10))
         let dateFrame = app.buttons["morning.date"].frame
@@ -196,7 +280,7 @@ final class QuietMorningTests: XCTestCase {
         let app = launch(["--ui-testing-ten-moments", "--ui-testing-approved"])
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 10))
-        app.buttons["run.start"].tap()
+        MorningUITestNavigation.tapButton("run.start", in: app)
         XCTAssertTrue(app.buttons["run.pause"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["run.pause"].isHittable)
         let item = app.buttons["morning.step.9"]
@@ -209,7 +293,7 @@ final class QuietMorningTests: XCTestCase {
         let app = launch(["--ui-testing-approved", "--fixture-mode"])
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 10))
-        app.buttons["run.start"].tap()
+        MorningUITestNavigation.tapButton("run.start", in: app)
         app.buttons["run.controls"].tap()
         app.buttons["run.speakCommand"].tap()
         XCTAssertTrue(app.buttons["voiceCommand.listen"].waitForExistence(timeout: 5))
@@ -325,6 +409,14 @@ final class QuietMorningTests: XCTestCase {
         attach("more-native-drag-order-after-relaunch", app)
     }
 
+    private func expandSavedDetails(in app: XCUIApplication) {
+        let disclosure = app.buttons["Saved details"]
+        XCTAssertTrue(disclosure.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(disclosure.isHittable, app.debugDescription)
+        disclosure.tap()
+        XCTAssertTrue(app.staticTexts["run.detail"].waitForExistence(timeout: 5), app.debugDescription)
+    }
+
     private func assertDetailDismissed(in app: XCUIApplication) {
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
                                                   object: app.navigationBars["This moment"])
@@ -379,7 +471,7 @@ final class QuietMorningAccessibilityTests: XCTestCase {
         screenshot.name = "more-accessibility-start-reachable"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        start.tap()
+        MorningUITestNavigation.tapButton("run.start", in: app)
         let controls = app.buttons["run.controls"]
         for _ in 0..<8 where !controls.isHittable { scroll.swipeUp() }
         XCTAssertTrue(controls.isHittable)

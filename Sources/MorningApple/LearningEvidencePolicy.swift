@@ -121,7 +121,8 @@ enum LearningEvidencePolicy {
             "sample morning hold to arrange", "your rhythm at your pace hold to arrange"
         ]
         let hasGlassHomeFooter = glassHomeFooters.contains(where: lines.contains)
-        if lines.contains("morning"),
+        let homeHeadings = ["morning", "good morning", "bonjour"]
+        if homeHeadings.contains(where: lines.contains),
            hasGlassHomeFooter || lines.contains("a new rhythm ready to review") { return true }
         // The simplified approved home has no permanent explanatory footer.
         // While native capture runs, its visible branded recording control is
@@ -129,8 +130,8 @@ enum LearningEvidencePolicy {
         // Accept only complete control/heading lines (including a merged row),
         // not a message or event that happens to discuss recording a morning.
         // A non-recording import without these markers remains heuristic-limited.
-        if (lines.contains("morning") && lines.contains("more recording")) ||
-            lines.contains("morning more recording") { return true }
+        if (homeHeadings.contains(where: lines.contains) && lines.contains("more recording")) ||
+            homeHeadings.contains(where: { lines.contains($0 + " more recording") }) { return true }
         // The active home omits its large heading and the arrange instruction.
         // Require its distinctive footer plus the paired state/playback controls.
         if hasGlassHomeFooter,
