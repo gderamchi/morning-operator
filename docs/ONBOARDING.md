@@ -17,6 +17,14 @@ This guide's first-morning steps follow V2 on `codex/more-quiet-morning`: **Morn
 
 An observation's detail keeps the original extraction separate from current notes. **Edit in Learn** changes the notes used for suggestions and clears the original's attached interpretation. **Delete this observation**, Learn's **Clear this observation**, or **Delete all observations** removes the stated observations and their retained originals/corrections. A pending update that depends on an edited/deleted source is invalidated; saved routines and any quotations already in them remain. A pending raw recording has its own Retry/Discard controls; see [retention](ARCHITECTURE.md#data-retention-today).
 
+## Review or remove local data
+
+In the current branch, open **Review → Settings & connections → Privacy & data**. This shows MORE's retained categories and the **Save app activity from Shortcuts** setting. Turning that setting off stops new journal writes without erasing existing records.
+
+**Forget MORE’s local data → Forget local data** is the explicit full reset. It removes the current/previous routine, history, observations and retained quotations, thoughts, saved choices, pending suggestions, local receipts, activity and owned recording copies; it also cancels MORE's invitation. Cancel the confirmation to leave removal unstarted. After success, you can learn a new morning, and app activity remains off until you explicitly enable it.
+
+If removal needs another try, ordinary work stays blocked. Retry in Privacy; an already-pending reset resumes after relaunch before the app reloads old content. Do not treat an empty-looking screen as proof of complete cleanup. Original Photos/Files media, exported files, Apple Calendar/Reminders items, permissions, installed voices, Shortcuts and backups remain separately managed. Developer evidence on the Mac is outside the app's reset. The [privacy guide](PRIVACY.md) lists exact scope and failure behavior. All three scoped simulator privacy journeys pass; physical recording shutdown remains unverified. This is not a secure-erasure or automatic-expiry feature.
+
 ## Update a routine from saved mornings
 
 In **Review → Saved observations → Choose mornings**, select one to five dated observations from the same time zone. Choose either your mornings or synthetic samples; they cannot mix. Undated or unknown-origin entries show what needs correcting in their detail. The current routine stays unchanged while you choose and review.
@@ -82,7 +90,7 @@ Copy [TEST-REPORT-TEMPLATE.md](TEST-REPORT-TEMPLATE.md) into an ignored local re
 | App transitions | Configure Opened/Closed automations for selected Instagram, TikTok or Snapchat activity | Delivery is a separate hardware check. These callbacks are not complete usage, pickup or scrolling metrics. |
 | HomePod | Route phone audio to the one available HomePod mini | Output is independent work. Room detection, microphone access and room-to-room handoff are not established. |
 
-App-transition setup and clearing are in [Device setup](DEVICE-SETUP.md#optional-app-transition-logging). Disable its Shortcuts automations to stop new callbacks; **Clear recorded app activity** removes the saved journal. That control does not delete routine history or observation text. See the [retention matrix](ARCHITECTURE.md#data-retention-today) for each store and control.
+App-transition setup and clearing are in [Device setup](DEVICE-SETUP.md#optional-app-transition-logging). Disable its automations in Shortcuts to stop callbacks, or turn off **Save app activity from Shortcuts** in MORE's Privacy screen to refuse their writes. **Clear recorded app activity** removes the journal without deleting routine history or observations. Full forgetting also disables new activity collection. See the [retention matrix](ARCHITECTURE.md#data-retention-today) for each store and control.
 
 ## Choose the next useful change
 
