@@ -60,6 +60,74 @@ enum LearningEvidenceFixtures {
 
 @Suite("Conservative observation evidence")
 struct LearningEvidencePolicyTests {
+    @Test("Glass home paired markers reject its displayed plan, including merged footer columns")
+    func glassHomeIsNotNewObservedActivity() {
+        for footer in ["Sample morning", "Your rhythm, at your pace", "Hold to arrange",
+                       "Sample morning   Hold to arrange", "Your rhythm, at your pace   Hold to arrange",
+                       "A new rhythm. Ready to review."] {
+            let screen = "Sat, Oct 10\nmorning\n19 min\nplanned\n09:00 Team planning meeting\n" + footer
+            #expect(!LearningEvidencePolicy.isEligibleVisualContext(screen))
+            #expect(ProposalValidation.step(title: "Review calendar", detail: "", kind: "calendar", durationMinutes: 3,
+                evidenceQuote: "09:00 Team planning meeting", source: "09:00 Team planning meeting", sourceContext: screen,
+                sourceKind: .visibleTaskContent, claimedEvidenceKind: "visibleTaskContent") == nil)
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[User-selected screenshot; one moment, not a confirmed habit]\n" + screen)
+            }
+        }
+    }
+
+    @Test("Active glass home needs its footer and paired playback state markers")
+    func activeGlassHomeDoesNotRecycleRoutineContent() {
+        for footer in ["Sample morning", "Your rhythm, at your pace"] {
+            for playback in ["Now\nPause", "Paused\nContinue"] {
+                #expect(!LearningEvidencePolicy.isEligibleVisualContext(
+                    playback + "\n09:00 Team planning meeting\n" + footer))
+            }
+            // A footer or a single state word in a genuine external screen is insufficient.
+            #expect(LearningEvidencePolicy.isEligibleVisualContext(
+                "Calendar\nNow\n09:00 Team planning meeting\n" + footer))
+        }
+    }
+
+    @Test("New welcome wording is interface copy even without its Learn button")
+    func glassWelcomeUsesItsCurrentPublicCopy() {
+        let screen = "a little more\nmorning.\nShow us a little of your morning.\nWe’ll find the rhythm together."
+        #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+            try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen)
+        }
+        for marker in ["Show us a little of your morning.", "We’ll find the rhythm together."] {
+            #expect(LearningEvidencePolicy.isEligibleVisualContext("Messages\n" + marker + "\nPlease bring the printed meeting notes tomorrow."))
+        }
+    }
+
+    @Test("Home markers alone or inside event content do not block independent evidence")
+    func glassHomeRequiresDistinctWholeScreenMarkers() throws {
+        for marker in ["morning", "Sample morning", "Your rhythm, at your pace", "Hold to arrange",
+                       "A new rhythm. Ready to review."] {
+            #expect(LearningEvidencePolicy.isEligibleVisualContext("Calendar\n" + marker + "\n09:00 Team planning meeting"))
+        }
+        #expect(LearningEvidencePolicy.isEligibleVisualContext("Calendar\nmorning\n09:00 Sample morning planning meeting"))
+        #expect(LearningEvidencePolicy.isEligibleVisualContext("Calendar\nMorning planning\nHold to arrange\n09:00 Team planning meeting"))
+        let written = "I open MORE's morning page, where it says Your rhythm, at your pace and Hold to arrange. Then I check tomorrow’s calendar."
+        let writtenUnits = try LearningEvidencePolicy.prepare(written)
+        #expect(writtenUnits.first?.text == written)
+        #expect(writtenUnits.first?.kind == .userReportedActivity)
+    }
+
+    @Test("Mixed recording keeps external frames byte-exact while rejecting current home and welcome")
+    func glassScreensDoNotRemoveAdjacentExternalEvidence() throws {
+        let recording = "[Observed frame at 00:00.0]\nmorning\n09:00 Team planning meeting\nYour rhythm, at your pace\nHold to arrange"
+            + "\n[Observed frame at 00:10.0]\n" + LearningEvidenceFixtures.calendarContent
+            + "\n[Observed frame at 00:20.0]\nShow us a little of your morning.\nWe’ll find the rhythm together."
+            + "\n[Observed frame at 00:30.0]\n" + LearningEvidenceFixtures.messageContent
+        let original = Data(recording.utf8)
+        let units = try LearningEvidencePolicy.prepare(recording)
+        try #require(units.count == 2)
+        #expect(units[0].text.trimmingCharacters(in: .whitespacesAndNewlines).utf8.elementsEqual(LearningEvidenceFixtures.calendarContent.utf8))
+        #expect(units[1].text.trimmingCharacters(in: .whitespacesAndNewlines).utf8.elementsEqual(LearningEvidenceFixtures.messageContent.utf8))
+        #expect(Data(recording.utf8) == original)
+    }
+
     @Test("Observed-first overview cannot feed its derived labels back as new activity")
     func observedOverviewRejectsFeedbackAndKeepsIndependentFrames() throws {
         let overview = LearningEvidenceFixtures.observedOverview

@@ -8,7 +8,7 @@ final class MorningEntryUITests: XCTestCase {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["MO_NOTIFICATION_TEST_ENABLED"] == "1",
                           "Opt in on the dedicated simulator; this schedules a real local notification.")
         let app = launch(["--ui-testing-approved", "--ui-testing-near-invitation"])
-        app.tabBars.buttons["Review"].tap()
+        MorningUITestNavigation.selectTab("Review", in: app)
         let settings = app.buttons["navigation.setup"]
         for _ in 0..<5 where !settings.isHittable { app.swipeUp() }
         settings.tap()
@@ -24,8 +24,8 @@ final class MorningEntryUITests: XCTestCase {
         waitForExpectations(timeout: 10)
         app.navigationBars["Your next morning"].buttons["Done"].tap()
         app.navigationBars["Settings"].buttons["Done"].tap()
-        app.tabBars.buttons["Morning"].tap()
-        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 5))
         XCUIDevice.shared.press(.home)
         let notification = springboard.staticTexts["Ready for your morning?"]
         XCTAssertTrue(notification.waitForExistence(timeout: 60), "Wait for a real local invitation, not an injected push.")
@@ -36,13 +36,13 @@ final class MorningEntryUITests: XCTestCase {
         notification.tap()
         XCTAssertTrue(app.buttons["run.pause"].waitForExistence(timeout: 15))
         XCTAssertEqual(app.state, .runningForeground)
-        XCTAssertEqual(app.staticTexts["run.step"].label, "A calm start")
+        XCTAssertEqual(app.staticTexts["run.step"].label, "Your morning")
     }
 
     func testApprovedEntryStartsOnceWithoutAnotherTap() {
         let app = launch(["--ui-testing-approved", "--ui-testing-start-entry"])
         XCTAssertTrue(app.buttons["run.pause"].waitForExistence(timeout: 10))
-        XCTAssertEqual(app.staticTexts["run.step"].label, "A calm start")
+        XCTAssertEqual(app.staticTexts["run.step"].label, "Your morning")
         XCTAssertFalse(app.buttons["routine.approve"].exists)
         app.buttons["run.next"].tap()
         XCTAssertEqual(app.staticTexts["run.step"].label, "People and messages")
@@ -51,7 +51,7 @@ final class MorningEntryUITests: XCTestCase {
     func testDraftEntryOpensReviewWithoutStartingOrApproving() {
         let app = launch(["--ui-testing-start-entry"])
         XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.tabBars.buttons["Review"].isSelected)
+        XCTAssertTrue(app.navigationBars["Your routine"].exists)
         XCTAssertFalse(app.buttons["run.pause"].exists)
     }
 
@@ -64,8 +64,7 @@ final class MorningEntryUITests: XCTestCase {
 
     func testInvitationSettingsExplainOneTimeEntryBeforePermission() {
         let app = launch([])
-        XCTAssertTrue(app.tabBars.buttons["Review"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Review"].tap()
+        MorningUITestNavigation.selectTab("Review", in: app)
         let settings = app.buttons["navigation.setup"]
         for _ in 0..<5 where !settings.isHittable { app.swipeUp() }
         settings.tap()
@@ -82,6 +81,7 @@ final class MorningEntryUITests: XCTestCase {
 
     func testDeferredEntryWaitsForMorningDetailsToClose() {
         let app = launch(["--ui-testing-approved", "--ui-testing-start-entry-on-return"])
+        MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 10))
         app.buttons["run.start"].tap()
         app.buttons["run.controls"].tap()
@@ -97,7 +97,7 @@ final class MorningEntryUITests: XCTestCase {
         XCTAssertTrue(done.isHittable)
         done.tap()
         XCTAssertTrue(app.buttons["run.pause"].waitForExistence(timeout: 5), "The deferred entry resumes once the sheet closes.")
-        XCTAssertEqual(app.staticTexts["run.step"].label, "A calm start")
+        XCTAssertEqual(app.staticTexts["run.step"].label, "Your morning")
     }
 
     private func launch(_ arguments: [String]) -> XCUIApplication {

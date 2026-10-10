@@ -7,7 +7,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
     private let firstID = "11111111-1111-4111-8111-111111111111"
     private let secondID = "22222222-2222-4222-8222-222222222222"
     private let undatedID = "33333333-3333-4333-8333-333333333333"
-    private let currentTitle = "A calm start"
+    private let currentTitle = "Your morning"
     private let proposedTitle = "A morning to review"
 
     /// Production UTF-8 import with synthetic content, not a simulated recording or model call.

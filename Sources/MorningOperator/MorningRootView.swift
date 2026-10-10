@@ -13,6 +13,7 @@ struct MorningRootView: View {
     @ViewState<Bool> private var presentingIntentCapture = false
     @ViewState<Bool> private var pendingObservationReview = false
     @ViewState<Bool> private var testObservedBackground = false
+    @ViewState<Bool> private var showingActions = false
     @Environment(\.scenePhase) private var scenePhase
 
     private var presentedContent: some View {
@@ -21,8 +22,12 @@ struct MorningRootView: View {
                 TodayView(store: store, showLearn: { showingLearn = true },
                           reviewObservation: requestObservationReview,
                           showReview: { reviewRootIdentity = UUID(); store.tab = .review }, editRoutine: openRoutineReview)
+                    .padding(.bottom, 72)
+                    .background(MorningStyle.background)
                     .toolbar(.hidden, for: .navigationBar)
+                    .accessibilityHidden(showingActions)
             }
+            .toolbar(.hidden, for: .tabBar)
             .tabItem { Label("Morning", systemImage: "sun.horizon") }.tag(MorningTab.today)
             NavigationStack {
                 WeeklyReviewView(store: store, onLearn: { showingLearn = true },
@@ -31,13 +36,40 @@ struct MorningRootView: View {
                                      else { showingSettings = true }
                                  }, showingRoutineEditor: $showingRoutineEditor)
                     .background(MorningStyle.background)
+                    .toolbar { ToolbarItem(placement: .topBarLeading) {
+                        Button { store.tab = .today } label: { Image(systemName: "sun.horizon") }
+                            .accessibilityLabel("Back to morning").accessibilityIdentifier("morning.home")
+                    } }
             }
             .id(reviewRootIdentity)
+            .toolbar(.hidden, for: .tabBar)
             .tabItem { Label("Review", systemImage: "circle.grid.2x2") }.tag(MorningTab.review)
         }
         #if os(iOS)
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .toolbar(.hidden, for: .tabBar)
         #endif
+        .overlay {
+            if showingActions {
+                Color.black.opacity(0.035).ignoresSafeArea().onTapGesture { showingActions = false }
+                    .accessibilityHidden(true)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if store.tab == .today {
+                GeometryReader { geometry in
+                    MorningActionDock(store: store, expanded: $showingActions, availableHeight: geometry.size.height,
+                    edit: openRoutineReview,
+                    learn: { showingLearn = true },
+                    review: { reviewRootIdentity = UUID(); store.tab = .review },
+                    settings: {
+                        if store.voiceInputBlocksPlayback { store.voiceCommandPresented = true }
+                        else { showingSettings = true }
+                    })
+                    .padding(.horizontal, 24).padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                }
+            }
+        }
         .background {
             #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
             if #available(iOS 27.0, *) {
@@ -76,6 +108,7 @@ struct MorningRootView: View {
     private var workspaceContent: some View {
         presentedContent
         .onChange(of: store.dataGeneration) { _, _ in
+            showingActions = false
             showingLearn = false; showingRoutineEditor = false
             presentingIntentCapture = false; pendingObservationReview = false
             // Keep the presenting Review stack stable while Privacy is open.
@@ -95,6 +128,7 @@ struct MorningRootView: View {
         .onChange(of: store.session?.id) { _, _ in store.completionSessionChanged() }
         .onChange(of: showingRoutineEditor) { _, showing in if !showing { processPendingEntries() } }
         .onChange(of: store.tab) { _, value in
+            showingActions = false
             if value == .learn { store.tab = .review; showingLearn = true }
             if value == .setup { store.tab = .review; showingSettings = true }
             if value == .captures { store.tab = .review }
@@ -113,6 +147,7 @@ struct MorningRootView: View {
         .onChange(of: scenePhase) { _, phase in
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
+                showingActions = false
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
                 #endif
@@ -178,7 +213,8 @@ struct MorningRootView: View {
 
     private func presentPendingIntentCapture() {
         guard !store.privacyBlocksWork, scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !store.captureVoicePresented, !store.hasPendingSpokenCapture,
-              !store.voiceInputBlocksPlayback, !showingSettings,
+              !store.voiceInputBlocksPlayback, !showingSettings, !showingActions,
+              !store.morningDetailPresented,
               !showingLearn, !showingRoutineEditor, !store.voiceCommandPresented,
               !store.observationDetailPresented, !store.observationSelectionPresented, !store.routineProposalPresented,
               let text = MorningIntentRouter.shared.pendingCaptureText else { return }
@@ -215,7 +251,7 @@ struct MorningRootView: View {
     /// ending a session resumes review even when a failed recording stays pending.
     private var observationReviewCanPresent: Bool {
         guard !store.privacyBlocksWork, scenePhase == .active, !store.busy, !store.sessionActive,
-              !showingSettings, !showingRoutineEditor, !presentingIntentCapture,
+              !showingSettings, !showingActions, !showingRoutineEditor, !presentingIntentCapture,
               !store.capturePresented, !store.voiceCommandPresented, !store.captureVoicePresented,
               !store.hasPendingSpokenCapture, !store.voiceInputBlocksPlayback,
               !store.morningDetailPresented, !store.observationDetailPresented,
@@ -232,7 +268,7 @@ struct MorningRootView: View {
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
         if #available(iOS 27.0, *) { recordingBusy = ScreenRecordingService.shared.isBusy }
         #endif
-        return store.privacyBlocksWork || showingSettings || showingLearn || showingRoutineEditor || presentingIntentCapture ||
+        return store.privacyBlocksWork || showingActions || showingSettings || showingLearn || showingRoutineEditor || presentingIntentCapture ||
             store.capturePresented || store.voiceCommandPresented || store.captureVoicePresented ||
             store.hasPendingSpokenCapture || store.morningDetailPresented || store.observationDetailPresented ||
             store.observationSelectionPresented || store.routineProposalPresented || store.voiceInputBlocksPlayback ||
@@ -241,7 +277,7 @@ struct MorningRootView: View {
     }
 
     private var recordingCanProcess: Bool {
-        !store.privacyBlocksWork && !showingSettings && !showingLearn && !showingRoutineEditor && !presentingIntentCapture &&
+        !store.privacyBlocksWork && !showingActions && !showingSettings && !showingLearn && !showingRoutineEditor && !presentingIntentCapture &&
         !store.capturePresented && !store.voiceCommandPresented && !store.captureVoicePresented &&
         !store.hasPendingSpokenCapture && !store.voiceInputBlocksPlayback &&
         !store.morningDetailPresented && !store.observationDetailPresented &&
@@ -315,7 +351,7 @@ struct MorningRootView: View {
     }
 }
 
-/// The everyday surface has no editing and no scrolling at ordinary phone text sizes.
+/// A quiet, movable morning with no scrolling at ordinary phone text sizes.
 /// Larger accessibility text and short landscape windows get a scroll fallback rather
 /// than clipped controls or shrunken type. Review retains the complete routine.
 struct TodayView: View {
@@ -325,6 +361,8 @@ struct TodayView: View {
     var showReview: () -> Void
     var editRoutine: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicType
+    @ScaledMetric(relativeTo: .largeTitle) private var headingSize = 44.0
+    @ScaledMetric(relativeTo: .largeTitle) private var compactHeadingSize = 36.0
     @ViewState<Bool> private var showingNotice = false
     @ViewState<Bool> private var learnAfterNoticeDismissal = false
     @ViewState<RoutineStep?> private var viewingStep = nil
@@ -345,15 +383,18 @@ struct TodayView: View {
                 }
             }
             .padding(.horizontal, 24)
-            .padding(.top, 10).padding(.bottom, 12)
+            .padding(.top, 0).padding(.bottom, 8)
             .frame(maxWidth: 600).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .background(MorningStyle.background)
+        .background(MorningLightBackdrop())
+        .onChange(of: store.routine?.id) { _, _ in viewingStep = nil }
+        .onChange(of: store.dataGeneration) { _, _ in viewingStep = nil; showingNotice = false }
         .onChange(of: viewingStep != nil || showingNotice, initial: true) { _, presented in
             store.morningDetailPresented = presented
         }
-        .sheet(item: $viewingStep) { step in
+        .sheet(item: $viewingStep) { selection in
             NavigationStack {
+                if let step = store.routine?.steps.first(where: { $0.id == selection.id }) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         Text(step.title).font(.title2.weight(.semibold))
@@ -364,6 +405,7 @@ struct TodayView: View {
                                 .accessibilityIdentifier("run.detail")
                         }
                         if store.session?.status == .paused,
+                           store.currentStep?.id == step.id,
                            step.automation == .morningBriefing || step.automation == .todayCalendar {
                             Button("Update this recap") { store.updateCurrentBriefing() }
                                 .buttonStyle(.glass).accessibilityIdentifier("briefing.updateCurrent")
@@ -373,9 +415,32 @@ struct TodayView: View {
                                 .accessibilityIdentifier("run.detailPaused")
                         }
                         Text("\(step.durationMinutes) minutes planned").font(.caption).foregroundStyle(.secondary)
+                        if canArrange, let routine = store.routine,
+                           let index = routine.steps.firstIndex(where: { $0.id == step.id }) {
+                            let generation = store.dataGeneration
+                            Divider().padding(.vertical, 4)
+                            Text("Make room in your morning").font(.subheadline.weight(.medium))
+                            HStack(spacing: 12) {
+                                if index > 0 {
+                                    Button("Move earlier", systemImage: "arrow.up") {
+                                        store.moveStep(step.id, onto: routine.steps[index - 1].id,
+                                            expectedRoutineID: routine.id, expectedGeneration: generation)
+                                    }.accessibilityIdentifier("morning.moveEarlier")
+                                }
+                                if index + 1 < routine.steps.count {
+                                    Button("Move later", systemImage: "arrow.down") {
+                                        store.moveStep(step.id, onto: routine.steps[index + 1].id,
+                                            expectedRoutineID: routine.id, expectedGeneration: generation)
+                                    }.accessibilityIdentifier("morning.moveLater")
+                                }
+                            }.buttonStyle(.glass).controlSize(.regular)
+                            Text("A changed order becomes a draft for you to review.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
                 }.navigationTitle("This moment").navigationBarTitleDisplayMode(.inline)
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { viewingStep = nil } } }
+                }
             }.presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showingNotice, onDismiss: {
@@ -423,31 +488,38 @@ struct TodayView: View {
     }
 
     private func page(compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 10 : 18) {
+        VStack(alignment: .leading, spacing: compact ? 10 : 16) {
             dateHeader
             if let routine = store.routine {
                 if !store.sessionActive { routineHeading(routine, compact: compact) }
                 if store.sessionActive { nowPlaying(compact: compact) }
                 if terminal { closingMoment }
                 compactTimeline(routine, compact: compact)
-                Spacer(minLength: compact ? 4 : 8)
-                if routine.isSynthetic {
-                    Text("Sample morning · not your observed activity")
-                        .font(.caption2).foregroundStyle(.secondary).accessibilityIdentifier("routine.source")
-                }
-                actionArea(routine)
+                HStack(alignment: .top) {
+                    if routine.isSynthetic {
+                        Text("Sample morning").accessibilityIdentifier("routine.source")
+                            .accessibilityLabel("Sample morning, not your observed activity")
+                    } else { Text("Your rhythm, at your pace") }
+                    Spacer()
+                    if !store.sessionActive { Text("Hold to arrange").accessibilityHidden(true) }
+                }.font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 4)
+                Spacer(minLength: 4)
+                if store.sessionActive { actionArea(routine) }
             } else {
                 Spacer(minLength: 12)
                 welcome
-                Spacer(minLength: 16)
-                Button(action: showLearn) {
-                    Label("Learn my morning", systemImage: "record.circle")
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
-                }.buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large)
-                    .accessibilityIdentifier("learn.begin")
-                Button("See how it feels") { store.loadSample() }
-                    .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
-                    .accessibilityIdentifier("routine.sample")
+                HStack(spacing: 12) {
+                    Button(action: showLearn) {
+                        Label("Learn my morning", systemImage: "record.circle")
+                            .padding(.horizontal, 8).padding(.vertical, 8)
+                    }.buttonStyle(.glass).accessibilityIdentifier("learn.begin")
+                    Button("Try a sample") { store.loadSample() }
+                        .font(.subheadline).frame(minHeight: 44)
+                        .accessibilityIdentifier("routine.sample")
+                }.padding(.top, 14)
+                Spacer(minLength: 24)
+                Text("A few mornings. A rhythm that’s yours.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -484,73 +556,130 @@ struct TodayView: View {
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 22) {
             Image(systemName: "sun.horizon")
-                .font(.system(size: 56, weight: .ultraLight))
-                .foregroundStyle(MorningStyle.accent)
-                .frame(width: 104, height: 104)
-                .background(MorningStyle.lavender.opacity(0.55), in: Circle())
-                .accessibilityHidden(true)
-            Text("A little more\nmorning.")
-                .font(.system(size: 40, weight: .medium, design: .serif)).tracking(-1)
+                .font(.system(size: 46, weight: .ultraLight))
+                .foregroundStyle(.primary.opacity(0.75)).accessibilityHidden(true)
+            Text("a little more\nmorning.")
+                .font(.system(size: headingSize, weight: .regular, design: .serif)).tracking(-1.5)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Show MORE a little of your morning.\nWe’ll find the rhythm together.")
+            Text("Show us a little of your morning.\nWe’ll find the rhythm together.")
                 .font(.body).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private func routineHeading(_ routine: RoutineVersion, compact: Bool) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(terminal ? "More room for your day." : "Good morning.")
-                    .font(.system(size: compact ? 27 : 32, weight: .medium, design: .serif)).tracking(-0.5)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("morning")
+                    .font(.system(size: compact ? compactHeadingSize : headingSize, weight: .regular, design: .serif)).tracking(-1.5)
+                    .accessibilityIdentifier("morning.heading")
                 if !routine.isApproved {
-                    Text("Your first draft is ready to review.").font(.caption).foregroundStyle(.secondary)
+                    Text("A new rhythm. Ready to review.").font(.caption).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("morning.draft")
                 }
             }
             Spacer(minLength: 8)
-            if !terminal {
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text("\(routine.totalDurationMinutes) min").font(.title3.weight(.medium)).monospacedDigit()
-                    Text("planned").font(.caption2).foregroundStyle(.secondary)
-                }.accessibilityElement(children: .combine)
-            }
-        }.padding(.bottom, compact ? 0 : 4)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(routine.totalDurationMinutes) min").font(.system(.title3, design: .rounded).weight(.regular)).monospacedDigit()
+                Text("planned").font(.caption2).foregroundStyle(.secondary)
+            }.accessibilityElement(children: .combine)
+        }.padding(.bottom, compact ? 2 : 8)
+    }
+
+    private var canArrange: Bool {
+        !store.sessionActive && !store.busy && !store.privacyBlocksWork && store.storageIsAvailable
     }
 
     private func compactTimeline(_ routine: RoutineVersion, compact: Bool) -> some View {
+        let generation = store.dataGeneration
         let dense = compact || routine.steps.count > 6 || store.sessionActive || terminal
-        return VStack(spacing: dense ? 4 : 8) {
-            ForEach(Array(routine.steps.prefix(10).enumerated()), id: \.element.id) { index, step in
-                let complete = store.session?.completedStepIDs.contains(step.id) == true
-                let skipped = store.session?.skippedStepIDs.contains(step.id) == true
-                let current = store.sessionActive && store.currentStep?.id == step.id
-                HStack(spacing: 12) {
-                    Image(systemName: complete ? "checkmark" : skipped ? "forward.end" : MorningStyle.symbol(for: step.kind))
-                        .font(.system(size: dense ? 14 : 17, weight: .medium))
-                        .foregroundStyle(MorningStyle.accent).frame(width: 24)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(step.title).font(dense ? .subheadline.weight(.medium) : .headline)
-                            .lineLimit(dynamicType.isAccessibilitySize ? nil : 1)
-                        if !dense {
-                            Text(step.detail.components(separatedBy: "\nEvidence:")[0])
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
+        let spacing: CGFloat = store.sessionActive && compact ? 4 : dense ? 7 : 10
+        return GlassEffectContainer(spacing: 4) {
+            VStack(spacing: spacing) {
+                if #available(iOS 27.0, macOS 27.0, *) {
+                    VStack(spacing: spacing) {
+                        ForEach(Array(routine.steps.prefix(10))) { step in
+                            momentTile(step, routine: routine, generation: generation, dense: dense)
+                        }.reorderable()
                     }
-                    Spacer(minLength: 4)
-                    Text(complete ? "Done" : skipped ? "Skipped" : "\(step.durationMinutes)m")
-                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    .reorderContainer(for: RoutineStep.self, isEnabled: canArrange) { difference in
+                        guard store.routine == routine, store.dataGeneration == generation else { return }
+                        let selected = Set(difference.sources)
+                        guard !selected.isEmpty, selected.count == difference.sources.count,
+                              selected.isSubset(of: Set(routine.steps.map(\.id))) else { return }
+                        let moving = routine.steps.map(\.id).filter { selected.contains($0) }
+                        var remaining = routine.steps.map(\.id).filter { !selected.contains($0) }
+                        switch difference.destination.position {
+                        case .before(let target):
+                            guard let index = remaining.firstIndex(of: target) else { return }
+                            remaining.insert(contentsOf: moving, at: index)
+                        case .end:
+                            // The compact surface shows ten. End means after the
+                            // last visible moment, never after hidden moments.
+                            let visible = Set(routine.steps.prefix(10).map(\.id))
+                            let index = remaining.firstIndex(where: { !visible.contains($0) }) ?? remaining.endIndex
+                            remaining.insert(contentsOf: moving, at: index)
+                        }
+                        store.reorderSteps(remaining, expectedRoutineID: routine.id, expectedGeneration: generation)
+                    }
+                } else {
+                    ForEach(Array(routine.steps.prefix(10))) { step in
+                        momentTile(step, routine: routine, generation: generation, dense: dense)
+                    }
                 }
-                .padding(.horizontal, 14).padding(.vertical, dense ? (store.sessionActive ? 8 : 11) : 14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(MorningStyle.color(for: step.kind).opacity(complete || skipped ? 0.22 : 0.55),
-                            in: RoundedRectangle(cornerRadius: dense ? 14 : 19))
-                .overlay(RoundedRectangle(cornerRadius: dense ? 14 : 19).strokeBorder(current ? MorningStyle.accent.opacity(0.7) : .clear))
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(index + 1). \(step.title), \(step.durationMinutes) minutes planned\(complete ? ", completed" : skipped ? ", skipped" : "")")
-                .accessibilityIdentifier("morning.step.\(index)")
+                if routine.steps.count > 10 {
+                    Button("See all \(routine.steps.count) moments", action: editRoutine)
+                        .font(.caption).frame(minHeight: 44)
+                }
             }
-            if routine.steps.count > 10 {
-                Button("See all \(routine.steps.count) moments in Review", action: editRoutine)
-                    .font(.caption).frame(minHeight: 44)
+        }
+        .id("\(routine.id)-\(generation)-\(canArrange)")
+    }
+
+    private func momentTile(_ step: RoutineStep, routine: RoutineVersion, generation: UUID, dense: Bool) -> some View {
+        let index = routine.steps.firstIndex(where: { $0.id == step.id }) ?? 0
+        let complete = store.session?.completedStepIDs.contains(step.id) == true
+        let skipped = store.session?.skippedStepIDs.contains(step.id) == true
+        let current = store.sessionActive && store.currentStep?.id == step.id
+        return Button { viewingStep = step } label: {
+            HStack(spacing: 13) {
+                Image(systemName: complete ? "checkmark" : skipped ? "forward.end" : MorningStyle.symbol(for: step.kind))
+                    .font(.system(size: dense ? 16 : 19, weight: .regular))
+                    .foregroundStyle(.primary.opacity(complete || skipped ? 0.4 : 0.72)).frame(width: 25)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(step.title).font(dense ? .subheadline.weight(.medium) : .headline.weight(.medium))
+                        .lineLimit(dynamicType.isAccessibilitySize ? nil : 1)
+                    if !dense {
+                        Text(step.detail.components(separatedBy: "\nEvidence:")[0])
+                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 4)
+                Text(complete ? "Done" : skipped ? "Skipped" : "\(step.durationMinutes)m")
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 17).padding(.vertical, dense ? 12 : 17)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: dense ? 20 : 24))
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: dense ? 20 : 24))
+        .overlay(RoundedRectangle(cornerRadius: dense ? 20 : 24).strokeBorder(current ? Color.primary.opacity(0.35) : .clear))
+        .accessibilityLabel("\(index + 1). \(step.title), \(step.durationMinutes) minutes planned\(complete ? ", completed" : skipped ? ", skipped" : "")")
+        .accessibilityHint(canArrange ? "Opens details. Hold to move this moment." : "Opens details")
+        .accessibilityIdentifier("morning.step.\(index)")
+        .accessibilityActions {
+            if canArrange {
+                if index > 0 {
+                    Button("Move earlier") {
+                        store.moveStep(step.id, onto: routine.steps[index - 1].id, expectedRoutineID: routine.id, expectedGeneration: generation)
+                    }
+                }
+                if index + 1 < routine.steps.count {
+                    Button("Move later") {
+                        store.moveStep(step.id, onto: routine.steps[index + 1].id, expectedRoutineID: routine.id, expectedGeneration: generation)
+                    }
+                }
             }
         }
     }
@@ -566,15 +695,17 @@ struct TodayView: View {
             }
             Text(store.currentStep?.title ?? "Your morning")
                 .font(.headline).accessibilityIdentifier("run.step")
-            if store.automatic, !store.automation.message.isEmpty {
+            if compact {
+                EmptyView()
+            } else if store.automatic, !store.automation.message.isEmpty {
                 Text(store.automation.message).font(.caption).foregroundStyle(.secondary)
                     .lineLimit(dynamicType.isAccessibilitySize ? nil : compact ? 2 : 3)
             } else {
                 Text(store.session?.status == .paused ? "Continue when you’re ready." : "At your own pace.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-        }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-            .background(MorningStyle.lavender.opacity(0.45), in: RoundedRectangle(cornerRadius: 20))
+        }.padding(compact ? 11 : 14).frame(maxWidth: .infinity, alignment: .leading)
+            .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 20))
     }
 
     private var closingMoment: some View {
@@ -608,11 +739,11 @@ struct TodayView: View {
             HStack(spacing: 12) {
                 if store.session?.status == .paused {
                     Button { store.resume() } label: { Label("Continue", systemImage: "play.fill").frame(maxWidth: .infinity).padding(.vertical, 9) }
-                        .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).accessibilityIdentifier("run.resume")
+                        .buttonStyle(.glass).accessibilityIdentifier("run.resume")
                         .disabled(store.voiceInputBlocksPlayback)
                 } else {
                     Button { store.pause() } label: { Label("Pause", systemImage: "pause.fill").frame(maxWidth: .infinity).padding(.vertical, 9) }
-                        .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).accessibilityIdentifier("run.pause")
+                        .buttonStyle(.glass).accessibilityIdentifier("run.pause")
                     if !store.automatic || [.waitingForUser, .unavailable, .failed].contains(store.automation.status) {
                         Button { store.advance() } label: { Image(systemName: "arrow.right").frame(width: 32, height: 32) }
                             .buttonStyle(.glass).accessibilityLabel("Next moment").accessibilityIdentifier("run.next")
@@ -632,17 +763,6 @@ struct TodayView: View {
                 } label: { Image(systemName: "ellipsis").frame(width: 32, height: 32) }
                     .buttonStyle(.glass).accessibilityLabel("Morning controls").accessibilityIdentifier("run.controls")
             }.controlSize(.large)
-        } else {
-            Button {
-                if routine.isApproved { store.start() } else { editRoutine() }
-            } label: {
-                Label(routine.isApproved ? "Start my morning" : "Review my morning", systemImage: routine.isApproved ? "play.fill" : "arrow.right")
-                    .frame(maxWidth: .infinity).padding(.vertical, 10)
-            }.buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large).disabled(store.busy)
-                .accessibilityIdentifier(routine.isApproved ? "run.start" : "morning.reviewDraft")
-            Button("Update my morning", action: editRoutine)
-                .font(.subheadline).frame(maxWidth: .infinity, minHeight: 36)
-                .accessibilityIdentifier("morning.update")
         }
     }
 }
@@ -658,5 +778,119 @@ struct NoticeView: View {
             Button(action: dismiss) { Image(systemName: "xmark").padding(5) }.accessibilityLabel("Dismiss message")
         }.foregroundStyle(.secondary).padding(16).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 18))
             .accessibilityIdentifier("app.notice")
+    }
+}
+
+/// A single, quiet entry point. Expanded actions share one native glass surface.
+private struct MorningActionDock: View {
+    @Bindable var store: MorningStore
+    @Binding var expanded: Bool
+    var availableHeight: CGFloat
+    var edit: () -> Void
+    var learn: () -> Void
+    var review: () -> Void
+    var settings: () -> Void
+    @Namespace private var glassNamespace
+    @ViewState<CGFloat> private var actionHeight = 276
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicType
+
+    var body: some View {
+        GlassEffectContainer(spacing: 12) {
+            VStack(spacing: 10) {
+                if expanded {
+                    ScrollView {
+                        actionRows.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { actionHeight = $0 }
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .accessibilityIdentifier("morning.actionsScroll")
+                    .frame(height: min(max(48, availableHeight - 82), max(48, actionHeight)))
+                    .frame(maxWidth: dynamicType.isAccessibilitySize ? 360 : 280)
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 30))
+                    .glassEffectID("actions", in: glassNamespace)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .bottom)))
+                }
+                Button {
+                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.32)) { expanded.toggle() }
+                } label: {
+                    Image(systemName: expanded ? "xmark" : "sun.horizon")
+                        .font(.system(size: expanded ? 18 : 24, weight: .regular))
+                        .contentTransition(.symbolEffect(.replace))
+                        .foregroundStyle(.primary.opacity(0.85))
+                        .frame(width: 56, height: 56)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: Circle())
+                .glassEffectID("sunrise", in: glassNamespace)
+                .accessibilityLabel("Morning actions")
+                .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+                .accessibilityIdentifier("morning.actions")
+                .disabled(store.privacyBlocksWork)
+            }
+        }
+    }
+
+    private var actionRows: some View {
+        VStack(spacing: 0) {
+            if store.sessionActive {
+                action(store.session?.status == .paused ? "Continue morning" : "Pause morning",
+                       symbol: store.session?.status == .paused ? "play" : "pause", id: "morning.playback") {
+                    if store.session?.status == .paused { store.resume() } else { store.pause() }
+                }
+            } else if let routine = store.routine {
+                action(routine.isApproved ? "Start my morning" : "Review my morning",
+                       symbol: routine.isApproved ? "play" : "checkmark", id: routine.isApproved ? "run.start" : "morning.reviewDraft") {
+                    if routine.isApproved { store.start() } else { edit() }
+                }
+            } else {
+                action("Try a sample", symbol: "play", id: "morning.sample") { store.loadSample() }
+            }
+            action("Update my morning", symbol: "slider.horizontal.3", id: "morning.update", disabled: store.sessionActive || store.routine == nil, edit)
+            action("Past mornings", symbol: "calendar", id: "morning.review", review)
+            action("Learn my morning", symbol: "record.circle", id: "morning.learn", disabled: store.sessionActive, learn)
+            action("Settings", symbol: "gearshape", id: "morning.settings", settings)
+        }.padding(8)
+    }
+
+    private func action(_ title: String, symbol: String, id: String, disabled: Bool = false,
+                        _ perform: @escaping () -> Void) -> some View {
+        Button {
+            // Present the selected destination before releasing entry occupancy.
+            // This prevents a pending invitation from racing a sheet transition.
+            perform()
+            expanded = false
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: symbol).font(.system(size: 17, weight: .regular)).frame(width: 24)
+                Text(title).font(.subheadline.weight(.medium)).multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }.foregroundStyle(.primary).padding(.horizontal, 15).padding(.vertical, 13)
+                .frame(minHeight: 48).contentShape(RoundedRectangle(cornerRadius: 18))
+        }.buttonStyle(.plain).disabled(disabled || store.busy || store.privacyBlocksWork)
+            .opacity(disabled ? 0.4 : 1).accessibilityIdentifier(id)
+    }
+}
+
+/// Light behind the glass, not another card. The system supplies the actual material.
+private struct MorningLightBackdrop: View {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                MorningStyle.background
+                if !reduceTransparency {
+                    Ellipse()
+                        .fill(Color(red: 0.90, green: 0.70, blue: 0.42).opacity(scheme == .dark ? 0.12 : 0.16))
+                        .frame(width: geometry.size.width * 1.3, height: geometry.size.height * 0.50)
+                        .blur(radius: 65).offset(x: geometry.size.width * 0.40, y: -geometry.size.height * 0.10)
+                    Ellipse()
+                        .fill(Color(red: 0.40, green: 0.60, blue: 0.66).opacity(scheme == .dark ? 0.12 : 0.11))
+                        .frame(width: geometry.size.width * 1.1, height: geometry.size.height * 0.48)
+                        .blur(radius: 70).offset(x: -geometry.size.width * 0.42, y: geometry.size.height * 0.24)
+                }
+            }
+        }.ignoresSafeArea().accessibilityHidden(true).allowsHitTesting(false)
     }
 }

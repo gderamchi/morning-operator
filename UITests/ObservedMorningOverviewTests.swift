@@ -102,12 +102,13 @@ final class ObservedMorningOverviewTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Sampled moment"].waitForExistence(timeout: 5), app.debugDescription)
 
         relaunchWithoutSeed(app)
+        MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5), "Cancel must leave the saved approval unchanged.\n\(app.debugDescription)")
         XCTAssertFalse(app.buttons["morning.reviewDraft"].exists)
         MorningUITestNavigation.openRoutine(in: app)
         let baseline = app.buttons["routine.step.0"]
         XCTAssertTrue(baseline.waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertTrue(baseline.label.contains("A calm start"), baseline.debugDescription)
+        XCTAssertTrue(baseline.label.contains("Your morning"), baseline.debugDescription)
         MorningUITestNavigation.closeRoutine(in: app)
 
         openDay(offset: -2, in: app)
@@ -120,10 +121,12 @@ final class ObservedMorningOverviewTests: XCTestCase {
         tap("narration.done", in: app)
         waitForAbsence(app.navigationBars["A saved moment"], in: app)
         MorningUITestNavigation.selectTab("Morning", in: app)
+        MorningUITestNavigation.revealMorningAction("morning.reviewDraft", in: app)
         XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(app.buttons["run.start"].exists, "Reading source evidence cannot authorize automatic execution.")
 
         relaunchWithoutSeed(app)
+        MorningUITestNavigation.revealMorningAction("morning.reviewDraft", in: app)
         XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(app.buttons["run.start"].exists)
         MorningUITestNavigation.openRoutine(in: app)
@@ -156,7 +159,9 @@ final class ObservedMorningOverviewTests: XCTestCase {
     private func approveBaseline(in app: XCUIApplication) {
         MorningUITestNavigation.openRoutine(in: app)
         tap("routine.approve", in: app)
+        MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["morning.actions"].tap()
     }
 
     private func openReview(in app: XCUIApplication) {

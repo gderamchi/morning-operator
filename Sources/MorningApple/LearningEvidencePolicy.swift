@@ -112,13 +112,30 @@ enum LearningEvidencePolicy {
            value.contains("with labeled samples") || value.contains("a recorded glimpse not time spent") {
             return true
         }
+        // The glass home contains our saved/proposed routine, not new evidence
+        // that those activities happened. Match its exact heading and distinctive
+        // footer/control copy; neither "morning" nor an event mentioning a sample
+        // is enough. Vision may place both footer columns on one recognized line.
+        let glassHomeFooters = [
+            "sample morning", "your rhythm at your pace", "hold to arrange",
+            "sample morning hold to arrange", "your rhythm at your pace hold to arrange"
+        ]
+        let hasGlassHomeFooter = glassHomeFooters.contains(where: lines.contains)
+        if lines.contains("morning"),
+           hasGlassHomeFooter || lines.contains("a new rhythm ready to review") { return true }
+        // The active home omits its large heading and the arrange instruction.
+        // Require its distinctive footer plus the paired state/playback controls.
+        if hasGlassHomeFooter,
+           (lines.contains("now") && lines.contains("pause")) ||
+           (lines.contains("paused") && lines.contains("continue")) { return true }
         // The V2 shell deliberately removes the persistent brand heading. Use paired,
         // distinctive controls/copy, not generic words such as Morning, planned or MORE.
         let moreScreenPairs = [
             ["start my morning", "update my morning"],
             ["a little perspective", "settings connections"],
             ["more room for your day", "anything you d like to remember"],
-            ["show more a little of your morning", "we ll find the rhythm together"]
+            ["show more a little of your morning", "we ll find the rhythm together"],
+            ["show us a little of your morning", "we ll find the rhythm together"]
         ]
         if moreScreenPairs.contains(where: { pair in pair.allSatisfy(value.contains) }) { return true }
         let onboardingControls = ["free trial", "subscribe now", "create your account", "sign up to continue", "get started"]

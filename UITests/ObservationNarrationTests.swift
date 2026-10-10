@@ -30,7 +30,7 @@ final class ObservationNarrationTests: XCTestCase {
 
         let current = app.staticTexts["run.step"]
         wait(current, predicate: "label == %@", argument: "People and messages", timeout: 60,
-             message: "Without Next, native speech must finish the saved excerpt and A calm start before reaching the manual moment.", in: app)
+             message: "Without Next, native speech must finish the saved excerpt and Your morning before reaching the manual moment.", in: app)
         for index in [0, 1] {
             let completed = app.descendants(matching: .any).matching(identifier: "morning.step.\(index)").firstMatch
             XCTAssertTrue(completed.waitForExistence(timeout: 5), app.debugDescription)

@@ -6,7 +6,7 @@ import XCTest
 /// No test invokes the Apple model or starts playback.
 @MainActor
 final class RoutineTransferTests: XCTestCase {
-    private let currentTitle = "A calm start"
+    private let currentTitle = "Your morning"
     private let importedTitle = "Imported calm"
     private let privateExportNote = "SYNTHETIC_PRIVATE_EXPORT_NOTE"
     private let importedNote = "SYNTHETIC_IMPORTED_TRANSFER_NOTE"

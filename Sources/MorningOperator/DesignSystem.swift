@@ -11,8 +11,8 @@ typealias ViewState<Value> = SwiftUI.State<Value>
 enum MorningStyle {
     static let ink = Color.primary
     static let muted = Color.secondary
-    static let accent = adaptive(light: (0.43, 0.34, 0.70), dark: (0.73, 0.65, 0.94))
-    static let controlTint = Color(red: 0.43, green: 0.34, blue: 0.70)
+    static let accent = adaptive(light: (0.25, 0.32, 0.32), dark: (0.78, 0.84, 0.82))
+    static let controlTint = Color(red: 0.25, green: 0.32, blue: 0.32)
     static let green = adaptive(light: (0.24, 0.49, 0.39), dark: (0.56, 0.77, 0.65))
     static let line = Color.primary.opacity(0.08)
     static let background = adaptive(light: (0.98, 0.973, 0.952), dark: (0.10, 0.11, 0.13))

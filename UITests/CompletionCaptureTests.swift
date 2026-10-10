@@ -112,7 +112,7 @@ final class CompletionCaptureTests: XCTestCase {
     private func completeMorning(in app: XCUIApplication) {
         MorningUITestNavigation.selectTab("Morning", in: app)
         tap("run.start", in: app)
-        for title in ["A calm start", "People and messages", "Make room for the day", "A little time to play"] {
+        for title in ["Your morning", "People and messages", "Make room for the day", "A little time to play"] {
             let step = app.staticTexts["run.step"]
             let current = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", title), object: step)
             XCTAssertEqual(XCTWaiter.wait(for: [current], timeout: 5), .completed)

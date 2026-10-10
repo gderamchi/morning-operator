@@ -302,7 +302,7 @@ final class MorningStore {
         if seedFixture && !FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             routine = DemoFixtures.candidateRoutine
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-ten-moments") {
-                let titles = ["A calm start", "The weather", "Today's calendar", "Your reminders", "People and messages",
+                let titles = ["Your morning", "The weather", "Today's calendar", "Your reminders", "People and messages",
                               "A little reading", "Make some tea", "A moment to move", "A little time to play", "One thought for later"]
                 let kinds: [StepKind] = [.briefing, .briefing, .calendar, .custom, .messages,
                                          .entertainment, .custom, .wellbeing, .entertainment, .custom]
@@ -536,6 +536,42 @@ final class MorningStore {
     @discardableResult
     func updateSteps(_ steps: [RoutineStep]) -> Bool {
         guard !privacyBlocksWork else { return false }
+        return saveRoutineEdit(steps: steps, preferences: routinePreferences)
+    }
+
+    /// Commit one completed drag using the identities captured at drag start.
+    /// Moving down lands after the target; moving up lands before it.
+    @discardableResult
+    func moveStep(_ sourceID: UUID, onto targetID: UUID,
+                  expectedRoutineID: UUID, expectedGeneration: UUID) -> Bool {
+        guard let current = routine,
+              let source = current.steps.firstIndex(where: { $0.id == sourceID }),
+              let target = current.steps.firstIndex(where: { $0.id == targetID }) else { return false }
+        var orderedIDs = current.steps.map(\.id)
+        let moved = orderedIDs.remove(at: source)
+        orderedIDs.insert(moved, at: target)
+        return reorderSteps(orderedIDs, expectedRoutineID: expectedRoutineID, expectedGeneration: expectedGeneration)
+    }
+
+    /// The native reorder control supplies only an exact permutation. Step values
+    /// come from the current routine; a drag cannot replace content or approval.
+    @discardableResult
+    func reorderSteps(_ orderedIDs: [UUID], expectedRoutineID: UUID, expectedGeneration: UUID) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !busy, !sessionActive,
+              dataGeneration == expectedGeneration,
+              let current = routine, current.id == expectedRoutineID,
+              current.number >= 1, current.number < Int.max else { return false }
+        let currentIDs = current.steps.map(\.id)
+        guard Set(currentIDs).count == currentIDs.count,
+              orderedIDs.count == currentIDs.count,
+              Set(orderedIDs).count == orderedIDs.count,
+              Set(orderedIDs) == Set(currentIDs) else { return false }
+        guard orderedIDs != currentIDs else { return true }
+        let byID = Dictionary(uniqueKeysWithValues: current.steps.map { ($0.id, $0) })
+        let steps = orderedIDs.compactMap { byID[$0] }
+        guard steps.count == current.steps.count else { return false }
+        // The common edit transaction preserves an approved predecessor,
+        // invalidates pending proposals, and rolls all routine state back if saving fails.
         return saveRoutineEdit(steps: steps, preferences: routinePreferences)
     }
 
@@ -1749,7 +1785,7 @@ final class MorningStore {
         guard !privacyBlocksWork else { return }
         guard !sessionActive, !busy else { notice = "Stop this morning before creating another routine."; return }
         installCandidate(RoutineVersion(number: 1, sourceLabel: "Created by you", steps: [
-            RoutineStep(title: "A calm start", detail: "Review what matters today.", kind: .briefing, durationMinutes: 3, isRequired: true, automation: .spokenNote)
+            RoutineStep(title: "Your morning", detail: "Review what matters today.", kind: .briefing, durationMinutes: 3, isRequired: true, automation: .spokenNote)
         ], isApproved: false))
         tab = .today
         persist()

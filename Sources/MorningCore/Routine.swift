@@ -157,7 +157,7 @@ public enum DemoFixtures {
     /// Synthetic demonstration data, never a recorded personal morning.
     public static var candidateRoutine: RoutineVersion {
         RoutineVersion(sourceLabel: "Demo fixture — synthetic morning, not observed personal data", steps: [
-            RoutineStep(title: "A calm start", detail: "Take a breath. Let your morning begin at your own pace.", kind: .briefing, durationMinutes: 3, automation: .spokenNote),
+            RoutineStep(title: "Your morning", detail: "Good morning. Let’s see what’s ahead.", kind: .briefing, durationMinutes: 3, automation: .spokenNote),
             RoutineStep(title: "People and messages", detail: "Check in with the people who matter.", kind: .messages, durationMinutes: 5),
             RoutineStep(title: "Make room for the day", detail: "Read today’s events from your connected calendar.", kind: .calendar, durationMinutes: 3, automation: .todayCalendar),
             RoutineStep(title: "A little time to play", detail: "A little chess. A little joy. Keep this time for yourself.", kind: .entertainment, durationMinutes: 8, isRequired: true)

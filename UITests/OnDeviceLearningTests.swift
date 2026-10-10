@@ -127,7 +127,7 @@ final class OnDeviceLearningTests: XCTestCase {
         MorningUITestNavigation.openRoutine(in: app)
         let first = app.buttons["routine.step.0"]
         XCTAssertTrue(first.waitForExistence(timeout: 5))
-        XCTAssertTrue(first.label.contains("A calm start"))
+        XCTAssertTrue(first.label.contains("Your morning"))
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "routine.step.")).count, 4)
         XCTAssertFalse(app.buttons["routine.approve"].exists)
         MorningUITestNavigation.closeRoutine(in: app)

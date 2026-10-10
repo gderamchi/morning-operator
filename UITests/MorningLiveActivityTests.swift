@@ -11,7 +11,7 @@ final class MorningLiveActivityTests: XCTestCase {
         if let app = runningApp {
             // A relaunch reconciles only this test's process-era activities.
             app.terminate(); app.launch()
-            _ = app.tabBars.buttons["Morning"].waitForExistence(timeout: 10)
+            _ = app.buttons["morning.actions"].waitForExistence(timeout: 10)
             app.terminate()
         }
         runningApp = nil
@@ -154,7 +154,7 @@ final class MorningLiveActivityTests: XCTestCase {
         stale.tap()
         XCTAssertTrue(app.buttons["run.resume"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.state, .runningForeground)
-        XCTAssertEqual(app.staticTexts["run.step"].label, "A calm start")
+        XCTAssertEqual(app.staticTexts["run.step"].label, "Your morning")
         XCTAssertFalse(app.buttons["run.pause"].exists, "A reveal-only tap must not resume the run.")
         openSettings(app); setEnabled(false, in: app); assertNative("count:0", in: app)
     }
@@ -168,7 +168,7 @@ final class MorningLiveActivityTests: XCTestCase {
             "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-live-activity"]
         runningApp = app
         app.launch()
-        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
         return app
     }
 

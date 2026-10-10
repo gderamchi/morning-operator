@@ -22,11 +22,12 @@ final class VoicePlaybackTests: XCTestCase {
         app.navigationBars["Settings"].buttons["Done"].tap()
         MorningUITestNavigation.openRoutine(in: app)
         app.buttons["routine.approve"].tap()
+        MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
         app.buttons["run.start"].tap()
         let step = app.staticTexts["run.step"]
         XCTAssertTrue(step.waitForExistence(timeout: 5))
-        XCTAssertEqual(step.label, "A calm start")
+        XCTAssertEqual(step.label, "Your morning")
         // The first fixture step is a real spokenNote operation; the next is manual.
         // Enabling automatic progression dispatches the production speech executor.
         app.buttons["run.controls"].tap()
@@ -116,6 +117,7 @@ final class FixtureJourneyTests: XCTestCase {
         tapButton("run.controls", in: app)
         tapButton("run.stop", in: app)
         assertState("stopped", in: app)
+        MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].exists, "A stopped routine should offer an explicit restart.")
         attachScreenshot("fixture-stopped", from: app)
     }
@@ -193,7 +195,9 @@ final class FixtureJourneyTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Active routine time"].exists)
         attachScreenshot("fixture-review-empty-history-day", from: app)
         selectTab("Morning", in: app)
+        MorningUITestNavigation.revealMorningAction("morning.reviewDraft", in: app)
         XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5), "The current draft must remain intact outside history.")
+        app.buttons["morning.actions"].tap()
         tapButton("morning.date", in: app)
         XCTAssertTrue(app.buttons["review.period"].waitForExistence(timeout: 5), "The date must reopen the period, not a previously pushed day detail.")
         XCTAssertFalse(app.staticTexts["No routine saved for this day."].exists)
@@ -203,6 +207,7 @@ final class FixtureJourneyTests: XCTestCase {
         let app = launchFixture(workspaceID: UUID())
         MorningUITestNavigation.openRoutine(in: app)
         tapButton("routine.approve", in: app)
+        MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
         MorningUITestNavigation.openRoutine(in: app)
         tapButton("routine.step.0", in: app)
@@ -224,6 +229,7 @@ final class FixtureJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["routine.step.0"].label.contains(editedName))
         MorningUITestNavigation.closeRoutine(in: app)
         selectTab("Morning", in: app)
+        MorningUITestNavigation.revealMorningAction("morning.reviewDraft", in: app)
         XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["run.start"].exists, "An edited draft must not start from Morning.")
 
@@ -242,6 +248,7 @@ final class FixtureJourneyTests: XCTestCase {
         XCTAssertFalse(app.buttons["routine.approve"].exists)
         MorningUITestNavigation.closeRoutine(in: app)
         selectTab("Morning", in: app)
+        MorningUITestNavigation.revealMorningAction("run.start", in: app)
         XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
 
         tapButton("run.start", in: app)
@@ -396,16 +403,51 @@ final class FixtureJourneyTests: XCTestCase {
     }
 }
 
-/// Shared navigation for the two-tab UI. Every action still requires an existing,
-/// visible control; scrolling targets its own sheet/list rather than a hidden page.
+/// Shared navigation for Morning's sunrise actions and the Review home control.
+/// The historical method name keeps callers consistent without relying on a tab bar.
 @MainActor
 enum MorningUITestNavigation {
     static func selectTab(_ title: String, in app: XCUIApplication,
                           file: StaticString = #filePath, line: UInt = #line) {
-        let tab = app.tabBars.buttons[title]
-        XCTAssertTrue(tab.waitForExistence(timeout: 5), "Missing native tab: \(title)", file: file, line: line)
-        XCTAssertTrue(tab.isHittable, "Native tab must be tappable: \(title)", file: file, line: line)
-        tab.tap()
+        switch title {
+        case "Morning":
+            let home = app.buttons["morning.home"]
+            if home.exists {
+                XCTAssertTrue(home.isHittable, app.debugDescription, file: file, line: line)
+                home.tap()
+            }
+            XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 5),
+                          "Morning must expose its sunrise control.\n\(app.debugDescription)", file: file, line: line)
+        case "Review":
+            if app.buttons["morning.home"].exists { return }
+            let date = app.buttons["morning.date"]
+            let expandedReview = app.buttons["morning.review"]
+            if expandedReview.exists, expandedReview.isHittable {
+                expandedReview.tap()
+            } else if date.waitForExistence(timeout: 5), date.isHittable {
+                date.tap()
+            } else {
+                revealMorningAction("morning.review", in: app, file: file, line: line)
+                app.buttons["morning.review"].tap()
+            }
+            XCTAssertTrue(app.buttons["morning.home"].waitForExistence(timeout: 5),
+                          "Review must expose its return to Morning.\n\(app.debugDescription)", file: file, line: line)
+        default:
+            XCTFail("Unsupported destination: \(title)", file: file, line: line)
+        }
+    }
+
+    /// Opens the visible sunrise menu only when the requested action is hidden.
+    static func revealMorningAction(_ identifier: String, in app: XCUIApplication,
+                                    file: StaticString = #filePath, line: UInt = #line) {
+        let action = app.buttons[identifier]
+        if action.exists, action.isHittable { return }
+        let sunrise = app.buttons["morning.actions"]
+        XCTAssertTrue(sunrise.waitForExistence(timeout: 5), app.debugDescription, file: file, line: line)
+        XCTAssertTrue(sunrise.isHittable, app.debugDescription, file: file, line: line)
+        sunrise.tap()
+        XCTAssertTrue(action.waitForExistence(timeout: 5), "Missing morning action: \(identifier)\n\(app.debugDescription)", file: file, line: line)
+        XCTAssertTrue(action.isHittable, app.debugDescription, file: file, line: line)
     }
 
     static func reviewAction(_ identifier: String, in app: XCUIApplication,
@@ -431,6 +473,9 @@ enum MorningUITestNavigation {
 
     static func tapButton(_ identifier: String, in app: XCUIApplication,
                           file: StaticString = #filePath, line: UInt = #line) {
+        if ["run.start", "run.resume", "morning.reviewDraft", "morning.update", "morning.review", "morning.learn", "morning.settings"].contains(identifier) {
+            revealMorningAction(identifier, in: app, file: file, line: line)
+        }
         let button = app.buttons[identifier]
         XCTAssertTrue(button.waitForExistence(timeout: 10), "Missing control: \(identifier)", file: file, line: line)
         for _ in 0..<4 where !button.isHittable {

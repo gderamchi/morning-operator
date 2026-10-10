@@ -63,7 +63,7 @@ final class MorningBriefingTests: XCTestCase {
         XCTAssertTrue(step.waitForExistence(timeout: 5))
         XCTAssertEqual(state.value as? String, "running")
         let before = step.label
-        XCTAssertEqual(before, "A calm start")
+        XCTAssertEqual(before, "Your morning")
 
         openBriefing(app)
         tap("briefing.refresh", app)
