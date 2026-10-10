@@ -1,6 +1,26 @@
 # MORE: implementation and verification
 
-Current app source and installed phone build are **`0f94f6d`** on `codex/more-quiet-morning`. Its signed build and deep/strict signature verification succeeded; the ordinary app was installed and launched on the owner's physical iPhone on **10 October 2026**, without fixture flags or resetting the user store. No new physical capture, model, connected-service, microphone, HomePod or listener result accompanied installation. The bounded build/protocol/handoff deliverable is complete; the wider product is unfinished, and the owner's manual walkthrough remains open under #1.
+**Current installed app source: `8af8de8`, 10 October 2026, on `codex/more-quiet-morning`.** Simulator compilation, signed iPhone compilation and deep/strict signature verification passed. Ordinary installation and launch returned success, preserving the owner's data. Design acceptance remains open. This is a testable revision, not evidence of complete morning ingestion, connected inboxes, real speech recognition or HomePod operation.
+
+## Warm sunrise revision — 10 October 2026 (`8af8de8`)
+
+Task tiles now show their own duration; a centred warm sunrise expands into four horizontal native-glass actions. Play opens Ready, and Start begins only an approved routine. Learn replaces the duplicate dock Update action; full editing remains in History. Manual details lead with concise purpose and preserve original text behind Saved details. The optional 45-minute sample separates messaging apps and contains no mandatory tea, movement or meditation. It is synthetic and manual. English/French sample/greeting support is enabled; complete French translation remains #31. Existing routines are unchanged. Dawn/sunset colours follow appearance, not an inferred wake time.
+
+A slow recording writer deadline now stays pending rather than marking a later successful file for deletion. Explicit discard/Forget and genuine writer failures still suppress recovery. This source fix has deterministic lifecycle coverage; no real long capture or delayed hardware callback was exercised.
+
+| Check | Actual result and scope |
+|---|---|
+| Shared sample and evidence | Phone sample: **4 declarations / 6 parameter-expanded cases passed**. Evidence policy: **22 passed**, including paired good morning/bonjour recording markers. No real model inference. |
+| Recording recovery | **28 declarations across 5 suites passed**. Includes 5 new declarations / 8 cases for late success, explicit discard, actual failure and unresolved resource ownership. No ScreenCaptureKit hardware timing claim. |
+| Initial dock run | **0/3 passed**. A parent accessibility identifier overwrote child action IDs; fixed by removing it. Preserved result: `work/sunrise-dock-ui.xcresult`. |
+| Broader iteration | **14/17 passed**. Failures: history immediately after dismissing the bar, and two manual-detail lookups whose identifier was overwritten by the disclosure. Fixed dismissal/layout ownership and removed the disclosure-level identifier. Native drag, reorder persistence/locks, active layout, voice entry and invitation checks passed in this selection. `work/sunrise-final-ui.xcresult`. |
+| Corrected focused run | **9/11 passed**. Prior history/detail failures passed. Remaining failures exposed missing French bundle-language selection and a test querying the lazily loaded sample footer before scrolling. French localizations were declared; the test now reveals the footer before checking it. `work/sunrise-verified-ui.xcresult`. |
+| Final locale/sample rerun | **2/2 passed**, 98.487s including run setup/teardown, no skips: real Try sample → exact manual details → provenance → persisted unapproved draft, plus French greeting/sample and explicit ready/cancel behavior. `work/sunrise-locale-sample-ui.xcresult`. |
+| Largest actual text | **1/1 passed**, 29.293s including setup/teardown, no skips. Ready/Start, full spoken details and stop remain reachable. Normal simulator size restored to Large. Touch/layout evidence only, not VoiceOver. `work/sunrise-accessibility-ui.xcresult`. |
+| French sunset preview | A test helper originally supplied both light and dark flags, so its first French screenshots were light. The helper now honours dark explicitly; the French journey passed again and actual dark screenshots were inspected. `work/sunrise-french-dark-ui.xcresult`. This is a test-only correction after app source `8af8de8`. |
+| Device | Signed build and deep/strict verification passed. `work/sunrise-iphone-install.json` and `work/sunrise-iphone-launch.json` both report success. No data reset or fixture launch flags. |
+
+These are overlapping, scoped runs; no new all-green full-suite result is claimed. The native hosting/accessibility runtime warnings remain recorded with no general fix claimed. Local screenshots are synthetic examples. No personal recording, mailbox or health data was uploaded. Native capture still stops at 30 minutes or monitored 256 MiB; imports remain 31 minutes/512 MiB/24 frames. See the [long-recording protocol](LONG-RECORDING-TEST-PLAN.md), [handoff](HANDOFF.md), and open #23/#25/#27/#31.
 
 ## Compact Morning refinement — 10 October 2026 (`0f94f6d`)
 

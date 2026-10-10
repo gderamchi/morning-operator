@@ -432,7 +432,7 @@ final class QuietMorningTests: XCTestCase {
     private func launch(_ arguments: [String]) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--light-preview"] + arguments
+        app.launchArguments = ["--ui-testing"] + (arguments.contains("--dark-preview") ? [] : ["--light-preview"]) + arguments
         if !arguments.contains(where: { $0.hasPrefix("--ui-testing-workspace=") }) {
             app.launchArguments.append("--ui-testing-workspace=\(UUID().uuidString)")
         }

@@ -2,13 +2,15 @@
 
 MORE is a native iPhone app. The Mac is its development and test environment. The repository and Xcode project retain the Morning Operator name.
 
-**Current app source and installed phone build: `0f94f6d`, on `codex/more-quiet-morning`.** The compact home uses small system text, relative plan offsets, tappable/reorderable glass tiles, a native corner popover, and a direct one-time invitation editor. Observed-first Review, exact-source corrections/narration and batched long-text learning remain implemented. Calendar/Weather preparation and optional Lock Screen progress retain their own verification.
+**App source `8af8de8` is installed and launched on the owner’s iPhone; owner acceptance remains open.** The owner rejected the previous corner popover. On `codex/more-quiet-morning`, the revised home has a centered sunrise that expands into four horizontal actions, Play → Ready → Start, per-moment durations, concise details, a dawn/sunset-inspired background and an optional manual English/French sample. The direct invitation editor, observed-first Review and batched long-text learning remain. See [V2 design](V2-DESIGN.md).
 
-**Testing on your phone:** signed `0f94f6d` was installed and launched as the ordinary app on the owner's iPhone on 10 October 2026, preserving the user store. The owner walkthrough, new physical capture, connected-service, model and listener checks remain separate.
-
-**Verification:** the compact revision has **14/14** native journey passes; the final accessibility-state refinement has **4/4** regression passes plus **1/1** at largest text. All finalized cleanly with no skips. Focused evidence policy **22/22** and voice grammar **10/10** pass. The changing-content benchmark has one actual capture/OCR run; its semantic digest stage remains blocked. Earlier learning and integration results remain separately recorded in [verification](PHASE-ONE.md).
+**Testing on your phone:** signed `8af8de8` was installed and launched on 10 October, preserving the saved routine. The focused failure reruns and largest-text check pass. Earlier failed iterations and exact scopes are preserved in [PHASE-ONE](PHASE-ONE.md); no full-suite, personal capture, listener or connected-inbox pass is implied.
 
 **Start here:** [Teammate handoff](HANDOFF.md) · [Repeatable digest protocol](DIGEST-TEST-PROTOCOL.md). **Direction:** [Low-effort morning experience](PRODUCT-DIRECTION.md) · [Business hypotheses](BUSINESS.md) · [Long-recording test plan](LONG-RECORDING-TEST-PLAN.md).
+
+Native recording remains bounded to **30 minutes** with a monitored **256 MiB** size stop; import remains **31 minutes / 512 MiB / at most 24 sampled frames**. Longer text batches do not mean complete video coverage. See the [long-recording test plan](LONG-RECORDING-TEST-PLAN.md).
+
+English/French sample content does not mean a fully bilingual app. Greeting and selected purpose copy also adapt; complete French UI localization remains [issue #31](https://github.com/gibouu/morning-operator/issues/31).
 
 ## Use the app
 
