@@ -1,6 +1,30 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch adds explicit local privacy controls at **`640370c`**, with the final package and simulator results recorded below. The preceding source **`aec8fc8`** added spoken completion capture to reviewed portable routine files (`943766e`), saved choices (`4022a0e`) and unified Learn/import (`48e5c95`). Earlier saved-observation proposals (`4a2fd30`), dated archive (`d9a6120`), native OCR layout (`fb0e4a2`), header refinement (`e7666cd`/`dd611fd`) and recording benchmark (`4ddb524`) retain their separate evidence below. Final simulator and signed generic iPhone builds passed with Xcode 27, including strict signature verification; these are build results, not a physical installation or hardware check. None of these follow-ups replaced the owner's phone build, and no physical phone is available for the current slice.
+The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch adds prepared Calendar/Weather recaps at **`f783658`**, after local privacy controls (`640370c`) and spoken completion (`aec8fc8`). Earlier slices retain their own dated results below. Final simulator and unsigned generic iPhone compilation passed. Signing is blocked: Xcode reports no developer account, and the cached wildcard profile lacks WeatherKit. No signed candidate or new phone installation is claimed. No physical V2 installation is claimed; source, simulator and hardware results remain separate.
+
+
+## Prepared Calendar and Weather briefing — 10 October 2026
+
+Source **`f783658`** adds **Review → Settings & connections → Your day**: explicit calendar selection, deliberate city search, current WeatherKit conditions and temperature units. A deterministic composer supplies the exact visible/spoken sentences, source metadata and independent failure states. The in-memory recap expires at source age, provider expiry, event boundary or day/zone change. Pinned playback rechecks permission/selection and rejects stale or changed facts; explicit Update remains manual. Settings-only persistence joins full forgetting. This is implementation and synthetic validation, not a live source or listener claim.
+
+| Check | Observed result |
+|---|---|
+| Initial shared run | Source compiled. Composer tests exposed a real UTC/GMT alias mismatch; an unchecked test-array index then stopped the runner. The composer now compares resolved zones and tests fail safely. |
+| First corrected full run | All new source/composer/controller/executor checks passed. Both existing native Vision checks failed; Apple's ANECompilerService recorded `F_PREALLOCATE` / no space left on device. |
+| After generated-cache cleanup | **359 passed, one failed, six optional skips**: Core 138 passed; Apple 221 passed, one failed and six skipped. The native OCR layout check recovered in 27.061s; screenshot OCR reported native compute-operation error 13. No OCR source/fallback changed. |
+| Isolated native OCR retry | **1/1 passed**, 27.267s. There are **360 distinct passing checks across the full run and this retry**, not one all-green full run. All **49 added briefing tests** passed in the full run. |
+| Simulator build | Build-for-testing succeeded. Test selector changes required a second build; no model or live source request ran. |
+| Initial simulator journeys | **3/5 passed**: empty and ten-moment one-screen layouts plus cancel/preserve/full-forget/relaunch. Both briefing journeys reached the expected source text, then failed on a duplicated Calendar source accessibility label; the selector was corrected. |
+| Corrected briefing journeys | **2/2 recap journeys passed** in 152.807s: selected sources → prepared text → unapproved draft → relaunch, and preview refresh preserving an active moment. Alongside the earlier three checks, all five intended journeys passed across the two runs. |
+| Final visual polish | **1/1 passed**, 78.132s, after using MORE’s existing accent and simpler copy. Final screenshots were inspected; the selected-source/approval/relaunch journey was repeated for this change. |
+| Forget verification | Host inspection of the exact synthetic test workspace confirmed empty local content, disabled activity logging, removed `briefing-settings.json` and unchanged original/export sentinels. The seeded briefing payload was deliberately unreadable; no live source was configured. |
+| Signed iPhone readiness | Final simulator and unsigned generic iPhone compilation passed. Signing is blocked: Xcode reports no developer account, and the cached wildcard profile lacks WeatherKit. No signed candidate or new phone installation is claimed. |
+
+The new tests use injected synthetic Calendar/Weather/Maps values, controlled clocks and fake speech sinks. They establish selection, all-day/DST boundaries, expiry, source failures, deadlines, cancellation, revocation, pinned text and settings lifecycle. The app journeys use an explicitly labeled DEBUG source provider, never a source-failure fallback, and use no private calendar, network weather or microphone.
+
+Local evidence: `/tmp/more-briefing-package-first.log`, `-final.log`, `-recovered.log`; `/tmp/more-briefing-ocr-isolated.log`; `work/more-briefing-ui.xcresult`, `work/more-briefing-ui2.xcresult`, `work/more-briefing-visual-final.xcresult`; `work/briefing-privacy-verification.json`. Logs, workspaces and screenshots remain ignored. Earlier failures remain separate results.
+
+**Still unverified:** real selected-calendar content/permissions, actual MapKit city search, WeatherKit account/backend access and attribution asset rendering, physical V2 installation, speech audibility and HomePod routing. Installed phone source remains `8a640ea`. The owner did not hear or was not listening to the earlier greeting; speech callbacks are not listener confirmation.
 
 ## V2 in this branch
 

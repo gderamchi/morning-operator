@@ -97,3 +97,7 @@ App-transition setup and clearing are in [Device setup](DEVICE-SETUP.md#optional
 Use the [roadmap](ROADMAP.md) and [V2 design work](https://github.com/gibouu/morning-operator/issues/25) to agree on one small outcome. The immediate priorities are reliable observation and a clear morning experience, followed by evidence-based weekly averages and continuous adaptation. Preserve the activities the person enjoys; productivity targets are optional.
 
 Agree on file ownership before parallel work. Use short branches, review the concrete diff and record what actually passed. Keep first-use triggers, HomePod, narration/actions and research-data feasibility in their respective issues instead of treating a working recorder as proof of those integrations.
+
+## Prepare Your day in V2
+
+Open **Review → Settings & connections → Your day**, connect Calendar and select individual calendars. Optionally search for a weather city and choose a temperature unit. Refresh or hear the recap, then **Add to my morning** to create a draft that still requires review and approval. The app needs the WeatherKit capability on its App ID and provisioning profile for real weather; live Calendar/Weather and listener audibility remain separate checks. [Setup, freshness and data flow](YOUR-DAY.md).

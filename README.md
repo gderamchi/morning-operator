@@ -25,7 +25,8 @@ This branch, `codex/more-quiet-morning`, introduces the V2 interface. It is **in
 | Review | Open a seven-day period and its days; revisit dated observations and their originals, edit and approve your routine, find saved thoughts, and open settings or connections. There is no separate Notes tab. |
 | Learn across mornings | Choose up to five dated observations in Review, inspect exact supporting quotations, and approve a separately saved update. Your current routine remains ready during this review. Explicit keep/exclude/timing choices survive later suggestions and can be cleared in Review. [Learning flow](docs/ROUTINE-LEARNING.md). |
 | Show your morning | Explicit iOS 27 screen recording, or selected text/image/video import. Local extraction saves separate observations with original text and corrections; identical file imports keep the existing entry. Unknown recording dates stay explicit. Screen recognition and routine suggestions are separate explicit actions; suggestions stay pending until approval. Manual setup also works. |
-| Move through it | Supported spoken/calendar operations advance after completion. Other activities wait for you. A saved completed morning offers Speak, Write or Not now. |
+| Prepare your day | Select calendars and an optional city in Review → Settings → Your day. One sourced recap supplies the visible text and speech; adding it to the routine creates a draft to approve. [Your day](docs/YOUR-DAY.md). |
+| Move through it | Supported spoken/calendar/briefing operations advance after completion. Other activities wait for you. A saved completed morning offers Speak, Write or Not now. |
 | Begin with an invitation | Set one future notification in Review → Settings. Its tap or a foreground Start intent routes into an approved morning, waiting for a ready app. Physical delivery and Siri invocation remain unverified. [Morning entry](docs/MORNING-ENTRY.md). |
 | Speak a command | An explicit on-device English/French turn supports next, pause, resume, skip, repeat and stop. Entry/cancel behavior is tested; real microphone recognition remains a device check. [Voice guide](docs/VOICE.md). |
 | Control what stays | Review → Settings → Privacy explains saved copies, disables activity logging and removes local data. Removal resumes after interruption; originals and Apple-app items remain separate. [Privacy guide](docs/PRIVACY.md). |
@@ -35,13 +36,14 @@ Review currently measures **routine runs**, not complete phone usage or learned 
 
 ## Where it stands
 
-**Current V2 source: `640370c`.** Review now includes a [Privacy screen](docs/PRIVACY.md) with a saved-data inventory, an activity-logging switch and full local forgetting that resumes after interruption. Completion offers an explicit spoken reflection followed by editable review and Save. [Portable routines](docs/ROUTINE-FILES.md) omit notes by default and become unapproved manual drafts when imported. Saved choices and evidence-based proposals remain separate [learning controls](docs/ROUTINE-LEARNING.md).
+**Current V2 source: `f783658`.** Your day adds a prepared calendar/weather recap with selected sources, freshness checks and exact shared display/speech text. Review also includes a [Privacy screen](docs/PRIVACY.md) with a saved-data inventory, an activity-logging switch and full local forgetting that resumes after interruption. Completion offers an explicit spoken reflection followed by editable review and Save. [Portable routines](docs/ROUTINE-FILES.md) omit notes by default and become unapproved manual drafts when imported. Saved choices and evidence-based proposals remain separate [learning controls](docs/ROUTINE-LEARNING.md).
 
 | Verified development behavior | Evidence |
 |---|---|
-| Shared logic, storage and Apple adapters | **311 checks passed, six optional checks skipped**, including 32 added privacy/cleanup checks and both native Vision OCR checks. Earlier OCR failures were traced to disk exhaustion in Apple's compiler and resolved after redundant project build caches were removed; no OCR source or fallback changed. |
-| App builds | Final simulator and signed generic iPhone builds passed, including strict signature verification. The candidate is ready but not installed on the phone. |
-| Local forgetting | **3/3 simulator journeys passed**: cancel/preserve/relaunch, held late-analysis rejection, and partial-cleanup recovery after relaunch. Physical recording shutdown remains a separate device check. |
+| Shared logic, storage and Apple adapters | **360 checks passed across a full run and one targeted retry; six optional checks skipped.** All 49 new briefing checks passed. The full run retained one native OCR failure after disk cleanup; its isolated retry passed. Earlier failures remain documented. |
+| App builds | Final simulator and unsigned generic iPhone compilation passed. Signing is blocked: Xcode reports no developer account, and the cached wildcard profile lacks WeatherKit. No signed candidate or new phone installation is claimed. |
+| New recap and compact layout | **2/2 recap journeys passed** in 152.807s: selected sources → prepared text → unapproved draft → relaunch, and preview refresh preserving an active moment. Alongside the earlier three checks, all five intended journeys passed across the two runs. |
+| Local forgetting | The cancel/preserve/forget/relaunch journey passed again with a synthetic briefing-settings payload; host inspection confirmed its removal and unchanged external-copy sentinels. Earlier 3/3 privacy journeys retain their separate results. Physical recording shutdown remains unverified. |
 | Routine files | Actual **On My iPhone Save → select the same file → plan-only preview → manual unapproved draft → relaunch** passed again in 137.872 seconds after stale-picker protection was added. Earlier format, preview and malformed-file checks retain their separate results. |
 | Spoken completion | All three synthetic completion journeys and the existing command-entry check passed in the final scoped run. They cover cancel/background rejection, editable review, explicit Save and relaunch. They do not use the microphone; an editor keyboard-layout warning remains under investigation. |
 | Earlier learning and choices | Five preference/recovery journeys and five unified-learning journeys have passing results across their own scoped runs. Initial failures and corrected reruns remain in the verification record. |
@@ -68,7 +70,7 @@ The iPhone is the sole active product. The Mac is the development/test machine a
 
 ## Your data and the model
 
-Extraction and Foundation Models inference run locally. There is no cloud-model fallback, model fine-tuning, billing or research-data upload pipeline. Saved routines, explicit routine choices, the observation archive with original/corrected text and ordered video samples, thoughts and local activity logs have different lifecycles; a finalized app-owned clip can remain for recovery until its extracted text is saved or the person discards it. Review [what is retained and what each clear control removes](docs/PRIVACY.md). Full forgetting removes the app-owned copies and leaves future activity logging off until explicitly enabled; automatic age-based expiry remains future work.
+Extraction and Foundation Models inference run locally. Optional city searches and current weather use Apple Maps and Apple Weather network services; only selected city/calendar settings persist, while recap facts stay in memory. There is no cloud-model fallback, model fine-tuning, billing or research-data upload pipeline. Saved routines, explicit routine choices, the observation archive with original/corrected text and ordered video samples, thoughts and local activity logs have different lifecycles; a finalized app-owned clip can remain for recovery until its extracted text is saved or the person discards it. Review [what is retained and what each clear control removes](docs/PRIVACY.md). Full forgetting removes the app-owned copies and leaves future activity logging off until explicitly enabled; automatic age-based expiry remains future work.
 
 A later, separately opted-in mobile-agent research dataset is a [feasibility question](https://github.com/gibouu/morning-operator/issues/24), not current collection behavior.
 
@@ -78,6 +80,7 @@ A later, separately opted-in mobile-agent research dataset is a [feasibility que
 |---|---|
 | [Documentation hub](docs/README.md) | Find the right guide quickly |
 | [V2 design contract](docs/V2-DESIGN.md) | Morning/Review, completion capture, native glass and honest metrics |
+| [Your day](docs/YOUR-DAY.md) | Calendar/city selection, prepared speech, freshness and source privacy |
 | [Morning entry](docs/MORNING-ENTRY.md) | One-time invitations, foreground Start, permissions and delayed-entry fallback |
 | [Architecture](docs/ARCHITECTURE.md) | Components, states, data flows, model boundaries and Apple integrations |
 | [Recording benchmark](docs/OBSERVATION-BENCHMARK.md) | Reproduce the controlled cross-app capture and inspect its measured limits |
