@@ -60,9 +60,14 @@ struct RoutineEvidenceProposalView: View {
                             }.padding(.vertical, 3)
                             if let support = proposal.support.first(where: { $0.stepID == step.id }) {
                                 if support.reason == .preservedUserDecision {
-                                    Label("Kept from your routine", systemImage: "heart")
+                            Label("Kept by your choice", systemImage: "heart")
                                         .font(.caption).foregroundStyle(.secondary)
                                 } else {
+                                    if support.reason == .inferredEvidenceWithUserPreference {
+                                        Label("Your saved timing choice", systemImage: "clock.badge.checkmark")
+                                            .font(.caption).foregroundStyle(.secondary)
+                                            .accessibilityIdentifier("proposal.userTiming")
+                                    }
                                     DisclosureGroup("Why this suggestion?") {
                                         ForEach(Array(support.citations.enumerated()), id: \.offset) { quoteIndex, citation in
                                             VStack(alignment: .leading, spacing: 8) {
@@ -147,7 +152,7 @@ struct RoutineEvidenceProposalView: View {
                                 Label("Approve update", systemImage: "checkmark").frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large)
-                            .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || proposal.routine.steps.isEmpty)
+                            .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil || proposal.routine.steps.isEmpty)
                             .accessibilityIdentifier("proposal.approve")
                         }
                     }.padding(20).background(.regularMaterial)

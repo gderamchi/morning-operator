@@ -376,6 +376,247 @@ struct RoutineEvidenceProposalTests {
         #expect(!proposal.isCurrent(archive: archive, baseRoutine: extreme))
     }
 
+    @Test("Explicit timing overrides retain generated evidence and identify the user decision")
+    func journalDurationKeepsCitations() throws {
+        let entry = try source()
+        let archive = try ObservationArchive(entries: [entry])
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let target = RoutineStep(title: "Review calendar", kind: .calendar)
+        var preferences = RoutinePreferenceJournal()
+        try preferences.upsert(RoutinePreference(target: target, durationMinutes: 90))
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: nil, preferences: preferences)
+        #expect(proposal.routine.steps[0].durationMinutes == 90)
+        #expect(!proposal.routine.steps[0].isRequired)
+        #expect(proposal.routine.steps[0].automation == nil)
+        #expect(proposal.support[0].reason == .inferredEvidenceWithUserPreference)
+        #expect(proposal.support[0].preferenceIDs == [target.id])
+        #expect(proposal.support[0].citations[0].quote == words)
+        #expect(Data(proposal.routine.approved().steps[0].detail.utf8).range(of: Data(words.utf8)) != nil)
+        #expect(proposal.isCurrent(archive: archive, baseRoutine: nil, preferences: preferences))
+        let restored = try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONEncoder().encode(proposal))
+        #expect(restored.isCurrent(archive: archive, baseRoutine: nil, preferences: preferences))
+        #expect(!restored.isCurrent(archive: archive, baseRoutine: nil))
+        try preferences.upsert(RoutinePreference(target: target, durationMinutes: 8))
+        #expect(!restored.isCurrent(archive: archive, baseRoutine: nil, preferences: preferences))
+    }
+
+    @Test("Kept snapshots are user support, including when inserted without matching observation")
+    func journalKeepDoesNotInventCitations() throws {
+        let entry = try source()
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let kept = RoutineStep(title: "My tea ritual", detail: "A handwritten reminder.",
+            kind: .wellbeing, durationMinutes: 11, isRequired: true, automation: .spokenNote)
+        var preferences = RoutinePreferenceJournal()
+        try preferences.upsert(RoutinePreference(target: kept, presence: .keep))
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: nil, preferences: preferences)
+        #expect(proposal.routine.steps.last == kept)
+        let matchingSupport = proposal.support.first { $0.stepID == kept.id }
+        let support = try #require(matchingSupport)
+        #expect(support.reason == .preservedUserDecision)
+        #expect(support.citations.isEmpty)
+        #expect(support.preferenceIDs == [kept.id])
+        #expect(proposal.isCurrent(archive: try ObservationArchive(entries: [entry]),
+            baseRoutine: nil, preferences: preferences))
+        // A matched kept first row must remain first during restore replay too.
+        let matching = RoutineStep(title: "Review calendar", detail: "My exact words", kind: .calendar,
+            durationMinutes: 7, isRequired: true)
+        try preferences.upsert(RoutinePreference(target: matching, presence: .keep))
+        let ordered = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0]), step(evidence.units[0], title: "Another review")],
+            preserving: nil, preferences: preferences)
+        #expect(ordered.routine.steps.first == matching)
+        #expect(ordered.isCurrent(archive: try ObservationArchive(entries: [entry]),
+            baseRoutine: nil, preferences: preferences))
+    }
+
+    @Test("Explicit empty journal and cleared keep do not resurrect legacy required flags")
+    func authoritativeJournalControlsLegacyRetention() throws {
+        let entry = try source()
+        let archive = try ObservationArchive(entries: [entry])
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let kept = RoutineStep(title: "My tea ritual", isRequired: true)
+        let base = RoutineVersion(sourceLabel: "My routine", steps: [kept], isApproved: true)
+        let legacy = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: base)
+        #expect(legacy.routine.steps.contains(kept))
+        #expect(legacy.preferenceSnapshot == nil)
+        let empty = RoutinePreferenceJournal()
+        let explicit = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: base, preferences: empty)
+        #expect(explicit.routine.steps.count == 1)
+        #expect(explicit.preferenceSnapshot != nil)
+        #expect(explicit.isCurrent(archive: archive, baseRoutine: base, preferences: empty))
+        #expect(!explicit.isCurrent(archive: archive, baseRoutine: base))
+        #expect(!legacy.isCurrent(archive: archive, baseRoutine: base, preferences: empty))
+        var cleared = RoutinePreferenceJournal()
+        try cleared.upsert(RoutinePreference(target: kept, presence: .keep))
+        let removed = cleared.remove(targetID: kept.id)
+        #expect(removed)
+        let afterClear = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: base, preferences: cleared)
+        #expect(!afterClear.routine.steps.contains { $0.id == kept.id })
+        #expect(afterClear.isCurrent(archive: archive, baseRoutine: base, preferences: cleared))
+    }
+
+    @Test("An exclusion defeats required retention and can remove all proposed activities")
+    func journalExclusionIsAuthoritative() throws {
+        let entry = try source()
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let excluded = RoutineStep(title: "Review calendar", kind: .calendar, isRequired: true)
+        let base = RoutineVersion(sourceLabel: "My routine", steps: [excluded], isApproved: true)
+        var preferences = RoutinePreferenceJournal()
+        try preferences.upsert(RoutinePreference(target: excluded, presence: .exclude))
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0]), step(evidence.units[0], title: "Review plans")],
+            preserving: base, preferences: preferences)
+        #expect(proposal.routine.steps.count == 1)
+        #expect(proposal.routine.steps[0].title == "Review plans")
+        #expect(proposal.isCurrent(archive: try ObservationArchive(entries: [entry]),
+            baseRoutine: base, preferences: preferences))
+        #expect(throws: RoutineEvidenceProposalError.insufficientEvidence) {
+            try LearningEvidencePreparation.assemble(evidence: evidence,
+                steps: [step(evidence.units[0])], preserving: base, preferences: preferences)
+        }
+        // A restored receipt cannot append the excluded activity with a fresh model ID.
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(proposal)) as? [String: Any])
+        var routine = try #require(object["routine"] as? [String: Any])
+        var steps = try #require(routine["steps"] as? [[String: Any]])
+        var supports = try #require(object["support"] as? [[String: Any]])
+        let revivedID = UUID().uuidString
+        var revivedStep = steps[0]
+        revivedStep["id"] = revivedID; revivedStep["title"] = excluded.title
+        steps.append(revivedStep)
+        var revivedSupport = supports[0]
+        revivedSupport["stepID"] = revivedID
+        supports.append(revivedSupport)
+        routine["steps"] = steps; object["routine"] = routine; object["support"] = supports
+        let restored = try JSONDecoder().decode(EvidenceRoutineProposal.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        #expect(!restored.isCurrent(archive: try ObservationArchive(entries: [entry]),
+            baseRoutine: base, preferences: preferences))
+    }
+
+    @Test("Preference receipts reject altered snapshots and forged override values")
+    func restoredPreferencesAndEffectsAreValidated() throws {
+        let entry = try source()
+        let archive = try ObservationArchive(entries: [entry])
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let target = RoutineStep(title: "Review calendar", kind: .calendar)
+        var preferences = RoutinePreferenceJournal()
+        try preferences.upsert(RoutinePreference(target: target, durationMinutes: 9))
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: nil, preferences: preferences)
+        let data = try JSONEncoder().encode(proposal)
+        for missingKey in ["preferenceSnapshot", "preferenceRevision"] {
+            var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            object.removeValue(forKey: missingKey)
+            #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+                try JSONDecoder().decode(EvidenceRoutineProposal.self,
+                    from: JSONSerialization.data(withJSONObject: object))
+            }
+        }
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var malformedSnapshot = try #require(object["preferenceSnapshot"] as? [String: Any])
+        var entries = try #require(malformedSnapshot["entries"] as? [[String: Any]])
+        entries[0]["durationMinutes"] = 0
+        malformedSnapshot["entries"] = entries; object["preferenceSnapshot"] = malformedSnapshot
+        #expect(throws: RoutinePreferenceError.invalidPreference) {
+            try JSONDecoder().decode(EvidenceRoutineProposal.self,
+                from: JSONSerialization.data(withJSONObject: object))
+        }
+        object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var snapshot = try #require(object["preferenceSnapshot"] as? [String: Any])
+        snapshot["revision"] = UUID().uuidString
+        object["preferenceSnapshot"] = snapshot
+        #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+            try JSONDecoder().decode(EvidenceRoutineProposal.self,
+                from: JSONSerialization.data(withJSONObject: object))
+        }
+        object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var routine = try #require(object["routine"] as? [String: Any])
+        var steps = try #require(routine["steps"] as? [[String: Any]])
+        steps[0]["durationMinutes"] = 10
+        routine["steps"] = steps; object["routine"] = routine
+        let wrongDuration = try JSONDecoder().decode(EvidenceRoutineProposal.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        #expect(!wrongDuration.isCurrent(archive: archive, baseRoutine: nil, preferences: preferences))
+        object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var support = try #require(object["support"] as? [[String: Any]])
+        support[0]["preferenceIDs"] = [UUID().uuidString]
+        object["support"] = support
+        #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+            try JSONDecoder().decode(EvidenceRoutineProposal.self,
+                from: JSONSerialization.data(withJSONObject: object))
+        }
+    }
+
+    @Test("A forged exact target ID cannot borrow timing for a different generated activity")
+    func restoredTimingRequiresMatchingActivityKey() throws {
+        let entry = try source()
+        let archive = try ObservationArchive(entries: [entry])
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let target = RoutineStep(title: "Review calendar", kind: .calendar)
+        var preferences = RoutinePreferenceJournal()
+        try preferences.upsert(RoutinePreference(target: target, durationMinutes: 9))
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: nil, preferences: preferences)
+        #expect(proposal.isCurrent(archive: archive, baseRoutine: nil, preferences: preferences))
+        let data = try JSONEncoder().encode(proposal)
+        for changeKind in [false, true] {
+            var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            var routine = try #require(object["routine"] as? [String: Any])
+            var steps = try #require(routine["steps"] as? [[String: Any]])
+            var support = try #require(object["support"] as? [[String: Any]])
+            // Source snapshots, quote bytes, timing and preference receipts stay intact.
+            // Only a generated ID and its activity key are changed in the saved payload.
+            steps[0]["id"] = target.id.uuidString
+            support[0]["stepID"] = target.id.uuidString
+            if changeKind { steps[0]["kind"] = StepKind.wellbeing.rawValue }
+            else { steps[0]["title"] = "Another activity" }
+            routine["steps"] = steps; object["routine"] = routine; object["support"] = support
+            let restored = try JSONDecoder().decode(EvidenceRoutineProposal.self,
+                from: JSONSerialization.data(withJSONObject: object))
+            #expect(!restored.isCurrent(archive: archive, baseRoutine: nil, preferences: preferences))
+        }
+    }
+
+    @Test("Legacy proposal decoding defaults only the absent journal and support fields")
+    func legacyProposalDefaultsToLegacyMode() throws {
+        let entry = try source()
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: nil)
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(proposal)) as? [String: Any])
+        object.removeValue(forKey: "preferenceSnapshot")
+        object.removeValue(forKey: "preferenceRevision")
+        var support = try #require(object["support"] as? [[String: Any]])
+        for index in support.indices { support[index].removeValue(forKey: "preferenceIDs") }
+        object["support"] = support
+        let restored = try JSONDecoder().decode(EvidenceRoutineProposal.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        #expect(restored.preferenceSnapshot == nil)
+        #expect(restored.preferenceRevision == nil)
+        #expect(restored.support[0].preferenceIDs.isEmpty)
+        #expect(restored.isCurrent(archive: try ObservationArchive(entries: [entry]), baseRoutine: nil))
+    }
+
+    @Test("The ten-moment limit includes newly journal-kept snapshots")
+    func journalKeptRowsCountTowardLimit() throws {
+        let entry = try source()
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        var preferences = RoutinePreferenceJournal()
+        for index in 0..<10 {
+            try preferences.upsert(RoutinePreference(target: RoutineStep(title: "Kept \(index)"), presence: .keep))
+        }
+        #expect(throws: RoutineEvidenceProposalError.tooManySteps) {
+            try LearningEvidencePreparation.assemble(evidence: evidence,
+                steps: [step(evidence.units[0])], preserving: nil, preferences: preferences)
+        }
+        #expect(preferences.entries.count == 10)
+    }
+
     #if canImport(FoundationModels)
     @Test("The cited guided schema resolves its exact supplied unit identifiers")
     func citedSchemaResolves() throws {

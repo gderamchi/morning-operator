@@ -196,6 +196,143 @@ final class ObservationArchiveTests: XCTestCase {
         attach("archive-legacy-migration-keeps-unknown-dates", app)
     }
 
+    /// The controller stages a valid synthetic workspace whose preference field is
+    /// explicitly null. This test never creates or substitutes a recovery fixture.
+    func testUnreadablePreferencesSurviveAnUnrelatedSaveUntilExplicitReset() throws {
+        let raw = ProcessInfo.processInfo.environment["MO_PREFERENCE_RECOVERY_WORKSPACE"] ?? ""
+        guard let workspaceID = UUID(uuidString: raw) else {
+            throw XCTSkip("Requires an explicitly staged workspace with null routinePreferences, a draft routine and synthetic observation.")
+        }
+        continueAfterFailure = false
+        let original = "Recovery saved observation: calendar and tea."
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
+                               "--ui-testing-workspace=\(workspaceID.uuidString)"]
+        app.launch()
+
+        MorningUITestNavigation.openRoutine(in: app)
+        assertRecoveryRoutine(in: app)
+        let approve = app.buttons["routine.approve"]
+        XCTAssertTrue(approve.waitForExistence(timeout: 5))
+        XCTAssertFalse(approve.isEnabled, "Unreadable saved choices must block approval until explicit recovery.")
+        MorningUITestNavigation.tapButton("routine.preferences", in: app)
+        let issue = app.staticTexts["preferences.issue"]
+        XCTAssertTrue(issue.waitForExistence(timeout: 5))
+        attach("preferences-null-payload-needs-explicit-recovery", app)
+
+        // Reopen without any seed or import hook, then save only an observation
+        // correction through the ordinary Learn editor and workspace writer.
+        relaunchWithoutSeed(app)
+        openArchive(in: app)
+        XCTAssertEqual(archiveRows(in: app).count, 1)
+        let observationRowID = archiveRows(in: app).firstMatch.identifier
+        MorningUITestNavigation.tapButton(observationRowID, in: app)
+        waitForDetail(in: app)
+        expand("Original extracted text", in: app)
+        XCTAssertEqual(app.staticTexts["observation.originalText"].label, original)
+        MorningUITestNavigation.tapButton("observation.edit", in: app)
+        waitForNotes(original, in: app)
+        let editor = app.textViews["learn.notes"]
+        scrollTo(editor, in: app)
+        editor.tap()
+        editor.typeText(" A correction kept while choices need repair.")
+        let corrected = try XCTUnwrap(editor.value as? String)
+        XCTAssertTrue(corrected.contains("A correction kept while choices need repair."))
+        if app.buttons["input.done"].isHittable { app.buttons["input.done"].tap() }
+        closeLearn(in: app)
+
+        relaunchWithoutSeed(app)
+        MorningUITestNavigation.openRoutine(in: app)
+        assertRecoveryRoutine(in: app)
+        XCTAssertTrue(approve.waitForExistence(timeout: 5))
+        XCTAssertFalse(approve.isEnabled, "An unrelated save must not silently replace null preferences with an empty journal.")
+        MorningUITestNavigation.tapButton("routine.preferences", in: app)
+        XCTAssertTrue(issue.waitForExistence(timeout: 5))
+        attach("preferences-recovery-survives-observation-save-and-relaunch", app)
+        MorningUITestNavigation.tapButton("preferences.reset", in: app)
+        let confirmation = app.sheets["Reset unreadable choices?"]
+            .buttons.matching(identifier: "preferences.confirmReset").firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        confirmation.tap()
+        XCTAssertTrue(app.staticTexts["No saved choices"].waitForExistence(timeout: 5))
+        XCTAssertFalse(issue.exists)
+
+        // Reset must be durable and scoped to preferences. Original extraction,
+        // the correction and acquisition identity survive the next launch.
+        relaunchWithoutSeed(app)
+        openArchive(in: app)
+        XCTAssertEqual(archiveRows(in: app).count, 1)
+        XCTAssertTrue(app.buttons[observationRowID].exists)
+        MorningUITestNavigation.tapButton(observationRowID, in: app)
+        waitForDetail(in: app)
+        expand("Original extracted text", in: app)
+        XCTAssertEqual(app.staticTexts["observation.originalText"].label, original)
+        expand("Current notes", in: app)
+        XCTAssertEqual(app.staticTexts["observation.currentText"].label, corrected)
+
+        relaunchWithoutSeed(app)
+        MorningUITestNavigation.openRoutine(in: app)
+        assertRecoveryRoutine(in: app)
+        XCTAssertFalse(app.buttons["routine.preferences"].exists,
+                       "After reset, the durable explicit-empty journal must not re-enter recovery.")
+        XCTAssertTrue(approve.waitForExistence(timeout: 5))
+        XCTAssertTrue(approve.isEnabled)
+        approve.tap()
+        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5),
+                      "The preserved draft can be approved after explicit reset; this test does not start it.")
+        attach("preferences-explicit-reset-keeps-routine-and-observation", app)
+    }
+
+    func testUnreadablePreferencesCanBeResetBeforeTheFirstRoutineExists() throws {
+        let raw = ProcessInfo.processInfo.environment["MO_EMPTY_PREFERENCE_RECOVERY_WORKSPACE"] ?? ""
+        guard let workspaceID = UUID(uuidString: raw) else {
+            throw XCTSkip("Requires an explicitly staged workspace with null routinePreferences, no routine and one synthetic observation.")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview", "--ui-testing-empty-workspace",
+                               "--ui-testing-workspace=\(workspaceID.uuidString)"]
+        app.launch()
+        MorningUITestNavigation.openRoutine(in: app)
+        XCTAssertTrue(app.buttons["Build it myself"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["routine.step.0"].exists)
+        XCTAssertFalse(app.buttons["routine.approve"].exists)
+        MorningUITestNavigation.tapButton("routine.preferences", in: app)
+        XCTAssertTrue(app.staticTexts["preferences.issue"].waitForExistence(timeout: 5),
+                      "Recovery must be reachable without creating a routine first.")
+        attach("preferences-recovery-reachable-before-first-routine", app)
+        MorningUITestNavigation.tapButton("preferences.reset", in: app)
+        let confirmation = app.sheets["Reset unreadable choices?"]
+            .buttons.matching(identifier: "preferences.confirmReset").firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        confirmation.tap()
+        XCTAssertTrue(app.staticTexts["No saved choices"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["preferences.issue"].exists)
+
+        relaunchWithoutSeed(app)
+        MorningUITestNavigation.openRoutine(in: app)
+        XCTAssertTrue(app.buttons["Build it myself"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["routine.preferences"].exists)
+        XCTAssertFalse(app.buttons["routine.step.0"].exists)
+        XCTAssertFalse(app.buttons["routine.approve"].exists)
+        MorningUITestNavigation.closeRoutine(in: app)
+        openArchive(in: app)
+        XCTAssertEqual(archiveRows(in: app).count, 1)
+        archiveRows(in: app).firstMatch.tap()
+        waitForDetail(in: app)
+        expand("Original extracted text", in: app)
+        XCTAssertEqual(app.staticTexts["observation.originalText"].label,
+                       "Recovery saved observation: calendar and tea.")
+        attach("preferences-reset-before-first-routine-keeps-observation", app)
+    }
+
+    private func assertRecoveryRoutine(in app: XCUIApplication) {
+        let step = app.buttons["routine.step.0"]
+        XCTAssertTrue(step.waitForExistence(timeout: 5))
+        XCTAssertTrue(step.label.contains("Recovery fixture morning"), "The staged routine must remain intact.")
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "routine.step.")).count, 1)
+    }
+
     private func launch(_ extraArguments: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()

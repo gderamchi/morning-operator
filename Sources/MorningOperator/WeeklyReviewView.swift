@@ -301,9 +301,12 @@ private struct RoutineReviewEditor: View {
                             Button("Restore previous routine") { store.restorePreviousRoutine() }
                                 .disabled(store.busy || store.sessionActive).accessibilityIdentifier("routine.restore")
                         }
+                        savedChoicesLink
                         Button("Export routine", systemImage: "square.and.arrow.up") { exporting = true }
                         Button("Learn from an observation", systemImage: "sparkles", action: onLearn)
                             .disabled(store.busy || store.sessionActive).accessibilityIdentifier("learn.refine")
+                    } footer: {
+                        Text("Restoring a routine leaves your saved choices for future suggestions unchanged.")
                     }
                     if routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
                         Label("Sample routine · not observed behavior", systemImage: "sparkles")
@@ -317,6 +320,7 @@ private struct RoutineReviewEditor: View {
                             .accessibilityIdentifier("learn.begin")
                         Button("Build it myself") { store.useManualRoutine() }
                         Button("Explore a sample") { store.loadSample() }.accessibilityIdentifier("routine.sample")
+                        savedChoicesLink
                     }
                 }
                 if let notice = store.notice { Text(notice).font(.caption).foregroundStyle(.secondary) }
@@ -342,22 +346,17 @@ private struct RoutineReviewEditor: View {
                         Label("Approve this routine", systemImage: "checkmark").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large)
-                    .disabled(store.busy || store.sessionActive || routine.steps.isEmpty)
+                    .disabled(store.busy || store.sessionActive || routine.steps.isEmpty || store.routinePreferencesIssue != nil)
                     .accessibilityIdentifier("routine.approve")
                     .padding(20).background(.regularMaterial)
                 }
             }
             .sheet(item: $editingStep) { step in
-                StepEditor(step: step, onSave: { edited in
-                    var steps = store.routine?.steps ?? []
-                    if let index = steps.firstIndex(where: { $0.id == edited.id }) { steps[index] = edited }
-                    else { steps.append(edited) }
-                    store.updateSteps(steps)
-                    editingStep = nil
-                }, onDelete: {
-                    store.updateSteps((store.routine?.steps ?? []).filter { $0.id != step.id })
-                    editingStep = nil
-                })
+                StepEditor(step: step, preference: store.savedPreference(for: step), onSave: { edited, keep, timing in
+                    store.saveStep(edited, keepInSuggestions: keep, keepDuration: timing)
+                }, onDelete: { exclude in
+                    store.removeStep(step, excludeFromSuggestions: exclude)
+                }, failureMessage: { store.notice ?? "Your change couldn't be saved. Try again." })
             }
             .fileExporter(isPresented: $exporting, document: store.routine.map(RoutineExportDocument.init),
                           contentType: .json, defaultFilename: "Morning-Routine") { result in
@@ -382,6 +381,66 @@ private struct RoutineReviewEditor: View {
             Spacer(minLength: 4)
             Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
         }.foregroundStyle(.primary).padding(.vertical, 4)
+    }
+
+    @ViewBuilder private var savedChoicesLink: some View {
+        if !store.routinePreferences.entries.isEmpty || store.routinePreferencesIssue != nil {
+            NavigationLink { RoutinePreferencesView(store: store) } label: {
+                Label(store.routinePreferencesIssue == nil ? "Saved choices" : "Saved choices need review",
+                      systemImage: store.routinePreferencesIssue == nil ? "heart.text.clipboard" : "exclamationmark.circle")
+            }.accessibilityIdentifier("routine.preferences")
+        }
+    }
+}
+
+private struct RoutinePreferencesView: View {
+    @Bindable var store: MorningStore
+    @ViewState<Bool> private var confirmingReset = false
+
+    var body: some View {
+        List {
+            Section {
+                Text("These are choices you've made for future suggestions. Clearing a choice leaves your current routine unchanged.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            if let issue = store.routinePreferencesIssue {
+                Section {
+                    Text(issue).accessibilityIdentifier("preferences.issue")
+                    Button("Reset saved choices", role: .destructive) { confirmingReset = true }
+                        .disabled(store.busy || store.sessionActive)
+                        .accessibilityIdentifier("preferences.reset")
+                }
+            } else {
+                ForEach(store.routinePreferences.entries) { preference in
+                    Section {
+                        Text(preference.targetTitle).font(.headline)
+                            .accessibilityIdentifier("preferences.title.\(preference.targetID.uuidString)")
+                        if preference.presence == .exclude {
+                            Text("Leave out of future suggestions")
+                        } else if preference.presence == .keep {
+                            Text("Keep in future suggestions")
+                        }
+                        if let minutes = preference.durationMinutes { Text("\(minutes) planned minutes, chosen by you") }
+                        Button("Clear this choice") { _ = store.clearRoutinePreference(targetID: preference.targetID) }
+                            .disabled(store.busy || store.sessionActive)
+                            .accessibilityIdentifier("preferences.clear.\(preference.targetID.uuidString)")
+                    }
+                }
+                if store.routinePreferences.entries.isEmpty {
+                    ContentUnavailableView("No saved choices", systemImage: "heart",
+                        description: Text("Future suggestions can vary. Keep a moment or its duration when editing your routine."))
+                        .accessibilityIdentifier("preferences.empty")
+                }
+            }
+            if let notice = store.notice { Text(notice).font(.caption).foregroundStyle(.secondary) }
+        }
+        .scrollContentBackground(.hidden).background(MorningStyle.background)
+        .navigationTitle("Saved choices").navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("Reset unreadable choices?", isPresented: $confirmingReset, titleVisibility: .visible) {
+            Button("Reset choices", role: .destructive) { _ = store.resetUnreadableRoutinePreferences() }
+                .accessibilityIdentifier("preferences.confirmReset")
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("This removes the unreadable choices. Your routine and observations stay saved. You can choose what to keep again.") }
     }
 }
 

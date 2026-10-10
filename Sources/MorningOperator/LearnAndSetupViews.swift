@@ -219,7 +219,7 @@ struct LearnView: View {
                 .accessibilityIdentifier("learn.reviewProposal")
         }
         if !store.canSuggestSavedObservations {
-            Label("On-device suggestions aren't ready here yet. You can build and edit your routine yourself.", systemImage: "info.circle")
+            Label(store.routinePreferencesIssue ?? "On-device suggestions aren't ready here yet. You can build and edit your routine yourself.", systemImage: "info.circle")
                 .font(.footnote).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -434,8 +434,22 @@ struct SetupView: View {
 struct StepEditor: View {
     @Environment(\.dismiss) private var dismiss
     @ViewState<RoutineStep> var step: RoutineStep
-    let onSave: (RoutineStep) -> Void
-    let onDelete: () -> Void
+    @ViewState<Bool> private var keepInSuggestions: Bool
+    @ViewState<Bool> private var keepDuration: Bool
+    @ViewState<Bool> private var choosingRemoval = false
+    @ViewState<String?> private var saveError = nil
+    let onSave: (RoutineStep, Bool, Bool) -> Bool
+    let onDelete: (Bool) -> Bool
+    let failureMessage: () -> String
+
+    init(step: RoutineStep, preference: RoutinePreference?,
+         onSave: @escaping (RoutineStep, Bool, Bool) -> Bool,
+         onDelete: @escaping (Bool) -> Bool, failureMessage: @escaping () -> String) {
+        _step = ViewState(initialValue: step)
+        _keepInSuggestions = ViewState(initialValue: preference?.presence == .keep)
+        _keepDuration = ViewState(initialValue: preference?.durationMinutes != nil)
+        self.onSave = onSave; self.onDelete = onDelete; self.failureMessage = failureMessage
+    }
 
     var body: some View {
         NavigationStack {
@@ -461,11 +475,19 @@ struct StepEditor: View {
                             .monospacedDigit()
                     }
                     .accessibilityLabel("Duration in minutes")
-                    Toggle("Make this step essential", isOn: $step.isRequired)
+                    .accessibilityIdentifier("step.duration").accessibilityValue("\(step.durationMinutes)")
                 } header: {
                     Text("How it fits")
                 } footer: {
                     Text("The category organizes your routine. Choose an action below to decide what Morning Operator does.")
+                }
+                Section {
+                    Toggle("Keep in future suggestions", isOn: $keepInSuggestions)
+                        .accessibilityIdentifier("step.keepFuture")
+                    Toggle("Keep this duration", isOn: $keepDuration)
+                        .accessibilityIdentifier("step.keepDuration")
+                } header: { Text("Future mornings") } footer: {
+                    Text("Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices later in Review.")
                 }
                 Section {
                     Picker("Action", selection: $step.automation) {
@@ -480,10 +502,11 @@ struct StepEditor: View {
                     Text(automationExplanation)
                 }
                 Section {
-                    Button("Remove this step", role: .destructive) {
-                        onDelete()
-                        dismiss()
-                    }
+                    Button("Remove this step", role: .destructive) { choosingRemoval = true }
+                        .accessibilityIdentifier("step.remove")
+                }
+                if let saveError {
+                    Section { Text(saveError).foregroundStyle(.red).accessibilityIdentifier("step.saveError") }
                 }
             }
             .formStyle(.grouped)
@@ -497,16 +520,32 @@ struct StepEditor: View {
                     Button("Save") {
                         var edited = step
                         edited.title = edited.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                        onSave(edited)
-                        dismiss()
+                        if onSave(edited, keepInSuggestions, keepDuration) { dismiss() }
+                        else { saveError = failureMessage() }
                     }
                     .disabled(step.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityIdentifier("step.save")
                 }
+            }
+            .onChange(of: step.durationMinutes) { _, _ in keepDuration = true }
+            .confirmationDialog("Remove this moment?", isPresented: $choosingRemoval, titleVisibility: .visible) {
+                Button("Remove from this draft", role: .destructive) { remove(excluding: false) }
+                    .accessibilityIdentifier("step.removeDraft")
+                Button("Exclude from future suggestions", role: .destructive) { remove(excluding: true) }
+                    .accessibilityIdentifier("step.exclude")
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Removing only this draft leaves saved choices intact. Excluding also asks future suggestions to leave this activity out until you clear that choice.")
             }
             #if os(macOS)
             .frame(minWidth: 420, idealWidth: 500, minHeight: 500, idealHeight: 540)
             #endif
         }
+    }
+
+    private func remove(excluding: Bool) {
+        if onDelete(excluding) { dismiss() }
+        else { saveError = failureMessage() }
     }
 
     private var automationExplanation: String {

@@ -394,6 +394,245 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         closeProposal(in: app)
     }
 
+    func testSavedKeepAndDurationSurviveRelaunchThenClearInvalidatesProposal() {
+        let app = launch()
+        openRoutine(in: app)
+        openStep(0, in: app)
+        increaseDuration(by: 1, expectedMinutes: 4, in: app)
+        setChoice("step.keepFuture", enabled: true, in: app)
+        assertChoice("step.keepDuration", enabled: true, in: app)
+        saveStep(in: app)
+        approveEditedRoutine(in: app)
+
+        relaunchWithoutSeed(app)
+        openRoutine(in: app)
+        openStep(0, in: app)
+        assertChoice("step.keepFuture", enabled: true, in: app)
+        assertChoice("step.keepDuration", enabled: true, in: app)
+        let duration = app.steppers["step.duration"]
+        revealProposalElement(duration, in: app)
+        XCTAssertEqual(duration.value as? String, "4")
+        app.navigationBars["Make it yours"].buttons["Cancel"].tap()
+        waitAbsent(app.navigationBars["Make it yours"])
+        tap("routine.preferences", in: app)
+        XCTAssertTrue(app.navigationBars["Saved choices"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[currentTitle].exists)
+        XCTAssertTrue(app.staticTexts["4 planned minutes, chosen by you"].exists)
+        leaveSavedChoices(in: app)
+        MorningUITestNavigation.closeRoutine(in: app)
+
+        createProposal(from: [firstID, secondID], in: app)
+        let kept = app.descendants(matching: .any).matching(identifier: "proposal.step.1").firstMatch
+        revealProposalElement(kept, in: app)
+        XCTAssertEqual(kept.value as? String, currentTitle)
+        XCTAssertTrue(app.staticTexts["4 minutes planned"].exists)
+        XCTAssertTrue(app.staticTexts["Kept by your choice"].exists)
+        attach("synthetic-saved-keep-and-duration-applied-after-relaunch", app)
+        closeProposal(in: app)
+
+        openRoutine(in: app)
+        tap("routine.preferences", in: app)
+        let clear = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "preferences.clear.")).firstMatch
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        clear.tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "preferences.empty").firstMatch.waitForExistence(timeout: 5))
+        leaveSavedChoices(in: app)
+        assertRoutineRows(currentTitle, count: 4, in: app)
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("4 min planned"),
+                      "Clearing future choices must not rewrite the current approved routine.")
+        MorningUITestNavigation.closeRoutine(in: app)
+
+        relaunchWithoutSeed(app)
+        openArchive(in: app)
+        XCTAssertFalse(app.buttons["observations.reviewProposal"].exists,
+                       "A proposal based on the cleared preference revision must be invalidated durably.")
+        createProposal(from: [firstID, secondID], in: app)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "proposal.step.1").firstMatch.exists,
+                       "An explicitly cleared keep must not return through the old required flag.")
+        XCTAssertFalse(app.staticTexts["Kept by your choice"].exists)
+        attach("synthetic-cleared-keep-no-longer-retained-in-next-proposal", app)
+    }
+
+    func testSavedTimingRetainsCitationsAndRenameCanClearMatchedChoice() {
+        let app = launch()
+        createProposal(from: [firstID, secondID], in: app)
+        tap("proposal.approve", in: app)
+        waitForProposalToClose(in: app)
+        openRoutine(in: app)
+        openStep(0, in: app)
+        assertChoice("step.keepFuture", enabled: false, in: app)
+        increaseDuration(by: 2, expectedMinutes: 5, in: app)
+        assertChoice("step.keepDuration", enabled: true, in: app)
+        saveStep(in: app)
+        approveEditedRoutine(in: app)
+
+        relaunchWithoutSeed(app)
+        openRoutine(in: app)
+        tap("routine.preferences", in: app)
+        XCTAssertTrue(app.staticTexts["5 planned minutes, chosen by you"].waitForExistence(timeout: 5))
+        leaveSavedChoices(in: app)
+        MorningUITestNavigation.closeRoutine(in: app)
+        createProposal(from: [firstID, secondID], in: app)
+        XCTAssertTrue(app.staticTexts["5 minutes planned"].exists,
+                      "The saved timing must override the fixture's newly inferred three minutes.")
+        let timing = app.descendants(matching: .any).matching(identifier: "proposal.userTiming").firstMatch
+        revealProposalElement(timing, in: app)
+        XCTAssertTrue(timing.label.contains("Your saved timing choice"))
+        assertSelectedEvidence(in: app)
+        closeProposal(in: app)
+        relaunchWithoutSeed(app)
+        openPendingProposal(in: app)
+        XCTAssertTrue(app.staticTexts["5 minutes planned"].exists)
+        revealProposalElement(timing, in: app)
+        tap("proposal.approve", in: app)
+        waitForProposalToClose(in: app)
+
+        // Approval installs a fresh model step identity. Rename that row while
+        // removing its timing choice: matching must use the original row first.
+        relaunchWithoutSeed(app)
+        openRoutine(in: app)
+        assertRoutineRows(proposedTitle, count: 1, in: app)
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("5 min planned"))
+        openStep(0, in: app)
+        assertChoice("step.keepFuture", enabled: false, in: app)
+        setChoice("step.keepDuration", enabled: false, in: app)
+        let name = app.textFields["Step name"]
+        scrollTo(name, in: app)
+        name.tap()
+        name.typeText(" renamed choice")
+        XCTAssertNotEqual(name.value as? String, proposedTitle)
+        saveStep(in: app)
+        XCTAssertFalse(app.buttons["routine.preferences"].exists,
+                       "Renaming while clearing duration must remove the old matching preference, not strand it.")
+        approveEditedRoutine(in: app)
+        relaunchWithoutSeed(app)
+        createProposal(from: [firstID, secondID], in: app)
+        XCTAssertTrue(app.staticTexts["3 minutes planned"].exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "proposal.userTiming").firstMatch.exists)
+        assertSelectedEvidence(in: app)
+        attach("synthetic-renamed-row-clears-old-timing-choice-and-preserves-citations", app)
+    }
+
+    func testExcludedActivityStaysOutWhenFixtureSuggestsItAgain() {
+        let app = launch()
+        openRoutine(in: app)
+        openStep(0, in: app)
+        setChoice("step.keepFuture", enabled: true, in: app)
+        saveStep(in: app)
+        approveEditedRoutine(in: app)
+        createProposal(from: [firstID, secondID], in: app)
+        tap("proposal.approve", in: app)
+        waitForProposalToClose(in: app)
+        openRoutine(in: app)
+        assertRoutineRows(proposedTitle, count: 2, in: app)
+        openStep(0, in: app)
+        let remove = app.buttons["step.remove"]
+        revealProposalElement(remove, in: app)
+        remove.tap()
+        let confirmation = app.sheets["Remove this moment?"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        let exclude = confirmation.buttons.matching(identifier: "step.exclude").firstMatch
+        XCTAssertTrue(exclude.waitForExistence(timeout: 5))
+        XCTAssertTrue(exclude.isHittable)
+        exclude.tap()
+        waitAbsent(app.navigationBars["Make it yours"])
+        assertRoutineRows(currentTitle, count: 1, in: app)
+        approveEditedRoutine(in: app)
+
+        relaunchWithoutSeed(app)
+        openRoutine(in: app)
+        tap("routine.preferences", in: app)
+        let excluded = app.staticTexts.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ AND label == %@", "preferences.title.", proposedTitle)).firstMatch
+        scrollTo(excluded, in: app)
+        XCTAssertEqual(excluded.label, proposedTitle)
+        let exclusion = app.staticTexts["Leave out of future suggestions"]
+        scrollTo(exclusion, in: app)
+        XCTAssertTrue(exclusion.exists)
+        leaveSavedChoices(in: app)
+        MorningUITestNavigation.closeRoutine(in: app)
+
+        // The same fixture again submits A morning to review. Its persisted
+        // exclusion removes it; the separately chosen ritual is still retained.
+        createProposal(from: [firstID, secondID], expectedFirstTitle: currentTitle, in: app)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "proposal.step.1").firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Kept by your choice"].exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "proposal.userTiming").firstMatch.exists)
+        attach("synthetic-exclusion-removes-returning-fixture-and-retains-chosen-ritual", app)
+        tap("proposal.approve", in: app)
+        waitForProposalToClose(in: app)
+        relaunchWithoutSeed(app)
+        assertApprovedRoutine(currentTitle, count: 1, in: app)
+        openArchive(in: app)
+        for id in [firstID, secondID, undatedID] {
+            XCTAssertTrue(app.buttons["observation.row.\(id)"].exists,
+                          "Excluding an activity must not delete its source observations.")
+        }
+    }
+
+    private func openStep(_ index: Int, in app: XCUIApplication) {
+        tap("routine.step.\(index)", in: app)
+        XCTAssertTrue(app.navigationBars["Make it yours"].waitForExistence(timeout: 5))
+    }
+
+    private func assertChoice(_ identifier: String, enabled: Bool, in app: XCUIApplication) {
+        let choice = app.switches[identifier]
+        revealProposalElement(choice, in: app)
+        let expectedValue = enabled ? "1" : "0"
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            choice.exists && (choice.value as? String) == expectedValue
+        }, object: choice)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed,
+                       "Unexpected saved choice: \(identifier).\n\(app.debugDescription)")
+    }
+
+    private func setChoice(_ identifier: String, enabled: Bool, in app: XCUIApplication) {
+        let choice = app.switches[identifier]
+        revealProposalElement(choice, in: app)
+        if (choice.value as? String) != (enabled ? "1" : "0") {
+            // SwiftUI exposes both a full-width row and its native UISwitch.
+            // The row's center is text, so operate the nested switch itself.
+            let control = choice.switches.firstMatch
+            XCTAssertTrue(control.waitForExistence(timeout: 5),
+                          "Missing native switch for \(identifier).\n\(app.debugDescription)")
+            XCTAssertTrue(control.isHittable)
+            control.tap()
+        }
+        assertChoice(identifier, enabled: enabled, in: app)
+    }
+
+    private func increaseDuration(by count: Int, expectedMinutes: Int, in app: XCUIApplication) {
+        let duration = app.steppers["step.duration"]
+        revealProposalElement(duration, in: app)
+        let increment = duration.buttons["step.duration-Increment"]
+        XCTAssertTrue(increment.exists, "Expected the native duration stepper increment control.\n\(app.debugDescription)")
+        for _ in 0..<count { increment.tap() }
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            duration.exists && (duration.value as? String) == String(expectedMinutes)
+        }, object: duration)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed,
+                       "The planned duration must reflect the native increment taps.\n\(app.debugDescription)")
+    }
+
+    private func saveStep(in app: XCUIApplication) {
+        tap("step.save", in: app)
+        waitAbsent(app.navigationBars["Make it yours"])
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 5))
+    }
+
+    private func approveEditedRoutine(in app: XCUIApplication) {
+        tap("routine.approve", in: app)
+        waitAbsent(app.navigationBars["Your routine"])
+        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
+    }
+
+    private func leaveSavedChoices(in app: XCUIApplication) {
+        let back = app.navigationBars["Saved choices"].buttons["Your routine"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5))
+        back.tap()
+        XCTAssertTrue(app.navigationBars["Your routine"].waitForExistence(timeout: 5))
+    }
+
     private func launch(_ extra: [String] = [], workspaceID: UUID = UUID()) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -453,7 +692,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Observation"].waitForExistence(timeout: 5))
     }
 
-    private func createProposal(from ids: [String], in app: XCUIApplication) {
+    private func createProposal(from ids: [String], expectedFirstTitle: String = "A morning to review", in app: XCUIApplication) {
         openArchive(in: app)
         tap("observations.choose", in: app)
         for id in ids {
@@ -470,7 +709,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         let suggest = app.buttons["observations.suggestUpdate"]
         XCTAssertTrue(suggest.isEnabled)
         tap("observations.suggestUpdate", in: app)
-        assertProposalPresented(in: app)
+        assertProposalPresented(expectedFirstTitle: expectedFirstTitle, in: app)
     }
 
     private func openPendingProposal(in app: XCUIApplication) {
@@ -479,11 +718,11 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         assertProposalPresented(in: app)
     }
 
-    private func assertProposalPresented(in app: XCUIApplication) {
+    private func assertProposalPresented(expectedFirstTitle: String = "A morning to review", in app: XCUIApplication) {
         XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 15))
         let step = app.descendants(matching: .any).matching(identifier: "proposal.step.0").firstMatch
         XCTAssertTrue(step.waitForExistence(timeout: 5))
-        XCTAssertEqual(step.value as? String, proposedTitle)
+        XCTAssertEqual(step.value as? String, expectedFirstTitle)
         XCTAssertEqual(app.alerts.count, 0, "Synthetic suggestions must not request external permissions.")
     }
 

@@ -64,29 +64,50 @@ public struct RoutineEvidenceCitation: Codable, Equatable, Sendable {
 }
 
 public enum RoutineProposalSupportReason: String, Codable, Sendable {
-    case inferredEvidence, preservedUserDecision
+    case inferredEvidence, inferredEvidenceWithUserPreference, preservedUserDecision
 }
 
 public struct RoutineProposalSupport: Codable, Equatable, Sendable {
     public let stepID: UUID
     public let citations: [RoutineEvidenceCitation]
     public let reason: RoutineProposalSupportReason
+    /// Journal target IDs, never invented acquisition or source citations.
+    public let preferenceIDs: [UUID]
+
+    fileprivate init(stepID: UUID, citations: [RoutineEvidenceCitation],
+                     reason: RoutineProposalSupportReason, preferenceIDs: [UUID] = []) {
+        self.stepID = stepID; self.citations = citations; self.reason = reason
+        self.preferenceIDs = preferenceIDs
+    }
+    private enum CodingKeys: String, CodingKey { case stepID, citations, reason, preferenceIDs }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        stepID = try values.decode(UUID.self, forKey: .stepID)
+        citations = try values.decode([RoutineEvidenceCitation].self, forKey: .citations)
+        reason = try values.decode(RoutineProposalSupportReason.self, forKey: .reason)
+        preferenceIDs = try values.decodeIfPresent([UUID].self, forKey: .preferenceIDs) ?? []
+    }
 }
 
 public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiable {
     public let id: UUID
     public let baseRoutineID: UUID?
     public let baseRoutineRevision: String?
+    public let preferenceSnapshot: RoutinePreferenceJournal?
+    public let preferenceRevision: String?
     public let routine: RoutineVersion
     public let sourceSnapshots: [LearningSourceSnapshot]
     public let support: [RoutineProposalSupport]
     public let omissions: [LearningEvidenceOmission]
 
     fileprivate init(base: RoutineVersion?, routine: RoutineVersion, sources: [LearningSourceSnapshot],
-                     support: [RoutineProposalSupport], omissions: [LearningEvidenceOmission]) throws {
+                     support: [RoutineProposalSupport], omissions: [LearningEvidenceOmission],
+                     preferences: RoutinePreferenceJournal?) throws {
         id = UUID()
         baseRoutineID = base?.id
         baseRoutineRevision = try base.map { try EvidenceRevision.hash($0) }
+        preferenceSnapshot = preferences
+        preferenceRevision = try preferences.map { try EvidenceRevision.hash($0) }
         self.routine = routine
         sourceSnapshots = sources
         self.support = support
@@ -94,12 +115,16 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
         try validateStructure()
     }
 
-    /// Checks current source bytes/metadata and every base-routine field, including approval.
+    /// Checks source bytes/metadata, every base field, and the complete preference journal.
+    /// Nil means legacy required-step retention; an explicit empty journal is authoritative.
     /// Store must also invalidate immediately on unsaved edits and cancellation; this method
     /// cannot inspect editor state that has not yet reached the supplied archive.
-    public func isCurrent(archive: ObservationArchive, baseRoutine: RoutineVersion?) -> Bool {
+    public func isCurrent(archive: ObservationArchive, baseRoutine: RoutineVersion?,
+                          preferences: RoutinePreferenceJournal? = nil) -> Bool {
         do {
             try validateStructure()
+            try preferences?.validate()
+            guard preferenceRevision == (try preferences.map { try EvidenceRevision.hash($0) }) else { return false }
             let baseNumber = baseRoutine?.number ?? 0
             guard baseNumber >= 0, baseNumber < Int.max,
                   baseRoutine == nil || baseNumber >= 1,
@@ -110,12 +135,35 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                 guard let entry = archive.entry(id: snapshot.acquisitionID),
                       try LearningEvidencePreparation.snapshot(entry) == snapshot else { return false }
             }
-            let kept = Self.keptSteps(in: baseRoutine)
+            // Rebuild user-owned rows independently of the stored support claims. The
+            // authoritative journal suppresses legacy retention, including after a cleared keep.
+            let candidate = RoutineVersion(createdAt: routine.createdAt, sourceLabel: routine.sourceLabel,
+                steps: routine.steps)
+            let inherited = Self.inferredDraft(from: candidate, preserving: baseRoutine,
+                preferences: preferences, at: routine.createdAt)
+            let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: inherited.steps)
+            guard try EvidenceRevision.hash(reconciled.steps) == EvidenceRevision.hash(routine.steps) else { return false }
+            let legacyKept = preferences == nil ? Self.keptSteps(in: baseRoutine) : []
+            let keptIDs = Set(legacyKept.map(\.id)).union(reconciled.retainedStepIDs)
             for item in support {
                 guard let step = routine.steps.first(where: { $0.id == item.stepID }) else { return false }
-                if item.reason == .preservedUserDecision {
-                    guard try kept.contains(where: { try EvidenceRevision.hash($0) == EvidenceRevision.hash(step) }) else { return false }
-                } else {
+                let expectedReason: RoutineProposalSupportReason = keptIDs.contains(step.id) ? .preservedUserDecision
+                    : reconciled.durationOverriddenStepIDs.contains(step.id) ? .inferredEvidenceWithUserPreference : .inferredEvidence
+                let expectedPreferences = (reconciled.appliedPreferenceIDsByStepID[step.id] ?? []).sorted { $0.uuidString < $1.uuidString }
+                guard item.reason == expectedReason, item.preferenceIDs == expectedPreferences else { return false }
+                if item.reason == .inferredEvidenceWithUserPreference {
+                    // Model rows receive fresh IDs at assembly. On restore, an invented
+                    // collision with a saved target ID cannot transfer its timing to a
+                    // different activity; require the same conservative key as fallback.
+                    let titleKey = step.title.folding(options: .caseInsensitive, locale: Locale(identifier: "en_US_POSIX"))
+                        .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+                    guard expectedPreferences.allSatisfy({ id in
+                        guard let preference = preferences?.entry(targetID: id) else { return false }
+                        return preference.presence == nil && preference.durationMinutes == step.durationMinutes
+                            && preference.targetKind == step.kind && preference.normalizedTitle == titleKey
+                    }) else { return false }
+                }
+                if item.reason != .preservedUserDecision {
                     guard !step.isRequired, step.automation == nil else { return false }
                     for citation in item.citations {
                         guard let entry = archive.entry(id: citation.acquisitionID),
@@ -125,10 +173,6 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                     }
                 }
             }
-            // A tampered restored proposal cannot quietly remove one of the kept rituals.
-            guard kept.allSatisfy({ keptStep in
-                routine.steps.contains(keptStep) && support.contains { $0.stepID == keptStep.id && $0.reason == .preservedUserDecision }
-            }) else { return false }
             return true
         } catch { return false }
     }
@@ -136,6 +180,16 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
     fileprivate static func keptSteps(in base: RoutineVersion?) -> [RoutineStep] {
         guard let base, !base.sourceLabel.localizedCaseInsensitiveContains("demo fixture") else { return [] }
         return base.steps.filter(\.isRequired)
+    }
+
+    /// Nil preserves legacy required flags. A supplied journal is authoritative, even
+    /// when empty: clearing Keep must not resurrect a stale required flag in the base.
+    fileprivate static func inferredDraft(from candidate: RoutineVersion, preserving base: RoutineVersion?,
+                                          preferences: RoutinePreferenceJournal?, at date: Date) -> RoutineVersion {
+        let inheritanceBase: RoutineVersion?
+        if preferences == nil { inheritanceBase = base }
+        else { inheritanceBase = base.map { prior in var copy = prior; copy.steps = []; return copy } }
+        return RoutineVersion.inferredDraft(from: candidate, preserving: inheritanceBase, at: date)
     }
 
     private static func citationSource(_ citation: RoutineEvidenceCitation, entry: ObservationAcquisition) -> String? {
@@ -154,6 +208,12 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
     }
 
     private func validateStructure() throws {
+        try preferenceSnapshot?.validate()
+        guard (preferenceSnapshot == nil) == (preferenceRevision == nil),
+              preferenceRevision.map(EvidenceRevision.isValid) ?? true,
+              preferenceRevision == (try preferenceSnapshot.map { try EvidenceRevision.hash($0) }) else {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
         guard (1...5).contains(sourceSnapshots.count), Set(sourceSnapshots.map(\.acquisitionID)).count == sourceSnapshots.count,
               !routine.isApproved, routine.number >= 1, !routine.sourceLabel.isEmpty, routine.sourceLabel.count <= 256,
               !routine.steps.isEmpty, routine.steps.count <= 10,
@@ -175,14 +235,21 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
         guard omissions.allSatisfy({ omission in sourceSnapshots.contains { $0.acquisitionID == omission.acquisitionID && $0.sourceLayer == .videoFrame } }) else {
             throw RoutineEvidenceProposalError.invalidProposal
         }
+        let preferenceIDs = Set(preferenceSnapshot?.entries.map(\.targetID) ?? [])
         for item in support {
+            let inferred = item.reason != .preservedUserDecision
             guard let step = routine.steps.first(where: { $0.id == item.stepID }),
                   !step.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  step.title.count <= (item.reason == .inferredEvidence ? 120 : 2_000),
-                  step.detail.count <= (item.reason == .inferredEvidence ? 8_000 : 32_000),
+                  step.title.count <= (inferred ? 120 : 2_000),
+                  step.detail.count <= (inferred ? 8_000 : 32_000),
                   (1...(item.reason == .inferredEvidence ? 60 : 1_440)).contains(step.durationMinutes),
-                  item.reason != .inferredEvidence || (!step.isRequired && step.automation == nil),
+                  !inferred || (!step.isRequired && step.automation == nil),
                   item.citations.count <= 24,
+                  item.preferenceIDs.count <= 100,
+                  Set(item.preferenceIDs).count == item.preferenceIDs.count,
+                  Set(item.preferenceIDs).isSubset(of: preferenceIDs),
+                  item.reason != .inferredEvidence || item.preferenceIDs.isEmpty,
+                  item.reason != .inferredEvidenceWithUserPreference || !item.preferenceIDs.isEmpty,
                   (item.reason == .preservedUserDecision) == item.citations.isEmpty else {
                 throw RoutineEvidenceProposalError.invalidProposal
             }
@@ -201,12 +268,20 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
         }
     }
 
-    private enum CodingKeys: String, CodingKey { case id, baseRoutineID, baseRoutineRevision, routine, sourceSnapshots, support, omissions }
+    private enum CodingKeys: String, CodingKey {
+        case id, baseRoutineID, baseRoutineRevision, preferenceSnapshot, preferenceRevision
+        case routine, sourceSnapshots, support, omissions
+    }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(UUID.self, forKey: .id)
         baseRoutineID = try values.decodeIfPresent(UUID.self, forKey: .baseRoutineID)
         baseRoutineRevision = try values.decodeIfPresent(String.self, forKey: .baseRoutineRevision)
+        let snapshot = try values.decodeIfPresent(RoutinePreferenceJournal.self, forKey: .preferenceSnapshot)
+        let revision = try values.decodeIfPresent(String.self, forKey: .preferenceRevision)
+        guard (snapshot == nil) == (revision == nil) else { throw RoutineEvidenceProposalError.invalidProposal }
+        preferenceSnapshot = snapshot
+        preferenceRevision = revision
         routine = try values.decode(RoutineVersion.self, forKey: .routine)
         sourceSnapshots = try values.decode([LearningSourceSnapshot].self, forKey: .sourceSnapshots)
         support = try values.decode([RoutineProposalSupport].self, forKey: .support)
@@ -338,7 +413,9 @@ public enum LearningEvidencePreparation {
     /// The same deterministic gate is used for model output and explicitly labeled UI fixtures.
     /// It validates provenance; it does not prove the model's semantic interpretation is true.
     public static func assemble(evidence: PreparedLearningEvidence, steps: [EvidenceRoutineStepInput],
-                                preserving base: RoutineVersion?, at date: Date = Date()) throws -> EvidenceRoutineProposal {
+                                preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal? = nil,
+                                at date: Date = Date()) throws -> EvidenceRoutineProposal {
+        try preferences?.validate()
         guard !steps.isEmpty, steps.count <= 24, date.timeIntervalSince1970.isFinite else {
             throw RoutineEvidenceProposalError.insufficientEvidence
         }
@@ -397,16 +474,26 @@ public enum LearningEvidencePreparation {
         let synthetic = evidence.sourceSnapshots.first?.origin == .synthetic
         let source = synthetic ? "Demo fixture — synthetic saved observations" : "Selected saved observations — tentative proposal"
         let candidate = RoutineVersion(createdAt: date, sourceLabel: source, steps: proposed, isApproved: false)
-        let routine = RoutineVersion.inferredDraft(from: candidate, preserving: base, at: date)
+        var routine = EvidenceRoutineProposal.inferredDraft(from: candidate, preserving: base,
+            preferences: preferences, at: date)
+        let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: routine.steps)
+        routine.steps = reconciled.steps
+        guard !routine.steps.isEmpty else { throw RoutineEvidenceProposalError.insufficientEvidence }
         guard routine.steps.count <= 10 else { throw RoutineEvidenceProposalError.tooManySteps }
-        let keptIDs = Set(EvidenceRoutineProposal.keptSteps(in: base).map(\.id))
+        let legacyKept = preferences == nil ? EvidenceRoutineProposal.keptSteps(in: base) : []
+        let keptIDs = Set(legacyKept.map(\.id)).union(reconciled.retainedStepIDs)
         let support = try routine.steps.map { step -> RoutineProposalSupport in
-            if keptIDs.contains(step.id) { return .init(stepID: step.id, citations: [], reason: .preservedUserDecision) }
+            let preferenceIDs = (reconciled.appliedPreferenceIDsByStepID[step.id] ?? []).sorted { $0.uuidString < $1.uuidString }
+            if keptIDs.contains(step.id) {
+                return .init(stepID: step.id, citations: [], reason: .preservedUserDecision, preferenceIDs: preferenceIDs)
+            }
             guard let citations = citationsByStep[step.id], !citations.isEmpty else { throw RoutineEvidenceProposalError.invalidProposal }
-            return .init(stepID: step.id, citations: citations, reason: .inferredEvidence)
+            let reason: RoutineProposalSupportReason = reconciled.durationOverriddenStepIDs.contains(step.id)
+                ? .inferredEvidenceWithUserPreference : .inferredEvidence
+            return .init(stepID: step.id, citations: citations, reason: reason, preferenceIDs: preferenceIDs)
         }
         return try EvidenceRoutineProposal(base: base, routine: routine, sources: evidence.sourceSnapshots,
-            support: support, omissions: evidence.omissions)
+            support: support, omissions: evidence.omissions, preferences: preferences)
     }
 
     fileprivate static func snapshot(_ entry: ObservationAcquisition) throws -> LearningSourceSnapshot {

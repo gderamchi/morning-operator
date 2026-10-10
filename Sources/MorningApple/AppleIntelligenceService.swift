@@ -136,7 +136,9 @@ public final class AppleIntelligenceService {
     /// Explicit multi-acquisition proposal. Source dates/identities never come from the model.
     /// No tools execute actions, and the current approved routine is not mutated here.
     public func propose(evidence: PreparedLearningEvidence,
-                        preserving routine: RoutineVersion?) async throws -> EvidenceRoutineProposal {
+                        preserving routine: RoutineVersion?,
+                        preferences: RoutinePreferenceJournal? = nil) async throws -> EvidenceRoutineProposal {
+        try preferences?.validate()
         guard !isAnalyzing else { throw AppleIntelligenceError.alreadyAnalyzing }
         guard !evidence.units.isEmpty,
               evidence.modelRequestCount <= LearningEvidencePreparation.maximumModelCalls,
@@ -181,7 +183,8 @@ public final class AppleIntelligenceService {
             }
         }
         try Task.checkCancellation()
-        return try LearningEvidencePreparation.assemble(evidence: evidence, steps: steps, preserving: routine)
+        return try LearningEvidencePreparation.assemble(evidence: evidence, steps: steps,
+            preserving: routine, preferences: preferences)
         #else
         throw AppleIntelligenceError.unavailable(capabilitySummary)
         #endif
