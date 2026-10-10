@@ -556,17 +556,3 @@ struct NoticeView: View {
             .accessibilityIdentifier("app.notice")
     }
 }
-
-struct RoutineExportDocument: FileDocument {
-    static let readableContentTypes: [UTType] = [.json]
-    let routine: RoutineVersion
-    init(_ routine: RoutineVersion) { self.routine = routine }
-    init(configuration: ReadConfiguration) throws {
-        guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
-        routine = try JSONDecoder().decode(RoutineVersion.self, from: data)
-    }
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return FileWrapper(regularFileWithContents: try encoder.encode(routine))
-    }
-}

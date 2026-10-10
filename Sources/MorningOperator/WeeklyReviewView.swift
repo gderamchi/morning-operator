@@ -269,7 +269,14 @@ private struct RoutineReviewEditor: View {
     var onLearn: () -> Void
     @Environment(\.dismiss) private var dismiss
     @ViewState<RoutineStep?> private var editingStep = nil
-    @ViewState<Bool> private var exporting = false
+    @ViewState<RoutineVersion?> private var exportSnapshot = nil
+    @ViewState<Bool> private var importing = false
+    @ViewState<RoutineImportPreview?> private var importPreview = nil
+    @ViewState<RoutineImportPreview?> private var loadedImport = nil
+    @ViewState<Bool> private var importLoading = false
+    @ViewState<String?> private var importError = nil
+    @ViewState<Task<Void, Never>?> private var importTask = nil
+    @ViewState<UUID?> private var importAttempt = nil
 
     var body: some View {
         NavigationStack {
@@ -278,7 +285,7 @@ private struct RoutineReviewEditor: View {
                     Section {
                         ForEach(Array(routine.steps.enumerated()), id: \.element.id) { index, step in
                             Button { editingStep = step } label: { stepRow(step) }
-                                .buttonStyle(.plain).disabled(store.busy || store.sessionActive)
+                                .buttonStyle(.plain).disabled(store.busy || store.sessionActive || importLoading)
                                 .accessibilityIdentifier("routine.step.\(index)")
                         }
                         .onMove { source, destination in
@@ -286,11 +293,11 @@ private struct RoutineReviewEditor: View {
                             steps.move(fromOffsets: source, toOffset: destination)
                             store.updateSteps(steps)
                         }
-                        .moveDisabled(store.busy || store.sessionActive)
+                        .moveDisabled(store.busy || store.sessionActive || importLoading)
                         Button {
                             editingStep = RoutineStep(title: "", kind: .custom, durationMinutes: 5)
                         } label: { Label("Add a moment", systemImage: "plus") }
-                            .disabled(store.busy || store.sessionActive).accessibilityIdentifier("routine.add")
+                            .disabled(store.busy || store.sessionActive || importLoading).accessibilityIdentifier("routine.add")
                     } header: {
                         Text(routine.isApproved ? "Your approved routine" : "A draft for you to review")
                     } footer: {
@@ -299,12 +306,14 @@ private struct RoutineReviewEditor: View {
                     Section {
                         if store.previousRoutine != nil {
                             Button("Restore previous routine") { store.restorePreviousRoutine() }
-                                .disabled(store.busy || store.sessionActive).accessibilityIdentifier("routine.restore")
+                                .disabled(store.busy || store.sessionActive || importLoading).accessibilityIdentifier("routine.restore")
                         }
                         savedChoicesLink
-                        Button("Export routine", systemImage: "square.and.arrow.up") { exporting = true }
+                        Button("Export routine", systemImage: "square.and.arrow.up") { exportSnapshot = routine }
+                            .disabled(importLoading)
+                            .accessibilityIdentifier("routine.export")
                         Button("Learn from an observation", systemImage: "sparkles", action: onLearn)
-                            .disabled(store.busy || store.sessionActive).accessibilityIdentifier("learn.refine")
+                            .disabled(store.busy || store.sessionActive || importLoading).accessibilityIdentifier("learn.refine")
                     } footer: {
                         Text("Restoring a routine leaves your saved choices for future suggestions unchanged.")
                     }
@@ -317,11 +326,31 @@ private struct RoutineReviewEditor: View {
                         Text("Start with a small part of your morning. You can change every step before approving it.")
                             .foregroundStyle(.secondary)
                         Button("Learn my morning", systemImage: "sparkles", action: onLearn)
+                            .disabled(importLoading)
                             .accessibilityIdentifier("learn.begin")
-                        Button("Build it myself") { store.useManualRoutine() }
-                        Button("Explore a sample") { store.loadSample() }.accessibilityIdentifier("routine.sample")
+                        Button("Build it myself") { store.useManualRoutine() }.disabled(importLoading)
+                        Button("Explore a sample") { store.loadSample() }.disabled(importLoading).accessibilityIdentifier("routine.sample")
                         savedChoicesLink
                     }
+                }
+                Section {
+                    Button("Import routine", systemImage: "square.and.arrow.down") { importing = true }
+                        .disabled(store.busy || store.sessionActive || importLoading)
+                        .accessibilityIdentifier("routine.import")
+                    #if DEBUG
+                    if let url = routineImportFixtureURL {
+                        Button("Open staged routine file") { openRoutineFile(url) }
+                            .disabled(store.busy || store.sessionActive || importLoading)
+                            .accessibilityIdentifier("routine.importFixture")
+                    }
+                    #endif
+                    if importLoading { ProgressView("Opening your routine…") }
+                    if let importError {
+                        Text(importError).font(.footnote).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("routine.importError")
+                    }
+                } footer: {
+                    Text("Open a saved MORE plan and review it before making any changes.")
                 }
                 if let notice = store.notice { Text(notice).font(.caption).foregroundStyle(.secondary) }
             }
@@ -330,7 +359,7 @@ private struct RoutineReviewEditor: View {
             .toolbar {
                 #if os(iOS)
                 ToolbarItem(placement: .primaryAction) {
-                    EditButton().disabled(store.routine == nil || store.busy || store.sessionActive)
+                    EditButton().disabled(store.routine == nil || store.busy || store.sessionActive || importLoading)
                         .accessibilityIdentifier("routine.edit")
                 }
                 #endif
@@ -346,7 +375,7 @@ private struct RoutineReviewEditor: View {
                         Label("Approve this routine", systemImage: "checkmark").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large)
-                    .disabled(store.busy || store.sessionActive || routine.steps.isEmpty || store.routinePreferencesIssue != nil)
+                    .disabled(store.busy || store.sessionActive || importLoading || routine.steps.isEmpty || store.routinePreferencesIssue != nil)
                     .accessibilityIdentifier("routine.approve")
                     .padding(20).background(.regularMaterial)
                 }
@@ -358,15 +387,74 @@ private struct RoutineReviewEditor: View {
                     store.removeStep(step, excludeFromSuggestions: exclude)
                 }, failureMessage: { store.notice ?? "Your change couldn't be saved. Try again." })
             }
-            .fileExporter(isPresented: $exporting, document: store.routine.map(RoutineExportDocument.init),
-                          contentType: .json, defaultFilename: "Morning-Routine") { result in
-                if case .failure(let error) = result { store.notice = error.localizedDescription }
+            .sheet(item: $exportSnapshot) { routine in RoutineExportView(routine: routine) }
+            .sheet(item: $importPreview) { preview in
+                RoutineImportView(document: preview.document, onUse: { document in
+                    guard store.useImportedRoutine(document, replacing: preview.baseRoutine) else { return false }
+                    importPreview = nil
+                    return true
+                }, errorMessage: { store.notice }, onCancel: { importPreview = nil })
             }
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
+                switch result {
+                case .success(let urls): if let url = urls.first { openRoutineFile(url) }
+                case .failure(let error): importError = error.localizedDescription
+                }
+            }
+            .onChange(of: importing) { _, presenting in if !presenting { presentLoadedImport() } }
+        }
+        .onDisappear {
+            importAttempt = nil
+            loadedImport = nil
+            importLoading = false
+            importTask?.cancel()
+            importTask = nil
         }
         #if os(macOS)
         .frame(minWidth: 480, minHeight: 580)
         #endif
     }
+
+    private func openRoutineFile(_ url: URL) {
+        guard !store.busy, !store.sessionActive, !importLoading else { return }
+        let attempt = UUID()
+        let base = store.routine
+        importAttempt = attempt
+        importLoading = true
+        importError = nil
+        importTask = Task { @MainActor in
+            do {
+                let document = try await RoutineDocumentReader().read(url)
+                guard !Task.isCancelled, importAttempt == attempt else { return }
+                loadedImport = RoutineImportPreview(document: document, baseRoutine: base)
+                presentLoadedImport()
+            } catch {
+                guard !Task.isCancelled, importAttempt == attempt else { return }
+                importLoading = false
+                importError = "This file couldn't be opened: \(error.localizedDescription) Your current routine is unchanged."
+            }
+            importTask = nil
+        }
+    }
+
+    private func presentLoadedImport() {
+        guard !importing, editingStep == nil, exportSnapshot == nil, let loadedImport else { return }
+        self.loadedImport = nil
+        importLoading = false
+        importPreview = loadedImport
+    }
+
+    #if DEBUG
+    private var routineImportFixtureURL: URL? {
+        let process = ProcessInfo.processInfo
+        guard process.arguments.contains("--ui-testing"), process.environment["MO_ROUTINE_IMPORT_TEST"] == "1",
+              let workspace = process.arguments.first(where: { $0.hasPrefix("--ui-testing-workspace=") }),
+              UUID(uuidString: String(workspace.dropFirst("--ui-testing-workspace=".count))) != nil,
+              let path = process.environment["MO_ROUTINE_IMPORT_FILE"], !path.isEmpty else { return nil }
+        return path.hasPrefix("/") ? URL(fileURLWithPath: path)
+            : FileManager.default.temporaryDirectory.appendingPathComponent(path)
+    }
+    #endif
 
     private func stepRow(_ step: RoutineStep) -> some View {
         HStack(spacing: 12) {
@@ -389,8 +477,15 @@ private struct RoutineReviewEditor: View {
                 Label(store.routinePreferencesIssue == nil ? "Saved choices" : "Saved choices need review",
                       systemImage: store.routinePreferencesIssue == nil ? "heart.text.clipboard" : "exclamationmark.circle")
             }.accessibilityIdentifier("routine.preferences")
+                .disabled(importLoading)
         }
     }
+}
+
+private struct RoutineImportPreview: Identifiable {
+    let id = UUID()
+    let document: PortableRoutineDocument
+    let baseRoutine: RoutineVersion?
 }
 
 private struct RoutinePreferencesView: View {

@@ -1216,6 +1216,43 @@ final class MorningStore {
         persist()
     }
 
+    /// Importing is an explicit edit, never approval or execution. The caller
+    /// captures the base when opening the file so a stale preview cannot replace
+    /// a routine that changed while the file provider was loading.
+    @discardableResult
+    func useImportedRoutine(_ document: PortableRoutineDocument, replacing expectedBase: RoutineVersion?) -> Bool {
+        guard !busy, !sessionActive, !voiceInputBlocksPlayback, storageIsAvailable else {
+            notice = "Finish the current activity before importing a routine."
+            return false
+        }
+        guard routine == expectedBase else {
+            notice = "Your routine changed while this file was open. Cancel and open the file again to review it."
+            return false
+        }
+        do {
+            let draft = try document.importedDraft(replacing: routine)
+            let oldRoutine = routine
+            let oldPrevious = previousRoutine
+            let oldSession = session
+            let oldProposal = pendingRoutineProposal
+            if let oldRoutine, oldRoutine.isApproved { previousRoutine = oldRoutine }
+            routine = draft
+            session = nil
+            pendingRoutineProposal = nil
+            guard persist() else {
+                routine = oldRoutine; previousRoutine = oldPrevious; session = oldSession
+                pendingRoutineProposal = oldProposal
+                notice = "The imported draft could not be saved. Your current routine is unchanged."
+                return false
+            }
+            notice = "Imported as a draft. Review and approve it when ready. Your saved choices still apply to future suggestions."
+            return true
+        } catch {
+            notice = error.localizedDescription
+            return false
+        }
+    }
+
     func restorePreviousRoutine() {
         guard !busy, !sessionActive, let previousRoutine else { return }
         let oldRoutine = routine
