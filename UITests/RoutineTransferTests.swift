@@ -1,9 +1,9 @@
 import XCTest
 
 /// Real native review and bounded file loading with synthetic portable files.
-/// The controller stages files; these tests never substitute a decoded model,
-/// invoke the Apple model or start playback. A separate native-panel test only
-/// opens and cancels file pickers; it never saves or selects a file.
+/// Controller-staged file checks never substitute a decoded model. Separate
+/// native-panel checks cover cancellation and one synthetic save/reopen journey.
+/// No test invokes the Apple model or starts playback.
 @MainActor
 final class RoutineTransferTests: XCTestCase {
     private let currentTitle = "A calm start"
@@ -173,6 +173,104 @@ final class RoutineTransferTests: XCTestCase {
         openRoutine(in: app)
         assertRoutine(currentTitle, count: 4, approved: true, in: app)
         attach("native-file-panel-dismissals-preserve-approved-routine-after-relaunch", app)
+    }
+
+    /// Actual native Files save and selection, with no staged-file import hook.
+    /// The UI proves that the exported plan is decoded without notes; it does not
+    /// independently inspect provider bytes or establish cloud-provider support.
+    func testNativeSaveAndSelectPlanOnlyFileCreatesManualDraft() {
+        let app = launch(savedBaseline: true)
+        let filename = "MORE-Transfer-\(UUID().uuidString)"
+        openRoutine(in: app)
+        assertRoutine(currentTitle, count: 4, approved: true, in: app)
+        tap("routine.export", in: app)
+        XCTAssertTrue(app.buttons["export.cancel"].waitForExistence(timeout: 5))
+        let includeNotes = app.switches["export.includeNotes"]
+        reveal(includeNotes, in: app)
+        XCTAssertEqual(includeNotes.value as? String, "0")
+        tap("export.save", in: app)
+        let nativeBar = app.navigationBars["FullDocumentManagerViewControllerNavigationBar"]
+        XCTAssertTrue(nativeBar.waitForExistence(timeout: 10),
+                      "A real native export panel must appear.\n\(app.debugDescription)")
+        let nameField = app.textFields["DOCPicker.filenameTextField"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        XCTAssertTrue(nameField.isHittable)
+        let oldName = nameField.value as? String ?? ""
+        XCTAssertFalse(oldName.isEmpty)
+        nameField.tap()
+        nameField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + filename)
+        waitValue(nameField, equals: filename, in: app)
+        let save = nativeBar.buttons["DOCPicker.actionButton"]
+        XCTAssertTrue(save.exists && save.isEnabled && save.isHittable,
+                      "Expected the native Save action for the unique synthetic filename.\n\(app.debugDescription)")
+        XCTAssertEqual(save.label, "Save")
+        attach("native-plan-only-file-ready-to-save-unique-synthetic-name", app)
+        save.tap()
+        waitAbsent(nativeBar)
+        let status = app.descendants(matching: .any).matching(identifier: "export.status").firstMatch
+        reveal(status, in: app)
+        XCTAssertTrue(status.label.contains("Routine exported"),
+                      "Only a successful native save callback permits the round-trip check.")
+        tap("export.cancel", in: app)
+        waitAbsent(app.buttons["export.cancel"])
+        assertRoutine(currentTitle, count: 4, approved: true, in: app)
+
+        // Enter the actual file importer, not the explicit staged-file seam.
+        tap("routine.import", in: app)
+        XCTAssertTrue(nativeBar.waitForExistence(timeout: 10),
+                      "A real native import panel must appear.\n\(app.debugDescription)")
+        let filenamePredicate = NSPredicate(format: "label CONTAINS %@", filename)
+        let cells = app.cells.matching(filenamePredicate)
+        let buttons = app.buttons.matching(filenamePredicate)
+        let labels = app.staticTexts.matching(filenamePredicate)
+        var savedFile: XCUIElement?
+        let visibleFile = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            savedFile = (cells.allElementsBoundByIndex + buttons.allElementsBoundByIndex
+                         + labels.allElementsBoundByIndex).first(where: { $0.isHittable })
+            return savedFile != nil
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [visibleFile], timeout: 10), .completed,
+                       "The native importer must offer this test's newly saved file; no other file will be selected.\n\(app.debugDescription)")
+        guard let savedFile else { return }
+        attach("native-importer-shows-the-new-synthetic-export", app)
+        savedFile.tap()
+        XCTAssertTrue(app.buttons["import.use"].waitForExistence(timeout: 15),
+                      "Actual provider selection must pass the real bounded loader.\n\(app.debugDescription)")
+        waitAbsent(nativeBar)
+        for (index, title) in [currentTitle, "People and messages", "Make room for the day", "A little time to play"].enumerated() {
+            let importedTitle = app.staticTexts["import.step.\(index).title"]
+            reveal(importedTitle, in: app)
+            XCTAssertEqual(importedTitle.label, title)
+            XCTAssertFalse(app.staticTexts["import.step.\(index).notes"].exists,
+                           "Default plan-only export must not carry this moment's private details into the imported preview.")
+        }
+        XCTAssertFalse(app.staticTexts["import.source"].exists)
+        attach("native-selected-plan-only-file-reviewed-without-notes", app)
+        tap("import.use", in: app)
+        waitAbsent(app.buttons["import.use"])
+        assertRoutine(currentTitle, count: 4, approved: false, in: app)
+        for index in 0..<4 {
+            let row = app.buttons["routine.step.\(index)"]
+            reveal(row, in: app)
+            XCTAssertTrue(row.label.contains("Your own pace"),
+                          "Every imported moment must be manual, including formerly spoken/calendar steps.")
+        }
+        tap("routine.step.0", in: app)
+        let detail = app.textFields["Step details"]
+        XCTAssertTrue(detail.waitForExistence(timeout: 5))
+        let detailValue = detail.value as? String ?? ""
+        XCTAssertTrue(detailValue.isEmpty || detailValue == detail.placeholderValue,
+                      "Plan-only details must remain absent in the actual imported draft; an empty field may expose its placeholder.")
+        app.navigationBars["Make it yours"].buttons["Cancel"].tap()
+        waitAbsent(app.navigationBars["Make it yours"])
+        MorningUITestNavigation.closeRoutine(in: app)
+        assertCannotStart(in: app)
+        relaunchWithoutSeed(app)
+        assertCannotStart(in: app)
+        openRoutine(in: app)
+        assertRoutine(currentTitle, count: 4, approved: false, in: app)
+        XCTAssertTrue(app.buttons["routine.restore"].exists)
+        attach("native-file-round-trip-restores-as-manual-unapproved-draft", app)
     }
 
     func testMalformedPortableFilePreservesApprovedRoutine() throws {

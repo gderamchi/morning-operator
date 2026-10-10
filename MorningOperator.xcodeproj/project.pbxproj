@@ -11,6 +11,7 @@
 		067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */; };
 		12E45878E7091717E2E2BECF /* RoutineEvidenceProposalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 479AB234D28356AD1BD23AF8 /* RoutineEvidenceProposalTests.swift */; };
 		15BB804A00F28C32E321141B /* OnDeviceLearningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98E912DF2E476E75231A5383 /* OnDeviceLearningTests.swift */; };
+		1DE00DFEBB39E3066AC8AFD4 /* CompletionCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F56F33A281305BB7D95FEC /* CompletionCaptureTests.swift */; };
 		23F9DFCA9B3F493393D1ADBA /* ObservationBenchmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428BB34451AB151032ECE063 /* ObservationBenchmarkTests.swift */; };
 		24852D8A9D6174BB11D914E7 /* ObservationFixtureApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AB59F7870CD63CA5EE2920 /* ObservationFixtureApp.swift */; };
 		25E634764F09D0FA89616AB5 /* MorningIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C157A20523AAA3E23DE7525 /* MorningIntents.swift */; };
@@ -32,6 +33,7 @@
 		9A8B244DD216406D67AD84A3 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */; };
 		9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */; };
 		9F01E5442FEA1ED8D7E713D5 /* ObservationEvidenceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADAE9D7D752FB3F5CAA2516E /* ObservationEvidenceView.swift */; };
+		9FA98FC2D731D183E8C9200C /* MorningCaptureVoiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCF08D94353F15FAFA50B03 /* MorningCaptureVoiceView.swift */; };
 		A34B5E25A1C8EE150EAA55AC /* AppTransitionIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6393BAB9D1CD67AB5774B214 /* AppTransitionIntent.swift */; };
 		A71F2DD1E977583E1F72289B /* QuickCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1435A178A34F6AADC746A82 /* QuickCaptureView.swift */; };
 		B9CA3F9A24974695EE25E264 /* RecordingLearningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F84B24064F307F7E5025342 /* RecordingLearningTests.swift */; };
@@ -108,6 +110,8 @@
 		98E912DF2E476E75231A5383 /* OnDeviceLearningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceLearningTests.swift; sourceTree = "<group>"; };
 		9C157A20523AAA3E23DE7525 /* MorningIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningIntents.swift; sourceTree = "<group>"; };
 		A03C43CE77A0A32D752CCDF5 /* MorningBenchmarkInbox.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MorningBenchmarkInbox.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5F56F33A281305BB7D95FEC /* CompletionCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletionCaptureTests.swift; sourceTree = "<group>"; };
+		ACCF08D94353F15FAFA50B03 /* MorningCaptureVoiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningCaptureVoiceView.swift; sourceTree = "<group>"; };
 		AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnAndSetupViews.swift; sourceTree = "<group>"; };
 		ADA355086C61CBBA29C54FEB /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		ADAE9D7D752FB3F5CAA2516E /* ObservationEvidenceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationEvidenceView.swift; sourceTree = "<group>"; };
@@ -169,6 +173,7 @@
 			children = (
 				0B13EE8866E05CC2C7EF64E1 /* BlankObservationImportTests.swift */,
 				E606BC30A53C585226160F40 /* ClockObservationTests.swift */,
+				A5F56F33A281305BB7D95FEC /* CompletionCaptureTests.swift */,
 				57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */,
 				129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */,
 				72E79F26B162E0A475EA179A /* MorningEntryTests.swift */,
@@ -214,6 +219,7 @@
 				F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */,
 				AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */,
 				C2C5AE3D96D6A57AEA799A59 /* MorningAppStepExecutor.swift */,
+				ACCF08D94353F15FAFA50B03 /* MorningCaptureVoiceView.swift */,
 				9C157A20523AAA3E23DE7525 /* MorningIntents.swift */,
 				4BAC4FD4EC1EF1E812AA6D55 /* MorningInvitationView.swift */,
 				6A679DAEA653A30FEE04B05E /* MorningNotificationDelegate.swift */,
@@ -434,6 +440,7 @@
 			files = (
 				818F57BF60C502D1315A0042 /* BlankObservationImportTests.swift in Sources */,
 				D81288817F8AA73709A15AF5 /* ClockObservationTests.swift in Sources */,
+				1DE00DFEBB39E3066AC8AFD4 /* CompletionCaptureTests.swift in Sources */,
 				655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */,
 				9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */,
 				81408D1A55F959D74EF5D631 /* MorningEntryTests.swift in Sources */,
@@ -458,6 +465,7 @@
 				9A8B244DD216406D67AD84A3 /* DesignSystem.swift in Sources */,
 				067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */,
 				E0FD1C8F0D8769A635211FBE /* MorningAppStepExecutor.swift in Sources */,
+				9FA98FC2D731D183E8C9200C /* MorningCaptureVoiceView.swift in Sources */,
 				25E634764F09D0FA89616AB5 /* MorningIntents.swift in Sources */,
 				D8331B6EF0EE1D8DE0AAFCA5 /* MorningInvitationView.swift in Sources */,
 				CCF0223A05D9A330EDC17187 /* MorningNotificationDelegate.swift in Sources */,

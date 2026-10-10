@@ -166,8 +166,30 @@ final class MorningStore {
     @ObservationIgnored private var voiceCommandTask: Task<Void, Never>?
     @ObservationIgnored private var voiceCommandAttempt: UUID?
     private var voiceCommandDeduplicator = MorningVoiceCommandDeduplicator()
+    var captureVoicePresented = false
+    private(set) var completionCapturePreparing = false
+    private(set) var completionCaptureFeedback: String?
+    private(set) var completionInvitationSessionID: UUID?
+    private var lastCompletionOffered: UUID?
+    private var savedCompletionSessionID: UUID?
+    private var hasSavedCompletedSession: Bool {
+        session?.status == .completed && savedCompletionSessionID == session?.id
+    }
+    private(set) var dismissedReflectionSessionID: UUID?
+    var shouldOfferCompletionReflection: Bool {
+        hasSavedCompletedSession && dismissedReflectionSessionID != session?.id
+    }
+    private var completionVoiceSessionID: UUID?
+    private var pendingSpokenCapture: (sessionID: UUID, text: String)?
+    @ObservationIgnored private var completionCaptureTask: Task<Void, Never>?
+    @ObservationIgnored private var completionCaptureAttempt: UUID?
+    @ObservationIgnored private var completionInvitationPlaybackID: UUID?
+    private(set) var voiceInputReleasing = false
+    @ObservationIgnored private var voiceInputReleaseTask: Task<Void, Never>?
+    @ObservationIgnored private var voiceInputReleaseOwners: [Task<Void, Never>] = []
+    var hasPendingSpokenCapture: Bool { pendingSpokenCapture != nil }
     var voiceInputBlocksPlayback: Bool {
-        voiceCommandPreparing || voiceCommands.isBusy || voiceCommands.needsAudioRelease
+        voiceCommandPreparing || completionCapturePreparing || voiceInputReleasing || voiceCommands.isBusy || voiceCommands.needsAudioRelease
     }
     private let media = MediaObservationService()
     private let fingerprintService = ObservationFileFingerprintService()
@@ -238,6 +260,7 @@ final class MorningStore {
                 }
                 routine = saved.routine
                 session = saved.session
+                savedCompletionSessionID = saved.session?.status == .completed ? saved.session?.id : nil
                 previousRoutine = saved.previousRoutine
                 if let stored = saved.routinePreferences {
                     if let value = stored.value { routinePreferences = value }
@@ -470,10 +493,11 @@ final class MorningStore {
 
     @discardableResult
     func start(entryID: UUID? = nil) -> Bool {
-        guard let routine, !busy, !voiceInputBlocksPlayback else { return false }
+        guard let routine, !busy, !voiceInputBlocksPlayback, !captureVoicePresented, !hasPendingSpokenCapture else { return false }
         if let entryID, consumedMorningEntryIDs.contains(entryID) { return false }
         // Revealing an already running morning must not dispatch its speech again.
         if session?.status == .running { return true }
+        discardCompletionReflection()
         let previousEntryIDs = consumedMorningEntryIDs
         do {
             if session?.status == .paused { try session?.resume() }
@@ -543,7 +567,8 @@ final class MorningStore {
             }
             archiveTerminalSession()
             guard persist() else { pauseAfterSaveFailure(); return }
-            if session?.status != .completed { runCurrentIfEnabled() }
+            if session?.status == .completed { queueCompletionInvitation() }
+            else { runCurrentIfEnabled() }
         } catch { notice = error.localizedDescription }
     }
 
@@ -589,6 +614,7 @@ final class MorningStore {
                 }
             }
             do {
+                try Task.checkCancellation()
                 try await speech.stopAndRelease()
                 try Task.checkCancellation()
                 guard voiceContext == context else { throw CancellationError() }
@@ -604,9 +630,11 @@ final class MorningStore {
                 guard persist() else { pauseAfterSaveFailure(); return }
                 voiceCommandFeedback = "Heard: \(result.transcript)"
                 voiceCommandPresented = false
+                if session?.status == .completed { queueCompletionInvitation() }
                 if command == .repeatStep { readCurrent() }
                 else if session?.status == .running { runCurrentIfEnabled() }
             } catch {
+                guard voiceCommandAttempt == attempt else { return }
                 voiceCommandFeedback = error is CancellationError
                     ? "Listening stopped. Your morning is still paused." : error.localizedDescription
             }
@@ -614,14 +642,192 @@ final class MorningStore {
     }
 
     func cancelVoiceCommandTurn() {
-        guard voiceInputBlocksPlayback else { return }
-        voiceCommandTask?.cancel()
-        Task { [weak self] in
+        guard voiceCommandTask != nil || voiceCommandPreparing || voiceCommands.needsAudioRelease else { return }
+        let owner = voiceCommandTask
+        owner?.cancel()
+        releaseVoiceInput(after: owner)
+        voiceCommandTask = nil
+        voiceCommandAttempt = nil; voiceCommandPreparing = false
+    }
+
+    /// A shared release barrier prevents a queued old cancellation from taking
+    /// ownership of a newer command or capture turn.
+    private func releaseVoiceInput(after owner: Task<Void, Never>? = nil) {
+        if let owner { voiceInputReleaseOwners.append(owner) }
+        guard voiceInputReleaseTask == nil else { return }
+        voiceInputReleasing = true
+        voiceInputReleaseTask = Task { [weak self] in
             guard let self else { return }
+            defer { voiceInputReleasing = false; voiceInputReleaseTask = nil }
             do { try await voiceCommands.cancel() }
-            catch { voiceCommandFeedback = error.localizedDescription }
+            catch {
+                notice = error.localizedDescription
+                voiceCommandFeedback = error.localizedDescription
+                completionCaptureFeedback = error.localizedDescription
+            }
+            // A canceled owner may still be returning from a permission or
+            // activation continuation. It must settle before a new turn starts.
+            while !voiceInputReleaseOwners.isEmpty {
+                let owners = voiceInputReleaseOwners
+                voiceInputReleaseOwners.removeAll()
+                for owner in owners { await owner.value }
+            }
         }
     }
+
+    /// Called only after the completion transition has been saved successfully.
+    /// Restoring a completed session never queues speech or microphone access.
+    private func queueCompletionInvitation() {
+        guard hasSavedCompletedSession, let session, lastCompletionOffered != session.id else { return }
+        lastCompletionOffered = session.id
+        dismissedReflectionSessionID = nil
+        completionInvitationSessionID = session.id
+    }
+
+    func speakQueuedCompletionInvitation() {
+        guard let id = completionInvitationSessionID else { return }
+        completionInvitationSessionID = nil
+        guard readAloud, hasSavedCompletedSession, session?.id == id,
+              !voiceInputBlocksPlayback, !capturePresented, !captureVoicePresented else { return }
+        let french = speech.selectedVoice?.language.hasPrefix("fr") == true
+        speech.speak(french
+            ? "Votre matinée est terminée. Y a-t-il une pensée, un rêve ou un rappel que vous aimeriez garder ? Touchez Parler quand vous voulez."
+            : "Your morning is complete. Is there a thought, a dream or a reminder you'd like to keep? Tap Speak whenever you're ready.")
+        completionInvitationPlaybackID = speech.playbackID
+    }
+
+    func stopCompletionInvitation() {
+        if let id = completionInvitationPlaybackID, speech.playbackID == id { speech.stop() }
+        completionInvitationPlaybackID = nil
+    }
+
+    func openCompletionCapture() {
+        guard hasSavedCompletedSession, storageIsAvailable, !busy,
+              !capturePresented, !voiceInputBlocksPlayback, !voiceCommandPresented else { return }
+        completionInvitationSessionID = nil
+        stopCompletionInvitation()
+        completionVoiceSessionID = session?.id
+        completionCaptureFeedback = nil
+        pendingSpokenCapture = nil
+        captureVoicePresented = true
+    }
+
+    func listenForCompletionCapture(language: MorningVoiceCommandLanguage) {
+        guard captureVoicePresented, !voiceInputBlocksPlayback,
+              let id = completionVoiceSessionID, session?.id == id, session?.status == .completed else { return }
+        let attempt = UUID()
+        completionCaptureAttempt = attempt
+        completionCapturePreparing = true
+        completionCaptureFeedback = nil
+        completionCaptureTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if completionCaptureAttempt == attempt {
+                    completionCapturePreparing = false
+                    completionCaptureAttempt = nil
+                    completionCaptureTask = nil
+                }
+            }
+            do {
+                try Task.checkCancellation()
+                try await speech.stopAndRelease()
+                try Task.checkCancellation()
+                guard captureVoicePresented, completionCaptureAttempt == attempt,
+                      completionVoiceSessionID == id, session?.id == id, session?.status == .completed else { throw CancellationError() }
+                let text: String
+                #if DEBUG
+                if let sample = completionCaptureTestSample {
+                    // Synthetic UI handoff evidence only; never a microphone pass.
+                    // The late fixture deliberately returns after cancellation so
+                    // the real ownership guards below must reject it.
+                    await withCheckedContinuation { continuation in
+                        Task.detached {
+                            try? await Task.sleep(for: .seconds(sample.delay))
+                            continuation.resume()
+                        }
+                    }
+                    var turn = MorningCaptureTurn()
+                    guard let accepted = try turn.accept(transcript: sample.text, isFinal: true) else { throw CancellationError() }
+                    text = accepted
+                } else { text = try await voiceCommands.dictate(language: language) }
+                #else
+                text = try await voiceCommands.dictate(language: language)
+                #endif
+                try Task.checkCancellation()
+                guard captureVoicePresented, completionCaptureAttempt == attempt,
+                      completionVoiceSessionID == id, session?.id == id, session?.status == .completed,
+                      !voiceCommands.isBusy, !voiceCommands.needsAudioRelease else { throw CancellationError() }
+                pendingSpokenCapture = (id, text)
+                captureVoicePresented = false
+            } catch {
+                guard completionCaptureAttempt == attempt else { return }
+                completionCaptureFeedback = error is CancellationError
+                    ? "Listening stopped. Nothing was saved." : error.localizedDescription
+            }
+        }
+    }
+
+    /// Called after the voice sheet has actually left the screen. A canceled,
+    /// backgrounded or superseded turn cannot open another sheet with stale text.
+    func completionCaptureDismissed(allowReview: Bool) {
+        let pending = pendingSpokenCapture
+        cancelCompletionCapture()
+        guard allowReview, let pending, session?.id == pending.sessionID,
+              session?.status == .completed, !voiceCommands.isBusy, !voiceCommands.needsAudioRelease,
+              !capturePresented else { return }
+        openCapture(text: pending.text, source: .voice)
+    }
+
+    func retryCompletionAudioRelease() {
+        guard captureVoicePresented, !completionCapturePreparing, !voiceCommands.isBusy,
+              voiceCommands.needsAudioRelease else { return }
+        releaseVoiceInput()
+    }
+
+    func cancelCompletionCapture() {
+        let owned = completionCaptureAttempt != nil || completionCapturePreparing
+        let owner = completionCaptureTask
+        owner?.cancel()
+        if owned || voiceCommands.needsAudioRelease { releaseVoiceInput(after: owner) }
+        completionCaptureAttempt = nil
+        completionCaptureTask = nil
+        completionCapturePreparing = false
+        completionVoiceSessionID = nil
+        pendingSpokenCapture = nil
+    }
+
+    func discardCompletionReflection() {
+        if session?.status == .completed { dismissedReflectionSessionID = session?.id }
+        completionInvitationSessionID = nil
+        stopCompletionInvitation()
+        cancelCompletionCapture()
+        captureVoicePresented = false
+    }
+
+    func completionSessionChanged() {
+        let current = session?.status == .completed ? session?.id : nil
+        if completionInvitationSessionID != current { completionInvitationSessionID = nil; stopCompletionInvitation() }
+        if let expected = completionVoiceSessionID, expected != current { discardCompletionReflection() }
+    }
+
+    #if DEBUG
+    private var completionCaptureTestSample: (text: String, delay: Double)? {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("--ui-testing"),
+              let workspace = args.first(where: { $0.hasPrefix("--ui-testing-workspace=") }),
+              UUID(uuidString: String(workspace.dropFirst("--ui-testing-workspace=".count))) != nil else { return nil }
+        if args.contains("--ui-testing-capture-late") {
+            return ("I dreamed of a blue garden. SYNTHETIC_LATE_CAPTURE", 5)
+        }
+        if args.contains("--ui-testing-capture-dream") {
+            return ("I dreamed of a blue garden. SYNTHETIC_VOICE_CAPTURE", 1)
+        }
+        return nil
+    }
+    var usesSyntheticCompletionCapture: Bool { completionCaptureTestSample != nil }
+    #else
+    var usesSyntheticCompletionCapture: Bool { false }
+    #endif
 
     func refreshCapabilities() { intelligence.refreshCapabilities() }
 
@@ -1304,6 +1510,8 @@ final class MorningStore {
     }
 
     func openCapture(text: String = "", source: QuickCaptureSource = .typed) {
+        completionInvitationSessionID = nil
+        stopCompletionInvitation()
         capturePrefill = text
         captureSource = source
         capturePresented = true
@@ -1311,7 +1519,7 @@ final class MorningStore {
 
     @discardableResult
     func saveCapture(kind: QuickCaptureKind, text: String, date: Date?, duration: Int = 30,
-                     saveToSystem: Bool, id: UUID) async -> Bool {
+                     saveToSystem: Bool, id: UUID, source: QuickCaptureSource) async -> Bool {
         guard !captureBusy else { return false }
         guard pendingCaptures[id.uuidString] == nil else {
             notice = "This save has an unconfirmed outcome. Check the Apple app before trying again."
@@ -1320,7 +1528,7 @@ final class MorningStore {
         captureBusy = true
         defer { captureBusy = false }
         do {
-            let capture = try QuickCapture(id: id, kind: kind, text: text, requestedDate: date, source: captureSource)
+            let capture = try QuickCapture(id: id, kind: kind, text: text, requestedDate: date, source: source)
             if saveToSystem {
                 if kind == .reminder {
                     try ReminderDraft(title: text, dueDate: date, notifyAtDueTime: date != nil).validate()
@@ -1445,6 +1653,7 @@ final class MorningStore {
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences)))
             pendingRoutineProposal = validProposal
+            savedCompletionSessionID = session?.status == .completed ? session?.id : nil
             observationEditsNeedSave = false
             projectObservation(selectedObservationID)
             if let observationSaveIssue, notice == observationSaveIssue { notice = nil }

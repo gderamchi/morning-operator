@@ -14,7 +14,7 @@ struct MorningRootView: View {
     @ViewState<Bool> private var testObservedBackground = false
     @Environment(\.scenePhase) private var scenePhase
 
-    var body: some View {
+    private var presentedContent: some View {
         TabView(selection: $store.tab) {
             NavigationStack {
                 TodayView(store: store, showLearn: { showingLearn = true },
@@ -60,11 +60,23 @@ struct MorningRootView: View {
             store.cancelVoiceCommandTurn()
             processPendingEntries()
         }) { MorningVoiceCommandView(store: store) }
+        .sheet(isPresented: $store.captureVoicePresented, onDismiss: {
+            store.completionCaptureDismissed(allowReview: scenePhase == .active)
+            processPendingEntries()
+        }) { MorningCaptureVoiceView(store: store) }
+    }
+
+    var body: some View {
+        presentedContent
+        .onChange(of: store.completionInvitationSessionID) { _, _ in processPendingEntries() }
+        .onChange(of: store.session?.id) { _, _ in store.completionSessionChanged() }
         .onChange(of: showingRoutineEditor) { _, showing in if !showing { processPendingEntries() } }
         .onChange(of: store.tab) { _, value in
             if value == .learn { store.tab = .review; showingLearn = true }
             if value == .setup { store.tab = .review; showingSettings = true }
             if value == .captures { store.tab = .review }
+            if value != .today { store.stopCompletionInvitation() }
+            processPendingEntries()
         }
         .onChange(of: store.speech.voiceIdentifier) { store.saveVoicePreference() }
         .onChange(of: store.readAloud) { store.executionPreferencesChanged() }
@@ -75,6 +87,7 @@ struct MorningRootView: View {
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
                 #endif
+                store.discardCompletionReflection()
                 store.cancelVoiceCommandTurn()
                 if store.session?.status == .running { store.pause() }
             } else if phase == .active {
@@ -92,7 +105,10 @@ struct MorningRootView: View {
             presentPendingIntentCapture()
         }
         .onChange(of: MorningIntentRouter.shared.pendingStart, initial: true) { _, _ in processPendingEntries() }
-        .onChange(of: entryIsOccupied) { _, occupied in if !occupied { processPendingEntries() } }
+        .onChange(of: entryIsOccupied) { _, occupied in
+            if occupied { store.stopCompletionInvitation() }
+            else { processPendingEntries() }
+        }
         .onChange(of: observationReviewCanPresent) { _, ready in if ready { processPendingEntries() } }
         .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
         .task {
@@ -115,7 +131,8 @@ struct MorningRootView: View {
     }
 
     private func presentPendingIntentCapture() {
-        guard scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !showingSettings,
+        guard scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !store.captureVoicePresented, !store.hasPendingSpokenCapture,
+              !store.voiceInputBlocksPlayback, !showingSettings,
               !showingLearn, !showingRoutineEditor, !store.voiceCommandPresented,
               !store.observationDetailPresented, !store.observationSelectionPresented, !store.routineProposalPresented,
               let text = MorningIntentRouter.shared.pendingCaptureText else { return }
@@ -124,6 +141,8 @@ struct MorningRootView: View {
     }
 
     private func captureReviewDismissed() {
+        store.capturePrefill = ""
+        store.captureSource = .typed
         if presentingIntentCapture {
             MorningIntentRouter.shared.finishCaptureReview()
             presentingIntentCapture = false
@@ -151,7 +170,8 @@ struct MorningRootView: View {
     private var observationReviewCanPresent: Bool {
         guard scenePhase == .active, !store.busy, !store.sessionActive,
               !showingSettings, !showingRoutineEditor, !presentingIntentCapture,
-              !store.capturePresented, !store.voiceCommandPresented, !store.voiceInputBlocksPlayback,
+              !store.capturePresented, !store.voiceCommandPresented, !store.captureVoicePresented,
+              !store.hasPendingSpokenCapture, !store.voiceInputBlocksPlayback,
               !store.morningDetailPresented, !store.observationDetailPresented,
               !store.observationSelectionPresented, !store.routineProposalPresented,
               !store.captureBusy, !store.calendarBusy else { return false }
@@ -167,7 +187,8 @@ struct MorningRootView: View {
         if #available(iOS 27.0, *) { recordingBusy = ScreenRecordingService.shared.isBusy }
         #endif
         return showingSettings || showingLearn || showingRoutineEditor || presentingIntentCapture ||
-            store.capturePresented || store.voiceCommandPresented || store.morningDetailPresented || store.observationDetailPresented ||
+            store.capturePresented || store.voiceCommandPresented || store.captureVoicePresented ||
+            store.hasPendingSpokenCapture || store.morningDetailPresented || store.observationDetailPresented ||
             store.observationSelectionPresented || store.routineProposalPresented || store.voiceInputBlocksPlayback ||
             store.busy || store.captureBusy || store.calendarBusy || store.hasPendingRecording ||
             recordingBusy || store.invitation.isBusy
@@ -175,7 +196,8 @@ struct MorningRootView: View {
 
     private var recordingCanProcess: Bool {
         !showingSettings && !showingLearn && !showingRoutineEditor && !presentingIntentCapture &&
-        !store.capturePresented && !store.voiceCommandPresented && !store.voiceInputBlocksPlayback &&
+        !store.capturePresented && !store.voiceCommandPresented && !store.captureVoicePresented &&
+        !store.hasPendingSpokenCapture && !store.voiceInputBlocksPlayback &&
         !store.morningDetailPresented && !store.observationDetailPresented &&
         !store.observationSelectionPresented && !store.routineProposalPresented &&
         !store.captureBusy && !store.calendarBusy
@@ -186,7 +208,12 @@ struct MorningRootView: View {
         presentPendingIntentCapture()
         presentPendingObservationReview()
         let router = MorningIntentRouter.shared
-        guard let request = router.pendingStart else { return }
+        guard let request = router.pendingStart else {
+            if scenePhase == .active, !entryIsOccupied, store.tab == .today {
+                store.speakQueuedCompletionInvitation()
+            }
+            return
+        }
         var destination = MorningEntryPolicy.destination(for: request,
             context: .init(sceneIsActive: scenePhase == .active, isOccupied: entryIsOccupied,
                 storageIsAvailable: store.storageIsAvailable, hasRoutine: store.routine != nil,
@@ -488,15 +515,28 @@ struct TodayView: View {
 
     private var closingMoment: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(store.session?.status == .completed ? "Anything you’d like to remember?" : "Pick it up when you’re ready.")
+            Text(store.session?.status == .completed
+                 ? (store.shouldOfferCompletionReflection ? "Anything you’d like to remember?" : "Morning complete.")
+                 : "Pick it up when you’re ready.")
                 .font(.headline).accessibilityIdentifier("run.step")
             Text(store.stateLabel).font(.caption).foregroundStyle(.secondary)
                 .accessibilityIdentifier("run.state").accessibilityValue(store.stateLabel)
-            if store.session?.status == .completed {
-                Button { store.openCapture() } label: { Label("A thought, a dream, a reminder", systemImage: "square.and.pencil") }
-                    .font(.subheadline).buttonStyle(.borderless).accessibilityIdentifier("morning.reflect")
+            if store.shouldOfferCompletionReflection {
+                if dynamicType.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 14) { reflectionButtons }
+                } else { HStack(spacing: 18) { reflectionButtons } }
             }
         }.padding(.vertical, 4)
+    }
+
+    @ViewBuilder private var reflectionButtons: some View {
+        Button("Speak", systemImage: "mic") { store.openCompletionCapture() }
+            .buttonStyle(.glassProminent).tint(MorningStyle.controlTint)
+            .disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
+        Button("Write", systemImage: "square.and.pencil") { store.openCapture() }
+            .buttonStyle(.borderless).accessibilityIdentifier("morning.reflect")
+        Button("Not now") { store.discardCompletionReflection() }
+            .buttonStyle(.borderless).accessibilityIdentifier("morning.dismissReflection")
     }
 
     @ViewBuilder private func actionArea(_ routine: RoutineVersion) -> some View {

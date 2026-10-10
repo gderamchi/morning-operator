@@ -14,6 +14,7 @@ public enum MorningVoiceListeningState: String, Sendable {
 public enum MorningVoiceListeningError: LocalizedError, Sendable, Equatable {
     case alreadyListening, microphoneDenied, speechDenied, onDeviceUnavailable, unavailable
     case unrecognized, timedOut, audio(String)
+    case captureMicrophoneDenied, captureSpeechDenied, captureOnDeviceUnavailable, captureUnavailable, captureTimedOut
 
     public var errorDescription: String? {
         switch self {
@@ -25,6 +26,11 @@ public enum MorningVoiceListeningError: LocalizedError, Sendable, Equatable {
         case .unrecognized: "That was not one clear command. Try next, pause, resume, skip, repeat or stop."
         case .timedOut: "No final command was received. Nothing was changed. Try again or use the routine buttons."
         case .audio(let reason): "Listening could not finish safely: \(reason)"
+        case .captureMicrophoneDenied: "Microphone access is off. Type your thought, or enable access in Settings."
+        case .captureSpeechDenied: "Speech recognition is unavailable or not allowed. You can still type your thought."
+        case .captureOnDeviceUnavailable: "On-device dictation is not available for this language. Type your thought; audio will not be sent to a server."
+        case .captureUnavailable: "Spoken capture is not available here right now. You can still type your thought."
+        case .captureTimedOut: "No final capture was received. Nothing was saved. Try again or type your thought."
         }
     }
 }
@@ -32,9 +38,20 @@ public enum MorningVoiceListeningError: LocalizedError, Sendable, Equatable {
 /// One user-initiated, on-device microphone turn. The caller first pauses its routine,
 /// cancels automation and awaits SpeechCoordinator.stopAndRelease(). Returned commands
 /// have no effect until the caller verifies their pinned context and dispatches them.
+/// Dictation returns plain text for review through a separate, pinned mode; a captured
+/// word such as "stop" is never routed through the routine-command parser.
 @MainActor
 @Observable
 public final class MorningVoiceCommandListener {
+    private enum TurnPurpose: Sendable {
+        case command(MorningVoiceCommandContext), capture
+        var isCapture: Bool { if case .capture = self { true } else { false } }
+    }
+
+    private enum TurnResult: Sendable {
+        case command(MorningVoiceCommandEnvelope), capture(String)
+    }
+
     public private(set) var state: MorningVoiceListeningState = .idle
     public private(set) var transcript = ""
     public private(set) var message = "Tap to say one command."
@@ -52,17 +69,21 @@ public final class MorningVoiceCommandListener {
     @ObservationIgnored private var activeTurnID: UUID?
     @ObservationIgnored private var finishingTurnID: UUID?
     @ObservationIgnored private var cancelledTurnID: UUID?
+    @ObservationIgnored private var awaitingResultTurnID: UUID?
     @ObservationIgnored private var turn: MorningVoiceCommandTurn?
+    @ObservationIgnored private var captureTurn: MorningCaptureTurn?
+    @ObservationIgnored private var purpose: TurnPurpose?
     @ObservationIgnored private var recognizer: SFSpeechRecognizer?
     @ObservationIgnored private var recognitionTask: SFSpeechRecognitionTask?
     @ObservationIgnored private var sink: CommandAudioBufferSink?
     @ObservationIgnored private let engine = AVAudioEngine()
     @ObservationIgnored private var hasTap = false
     @ObservationIgnored private var inputRouteIDs: [String] = []
-    @ObservationIgnored private var pending: CheckedContinuation<MorningVoiceCommandEnvelope, any Error>?
+    @ObservationIgnored private var pending: CheckedContinuation<TurnResult, any Error>?
     @ObservationIgnored private var captureDeadline: Task<Void, Never>?
     @ObservationIgnored private var finalDeadline: Task<Void, Never>?
     @ObservationIgnored private var shutdownTask: Task<Void, any Error>?
+    @ObservationIgnored private var shutdownTaskID: UUID?
     @ObservationIgnored private var routeTask: Task<Void, Never>?
     @ObservationIgnored private var interruptionTask: Task<Void, Never>?
     @ObservationIgnored private var backgroundTask: Task<Void, Never>?
@@ -111,15 +132,45 @@ public final class MorningVoiceCommandListener {
     /// Never persists audio or a transcript and never falls back to server recognition.
     public func listen(context: MorningVoiceCommandContext,
                        language: MorningVoiceCommandLanguage = .english) async throws -> MorningVoiceCommandEnvelope {
+        let result = try await performTurn(purpose: .command(context), language: language)
+        guard case .command(let command) = result else { throw MorningVoiceListeningError.unrecognized }
+        return command
+    }
+
+    /// One explicit on-device dictation turn: up to thirty seconds of input and three
+    /// seconds for a final result. Returns at most 4,000 Characters for caller-owned review;
+    /// it never executes a command, persists a transcript or starts a new listening turn.
+    public func dictate(language: MorningVoiceCommandLanguage = .english) async throws -> String {
+        let result = try await performTurn(purpose: .capture, language: language)
+        try Task.checkCancellation()
+        #if os(iOS)
+        guard UIApplication.shared.applicationState == .active else { throw CancellationError() }
+        #endif
+        guard case .capture(let text) = result else { throw MorningVoiceListeningError.captureUnavailable }
+        return text
+    }
+
+    private func performTurn(purpose: TurnPurpose, language: MorningVoiceCommandLanguage) async throws -> TurnResult {
         guard !isBusy else { throw MorningVoiceListeningError.alreadyListening }
         guard !needsAudioRelease else {
             throw MorningVoiceListeningError.audio("Microphone release is still unconfirmed. Retry stopping listening before starting another turn.")
         }
         #if os(iOS)
+        guard awaitingResultTurnID == nil else { throw MorningVoiceListeningError.alreadyListening }
         try Task.checkCancellation()
-        let newTurn = MorningVoiceCommandTurn(context: context)
-        let id = newTurn.id
-        activeTurnID = id; turn = newTurn
+        guard UIApplication.shared.applicationState == .active else { throw CancellationError() }
+        let id = UUID()
+        switch purpose {
+        case .command(let context):
+            turn = MorningVoiceCommandTurn(id: id, context: context); captureTurn = nil
+        case .capture:
+            turn = nil; captureTurn = MorningCaptureTurn(id: id)
+        }
+        self.purpose = purpose
+        activeTurnID = id; awaitingResultTurnID = id
+        defer {
+            if awaitingResultTurnID == id { awaitingResultTurnID = nil }
+        }
         cancelledTurnID = nil
         transcript = ""; inputRouteName = nil
         state = .requestingPermission; message = "Checking microphone and speech access…"
@@ -132,30 +183,39 @@ public final class MorningVoiceCommandListener {
                 let prepared = try await audioSession.prepare(for: id).value
                 try checkCurrent(id)
                 guard prepared else { throw CancellationError() }
-                let command = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<MorningVoiceCommandEnvelope, any Error>) in
+                let result = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<TurnResult, any Error>) in
                     pending = continuation
                     do { try beginCapture(id: id, language: language) }
                     catch { _ = completeTurn(id: id, result: .failure(error)) }
                 }
                 try Task.checkCancellation()
-                guard cancelledTurnID != id else { throw CancellationError() }
-                return command
+                guard cancelledTurnID != id, UIApplication.shared.applicationState == .active else {
+                    if purpose.isCapture { transcript = "" }
+                    throw CancellationError()
+                }
+                // The returned value now belongs to caller-owned review. Keep no
+                // second copy on this shared listener after the capture handoff.
+                if purpose.isCapture { transcript = "" }
+                return result
             } catch {
+                if purpose.isCapture, awaitingResultTurnID == id { transcript = "" }
+                let failure = listeningError(error, purpose: purpose)
                 // Also handles permission/setup failures before a continuation exists.
-                if let cleanup = completeTurn(id: id, result: .failure(error)) {
+                if let cleanup = completeTurn(id: id, result: .failure(failure)) {
                     try await cleanup.value
                 }
-                throw error
+                throw failure
             }
         } onCancel: {
             Task { @MainActor [weak self] in
-                guard let self, self.activeTurnID == id else { return }
+                guard let self, self.awaitingResultTurnID == id else { return }
                 try? await self.cancel()
             }
         }
         #else
-        state = .unavailable; message = MorningVoiceListeningError.unavailable.localizedDescription
-        throw MorningVoiceListeningError.unavailable
+        let error: MorningVoiceListeningError = purpose.isCapture ? .captureUnavailable : .unavailable
+        state = .unavailable; message = error.localizedDescription
+        throw error
         #endif
     }
 
@@ -165,12 +225,14 @@ public final class MorningVoiceCommandListener {
         guard state == .listening, let id = activeTurnID else { return }
         captureDeadline?.cancel(); captureDeadline = nil
         stopAudioInput()
-        state = .finishing; message = "Understanding your command…"
+        let isCapture = purpose?.isCapture == true
+        state = .finishing; message = isCapture ? "Finishing your capture…" : "Understanding your command…"
         recognitionTask?.finish()
         finalDeadline = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
             guard let self, self.activeTurnID == id else { return }
-            _ = self.completeTurn(id: id, result: .failure(MorningVoiceListeningError.timedOut))
+            let error: MorningVoiceListeningError = isCapture ? .captureTimedOut : .timedOut
+            _ = self.completeTurn(id: id, result: .failure(error))
         }
         #endif
     }
@@ -179,6 +241,10 @@ public final class MorningVoiceCommandListener {
     /// awaits the same cleanup; a release failure is surfaced rather than claiming success.
     public func cancel() async throws {
         #if os(iOS)
+        // A final result can be waiting for its caller while microphone release is
+        // finishing. Cancellation still invalidates that result before delivery.
+        if let awaitingResultTurnID { cancelledTurnID = awaitingResultTurnID }
+        transcript = ""
         if let id = activeTurnID {
             cancelledTurnID = id
             if let cleanup = completeTurn(id: id, result: .failure(CancellationError())) { try await cleanup.value }
@@ -186,7 +252,10 @@ public final class MorningVoiceCommandListener {
             // A previous release failure remains a real ownership problem. Retrying
             // cleanup never activates the microphone or starts a recognition turn.
             state = .finishing; message = "Releasing the microphone…"
+            let retryID = UUID()
+            shutdownTaskID = retryID
             let retry = Task { @MainActor [self] in
+                defer { clearFinishedShutdown(id: retryID) }
                 do {
                     try await audioSession.cancelAndWait()
                     needsAudioRelease = false
@@ -239,7 +308,9 @@ public final class MorningVoiceCommandListener {
 
     private func checkCurrent(_ id: UUID) throws {
         try Task.checkCancellation()
-        guard activeTurnID == id else { throw CancellationError() }
+        // Native permission sheets can briefly make the app inactive. Backgrounding
+        // invalidates setup; final delivery separately requires the active foreground.
+        guard activeTurnID == id, UIApplication.shared.applicationState != .background else { throw CancellationError() }
     }
 
     private func beginCapture(id: UUID, language: MorningVoiceCommandLanguage) throws {
@@ -250,9 +321,12 @@ public final class MorningVoiceCommandListener {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
-        request.addsPunctuation = false
-        request.taskHint = .confirmation
-        request.contextualStrings = language.exampleCommands + language.exampleCommands.map { "MORE \($0)" }
+        let isCapture = purpose?.isCapture == true
+        request.addsPunctuation = isCapture
+        request.taskHint = isCapture ? .dictation : .confirmation
+        if !isCapture {
+            request.contextualStrings = language.exampleCommands + language.exampleCommands.map { "MORE \($0)" }
+        }
         let sink = CommandAudioBufferSink(request: request)
         self.sink = sink
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
@@ -274,9 +348,10 @@ public final class MorningVoiceCommandListener {
         let route = AVAudioSession.sharedInstance().currentRoute
         inputRouteIDs = route.inputs.map(\.uid)
         inputRouteName = route.inputs.map(\.portName).joined(separator: ", ")
-        state = .listening; message = "Listening for one command…"
+        state = .listening
+        message = isCapture ? "Listening to your thought… Tap Done when you finish." : "Listening for one command…"
         captureDeadline = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(8)) } catch { return }
+            do { try await Task.sleep(for: .seconds(isCapture ? 30 : 8)) } catch { return }
             guard let self, self.activeTurnID == id else { return }
             self.finishListening()
         }
@@ -284,15 +359,29 @@ public final class MorningVoiceCommandListener {
 
     private func receive(_ hypothesis: CommandHypothesis?, error: String?, id: UUID) {
         guard activeTurnID == id else { return }
+        guard UIApplication.shared.applicationState == .active else {
+            cancelledTurnID = id
+            _ = completeTurn(id: id, result: .failure(CancellationError()))
+            return
+        }
         if let error {
             _ = completeTurn(id: id, result: .failure(MorningVoiceListeningError.audio(error)))
             return
         }
         guard let hypothesis else { return }
-        transcript = hypothesis.text
+        let isCapture = purpose?.isCapture == true
+        transcript = isCapture ? String(hypothesis.text.prefix(MorningCaptureTurn.maximumCharacters)) : hypothesis.text
         guard hypothesis.isFinal else { return }
-        if let envelope = turn?.accept(transcript: hypothesis.text, isFinal: true, alternatives: hypothesis.alternatives) {
-            _ = completeTurn(id: id, result: .success(envelope))
+        if isCapture {
+            do {
+                guard let text = try captureTurn?.accept(transcript: hypothesis.text, isFinal: true) else {
+                    throw CancellationError()
+                }
+                transcript = text
+                _ = completeTurn(id: id, result: .success(.capture(text)))
+            } catch { _ = completeTurn(id: id, result: .failure(error)) }
+        } else if let envelope = turn?.accept(transcript: hypothesis.text, isFinal: true, alternatives: hypothesis.alternatives) {
+            _ = completeTurn(id: id, result: .success(.command(envelope)))
         } else {
             _ = completeTurn(id: id, result: .failure(MorningVoiceListeningError.unrecognized))
         }
@@ -305,9 +394,11 @@ public final class MorningVoiceCommandListener {
     }
 
     @discardableResult
-    private func completeTurn(id: UUID, result: Result<MorningVoiceCommandEnvelope, any Error>) -> Task<Void, any Error>? {
+    private func completeTurn(id: UUID, result: Result<TurnResult, any Error>) -> Task<Void, any Error>? {
         guard activeTurnID == id else { return nil }
-        activeTurnID = nil; turn?.cancel()
+        let completedPurpose = purpose
+        activeTurnID = nil; turn?.cancel(); captureTurn?.cancel()
+        turn = nil; captureTurn = nil; purpose = nil
         finishingTurnID = id
         state = .finishing
         captureDeadline?.cancel(); captureDeadline = nil
@@ -316,8 +407,10 @@ public final class MorningVoiceCommandListener {
         recognitionTask?.cancel(); recognitionTask = nil
         sink = nil; recognizer = nil
         let continuation = pending; pending = nil
+        shutdownTaskID = id
         let cleanup = Task { @MainActor [self] in
-            var outcome = result
+            defer { clearFinishedShutdown(id: id) }
+            var outcome = result.mapError { listeningError($0, purpose: completedPurpose) }
             var releaseFailure: (any Error)?
             do {
                 try await audioSession.cancelAndWait()
@@ -327,16 +420,24 @@ public final class MorningVoiceCommandListener {
                 releaseFailure = error
                 outcome = .failure(MorningVoiceListeningError.audio(error.localizedDescription))
             }
-            if releaseFailure == nil, cancelledTurnID == id { outcome = .failure(CancellationError()) }
+            if releaseFailure == nil,
+               cancelledTurnID == id || UIApplication.shared.applicationState != .active {
+                outcome = .failure(CancellationError())
+            }
             finishingTurnID = nil
             switch outcome {
-            case .success(let command):
+            case .success(.command(let command)):
                 state = .idle; message = "Heard: \(command.transcript)"
+            case .success(.capture):
+                state = .idle; message = "Your words are ready to review. Nothing has been saved."
             case .failure(let error):
+                if completedPurpose?.isCapture == true || error is CancellationError { transcript = "" }
                 if error is CancellationError { state = .idle; message = "Listening stopped." }
                 else {
                     switch error as? MorningVoiceListeningError {
-                    case .microphoneDenied, .speechDenied, .onDeviceUnavailable, .unavailable: state = .unavailable
+                    case .microphoneDenied, .speechDenied, .onDeviceUnavailable, .unavailable,
+                         .captureMicrophoneDenied, .captureSpeechDenied, .captureOnDeviceUnavailable, .captureUnavailable:
+                        state = .unavailable
                     default: state = .failed
                     }
                     message = error.localizedDescription
@@ -347,6 +448,26 @@ public final class MorningVoiceCommandListener {
         }
         shutdownTask = cleanup
         return cleanup
+    }
+
+    /// Drop the completed closure (which captured its recognition result) without
+    /// touching a replacement cleanup. Existing waiters keep their own task handle.
+    private func clearFinishedShutdown(id: UUID) {
+        guard shutdownTaskID == id else { return }
+        shutdownTask = nil
+        shutdownTaskID = nil
+    }
+
+    private func listeningError(_ error: any Error, purpose: TurnPurpose?) -> any Error {
+        guard purpose?.isCapture == true, let error = error as? MorningVoiceListeningError else { return error }
+        switch error {
+        case .microphoneDenied: return MorningVoiceListeningError.captureMicrophoneDenied
+        case .speechDenied: return MorningVoiceListeningError.captureSpeechDenied
+        case .onDeviceUnavailable: return MorningVoiceListeningError.captureOnDeviceUnavailable
+        case .unavailable: return MorningVoiceListeningError.captureUnavailable
+        case .timedOut: return MorningVoiceListeningError.captureTimedOut
+        default: return error
+        }
     }
 
     private static func activateMicrophone() async throws {

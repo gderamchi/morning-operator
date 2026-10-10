@@ -52,6 +52,11 @@ struct CapturesView: View {
                                     Text(capture.createdAt.formatted(.dateTime.month(.abbreviated).day())).font(.caption).foregroundStyle(.secondary)
                                 }
                                 Text(capture.text).font(.body).textSelection(.enabled)
+                                if capture.source == .voice {
+                                    Label("Spoken with MORE", systemImage: "waveform")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                        .accessibilityIdentifier("capture.spokenSource")
+                                }
                                 if let date = capture.requestedDate {
                                     Label(date.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
                                         .font(.caption).foregroundStyle(.secondary)
@@ -94,6 +99,7 @@ struct QuickCaptureView: View {
     @ViewState<String?> private var explanation = nil
     @ViewState<String?> private var lastInterpretedText = nil
     @ViewState<UUID> private var captureID = UUID()
+    @ViewState<QuickCaptureSource> private var source: QuickCaptureSource = .typed
     private var isSchedule: Bool { kind == .reminder || kind == .calendarIdea }
     private var buttonTitle: String {
         if isSchedule && saveToSystem { return kind == .reminder ? "Add to Reminders" : "Add to Calendar" }
@@ -150,7 +156,7 @@ struct QuickCaptureView: View {
                         Task {
                             if await store.saveCapture(kind: kind, text: text,
                                 date: hasDate || kind == .calendarIdea ? date : nil, duration: duration,
-                                saveToSystem: isSchedule && saveToSystem, id: captureID) { dismiss() }
+                                saveToSystem: isSchedule && saveToSystem, id: captureID, source: source) { dismiss() }
                         }
                     } label: {
                         HStack { if store.captureBusy { ProgressView() }; Text(buttonTitle).frame(maxWidth: .infinity) }
@@ -167,7 +173,7 @@ struct QuickCaptureView: View {
                 } }
                 #endif
                 .toolbar { ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }.disabled(store.captureBusy)
+                    Button("Cancel") { dismiss() }.accessibilityIdentifier("capture.cancel").disabled(store.captureBusy)
                 } }
         }
         .interactiveDismissDisabled(store.captureBusy)
@@ -178,6 +184,7 @@ struct QuickCaptureView: View {
         .onAppear {
             store.notice = nil
             text = store.capturePrefill
+            source = store.captureSource
             if !text.isEmpty { interpret() }
         }
     }
