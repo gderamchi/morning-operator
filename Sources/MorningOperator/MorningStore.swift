@@ -60,6 +60,7 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var sessionTimeZone: String?
     var automatic: Bool?
     var readAloud: Bool?
+    var showMorningOnLockScreen: Bool?
     var sessionTimingInterrupted: Bool?
     var pendingCaptures: [String: String]?
     var voiceIdentifier: String?
@@ -87,6 +88,7 @@ private extension WorkspaceSnapshot {
         sessionTimeZone = try values.decodeIfPresent(String.self, forKey: .sessionTimeZone)
         automatic = try values.decodeIfPresent(Bool.self, forKey: .automatic)
         readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
+        showMorningOnLockScreen = try values.decodeIfPresent(Bool.self, forKey: .showMorningOnLockScreen)
         sessionTimingInterrupted = try values.decodeIfPresent(Bool.self, forKey: .sessionTimingInterrupted)
         pendingCaptures = try values.decodeIfPresent([String: String].self, forKey: .pendingCaptures)
         voiceIdentifier = try values.decodeIfPresent(String.self, forKey: .voiceIdentifier)
@@ -136,6 +138,28 @@ final class MorningStore {
     var calendarBusy: Bool { briefing.isConnectingCalendar }
     var readAloud = true
     var automatic = true
+    private(set) var showMorningOnLockScreen = false
+    private(set) var morningActivityIssue: String?
+    private var morningActivityIsForeground = false
+    private var morningActivitySaveBlocked = false
+    private var morningActivityStartSessionID: UUID?
+    private var morningActivityStartRequestID: UUID?
+    @ObservationIgnored private lazy var morningActivityNamespace: MorningActivityNamespace = {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return .production }
+        // Use the actual isolated workspace, including the generated identifier
+        // used by older tests. A test must never clean up a personal activity.
+        let name = snapshot.url.deletingLastPathComponent().lastPathComponent
+        let id = UUID(uuidString: String(name.dropFirst("MorningOperatorUITests-".count))) ?? UUID()
+        return .testing(workspaceID: id)
+    }()
+    @ObservationIgnored private lazy var morningActivity = MorningLiveActivityCoordinator(
+        namespace: morningActivityNamespace,
+        canPublish: { [weak self] in
+            guard let self, self.storageIsAvailable, self.showMorningOnLockScreen,
+                  !self.morningActivitySaveBlocked,
+                  let control = try? self.privacyControl.status(), !control.forgetPending else { return false }
+            return true
+        })
     var capturePresented = false
     var capturePrefill = ""
     var captureSource: QuickCaptureSource = .typed
@@ -324,6 +348,7 @@ final class MorningStore {
                 sessionTimeZone = saved.sessionTimeZone ?? TimeZone.current.identifier
                 automatic = saved.automatic ?? true
                 readAloud = saved.readAloud ?? true
+                showMorningOnLockScreen = saved.showMorningOnLockScreen ?? false
                 speech.voiceIdentifier = saved.voiceIdentifier
                 if let archive = saved.observationArchive {
                     observationArchive = archive
@@ -386,6 +411,71 @@ final class MorningStore {
     var currentStep: RoutineStep? { session?.currentStep }
     var sessionActive: Bool { session?.status == .running || session?.status == .paused }
     var modelSummary: String { intelligence.capabilitySummary }
+
+    var morningActivityStatusText: String {
+        if let morningActivityIssue { return morningActivityIssue }
+        if !showMorningOnLockScreen { return "Off. Your morning stays inside MORE." }
+        if !morningActivity.authorizationEnabled { return "Live Activities are unavailable or turned off in iPhone Settings." }
+        if morningActivity.status == .failed { return "Lock Screen progress couldn't update. Turn it off and on to try again." }
+        if morningActivity.status == .dismissed { return "Hidden from the Lock Screen. Your morning is still in MORE." }
+        if morningActivity.status == .stale { return "Progress may be out of date. Open Morning to check." }
+        if let state = morningActivity.currentSnapshot?.state {
+            return "\(state.status.displayName) · Moment \(state.completedSteps + 1) of \(state.totalSteps)"
+        }
+        return "Ready for the next morning you start."
+    }
+
+    #if DEBUG
+    var morningActivityTestNamespace: MorningActivityNamespace? {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("--ui-testing"), args.contains("--ui-testing-live-activity"),
+              let value = args.first(where: { $0.hasPrefix("--ui-testing-workspace=") }),
+              let id = UUID(uuidString: String(value.dropFirst("--ui-testing-workspace=".count))),
+              snapshot.url.deletingLastPathComponent().lastPathComponent == "MorningOperatorUITests-\(id.uuidString)"
+        else { return nil }
+        return .testing(workspaceID: id)
+    }
+    #endif
+
+    func setMorningOnLockScreen(_ enabled: Bool) {
+        guard storageIsAvailable else { return }
+        let previous = showMorningOnLockScreen
+        showMorningOnLockScreen = enabled
+        guard persist() else { showMorningOnLockScreen = previous; return }
+        if !enabled { morningActivityStartSessionID = nil; morningActivityStartRequestID = nil }
+        synchronizeMorningActivity(allowStart: enabled)
+    }
+
+    func morningActivitySceneChanged(isForeground: Bool) {
+        morningActivityIsForeground = isForeground
+        synchronizeMorningActivity()
+    }
+
+    /// The Live Activity only projects the accepted session; it cannot advance,
+    /// approve, record, speak or modify that session. Every payload is vocabulary
+    /// owned by the app, never a user's routine title or captured source content.
+    func synchronizeMorningActivity(allowStart: Bool = false) {
+        if allowStart { morningActivityStartSessionID = session?.id; morningActivityStartRequestID = UUID() }
+        if !sessionActive { morningActivityStartSessionID = nil; morningActivityStartRequestID = nil }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let enabled = self.showMorningOnLockScreen && self.storageIsAvailable && !self.morningActivitySaveBlocked
+            let snapshot = MorningActivityProjection.snapshot(session: self.session,
+                needsAttention: self.automation.status != .executing)
+            let generation = self.dataGeneration
+            do {
+                try await self.morningActivity.synchronize(snapshot: snapshot, enabled: enabled,
+                    isForeground: self.morningActivityIsForeground,
+                    allowStart: self.morningActivityStartSessionID != nil && self.morningActivityStartSessionID == self.session?.id,
+                    startRequestID: self.morningActivityStartRequestID)
+                guard self.dataGeneration == generation else { return }
+                self.morningActivityIssue = nil
+            } catch {
+                guard self.dataGeneration == generation else { return }
+                self.morningActivityIssue = "Lock Screen progress couldn't update. Open MORE to check your morning."
+            }
+        }
+    }
 
     /// Deterministic UI journeys are confined to explicitly isolated synthetic
     /// workspaces. Normal launches never replace an unavailable Apple model.
@@ -561,6 +651,7 @@ final class MorningStore {
                 return false
             }
             runCurrentIfEnabled()
+            synchronizeMorningActivity(allowStart: true)
             return true
         } catch { notice = error.localizedDescription; return false }
     }
@@ -599,6 +690,7 @@ final class MorningStore {
             try session?.resume(); notice = nil
             guard persist() else { pauseAfterSaveFailure(); return }
             runCurrentIfEnabled()
+            synchronizeMorningActivity(allowStart: true)
         }
         catch { notice = error.localizedDescription }
     }
@@ -745,6 +837,7 @@ final class MorningStore {
                 try session?.applyVoiceCommand(command: command, commandID: result.id)
                 archiveTerminalSession()
                 guard persist() else { pauseAfterSaveFailure(); return }
+                if command == .resume { synchronizeMorningActivity(allowStart: true) }
                 voiceCommandFeedback = "Heard: \(result.transcript)"
                 voiceCommandPresented = false
                 if session?.status == .completed { queueCompletionInvitation() }
@@ -1756,6 +1849,7 @@ final class MorningStore {
         cancelStepPlayback()
         speech.stop()
         if session?.status == .running { try? session?.pause() }
+        synchronizeMorningActivity()
         // Preserve the disk-error message and do not dispatch another action.
     }
 
@@ -1772,6 +1866,8 @@ final class MorningStore {
     private func persist() -> Bool {
         guard !privacyBlocksWork else { return false }
         if let snapshotRecoveryError {
+            morningActivitySaveBlocked = true
+            synchronizeMorningActivity()
             notice = "\(snapshotRecoveryError) Your existing file is protected; new changes cannot be saved until it can be restored."
             if observationEditsNeedSave { observationSaveIssue = notice }
             return false
@@ -1787,7 +1883,8 @@ final class MorningStore {
             try privacyControl.withReadyAccess { _ in
                 try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
-                automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
+                automatic: automatic, readAloud: readAloud, showMorningOnLockScreen: showMorningOnLockScreen,
+                sessionTimingInterrupted: sessionTimingInterrupted,
                 pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
                 observationNotes: notes.isEmpty ? nil : notes,
                 observationSource: notes.isEmpty && observationVideoEvidence == nil ? nil : notesSourceLabel,
@@ -1804,8 +1901,12 @@ final class MorningStore {
             projectObservation(selectedObservationID)
             if let observationSaveIssue, notice == observationSaveIssue { notice = nil }
             observationSaveIssue = nil
+            morningActivitySaveBlocked = false
+            synchronizeMorningActivity()
             return true
         } catch {
+            morningActivitySaveBlocked = true
+            synchronizeMorningActivity()
             notice = "Your change is in memory, but saving failed: \(error.localizedDescription)"
             if observationEditsNeedSave { observationSaveIssue = notice }
             return false
@@ -1831,6 +1932,9 @@ final class MorningStore {
         activityLoggingAllowed = false
         dataGeneration = generation
         privacyStatus = "Stopping work and removing local data…"
+        showMorningOnLockScreen = false
+        morningActivityStartSessionID = nil
+        morningActivityStartRequestID = nil
         analysisAttempt = nil
         let oldAnalysis = analysisTask
         oldAnalysis?.cancel()
@@ -1843,6 +1947,7 @@ final class MorningStore {
         releaseVoiceInput()
         MorningIntentRouter.shared.resetPendingRequests()
         do {
+            try await morningActivity.endAllForPrivacy()
             // Vision/file-provider work must finish before its source is removed.
             // Delayed callbacks are independently rejected by the attempt/epoch.
             await oldAnalysis?.value
@@ -1881,6 +1986,7 @@ final class MorningStore {
             }
             clearForgottenMemory()
             try privacyControl.finishForget(expectedGeneration: generation)
+            try morningActivity.resetAfterPrivacyCleanup()
             briefing.reloadSettings()
             privacyNeedsCleanup = false
             privacyHasInterruptedRemoval = false
@@ -1939,6 +2045,9 @@ final class MorningStore {
         observationSelectionPresented = false; routineProposalPresented = false
         consumedMorningEntryIDs = []; sessionTimingInterrupted = false; sessionTimeZone = TimeZone.current.identifier
         readAloud = true; automatic = true; speech.voiceIdentifier = nil
+        showMorningOnLockScreen = false; morningActivityIssue = nil; morningActivitySaveBlocked = false
+        morningActivityStartSessionID = nil
+        morningActivityStartRequestID = nil
         busy = false; progress = 0; analysisStatus = ""; snapshotRecoveryError = nil; notice = nil
         MorningIntentRouter.shared.resetPendingRequests()
         tab = .today

@@ -39,6 +39,26 @@ targets:
         product: MorningCore
       - package: MorningOperatorShared
         product: MorningApple
+      - target: MorningActivityWidget
+        embed: true
+        link: false
+  MorningActivityWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Sources/MorningActivityWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator.activity
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Configuration/ActivityWidget-Info.plist
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    dependencies:
+      - package: MorningOperatorShared
+        product: MorningCore
   MorningOperatorUITests:
     type: bundle.ui-testing
     platform: iOS

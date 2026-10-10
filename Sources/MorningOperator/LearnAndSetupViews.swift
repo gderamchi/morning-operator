@@ -308,6 +308,7 @@ struct SetupView: View {
     @ViewState<Bool> private var choosingInvitation = false
     @ViewState<Bool> private var showingPrivacy = false
     @ViewState<Bool> private var choosingBriefing = false
+    @ViewState<Bool> private var choosingActivity = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -341,6 +342,21 @@ struct SetupView: View {
                         Image(systemName: "chevron.right").font(.caption)
                     }
                 }.buttonStyle(.plain).accessibilityIdentifier("setup.briefing")
+            }
+
+            Card {
+                Button { choosingActivity = true } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "platter.filled.top.iphone").font(.title2)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Morning at a glance").font(.headline)
+                            Text("Keep your place on the Lock Screen.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption)
+                    }
+                }.buttonStyle(.plain).accessibilityIdentifier("setup.activity")
             }
 
             Card {
@@ -434,6 +450,7 @@ struct SetupView: View {
         .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
         .task { if store.privacyNeedsCleanup { showingPrivacy = true } }
         .sheet(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
+        .sheet(isPresented: $choosingActivity) { MorningActivitySettingsView(store: store) }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
     }

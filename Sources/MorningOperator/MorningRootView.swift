@@ -73,7 +73,7 @@ struct MorningRootView: View {
         }) { MorningCaptureVoiceView(store: store) }
     }
 
-    var body: some View {
+    private var workspaceContent: some View {
         presentedContent
         .onChange(of: store.dataGeneration) { _, _ in
             showingLearn = false; showingRoutineEditor = false
@@ -104,8 +104,14 @@ struct MorningRootView: View {
         .onChange(of: store.speech.voiceIdentifier) { store.saveVoicePreference() }
         .onChange(of: store.readAloud) { store.executionPreferencesChanged() }
         .onChange(of: store.automatic) { store.executionPreferencesChanged() }
+    }
+
+    var body: some View {
+        workspaceContent
         .onChange(of: store.speech.state) { store.handleSpeechInterruption() }
+        .onChange(of: store.automation.status) { store.synchronizeMorningActivity() }
         .onChange(of: scenePhase) { _, phase in
+            store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
@@ -135,24 +141,34 @@ struct MorningRootView: View {
         }
         .onChange(of: observationReviewCanPresent) { _, ready in if ready { processPendingEntries() } }
         .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
-        .task {
-            if store.privacyNeedsCleanup {
-                showingSettings = true
-                if store.privacyHasInterruptedRemoval { await store.forgetLocalData() }
-                return
-            }
-            Task { await store.prepareDayIfConfigured() }
-            await store.invitation.reconcile()
-            #if DEBUG
-            // Explicit isolated fixture entry tests exercise routing, not Siri or
-            // notification delivery. They never request notification permission.
-            let args = ProcessInfo.processInfo.arguments
-            if args.contains("--ui-testing"), args.contains("--ui-testing-start-entry") {
-                MorningIntentRouter.shared.requestStart()
-            }
-            #endif
-            processPendingEntries()
+        .onOpenURL { url in
+            guard url.scheme == "more", url.host == "morning", url.path.isEmpty,
+                  url.query == nil, url.fragment == nil, !store.privacyBlocksWork else { return }
+            // Revealing progress is not a request to start or resume. Keep any
+            // unfinished review sheet intact rather than discarding the draft.
+            store.tab = .today
         }
+        .task { await initializeMorning() }
+    }
+
+    private func initializeMorning() async {
+        store.morningActivitySceneChanged(isForeground: scenePhase == .active)
+        if store.privacyNeedsCleanup {
+            showingSettings = true
+            if store.privacyHasInterruptedRemoval { await store.forgetLocalData() }
+            return
+        }
+        Task { await store.prepareDayIfConfigured() }
+        await store.invitation.reconcile()
+        #if DEBUG
+        // Explicit isolated fixture entry tests exercise routing, not Siri or
+        // notification delivery. They never request notification permission.
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("--ui-testing"), args.contains("--ui-testing-start-entry") {
+            MorningIntentRouter.shared.requestStart()
+        }
+        #endif
+        processPendingEntries()
     }
 
     private func openRoutineReview() {
