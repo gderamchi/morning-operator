@@ -1,10 +1,12 @@
 # MORE
 
+> **Build the current app from [`codex/more-quiet-morning`](https://github.com/gibouu/morning-operator/tree/codex/more-quiet-morning).** This homepage documents that installed development build. App source on `main` remains the earlier scaffold; [draft PR #26](https://github.com/gibouu/morning-operator/pull/26) is stacked on [PR #22](https://github.com/gibouu/morning-operator/pull/22).
+
 **Less phone handling. More of the morning you enjoy.**
 
 MORE — MOrning REcap — is an iPhone prototype that turns an explicitly shared glimpse of your morning into a routine you can review, adjust and run. Useful rituals—including messages, browsing and a game of chess—belong in the plan.
 
-[V2 design](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/V2-DESIGN.md) · [Get started](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ONBOARDING.md) · [Documentation](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/README.md) · [Roadmap](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROADMAP.md)
+[V2 design](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/V2-DESIGN.md) · [Get started](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ONBOARDING.md) · [Teammate handoff](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/HANDOFF.md) · [Documentation](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/README.md) · [Roadmap](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROADMAP.md)
 
 ```mermaid
 flowchart LR
@@ -15,23 +17,24 @@ flowchart LR
     E --> F["Review your morning"]
 ```
 
-## Two tabs, a quieter morning
+## A quieter morning
 
-The development branch `codex/more-quiet-morning` introduces the V2 interface. It is **in progress and not yet installed on the owner's phone**. Review [PR #26](https://github.com/gibouu/morning-operator/pull/26), stacked on [PR #22](https://github.com/gibouu/morning-operator/pull/22). The source code on `main` remains the earlier scaffold; select the development branch when building the current iPhone app.
+The compact native-glass build **`0f94f6d`** on `codex/more-quiet-morning` was signed, installed and launched as the ordinary app on the owner's iPhone on **10 October 2026**. It uses smaller system typography, relative moment offsets, a native corner popover and a direct invitation-time editor. Scoped simulator checks pass; the owner walkthrough and real connected-source/audio checks remain separate.
 
 | Experience | V2 source behavior |
 |---|---|
-| Morning | A date, a compact routine and a clear start. Up to ten moments fit at default portrait size in the tested simulator; larger text and short layouts have a scrolling fallback. Pause and Stop remain reachable. |
-| Review | Open a seven-day period and its days; revisit dated observations and their originals, edit and approve your routine, find saved thoughts, and open settings or connections. There is no separate Notes tab. |
+| Morning | Morning has a small system date, lowercase morning title and simple total minutes, without the repeated Planned/Stopped or filler captions. Tiles show relative `+Nm` plan offsets. The bottom-right sunrise opens a native popover for Start/playback, Update, Past mornings, Learn and Settings; tap outside to dismiss. There is no permanent tab bar. Larger text and short layouts have a scrolling fallback. |
+| Arrange your morning | Use native drag on iOS 27, or tap a tile and choose Move earlier/later in its details, while no morning is running or paused. A changed order becomes a draft requiring approval. |
+| Review | Tap the date or choose Past mornings. Open a seven-day period and its days; revisit dated observations and originals, edit and approve your routine, find saved thoughts, and open settings. The home control returns to Morning. |
 | Review what was observed | Open sampled moments and their original text, correct one screen label or keep it unknown, and see which labels appeared on distinct days. Your labels stay separate from model proposals. Missing days, unresolved samples and different origins/time zones stay separate. [Observed mornings](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/OBSERVED-MORNINGS.md). |
 | Learn across mornings | Choose up to five dated observations in Review, inspect exact supporting quotations, and approve a separately saved update. Your current routine remains ready during this review. Explicit keep/exclude/timing choices survive later suggestions and can be cleared in Review. [Learning flow](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROUTINE-LEARNING.md). |
 | Show your morning | Explicit iOS 27 screen recording, or selected text/image/video import. Local extraction saves separate observations with original text and corrections; identical file imports keep the existing entry. Unknown recording dates stay explicit. Screen recognition and routine suggestions are separate explicit actions; suggestions stay pending until approval. Manual setup also works. |
 | Prepare your day | Select calendars and an optional city in Review → Settings → Your day. One sourced recap supplies the visible text and speech; adding it to the routine creates a draft to approve. [Your day](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/YOUR-DAY.md). |
 | Hear a saved moment | Choose a dated excerpt in Review, hear its exact preview and add it to an unapproved draft. Source changes or deletion block replay. [Saved moments](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/SAVED-MOMENTS.md). |
-| Move through it | Supported spoken/calendar/briefing operations advance after completion. Other activities wait for you. A saved completed morning offers Speak, Write or Not now. |
-| Begin with an invitation | Set one future notification in Review → Settings. Its tap or a foreground Start intent routes into an approved morning, waiting for a ready app. Physical delivery and Siri invocation remain unverified. [Morning entry](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/MORNING-ENTRY.md). |
+| Move through it | Supported spoken/calendar/briefing operations advance after completion. Other activities wait for you. The current-moment detail explains its actual purpose and offers Pause or Continue, Next while running, and Again for the supported reading path. A saved completed morning offers Speak, Write or Not now. |
+| Begin with an invitation | Set one future notification in Review → Settings; Morning also has a direct clock control on Morning to set or edit it. This is an invitation, not a Clock alarm. Its tap or a foreground Start intent routes into an approved morning, waiting for a ready app. Physical delivery and Siri invocation remain unverified. [Morning entry](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/MORNING-ENTRY.md). |
 | Keep your place | Optional Lock Screen and Dynamic Island progress shows generic categories and passed moments. MORE pauses when you leave; tapping the activity reveals the same morning. Personal text stays in the app. [Lock Screen guide](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/LIVE-ACTIVITY.md). |
-| Speak a command | An explicit on-device English/French turn supports next, pause, resume, skip, repeat and stop. Entry/cancel behavior is tested; real microphone recognition remains a device check. [Voice guide](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/VOICE.md). |
+| Speak a command | An explicit on-device English/French turn supports next, pause, resume, skip, repeat and stop. It also accepts the exact English aliases “again” and “read again” for repeat. The exact alias grammar and entry/cancel behavior are tested; real microphone recognition remains a device check. [Voice guide](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/VOICE.md). |
 | Control what stays | Review → Settings → Privacy explains saved copies, disables activity logging and removes local data. Removal resumes after interruption; originals and Apple-app items remain separate. [Privacy guide](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PRIVACY.md). |
 | Keep what matters | Speak one English/French reflection or write it, edit the words, then explicitly save. The completion invitation never starts the microphone. Review reminder/calendar requests before an optional save to the corresponding Apple app. This is bounded dictation, not an open conversation. |
 
@@ -39,20 +42,21 @@ Review measures **routine runs** and shows source-linked appearances in sampled 
 
 ## Where it stands
 
-**Current V2 source: `c91f69e`.** Long saved observations now run in small sequential analysis requests with progress and cancellation, replacing the 8,000-character whole-input rejection. Review leads with observed mornings, opens day-by-day sampled sequences, and links a chosen original quote directly to an optional spoken preview. The compact Morning screen keeps its two-tab layout.
+**Current app source and installed phone build: `0f94f6d`.** Long saved observations run in small sequential analysis requests with progress and cancellation, replacing the 8,000-character whole-input rejection. Review leads with observed mornings, opens day-by-day sampled sequences, and links a chosen original quote directly to an optional spoken preview. Relative tile offsets are estimates from the plan, not clock appointments or measured app time.
 
 | Verified development behavior | Evidence |
 |---|---|
 | Long-input learning and evidence | **322 shared checks passed; 6 optional checks skipped.** A final **62-test** focused run passes after the request-wrapper correction. Covers long sources, Unicode, exact offsets, final-batch coverage, cancellation, late failure and rejection of the app's own overview as habit evidence. Model generation/accuracy was not tested. |
 | Review navigation | Both corrected native simulator journeys pass: week → day → source → correction/relaunch, and exact quote → preview → explicitly added unapproved draft. Four existing review/home checks passed in the initial run. Initial failures and fixes remain in [verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md). |
-| Phone candidate | **Signed iPhone build succeeds**, signature and WeatherKit provisioning verified. The embedded Live Activity extension is present. It is ready for installation; the last device check found only the simulator. |
+| Physical installation | **`0f94f6d` signed, verified, installed and launched on the owner's iPhone, 10 October**, preserving the user store. No new physical capture, connected-service, model or listener test accompanied installation; the owner walkthrough remains open. |
+| Compact interface | **14/14** native journeys passed in 334.417s; after the final accessible-state refinement, **4/4** regressions passed in 96.905s and largest text **1/1** in 27.329s. All three runs finalized cleanly with no skips. Focused evidence policy **22/22** and voice commands **10/10** pass. [Scopes and warnings](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md) remain recorded. |
 | Earlier native features | Saved-moment speech progression, fixture-video OCR/recovery, Calendar/Weather preparation, Live Activity, portable files and local forgetting retain separate scoped results in [verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md). |
 
 **Full-morning accuracy is still open.** The importer currently accepts up to 31 minutes and samples at most 24 screens with bounded OCR. Removing the text rejection does not measure every scroll, message read or time spent in apps. [Long-recording work #27](https://github.com/gibouu/morning-operator/issues/27) includes denser, resumable video ingestion. The Mac model still reports `modelNotReady`; skipped inference checks are not passes.
 
-**Installed phone baseline: `8a640ea`.** V2 has not yet replaced it. The earlier short real recording reached saved OCR and a draft, but that draft mistook setup text for habits. Targeted guards address the known failure; physical recognition quality remains unproven.
+The earlier `8a640ea` short real recording reached saved OCR and a draft, but that draft mistook setup text for habits. Targeted guards address the known failure; installing the newer build does not establish physical recognition quality.
 
-The requested short opening, connected inbox counts, social-feed commands and subscription/research hypotheses are specified in the [product direction](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PRODUCT-DIRECTION.md). LEVE is a proposed name with existing App Store matches, not a completed rename. Real microphone/Siri, HomePod and listener-confirmed speech remain open. No issue is closed merely because its source compiles.
+The requested short opening, connected inbox counts and social-feed commands are specified in the [product direction](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PRODUCT-DIRECTION.md); subscriptions and separate research feasibility are in the [business brief](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/BUSINESS.md). The [digest protocol](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/DIGEST-TEST-PROTOCOL.md) defines the next bounded capture → real model → validated facts → speech proof. LEVE is a proposed name with existing App Store matches, not a completed rename. Real microphone/Siri, HomePod and listener-confirmed speech remain open. No issue is closed merely because its source compiles.
 
 ## Build on your iPhone
 
@@ -63,7 +67,7 @@ The app targets iOS 26 or later; native recording needs iOS 27. Use full Xcode o
 open MorningOperator.xcodeproj
 ```
 
-Select the **MorningOperator** target and your phone, then build/run the intended branch. Shared package checks run on the Mac with `./scripts/test.sh`; add `--with-model` only when deliberately testing the available local model. See [onboarding](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ONBOARDING.md) for setup and [device checks](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/DEVICE-SETUP.md) for reproducible verification. The [short morning trial checklist](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/DEVICE-SETUP.md#tomorrow-morning-checklist) describes the installed baseline; use the V2 contract for this branch's navigation.
+Select the **MorningOperator** target and your phone, then build/run the intended branch. Shared package checks run on the Mac with `./scripts/test.sh`; add `--with-model` only when deliberately testing the available local model. See [onboarding](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ONBOARDING.md) for current navigation and [device checks](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/DEVICE-SETUP.md) for reproducible verification. The [short morning trial checklist](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/DEVICE-SETUP.md#tomorrow-morning-checklist) retains the earlier recording checks; installation and feature verification remain separate.
 
 The iPhone is the sole active product. The Mac is the development/test machine and optional tethered controller; no separate Mac app is required. The repository, Xcode target and bundle identity retain Morning Operator naming.
 
@@ -78,6 +82,9 @@ A later, separately opted-in mobile-agent research dataset is a [feasibility que
 | Read | For |
 |---|---|
 | [Documentation hub](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/README.md) | Find the right guide quickly |
+| [Teammate handoff](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/HANDOFF.md) | Current build, known failures, issue coverage and three next tasks |
+| [Digest test protocol](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/DIGEST-TEST-PROTOCOL.md) | Fresh seeds, withheld truth, per-app checks and five independent days |
+| [Business hypotheses](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/BUSINESS.md) | Initial customer, subscription/voice/integration experiments and separate research feasibility |
 | [V2 design contract](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/V2-DESIGN.md) | Morning/Review, completion capture, native glass and honest metrics |
 | [Your day](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/YOUR-DAY.md) | Calendar/city selection, prepared speech, freshness and source privacy |
 | [Saved moments](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/SAVED-MOMENTS.md) | Exact historical excerpts, native speech, approval and changed-source refusal |
