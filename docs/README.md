@@ -2,9 +2,9 @@
 
 MORE is a native iPhone app. The Mac is its development and test environment. The repository and Xcode project retain the Morning Operator name.
 
-**App source `8af8de8` is installed and launched on the owner’s iPhone; owner acceptance remains open.** The owner rejected the previous corner popover. On `codex/more-quiet-morning`, the revised home has a centered sunrise that expands into four horizontal actions, Play → Ready → Start, per-moment durations, concise details, a dawn/sunset-inspired background and an optional manual English/French sample. The direct invitation editor, observed-first Review and batched long-text learning remain. See [V2 design](V2-DESIGN.md).
+**App source `1952d9f` is installed and launched on the owner’s iPhone; owner acceptance remains open.** The owner rejected the previous corner popover. On `codex/more-quiet-morning`, the revised home has a centered sunrise that expands into four horizontal actions, Play → Ready → Start, per-moment durations, concise details, a dawn/sunset-inspired background and an optional manual English/French sample. The direct invitation editor, observed-first Review and batched long-text learning remain. See [V2 design](V2-DESIGN.md).
 
-**Testing on your phone:** signed `8af8de8` was installed and launched on 10 October, preserving the saved routine. The focused failure reruns and largest-text check pass. Earlier failed iterations and exact scopes are preserved in [PHASE-ONE](PHASE-ONE.md); no full-suite, personal capture, listener or connected-inbox pass is implied.
+**Testing on your phone:** signed `1952d9f` was installed and launched on 10 October, preserving the saved routine. Six focused native checks and one largest-text check pass for this source. Earlier failed iterations and exact scopes are preserved in [PHASE-ONE](PHASE-ONE.md); no full-suite, personal capture, listener or connected-inbox pass is implied.
 
 **Start here:** [Teammate handoff](HANDOFF.md) · [Repeatable digest protocol](DIGEST-TEST-PROTOCOL.md). **Direction:** [Low-effort morning experience](PRODUCT-DIRECTION.md) · [Business hypotheses](BUSINESS.md) · [Long-recording test plan](LONG-RECORDING-TEST-PLAN.md).
 

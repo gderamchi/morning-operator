@@ -1,6 +1,20 @@
 # MORE: implementation and verification
 
-**Current installed app source: `8af8de8`, 10 October 2026, on `codex/more-quiet-morning`.** Simulator compilation, signed iPhone compilation and deep/strict signature verification passed. Ordinary installation and launch returned success, preserving the owner's data. Design acceptance remains open. This is a testable revision, not evidence of complete morning ingestion, connected inboxes, real speech recognition or HomePod operation.
+**Current installed app source: `1952d9f`, 10 October 2026, on `codex/more-quiet-morning`.** Simulator compilation, signed iPhone compilation and deep/strict signature verification passed. Ordinary installation and launch returned success, preserving the owner's data. Design acceptance remains open. This is a testable revision, not evidence of complete morning ingestion, connected inboxes, real speech recognition or HomePod operation.
+
+## Shell-free Horizon revision — 10 October 2026 (`1952d9f`)
+
+The closed dock is custom vector sunrise artwork with a soft warm glow and no glass/button shell. Tapping materializes a compact 286 × 58-point native Liquid Glass command bar. All six action states use app-owned vector glyphs and readable labels. Minimum touch targets, explicit Ready → Start, session/approval guards and navigation remain intact. Four actual native alternatives—Horizon, Halo, Radiance and Ember—were rendered in light/dark using isolated synthetic data; Horizon was selected. Alternatives are DEBUG/fixture-only and do not change normal app preferences.
+
+| Check | Actual result and scope |
+|---|---|
+| Build iteration | The initial simulator build failed on an incorrect accessibility-contrast environment key. Replaced it with `colorSchemeContrast`; subsequent builds succeeded. |
+| Native design/behavior | **6/6 passed**, no skips, clean finalized result: French sample/Ready, landscape, centered expansion/dismissal, Play/Pause/Continue and Learn/Settings routing, draft approval gating, and four alternatives × light/dark × closed/expanded. Suite duration 216.686s; runner elapsed 220.469s. `work/horizon-design-ui.xcresult` and `work/horizon-design-summary.json`. |
+| Largest actual text | **1/1 passed**, no skips, clean result. Start, full moment details and Stop remain reachable. Suite duration 25.580s; runner elapsed 29.730s. Simulator text size restored to Large. `work/horizon-accessibility-ui.xcresult` and summary. This is touch/layout evidence, not VoiceOver. |
+| Visual review | Sixteen native option screenshots retained locally. Horizon, alternatives, French dark and expanded light/dark inspected; independent reviewer found no visible dock clipping or normal-text contrast defect. The local HTML comparison switches actual screenshots, not a simulated native animation. |
+| Device | Signed build succeeded; deep/strict code-signature verification passed. `work/horizon-iphone-install.json` and `work/horizon-iphone-launch.json` both report success. Ordinary launch only; no fixture flags, recording, microphone or data reset. |
+
+This is a focused presentation revision. No new shared-logic/model/capture/audio/inbox test is implied. Reduce Motion/Transparency branches exist but actual settings and VoiceOver require separate trials. The owner’s wider design/product acceptance remains open under #25. Native runtime hosting/debugger warnings remain recorded without a general fix claim. Existing 30-minute recording, sparse video sampling and unconnected inbox limitations remain unchanged.
 
 ## Warm sunrise revision — 10 October 2026 (`8af8de8`)
 

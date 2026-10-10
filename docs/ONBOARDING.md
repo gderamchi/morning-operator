@@ -1,6 +1,6 @@
 # Get started with MORE
 
-**Installed checkpoint: `8af8de8`, 10 October 2026.** The ordinary signed app is installed and launched with existing data preserved. Exact test scope and outstanding work are in [verification](PHASE-ONE.md).
+**Installed checkpoint: `1952d9f`, 10 October 2026.** The ordinary signed app is installed and launched with existing data preserved. Exact test scope and outstanding work are in [verification](PHASE-ONE.md).
 
 The iPhone is the active product. Use the Mac for Xcode, shared package tests and optional tethered experiments. There is no separate Mac app to install for this workflow.
 

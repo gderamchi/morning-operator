@@ -4,9 +4,9 @@
 
 ## Current revision and acceptance
 
-The owner rejected the previous `0f94f6d` visual design. Its passing UI checks did not establish design acceptance. The new sunrise app source `8af8de8` is signed, installed and launched on the owner’s iPhone. Focused failure reruns and largest-text checks pass; use [PHASE-ONE](PHASE-ONE.md) for its exact source, installation and results. The product goal remains open.
+The owner rejected the previous `0f94f6d` visual design. Its passing UI checks did not establish design acceptance. The new sunrise app source `1952d9f` is signed, installed and launched on the owner’s iPhone. Six focused native checks and one largest-text check pass; use [PHASE-ONE](PHASE-ONE.md) for its exact source, installation and results. The product goal remains open.
 
-- A centred warm sunrise morphs into four horizontal glass actions. Play opens a ready state; Start begins only an approved routine. Learn replaces the duplicate Update/Learn dock entries; editing stays in History → Your routine.
+- A shell-free, custom-drawn sunrise reveals a compact 286 × 58-point native-glass command bar with four labeled vector icons. Play opens a ready state; Start begins only an approved routine. Learn replaces the duplicate Update/Learn dock entries; editing stays in History → Your routine.
 - Home shows lowercase good morning / bonjour and each task’s own duration. Dawn and sunset palettes follow light/dark appearance. Default details lead with a short purpose, preserve raw manual notes under Saved details and keep spoken/source content available.
 - Try a sample explicitly creates a synthetic 45-minute draft with separate iMessage, WhatsApp, WhatsApp Business, Messenger and Mail steps, optional scrolling and a thought. These external-app steps are manual and unconnected. The update does not automatically migrate or replace existing saved routines; explicitly choosing a sample installs a restorable draft.
 - A slow native writer close no longer means the later-successful recording is discarded. Explicit discard/forget and real writer failures remain separate. Shared lifecycle checks are not a long physical capture result.
