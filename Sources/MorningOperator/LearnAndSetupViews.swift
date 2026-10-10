@@ -5,6 +5,7 @@ import MorningCore
 struct LearnView: View {
     @Bindable var store: MorningStore
     @ViewState<Bool> private var importing = false
+    @ViewState<UUID?> private var importGeneration = nil
     @ViewState<Bool> private var recording = false
     @ViewState<Bool> private var confirmingObservation = false
     @ViewState<Bool> private var showingProposal = false
@@ -67,7 +68,11 @@ struct LearnView: View {
                             .accessibilityIdentifier("learn.record")
                     }
                     #endif
-                    Button { importing = true } label: {
+                    Button {
+                        guard !store.privacyBlocksWork else { return }
+                        importGeneration = store.dataGeneration
+                        importing = true
+                    } label: {
                         Label("Choose a recording or file", systemImage: "plus")
                             .multilineTextAlignment(.leading)
                     }
@@ -141,6 +146,8 @@ struct LearnView: View {
     }
 
     var body: some View {
+        // Capture the admission value in this presentation's completion closure.
+        let pickerGeneration = importGeneration
         learningContent
         .foregroundStyle(MorningStyle.ink)
         .task { store.importUITestObservationIfRequested() }
@@ -182,7 +189,14 @@ struct LearnView: View {
             if showingProposal { closeAfterProposal = true }
             else if !store.busy, !awaitingSuggestion { dismiss() }
         }
+        .onChange(of: store.dataGeneration) { _, _ in
+            importGeneration = nil
+            importing = false
+        }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.movie, .image, .plainText], allowsMultipleSelection: false) { result in
+            guard let pickerGeneration, pickerGeneration == store.dataGeneration,
+                  !store.privacyBlocksWork else { return }
+            importGeneration = nil
             switch result {
             case .success(let urls): if let url = urls.first { store.importObservation(url) }
             case .failure(let error): store.notice = error.localizedDescription
@@ -292,6 +306,7 @@ struct SetupView: View {
     @Bindable var store: MorningStore
     @ViewState<Bool> private var choosingVoice = false
     @ViewState<Bool> private var choosingInvitation = false
+    @ViewState<Bool> private var showingPrivacy = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -389,15 +404,18 @@ struct SetupView: View {
             }
 
             Card {
-                VStack(alignment: .leading, spacing: 16) {
-                    Label("Kept close", systemImage: "lock.shield")
-                        .font(.title3.weight(.semibold)).foregroundStyle(MorningStyle.green)
-                    Text("Thoughts, dreams and routines are saved on this device. When you choose to save to Calendar or Reminders, those apps use your existing account and sync settings.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("You can use Morning Operator without connecting your calendar.")
-                        .font(.footnote).foregroundStyle(MorningStyle.muted)
-                }
+                Button { showingPrivacy = true } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "lock.shield").font(.title2)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Privacy & data").font(.headline)
+                            Text("What stays here, and what you can remove.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption)
+                    }
+                }.buttonStyle(.plain).accessibilityIdentifier("setup.privacy")
             }
 
             DisclosureGroup("Availability & device details") {
@@ -418,6 +436,8 @@ struct SetupView: View {
             .font(.subheadline.weight(.medium)).tint(MorningStyle.accent)
             .padding(.horizontal, 4)
         }.foregroundStyle(MorningStyle.ink)
+        .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
+        .task { if store.privacyNeedsCleanup { showingPrivacy = true } }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
     }

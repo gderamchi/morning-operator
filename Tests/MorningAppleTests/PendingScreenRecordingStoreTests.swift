@@ -108,6 +108,45 @@ struct PendingScreenRecordingStoreTests {
         #expect(try Data(contentsOf: unrelated) == Data("user file".utf8))
     }
 
+    @Test func strictRemovalClearsOrphanMetadataAndLinksButPreservesTargets() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let recovery = directory.appendingPathComponent("RecordingRecovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: recovery, withIntermediateDirectories: true)
+        let storage = PendingScreenRecordingStore(directory: directory)
+        let metadata = recovery.appendingPathComponent("recording-info.json")
+        try Data("malformed orphan metadata".utf8).write(to: metadata)
+        try storage.removeAllOwnedData()
+        #expect(!FileManager.default.fileExists(atPath: metadata.path))
+        let external = directory.appendingPathComponent("external-original")
+        try Data("retain original".utf8).write(to: external)
+        try FileManager.default.createSymbolicLink(at: storage.recordingURL, withDestinationURL: external)
+        try FileManager.default.createSymbolicLink(at: metadata, withDestinationURL: directory.appendingPathComponent("missing-target"))
+        let unrelated = recovery.appendingPathComponent("unrelated.json")
+        try Data("keep".utf8).write(to: unrelated)
+        try storage.removeAllOwnedData()
+        try storage.removeAllOwnedData()
+        #expect(try FileManager.default.contentsOfDirectory(atPath: recovery.path) == ["unrelated.json"])
+        #expect(try Data(contentsOf: external) == Data("retain original".utf8))
+    }
+
+    @Test func strictRemovalRefusesUnexpectedDirectoryAndCanRetry() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let recovery = directory.appendingPathComponent("RecordingRecovery", isDirectory: true)
+        let metadata = recovery.appendingPathComponent("recording-info.json", isDirectory: true)
+        try FileManager.default.createDirectory(at: metadata, withIntermediateDirectories: true)
+        let child = metadata.appendingPathComponent("preserved")
+        try Data("never recurse".utf8).write(to: child)
+        let storage = PendingScreenRecordingStore(directory: directory)
+        #expect(throws: RecordingCleanupError.unexpectedFileType) { try storage.removeAllOwnedData() }
+        #expect(try Data(contentsOf: child) == Data("never recurse".utf8))
+        try FileManager.default.removeItem(at: metadata)
+        try Data("repaired fixture".utf8).write(to: metadata)
+        try storage.removeAllOwnedData()
+        #expect(try FileManager.default.contentsOfDirectory(atPath: recovery.path).isEmpty)
+    }
+
     private func syntheticRecording() throws -> URL {
         try FileManager.default.createDirectory(at: ScreenRecordingFiles.directory, withIntermediateDirectories: true)
         let url = ScreenRecordingFiles.directory.appendingPathComponent("morning-\(UUID().uuidString).mp4")

@@ -16,7 +16,15 @@ final class MorningIntentRouter {
 
     private init() {}
 
+    func resetPendingRequests() {
+        pendingStart = nil
+        invitationPayload = nil
+        pendingCaptureText = nil
+    }
+
     func requestStart(invitation: MorningInvitationPayload? = nil) {
+        guard let state = try? LocalDataControl(directory: LocalDataControl.defaultDirectory).status(),
+              !state.forgetPending else { return }
         // Repeated Siri phrases or duplicate notification callbacks cannot extend a
         // waiting request's lifetime or queue a second run behind the first.
         guard pendingStart == nil else { return }
@@ -31,6 +39,8 @@ final class MorningIntentRouter {
     }
 
     func requestCapture(_ text: String) throws {
+        guard let state = try? LocalDataControl(directory: LocalDataControl.defaultDirectory).status(),
+              !state.forgetPending else { throw MorningIntentError.dataRemovalPending }
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw MorningIntentError.emptyText }
         guard pendingCaptureText == nil else { throw MorningIntentError.captureWaiting }
@@ -44,10 +54,11 @@ final class MorningIntentRouter {
 }
 
 private enum MorningIntentError: LocalizedError {
-    case emptyText, captureWaiting
+    case emptyText, captureWaiting, dataRemovalPending
 
     var errorDescription: String? {
         switch self {
+        case .dataRemovalPending: "Finish removing local data in MORE before capturing another thought."
         case .emptyText: "Add a few words to capture."
         case .captureWaiting: "Review the capture already waiting in MORE, then try again."
         }

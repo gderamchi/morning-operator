@@ -9,6 +9,7 @@ struct MorningRootView: View {
     @ViewState<Bool> private var showingLearn = false
     @ViewState<Bool> private var showingRoutineEditor = false
     @ViewState<UUID> private var reviewRootIdentity = UUID()
+    @ViewState<Bool> private var resetReviewAfterSettingsDismissal = false
     @ViewState<Bool> private var presentingIntentCapture = false
     @ViewState<Bool> private var pendingObservationReview = false
     @ViewState<Bool> private var testObservedBackground = false
@@ -47,7 +48,13 @@ struct MorningRootView: View {
             #endif
         }
         .tint(MorningStyle.accent)
-        .sheet(isPresented: $showingSettings, onDismiss: processPendingEntries) {
+        .sheet(isPresented: $showingSettings, onDismiss: {
+            if resetReviewAfterSettingsDismissal {
+                resetReviewAfterSettingsDismissal = false
+                reviewRootIdentity = UUID()
+            }
+            processPendingEntries()
+        }) {
             detailSheet("Settings") { SetupView(store: store) }
         }
         .sheet(isPresented: $showingLearn, onDismiss: processPendingEntries) {
@@ -68,6 +75,22 @@ struct MorningRootView: View {
 
     var body: some View {
         presentedContent
+        .onChange(of: store.dataGeneration) { _, _ in
+            showingLearn = false; showingRoutineEditor = false
+            presentingIntentCapture = false; pendingObservationReview = false
+            // Keep the presenting Review stack stable while Privacy is open.
+            // Replacing its tab identity during confirmation dismissal can strand
+            // the old presentation over a fast cleanup failure. Successful removal
+            // resets Review below; pending cleanup keeps Settings non-dismissible.
+            if !showingSettings { reviewRootIdentity = UUID() }
+        }
+        .onChange(of: store.privacyCompletedID) { _, completed in
+            guard completed != nil else { return }
+            if showingSettings { resetReviewAfterSettingsDismissal = true }
+            else { reviewRootIdentity = UUID() }
+            showingSettings = false
+            store.tab = .today
+        }
         .onChange(of: store.completionInvitationSessionID) { _, _ in processPendingEntries() }
         .onChange(of: store.session?.id) { _, _ in store.completionSessionChanged() }
         .onChange(of: showingRoutineEditor) { _, showing in if !showing { processPendingEntries() } }
@@ -112,6 +135,11 @@ struct MorningRootView: View {
         .onChange(of: observationReviewCanPresent) { _, ready in if ready { processPendingEntries() } }
         .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
         .task {
+            if store.privacyNeedsCleanup {
+                showingSettings = true
+                if store.privacyHasInterruptedRemoval { await store.forgetLocalData() }
+                return
+            }
             await store.invitation.reconcile()
             #if DEBUG
             // Explicit isolated fixture entry tests exercise routing, not Siri or
@@ -131,7 +159,7 @@ struct MorningRootView: View {
     }
 
     private func presentPendingIntentCapture() {
-        guard scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !store.captureVoicePresented, !store.hasPendingSpokenCapture,
+        guard !store.privacyBlocksWork, scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !store.captureVoicePresented, !store.hasPendingSpokenCapture,
               !store.voiceInputBlocksPlayback, !showingSettings,
               !showingLearn, !showingRoutineEditor, !store.voiceCommandPresented,
               !store.observationDetailPresented, !store.observationSelectionPresented, !store.routineProposalPresented,
@@ -168,7 +196,7 @@ struct MorningRootView: View {
     /// review. Watch this eligibility separately so closing another detail or
     /// ending a session resumes review even when a failed recording stays pending.
     private var observationReviewCanPresent: Bool {
-        guard scenePhase == .active, !store.busy, !store.sessionActive,
+        guard !store.privacyBlocksWork, scenePhase == .active, !store.busy, !store.sessionActive,
               !showingSettings, !showingRoutineEditor, !presentingIntentCapture,
               !store.capturePresented, !store.voiceCommandPresented, !store.captureVoicePresented,
               !store.hasPendingSpokenCapture, !store.voiceInputBlocksPlayback,
@@ -186,7 +214,7 @@ struct MorningRootView: View {
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
         if #available(iOS 27.0, *) { recordingBusy = ScreenRecordingService.shared.isBusy }
         #endif
-        return showingSettings || showingLearn || showingRoutineEditor || presentingIntentCapture ||
+        return store.privacyBlocksWork || showingSettings || showingLearn || showingRoutineEditor || presentingIntentCapture ||
             store.capturePresented || store.voiceCommandPresented || store.captureVoicePresented ||
             store.hasPendingSpokenCapture || store.morningDetailPresented || store.observationDetailPresented ||
             store.observationSelectionPresented || store.routineProposalPresented || store.voiceInputBlocksPlayback ||
@@ -195,7 +223,7 @@ struct MorningRootView: View {
     }
 
     private var recordingCanProcess: Bool {
-        !showingSettings && !showingLearn && !showingRoutineEditor && !presentingIntentCapture &&
+        !store.privacyBlocksWork && !showingSettings && !showingLearn && !showingRoutineEditor && !presentingIntentCapture &&
         !store.capturePresented && !store.voiceCommandPresented && !store.captureVoicePresented &&
         !store.hasPendingSpokenCapture && !store.voiceInputBlocksPlayback &&
         !store.morningDetailPresented && !store.observationDetailPresented &&
@@ -204,6 +232,7 @@ struct MorningRootView: View {
     }
 
     private func processPendingEntries() {
+        guard !store.privacyBlocksWork else { return }
         // A thought already waiting for review keeps priority over a start request.
         presentPendingIntentCapture()
         presentPendingObservationReview()
@@ -261,8 +290,10 @@ struct MorningRootView: View {
             .background(MorningStyle.background).navigationTitle(title).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) {
                 Button("Done") { showingSettings = false; showingLearn = false }
+                    .disabled(store.privacyBlocksWork)
             } }
         }.presentationDragIndicator(.visible)
+            .interactiveDismissDisabled(store.privacyBlocksWork)
     }
 }
 

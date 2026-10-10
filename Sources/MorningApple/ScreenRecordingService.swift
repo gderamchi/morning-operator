@@ -2,25 +2,55 @@ import Foundation
 import MorningCore
 import Observation
 
-/// The importer owns a handed-off recording until extraction finishes. It can then remove
-/// that file without ever deleting an unrelated file selected by the user.
+/// The importer owns a handed-off recording until extraction finishes. Cleanup
+/// accepts only this app's recording namespace, never a selected source elsewhere.
 public enum ScreenRecordingFiles {
     public static var directory: URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("MorningOperatorRecordings", isDirectory: true)
+        recordingDirectory(arguments: ProcessInfo.processInfo.arguments,
+            workspaceDirectory: LocalDataControl.defaultDirectory,
+            temporaryDirectory: FileManager.default.temporaryDirectory)
+    }
+
+    static func recordingDirectory(arguments: [String], workspaceDirectory: URL,
+                                   temporaryDirectory: URL) -> URL {
+        // Even an invalid test launch never falls back to the person's normal
+        // recording namespace. Admission and sweep additionally reject that launch.
+        let base = arguments.contains("--ui-testing") ? workspaceDirectory : temporaryDirectory
+        return base.appendingPathComponent("MorningOperatorRecordings", isDirectory: true)
+    }
+
+    static func validateTestNamespace(arguments: [String] = ProcessInfo.processInfo.arguments) throws {
+        guard arguments.contains("--ui-testing") else { return }
+        guard let value = arguments.first(where: { $0.hasPrefix("--ui-testing-workspace=") }),
+              UUID(uuidString: String(value.dropFirst("--ui-testing-workspace=".count))) != nil else {
+            throw RecordingCleanupError.invalidTestWorkspace
+        }
+    }
+
+    static func isRecordingFilename(_ name: String) -> Bool {
+        guard name.hasPrefix("morning-"), name.hasSuffix(".mp4") else { return false }
+        return UUID(uuidString: String(name.dropFirst("morning-".count).dropLast(".mp4".count))) != nil
     }
 
     public static func isOwnedRecording(_ url: URL) -> Bool {
-        url.isFileURL && url.pathExtension.lowercased() == "mp4"
-            && url.lastPathComponent.hasPrefix("morning-")
-            && url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL
-                == directory.resolvingSymlinksInPath().standardizedFileURL
+        url.isFileURL && isRecordingFilename(url.lastPathComponent)
+            && url.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL
     }
 
     @discardableResult
     public static func removeIfOwned(_ url: URL) throws -> Bool {
         guard isOwnedRecording(url) else { return false }
-        if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+        try validateTestNamespace()
+        try RecordingFileCleanup.remove(in: directory, names: [url.lastPathComponent])
         return true
+    }
+
+    /// Call only after all native capture/writer operations have stopped. The
+    /// caller owns lifecycle serialization; this function never follows symlinks
+    /// or deletes unrelated filenames or unexpected directories.
+    public static func removeAllOwnedRecordings() throws {
+        try validateTestNamespace()
+        try RecordingFileCleanup.removeRecordings(in: directory)
     }
 }
 
@@ -64,6 +94,35 @@ struct ScreenRecordingContextState {
     }
 }
 
+/// A stopped stream alone is insufficient: late starts and an attached writer
+/// still own capture resources. This policy is shared by the native cleanup and
+/// deterministic lifecycle tests, which do not claim to exercise ScreenCaptureKit.
+struct ScreenRecordingCleanupStatus: Sendable {
+    var startPending = false
+    var stopPending = false
+    var resourcesAttached = false
+    var captureMayBeActive = false
+    var needsStopRetry = false
+    var isStopped: Bool { !startPending && !stopPending && !resourcesAttached && !captureMayBeActive }
+}
+
+@MainActor
+enum ScreenRecordingCleanupBarrier {
+    static func wait(timeout: Duration = .seconds(90),
+                     status: @MainActor () -> ScreenRecordingCleanupStatus,
+                     pause: @MainActor () async throws -> Void = { try await Task.sleep(for: .milliseconds(100)) }) async throws {
+        let end = ContinuousClock.now.advanced(by: timeout)
+        while true {
+            let current = status()
+            if current.isStopped { return }
+            guard !current.needsStopRetry, ContinuousClock.now < end else {
+                throw RecordingCleanupError.captureStopUnconfirmed
+            }
+            try await pause()
+        }
+    }
+}
+
 #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
 @preconcurrency import ScreenCaptureKit
 import AVFoundation
@@ -94,6 +153,9 @@ public final class ScreenRecordingService {
     /// `recordingContext` remains available throughout this callback; taking clears it.
     @ObservationIgnored public var onRecordingFinalized: (@MainActor (URL, String?) -> Bool)?
     public private(set) var needsStopRetry = false
+    /// Remains true after failed Forget cleanup, preventing a new capture until retry.
+    public private(set) var isDiscardingForForget = false
+    @ObservationIgnored private var forgetCleanupTask: Task<Void, any Error>?
     public private(set) var selectedDuration: ScreenRecordingDuration = .tenMinutes
     public var maximumDurationSeconds: Int { selectedDuration.rawValue }
     public var remainingSeconds: Int { max(0, maximumDurationSeconds - elapsedSeconds) }
@@ -139,6 +201,13 @@ public final class ScreenRecordingService {
     /// Presents Apple's picker only in response to the user's Start recording button.
     public func presentPicker(duration: ScreenRecordingDuration = .tenMinutes) {
         guard !isBusy, state != .ready else { return }
+        guard temporaryURL == nil else {
+            message = "Discard the remaining recording before starting another one."
+            return
+        }
+        if let issue = recordingAdmissionIssue() {
+            state = .failed; message = issue; return
+        }
         guard isAvailable else {
             fail("Screen recording isn't available on this device or is restricted by its settings.")
             return
@@ -197,15 +266,49 @@ public final class ScreenRecordingService {
         } else if isBusy {
             requestShutdown(reason: "Recording discarded.")
         } else {
-            removeTemporaryFile()
-            state = .idle
-            elapsedSeconds = 0
+            if removeTemporaryFile() {
+                state = .idle
+                elapsedSeconds = 0
+            }
         }
+    }
+
+    /// Forget owns cleanup once started, even if its calling UI disappears. A
+    /// timeout or native stop error keeps ownership and suppression intact for
+    /// retry; neither is evidence that capture ended. Native callbacks retain
+    /// their existing late-start/stop safety and never hand off a forgotten clip.
+    public func discardAndWait() async throws {
+        if let task = forgetCleanupTask { try await task.value; return }
+        isDiscardingForForget = true
+        discardWhenFinished = true
+        let task = Task { @MainActor [self] in
+            defer { forgetCleanupTask = nil }
+            discard()
+            try await ScreenRecordingCleanupBarrier.wait(status: {
+                ScreenRecordingCleanupStatus(startPending: startPending, stopPending: stopPending,
+                    resourcesAttached: stream != nil || output != nil,
+                    captureMayBeActive: captureMayBeActive, needsStopRetry: needsStopRetry)
+            })
+            // Active resources are gone. Strict cleanup also catches orphaned
+            // finalized files from a previous process, without deleting originals.
+            try ScreenRecordingFiles.removeAllOwnedRecordings()
+            temporaryURL = nil
+            recordedURL = nil
+            recordingInterruption = nil
+            recordingProvenance.clear()
+            elapsedSeconds = 0
+            state = .idle
+            message = "App-owned recordings removed."
+            isDiscardingForForget = false
+        }
+        forgetCleanupTask = task
+        try await task.value
     }
 
     /// Transfers ownership. The importer must delete this app-owned URL after extraction.
     public func takeRecording() -> URL? {
-        guard state == .ready, let url = recordedURL else { return nil }
+        guard !isDiscardingForForget, recordingAdmissionIssue() == nil,
+              state == .ready, let url = recordedURL else { return nil }
         recordedURL = nil
         temporaryURL = nil
         recordingProvenance.clear()
@@ -217,6 +320,11 @@ public final class ScreenRecordingService {
     fileprivate func selection(_ selection: ScreenRecordingSelection, sessionID token: UUID) {
         guard sessionID == token, Self.pickerOwnerID == token, state == .choosing, selection.existingStreamID == nil,
               let bridge else { return }
+        if let issue = recordingAdmissionIssue() {
+            discardWhenFinished = true
+            requestShutdown(reason: issue)
+            return
+        }
         guard !selection.filter.isMicrophoneEnabled, !selection.filter.isCameraEnabled else {
             fail("This recording needs a screen-only selection with microphone and camera turned off.")
             return
@@ -381,10 +489,12 @@ public final class ScreenRecordingService {
         guard let stream, let token = sessionID else {
             // No stream was ever created, so there is no capture or writer to await.
             detachPicker()
-            removeTemporaryFile()
+            let removed = removeTemporaryFile()
             releaseStoppedResources()
-            state = failureDetail == nil ? .idle : .failed
-            message = failureDetail ?? reason
+            if removed {
+                state = failureDetail == nil ? .idle : .failed
+                message = failureDetail ?? reason
+            }
             return
         }
         state = .stopping
@@ -405,6 +515,7 @@ public final class ScreenRecordingService {
             // The previous finalization deadline may have elapsed while start was still
             // pending. A late start completion must establish a fresh bounded writer wait.
             if !startPending && !recordingFinished {
+                needsStopRetry = false
                 armDeadline(seconds: 30, token: token, kind: .finalization)
             }
             finishIfReady()
@@ -452,9 +563,10 @@ public final class ScreenRecordingService {
         detachPicker()
         releaseStoppedResources()
         if discarded || detail != nil {
-            removeTemporaryFile()
-            state = detail == nil ? .idle : .failed
-            message = detail ?? "Recording discarded."
+            if removeTemporaryFile() {
+                state = detail == nil ? .idle : .failed
+                message = detail ?? "Recording discarded."
+            }
             return
         }
         guard let url = temporaryURL else {
@@ -474,7 +586,8 @@ public final class ScreenRecordingService {
             recordedURL = url
             state = .ready
             message = finishedMessage ?? "Your recording is ready to review."
-            if onRecordingFinalized?(url, recordingInterruption) == true {
+            if recordingAdmissionIssue() == nil,
+               onRecordingFinalized?(url, recordingInterruption) == true {
                 _ = takeRecording()
             }
         } catch {
@@ -505,12 +618,12 @@ public final class ScreenRecordingService {
                 }
             case .finalization:
                 guard self.streamStopped, !self.startPending else { return }
-                // Capture is confirmed stopped. After a bounded writer grace period, discard
-                // the unfinalized file and release resources; it can never reach the importer.
-                self.failureDetail = self.failureDetail ?? "Screen capture stopped, but the recording couldn't finish saving. The incomplete file was discarded."
+                // A deadline is not a writer completion. Retain ownership and suppress
+                // handoff until the native writer actually finishes; cleanup may be retried.
+                self.failureDetail = self.failureDetail ?? "Screen capture stopped, but the recording hasn't finished closing. Retry cleanup after the system finishes."
                 self.discardWhenFinished = true
-                self.recordingFinished = true
-                self.finishIfReady()
+                self.needsStopRetry = true
+                self.message = self.failureDetail ?? "The recording is still closing. Retry cleanup."
             }
         }
     }
@@ -548,11 +661,35 @@ public final class ScreenRecordingService {
         activeLifetime = nil
     }
 
-    private func removeTemporaryFile() {
-        if let temporaryURL { _ = try? ScreenRecordingFiles.removeIfOwned(temporaryURL) }
-        temporaryURL = nil
-        recordedURL = nil
-        recordingProvenance.clear()
+    @discardableResult
+    private func removeTemporaryFile() -> Bool {
+        do {
+            if let temporaryURL {
+                guard try ScreenRecordingFiles.removeIfOwned(temporaryURL) else {
+                    throw RecordingCleanupError.unsafeDirectory
+                }
+            }
+            temporaryURL = nil
+            recordedURL = nil
+            recordingProvenance.clear()
+            return true
+        } catch {
+            // Keep the URL and provenance: a failed delete must remain retryable.
+            state = .failed
+            message = "The app-owned recording couldn't be removed. Retry discarding it. \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private func recordingAdmissionIssue() -> String? {
+        guard !isDiscardingForForget else { return RecordingCleanupError.forgettingInProgress.localizedDescription }
+        do {
+            try ScreenRecordingFiles.validateTestNamespace()
+            let control = try LocalDataControl(directory: LocalDataControl.defaultDirectory).status()
+            return control.forgetPending ? RecordingCleanupError.forgettingInProgress.localizedDescription : nil
+        } catch {
+            return "Local privacy cleanup needs attention before recording can continue. \(error.localizedDescription)"
+        }
     }
 }
 

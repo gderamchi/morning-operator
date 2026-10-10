@@ -225,6 +225,141 @@ struct MorningInvitationServiceTests {
         #expect(MorningInvitationPayload(userInfo: malformed) == nil)
         #expect(invitation.payload.userInfo.count == 2)
     }
+
+    @Test func forgettingDuringPermissionWaitErasesMetadataAndNeverAddsAfterward() async throws {
+        let storage = InvitationMemoryStorage()
+        let client = InvitationNotificationFixture(authorization: .notDetermined)
+        client.holdPermission = true
+        client.delivered = true
+        let service = MorningInvitationService(storage: storage, notifications: client, now: { origin })
+        let scheduling = Task { await service.schedule(at: origin.addingTimeInterval(60)) }
+        await client.waitForPermission()
+        let forgetting = Task { try await service.forget() }
+        while !service.isForgetting { await Task.yield() }
+        #expect(storage.value == nil)
+        await service.reconcile()
+        await service.schedule(at: origin.addingTimeInterval(120))
+        client.completePermission(authorization: .authorized)
+        await scheduling.value
+        try await forgetting.value
+        #expect(client.permissionRequests == 1)
+        #expect(client.added.isEmpty)
+        #expect(client.pending == nil && !client.delivered)
+        #expect(service.invitation == nil && !service.isScheduled && !service.isBusy)
+        #expect(client.authorization == .authorized, "Forgetting leaves the OS grant untouched.")
+    }
+
+    @Test func forgettingDrainsAnUncancellableLateAddBeforeConfirmingRemoval() async throws {
+        let storage = InvitationMemoryStorage()
+        let client = InvitationNotificationFixture()
+        client.holdAdd = true
+        let service = MorningInvitationService(storage: storage, notifications: client, now: { origin })
+        let scheduling = Task { await service.schedule(at: origin.addingTimeInterval(60)) }
+        await client.waitForAdd()
+        let forgetting = Task { try await service.forget() }
+        while !service.isForgetting { await Task.yield() }
+        await #expect(throws: MorningInvitationForgetError.alreadyForgetting) { try await service.forget() }
+        client.completeAdd()
+        await scheduling.value
+        try await forgetting.value
+        #expect(client.added.count == 1)
+        #expect(client.pending == nil)
+        #expect(storage.value == nil)
+        await service.reconcile()
+        #expect(client.added.count == 1)
+    }
+
+    @Test func forgetReportsUnremovedNativeRequestAndCanBeRetried() async throws {
+        let storage = InvitationMemoryStorage()
+        let client = InvitationNotificationFixture()
+        let service = MorningInvitationService(storage: storage, notifications: client, now: { origin })
+        await service.schedule(at: origin.addingTimeInterval(60))
+        client.delivered = true
+        client.ignoreRemoval = true
+        await #expect(throws: MorningInvitationForgetError.cleanupUnconfirmed) { try await service.forget() }
+        #expect(storage.value == nil)
+        #expect(service.errorMessage != nil && !service.isScheduled)
+        client.ignoreRemoval = false
+        try await service.forget()
+        #expect(client.pending == nil && !client.delivered)
+        #expect(service.errorMessage == nil)
+    }
+
+    @Test func forgetSaveFailureIsThrownEvenAfterNativeRemoval() async throws {
+        let storage = InvitationMemoryStorage()
+        let client = InvitationNotificationFixture()
+        let service = MorningInvitationService(storage: storage, notifications: client, now: { origin })
+        await service.schedule(at: origin.addingTimeInterval(60))
+        storage.failSave = true
+        await #expect(throws: InvitationFixtureError.disk) { try await service.forget() }
+        #expect(storage.value != nil)
+        #expect(client.pending == nil)
+        #expect(service.needsRecovery && service.errorMessage != nil)
+        storage.failSave = false
+        try await service.forget()
+        #expect(storage.value == nil && !service.needsRecovery)
+    }
+
+    @Test func pendingPrivacyResetBlocksOldScheduleOnReloadAndRepairsCorruptPreference() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let privacy = LocalDataControl(directory: directory)
+        let storage = MorningInvitationFileStorage(directory: directory)
+        let client = InvitationNotificationFixture()
+        let original = MorningInvitationService(storage: storage, notifications: client, privacy: privacy, now: { origin })
+        await original.schedule(at: origin.addingTimeInterval(60))
+        let added = client.added.count
+        _ = try privacy.beginForget()
+        let restored = MorningInvitationService(storage: storage, notifications: client, privacy: privacy, now: { origin })
+        #expect(restored.invitation == nil)
+        await restored.reconcile()
+        await restored.schedule(at: origin.addingTimeInterval(120))
+        #expect(client.added.count == added && client.pending == nil)
+        let url = directory.appendingPathComponent("morning-invitation.json")
+        try Data("unreadable synthetic preference".utf8).write(to: url)
+        try await restored.forget()
+        #expect(try storage.load() == nil)
+        #expect(try privacy.status().forgetPending)
+    }
+
+    @Test func resetBeginningDuringNativeAddMakesItsLateResultIneligible() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let privacy = LocalDataControl(directory: directory)
+        let storage = InvitationMemoryStorage()
+        let client = InvitationNotificationFixture()
+        client.holdAdd = true
+        let service = MorningInvitationService(storage: storage, notifications: client, privacy: privacy, now: { origin })
+        let scheduling = Task { await service.schedule(at: origin.addingTimeInterval(60)) }
+        await client.waitForAdd()
+        _ = try privacy.beginForget()
+        client.completeAdd()
+        await scheduling.value
+        #expect(client.added.count == 1 && client.pending == nil)
+        #expect(!service.isScheduled)
+        try await service.forget()
+        #expect(storage.value == nil)
+    }
+
+    @Test func oldSchedulingJobCannotResumeAfterResetHasAlreadyFinished() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let privacy = LocalDataControl(directory: directory)
+        let storage = InvitationMemoryStorage()
+        let client = InvitationNotificationFixture()
+        client.holdFirstSettings = true
+        let service = MorningInvitationService(storage: storage, notifications: client, privacy: privacy, now: { origin })
+        let scheduling = Task { await service.schedule(at: origin.addingTimeInterval(60)) }
+        await client.waitForSettings()
+        let reset = try privacy.beginForget()
+        let generation = try #require(reset.generation)
+        try privacy.withForgetAccess(expectedGeneration: generation) { try storage.save(nil) }
+        try privacy.finishForget(expectedGeneration: generation)
+        client.completeSettings()
+        await scheduling.value
+        #expect(client.added.isEmpty)
+        #expect(!service.isScheduled && storage.value == nil)
+    }
 }
 
 private enum InvitationFixtureError: Error { case disk, add }
@@ -251,6 +386,8 @@ private enum InvitationFixtureError: Error { case disk, add }
     var added: [MorningInvitation] = []
     var permissionRequests = 0
     var deliveredRemovalCount = 0
+    var delivered = false
+    var ignoreRemoval = false
     var failAdd = false
     var holdPermission = false
     var holdAdd = false
@@ -281,8 +418,12 @@ private enum InvitationFixtureError: Error { case disk, add }
         added.append(invitation)
         pending = .init(payload: invitation.payload, scheduledAt: invitation.scheduledAt)
     }
-    func removePendingInvitation() async { pending = nil }
-    func removeDeliveredInvitation() async { deliveredRemovalCount += 1 }
+    func removePendingInvitation() async { if !ignoreRemoval { pending = nil } }
+    func removeDeliveredInvitation() async {
+        deliveredRemovalCount += 1
+        if !ignoreRemoval { delivered = false }
+    }
+    func hasDeliveredInvitation() async -> Bool { delivered }
     func waitForPermission() async { while permissionContinuation == nil { await Task.yield() } }
     func waitForAdd() async { while addContinuation == nil { await Task.yield() } }
     func waitForSettings() async { while settingsContinuation == nil { await Task.yield() } }

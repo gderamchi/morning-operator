@@ -271,6 +271,7 @@ private struct RoutineReviewEditor: View {
     @ViewState<RoutineStep?> private var editingStep = nil
     @ViewState<RoutineVersion?> private var exportSnapshot = nil
     @ViewState<Bool> private var importing = false
+    @ViewState<UUID?> private var importGeneration = nil
     @ViewState<RoutineImportPreview?> private var importPreview = nil
     @ViewState<RoutineImportPreview?> private var loadedImport = nil
     @ViewState<Bool> private var importLoading = false
@@ -279,6 +280,7 @@ private struct RoutineReviewEditor: View {
     @ViewState<UUID?> private var importAttempt = nil
 
     var body: some View {
+        let pickerGeneration = importGeneration
         NavigationStack {
             List {
                 if let routine = store.routine {
@@ -334,12 +336,16 @@ private struct RoutineReviewEditor: View {
                     }
                 }
                 Section {
-                    Button("Import routine", systemImage: "square.and.arrow.down") { importing = true }
+                    Button("Import routine", systemImage: "square.and.arrow.down") {
+                        guard !store.privacyBlocksWork else { return }
+                        importGeneration = store.dataGeneration
+                        importing = true
+                    }
                         .disabled(store.busy || store.sessionActive || importLoading)
                         .accessibilityIdentifier("routine.import")
                     #if DEBUG
                     if let url = routineImportFixtureURL {
-                        Button("Open staged routine file") { openRoutineFile(url) }
+                        Button("Open staged routine file") { openRoutineFile(url, generation: store.dataGeneration) }
                             .disabled(store.busy || store.sessionActive || importLoading)
                             .accessibilityIdentifier("routine.importFixture")
                     }
@@ -390,18 +396,33 @@ private struct RoutineReviewEditor: View {
             .sheet(item: $exportSnapshot) { routine in RoutineExportView(routine: routine) }
             .sheet(item: $importPreview) { preview in
                 RoutineImportView(document: preview.document, onUse: { document in
-                    guard store.useImportedRoutine(document, replacing: preview.baseRoutine) else { return false }
+                    guard preview.generation == store.dataGeneration, !store.privacyBlocksWork,
+                          store.useImportedRoutine(document, replacing: preview.baseRoutine) else { return false }
                     importPreview = nil
                     return true
                 }, errorMessage: { store.notice }, onCancel: { importPreview = nil })
             }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
+                guard let pickerGeneration, pickerGeneration == store.dataGeneration,
+                      !store.privacyBlocksWork else { return }
+                importGeneration = nil
                 switch result {
-                case .success(let urls): if let url = urls.first { openRoutineFile(url) }
+                case .success(let urls): if let url = urls.first { openRoutineFile(url, generation: pickerGeneration) }
                 case .failure(let error): importError = error.localizedDescription
                 }
             }
             .onChange(of: importing) { _, presenting in if !presenting { presentLoadedImport() } }
+        }
+        .onChange(of: store.dataGeneration) { _, _ in
+            importGeneration = nil
+            importing = false
+            importAttempt = nil
+            importPreview = nil
+            loadedImport = nil
+            importLoading = false
+            importError = nil
+            importTask?.cancel()
+            importTask = nil
         }
         .onDisappear {
             importAttempt = nil
@@ -415,8 +436,9 @@ private struct RoutineReviewEditor: View {
         #endif
     }
 
-    private func openRoutineFile(_ url: URL) {
-        guard !store.busy, !store.sessionActive, !importLoading else { return }
+    private func openRoutineFile(_ url: URL, generation: UUID) {
+        guard generation == store.dataGeneration, !store.privacyBlocksWork,
+              !store.busy, !store.sessionActive, !importLoading else { return }
         let attempt = UUID()
         let base = store.routine
         importAttempt = attempt
@@ -425,11 +447,11 @@ private struct RoutineReviewEditor: View {
         importTask = Task { @MainActor in
             do {
                 let document = try await RoutineDocumentReader().read(url)
-                guard !Task.isCancelled, importAttempt == attempt else { return }
-                loadedImport = RoutineImportPreview(document: document, baseRoutine: base)
+                guard !Task.isCancelled, importAttempt == attempt, store.dataGeneration == generation, !store.privacyBlocksWork else { return }
+                loadedImport = RoutineImportPreview(document: document, baseRoutine: base, generation: generation)
                 presentLoadedImport()
             } catch {
-                guard !Task.isCancelled, importAttempt == attempt else { return }
+                guard !Task.isCancelled, importAttempt == attempt, store.dataGeneration == generation, !store.privacyBlocksWork else { return }
                 importLoading = false
                 importError = "This file couldn't be opened: \(error.localizedDescription) Your current routine is unchanged."
             }
@@ -438,7 +460,8 @@ private struct RoutineReviewEditor: View {
     }
 
     private func presentLoadedImport() {
-        guard !importing, editingStep == nil, exportSnapshot == nil, let loadedImport else { return }
+        guard !store.privacyBlocksWork, !importing, editingStep == nil, exportSnapshot == nil,
+              let loadedImport, loadedImport.generation == store.dataGeneration else { return }
         self.loadedImport = nil
         importLoading = false
         importPreview = loadedImport
@@ -486,6 +509,7 @@ private struct RoutineImportPreview: Identifiable {
     let id = UUID()
     let document: PortableRoutineDocument
     let baseRoutine: RoutineVersion?
+    let generation: UUID
 }
 
 private struct RoutinePreferencesView: View {

@@ -40,6 +40,18 @@ public protocol MorningInvitationNotificationClient {
     func add(_ invitation: MorningInvitation, sound: Bool) async throws
     func removePendingInvitation() async
     func removeDeliveredInvitation() async
+    func hasDeliveredInvitation() async -> Bool
+}
+
+public enum MorningInvitationForgetError: LocalizedError, Sendable, Equatable {
+    case alreadyForgetting, cleanupUnconfirmed, staleGeneration
+    public var errorDescription: String? {
+        switch self {
+        case .alreadyForgetting: "Invitation cleanup is already in progress."
+        case .cleanupUnconfirmed: "The invitation could not be fully removed. Retry forgetting your local data."
+        case .staleGeneration: "Your local data changed. Open Morning again before scheduling an invitation."
+        }
+    }
 }
 
 @MainActor
@@ -86,6 +98,9 @@ public final class MorningInvitationService {
     @ObservationIgnored private let storage: any MorningInvitationStorage
     @ObservationIgnored private let notifications: any MorningInvitationNotificationClient
     @ObservationIgnored private let now: @MainActor () -> Date
+    @ObservationIgnored private let privacy: LocalDataControl?
+    @ObservationIgnored private var invitationGeneration: UUID?
+    public private(set) var isForgetting = false
     private var storageAvailable = true
     /// Transient evidence of an explicit Schedule tap. Never restored from disk.
     @ObservationIgnored private var pendingPermissionOccurrenceID: UUID?
@@ -94,19 +109,22 @@ public final class MorningInvitationService {
 
     public convenience init(directory: URL) {
         self.init(storage: MorningInvitationFileStorage(directory: directory),
-                  notifications: NativeMorningInvitationNotificationClient())
+                  notifications: NativeMorningInvitationNotificationClient(),
+                  privacy: LocalDataControl(directory: directory))
     }
 
     public init(storage: any MorningInvitationStorage,
                 notifications: any MorningInvitationNotificationClient,
+                privacy: LocalDataControl? = nil,
                 now: @escaping @MainActor () -> Date = { Date() }) {
-        self.storage = storage; self.notifications = notifications; self.now = now
+        self.storage = storage; self.notifications = notifications; self.privacy = privacy; self.now = now
         reload()
     }
 
     /// Refreshes settings and repairs only a still-future desired schedule. Never creates
     /// permission intent; it may finish an explicit Schedule request already in flight.
     public func reconcile() async {
+        guard !isForgetting else { return }
         reload()
         await enqueueReconciliation().value
     }
@@ -114,10 +132,10 @@ public final class MorningInvitationService {
     /// Call only from the person's explicit Schedule action. This is the only prompt path.
     /// A denied request remains a saved, unscheduled preference that can be retried later.
     public func schedule(at date: Date, timeZone: TimeZone = .current) async {
-        guard storageAvailable else { return }
+        guard storageAvailable, !isForgetting else { return }
         do {
             let desired = try MorningInvitation(scheduledAt: date, timeZoneIdentifier: timeZone.identifier, now: now())
-            try storage.save(desired)
+            try withReadyStorage { try storage.save(desired) }
             invitation = desired
             pendingPermissionOccurrenceID = desired.id
             errorMessage = nil
@@ -129,11 +147,12 @@ public final class MorningInvitationService {
     /// Explicit cancellation can also replace this feature's corrupt preference with nil.
     /// Routine/workspace data is separate and is never removed here.
     public func cancel() async {
+        guard !isForgetting else { return }
         pendingPermissionOccurrenceID = nil
         do {
             var cancelled = invitation
             cancelled?.cancel()
-            try storage.save(cancelled)
+            try withReadyStorage(requireCurrentGeneration: true) { try storage.save(cancelled) }
             invitation = cancelled
             storageAvailable = true
             errorMessage = nil
@@ -142,13 +161,49 @@ public final class MorningInvitationService {
         } catch { report(error) }
     }
 
+    /// Erases this feature's saved metadata as well as its native request. Unlike
+    /// cancellation this leaves no occurrence/date tombstone. Allowed during the
+    /// app's durable forgetting phase; ordinary scheduling stays blocked throughout.
+    public func forget() async throws {
+        guard !isForgetting else { throw MorningInvitationForgetError.alreadyForgetting }
+        isForgetting = true
+        isBusy = true
+        pendingPermissionOccurrenceID = nil
+        let id = UUID()
+        revision = id
+        let previous = tail
+        var saveFailure: (any Error)?
+        do { try saveForgottenPreference(); storageAvailable = true }
+        catch { saveFailure = error; storageAvailable = false }
+        invitation = nil
+        invitationGeneration = nil
+        isScheduled = false
+        defer {
+            if revision == id { tail = nil; isBusy = false }
+            isForgetting = false
+        }
+        // An old add may be inside the OS already. Wait for it before removing it.
+        await previous?.value
+        await removeNativeInvitation()
+        let pending = await notifications.pendingInvitation()
+        let delivered = await notifications.hasDeliveredInvitation()
+        if let saveFailure { report(saveFailure); throw saveFailure }
+        guard pending == nil, !delivered else {
+            let error = MorningInvitationForgetError.cleanupUnconfirmed
+            report(error)
+            throw error
+        }
+        errorMessage = nil
+        statusText = "No invitation is scheduled."
+    }
+
     /// Consume only after the app's foreground/busy policy says it can accept the entry.
     /// Saves before returning. A crash afterwards may require manual Start; this provides
     /// at-most-once automatic entry, not exactly-once execution across separate stores.
     public func consume(_ payload: MorningInvitationPayload) throws -> MorningInvitation? {
-        guard storageAvailable else { throw MorningInvitationError.invalidRecord }
+        guard storageAvailable, !isForgetting else { throw MorningInvitationError.invalidRecord }
         guard var current = invitation, current.consume(payload, at: now()) else { return nil }
-        do { try storage.save(current) }
+        do { try withReadyStorage(requireCurrentGeneration: true) { try storage.save(current) } }
         catch { report(error); throw error }
         invitation = current
         pendingPermissionOccurrenceID = nil
@@ -164,13 +219,15 @@ public final class MorningInvitationService {
 
     private func reload() {
         do {
-            invitation = try storage.load()
+            invitation = try withReadyStorage { try storage.load() }
             if invitation?.id != pendingPermissionOccurrenceID || invitation?.disposition != .enabled {
                 pendingPermissionOccurrenceID = nil
             }
             storageAvailable = true
             errorMessage = nil
         } catch {
+            invitation = nil
+            isScheduled = false
             storageAvailable = false
             pendingPermissionOccurrenceID = nil
             report(error)
@@ -185,27 +242,30 @@ public final class MorningInvitationService {
         revision = id
         isBusy = true
         let previous = tail
+        let generation = invitationGeneration
         let task = Task { @MainActor [self] in
             await previous?.value
             guard revision == id else { return }
-            await applyDesiredState(id: id)
+            await applyDesiredState(id: id, generation: generation)
             if revision == id { isBusy = false }
         }
         tail = task
         return task
     }
 
-    private func applyDesiredState(id: UUID) async {
+    private func applyDesiredState(id: UUID, generation: UUID?) async {
         do {
+            try checkGeneration(generation)
             var latestSettings = await notifications.settings()
             guard revision == id else { return }
+            try checkGeneration(generation)
             settings = latestSettings
             guard storageAvailable else {
                 await removeNativeInvitation()
                 return
             }
             if var current = invitation, current.expire(at: now()) {
-                try storage.save(current)
+                try withReadyStorage(requireCurrentGeneration: true) { try storage.save(current) }
                 invitation = current
                 pendingPermissionOccurrenceID = nil
             }
@@ -227,8 +287,10 @@ public final class MorningInvitationService {
                 if latestSettings.authorization == .notDetermined || latestSettings.authorization == .provisional {
                     _ = try await notifications.requestAuthorization()
                     guard revision == id else { return }
+                    try checkGeneration(generation)
                     latestSettings = await notifications.settings()
                     guard revision == id else { return }
+                    try checkGeneration(generation)
                     settings = latestSettings
                 }
             }
@@ -252,14 +314,18 @@ public final class MorningInvitationService {
             }
             let pending = await notifications.pendingInvitation()
             guard revision == id else { return }
+            try checkGeneration(generation)
             if pending?.matches(current) != true {
                 await notifications.removeDeliveredInvitation()
                 guard revision == id else { return }
+                try checkGeneration(generation)
                 try await notifications.add(current, sound: latestSettings.soundsEnabled)
                 guard revision == id else { return }
+                try checkGeneration(generation)
             }
             let registered = await notifications.pendingInvitation()
             guard revision == id else { return }
+            try checkGeneration(generation)
             isScheduled = registered?.matches(current) == true
             if isScheduled {
                 errorMessage = nil
@@ -281,6 +347,35 @@ public final class MorningInvitationService {
     private func removeNativeInvitation() async {
         await notifications.removePendingInvitation()
         await notifications.removeDeliveredInvitation()
+    }
+
+    private func withReadyStorage<T>(requireCurrentGeneration: Bool = false, _ body: () throws -> T) throws -> T {
+        guard let privacy else { return try body() }
+        return try privacy.withReadyAccess { state in
+            if requireCurrentGeneration, state.generation != invitationGeneration {
+                throw MorningInvitationForgetError.staleGeneration
+            }
+            let value = try body()
+            invitationGeneration = state.generation
+            return value
+        }
+    }
+
+    private func saveForgottenPreference() throws {
+        guard let privacy else { try storage.save(nil); return }
+        let state = try privacy.status()
+        if state.forgetPending, let generation = state.generation {
+            try privacy.withForgetAccess(expectedGeneration: generation) { try storage.save(nil) }
+        } else {
+            try privacy.withReadyAccess { _ in try storage.save(nil) }
+        }
+    }
+
+    private func checkGeneration(_ generation: UUID?) throws {
+        guard let privacy else { return }
+        try privacy.withReadyAccess { state in
+            guard state.generation == generation else { throw MorningInvitationForgetError.staleGeneration }
+        }
     }
 
     private func report(_ error: any Error) {
@@ -359,5 +454,9 @@ private final class NativeMorningInvitationNotificationClient: MorningInvitation
     func removeDeliveredInvitation() async {
         center.removeDeliveredNotifications(withIdentifiers: [requestIdentifier])
         _ = await center.deliveredNotifications()
+    }
+
+    func hasDeliveredInvitation() async -> Bool {
+        await center.deliveredNotifications().contains { $0.request.identifier == requestIdentifier }
     }
 }

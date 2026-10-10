@@ -155,7 +155,7 @@ final class MorningStore {
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
     private(set) var consumedMorningEntryIDs: [UUID] = []
-    var storageIsAvailable: Bool { snapshotRecoveryError == nil }
+    var storageIsAvailable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
     var voiceCommandPresented = false
     var morningDetailPresented = false
     var observationDetailPresented = false
@@ -200,25 +200,49 @@ final class MorningStore {
     private let recordingRecovery: PendingScreenRecordingStore
     @ObservationIgnored private var snapshotRecoveryError: String?
     private var analysisTask: Task<Void, Never>?
+    private var analysisAttempt: UUID?
+    private var calendarTask: Task<Void, Never>?
+    private let privacyControl: LocalDataControl
+    #if DEBUG
+    private var privacyTestAnalysisGate: CheckedContinuation<Void, Never>?
+    private(set) var privacyTestAnalysisWaiting = false
+    #endif
+    private(set) var dataGeneration = UUID()
+    private(set) var privacyIsForgetting = false
+    private(set) var privacyNeedsCleanup = false
+    private(set) var privacyHasInterruptedRemoval = false
+    private(set) var privacyStatus: String?
+    private(set) var privacyCompletedID: UUID?
+    private(set) var activityLoggingAllowed = true
+    var privacyBlocksWork: Bool { privacyIsForgetting || privacyNeedsCleanup }
+    var privacyInventoryIsReadable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
 
     init() {
         let fixtureMode = ProcessInfo.processInfo.arguments.contains("--ui-testing")
-        let directory: URL
-        if fixtureMode {
-            let suppliedID = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("--ui-testing-workspace=") }
-                .flatMap { UUID(uuidString: String($0.dropFirst("--ui-testing-workspace=".count))) }
-            directory = FileManager.default.temporaryDirectory
-                .appendingPathComponent("MorningOperatorUITests-\((suppliedID ?? UUID()).uuidString)")
-        } else if let override = ProcessInfo.processInfo.environment["MORNING_OPERATOR_DATA_DIR"] {
-            directory = URL(fileURLWithPath: override, isDirectory: true)
-        } else {
-            directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("MorningOperator", isDirectory: true)
-        }
+        let directory = LocalDataControl.defaultDirectory
+        privacyControl = LocalDataControl(directory: directory)
         snapshot = AtomicJSONFile(url: directory.appendingPathComponent("workspace.json"))
         recordingRecovery = PendingScreenRecordingStore(directory: directory)
         invitation = MorningInvitationService(directory: directory)
-        defer { connectRecordingRecovery() }
+        #if DEBUG
+        repairPrivacyFixtureIfRequested(directory: directory)
+        #endif
+        defer { if !privacyBlocksWork { connectRecordingRecovery() } }
+        do {
+            let control = try privacyControl.status()
+            if let generation = control.generation { dataGeneration = generation }
+            activityLoggingAllowed = control.activityLoggingAllowed
+            if control.forgetPending {
+                privacyHasInterruptedRemoval = true
+                privacyNeedsCleanup = true
+                privacyStatus = "Finishing the removal you requested. Saved data stays unavailable until cleanup completes."
+                return
+            }
+        } catch {
+            privacyNeedsCleanup = true
+            privacyStatus = "The local data controls couldn't be read. Open Privacy to retry removing local data. \(error.localizedDescription)"
+            return
+        }
         do {
             pendingRecordingURL = try recordingRecovery.recover()
             if pendingRecordingURL != nil {
@@ -250,6 +274,9 @@ final class MorningStore {
             automatic = false
             readAloud = false
             seedObservationArchiveIfRequested()
+            #if DEBUG
+            seedPrivacyFixtureIfRequested(directory: directory)
+            #endif
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             do {
                 let saved = try snapshot.load()
@@ -343,7 +370,7 @@ final class MorningStore {
 
     var hasImportedObservation: Bool { (selectedObservationID != nil || !notes.isEmpty || observationVideoEvidence != nil) && notesSourceLabel != "Your written observation" }
     var hasPendingRecording: Bool { pendingRecordingURL != nil }
-    var canStartRecording: Bool { !busy && !sessionActive && !hasPendingRecording }
+    var canStartRecording: Bool { storageIsAvailable && !busy && !sessionActive && !hasPendingRecording }
 
     var totalMinutes: Int { routine?.steps.reduce(0) { $0 + $1.durationMinutes } ?? 0 }
     var stateLabel: String { session?.status.rawValue ?? (routine?.isApproved == true ? "ready" : "review") }
@@ -362,6 +389,7 @@ final class MorningStore {
     var canSuggestSavedObservations: Bool { routinePreferencesIssue == nil && (intelligence.isAvailable || usesSyntheticProposalFixture) }
 
     func loadSample() {
+        guard !privacyBlocksWork else { return }
         guard !sessionActive, !busy else {
             notice = "Finish or stop this morning before changing the routine."
             return
@@ -374,6 +402,7 @@ final class MorningStore {
 
     @discardableResult
     func approve() -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard let routine, !busy, !sessionActive else { return false }
         guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return false }
         guard !routine.steps.isEmpty else { notice = "Add at least one step before approving."; return false }
@@ -394,7 +423,8 @@ final class MorningStore {
 
     @discardableResult
     func updateSteps(_ steps: [RoutineStep]) -> Bool {
-        saveRoutineEdit(steps: steps, preferences: routinePreferences)
+        guard !privacyBlocksWork else { return false }
+        return saveRoutineEdit(steps: steps, preferences: routinePreferences)
     }
 
     func savedPreference(for step: RoutineStep) -> RoutinePreference? {
@@ -403,6 +433,7 @@ final class MorningStore {
 
     @discardableResult
     func saveStep(_ edited: RoutineStep, keepInSuggestions: Bool, keepDuration: Bool) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return false }
         do {
             var preferences = routinePreferences
@@ -427,6 +458,7 @@ final class MorningStore {
 
     @discardableResult
     func removeStep(_ step: RoutineStep, excludeFromSuggestions: Bool) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return false }
         do {
             var preferences = routinePreferences
@@ -441,6 +473,7 @@ final class MorningStore {
 
     @discardableResult
     func clearRoutinePreference(targetID: UUID) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard !busy, !sessionActive, routinePreferencesIssue == nil else { return false }
         let old = routinePreferences
         let oldProposal = pendingRoutineProposal
@@ -453,6 +486,7 @@ final class MorningStore {
 
     @discardableResult
     func resetUnreadableRoutinePreferences() -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard !busy, !sessionActive, routinePreferencesIssue != nil else { return false }
         let old = unreadablePreferences
         let oldIssue = routinePreferencesIssue
@@ -472,6 +506,7 @@ final class MorningStore {
     }
 
     private func saveRoutineEdit(steps: [RoutineStep], preferences: RoutinePreferenceJournal) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard let oldRoutine = routine, !sessionActive, !busy, storageIsAvailable else { return false }
         let oldPrevious = previousRoutine
         let oldSession = session
@@ -493,6 +528,7 @@ final class MorningStore {
 
     @discardableResult
     func start(entryID: UUID? = nil) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard let routine, !busy, !voiceInputBlocksPlayback, !captureVoicePresented, !hasPendingSpokenCapture else { return false }
         if let entryID, consumedMorningEntryIDs.contains(entryID) { return false }
         // Revealing an already running morning must not dispatch its speech again.
@@ -525,6 +561,7 @@ final class MorningStore {
     /// if a save fails after consumption, the person uses the ordinary Start button.
     @discardableResult
     func handleMorningEntry(_ request: MorningEntryRequest, destination: MorningEntryDestination) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard destination != .wait else { return false }
         if destination == .start || destination == .resume { return start(entryID: request.id) }
         guard !consumedMorningEntryIDs.contains(request.id), storageIsAvailable else { return true }
@@ -539,6 +576,7 @@ final class MorningStore {
     }
 
     func pause() {
+        guard !privacyBlocksWork else { return }
         cancelVoiceCommandTurn()
         automation.cancel()
         do { try session?.pause(); speech.stop(); notice = nil; persist() }
@@ -546,6 +584,7 @@ final class MorningStore {
     }
 
     func resume() {
+        guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
         do {
             try session?.resume(); notice = nil
@@ -556,6 +595,7 @@ final class MorningStore {
     }
 
     func advance(skipping: Bool = false, commandID: UUID = UUID()) {
+        guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
         automation.cancel()
         do {
@@ -573,6 +613,7 @@ final class MorningStore {
     }
 
     func stop() {
+        guard !privacyBlocksWork else { return }
         cancelVoiceCommandTurn()
         automation.cancel()
         speech.stop()
@@ -581,12 +622,14 @@ final class MorningStore {
     }
 
     func readCurrent() {
+        guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback, let step = currentStep else { return }
         automation.cancel()
         speech.speak("\(step.title). \(step.detail)")
     }
 
     func openVoiceCommands() {
+        guard !privacyBlocksWork else { return }
         guard sessionActive else { return }
         if session?.status == .running { pause() }
         voiceCommandFeedback = nil
@@ -599,6 +642,7 @@ final class MorningStore {
     }
 
     func listenForCommand(language: MorningVoiceCommandLanguage) {
+        guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback, session?.status == .paused, let context = voiceContext else { return }
         voiceCommandPreparing = true
         voiceCommandFeedback = nil
@@ -685,6 +729,7 @@ final class MorningStore {
     }
 
     func speakQueuedCompletionInvitation() {
+        guard !privacyBlocksWork else { return }
         guard let id = completionInvitationSessionID else { return }
         completionInvitationSessionID = nil
         guard readAloud, hasSavedCompletedSession, session?.id == id,
@@ -702,6 +747,7 @@ final class MorningStore {
     }
 
     func openCompletionCapture() {
+        guard !privacyBlocksWork else { return }
         guard hasSavedCompletedSession, storageIsAvailable, !busy,
               !capturePresented, !voiceInputBlocksPlayback, !voiceCommandPresented else { return }
         completionInvitationSessionID = nil
@@ -713,6 +759,7 @@ final class MorningStore {
     }
 
     func listenForCompletionCapture(language: MorningVoiceCommandLanguage) {
+        guard !privacyBlocksWork else { return }
         guard captureVoicePresented, !voiceInputBlocksPlayback,
               let id = completionVoiceSessionID, session?.id == id, session?.status == .completed else { return }
         let attempt = UUID()
@@ -832,20 +879,26 @@ final class MorningStore {
     func refreshCapabilities() { intelligence.refreshCapabilities() }
 
     func connectCalendar() {
-        guard !calendarBusy else { return }
+        guard !privacyBlocksWork, !calendarBusy else { return }
+        let generation = dataGeneration
         calendarBusy = true
-        Task { [weak self] in
+        calendarTask = Task { [weak self] in
             guard let self else { return }
-            defer { calendarBusy = false }
+            defer { if dataGeneration == generation { calendarBusy = false; calendarTask = nil } }
             do {
                 try await calendar.requestAccess()
+                guard dataGeneration == generation, !privacyBlocksWork, !Task.isCancelled else { return }
                 calendarSnapshot = try calendar.snapshot()
                 notice = "Today's schedule was read from the local calendar store. No events were changed."
-            } catch { notice = error.localizedDescription }
+            } catch {
+                guard dataGeneration == generation, !privacyBlocksWork else { return }
+                notice = error.localizedDescription
+            }
         }
     }
 
     func readCalendar() {
+        guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback, let snapshot = calendarSnapshot else { return }
         guard Calendar.current.isDateInToday(snapshot.dayStart) else {
             notice = "This schedule is from an earlier day. Refresh it before reading."
@@ -924,7 +977,7 @@ final class MorningStore {
             let evidence = try LearningEvidencePreparation.prepare(acquisitions: acquisitions)
             let base = routine
             let preferences = routinePreferences
-            beginAnalysis()
+            let attempt = beginAnalysis()
             analysisStatus = usesSyntheticProposalFixture
                 ? "Preparing a synthetic suggestion test…" : "Finding a routine in your saved mornings…"
             analysisTask = Task { [weak self] in
@@ -934,12 +987,24 @@ final class MorningStore {
                     if usesSyntheticProposalFixture {
                         // The fixture exercises assembly, stale checks, saving and approval;
                         // it is never evidence that a Foundation Models request succeeded.
+                        #if DEBUG
+                        if ProcessInfo.processInfo.arguments.contains("--ui-testing-privacy-delayed-analysis") {
+                            // A manually released, noncooperative callback tests reset
+                            // ownership without a timing race or a model invocation.
+                            await withCheckedContinuation { continuation in
+                                privacyTestAnalysisGate = continuation
+                                privacyTestAnalysisWaiting = true
+                            }
+                        } else { try await Task.sleep(for: .seconds(1)) }
+                        #else
                         try await Task.sleep(for: .seconds(1))
+                        #endif
                         proposal = try syntheticEvidenceProposal(evidence: evidence, preserving: base, preferences: preferences)
                     } else {
                         proposal = try await intelligence.propose(evidence: evidence, preserving: base, preferences: preferences)
                     }
                     try Task.checkCancellation()
+                    guard acceptsAnalysis(attempt) else { return }
                     guard proposal.isCurrent(archive: observationArchive, baseRoutine: routine, preferences: routinePreferences) else {
                         busy = false
                         notice = "The observations or routine changed while the suggestion was being prepared. Choose mornings to try again."
@@ -955,7 +1020,7 @@ final class MorningStore {
                     busy = false
                     progress = 1
                     notice = "An update is ready to review. Your current morning is unchanged."
-                } catch { finishAnalysis(error: error) }
+                } catch { finishAnalysis(error: error, attempt: attempt) }
             }
         } catch { notice = error.localizedDescription }
     }
@@ -992,6 +1057,7 @@ final class MorningStore {
 
     @discardableResult
     func discardPendingRoutineProposal() -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard !busy, let proposal = pendingRoutineProposal else { return false }
         pendingRoutineProposal = nil
         guard persist() else { pendingRoutineProposal = proposal; return false }
@@ -1022,6 +1088,7 @@ final class MorningStore {
     /// Suggesting a routine is a separate explicit action after provenance review.
     @discardableResult
     func importObservation(_ url: URL) -> Bool {
+        guard !privacyBlocksWork else { return false }
         let ownedRecording = ScreenRecordingFiles.isOwnedRecording(url) || recordingRecovery.owns(url)
         let selectedURL: URL
         if ownedRecording {
@@ -1042,7 +1109,7 @@ final class MorningStore {
         // Save current corrections before a new import can replace the latest observation.
         // An app-owned recording has already been retained even if this write fails.
         guard saveObservationEdits() else { return ownedRecording }
-        beginAnalysis()
+        let attempt = beginAnalysis()
         analysisStatus = "Reading your selected observation…"
         let interruptionNote = ownedRecording ? pendingRecordingInterruption : nil
         let recordingContext = ownedRecording ? pendingRecordingContext : nil
@@ -1053,6 +1120,7 @@ final class MorningStore {
             do {
                 let fingerprint = try await fingerprintService.fingerprint(of: selectedURL)
                 try Task.checkCancellation()
+                guard acceptsAnalysis(attempt) else { return }
                 if let existing = observationArchive.entries.first(where: { $0.fileSHA256 == fingerprint.sha256 }) {
                     // A retry never overwrites its original, corrections, or assigned day.
                     projectObservation(existing.id)
@@ -1064,11 +1132,13 @@ final class MorningStore {
                     return
                 }
                 let observation = try await media.extract(from: selectedURL) { [weak self] fraction in
-                    self?.progress = fraction
+                    guard let self, self.acceptsAnalysis(attempt) else { return }
+                    self.progress = fraction
                 }
                 let visibleText = observation.text
                 let extracted = interruptionNote.map { "[Recording coverage: \($0)]\n\n\(visibleText)" } ?? visibleText
                 try Task.checkCancellation()
+                guard acceptsAnalysis(attempt) else { return }
                 let hasReadableText = observation.videoEvidence?.hasRecognizedText ?? !visibleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 guard hasReadableText else {
                     // An unsuccessful import must not erase the previous reviewed observation.
@@ -1084,6 +1154,7 @@ final class MorningStore {
                 // File-provider content can change while Vision works. Never attach a
                 // digest for different bytes to the extracted observation.
                 let finalFingerprint = try await fingerprintService.fingerprint(of: selectedURL)
+                guard acceptsAnalysis(attempt) else { return }
                 guard fingerprint.sha256 == finalFingerprint.sha256,
                       fingerprint.byteCount == finalFingerprint.byteCount else {
                     busy = false
@@ -1091,6 +1162,7 @@ final class MorningStore {
                     return
                 }
                 try Task.checkCancellation()
+                guard acceptsAnalysis(attempt) else { return }
                 let observedDate = try recordingContext.map {
                     try ObservationObservedDate(date: $0.startedAt, timeZoneIdentifier: $0.timeZoneIdentifier,
                         provenance: .recordingSession)
@@ -1114,7 +1186,8 @@ final class MorningStore {
                 busy = false
                 notice = "Observation saved. Review the text and its observed day before asking for a routine suggestion. Your routine is unchanged."
             } catch {
-                finishAnalysis(error: error)
+                guard acceptsAnalysis(attempt) else { return }
+                finishAnalysis(error: error, attempt: attempt)
                 observationIssue = notice
             }
         }
@@ -1122,6 +1195,7 @@ final class MorningStore {
     }
 
     func retryPendingRecording() {
+        guard !privacyBlocksWork else { return }
         guard let pendingRecordingURL, !busy, !sessionActive else { return }
         pendingRecordingShouldAutoProcess = false
         importObservation(pendingRecordingURL)
@@ -1137,6 +1211,7 @@ final class MorningStore {
 
     private func retainRecording(_ url: URL, interruptionNote: String?, recordingContext: ObservationRecordingContext?,
                                  automaticallyProcess: Bool) -> Bool {
+        guard !privacyBlocksWork else { return false }
         if let pendingRecordingURL, pendingRecordingURL.standardizedFileURL != url.standardizedFileURL {
             observationIssue = "Retry or discard your saved recording before adding another one."
             return false
@@ -1188,6 +1263,7 @@ final class MorningStore {
     }
 
     func discardPendingRecording() {
+        guard !privacyBlocksWork else { return }
         guard !busy, pendingRecordingURL != nil else { return }
         do {
             try recordingRecovery.remove()
@@ -1227,6 +1303,7 @@ final class MorningStore {
     /// Editing keeps the original import/source context. The UI binds to this live value,
     /// so a later lifecycle save cannot restore a stale copy over newly imported text.
     func updateObservationNotes(_ text: String) {
+        guard !privacyBlocksWork else { return }
         guard !busy, !sessionActive, !text.utf8.elementsEqual(notes.utf8) else { return }
         notes = text
         if let selectedObservationID,
@@ -1243,11 +1320,13 @@ final class MorningStore {
     /// Failed writes keep the current text and dirty state available for retry.
     @discardableResult
     func saveObservationEdits() -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard observationEditsNeedSave else { return true }
         return persist()
     }
 
     func clearObservation() {
+        guard !privacyBlocksWork else { return }
         guard !busy, !sessionActive else { return }
         if let id = selectedObservationID { _ = deleteObservation(id: id) }
         else {
@@ -1259,6 +1338,7 @@ final class MorningStore {
 
     @discardableResult
     func selectObservation(id: UUID) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard !busy, !sessionActive, observationArchive.entry(id: id) != nil,
               saveObservationEdits() else { return false }
         return changeObservationArchive(selecting: id) { _ in }
@@ -1267,6 +1347,7 @@ final class MorningStore {
     @discardableResult
     func assignObservationDate(id: UUID, date: Date?, timeZoneIdentifier: String,
                                origin: ObservationAcquisitionOrigin) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard !busy, !sessionActive, saveObservationEdits() else { return false }
         do {
             let observed = try date.map {
@@ -1280,6 +1361,7 @@ final class MorningStore {
 
     @discardableResult
     func deleteObservation(id: UUID) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard !busy, !sessionActive else { return false }
         // Deleting the selected entry intentionally discards its unsaved correction.
         // Edits to a different entry must reach disk before this independent change.
@@ -1291,6 +1373,7 @@ final class MorningStore {
 
     @discardableResult
     func clearAllObservations() -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard !busy, !sessionActive else { return false }
         return changeObservationArchive(selecting: nil) { $0.clear() }
     }
@@ -1308,6 +1391,7 @@ final class MorningStore {
 
     private func changeObservationArchive(selecting id: UUID?,
                                           _ mutation: (inout ObservationArchive) throws -> Void) -> Bool {
+        guard !privacyBlocksWork else { return false }
         let previousArchive = observationArchive
         let previousID = selectedObservationID
         let previousNotes = notes
@@ -1383,7 +1467,7 @@ final class MorningStore {
 
     func cancelAnalysis() {
         analysisTask?.cancel()
-        analysisTask = nil
+        // Keep the owner so privacy cleanup can await its actual completion.
         // Retain busy until the worker acknowledges cancellation, so a second model run cannot overlap.
         analysisStatus = "Stopping analysis…"
     }
@@ -1391,9 +1475,10 @@ final class MorningStore {
     /// Separate, explicit interpretation of the latest sampled screens. This never treats
     /// OCR order as touch events, grants action authority, or changes the approved routine.
     func recognizeObservationScreens() {
+        guard !privacyBlocksWork else { return }
         guard let evidence = observationVideoEvidence, !busy, !sessionActive,
               evidence.frames.contains(where: \.canSupportIdentity), saveObservationEdits() else { return }
-        beginAnalysis()
+        let attempt = beginAnalysis()
         let acquisitionID = selectedObservationID
         analysisStatus = "Recognizing the screens we sampled…"
         analysisTask = Task { [weak self] in
@@ -1401,6 +1486,7 @@ final class MorningStore {
             do {
                 let result = try await contextClassifier.classify(frames: evidence.frames)
                 try Task.checkCancellation()
+                guard acceptsAnalysis(attempt) else { return }
                 guard observationVideoEvidence?.id == evidence.id,
                       selectedObservationID == acquisitionID else { throw CancellationError() }
                 _ = try evidence.makeTrace(decisions: result.decisions)
@@ -1409,11 +1495,12 @@ final class MorningStore {
                 busy = false
                 progress = 1
                 if persist() { notice = "Screen observations updated. Review what was recognized and what remains unknown." }
-            } catch { finishAnalysis(error: error) }
+            } catch { finishAnalysis(error: error, attempt: attempt) }
         }
     }
 
     func useManualRoutine() {
+        guard !privacyBlocksWork else { return }
         guard !sessionActive, !busy else { notice = "Stop this morning before creating another routine."; return }
         installCandidate(RoutineVersion(number: 1, sourceLabel: "Created by you", steps: [
             RoutineStep(title: "A calm start", detail: "Review what matters today.", kind: .briefing, durationMinutes: 3, isRequired: true, automation: .spokenNote)
@@ -1427,6 +1514,7 @@ final class MorningStore {
     /// a routine that changed while the file provider was loading.
     @discardableResult
     func useImportedRoutine(_ document: PortableRoutineDocument, replacing expectedBase: RoutineVersion?) -> Bool {
+        guard !privacyBlocksWork else { return false }
         guard !busy, !sessionActive, !voiceInputBlocksPlayback, storageIsAvailable else {
             notice = "Finish the current activity before importing a routine."
             return false
@@ -1460,6 +1548,7 @@ final class MorningStore {
     }
 
     func restorePreviousRoutine() {
+        guard !privacyBlocksWork else { return }
         guard !busy, !sessionActive, let previousRoutine else { return }
         let oldRoutine = routine
         let oldSession = session
@@ -1484,16 +1573,23 @@ final class MorningStore {
         session = nil
     }
 
-    private func beginAnalysis() {
-        guard !sessionActive, !busy else { return }
+    private func beginAnalysis() -> UUID {
+        let attempt = UUID()
+        analysisAttempt = attempt
         busy = true
         progress = 0
         notice = nil
         observationIssue = nil
         analysisStatus = "Finding the meaningful steps…"
+        return attempt
     }
 
-    private func finishAnalysis(error: Error) {
+    private func acceptsAnalysis(_ attempt: UUID) -> Bool {
+        analysisAttempt == attempt && !privacyBlocksWork
+    }
+
+    private func finishAnalysis(error: Error, attempt: UUID) {
+        guard acceptsAnalysis(attempt) else { return }
         busy = false
         progress = 0
         notice = error is CancellationError ? "Analysis stopped. Your existing routine is unchanged." : error.localizedDescription
@@ -1503,6 +1599,7 @@ final class MorningStore {
     func saveVoicePreference() { persist() }
 
     func executionPreferencesChanged() {
+        guard !privacyBlocksWork else { return }
         automation.cancel()
         speech.stop()
         guard persist() else { pauseAfterSaveFailure(); return }
@@ -1510,6 +1607,7 @@ final class MorningStore {
     }
 
     func openCapture(text: String = "", source: QuickCaptureSource = .typed) {
+        guard !privacyBlocksWork else { return }
         completionInvitationSessionID = nil
         stopCompletionInvitation()
         capturePrefill = text
@@ -1520,13 +1618,14 @@ final class MorningStore {
     @discardableResult
     func saveCapture(kind: QuickCaptureKind, text: String, date: Date?, duration: Int = 30,
                      saveToSystem: Bool, id: UUID, source: QuickCaptureSource) async -> Bool {
-        guard !captureBusy else { return false }
+        guard !privacyBlocksWork, !captureBusy else { return false }
+        let generation = dataGeneration
         guard pendingCaptures[id.uuidString] == nil else {
             notice = "This save has an unconfirmed outcome. Check the Apple app before trying again."
             return false
         }
         captureBusy = true
-        defer { captureBusy = false }
+        defer { if dataGeneration == generation { captureBusy = false } }
         do {
             let capture = try QuickCapture(id: id, kind: kind, text: text, requestedDate: date, source: source)
             if saveToSystem {
@@ -1544,6 +1643,7 @@ final class MorningStore {
                 switch kind {
                 case .reminder:
                     try await reminders.requestReminderAccess()
+                    guard dataGeneration == generation, !privacyBlocksWork, !Task.isCancelled else { return false }
                     pendingCaptures[id.uuidString] = "Reminders"
                     upsertCapture(capture)
                     guard persist() else { pendingCaptures[id.uuidString] = nil; return false }
@@ -1552,6 +1652,7 @@ final class MorningStore {
                 case .calendarIdea:
                     guard let date else { notice = "Choose a date and time for the calendar event."; return false }
                     try await reminders.requestCalendarWriteAccess()
+                    guard dataGeneration == generation, !privacyBlocksWork, !Task.isCancelled else { return false }
                     pendingCaptures[id.uuidString] = "Calendar"
                     upsertCapture(capture)
                     guard persist() else { pendingCaptures[id.uuidString] = nil; return false }
@@ -1571,6 +1672,7 @@ final class MorningStore {
             // A completed external write dismisses the draft even if the local disk write failed.
             return saved || saveToSystem
         } catch {
+            guard dataGeneration == generation, !privacyBlocksWork else { return false }
             notice = pendingCaptures[id.uuidString] == nil ? error.localizedDescription :
                 "The Apple app save could not be confirmed. Check it before retrying. \(error.localizedDescription)"
             return false
@@ -1589,6 +1691,7 @@ final class MorningStore {
     var weekSummary: SevenDaySummary? { try? history.sevenDaySummary(endingOn: Date()) }
 
     private func runCurrentIfEnabled() {
+        guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
         guard let session, session.status == .running else { return }
         if automatic {
@@ -1627,6 +1730,7 @@ final class MorningStore {
 
     @discardableResult
     private func persist() -> Bool {
+        guard !privacyBlocksWork else { return false }
         if let snapshotRecoveryError {
             notice = "\(snapshotRecoveryError) Your existing file is protected; new changes cannot be saved until it can be restored."
             if observationEditsNeedSave { observationSaveIssue = notice }
@@ -1640,7 +1744,8 @@ final class MorningStore {
             let validProposal = routinePreferencesIssue == nil ? pendingRoutineProposal.flatMap {
                 $0.isCurrent(archive: observationArchive, baseRoutine: routine, preferences: routinePreferences) ? $0 : nil
             } : nil
-            try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
+            try privacyControl.withReadyAccess { _ in
+                try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
                 automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
                 pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
@@ -1652,6 +1757,7 @@ final class MorningStore {
                 pendingRoutineProposal: validProposal.map(RecoverableRoutineProposal.init),
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences)))
+            }
             pendingRoutineProposal = validProposal
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
             observationEditsNeedSave = false
@@ -1665,4 +1771,195 @@ final class MorningStore {
             return false
         }
     }
+
+    /// The durable marker closes all writers before cleanup begins. Interrupted
+    /// removal stays closed on launch and is retried; old snapshots are never
+    /// restored as a rollback after any deletion has begun.
+    func forgetLocalData() async {
+        guard !privacyIsForgetting else { return }
+        let control: LocalDataControlState
+        do {
+            control = try privacyControl.beginForget()
+        } catch {
+            privacyStatus = "Removal couldn't start. No saved data was removed by this attempt. \(error.localizedDescription)"
+            return
+        }
+        guard let generation = control.generation else { return }
+        privacyIsForgetting = true
+        privacyHasInterruptedRemoval = true
+        privacyNeedsCleanup = true
+        activityLoggingAllowed = false
+        dataGeneration = generation
+        privacyStatus = "Stopping work and removing local data…"
+        analysisAttempt = nil
+        let oldAnalysis = analysisTask
+        oldAnalysis?.cancel()
+        calendarTask?.cancel()
+        calendarTask = nil
+        automation.cancel()
+        speech.stop()
+        cancelVoiceCommandTurn()
+        cancelCompletionCapture()
+        releaseVoiceInput()
+        MorningIntentRouter.shared.resetPendingRequests()
+        do {
+            // Vision/file-provider work must finish before its source is removed.
+            // Delayed callbacks are independently rejected by the attempt/epoch.
+            await oldAnalysis?.value
+            analysisTask = nil
+            await voiceInputReleaseTask?.value
+            try await voiceCommands.cancel()
+            try await speech.stopAndRelease()
+            #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+            if #available(iOS 27.0, *) {
+                try await ScreenRecordingService.shared.discardAndWait()
+            } else {
+                try ScreenRecordingFiles.removeAllOwnedRecordings()
+            }
+            #else
+            try ScreenRecordingFiles.removeAllOwnedRecordings()
+            #endif
+            try await invitation.forget()
+            try privacyControl.withForgetAccess(expectedGeneration: generation) {
+                try recordingRecovery.removeAllOwnedData()
+                for name in ["app-transitions.json", "morning-invitation.json"] {
+                    try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
+                }
+                let directory = snapshot.url.deletingLastPathComponent()
+                // Interrupted AtomicJSONFile staging writes may contain the full
+                // old workspace. The namespace is reserved for this app's writes.
+                for url in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                    where url.lastPathComponent.hasPrefix(".morning-save-") {
+                    try removeOwnedPayload(url)
+                }
+                // An explicit empty archive/choice journal prevents legacy
+                // migration and isolated demo seeding from restoring content.
+                try snapshot.save(WorkspaceSnapshot(history: MorningHistory(), captures: [], receipts: [:],
+                    automatic: true, readAloud: true, pendingCaptures: [:],
+                    observationArchive: ObservationArchive(), consumedMorningEntryIDs: [],
+                    routinePreferences: .init(RoutinePreferenceJournal())))
+            }
+            clearForgottenMemory()
+            try privacyControl.finishForget(expectedGeneration: generation)
+            privacyNeedsCleanup = false
+            privacyHasInterruptedRemoval = false
+            privacyIsForgetting = false
+            privacyStatus = "MORE’s local data was removed. App activity logging is off."
+            privacyCompletedID = UUID()
+            connectRecordingRecovery()
+        } catch {
+            // Cleanup can be partial. Keep the durable marker and do not claim
+            // either complete removal or preservation of the original workspace.
+            privacyIsForgetting = false
+            privacyStatus = "Removal needs another try. Some local data may already be gone; remaining data stays unavailable. \(error.localizedDescription)"
+        }
+    }
+
+    func setActivityLoggingAllowed(_ allowed: Bool) {
+        guard !privacyBlocksWork else { return }
+        do {
+            try privacyControl.setActivityLoggingAllowed(allowed)
+            activityLoggingAllowed = allowed
+            privacyStatus = allowed ? "Your configured Shortcuts can save new app activity." : "New app activity will no longer be saved. Existing activity stays until you remove local data."
+        } catch { privacyStatus = "This setting couldn't be saved. \(error.localizedDescription)" }
+    }
+
+    private func removeOwnedPayload(_ url: URL) throws {
+        // Unlink a known symlink itself, never its target. Unexpected directories
+        // are left in place and reported rather than recursively removed.
+        let attributes: [FileAttributeKey: Any]
+        do { attributes = try FileManager.default.attributesOfItem(atPath: url.path) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile { return }
+        guard let type = attributes[.type] as? FileAttributeType,
+              type == .typeRegular || type == .typeSymbolicLink else {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        try FileManager.default.removeItem(at: url)
+    }
+
+    private func clearForgottenMemory() {
+        routine = nil; session = nil; previousRoutine = nil
+        notes = ""; notesSourceLabel = "Your written observation"
+        observationArchive = ObservationArchive(); selectedObservationID = nil
+        observationVideoEvidence = nil; observationContextClassification = nil
+        observationSaveIssue = nil; observationEditsNeedSave = false; observationIssue = nil
+        pendingRoutineProposal = nil
+        routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
+        history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
+        pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
+        pendingRecordingInterruption = nil; pendingRecordingContext = nil
+        calendarSnapshot = nil; calendarBusy = false
+        captureBusy = false; capturePresented = false; capturePrefill = ""; captureSource = .typed
+        voiceCommandPresented = false; captureVoicePresented = false
+        voiceCommandFeedback = nil; completionCaptureFeedback = nil
+        voiceCommandDeduplicator = MorningVoiceCommandDeduplicator()
+        completionInvitationSessionID = nil; lastCompletionOffered = nil; savedCompletionSessionID = nil
+        dismissedReflectionSessionID = nil; completionVoiceSessionID = nil; pendingSpokenCapture = nil
+        morningDetailPresented = false; observationDetailPresented = false
+        observationSelectionPresented = false; routineProposalPresented = false
+        consumedMorningEntryIDs = []; sessionTimingInterrupted = false; sessionTimeZone = TimeZone.current.identifier
+        readAloud = true; automatic = true; speech.voiceIdentifier = nil
+        busy = false; progress = 0; analysisStatus = ""; snapshotRecoveryError = nil; notice = nil
+        MorningIntentRouter.shared.resetPendingRequests()
+        tab = .today
+    }
+
+
+    #if DEBUG
+    private var usesPrivacyFixture: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return args.contains("--ui-testing") && args.contains("--ui-testing-privacy-fixture") &&
+            args.first(where: { $0.hasPrefix("--ui-testing-workspace=") })
+                .flatMap { UUID(uuidString: String($0.dropFirst("--ui-testing-workspace=".count))) } != nil
+    }
+
+    private func seedPrivacyFixtureIfRequested(directory: URL) {
+        guard usesPrivacyFixture else { return }
+        do {
+            captures = [try QuickCapture(kind: .dream, text: "SYNTHETIC_PRIVACY_DREAM", source: .typed)]
+            if let step = routine?.steps.first { try routinePreferences.upsert(RoutinePreference(target: step, presence: .keep)) }
+            let recovery = directory.appendingPathComponent("RecordingRecovery", isDirectory: true)
+            try FileManager.default.createDirectory(at: recovery, withIntermediateDirectories: true)
+            for name in ["pending-screen-recording.mp4", "recording-info.json"] {
+                try Data("SYNTHETIC_PRIVACY_RECOVERY".utf8).write(to: recovery.appendingPathComponent(name))
+            }
+            try Data("SYNTHETIC_PRIVACY_SNAPSHOT_LEFTOVER".utf8)
+                .write(to: directory.appendingPathComponent(".morning-save-privacy-fixture"))
+            try Data("SYNTHETIC_IMPORTED_ORIGINAL_KEEP".utf8)
+                .write(to: directory.appendingPathComponent("imported-original-sentinel.txt"))
+            try Data("SYNTHETIC_EXPORTED_COPY_KEEP".utf8)
+                .write(to: directory.appendingPathComponent("exported-copy-sentinel.json"))
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-privacy-cleanup-failure") {
+                let barrier = directory.appendingPathComponent("app-transitions.json", isDirectory: true)
+                try FileManager.default.createDirectory(at: barrier, withIntermediateDirectories: true)
+                try Data("SYNTHETIC_PRIVACY_FAILURE_ONLY".utf8).write(to: barrier.appendingPathComponent("test-only-barrier"))
+            } else {
+                try Data("SYNTHETIC_PRIVACY_ACTIVITY_CORRUPT".utf8).write(to: directory.appendingPathComponent("app-transitions.json"))
+            }
+            persist()
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-privacy-delayed-analysis"), let id = selectedObservationID {
+                suggestRoutine(from: [id])
+            }
+        } catch { notice = "Synthetic privacy fixture failed: \(error.localizedDescription)" }
+    }
+
+    private func repairPrivacyFixtureIfRequested(directory: URL) {
+        guard usesPrivacyFixture, ProcessInfo.processInfo.arguments.contains("--ui-testing-privacy-repair") else { return }
+        let barrier = directory.appendingPathComponent("app-transitions.json", isDirectory: true)
+        let marker = barrier.appendingPathComponent("test-only-barrier")
+        guard (try? Data(contentsOf: marker)) == Data("SYNTHETIC_PRIVACY_FAILURE_ONLY".utf8),
+              (try? FileManager.default.contentsOfDirectory(atPath: barrier.path)) == ["test-only-barrier"] else { return }
+        // Repair only the exact deliberate test barrier; never a production file.
+        try? FileManager.default.removeItem(at: marker)
+        try? FileManager.default.removeItem(at: barrier)
+    }
+
+    func releasePrivacyTestAnalysis() {
+        privacyTestAnalysisWaiting = false
+        let continuation = privacyTestAnalysisGate
+        privacyTestAnalysisGate = nil
+        continuation?.resume()
+    }
+    #endif
+
 }

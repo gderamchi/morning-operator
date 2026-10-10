@@ -93,8 +93,14 @@ public struct PendingScreenRecordingStore: Sendable {
     }
 
     public func remove() throws {
-        if try recover() != nil { try FileManager.default.removeItem(at: recordingURL) }
-        // A leftover generic coverage note must not turn a removed video into a phantom retry.
-        if FileManager.default.fileExists(atPath: metadataURL.path) { try? FileManager.default.removeItem(at: metadataURL) }
+        try removeAllOwnedData()
+    }
+
+    /// Explicit cleanup does not need to decode corrupt provenance or a broken
+    /// recovery symlink. Only these two owned leaf names are unlinked; a link's
+    /// target and unexpected directories remain untouched. Every failure throws.
+    public func removeAllOwnedData() throws {
+        try RecordingFileCleanup.remove(in: directory,
+            names: [recordingURL.lastPathComponent, metadataURL.lastPathComponent])
     }
 }
