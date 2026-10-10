@@ -227,6 +227,10 @@ struct ObservationHistoryRow: View {
         VStack(alignment: .leading, spacing: 5) {
             Text(entry.sourceLabel).font(.subheadline.weight(.medium)).lineLimit(2)
             Text(observationDateLabel(entry)).font(.caption).foregroundStyle(.secondary)
+            if let zone = entry.observedDate?.timeZoneIdentifier {
+                Text(zone.replacingOccurrences(of: "_", with: " "))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if entry.origin != .human {
                 Text(observationOriginLabel(entry.origin)).font(.caption).foregroundStyle(.secondary)
             }
@@ -297,26 +301,10 @@ struct ObservationHistoryDetail: View {
                     Text("Corrections change the notes used for suggestions. The original evidence stays available here.")
                 }
 
-                if let evidence = entry.videoEvidence {
+                if entry.videoEvidence != nil {
                     Section {
-                        LabeledContent("Sampled frames", value: "\(evidence.frames.count)")
-                        Text("Occasional sampled screens can miss activity. They don't prove taps, reads, scroll counts or complete app use.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        DisclosureGroup("Original sampled text") {
-                            ForEach(evidence.frames) { frame in
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(String(format: "%.2f s", frame.timeSeconds)).font(.caption.weight(.medium))
-                                    Text(frame.text.isEmpty ? "No readable text in this sample." : frame.text)
-                                        .font(.caption).textSelection(.enabled)
-                                    if frame.textWasTruncated { Text("Text limit reached.").font(.caption).foregroundStyle(.secondary) }
-                                }.padding(.vertical, 5)
-                            }
-                        }
-                        if let classification = entry.classification {
-                            Text(observationClassificationLabel(classification.status))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    } header: { Text("Original recording evidence") }
+                        ObservationClipTimelineView(acquisition: entry)
+                    } header: { Text("Recording evidence") }
                 }
 
                 if !entry.warnings.isEmpty {

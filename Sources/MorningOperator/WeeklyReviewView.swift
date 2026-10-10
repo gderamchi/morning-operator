@@ -32,6 +32,9 @@ struct WeeklyReviewView: View {
                 activeRecordingStatus
                 if let week {
                     weekSummary(week)
+                    if hasObservationsInPeriod {
+                        ObservationPeriodReviewLink(store: store, endingOn: periodEnd, onLearn: onLearn)
+                    }
                     if showingDays { days(in: week) }
                     if !week.apps.isEmpty {
                         DisclosureGroup("Observed app time") {
@@ -112,11 +115,11 @@ struct WeeklyReviewView: View {
                 Text("Time in your routine, excluding pauses. Other app use isn't measured here.")
                     .font(.caption).foregroundStyle(.secondary)
             } else {
-                Text(week.runCount == 0 ? "Your mornings will find their shape." : "A morning saved. Time still unknown.")
+                Text(week.runCount == 0 ? (hasObservationsInPeriod ? "A morning, remembered." : "Your mornings will find their shape.") : "A morning saved. Time still unknown.")
                     .font(.system(.title2, design: .serif, weight: .medium))
                 Text(week.runCount == 0
                      ? (hasObservationsInPeriod
-                        ? "Saved observations are below. Finish a routine to begin measuring routine time."
+                        ? "Explore the screens you saved below. Routine time begins with a completed run."
                         : "Finish a morning to begin your history. Days without a saved run stay empty.")
                      : "\(week.runCount) saved \(week.runCount == 1 ? "run has" : "runs have") no complete timing. They stay out of the average.")
                     .font(.subheadline).foregroundStyle(.secondary)
@@ -587,7 +590,7 @@ private struct ReviewDayDetail: View {
                     }
                 }
             } header: { Text("Observed mornings") } footer: {
-                Text("Grouped by each observation's saved local day and time zone. Sampled evidence isn't routine time or complete phone-use measurement.")
+                Text("Saved under this local date, with each recording’s time zone shown separately. Recordings are not joined into one timeline or a measurement of phone use.")
             }
             if day.runs.isEmpty {
                 Section {

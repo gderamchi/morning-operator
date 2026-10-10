@@ -309,6 +309,9 @@ final class MorningStore {
             seedObservationArchiveIfRequested()
             #if DEBUG
             seedPrivacyFixtureIfRequested(directory: directory)
+            if let archive = ObservationReviewUITestFixture.archive(directory: directory) {
+                observationArchive = archive
+            }
             #endif
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             do {
