@@ -15,6 +15,16 @@ flowchart LR
     F --> G
 ```
 
+## Seeded digest capture — 10 October 2026
+
+The new digest variant renders fresh synthetic message and event content, with an explicit seed for replay. The first actual run, `digest-handoff-01`, used seed **`0000000000000001`** and generator **`seeded-fixture-v1`**. The native test passed **1/1 in 81.623s**, with no skips, and the simulator movie finalized successfully. Its separate controller truth contains **20 events in total, including two verified `digestSource` records**; the source records verify specific visible fields rather than asserting a model answer. This is **one captured seed**, not three independent digest trials or five personal mornings.
+
+Fresh `selectedMovieLayoutReport` extraction passed **1/1 in 52.698s**, retaining **24 samples and 460 OCR regions**. All **24 frames** appear in prepared input, across **11 batches**. No model receives that preparation in this run. The independent literal check finds **11/11 required field strings somewhere in retained OCR**, using whitespace folding. It is not a check of sender/date association, source attribution, comprehension or semantic recall. The controller truth was opened after extraction completed.
+
+The next stage stays explicitly blocked: `actual-stage-status.json` records an unavailable producer and no claims because the semantic digest adapter is not implemented. The independent scorer actually ran and returned **exit 3**; `digest-score-blocked.json` has `benchmarkStatus: blocked`, null fact metrics and speech not assessed. A successfully captured movie and visible strings are not a produced, validated or spoken digest.
+
+Artifacts remain in ignored `work/observation-benchmark/digest-handoff-01/`, including the movie, seeded content, capture metadata, truth, test result, layout report, literal coverage and blocked-stage/score reports. The [digest protocol](DIGEST-TEST-PROTOCOL.md) provides repeatable seed commands and the three-seed/physical-app/day gates; the [scorer contract](../Benchmarks/morning-digest-contract.md) defines exact facts and runtime evidence. Fourteen synthetic scorer tests pass, which establishes scoring behavior only. The earlier baseline and failed recognition attempts below remain separate historical evidence.
+
 ## The first recording
 
 On 10 October 2026, Xcode 27 drove an iPhone 15 Pro Max simulator running iOS 27.0. The native driver passed **1/1 in 91.870 seconds**. Its 45 seconds of deliberate holds were only part of that time; app launch, accessibility verification and navigation took the rest. The finalized movie was **97.155 seconds**, including startup and teardown.

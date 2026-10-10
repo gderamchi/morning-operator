@@ -1,10 +1,10 @@
 # An invitation to start your morning
 
-**Historical invitation evidence at `6f647b4`; physical delivery and Siri validation pending.** MORE schedules one future local invitation and routes an explicit start request into an approved morning. That package suite passed **138 checks with two optional model skips**. A real local invitation was registered, delivered and tapped in the simulator; that first run exposed a callback-thread crash. Completing the delegate callback on the main actor fixed it: the targeted delivery → tap → approved start rerun passed **1/1 in 59.100s**. Five other entry checks passed before that final delegate fix, including deferral behind an open detail sheet. [PHASE-ONE](PHASE-ONE.md) preserves the separate runs and latest source. V2 has not replaced the owner's phone build.
+**Historical invitation evidence at `6f647b4`; physical delivery and Siri validation pending.** MORE schedules one future local invitation and routes an explicit start request into an approved morning. That package suite passed **138 checks with two optional model skips**. A real local invitation was registered, delivered and tapped in the simulator; that first run exposed a callback-thread crash. Completing the delegate callback on the main actor fixed it: the targeted delivery → tap → approved start rerun passed **1/1 in 59.100s**. Five other entry checks passed before that final delegate fix, including deferral behind an open detail sheet. [PHASE-ONE](PHASE-ONE.md) preserves the separate runs and latest source. See the verification record for the latest installed build; installation does not repeat delivery or Siri validation.
 
 ## Set a one-time invitation
 
-1. Open **Review → Settings → Your next morning**.
+1. Tap the small clock beside **morning**, or open **Review → Settings → Your next morning**. The home clock shows a time only for a registered upcoming invitation; opening the editor does not schedule it.
 2. Choose a future date and time, then **Set invitation**. This explicit action is the only invitation path that can request notification permission.
 3. Read the resulting status. A saved time is not necessarily a registered notification: denied access or disabled alerts leaves the preference unscheduled. **Notification settings** opens the system settings.
 4. When the notification appears, tap its body or **Start morning**. The app opens and starts or resumes an approved routine when ready. A draft opens review; an empty workspace opens learning.

@@ -1,6 +1,56 @@
 # MORE: implementation and verification
 
-Current app source is **`c91f69e`** on `codex/more-quiet-morning`. The signed iPhone app now builds with WeatherKit provisioning and a verified signature. Xcode's account is visible; the earlier account/signing blocker has changed. **Last verified phone install remains `8a640ea`**: the latest inventory found only the simulator and installation is pending reconnection. The complete product goal remains active.
+Current app source and installed phone build are **`0f94f6d`** on `codex/more-quiet-morning`. Its signed build and deep/strict signature verification succeeded; the ordinary app was installed and launched on the owner's physical iPhone on **10 October 2026**, without fixture flags or resetting the user store. No new physical capture, model, connected-service, microphone, HomePod or listener result accompanied installation. The bounded build/protocol/handoff deliverable is complete; the wider product is unfinished, and the owner's manual walkthrough remains open under #1.
+
+## Compact Morning refinement — 10 October 2026 (`0f94f6d`)
+
+Morning uses smaller system date/title/minutes, relative `+Nm` plan offsets and a native system popover anchored to the bottom-right sunrise. Outside dismissal and destination handoff preserve entry ownership. Current-moment detail states its purpose and supplies actual Pause/Continue/Next/Again controls; the exact English “again” and “read again” phrases map to repeat during an explicit voice-command turn. The home clock opens the existing one-time invitation editor, not a Clock alarm. Repeated Planned/Stopped and filler captions are removed while accessibility and session semantics remain explicit. Relative offsets remain estimates, not measured elapsed time.
+
+| Check | Actual result and scope |
+|---|---|
+| Shared policy and commands | **22/22 evidence-policy checks** and **10/10 voice-command checks passed**. These are focused selections, not a full shared-suite or microphone/model result. |
+| Full refinement UI selection | **14/14 passed in 334.417s**, no skips, with a finalized result and clean exit 0. Covers the refined home, popover, moment/detail controls, invitation entry, reordering/persistence and responsive layouts. This run preceded the final accessibility-only stopped-heading value and removal of duplicate active status. Summary: `work/compact-morning-ui-summary.json`. |
+| Final-source scoped rerun | **4/4 passed in 96.905s**, no skips, clean finalized success on the final source. Summary: `work/compact-morning-final-summary.json`. This reruns selected scenarios after the final adjustments; it is not four additional distinct journeys or another full 14-test run. |
+| Largest actual text | **1/1 passed in 27.329s**, no skips, clean finalized success using the simulator's largest accessibility text setting. Summary: `work/compact-morning-accessibility-summary.json`. This verifies the scoped touch/layout path, not VoiceOver or physical-device accessibility. |
+| Builds, signing and phone | Simulator builds and the signed iPhone build succeeded; deep/strict signature verification passed. `work/compact-iphone-install.json` and `work/compact-iphone-launch.json` both report success for the ordinary app, preserving the existing user store. |
+| Visual inspection | Actual previews from the 14-test selection and final rerun were inspected. This is inspection of the test output, not a new physical feature trial. |
+
+These selections have distinct scopes and overlapping scenarios; their counts are not summed into unique coverage. The previous `de6d4b1` results and partial-bundle history remain below. New runtime warnings mention `_UIPlatterView`, `DisplayListView` and `UIView` being added beneath a `UIHostingController`; no test failure or causal diagnosis is established. The older keyboard/frame-dimension warning also remains unresolved.
+
+The own-screen evidence guard is deliberately narrow: it recognizes the normalized exact **morning + MORE Recording** pair (including its joined-line form). It does not generally identify minimal unmarked home screenshots/imports, prove an app identity or establish habit-recognition accuracy. No new physical recording, real model generation, microphone recognition, HomePod or listener-confirmed audibility was exercised by this refinement. [Digest protocol](DIGEST-TEST-PROTOCOL.md) · [teammate handoff](HANDOFF.md).
+
+## Seeded digest capture and OCR — 10 October 2026
+
+One synthetic seed now has actual native fixture capture and fresh Vision evidence. **The semantic digest adapter is absent, so this is not a model or end-to-end digest pass.** The benchmark runs separately from the installed iPhone app. [Repeatable protocol](DIGEST-TEST-PROTOCOL.md) · [benchmark details](OBSERVATION-BENCHMARK.md#seeded-digest-capture--10-october-2026).
+
+| Stage | Actual result and boundary |
+|---|---|
+| Native seeded capture | **1/1 passed in 81.623s**, no skips, run `digest-handoff-01`, seed `0000000000000001`, generator `seeded-fixture-v1`. The finalized simulator movie has a separate verified controller log with **20 events and two `digestSource` records**. This is one seed, not the three-seed acceptance gate. |
+| Fresh native Vision extraction | `selectedMovieLayoutReport` **1/1 passed in 52.698s**. Retains **24 samples, 460 OCR regions**, and **24 prepared frames across 11 batches**. Preparation is not model execution; sample counts do not establish distinct instants or continuous coverage. |
+| Literal OCR coverage | **11/11 required field strings** occur somewhere in retained OCR after whitespace folding. This does not establish source attribution, correct sender/date association, comprehension, semantic recall or a digest. Truth was opened after extraction completed. |
+| Digest model and scoring boundary | The controller records `status: blocked`, `producer: unavailable`, and no claims because the actual semantic digest adapter is not implemented. Running the real independent scorer returns **exit 3**, `benchmarkStatus: blocked`, `factMetrics: null`, and speech not assessed. No model call, model-quality score or displayed/spoken digest result is claimed. |
+
+Local artifacts remain under `work/observation-benchmark/digest-handoff-01/`: `test-summary.json`, `capture-metadata.json`, `ground-truth.jsonl`, `recording.mov`, `layout-report.json`, `literal-ocr-coverage.json`, `actual-stage-status.json` and `digest-score-blocked.json`. The scorer's fourteen passing synthetic Python tests validate scoring rules only. Two more fresh captured seeds, a real supported model adapter, source-bound validation, speech comparison and the separate physical-app trials remain open. No raw fixture/media content or private device details are reproduced here.
+
+## Glass Morning navigation — 10 October 2026 (`de6d4b1`)
+
+The interface replaces the permanent tab bar and large Start button with a compact lowercase morning header, date/time, native glass tiles and a bottom sunrise menu. The menu opens Start or playback controls, Update, Past mornings, Learn and Settings. Tiles open details with Move earlier/later; iOS 27 also provides native drag. Both are blocked while running or paused, and a changed order becomes an unapproved draft. The date opens Review; its home control returns to Morning. Active Pause/Continue controls remain visible.
+
+| Check | Actual result |
+|---|---|
+| Evidence policy | **19 focused checks passed.** This is not a new full-suite or actual model-inference result. |
+| Initial glass UI | **6/8 passed, 2 failed.** The active ten-moment view scrolled; the reorder check found the saved change but queried an unmounted Restore row below ten native List rows. The layout was compacted and the test now reveals the row. |
+| Native drag follow-up | Real drag changed and persisted the order but failed the original expected destination: the native placeholder moved the target during the gesture. The final test explicitly moves the first item after the third and checks the exact complete order and draft after relaunch. The failed expectation remains separate evidence. |
+| Final ten journeys | **10/10 logged passes in 262.119s**, covering first use, light/dark tiles and actions, active layout, detail/reorder persistence and locks, native drag, date/review and voice-entry behavior, including the scoped landscape check. The wrapper hung after the suite while finalizing; its owned process was terminated (exit 143). Preserve the log and partial result bundle rather than calling it a clean finalized bundle. |
+| Largest text | **1/1 passed in 25.510s**, clean `TEST EXECUTE SUCCEEDED`, using the simulator's actual largest accessibility content size. This is a touch-accessibility layout check, not VoiceOver or physical-device proof. Result: `work/glass-accessibility-final.xcresult`. |
+| Bounded handoff rerun | **4/4 passed in 71.257s**, clean success: three visual regressions and deferred entry waiting for moment details to close. Result: `work/glass-handoff-verification.xcresult`. These overlap earlier scenarios; do not add them as four new distinct product journeys. |
+| Build and physical installation | Simulator build-for-testing, signed iPhone build and deep/strict signature verification succeeded. Installation and ordinary launch both returned success for `de6d4b1`; local records are `work/glass-iphone-install.json` and `work/glass-iphone-launch.json`. No fixture flags or data reset were used. |
+
+Six retained synthetic screenshots support the design handoff. Older two-tab layout checks below belong to their named source revisions. The keyboard/frame-dimension warning remains unexplained and is not claimed fixed by this redesign. Full personal-device capture, real digest/model quality, listening and audio-route checks are still separate work. The [digest protocol](DIGEST-TEST-PROTOCOL.md) and [teammate handoff](HANDOFF.md) bound the next steps.
+
+## Physical installation and launch — 10 October 2026 (`c91f69e`)
+
+The installation command returned success for `com.gibouu.morningoperator`; the subsequent process-launch command returned success and activated the ordinary app with no fixture arguments. Local records: `work/repaired-iphone-install.json` and `work/repaired-iphone-launch.json`. These records establish installation and launch only. No new recording, OCR/model-quality, microphone, live Calendar/Weather, audio-route or listener test accompanied this step. The older `8a640ea` phone trials remain separately scoped below.
 
 ## Long observations and observed-first review — 10 October 2026 (`c91f69e`)
 
@@ -15,7 +65,7 @@ Review now starts with the selected period and observed-label recurrence, with r
 | Initial six native journeys | **4 passed, 2 failed** in 217.781s. Existing archive/weekly-source journeys and first-use/ten-moment no-scroll checks passed. New day disclosure activated a full-observation link because both occupied one native List row. The second test could not locate a minimized Review tab immediately after approval. Neither failure is counted as a pass. |
 | Corrected native journeys | **2/2 passed in 325.940s**: observed day correction/relaunch 176.325s; exact source-quote preview → cancel → explicit Add → unapproved persisted draft 149.615s. Separate List rows fix interception, and the second test uses the intended home-date entry into Review. These use manufactured observations, not capture, OCR, model accuracy or listener-confirmed speech. |
 | Independent files and visuals | Two isolated simulator workspaces retain all five fixture acquisitions and original Lumen text. The correction persists without altering the approved routine; the narration draft stays unapproved and preserves the prior approved routine. Exported overview, corrected day and exact narration images were inspected. Screenshots stay local. |
-| Final builds and signing | Final simulator build-for-testing and signed generic iPhone build **succeeded**. Signature verification with the normal Mac trust store passed; app entitlement and embedded provisioning profile both enable WeatherKit, and the ActivityKit extension is embedded. No physical install or real service access follows from this. The initial sandboxed signature check could not consult the trust store; the normal verification resolved that environment limitation. |
+| Final builds and signing | Final simulator build-for-testing and signed generic iPhone build **succeeded**. Signature verification with the normal Mac trust store passed; app entitlement and embedded provisioning profile both enable WeatherKit, and the ActivityKit extension is embedded. The subsequent physical installation is recorded separately above; real service access was not tested. The initial sandboxed signature check could not consult the trust store; the normal verification resolved that environment limitation. |
 
 The native rerun preceded only the final chunk-boundary/own-screen/prompt-wrapper refinements; the final shared checks and native builds include those changes. No extra full UI rerun is claimed for unrelated learning changes. The earlier keyboard-focus frame-dimension warning remains open.
 

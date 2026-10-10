@@ -37,7 +37,7 @@ These are exact phrases after normalization of case, accents and punctuation. Th
 | Pause | pause; pause morning | pause; mets en pause | Keep the run paused. |
 | Resume | resume; continue; resume morning | reprends; reprendre; continuer | Resume the current step using its existing supported operation, if enabled. |
 | Skip | skip; skip step; skip this step | passe cette étape; passer cette étape | Mark the current step skipped and advance once. Resume if another step remains. |
-| Repeat | repeat; repeat that; repeat this step | répète; répéter; répète cette étape | Read the current step's title and detail aloud; keep the run paused. |
+| Repeat | repeat; repeat that; repeat this step; again; read again | répète; répéter; répète cette étape | Repeat the current supported read using its source checks; keep the run paused. |
 | Stop | stop; stop morning | arrête; arrêter; arrête la routine | End the run. This is different from canceling the microphone turn. |
 
 This is a command grammar, not conversational intent inference. “Don't go next”, “next and stop”, “send a message” and “MORE” alone are refused when recognized as those phrases. Partial transcripts never dispatch actions. The first final result is considered once; every supplied recognition alternative must resolve to the same command. Recognition can still mishear a person: the grammar does not authenticate a speaker or identify recorded speech.
