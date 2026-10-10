@@ -16,14 +16,16 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
     @ObservationIgnored private let timeZone: @MainActor () -> String
     @ObservationIgnored private let configurationID: @MainActor () -> UUID?
     @ObservationIgnored private let permitsPlayback: @MainActor (PreparedMorningBriefing) -> Bool
+    @ObservationIgnored private let resolveObservation: @MainActor (RoutineStep) -> String?
     @ObservationIgnored private var pinnedConfigurationID: UUID?
     @ObservationIgnored private var attempt = UUID()
 
-    public convenience init(speech: SpeechCoordinator, briefing: MorningBriefingController) {
+    public convenience init(speech: SpeechCoordinator, briefing: MorningBriefingController,
+                            resolveObservation: @escaping @MainActor (RoutineStep) -> String? = { _ in nil }) {
         self.init(prepare: { await briefing.refresh() },
                   speak: { try await speech.speakAndWait($0) }, stop: { speech.stop() },
                   configurationID: { briefing.playbackRevision },
-                  permitsPlayback: { briefing.permitsPlayback(of: $0) })
+                  permitsPlayback: { briefing.permitsPlayback(of: $0) }, resolveObservation: resolveObservation)
     }
 
     public init(prepare: @escaping @MainActor () async -> PreparedMorningBriefing?,
@@ -32,10 +34,12 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
                 now: @escaping @MainActor () -> Date = { Date() },
                 timeZone: @escaping @MainActor () -> String = { TimeZone.current.identifier },
                 configurationID: @escaping @MainActor () -> UUID? = { nil },
-                permitsPlayback: @escaping @MainActor (PreparedMorningBriefing) -> Bool = { _ in true }) {
+                permitsPlayback: @escaping @MainActor (PreparedMorningBriefing) -> Bool = { _ in true },
+                resolveObservation: @escaping @MainActor (RoutineStep) -> String? = { _ in nil }) {
         self.prepare = prepare; self.speak = speak; self.stop = stop
         self.now = now; self.timeZone = timeZone
         self.configurationID = configurationID; self.permitsPlayback = permitsPlayback
+        self.resolveObservation = resolveObservation
     }
 
     public func execute(step: RoutineStep, context: MorningStepContext) async throws -> MorningStepOutcome {
@@ -48,6 +52,15 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
         switch step.automation {
         case .spokenNote:
             try await speak("\(step.title). \(step.detail)")
+        case .savedObservation:
+            // Resolve against the current local archive on every play and Repeat.
+            // Never turn deleted or changed evidence into an ordinary static note.
+            guard step.observationReference != nil, let text = resolveObservation(step),
+                  !text.isEmpty, text.utf8.elementsEqual(step.detail.utf8) else {
+                return .unavailable("This saved excerpt has changed or was removed. Choose it again in Review, or tap Next.")
+            }
+            try checkAttempt(token)
+            try await speak(text)
         case .todayCalendar, .morningBriefing:
             if pinnedBriefing == nil {
                 let configuration = configurationID()

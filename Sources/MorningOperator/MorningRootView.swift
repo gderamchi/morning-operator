@@ -431,7 +431,7 @@ struct TodayView: View {
                 if terminal { closingMoment }
                 compactTimeline(routine, compact: compact)
                 Spacer(minLength: compact ? 4 : 8)
-                if routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
+                if routine.isSynthetic {
                     Text("Sample morning · not your observed activity")
                         .font(.caption2).foregroundStyle(.secondary).accessibilityIdentifier("routine.source")
                 }

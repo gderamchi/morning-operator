@@ -105,7 +105,7 @@ public struct PortableRoutineDocument: Codable, Sendable, Equatable {
         sourceRoutineVersion = routine.number
         sourceCreatedAt = routine.createdAt
         approvalAtExport = routine.isApproved
-        sourceIsSynthetic = routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture")
+        sourceIsSynthetic = routine.isSynthetic
         sourceLabel = detail == .includeDetails ? routine.sourceLabel : nil
         steps = routine.steps.map { PortableRoutineStep($0, detail: detail) }
         try validate()

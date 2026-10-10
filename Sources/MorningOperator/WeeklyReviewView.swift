@@ -328,7 +328,7 @@ private struct RoutineReviewEditor: View {
                     } footer: {
                         Text("Restoring a routine leaves your saved choices for future suggestions unchanged.")
                     }
-                    if routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
+                    if routine.isSynthetic {
                         Label("Sample routine · not observed behavior", systemImage: "sparkles")
                             .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("routine.source")
                     }

@@ -171,7 +171,13 @@ final class MorningStore {
     private var sessionTimingInterrupted = false
     private var sessionTimeZone = TimeZone.current.identifier
     let reminders = ReminderService()
-    @ObservationIgnored private lazy var stepExecutor = MorningAppStepExecutor(speech: speech, briefing: briefing)
+    @ObservationIgnored private lazy var stepExecutor = MorningAppStepExecutor(speech: speech, briefing: briefing,
+        resolveObservation: { [weak self] step in
+            guard let self, self.storageIsAvailable, let reference = step.observationReference,
+                  !self.observationEditsNeedSave,
+                  let prepared = try? ObservationNarrationComposer.resolve(reference: reference, archive: self.observationArchive) else { return nil }
+            return prepared.spokenText
+        })
     @ObservationIgnored lazy var automation = MorningAutomationCoordinator(executor: stepExecutor)
     let intelligence = AppleIntelligenceService()
     let speech = SpeechCoordinator()
@@ -338,7 +344,7 @@ final class MorningStore {
                     // Only established personal required steps migrate. Durations,
                     // missing activities and demonstration rituals are not inferred choices.
                     do {
-                        if let routine, !routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
+                        if let routine, !routine.isSynthetic {
                             for step in routine.steps where step.isRequired {
                                 try routinePreferences.upsert(RoutinePreference(target: step, presence: .keep))
                             }
@@ -611,7 +617,8 @@ final class MorningStore {
         return true
     }
 
-    private func saveRoutineEdit(steps: [RoutineStep], preferences: RoutinePreferenceJournal) -> Bool {
+    private func saveRoutineEdit(steps: [RoutineStep], preferences: RoutinePreferenceJournal,
+                                 sourceLabel: String? = nil) -> Bool {
         guard !privacyBlocksWork else { return false }
         guard let oldRoutine = routine, !sessionActive, !busy, storageIsAvailable else { return false }
         let oldPrevious = previousRoutine
@@ -619,7 +626,7 @@ final class MorningStore {
         let oldPreferences = routinePreferences
         let oldProposal = pendingRoutineProposal
         if oldRoutine.isApproved { previousRoutine = oldRoutine }
-        routine = oldRoutine.revised(steps: steps, sourceLabel: oldRoutine.sourceLabel)
+        routine = oldRoutine.revised(steps: steps, sourceLabel: sourceLabel ?? oldRoutine.sourceLabel)
         session = nil
         routinePreferences = preferences
         pendingRoutineProposal = nil
@@ -798,6 +805,60 @@ final class MorningStore {
         let step = RoutineStep(title: "Your day", detail: "Hear your selected calendar and current weather.",
             kind: .briefing, durationMinutes: 2, automation: .morningBriefing)
         return updateSteps([step] + routine.steps)
+    }
+
+    /// Adds only a user-selected, still-current quotation. This is a new draft,
+    /// never permission for the model to execute an inferred external action.
+    @discardableResult
+    func addObservationNarration(_ prepared: PreparedObservationNarration) -> Bool {
+        guard storageIsAvailable, !busy, !sessionActive, saveObservationEdits() else { return false }
+        guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return false }
+        guard let current = try? ObservationNarrationComposer.resolve(reference: prepared.reference, archive: observationArchive),
+              current.spokenText.utf8.elementsEqual(prepared.spokenText.utf8) else {
+            notice = "This observation changed. Choose the excerpt again before adding it."
+            return false
+        }
+        guard (routine?.steps.count ?? 0) < 10 else {
+            notice = "Your morning has ten moments. Remove one in Review before adding another."
+            return false
+        }
+        if routine?.steps.contains(where: { $0.automation == .savedObservation && $0.observationReference == prepared.reference }) == true {
+            notice = "This excerpt is already in your morning."
+            return false
+        }
+        let step = RoutineStep(title: "A saved moment", detail: current.spokenText,
+            kind: .briefing, durationMinutes: 1, automation: .savedObservation,
+            observationReference: current.reference)
+        let containsSample = observationArchive.entry(id: current.reference.acquisitionID)?.origin == .synthetic
+        let sourceLabel = containsSample ? "Demo fixture — includes a synthetic saved observation" : nil
+        if let routine {
+            return saveRoutineEdit(steps: [step] + routine.steps, preferences: routinePreferences, sourceLabel: sourceLabel)
+        }
+        let oldSession = session
+        let oldProposal = pendingRoutineProposal
+        self.routine = RoutineVersion(sourceLabel: sourceLabel ?? "Your selected saved observation", steps: [step])
+        session = nil
+        pendingRoutineProposal = nil
+        guard persist() else {
+            self.routine = nil; session = oldSession; pendingRoutineProposal = oldProposal
+            return false
+        }
+        notice = "Saved as a new draft. Review and approve when ready."
+        return true
+    }
+
+    func previewObservationNarration(_ prepared: PreparedObservationNarration) -> UUID? {
+        guard storageIsAvailable, !busy, !sessionActive, !voiceInputBlocksPlayback,
+              speech.state == .idle, saveObservationEdits(),
+              let current = try? ObservationNarrationComposer.resolve(reference: prepared.reference, archive: observationArchive),
+              current.spokenText.utf8.elementsEqual(prepared.spokenText.utf8) else { return nil }
+        speech.speak(current.spokenText)
+        return speech.playbackID
+    }
+
+    func stopObservationPreview(_ id: UUID?) {
+        guard let id, speech.playbackID == id else { return }
+        speech.stop()
     }
 
     func openVoiceCommands() {
@@ -1875,7 +1936,7 @@ final class MorningStore {
         guard let session, session.status == .completed || session.status == .stopped else { return }
         do {
             history.upsert(try MorningRunRecord(session: session, timeZoneIdentifier: sessionTimeZone,
-                isSynthetic: session.routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture"),
+                isSynthetic: session.routine.isSynthetic,
                 timingInterrupted: sessionTimingInterrupted))
         } catch { notice = "This morning could not be added to history: \(error.localizedDescription)" }
     }

@@ -39,7 +39,7 @@ struct RoutineEvidenceProposalTests {
         #expect(proposal.support[0].citations.count == 4)
         #expect(Set(proposal.sourceSnapshots.map { $0.observedDate.dayKey }).count == 4)
         #expect(!proposal.routine.isApproved)
-        #expect(proposal.routine.steps.allSatisfy { !$0.isRequired && $0.automation == nil })
+        #expect(proposal.routine.steps.allSatisfy { !$0.isRequired && $0.automation == nil && $0.observationReference == nil })
         #expect(proposal.isCurrent(archive: try ObservationArchive(entries: sources), baseRoutine: nil))
         #expect(evidence.modelRequestCount <= 6)
         #expect(evidence.submittedCharacterCount <= 8_000)
@@ -257,6 +257,151 @@ struct RoutineEvidenceProposalTests {
         support[0]["citations"] = citations; object["support"] = support
         #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
             try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONSerialization.data(withJSONObject: object))
+        }
+    }
+
+    @Test("Restored inferred rows cannot carry a hidden observation binding", arguments: [false, true])
+    func restoredInferenceRejectsObservationReferences(withOperation: Bool) throws {
+        let entry = try source()
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: nil)
+        let reference = try RoutineObservationReference(acquisitionID: entry.id,
+            revisionSHA256: String(repeating: "a", count: 64), quote: words)
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(proposal)) as? [String: Any])
+        var routine = try #require(object["routine"] as? [String: Any])
+        var steps = try #require(routine["steps"] as? [[String: Any]])
+        steps[0]["observationReference"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(reference))
+        if withOperation { steps[0]["automation"] = "savedObservation" }
+        routine["steps"] = steps; object["routine"] = routine
+        let forged = try JSONSerialization.data(withJSONObject: object)
+        #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+            try JSONDecoder().decode(EvidenceRoutineProposal.self, from: forged)
+        }
+    }
+
+    @Test("A trusted kept moment preserves its binding without granting one to inferred rows", arguments: [false, true])
+    func keptObservationReferenceSurvivesProposalRoundtrip(usingJournal: Bool) throws {
+        let entry = try source()
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        // This tests authority retention only. Playback independently resolves the source.
+        let reference = try RoutineObservationReference(acquisitionID: entry.id,
+            revisionSHA256: String(repeating: "b", count: 64), quote: words)
+        let kept = RoutineStep(title: "Review calendar", detail: "A source I explicitly selected.", kind: .calendar,
+            durationMinutes: 2, isRequired: !usingJournal, automation: .savedObservation,
+            observationReference: reference)
+        let base = RoutineVersion(createdAt: instant, sourceLabel: "My approved morning", steps: [kept], isApproved: true)
+        let preferences: RoutinePreferenceJournal? = usingJournal
+            ? try RoutinePreferenceJournal(entries: [RoutinePreference(target: kept, presence: .keep)], revision: UUID())
+            : nil
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: base, preferences: preferences)
+        #expect(proposal.routine.steps == [kept])
+        #expect(proposal.support[0].reason == .preservedUserDecision)
+        #expect(proposal.support[0].citations.isEmpty)
+        let restored = try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONEncoder().encode(proposal))
+        #expect(restored == proposal)
+        let archive = try ObservationArchive(entries: [entry])
+        #expect(restored.isCurrent(archive: archive, baseRoutine: base, preferences: preferences))
+    }
+
+    @Test("Personal evidence cannot relabel an explicitly kept synthetic excerpt", arguments: [
+        "My approved morning", "Demo fixture — includes a synthetic saved observation"
+    ])
+    func keptSyntheticReferencePreservesProposalProvenance(baseLabel: String) throws {
+        let entry = try source()
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let reference = try RoutineObservationReference(acquisitionID: UUID(),
+            revisionSHA256: String(repeating: "d", count: 64), quote: "A deliberately kept sample excerpt.",
+            isSynthetic: true)
+        let kept = RoutineStep(title: "A saved sample", detail: "A deliberately kept sample excerpt.",
+            kind: .briefing, durationMinutes: 1, automation: .savedObservation,
+            observationReference: reference)
+        let base = RoutineVersion(createdAt: instant, sourceLabel: baseLabel, steps: [kept], isApproved: true)
+        let preferences = try RoutinePreferenceJournal(
+            entries: [RoutinePreference(target: kept, presence: .keep)], revision: UUID())
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: base, preferences: preferences)
+        #expect(proposal.sourceSnapshots.allSatisfy { $0.origin == .human })
+        #expect(proposal.routine.isSynthetic)
+        #expect(proposal.routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture"))
+        #expect(proposal.routine.steps.contains(kept))
+        #expect(proposal.support.first { $0.stepID == kept.id }?.reason == .preservedUserDecision)
+        let data = try JSONEncoder().encode(proposal)
+        let restored = try JSONDecoder().decode(EvidenceRoutineProposal.self, from: data)
+        let archive = try ObservationArchive(entries: [entry])
+        #expect(restored == proposal)
+        #expect(restored.isCurrent(archive: archive, baseRoutine: base, preferences: preferences))
+
+        // The source-label marker is checked on restoration as well as assembly.
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var routine = try #require(object["routine"] as? [String: Any])
+        routine["sourceLabel"] = "Selected saved observations — tentative proposal"
+        object["routine"] = routine
+        #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+            try JSONDecoder().decode(EvidenceRoutineProposal.self,
+                from: JSONSerialization.data(withJSONObject: object))
+        }
+
+        // Keeping a synthetic marker does not permit weakening the retained
+        // reference itself; its authoritative journal snapshot still wins.
+        object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        routine = try #require(object["routine"] as? [String: Any])
+        var steps = try #require(routine["steps"] as? [[String: Any]])
+        let keptIndex = try #require(steps.firstIndex { ($0["id"] as? String) == kept.id.uuidString })
+        var forgedReference = try #require(steps[keptIndex]["observationReference"] as? [String: Any])
+        forgedReference["isSynthetic"] = false
+        steps[keptIndex]["observationReference"] = forgedReference
+        routine["steps"] = steps; object["routine"] = routine
+        let changed = try JSONDecoder().decode(EvidenceRoutineProposal.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        #expect(!changed.isCurrent(archive: archive, baseRoutine: base, preferences: preferences))
+    }
+
+    @Test("A synthetic reference excludes legacy required retention even under a personal label")
+    func syntheticReferenceCannotBecomeImplicitPersonalPreference() throws {
+        let entry = try source()
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let reference = try RoutineObservationReference(acquisitionID: UUID(),
+            revisionSHA256: String(repeating: "e", count: 64), quote: "A synthetic required ritual.",
+            isSynthetic: true)
+        let sample = RoutineStep(title: "A saved sample", isRequired: true,
+            automation: .savedObservation, observationReference: reference)
+        let base = RoutineVersion(sourceLabel: "My approved morning", steps: [sample], isApproved: true)
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: base)
+        #expect(!proposal.routine.steps.contains { $0.id == sample.id })
+        #expect(!proposal.routine.isSynthetic)
+        #expect(proposal.support.allSatisfy { $0.reason == .inferredEvidence })
+        #expect(proposal.isCurrent(archive: try ObservationArchive(entries: [entry]), baseRoutine: base))
+    }
+
+    @Test("Portable plans omit private observation bindings even with notes included")
+    func portablePlansCannotTransferObservationReferences() throws {
+        let privateQuote = "SYNTHETIC_PRIVATE_REFERENCE_ONLY_QUOTE"
+        let reference = try RoutineObservationReference(acquisitionID: UUID(),
+            revisionSHA256: String(repeating: "c", count: 64), quote: privateQuote)
+        let selected = RoutineStep(title: "A selected observation", detail: "Read my reviewed source.",
+            automation: .savedObservation, observationReference: reference)
+        let routine = RoutineVersion(sourceLabel: "Synthetic transfer boundary", steps: [selected], isApproved: true)
+        for detail in [RoutineExportDetail.planOnly, .includeDetails] {
+            let document = try PortableRoutineDocument(routine: routine, detail: detail)
+            let bytes = try document.encoded()
+            let serialized = String(decoding: bytes, as: UTF8.self)
+            for forbidden in [privateQuote, "observationReference", "savedObservation", reference.acquisitionID.uuidString] {
+                #expect(!serialized.contains(forbidden))
+            }
+            let imported = try PortableRoutineDocument.decode(bytes).importedDraft(replacing: nil)
+            #expect(!imported.isApproved)
+            #expect(imported.steps.allSatisfy { $0.automation == nil && $0.observationReference == nil })
+            var object = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+            var steps = try #require(object["steps"] as? [[String: Any]])
+            steps[0]["observationReference"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(reference))
+            object["steps"] = steps
+            let forged = try JSONSerialization.data(withJSONObject: object)
+            #expect(throws: PortableRoutineDocumentError.unexpectedFields) {
+                try PortableRoutineDocument.decode(forged)
+            }
         }
     }
 

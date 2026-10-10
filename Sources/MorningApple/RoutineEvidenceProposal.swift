@@ -164,7 +164,8 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                     }) else { return false }
                 }
                 if item.reason != .preservedUserDecision {
-                    guard !step.isRequired, step.automation == nil else { return false }
+                    guard !step.isRequired, step.automation == nil,
+                          step.observationReference == nil else { return false }
                     for citation in item.citations {
                         guard let entry = archive.entry(id: citation.acquisitionID),
                               let text = Self.citationSource(citation, entry: entry),
@@ -178,7 +179,7 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
     }
 
     fileprivate static func keptSteps(in base: RoutineVersion?) -> [RoutineStep] {
-        guard let base, !base.sourceLabel.localizedCaseInsensitiveContains("demo fixture") else { return [] }
+        guard let base, !base.isSynthetic else { return [] }
         return base.steps.filter(\.isRequired)
     }
 
@@ -229,7 +230,8 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                   $0.origin == first.origin && $0.observedDate.timeZoneIdentifier == first.observedDate.timeZoneIdentifier }) else {
             throw RoutineEvidenceProposalError.invalidProposal
         }
-        if first.origin == .synthetic && !routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
+        if (first.origin == .synthetic || routine.isSynthetic)
+            && !routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
             throw RoutineEvidenceProposalError.invalidProposal
         }
         guard omissions.allSatisfy({ omission in sourceSnapshots.contains { $0.acquisitionID == omission.acquisitionID && $0.sourceLayer == .videoFrame } }) else {
@@ -243,7 +245,7 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                   step.title.count <= (inferred ? 120 : 2_000),
                   step.detail.count <= (inferred ? 8_000 : 32_000),
                   (1...(item.reason == .inferredEvidence ? 60 : 1_440)).contains(step.durationMinutes),
-                  !inferred || (!step.isRequired && step.automation == nil),
+                  !inferred || (!step.isRequired && step.automation == nil && step.observationReference == nil),
                   item.citations.count <= 24,
                   item.preferenceIDs.count <= 100,
                   Set(item.preferenceIDs).count == item.preferenceIDs.count,
@@ -478,6 +480,12 @@ public enum LearningEvidencePreparation {
             preferences: preferences, at: date)
         let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: routine.steps)
         routine.steps = reconciled.steps
+        // An explicit Keep may reintroduce a synthetic excerpt even when every
+        // newly selected source is personal. Preserve that provenance on the
+        // whole plan before approval, export or run aggregation can use it.
+        if routine.isSynthetic && !routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
+            routine.sourceLabel = "Demo fixture — includes a synthetic saved observation"
+        }
         guard !routine.steps.isEmpty else { throw RoutineEvidenceProposalError.insufficientEvidence }
         guard routine.steps.count <= 10 else { throw RoutineEvidenceProposalError.tooManySteps }
         let legacyKept = preferences == nil ? EvidenceRoutineProposal.keptSteps(in: base) : []

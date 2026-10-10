@@ -355,6 +355,7 @@ public final class ScreenRecordingService {
             let output = SCRecordingOutput(configuration: recordingConfiguration, delegate: bridge)
             self.stream = stream
             self.output = output
+            bridge.provenance.bind(outputID: ObjectIdentifier(output))
             try stream.addRecordingOutput(output)
             startPending = true
             armDeadline(seconds: 20, token: token, kind: .start)
@@ -371,6 +372,7 @@ public final class ScreenRecordingService {
 
     private func startCompleted(error: String?, token: UUID) {
         guard sessionID == token else { return }
+        reconcileOutputStart()
         startPending = false
         if let error {
             failureDetail = failureDetail ?? error
@@ -412,13 +414,9 @@ public final class ScreenRecordingService {
         fail(detail)
     }
 
-    fileprivate func recordingStarted(outputID: ObjectIdentifier, sessionID token: UUID,
-                                      startedAt: Date, timeZoneIdentifier: String) {
-        guard sessionID == token, let output, ObjectIdentifier(output) == outputID else { return }
-        recordingProvenance.recordingDidStart(sessionID: token, startedAt: startedAt,
-                                              timeZoneIdentifier: timeZoneIdentifier)
-        outputStarted = true
-        activeLifetime = self
+    fileprivate func recordingStarted(outputID: ObjectIdentifier, sessionID token: UUID) {
+        guard sessionID == token, let output, ObjectIdentifier(output) == outputID,
+              reconcileOutputStart() else { return }
         if discardWhenFinished || failureDetail != nil || state == .stopping {
             requestShutdown(reason: stopReason ?? "Stopping the cancelled recording request…")
             return
@@ -497,6 +495,7 @@ public final class ScreenRecordingService {
             }
             return
         }
+        reconcileOutputStart()
         state = .stopping
         if startPending && !stream.isCapturing {
             message = "Waiting for the system recording request to finish. Any late start will be stopped."
@@ -557,6 +556,9 @@ public final class ScreenRecordingService {
 
     private func finishIfReady() {
         guard streamStopped, recordingFinished, !startPending else { return }
+        // didFinish/stream-stop tasks may reach the main actor before the start task.
+        // Atomically recover/close callback-entry evidence before releasing its delegate.
+        reconcileOutputStart(closing: true)
         let detail = failureDetail
         let discarded = discardWhenFinished
         let finishedMessage = stopReason
@@ -595,6 +597,18 @@ public final class ScreenRecordingService {
             state = .failed
             message = error.localizedDescription
         }
+    }
+
+    /// Native callbacks retain their start evidence synchronously. Applying that evidence
+    /// is idempotent and does not change the UI state or launch a recording timer.
+    @discardableResult
+    private func reconcileOutputStart(closing: Bool = false) -> Bool {
+        guard let token = sessionID, let output, let bridge,
+              bridge.provenance.reconcile(into: &recordingProvenance, sessionID: token,
+                                          outputID: ObjectIdentifier(output), closing: closing) else { return false }
+        outputStarted = true
+        activeLifetime = self
+        return true
     }
 
     private func armDeadline(seconds: Int, token: UUID, kind: DeadlineKind) {
@@ -650,6 +664,7 @@ public final class ScreenRecordingService {
         deadline?.cancel()
         monitoring = nil
         deadline = nil
+        bridge?.provenance.invalidate()
         stream = nil
         output = nil
         bridge = nil
@@ -709,10 +724,12 @@ fileprivate final class ScreenRecordingDelegateBridge: NSObject, SCContentSharin
     SCStreamDelegate, SCRecordingOutputDelegate, @unchecked Sendable {
     private weak var owner: ScreenRecordingService?
     private let sessionID: UUID
+    let provenance: ScreenRecordingCallbackProvenance
 
     init(owner: ScreenRecordingService, sessionID: UUID) {
         self.owner = owner
         self.sessionID = sessionID
+        provenance = ScreenRecordingCallbackProvenance(sessionID: sessionID)
     }
 
     func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
@@ -737,9 +754,12 @@ fileprivate final class ScreenRecordingDelegateBridge: NSObject, SCContentSharin
         let token = sessionID
         let startedAt = Date()
         let timeZoneIdentifier = TimeZone.current.identifier
+        // Store before enqueueing: independent MainActor Tasks need not execute in
+        // delegate callback order, and finalization may release this bridge first.
+        provenance.recordingDidStart(outputID: id, startedAt: startedAt,
+                                      timeZoneIdentifier: timeZoneIdentifier)
         Task { @MainActor [weak owner] in
-            owner?.recordingStarted(outputID: id, sessionID: token,
-                                    startedAt: startedAt, timeZoneIdentifier: timeZoneIdentifier)
+            owner?.recordingStarted(outputID: id, sessionID: token)
         }
     }
 

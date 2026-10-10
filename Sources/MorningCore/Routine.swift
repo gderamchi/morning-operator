@@ -8,12 +8,13 @@ public enum StepKind: String, Codable, CaseIterable, Sendable {
 /// A concrete app-owned operation, separate from an inferred activity category.
 /// A nil operation remains manual, including routines decoded from older files.
 public enum RoutineStepAutomation: String, Codable, CaseIterable, Sendable {
-    case spokenNote, todayCalendar, morningBriefing
+    case spokenNote, todayCalendar, morningBriefing, savedObservation
     public var displayName: String {
         switch self {
         case .spokenNote: "Read this note aloud"
         case .todayCalendar: "Read today's calendar"
         case .morningBriefing: "Read today's briefing"
+        case .savedObservation: "Read reviewed observation text"
         }
     }
 }
@@ -26,11 +27,13 @@ public struct RoutineStep: Codable, Sendable, Identifiable, Equatable {
     public var durationMinutes: Int
     public var isRequired: Bool
     public var automation: RoutineStepAutomation?
+    public var observationReference: RoutineObservationReference?
     public init(id: UUID = UUID(), title: String, detail: String = "", kind: StepKind = .custom,
-                durationMinutes: Int = 5, isRequired: Bool = false, automation: RoutineStepAutomation? = nil) {
+                durationMinutes: Int = 5, isRequired: Bool = false, automation: RoutineStepAutomation? = nil,
+                observationReference: RoutineObservationReference? = nil) {
         self.id = id; self.title = title; self.detail = detail; self.kind = kind
         self.durationMinutes = max(1, durationMinutes); self.isRequired = isRequired
-        self.automation = automation
+        self.automation = automation; self.observationReference = observationReference
     }
 }
 
@@ -56,6 +59,12 @@ public struct RoutineVersion: Codable, Sendable, Identifiable, Equatable {
                 steps: [RoutineStep], isApproved: Bool = false) {
         self.id = id; self.number = max(1, number); self.createdAt = createdAt
         self.sourceLabel = sourceLabel; self.steps = steps; self.isApproved = isApproved
+    }
+    /// Kept source bindings retain sample provenance even after a new proposal
+    /// changes the routine label. A legacy sample marker remains conservative.
+    public var isSynthetic: Bool {
+        sourceLabel.localizedCaseInsensitiveContains("demo fixture") ||
+            steps.contains { $0.observationReference?.isSynthetic == true }
     }
     public var totalDurationMinutes: Int { steps.reduce(0) { $0 + $1.durationMinutes } }
     public func approved() -> RoutineVersion { var copy = self; copy.isApproved = true; return copy }
@@ -83,11 +92,12 @@ public struct RoutineVersion: Codable, Sendable, Identifiable, Equatable {
             var manual = step
             manual.isRequired = false
             manual.automation = nil
+            manual.observationReference = nil
             return manual
         }
         // The sample's required ritual demonstrates the control; it is not a personal
         // preference. Keep its existing synthetic provenance out of a learned morning.
-        let personalSteps = previous?.sourceLabel.localizedCaseInsensitiveContains("demo fixture") == true
+        let personalSteps = previous?.isSynthetic == true
             ? [] : previous?.steps ?? []
         return RoutineVersion(number: (previous?.number ?? 0) + 1, createdAt: date,
             sourceLabel: candidate.sourceLabel,

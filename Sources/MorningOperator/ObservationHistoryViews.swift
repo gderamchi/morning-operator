@@ -245,6 +245,7 @@ struct ObservationHistoryDetail: View {
     var managesEntryOccupancy = true
     @ViewState<Bool> private var assigningDate = false
     @ViewState<Bool> private var confirmingDelete = false
+    @ViewState<Bool> private var preparingNarration = false
     @Environment(\.dismiss) private var dismiss
 
     private var entry: ObservationAcquisition? { store.observationArchive.entry(id: observationID) }
@@ -298,6 +299,11 @@ struct ObservationHistoryDetail: View {
                 }
 
                 Section {
+                    Button { preparingNarration = true } label: {
+                        Label("Read a saved moment", systemImage: "speaker.wave.2")
+                    }
+                    .disabled(store.busy || store.sessionActive || !store.storageIsAvailable)
+                    .accessibilityIdentifier("observation.prepareNarration")
                     Button {
                         if store.selectObservation(id: observationID) { onLearn() }
                     } label: { Label("Edit in Learn", systemImage: "pencil") }
@@ -348,6 +354,9 @@ struct ObservationHistoryDetail: View {
         .onDisappear { if managesEntryOccupancy { store.observationDetailPresented = false } }
         .sheet(isPresented: $assigningDate) {
             if let entry { ObservationDateEditor(store: store, entry: entry) }
+        }
+        .sheet(isPresented: $preparingNarration) {
+            ObservationNarrationView(store: store, observationID: observationID)
         }
         .alert("Delete this observation?", isPresented: $confirmingDelete) {
             Button("Delete observation", role: .destructive) {

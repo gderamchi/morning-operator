@@ -490,8 +490,14 @@ struct StepEditor: View {
                 Section {
                     TextField("Give this step a name", text: $step.title)
                         .accessibilityLabel("Step name")
-                    TextField("What would you like to do?", text: $step.detail, axis: .vertical)
-                        .lineLimit(3...7).accessibilityLabel("Step details")
+                    if step.automation == .savedObservation {
+                        Text(step.detail).textSelection(.enabled)
+                        Text("Choose a different excerpt from its observation in Review. Switching to Read this text aloud makes it an ordinary note.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        TextField("What would you like to do?", text: $step.detail, axis: .vertical)
+                            .lineLimit(3...7).accessibilityLabel("Step details")
+                    }
                 } header: {
                     Text("Your moment")
                 } footer: {
@@ -528,6 +534,9 @@ struct StepEditor: View {
                         Text("Read this text aloud").tag(Optional(RoutineStepAutomation.spokenNote))
                         Text("Read today's calendar").tag(Optional(RoutineStepAutomation.todayCalendar))
                         Text("Read today's briefing").tag(Optional(RoutineStepAutomation.morningBriefing))
+                        if step.observationReference != nil {
+                            Text("Read saved excerpt").tag(Optional(RoutineStepAutomation.savedObservation))
+                        }
                     }
                     .accessibilityIdentifier("step.automation")
                 } header: {
@@ -554,6 +563,7 @@ struct StepEditor: View {
                     Button("Save") {
                         var edited = step
                         edited.title = edited.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if edited.automation != .savedObservation { edited.observationReference = nil }
                         if onSave(edited, keepInSuggestions, keepDuration) { dismiss() }
                         else { saveError = failureMessage() }
                     }
@@ -592,6 +602,8 @@ struct StepEditor: View {
             "Reads today's remaining events from calendars you select in Your day. Calendar access and spoken guidance are required."
         case .morningBriefing:
             "Reads a current recap from the calendars and optional city you choose in Your day. Available sources are prepared before speech; no events are changed."
+        case .savedObservation:
+            "Reads the dated excerpt you selected. If the source changes or is deleted, playback stops for review. This is a saved observation, not a live inbox."
         }
     }
 }
