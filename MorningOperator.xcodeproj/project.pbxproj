@@ -60,9 +60,11 @@
 		D8331B6EF0EE1D8DE0AAFCA5 /* MorningInvitationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAC4FD4EC1EF1E812AA6D55 /* MorningInvitationView.swift */; };
 		D83659F7E44A64ACF4421C67 /* ObservationReviewViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E140570EA270FCBB45F2D9 /* ObservationReviewViews.swift */; };
 		DCFA9E0C4B6CEA64FF05E07B /* MorningRecordingStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 236ACA44D0A812AC0CFA3A5C /* MorningRecordingStatus.swift */; };
+		E39691078564BE692F0F6E89 /* ObservationScreenReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5245715AA5896422DD4A58FB /* ObservationScreenReviewView.swift */; };
 		E4884A1EFD481B4607714D76 /* RecordedObservationModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C6CF87FDCFB10E818EADD0 /* RecordedObservationModelTests.swift */; };
 		E5A4D70F8E286C13671ABAF1 /* AudioRoutePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED5FFFADBA9C712D53345C8 /* AudioRoutePicker.swift */; };
 		EB9D17B6D326910E328DC7DF /* WeeklyReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC47A69EEDB044D3AB6C6C0B /* WeeklyReviewView.swift */; };
+		F3C83B1588CAB1A5CF137586 /* ObservationScreenReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BFF5EF3C2F41BB0D40C2C18 /* ObservationScreenReviewTests.swift */; };
 		F595041F5E281180E8DB629E /* MorningActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5DA36C0D75D5473FADCFD1 /* MorningActivityWidget.swift */; };
 		F65D3743724B35A6BB033D95 /* MorningBriefingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7665B33053A581FA603175F0 /* MorningBriefingView.swift */; };
 		FC6E0DE31197E46226CAFF30 /* PrivacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 289B9292F55FE9F36E473EFE /* PrivacyTests.swift */; };
@@ -128,6 +130,7 @@
 		24F5E80A4E3FEC576BDAA690 /* ObservationReviewUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationReviewUITestFixture.swift; sourceTree = "<group>"; };
 		25987AA3F93570E4CED0B631 /* MorningPrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPrivacyView.swift; sourceTree = "<group>"; };
 		289B9292F55FE9F36E473EFE /* PrivacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyTests.swift; sourceTree = "<group>"; };
+		2BFF5EF3C2F41BB0D40C2C18 /* ObservationScreenReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationScreenReviewTests.swift; sourceTree = "<group>"; };
 		2ED5FFFADBA9C712D53345C8 /* AudioRoutePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutePicker.swift; sourceTree = "<group>"; };
 		31A115980B5BD98DC6D7FA73 /* ObservationArchiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationArchiveTests.swift; sourceTree = "<group>"; };
 		35191AAE6C75EE39494AC52A /* RecordedObservationImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordedObservationImportTests.swift; sourceTree = "<group>"; };
@@ -139,6 +142,7 @@
 		4B3F3A89763BAB2B46F3EEDC /* QuietMorningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietMorningTests.swift; sourceTree = "<group>"; };
 		4BAC4FD4EC1EF1E812AA6D55 /* MorningInvitationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningInvitationView.swift; sourceTree = "<group>"; };
 		4F1A4DDE271AE7DE15330EEF /* MorningActivityDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningActivityDiagnostics.swift; sourceTree = "<group>"; };
+		5245715AA5896422DD4A58FB /* ObservationScreenReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationScreenReviewView.swift; sourceTree = "<group>"; };
 		53E140570EA270FCBB45F2D9 /* ObservationReviewViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationReviewViews.swift; sourceTree = "<group>"; };
 		57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceObservationTests.swift; sourceTree = "<group>"; };
 		58F03249FE9F66A37BCFC54E /* MorningBenchmarkCalendar.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MorningBenchmarkCalendar.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -253,6 +257,7 @@
 				428BB34451AB151032ECE063 /* ObservationBenchmarkTests.swift */,
 				F941677DE9F9C2E0BDA7D0AF /* ObservationNarrationTests.swift */,
 				1EBCD13C76AC1673A5ABB265 /* ObservationReviewJourneyTests.swift */,
+				2BFF5EF3C2F41BB0D40C2C18 /* ObservationScreenReviewTests.swift */,
 				98E912DF2E476E75231A5383 /* OnDeviceLearningTests.swift */,
 				289B9292F55FE9F36E473EFE /* PrivacyTests.swift */,
 				4B3F3A89763BAB2B46F3EEDC /* QuietMorningTests.swift */,
@@ -316,6 +321,7 @@
 				D36F09DCDAEA82D58D6A3421 /* ObservationPeriodReviewView.swift */,
 				24F5E80A4E3FEC576BDAA690 /* ObservationReviewUITestFixture.swift */,
 				53E140570EA270FCBB45F2D9 /* ObservationReviewViews.swift */,
+				5245715AA5896422DD4A58FB /* ObservationScreenReviewView.swift */,
 				E1435A178A34F6AADC746A82 /* QuickCaptureView.swift */,
 				93DDD575BBAE60C4911CB3B3 /* RecordMorningView.swift */,
 				B3765EFB295A6146697D4D03 /* RoutineEvidenceProposalView.swift */,
@@ -568,6 +574,7 @@
 				FCEB5801874646D787D3ED15 /* ObservationArchiveTests.swift in Sources */,
 				67A98BDB2A6A5C858891964C /* ObservationNarrationTests.swift in Sources */,
 				647B27017C21B1D8DE16868C /* ObservationReviewJourneyTests.swift in Sources */,
+				F3C83B1588CAB1A5CF137586 /* ObservationScreenReviewTests.swift in Sources */,
 				15BB804A00F28C32E321141B /* OnDeviceLearningTests.swift in Sources */,
 				FC6E0DE31197E46226CAFF30 /* PrivacyTests.swift in Sources */,
 				3D25D7E50AB57A74D84B2009 /* QuietMorningTests.swift in Sources */,
@@ -610,6 +617,7 @@
 				C89488C560BA0C1CDB663B20 /* ObservationPeriodReviewView.swift in Sources */,
 				AD6A46591444FFDC8EA621DC /* ObservationReviewUITestFixture.swift in Sources */,
 				D83659F7E44A64ACF4421C67 /* ObservationReviewViews.swift in Sources */,
+				E39691078564BE692F0F6E89 /* ObservationScreenReviewView.swift in Sources */,
 				A71F2DD1E977583E1F72289B /* QuickCaptureView.swift in Sources */,
 				C2C11F3D62BD2E61A4A92900 /* RecordMorningView.swift in Sources */,
 				BF4BCBC13775223D50E313FE /* RoutineEvidenceProposalView.swift in Sources */,

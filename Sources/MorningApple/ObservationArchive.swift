@@ -3,7 +3,7 @@ import MorningCore
 
 public enum ObservationArchiveError: Error, LocalizedError, Sendable, Equatable {
     case invalidSource, invalidDate, invalidDigest, invalidRecordingContext, duplicateAcquisition, duplicateDigest
-    case archiveFull, archiveTooLarge, unknownAcquisition, invalidClassification, correctedObservation
+    case archiveFull, archiveTooLarge, unknownAcquisition, invalidClassification, correctedObservation, invalidFrameReview
     public var errorDescription: String? {
         switch self {
         case .invalidSource: "An observation contains invalid or inconsistent source evidence."
@@ -17,6 +17,7 @@ public enum ObservationArchiveError: Error, LocalizedError, Sendable, Equatable 
         case .unknownAcquisition: "This observation is no longer in the archive."
         case .invalidClassification: "This interpretation is not supported by the saved original evidence."
         case .correctedObservation: "Corrected notes cannot retain an interpretation of the original recording."
+        case .invalidFrameReview: "This screen review is not supported by its saved original sample."
         }
     }
 }
@@ -74,13 +75,15 @@ public struct ObservationObservedDate: Codable, Sendable, Equatable {
 }
 
 public enum ObservationAcquisitionWarning: String, Codable, Sendable {
-    case invalidClassificationRemoved, invalidRecordingContextRemoved
+    case invalidClassificationRemoved, invalidRecordingContextRemoved, invalidFrameReviewsRemoved
     public var message: String {
         switch self {
         case .invalidClassificationRemoved:
             "An unsupported saved interpretation was removed. The original observation is still available."
         case .invalidRecordingContextRemoved:
             "Unsupported recording-start metadata was removed. The original observation and its chosen day are still available."
+        case .invalidFrameReviewsRemoved:
+            "Unsupported saved screen reviews and their original interpretation were removed. The original observation is still available for review."
         }
     }
 }
@@ -103,6 +106,8 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
     public let correctedText: String?
     public let videoEvidence: ObservationVideoEvidence?
     public let classification: ObservationContextClassification?
+    /// User reviews override the projection only; original model output remains separate.
+    public let frameReviews: [ObservationFrameReview]
     public let warnings: [ObservationAcquisitionWarning]
     public var effectiveText: String { correctedText ?? originalText }
 
@@ -112,7 +117,8 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                 correctedText: String? = nil, videoEvidence: ObservationVideoEvidence? = nil,
                 classification: ObservationContextClassification? = nil,
                 warnings: [ObservationAcquisitionWarning] = [],
-                recordingContext: ObservationRecordingContext? = nil) throws {
+                recordingContext: ObservationRecordingContext? = nil,
+                frameReviews: [ObservationFrameReview] = []) throws {
         if let recordingContext, !Self.recordingContextIsValid(recordingContext, sourceKind: sourceKind) {
             throw ObservationArchiveError.invalidRecordingContext
         }
@@ -134,6 +140,9 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                 throw ObservationArchiveError.invalidSource
             }
         }
+        try Self.validateFrameReviews(frameReviews, evidence: videoEvidence, correctedText: correctedText)
+        let frameOrder = Dictionary(uniqueKeysWithValues: (videoEvidence?.frames ?? []).enumerated().map { ($0.element.id, $0.offset) })
+        self.frameReviews = frameReviews.sorted { frameOrder[$0.sampleID, default: 0] < frameOrder[$1.sampleID, default: 0] }
         self.id = id
         self.importedAt = importedAt
         self.fileSHA256 = digest
@@ -156,6 +165,28 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
             self.classification = classification
         }
         self.warnings = retainedWarnings
+    }
+
+    /// Strict mutation boundary. A human label is grounded by an exact original quote,
+    /// but remains a human assertion, not a successful model classification.
+    private static func validateFrameReviews(_ reviews: [ObservationFrameReview],
+        evidence: ObservationVideoEvidence?, correctedText: String?) throws {
+        guard reviews.count <= ObservationVideoEvidence.maximumFrames else { throw ObservationArchiveError.invalidFrameReview }
+        guard !reviews.isEmpty else { return }
+        guard correctedText == nil, let evidence else { throw ObservationArchiveError.invalidFrameReview }
+        let frames = Dictionary(uniqueKeysWithValues: evidence.frames.map { ($0.id, $0) })
+        var ids = Set<UUID>()
+        for review in reviews {
+            guard ids.insert(review.sampleID).inserted, let frame = frames[review.sampleID] else {
+                throw ObservationArchiveError.invalidFrameReview
+            }
+            if review.label != nil {
+                guard frame.canSupportIdentity, let quote = review.evidenceQuote,
+                      Data(frame.text.utf8).range(of: Data(quote.utf8)) != nil else {
+                    throw ObservationArchiveError.invalidFrameReview
+                }
+            }
+        }
     }
 
     private static func recordingContextIsValid(_ context: ObservationRecordingContext,
@@ -181,11 +212,13 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
     }
 
     fileprivate func replacing(correctedText: String?, observedDate: ObservationObservedDate?,
-                               classification: ObservationContextClassification?, origin: ObservationAcquisitionOrigin? = nil) throws -> Self {
+                               classification: ObservationContextClassification?, origin: ObservationAcquisitionOrigin? = nil,
+                               frameReviews: [ObservationFrameReview]? = nil) throws -> Self {
         try .init(id: id, importedAt: importedAt, fileSHA256: fileSHA256, observedDate: observedDate,
                   origin: origin ?? self.origin, sourceKind: sourceKind, sourceLabel: sourceLabel, originalText: originalText,
                   correctedText: correctedText, videoEvidence: videoEvidence,
-                  classification: classification, warnings: warnings, recordingContext: recordingContext)
+                  classification: classification, warnings: warnings, recordingContext: recordingContext,
+                  frameReviews: frameReviews ?? self.frameReviews)
     }
 
     /// Derived interpretation can be discarded independently of valid source. Exact source
@@ -257,13 +290,14 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
             for line in frame.ocrLines ?? [] { total += line.text.utf8.count }
         }
         for excerpt in classification?.inputSelection?.excerpts ?? [] { total += excerpt.text.utf8.count }
+        for review in frameReviews { total += (review.label?.utf8.count ?? 0) + (review.evidenceQuote?.utf8.count ?? 0) }
         return total
     }
     fileprivate var lineCount: Int { videoEvidence?.frames.reduce(0) { $0 + ($1.ocrLines?.count ?? 0) } ?? 0 }
 
     private enum CodingKeys: String, CodingKey {
         case id, importedAt, fileSHA256, observedDate, origin, sourceKind, sourceLabel, originalText
-        case correctedText, videoEvidence, classification, warnings, recordingContext
+        case correctedText, videoEvidence, classification, warnings, recordingContext, frameReviews
     }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -285,11 +319,25 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
             restoredContext = nil
             if !warnings.contains(.invalidRecordingContextRemoved) { warnings.append(.invalidRecordingContextRemoved) }
         }
-        let restoredClassification: ObservationContextClassification?
+        var restoredClassification: ObservationContextClassification?
         do { restoredClassification = try values.decodeIfPresent(ObservationContextClassification.self, forKey: .classification) }
         catch {
             restoredClassification = nil
             if !warnings.contains(.invalidClassificationRemoved) { warnings.append(.invalidClassificationRemoved) }
+        }
+        let correctedText = try values.decodeIfPresent(String.self, forKey: .correctedText)
+        let videoEvidence = try values.decodeIfPresent(ObservationVideoEvidence.self, forKey: .videoEvidence)
+        let restoredReviews: [ObservationFrameReview]
+        do {
+            let reviews = try values.decodeIfPresent([ObservationFrameReview].self, forKey: .frameReviews) ?? []
+            try Self.validateFrameReviews(reviews, evidence: videoEvidence, correctedText: correctedText)
+            restoredReviews = reviews
+        } catch {
+            // Do not restore a model label that an unreadable unknown review may have
+            // explicitly rejected. Keep source, remove the whole overlay and analysis.
+            restoredReviews = []
+            restoredClassification = nil
+            if !warnings.contains(.invalidFrameReviewsRemoved) { warnings.append(.invalidFrameReviewsRemoved) }
         }
         try self.init(id: values.decode(UUID.self, forKey: .id),
                       importedAt: values.decodeIfPresent(Date.self, forKey: .importedAt),
@@ -299,9 +347,9 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                       sourceKind: sourceKind,
                       sourceLabel: values.decode(String.self, forKey: .sourceLabel),
                       originalText: values.decode(String.self, forKey: .originalText),
-                      correctedText: values.decodeIfPresent(String.self, forKey: .correctedText),
-                      videoEvidence: values.decodeIfPresent(ObservationVideoEvidence.self, forKey: .videoEvidence),
-                      classification: restoredClassification, warnings: warnings, recordingContext: restoredContext)
+                      correctedText: correctedText, videoEvidence: videoEvidence,
+                      classification: restoredClassification, warnings: warnings, recordingContext: restoredContext,
+                      frameReviews: restoredReviews)
     }
 }
 
@@ -364,7 +412,8 @@ public struct ObservationArchive: Codable, Sendable, Equatable {
             fileSHA256: current.fileSHA256, observedDate: current.observedDate, origin: current.origin,
             sourceKind: current.sourceKind, sourceLabel: current.sourceLabel, originalText: current.originalText,
             correctedText: current.correctedText, videoEvidence: current.videoEvidence,
-            classification: current.classification, warnings: current.warnings, recordingContext: context)
+            classification: current.classification, warnings: current.warnings, recordingContext: context,
+            frameReviews: current.frameReviews)
         guard current.recordingContext == nil else { return false }
         try replace(enriched)
         return true
@@ -372,7 +421,11 @@ public struct ObservationArchive: Codable, Sendable, Equatable {
 
     public mutating func correct(id: UUID, text: String?) throws {
         let current = try required(id)
-        try replace(current.replacing(correctedText: text, observedDate: current.observedDate, classification: nil))
+        // An unchanged editor save is not a source edit. Exact bytes matter for both
+        // evidence receipts and Unicode corrections.
+        guard current.correctedText.map({ Data($0.utf8) }) != text.map({ Data($0.utf8) }) else { return }
+        try replace(current.replacing(correctedText: text, observedDate: current.observedDate,
+                                      classification: nil, frameReviews: []))
     }
     public mutating func assignObservedDate(id: UUID, value: ObservationObservedDate?, origin: ObservationAcquisitionOrigin? = nil) throws {
         let current = try required(id)
@@ -385,6 +438,23 @@ public struct ObservationArchive: Codable, Sendable, Equatable {
             guard ObservationAcquisition.supports(result, evidence: current.videoEvidence) else { throw ObservationArchiveError.invalidClassification }
         }
         try replace(current.replacing(correctedText: current.correctedText, observedDate: current.observedDate, classification: result))
+    }
+    /// Upsert one deliberate review; original source and model result stay unchanged.
+    public mutating func reviewFrame(id: UUID, review: ObservationFrameReview) throws {
+        let current = try required(id)
+        guard current.correctedText == nil else { throw ObservationArchiveError.correctedObservation }
+        let reviews = current.frameReviews.filter { $0.sampleID != review.sampleID } + [review]
+        try replace(current.replacing(correctedText: nil, observedDate: current.observedDate,
+            classification: current.classification, frameReviews: reviews))
+    }
+    /// Removing a review reveals the retained original interpretation, if still valid.
+    public mutating func removeFrameReview(id: UUID, sampleID: UUID) throws {
+        let current = try required(id)
+        guard current.videoEvidence?.frames.contains(where: { $0.id == sampleID }) == true else {
+            throw ObservationArchiveError.invalidFrameReview
+        }
+        try replace(current.replacing(correctedText: current.correctedText, observedDate: current.observedDate,
+            classification: current.classification, frameReviews: current.frameReviews.filter { $0.sampleID != sampleID }))
     }
     public mutating func delete(id: UUID) throws {
         _ = try required(id)

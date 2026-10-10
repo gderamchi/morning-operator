@@ -6,6 +6,7 @@ import MorningApple
 /// original OCR and quoted interpretation are always resolved again from the parent value.
 @MainActor
 struct ObservationClipTimelineView: View {
+    @Bindable var store: MorningStore
     let acquisition: ObservationAcquisition
     @ViewState<Bool> private var showingSamples = false
     @ViewState<ObservationMomentSelection?> private var selection = nil
@@ -68,7 +69,7 @@ struct ObservationClipTimelineView: View {
                 }
                 .tint(MorningStyle.accent)
 
-                Text("These are proposed visual labels, not verified apps. Samples can miss activity and don't measure time spent, taps, reads or scrolls.")
+                Text("Labels come from recognition or your review. Samples can miss activity and don't measure time spent, taps, reads or scrolls.")
                     .font(.caption).foregroundStyle(MorningStyle.muted)
             } else {
                 Text(acquisition.videoEvidence == nil ? "No sampled recording is attached to this observation." : "The sampled interpretation can't be displayed. Original evidence remains available below.")
@@ -79,9 +80,9 @@ struct ObservationClipTimelineView: View {
         .sheet(item: $selection) { selected in
             NavigationStack {
                 if let current = review,
-                   let moment = current.rows.first(where: { $0.id == selected.id }) {
-                    ObservationSampleDetail(acquisition: acquisition, moment: moment,
-                                            timelineOrderIsValid: current.timelineOrderIsValid)
+                   let moment = current.rows.first(where: { $0.id == selected.id }),
+                   let sampleID = moment.samples.first?.id {
+                    ObservationSampleSourceView(store: store, acquisitionID: acquisition.id, sampleID: sampleID, managesEntryOccupancy: false)
                 } else {
                     ContentUnavailableView("Sample changed", systemImage: "doc.text.magnifyingglass",
                                            description: Text("Return to the observation to review its current evidence."))
@@ -95,7 +96,12 @@ struct ObservationClipTimelineView: View {
                 }
             }
         }
-        .onChange(of: acquisition) { _, _ in selection = nil }
+        .onChange(of: acquisition) { _, updated in
+            // Keep an open sample on label edits; its ID resolves the current source.
+            if let selection, !(updated.videoEvidence?.frames.contains { $0.id == selection.id } ?? false) {
+                self.selection = nil
+            }
+        }
     }
 
     private func momentRow(_ moment: ObservationReviewMoment) -> some View {
@@ -135,6 +141,10 @@ struct ObservationClipTimelineView: View {
     private func interpretationMessage(_ value: ObservationClipReview) -> String? {
         guard value.timelineOrderIsValid else {
             return "Frame times aren't in order. Original samples are shown in extraction order; their chronology is unresolved."
+        }
+        let reviewedCount = value.rows.flatMap(\.samples).filter { $0.frameReview != nil }.count
+        if reviewedCount > 0 {
+            return "You reviewed \(reviewedCount) \(reviewedCount == 1 ? "sample" : "samples"). Your labels and unknown choices take priority; original text and model results stay available."
         }
         switch value.interpretationState {
         case .corrected:
@@ -195,10 +205,12 @@ private func observationSampleTime(_ seconds: Double, fractionDigits: Int = 1) -
 
 @MainActor
 private struct ObservationSampleDetail: View {
+    @Bindable var store: MorningStore
     let acquisition: ObservationAcquisition
     let moment: ObservationReviewMoment
     let timelineOrderIsValid: Bool
     @Environment(\.dismiss) private var dismiss
+    @ViewState<ScreenReviewSelection?> private var reviewSelection = nil
 
     var body: some View {
         List {
@@ -223,21 +235,50 @@ private struct ObservationSampleDetail: View {
                                identifier: "observation.sample.requestedTime.\(sample.id.uuidString)")
                     sampleTime("Actual frame", value: sample.frame.actualTimeSeconds.map { observationSampleTime($0, fractionDigits: 3) } ?? "Unavailable",
                                identifier: "observation.sample.actualTime.\(sample.id.uuidString)")
-                    if case .identified(let context, _) = sample.context {
-                        LabeledContent("Proposed visual label", value: context.displayName)
-                    } else if case .ambiguous = sample.context {
-                        Text("This sample supports more than one possible context.")
+                    let userReview = acquisition.frameReviews.first { $0.sampleID == sample.id }
+                    let originalDecision = acquisition.classification?.decisions.first { $0.sampleID == sample.id }
+                    if let userReview {
+                        LabeledContent("Your label", value: userReview.label ?? "Unknown screen")
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("Your label")
+                            .accessibilityValue(userReview.label ?? "Unknown screen")
+                            .accessibilityIdentifier("observation.sample.userLabel.\(sample.id.uuidString)")
+                        Text(userReview.label == nil
+                             ? "You kept this screen unknown. It is left out of later activity suggestions."
+                             : "Your description stays separate from the model's interpretation.")
+                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                    }
+                    if case .identified(let context, _) = originalDecision?.evidence {
+                        LabeledContent(userReview == nil ? "Proposed visual label" : "Original proposed label", value: context.displayName)
+                    } else if case .ambiguous = originalDecision?.evidence {
+                        Text("The original interpretation supported more than one possible context.")
                             .font(.subheadline).foregroundStyle(MorningStyle.muted)
                     }
-                    if let quote = sample.quote {
+                    if let quote = originalDecision?.evidenceQuote ?? userReview?.evidenceQuote ?? sample.quote {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Exact evidence quote").font(.caption.weight(.semibold)).foregroundStyle(MorningStyle.muted)
                             Text(quote).font(.subheadline).textSelection(.enabled)
                                 .accessibilityIdentifier("observation.sample.quote.\(sample.id.uuidString)")
                         }
                     } else {
-                        Text("No accepted interpretation is attached to this sample.")
+                        Text("No original interpretation quote is attached to this sample.")
                             .font(.caption).foregroundStyle(MorningStyle.muted)
+                    }
+                    if let reviewedQuote = userReview?.evidenceQuote,
+                       let originalQuote = originalDecision?.evidenceQuote,
+                       !reviewedQuote.utf8.elementsEqual(originalQuote.utf8) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Excerpt you selected").font(.caption.weight(.semibold)).foregroundStyle(MorningStyle.muted)
+                            Text(reviewedQuote).font(.subheadline).textSelection(.enabled)
+                                .accessibilityIdentifier("observation.sample.userQuote.\(sample.id.uuidString)")
+                        }
+                    }
+                    if acquisition.correctedText == nil {
+                        Button(userReview == nil ? "Correct label" : "Edit your label") {
+                            reviewSelection = .init(id: sample.id, acquisition: acquisition)
+                        }
+                        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable)
+                        .accessibilityIdentifier("observation.sample.correctLabel.\(sample.id.uuidString)")
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Original extracted text").font(.caption.weight(.semibold)).foregroundStyle(MorningStyle.muted)
@@ -264,6 +305,9 @@ private struct ObservationSampleDetail: View {
                 Button("Done") { dismiss() }.accessibilityIdentifier("observation.sample.close")
             }
         }
+        .sheet(item: $reviewSelection) { selected in
+            ObservationScreenReviewView(store: store, acquisition: selected.acquisition, sampleID: selected.id)
+        }
     }
 
     private func sampleTime(_ title: String, value: String, identifier: String) -> some View {
@@ -280,20 +324,26 @@ struct ObservationSampleSourceView: View {
     @Bindable var store: MorningStore
     let acquisitionID: UUID
     let sampleID: UUID
+    var managesEntryOccupancy = true
 
     var body: some View {
         Group {
             if let acquisition = store.observationArchive.entry(id: acquisitionID),
                let review = try? ObservationClipReview(acquisition: acquisition),
                let moment = review.rows.first(where: { $0.samples.contains { $0.id == sampleID } }) {
-                ObservationSampleDetail(acquisition: acquisition, moment: moment, timelineOrderIsValid: review.timelineOrderIsValid)
+                ObservationSampleDetail(store: store, acquisition: acquisition, moment: moment, timelineOrderIsValid: review.timelineOrderIsValid)
             } else {
                 ContentUnavailableView("Sample changed", systemImage: "doc.text.magnifyingglass",
                     description: Text("Return to observations to see the current evidence."))
                     .navigationTitle("Sampled moment")
             }
         }
-        .onAppear { store.observationDetailPresented = true }
-        .onDisappear { store.observationDetailPresented = false }
+        .onAppear { if managesEntryOccupancy { store.observationDetailPresented = true } }
+        .onDisappear { if managesEntryOccupancy { store.observationDetailPresented = false } }
     }
+}
+
+private struct ScreenReviewSelection: Identifiable {
+    let id: UUID
+    let acquisition: ObservationAcquisition
 }

@@ -39,6 +39,8 @@ struct RoutineEvidenceProposalView: View {
                                             Text(source.sourceLabel).font(.subheadline)
                                             let incomplete = omitted.filter { $0.reason == .unavailableOrTruncatedFrame }.count
                                             let unsupported = omitted.filter { $0.reason == .unsupportedVisualContext }.count
+                                            let reviewedUnknown = omitted.filter { $0.reason == .explicitlyReviewedUnknown }.count
+                                            if reviewedUnknown > 0 { Text("\(reviewedUnknown) \(reviewedUnknown == 1 ? "sample you kept" : "samples you kept") unknown").font(.caption).foregroundStyle(.secondary) }
                                             if incomplete > 0 { Text("\(incomplete) unavailable or incomplete \(incomplete == 1 ? "sample" : "samples")").font(.caption).foregroundStyle(.secondary) }
                                             if unsupported > 0 { Text("\(unsupported) \(unsupported == 1 ? "sample without" : "samples without") suitable activity context").font(.caption).foregroundStyle(.secondary) }
                                         }.padding(.vertical, 5)

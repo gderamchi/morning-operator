@@ -15,12 +15,19 @@ public enum ObservationReviewResolution: String, Sendable, Equatable {
     case recognized, ambiguous, unknown, conflicting
 }
 
+/// Who supplied the effective context; user review does not imply model success.
+public enum ObservationReviewContextProvenance: String, Codable, Sendable, Equatable {
+    case userReviewed, model, none
+}
+
 /// A source frame and its separately quoted interpretation, retained only in this
 /// derived value. A visual label never establishes an installed app or an action.
 public struct ObservationReviewSample: Identifiable, Sendable, Equatable {
     public let frame: ObservationFrameEvidence
     public let context: ObservationAppEvidence
     public let quote: String?
+    public let frameReview: ObservationFrameReview?
+    public let provenance: ObservationReviewContextProvenance
     public var id: UUID { frame.id }
     public var sampleID: UUID { frame.id }
     public var timeSeconds: Double { frame.timeSeconds }
@@ -75,20 +82,33 @@ public struct ObservationClipReview: Identifiable, Sendable, Equatable {
         if !timelineOrderIsValid { state = .invalid }
         else if acquisition.correctedText != nil { state = .corrected }
         else if acquisition.classification != nil { state = .available }
-        else if acquisition.warnings.contains(.invalidClassificationRemoved) { state = .invalid }
+        else if acquisition.warnings.contains(.invalidClassificationRemoved) || acquisition.warnings.contains(.invalidFrameReviewsRemoved) { state = .invalid }
         else { state = .unclassified }
         interpretationState = state
         let decisions = state == .available ? (acquisition.classification?.decisions ?? []) : []
-        // Acquisition decoding already validates the attached derived result. Repeat
-        // exact sample/citation validation at this boundary, without making new claims.
-        let trace = timelineOrderIsValid
-            ? try evidence.makeTrace(decisions: decisions, origin: Self.traceOrigin(acquisition.origin)) : nil
         let byID = Dictionary(uniqueKeysWithValues: decisions.map { ($0.sampleID, $0) })
+        let reviews = Dictionary(uniqueKeysWithValues: acquisition.frameReviews.map { ($0.sampleID, $0) })
+        var effectiveDecisions: [ObservationFrameIdentityDecision] = []
         var groups: [[ObservationReviewSample]] = []
         for frame in evidence.frames {
             let decision = byID[frame.id]
-            let sample = ObservationReviewSample(frame: frame, context: decision?.evidence ?? .unknown,
-                                                quote: decision?.evidenceQuote)
+            let review = reviews[frame.id]
+            let context: ObservationAppEvidence
+            let quote: String?
+            let provenance: ObservationReviewContextProvenance
+            if timelineOrderIsValid, acquisition.correctedText == nil, let review {
+                context = review.contextIdentity.map { .identified(app: $0, reference: frame.evidenceReference) } ?? .unknown
+                quote = review.evidenceQuote
+                provenance = .userReviewed
+            } else {
+                context = decision?.evidence ?? .unknown
+                quote = decision?.evidenceQuote
+                provenance = decision == nil ? .none : .model
+            }
+            effectiveDecisions.append(.init(sampleID: frame.id, timeSeconds: frame.timeSeconds,
+                timeBasis: frame.timeBasis, evidence: context, evidenceQuote: quote))
+            let sample = ObservationReviewSample(frame: frame, context: context, quote: quote,
+                                                frameReview: review, provenance: provenance)
             if groups.last?.first?.timeSeconds == frame.timeSeconds { groups[groups.count - 1].append(sample) }
             else { groups.append([sample]) }
         }
@@ -104,7 +124,10 @@ public struct ObservationClipReview: Identifiable, Sendable, Equatable {
                          resolvedContext: resolution == .recognized ? identities.first : nil, resolution: resolution)
         }
         rows = moments
-        guard let trace else { traceReport = nil; return }
+        // Recheck exact citations for the effective model/user overlay. Original
+        // acquisition classification remains unchanged and separately inspectable.
+        guard timelineOrderIsValid else { traceReport = nil; return }
+        let trace = try evidence.makeTrace(decisions: effectiveDecisions, origin: Self.traceOrigin(acquisition.origin))
         // Swift String equality permits canonical equivalence. Treat differing exact
         // label bytes at one timestamp as conflicting before asking the existing trace
         // algorithm for minimum visits. Never display a visit rejected by the rows.
@@ -132,6 +155,7 @@ public struct ObservationReviewCitation: Identifiable, Sendable, Equatable {
     public let timeZoneIdentifier: String
     public let quote: String
     public let evidenceReference: String
+    public let provenance: ObservationReviewContextProvenance
     public var id: String { "\(acquisitionID.uuidString)|\(sampleID.uuidString)" }
 }
 
@@ -197,7 +221,7 @@ public struct ObservationReviewPartition: Identifiable, Sendable, Equatable {
                         guard let quote = sample.quote else { continue }
                         citations[signature, default: []].append(.init(acquisitionID: clip.id, sampleID: sample.id,
                             dayKey: day.dayKey, timeZoneIdentifier: zone, quote: quote,
-                            evidenceReference: sample.evidenceReference))
+                            evidenceReference: sample.evidenceReference, provenance: sample.provenance))
                     }
                 }
             }

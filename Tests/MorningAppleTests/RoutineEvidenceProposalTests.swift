@@ -769,4 +769,200 @@ struct RoutineEvidenceProposalTests {
         #expect(try JSONEncoder().encode(schema).count > 100)
     }
     #endif
+    private func reviewableVideo(_ texts: [String], day: Int = 0) throws -> ObservationAcquisition {
+        let frames = try texts.enumerated().map { index, text in
+            try ObservationFrameEvidence(requestedTimeSeconds: Double(index), actualTimeSeconds: Double(index),
+                outcome: .observed, text: text)
+        }
+        let video = try ObservationVideoEvidence(durationSeconds: Double(texts.count + 1), frames: frames)
+        return try ObservationAcquisition(importedAt: instant, observedDate: source(day: day).observedDate,
+            origin: .human, sourceKind: .video, sourceLabel: "Synthetic review test recording",
+            originalText: video.renderedText, videoEvidence: video)
+    }
+
+    @Test("Reviewed context guides the prompt without becoming OCR or action evidence")
+    func reviewedLabelsRemainSeparateFromOriginalQuotes() throws {
+        let entry = try reviewableVideo(["Calendar\n09:00 Project planning meeting"])
+        let frame = try #require(entry.videoEvidence?.frames.first)
+        let label = "A deliberately reviewed context"
+        var archive = try ObservationArchive(entries: [entry])
+        try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frame.id,
+            label: label, evidenceQuote: "Calendar", reviewedAt: instant))
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [#require(archive.entry(id: entry.id))])
+        let unit = try #require(evidence.units.first)
+        #expect(unit.text.utf8.elementsEqual(frame.text.utf8))
+        #expect(unit.sourceLayer == .videoFrame && unit.sampleID == frame.id)
+        #expect(unit.kind == .visibleTaskContent)
+        #expect(unit.reviewedContext?.label == label)
+        #expect(unit.reviewedContext?.evidenceQuote == "Calendar")
+        #expect(unit.reviewedContext?.reviewedAt == instant)
+        #expect(evidence.prompts.joined().contains("User-reviewed visible context only (not action evidence)"))
+        #expect(evidence.prompts.joined().contains(label))
+        #expect(throws: RoutineEvidenceProposalError.invalidCitation) {
+            try LearningEvidencePreparation.assemble(evidence: evidence,
+                steps: [step(unit, quote: label)], preserving: nil)
+        }
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(unit, quote: "09:00 Project planning meeting")], preserving: nil)
+        let citation = try #require(proposal.support.first?.citations.first)
+        #expect(citation.quote == "09:00 Project planning meeting")
+        #expect(citation.startCharacterOffset == "Calendar\n".count)
+        #expect(citation.endCharacterOffset == frame.text.count)
+        #expect(citation.sourceLayer == .videoFrame)
+        #expect(proposal.routine.steps.allSatisfy { $0.automation == nil && $0.observationReference == nil })
+    }
+
+    @Test("An explicit unknown excludes only its frame and never becomes a positive report")
+    func reviewedUnknownFramesAreDisclosedAndNotSubmitted() throws {
+        let entry = try reviewableVideo(["Calendar\n09:00 Project planning meeting", "Chess\nWhite to move"])
+        let frames = try #require(entry.videoEvidence?.frames)
+        var archive = try ObservationArchive(entries: [entry])
+        try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frames[0].id,
+            label: nil, evidenceQuote: nil, reviewedAt: instant))
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [#require(archive.entry(id: entry.id))])
+        #expect(evidence.units.map(\.sampleID) == [frames[1].id])
+        #expect(evidence.omissions.count == 1)
+        #expect(evidence.omissions.first?.reason == .explicitlyReviewedUnknown)
+        #expect(evidence.omissions.first?.sampleID == frames[0].id)
+        #expect(!evidence.prompts.joined().contains("Project planning"))
+        try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frames[1].id,
+            label: nil, evidenceQuote: nil, reviewedAt: instant))
+        #expect(throws: RoutineEvidenceProposalError.insufficientEvidence) {
+            try LearningEvidencePreparation.prepare(acquisitions: [#require(archive.entry(id: entry.id))])
+        }
+    }
+
+    @Test("Adding, changing or removing frame review invalidates pending evidence across reload")
+    func reviewRevisionsInvalidateProposalsAndClearingRestoresBaseline() throws {
+        let entry = try reviewableVideo(["Calendar\n09:00 Project planning meeting"])
+        let frame = try #require(entry.videoEvidence?.frames.first)
+        let original = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let originalProposal = try LearningEvidencePreparation.assemble(evidence: original,
+            steps: [step(original.units[0], quote: "09:00 Project planning meeting")], preserving: nil)
+        var archive = try ObservationArchive(entries: [entry])
+        try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frame.id,
+            label: "Planning context", evidenceQuote: "Calendar", reviewedAt: instant))
+        #expect(!originalProposal.isCurrent(archive: archive, baseRoutine: nil))
+        let reviewed = try LearningEvidencePreparation.prepare(acquisitions: [#require(archive.entry(id: entry.id))])
+        let proposal = try LearningEvidencePreparation.assemble(evidence: reviewed,
+            steps: [step(reviewed.units[0], quote: "09:00 Project planning meeting")], preserving: nil)
+        let savedProposal = try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONEncoder().encode(proposal))
+        archive = try JSONDecoder().decode(ObservationArchive.self, from: JSONEncoder().encode(archive))
+        #expect(savedProposal.isCurrent(archive: archive, baseRoutine: nil))
+        try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frame.id,
+            label: "Another visible context", evidenceQuote: "Calendar", reviewedAt: instant.addingTimeInterval(1)))
+        #expect(!savedProposal.isCurrent(archive: archive, baseRoutine: nil))
+        try archive.removeFrameReview(id: entry.id, sampleID: frame.id)
+        #expect(!savedProposal.isCurrent(archive: archive, baseRoutine: nil))
+        let cleared = try LearningEvidencePreparation.prepare(acquisitions: [#require(archive.entry(id: entry.id))])
+        #expect(cleared.sourceSnapshots == original.sourceSnapshots)
+        #expect(originalProposal.isCurrent(archive: archive, baseRoutine: nil))
+    }
+
+    @Test("Reviewed labels cannot promote bare headings or permission UI into activities")
+    func reviewedLabelDoesNotBypassVisualEligibility() throws {
+        for text in ["Calendar", "Screen Sharing\nShare Screen\nCancel"] {
+            let entry = try reviewableVideo([text])
+            let frame = try #require(entry.videoEvidence?.frames.first)
+            var archive = try ObservationArchive(entries: [entry])
+            try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frame.id,
+                label: "I read all messages and replied to everyone", evidenceQuote: text,
+                reviewedAt: instant))
+            #expect(throws: RoutineEvidenceProposalError.insufficientEvidence) {
+                try LearningEvidencePreparation.prepare(acquisitions: [#require(archive.entry(id: entry.id))])
+            }
+        }
+    }
+
+    @Test("Review metadata shares the input budget without truncating original OCR")
+    func reviewedContextBudgetPreservesEveryOriginalCharacter() throws {
+        let text = String(repeating: "09:00 Project planning meeting\n", count: 55)
+        let entry = try reviewableVideo([text])
+        let frame = try #require(entry.videoEvidence?.frames.first)
+        var archive = try ObservationArchive(entries: [entry])
+        try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frame.id,
+            label: String(repeating: "L", count: 80), evidenceQuote: "Project planning meeting", reviewedAt: instant))
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [#require(archive.entry(id: entry.id))])
+        #expect(evidence.units.count > 1)
+        #expect(evidence.units.map(\.text).joined().utf8.elementsEqual(text.utf8))
+        #expect(evidence.units.allSatisfy { $0.reviewedContext != nil && $0.kind == .visibleTaskContent })
+        #expect(evidence.units[1].startCharacterOffset == evidence.units[0].text.count)
+        #expect(evidence.prompts.allSatisfy { $0.count <= 1_500 })
+        #expect(evidence.submittedCharacterCount == evidence.prompts.reduce(0) { $0 + $1.count })
+        #expect(evidence.submittedCharacterCount <= 8_000)
+    }
+
+    @Test("No-review sources retain the pre-review source hash")
+    func absentReviewsPreserveLegacySnapshotHash() throws {
+        let entry = try source(id: UUID(uuidString: "11111111-1111-4111-8111-111111111111")!, zone: "UTC")
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        // Fixed legacy sorted JSON source envelope: reference-date seconds 781692800,
+        // UTC observed day, human text source, no optional correction/video/digest.
+        #expect(evidence.sourceSnapshots[0].sourceRevision == "f29fe0e791f9b6d8bcc20935027b51f5644fc41fadd7201498ff9f722fd2f82f")
+        #expect(evidence.units.first?.reviewedContext == nil)
+        #expect(!evidence.prompts.joined().contains("User-reviewed visible context"))
+    }
+
+    @Test("A repaired revision string cannot restore citations to a reviewed-unknown frame")
+    func restoredProposalCannotBypassUnknownWithCurrentRevision() throws {
+        let entry = try reviewableVideo(["Calendar\n09:00 Project planning meeting", "Chess\nWhite to move"])
+        let frames = try #require(entry.videoEvidence?.frames)
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0], quote: "09:00 Project planning meeting")], preserving: nil)
+        var archive = try ObservationArchive(entries: [entry])
+        try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frames[0].id,
+            label: nil, evidenceQuote: nil, reviewedAt: instant))
+        let current = try LearningEvidencePreparation.prepare(acquisitions: [#require(archive.entry(id: entry.id))])
+        let currentRevision = try #require(current.sourceSnapshots.first?.sourceRevision)
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(proposal)) as? [String: Any])
+        var snapshots = try #require(object["sourceSnapshots"] as? [[String: Any]])
+        snapshots[0]["sourceRevision"] = currentRevision
+        object["sourceSnapshots"] = snapshots
+        var support = try #require(object["support"] as? [[String: Any]])
+        var citations = try #require(support[0]["citations"] as? [[String: Any]])
+        citations[0]["sourceRevision"] = currentRevision
+        support[0]["citations"] = citations
+        object["support"] = support
+        let restored = try JSONDecoder().decode(EvidenceRoutineProposal.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        #expect(!restored.isCurrent(archive: archive, baseRoutine: nil))
+    }
+
+    @Test("Unreadable saved reviews preserve source but require explicit notes before learning")
+    func corruptFrameReviewBlocksOriginalLearningButAllowsCorrectedNotes() throws {
+        let entry = try reviewableVideo(["Calendar\n09:00 Project planning meeting"])
+        let frame = try #require(entry.videoEvidence?.frames.first)
+        let originalEvidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let originalProposal = try LearningEvidencePreparation.assemble(evidence: originalEvidence,
+            steps: [step(originalEvidence.units[0], quote: "09:00 Project planning meeting")], preserving: nil)
+        var archive = try ObservationArchive(entries: [entry])
+        try archive.reviewFrame(id: entry.id, review: ObservationFrameReview(sampleID: frame.id,
+            label: nil, evidenceQuote: nil, reviewedAt: instant))
+        let reviewed = try #require(archive.entry(id: entry.id))
+        var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(reviewed)) as? [String: Any])
+        object["frameReviews"] = "malformed saved review payload"
+        let restored = try JSONDecoder().decode(ObservationAcquisition.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        #expect(restored.originalText.utf8.elementsEqual(entry.originalText.utf8))
+        #expect(restored.videoEvidence == entry.videoEvidence)
+        #expect(restored.warnings.contains(.invalidFrameReviewsRemoved))
+        #expect(restored.frameReviews.isEmpty)
+        #expect(throws: RoutineEvidenceProposalError.unsupportedSource) {
+            try LearningEvidencePreparation.prepare(acquisitions: [restored])
+        }
+        archive = try ObservationArchive(entries: [restored])
+        #expect(!originalProposal.isCurrent(archive: archive, baseRoutine: nil))
+        try archive.correct(id: entry.id, text: "I review my calendar after breakfast.")
+        let corrected = try #require(archive.entry(id: entry.id))
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [corrected])
+        #expect(evidence.units.count == 1)
+        #expect(evidence.units[0].sourceLayer == .correction)
+        #expect(evidence.units[0].kind == .userReportedActivity)
+        #expect(evidence.units[0].sampleID == nil && evidence.units[0].reviewedContext == nil)
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(evidence.units[0])], preserving: nil)
+        #expect(proposal.isCurrent(archive: archive, baseRoutine: nil))
+    }
+
 }

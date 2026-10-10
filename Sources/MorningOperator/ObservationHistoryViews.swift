@@ -325,7 +325,7 @@ struct ObservationHistoryDetail: View {
 
                 if entry.videoEvidence != nil {
                     Section {
-                        ObservationClipTimelineView(acquisition: entry)
+                        ObservationClipTimelineView(store: store, acquisition: entry)
                     } header: { Text("Recording evidence") }
                 }
 

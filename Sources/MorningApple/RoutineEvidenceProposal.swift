@@ -41,7 +41,7 @@ public struct LearningSourceSnapshot: Codable, Equatable, Sendable {
 }
 
 public enum LearningEvidenceOmissionReason: String, Codable, Sendable {
-    case unavailableOrTruncatedFrame, unsupportedVisualContext
+    case unavailableOrTruncatedFrame, unsupportedVisualContext, explicitlyReviewedUnknown
 }
 
 /// A disclosed pre-inference rejection, never a claim that no activity occurred.
@@ -203,6 +203,7 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
             return entry.originalText
         case .videoFrame:
             guard entry.correctedText == nil, let id = citation.sampleID,
+                  !entry.frameReviews.contains(where: { $0.sampleID == id && $0.label == nil }),
                   let frame = entry.videoEvidence?.frames.first(where: { $0.id == id }), frame.canSupportIdentity else { return nil }
             return frame.text
         }
@@ -292,6 +293,14 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
     }
 }
 
+/// A user assertion about visible context, separate from original OCR and from
+/// a report that an action occurred. It never becomes a citation source layer.
+public struct PreparedLearningReviewedContext: Equatable, Sendable {
+    public let label: String
+    public let evidenceQuote: String
+    public let reviewedAt: Date
+}
+
 /// Exact, bounded submitted text. Unit identity is local to one preparation, never guessed
 /// from a date, label or matching quote. The full source context is retained only in memory.
 public struct PreparedLearningEvidenceUnit: Equatable, Sendable, Identifiable {
@@ -301,6 +310,7 @@ public struct PreparedLearningEvidenceUnit: Equatable, Sendable, Identifiable {
     public let sourceLayer: RoutineEvidenceSourceLayer
     public let sampleID: UUID?
     public let startCharacterOffset: Int
+    public let reviewedContext: PreparedLearningReviewedContext?
     fileprivate let context: String
     var kind: LearningEvidenceKind { sourceLayer == .videoFrame ? .visibleTaskContent : evidenceKind }
     fileprivate let evidenceKind: LearningEvidenceKind
@@ -362,13 +372,22 @@ public enum LearningEvidencePreparation {
                 units += makeUnits(text: correction, entry: entry, layer: .correction, sampleID: nil, kind: .userReportedActivity)
             } else if let video = entry.videoEvidence {
                 for frame in video.frames {
+                    let review = entry.frameReviews.first { $0.sampleID == frame.id }
+                    if let review, review.label == nil {
+                        omissions.append(.init(acquisitionID: entry.id, sampleID: frame.id, reason: .explicitlyReviewedUnknown)); continue
+                    }
                     guard frame.canSupportIdentity else {
                         omissions.append(.init(acquisitionID: entry.id, sampleID: frame.id, reason: .unavailableOrTruncatedFrame)); continue
                     }
                     guard LearningEvidencePolicy.isEligibleVisualContext(frame.text) else {
                         omissions.append(.init(acquisitionID: entry.id, sampleID: frame.id, reason: .unsupportedVisualContext)); continue
                     }
-                    units += makeUnits(text: frame.text, entry: entry, layer: .videoFrame, sampleID: frame.id, kind: .visibleTaskContent)
+                    let reviewedContext = review.flatMap { review -> PreparedLearningReviewedContext? in
+                        guard let label = review.label, let quote = review.evidenceQuote else { return nil }
+                        return .init(label: label, evidenceQuote: quote, reviewedAt: review.reviewedAt)
+                    }
+                    units += makeUnits(text: frame.text, entry: entry, layer: .videoFrame, sampleID: frame.id,
+                        kind: .visibleTaskContent, reviewedContext: reviewedContext)
                 }
             } else {
                 let kind: LearningEvidenceKind
@@ -505,6 +524,12 @@ public enum LearningEvidencePreparation {
     }
 
     fileprivate static func snapshot(_ entry: ObservationAcquisition) throws -> LearningSourceSnapshot {
+        // Unreadable user decisions cannot silently fall back to original OCR.
+        // Explicit broader notes are a separate user report and may be learned.
+        // This shared boundary also prevents restoring an older pending proposal.
+        guard entry.correctedText != nil || !entry.warnings.contains(.invalidFrameReviewsRemoved) else {
+            throw RoutineEvidenceProposalError.unsupportedSource
+        }
         guard let date = entry.observedDate else { throw RoutineEvidenceProposalError.dateRequired }
         return LearningSourceSnapshot(acquisitionID: entry.id, sourceRevision: try EvidenceRevision.source(entry),
             sourceLabel: entry.sourceLabel, observedDate: date, origin: entry.origin,
@@ -512,15 +537,19 @@ public enum LearningEvidencePreparation {
     }
 
     private static func makeUnits(text: String, entry: ObservationAcquisition, layer: RoutineEvidenceSourceLayer,
-                                  sampleID: UUID?, kind: LearningEvidenceKind, startingOffset: Int = 0) -> [PreparedLearningEvidenceUnit] {
+                                  sampleID: UUID?, kind: LearningEvidenceKind, startingOffset: Int = 0,
+                                  reviewedContext: PreparedLearningReviewedContext? = nil) -> [PreparedLearningEvidenceUnit] {
         var result: [PreparedLearningEvidenceUnit] = []
         var offset = startingOffset
         var index = text.startIndex
+        // Keep the same whole-operation budget without dropping OCR to make room
+        // for review metadata. Smaller exact chunks may require another batch.
+        let chunkSize = max(1, maximumUnitCharacters - reviewPromptMetadata(reviewedContext).count)
         while index < text.endIndex {
-            let end = text.index(index, offsetBy: maximumUnitCharacters, limitedBy: text.endIndex) ?? text.endIndex
+            let end = text.index(index, offsetBy: chunkSize, limitedBy: text.endIndex) ?? text.endIndex
             let chunk = String(text[index..<end])
             result.append(.init(id: UUID(), acquisitionID: entry.id, text: chunk, sourceLayer: layer,
-                sampleID: sampleID, startCharacterOffset: offset, context: text, evidenceKind: kind))
+                sampleID: sampleID, startCharacterOffset: offset, reviewedContext: reviewedContext, context: text, evidenceKind: kind))
             offset += chunk.count; index = end
         }
         return result
@@ -528,7 +557,14 @@ public enum LearningEvidencePreparation {
 
     private static func prompt(_ units: [PreparedLearningEvidenceUnit]) -> String {
         "Suggest only activities supported by these identified units. Empty output is valid. Cite each exact unitID and quote; never infer measured duration, frequency or a completed action.\n" +
-        units.map { "<unit id=\"\($0.id.uuidString)\" type=\"\($0.kind.rawValue)\">\n\($0.text)\n</unit>" }.joined(separator: "\n")
+        units.map { "<unit id=\"\($0.id.uuidString)\" type=\"\($0.kind.rawValue)\">\n\(reviewPromptMetadata($0.reviewedContext))\($0.text)\n</unit>" }.joined(separator: "\n")
+    }
+
+    private static func reviewPromptMetadata(_ context: PreparedLearningReviewedContext?) -> String {
+        guard let context else { return "" }
+        // Quoted metadata is not part of unit.text. Exact-quote validation cannot
+        // borrow it or reinterpret a reviewed label as a completed action.
+        return "User-reviewed visible context only (not action evidence): \(String(reflecting: context.label))\n"
     }
 }
 
@@ -542,7 +578,9 @@ private enum EvidenceRevision {
         value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
     }
     static func source(_ value: ObservationAcquisition) throws -> String {
-        // Hash the source, date, correction, origin and extraction used by the learner.
+        // Hash source, date, correction, origin, extraction and explicit frame reviews.
+        // An empty review list stays absent from the payload so legacy no-review
+        // proposals keep their existing source revisions.
         // Derived classification/warnings and recordingContext are deliberately excluded:
         // native start metadata is not model input and does not change the assigned day.
         // Adding it to an exact-file retry must not stale an otherwise unchanged proposal.
@@ -551,11 +589,13 @@ private enum EvidenceRevision {
             let observedDate: ObservationObservedDate?; let origin: ObservationAcquisitionOrigin
             let sourceKind: ObservationAcquisitionSourceKind; let sourceLabel: String
             let originalText: String; let correctedText: String?; let videoEvidence: ObservationVideoEvidence?
+            let frameReviews: [ObservationFrameReview]?
         }
         return try hash(Payload(id: value.id, importedAt: value.importedAt, fileSHA256: value.fileSHA256,
             observedDate: value.observedDate, origin: value.origin, sourceKind: value.sourceKind,
             sourceLabel: value.sourceLabel, originalText: value.originalText, correctedText: value.correctedText,
-            videoEvidence: value.videoEvidence))
+            videoEvidence: value.videoEvidence,
+            frameReviews: value.frameReviews.isEmpty ? nil : value.frameReviews.sorted { $0.sampleID.uuidString < $1.sampleID.uuidString }))
     }
 }
 

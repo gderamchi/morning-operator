@@ -35,6 +35,7 @@ private struct ObservationPeriodReviewView: View {
     let endingOn: Date
     var onLearn: () -> Void
     @ViewState<String> private var calendarZone = TimeZone.current.identifier
+    @ViewState<ObservationContextSelection?> private var selectedContext = nil
 
     private var report: ObservationReviewPeriod? {
         try? .init(archive: store.observationArchive, endingOn: endingOn,
@@ -81,13 +82,14 @@ private struct ObservationPeriodReviewView: View {
                             Text("No screen labels are available yet.").foregroundStyle(.secondary)
                         }
                         ForEach(partition.recurrence) { context in
-                            NavigationLink {
-                                ObservationRecurrenceSources(store: store, endingOn: endingOn,
-                                    calendarZone: calendarZone, partitionID: partition.id,
-                                    contextID: context.id, onLearn: onLearn)
+                            Button {
+                                selectedContext = .init(partitionID: partition.id, contextID: context.id)
                             } label: {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(context.context.displayName).font(.subheadline.weight(.medium))
+                                    if context.citations.contains(where: { $0.provenance == .userReviewed }) {
+                                        Text("Your label").font(.caption2).foregroundStyle(.secondary)
+                                    }
                                     Text("Seen on \(context.seenDayCount) of \(partition.recognizedDayCount) \(partition.recognizedDayCount == 1 ? "day" : "days") with labeled samples")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }.padding(.vertical, 4)
@@ -140,6 +142,10 @@ private struct ObservationPeriodReviewView: View {
         .scrollContentBackground(.hidden).background(MorningStyle.background)
         .navigationTitle("Observed mornings")
         .accessibilityIdentifier("review.recordings")
+        .navigationDestination(item: $selectedContext) { selected in
+            ObservationRecurrenceSources(store: store, endingOn: endingOn, calendarZone: calendarZone,
+                partitionID: selected.partitionID, contextID: selected.contextID, onLearn: onLearn)
+        }
     }
 
     private func originTitle(_ origin: ObservationAcquisitionOrigin) -> String {
@@ -159,6 +165,7 @@ private struct ObservationRecurrenceSources: View {
     let partitionID: String
     let contextID: String
     var onLearn: () -> Void
+    @ViewState<ObservationSourceSelection?> private var selectedSource = nil
 
     private var context: ObservationContextRecurrence? {
         let report = try? ObservationReviewPeriod(archive: store.observationArchive, endingOn: endingOn,
@@ -173,18 +180,22 @@ private struct ObservationRecurrenceSources: View {
                     Text(context.context.displayName).font(.system(.title2, design: .serif, weight: .medium))
                     Text("Seen on \(context.seenDayCount) distinct \(context.seenDayCount == 1 ? "day" : "days"). Open a quote to inspect the original sampled screen.")
                         .font(.subheadline).foregroundStyle(.secondary)
-                    Text("A proposed visual label doesn't establish an app's identity or an action you took.")
+                    Text(context.citations.contains(where: { $0.provenance == .userReviewed })
+                         ? "You supplied this label. It stays separate from model labels and doesn't establish an action you took."
+                         : "A proposed visual label doesn't establish an app's identity or an action you took.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 ForEach(context.citations) { citation in
                     if let source = store.observationArchive.entry(id: citation.acquisitionID) {
                         Section {
-                            NavigationLink {
-                                ObservationSampleSourceView(store: store, acquisitionID: source.id,
-                                                            sampleID: citation.sampleID)
+                            Button {
+                                selectedSource = .init(acquisitionID: source.id, sampleID: citation.sampleID)
                             } label: {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(citation.quote).font(.subheadline).lineLimit(4)
+                                    if citation.provenance == .userReviewed {
+                                        Text("Excerpt selected by you").font(.caption2).foregroundStyle(.secondary)
+                                    }
                                     Text(source.sourceLabel).font(.caption).foregroundStyle(.secondary)
                                 }
                             }.accessibilityIdentifier("review.recordings.citation.\(citation.id)")
@@ -199,10 +210,23 @@ private struct ObservationRecurrenceSources: View {
         .scrollContentBackground(.hidden).background(MorningStyle.background)
         .navigationTitle("Source moments")
         .accessibilityIdentifier("review.recordings.sources")
+        .navigationDestination(item: $selectedSource) { selected in
+            ObservationSampleSourceView(store: store, acquisitionID: selected.acquisitionID, sampleID: selected.sampleID)
+        }
     }
 }
 
 private func contextAccessibilityID(_ partition: String, _ context: String) -> String {
     let digest = SHA256.hash(data: Data("\(partition)|\(context)".utf8))
     return "review.recordings.context." + digest.prefix(12).map { String(format: "%02x", $0) }.joined()
+}
+
+private struct ObservationContextSelection: Hashable {
+    let partitionID: String
+    let contextID: String
+}
+
+private struct ObservationSourceSelection: Hashable {
+    let acquisitionID: UUID
+    let sampleID: UUID
 }

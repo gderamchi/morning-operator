@@ -1571,6 +1571,34 @@ final class MorningStore {
         } catch { notice = error.localizedDescription; return false }
     }
 
+    /// A screen review is a separate user assertion. Never overwrite original OCR or
+    /// accept an editor whose source changed while it was open.
+    @discardableResult
+    func saveFrameReview(_ review: ObservationFrameReview, expected: ObservationAcquisition) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !busy, !sessionActive,
+              saveObservationEdits() else { return false }
+        guard observationArchive.entry(id: expected.id) == expected else {
+            notice = "This observation changed. Reopen the sampled screen before saving its label."
+            return false
+        }
+        return changeObservationArchive(selecting: selectedObservationID) {
+            try $0.reviewFrame(id: expected.id, review: review)
+        }
+    }
+
+    @discardableResult
+    func removeFrameReview(sampleID: UUID, expected: ObservationAcquisition) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !busy, !sessionActive,
+              saveObservationEdits() else { return false }
+        guard observationArchive.entry(id: expected.id) == expected else {
+            notice = "This observation changed. Reopen the sampled screen before removing its label."
+            return false
+        }
+        return changeObservationArchive(selecting: selectedObservationID) {
+            try $0.removeFrameReview(id: expected.id, sampleID: sampleID)
+        }
+    }
+
     @discardableResult
     func deleteObservation(id: UUID) -> Bool {
         guard !privacyBlocksWork else { return false }
