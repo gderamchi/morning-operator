@@ -1,6 +1,6 @@
 # An invitation to start your morning
 
-**Source `6f647b4`; physical delivery and Siri validation pending.** MORE schedules one future local invitation and routes an explicit start request into an approved morning. The package suite passed **138 checks with two optional model skips**. A real local invitation was registered, delivered and tapped in the simulator; that first run exposed a callback-thread crash. Completing the delegate callback on the main actor fixed it: the targeted delivery → tap → approved start rerun passed **1/1 in 59.100s**. Five other entry checks passed before that final delegate fix, including deferral behind an open detail sheet. [PHASE-ONE](PHASE-ONE.md) preserves the separate runs. V2 has not replaced the owner's phone build.
+**Historical invitation evidence at `6f647b4`; physical delivery and Siri validation pending.** MORE schedules one future local invitation and routes an explicit start request into an approved morning. That package suite passed **138 checks with two optional model skips**. A real local invitation was registered, delivered and tapped in the simulator; that first run exposed a callback-thread crash. Completing the delegate callback on the main actor fixed it: the targeted delivery → tap → approved start rerun passed **1/1 in 59.100s**. Five other entry checks passed before that final delegate fix, including deferral behind an open detail sheet. [PHASE-ONE](PHASE-ONE.md) preserves the separate runs and latest source. V2 has not replaced the owner's phone build.
 
 ## Set a one-time invitation
 
@@ -33,6 +33,8 @@ There are **two separate clocks**. A notification occurrence is eligible from it
 Starting an invitation never starts screen recording, the microphone listener or a new permission flow for capture. Recording still requires its explicit UI and Apple's system sharing choice. The invitation does not detect waking, first pickup, Alarm completion or a DeviceActivity first-use callback.
 
 ## Persistence before effects
+
+The optional [Live Activity](LIVE-ACTIVITY.md) has a narrower entry contract: `more://morning` **reveals Morning only**. It does not create a Start request, consume an invitation, resume speech or dismiss an unfinished review. MORE pauses a running morning when it backgrounds; returning from its Lock Screen display still requires Resume. Its current native presentation checks are separate from the invitation results above.
 
 ```mermaid
 flowchart TD
@@ -70,4 +72,4 @@ Use a harmless approved synthetic routine and record the actual installed revisi
 
 Verify that an open detail/review sheet, active recording, analysis and a listening turn defer entry. Closing the sheet within 60 seconds may start; waiting past the deadline must require manual Start. A duplicated notification response must not repeat speech or start another run. Exercise draft and empty-workspace entry, and verify invitation reset leaves routine data intact. Test an actual spoken Siri phrase separately from these notification and injected-routing checks.
 
-First-use/alarm triggers, recurring schedules, widgets and spoken wake-up invitations remain separate work. [Start opportunities #16](https://github.com/gibouu/morning-operator/issues/16), [voice commands](VOICE.md), [implementation state](PHASE-ONE.md).
+First-use/alarm triggers, recurring schedules, Home Screen widgets and spoken wake-up invitations remain separate work. The new Live Activity is a progress display, not a wake trigger. [Start opportunities #16](https://github.com/gibouu/morning-operator/issues/16), [voice commands](VOICE.md), [implementation state](PHASE-ONE.md).

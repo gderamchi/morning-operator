@@ -59,11 +59,13 @@ The generated Xcode project is checked in. **XcodeGen is optional for opening it
 ## Build and run on your iPhone
 
 1. Connect and unlock your phone. Complete Trust and Developer Mode prompts, then identify it in Xcode's device manager.
-2. Open `MorningOperator.xcodeproj`, select **MorningOperator** and your phone, and choose your own development team. Resolve signing in Xcode first.
+2. Open `MorningOperator.xcodeproj`, select the **MorningOperator** scheme and your phone. Choose your development team for both **MorningOperator** and its embedded **MorningActivityWidget** target. Resolve signing in Xcode first; the app also needs WeatherKit provisioning for the prepared recap.
 3. Build/run. Verify that the installed app opens before attempting model, recording or audio checks.
 4. Follow the [device guide](DEVICE-SETUP.md) for the fixture suite and each integration's separate checks.
 
 Each collaborator signs and installs with their own account/team/device configuration. Do not commit team settings, device identifiers, certificates, provisioning profiles or credentials. No App Store submission is needed for this personal development build.
+
+Optional progress lives in **Review → Settings & connections → Morning at a glance**. It starts off. A running morning pauses when MORE leaves the foreground; tapping its Live Activity only reveals the app. See the [Lock Screen guide](LIVE-ACTIVITY.md) for payload privacy and the separate native/device checks.
 
 The project’s XCTest controller is a separate Mac-hosted test target. It does not give the ordinary iPhone app permission to tap through arbitrary apps. Clock navigation has a bounded recorded proof; broader model-driven control is [future work](https://github.com/gibouu/morning-operator/issues/7).
 

@@ -20,6 +20,7 @@ The normal local data directory is the app's **Application Support/MorningOperat
 |---|---|---|
 | Routines, previous version, session, run history, observations/original OCR/corrections/layout/classification, suggestions, choice snapshots, thoughts, settings and local effect/entry receipts | `workspace.json` | Replaced by an explicit empty workspace; no retained routine or evidence recovery slot. |
 | Invitation ID, chosen time/zone, expiry and consumption/cancellation metadata | `morning-invitation.json`; MORE's pending/delivered notification request | Cleared and removed; notification authorization remains unchanged. |
+| Optional Lock Screen progress | Opt-in in `workspace.json`; ActivityKit owns the generic category/status/count display and opaque IDs | Opt-in resets off; new publication is blocked and native immediate dismissal is awaited before reset completion. No step names, notes, source quotations, calendar facts or transcripts enter this payload. The native ActivityKit cleanup and off-after-relaunch journey passed in the dedicated simulator. Physical-device cleanup remains unverified. |
 | Selected calendar IDs, weather city name/coordinates and temperature unit | `briefing-settings.json` | Removed; no event titles or prepared recap text are persisted here. |
 | Configured app entry/exit records | `app-transitions.json` | Removed; future collection disabled locally. |
 | Failed/pending app-created recording and its coverage/start metadata | `RecordingRecovery/pending-screen-recording.mp4`, `RecordingRecovery/recording-info.json` | Removed after the native recording owner has stopped. The recovery directory is excluded from backup. |
@@ -30,7 +31,9 @@ The normal local data directory is the app's **Application Support/MorningOperat
 
 Deleting just one observation has a narrower scope: it removes that acquisition and invalidates dependent pending suggestions, but it does not erase quotations already retained in a routine, archived run or Keep choice. Full forgetting removes those app-owned copies too. Export is separate from deletion; see [routine files](ROUTINE-FILES.md).
 
-## Optional Apple network services
+## Optional Apple services and surfaces
+
+**Morning at a glance** is a separate, off-by-default display choice. Its generic categories and counts are visible to anyone who can see the Lock Screen or another system-selected presentation. MORE's widget extension does not read the workspace or contact a server, and it has no microphone. It adds no push token or APNs service. Turning it off ends the display without deleting a routine; full forgetting additionally resets its saved preference. [Live Activity scope](LIVE-ACTIVITY.md).
 
 **Your day** sends an explicit city search to Apple Maps and the chosen city's coordinates to Apple Weather. It does not request device location. EventKit reading remains a local store read. Weather responses, event titles and prepared sentences remain transient and are not observation evidence or training records. These requests contain no recording, OCR or habit content. The app still has no remote-model fallback. [Your day guide](YOUR-DAY.md).
 
@@ -57,7 +60,7 @@ flowchart LR
     Retry --> Stop
 ```
 
-`LocalDataControl` uses a shared file lock around cooperating read/mutate/save operations. The pending marker closes ordinary access before deletion begins. Asynchronous analysis, capture and entry work checks its ownership/generation before attaching a result; background transition logging checks collection permission inside the same lock as its journal save. Invitation forgetting invalidates its permission/reconciliation revision, drains a late native add, and checks that its pending and delivered requests are absent.
+`LocalDataControl` uses a shared file lock around cooperating read/mutate/save operations. The pending marker closes ordinary access before deletion begins. Asynchronous analysis, capture and entry work checks its ownership/generation before attaching a result; background transition logging checks collection permission inside the same lock as its journal save. Invitation forgetting invalidates its permission/reconciliation revision, drains a late native add, and checks that its pending and delivered requests are absent. Live Activity cleanup blocks new publication, drains earlier activity work and awaits immediate removal; its coordinator is released for future work only after the privacy generation finishes successfully. Test activities are scoped to their isolated workspace, not the person's ordinary activity.
 
 The controller then removes an explicit set of owned payloads, saves an empty workspace, clears memory, and marks that generation complete. A failure before the pending marker commits starts no payload removal. After it commits, cleanup may be partial: the app preserves the pending marker and never restores the old workspace as a rollback. Startup reads this control before old workspace/recovery data and resumes pending removal. The marker and lock must not be deleted as part of the sweep.
 
