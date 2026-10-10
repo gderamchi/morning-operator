@@ -2,11 +2,11 @@
 
 MORE is a native iPhone app. The Mac is its development and test environment. The repository and Xcode project retain the Morning Operator name.
 
-**Current source: `e150bfc` on `codex/more-quiet-morning`.** V2 separates a compact Morning from Review: saved observations, cited proposals, dated spoken excerpts, prepared Calendar/Weather recaps and optional Lock Screen progress. Recording metadata and recovery remain separate from learned interpretations.
+**Current source: `6938137` on `codex/more-quiet-morning`.** V2 separates a compact Morning from Review: saved observations, cited proposals, dated spoken excerpts, prepared Calendar/Weather recaps and optional Lock Screen progress. A screen label can be corrected or kept unknown without replacing original evidence. Recording metadata and recovery remain separate from learned interpretations.
 
 **Testing on your phone:** the last verified installed baseline is `8a640ea`. V2 needs the Xcode developer account and WeatherKit signing setup before installation. Start with the [device guide](DEVICE-SETUP.md); its morning checklist describes the installed version.
 
-**Verification:** 79 focused narration/provenance checks and both final native simulator journeys pass. They establish source validation, native speech callbacks and progression with synthetic inputs. Physical V2, actual habit recognition, microphone/Siri, HomePod and listener-confirmed speech remain open. The [verification record](PHASE-ONE.md) keeps earlier results and failures.
+**Verification:** the current screen-review slice passes 90 focused shared checks and four native simulator journeys, plus one visual rerun. These validate corrections, unknowns, learning eligibility and persistence using manufactured observations. Earlier narration checks establish native speech callbacks and progression, not listener audibility. Physical V2, actual habit recognition, microphone/Siri, HomePod and listener-confirmed speech remain open. The [verification record](PHASE-ONE.md) keeps earlier results and failures.
 
 ## Use the app
 

@@ -23,7 +23,7 @@ This branch, `codex/more-quiet-morning`, introduces the V2 interface. It is **in
 |---|---|
 | Morning | A date, a compact routine and a clear start. Up to ten moments fit at default portrait size in the tested simulator; larger text and short layouts have a scrolling fallback. Pause and Stop remain reachable. |
 | Review | Open a seven-day period and its days; revisit dated observations and their originals, edit and approve your routine, find saved thoughts, and open settings or connections. There is no separate Notes tab. |
-| Review what was observed | Open sampled moments and their original text, follow exact quotations, and see which visual labels appeared on distinct days. Missing days, unresolved samples and different origins/time zones stay separate. [Observed mornings](docs/OBSERVED-MORNINGS.md). |
+| Review what was observed | Open sampled moments and their original text, correct one screen label or keep it unknown, and see which labels appeared on distinct days. Your labels stay separate from model proposals. Missing days, unresolved samples and different origins/time zones stay separate. [Observed mornings](docs/OBSERVED-MORNINGS.md). |
 | Learn across mornings | Choose up to five dated observations in Review, inspect exact supporting quotations, and approve a separately saved update. Your current routine remains ready during this review. Explicit keep/exclude/timing choices survive later suggestions and can be cleared in Review. [Learning flow](docs/ROUTINE-LEARNING.md). |
 | Show your morning | Explicit iOS 27 screen recording, or selected text/image/video import. Local extraction saves separate observations with original text and corrections; identical file imports keep the existing entry. Unknown recording dates stay explicit. Screen recognition and routine suggestions are separate explicit actions; suggestions stay pending until approval. Manual setup also works. |
 | Prepare your day | Select calendars and an optional city in Review → Settings → Your day. One sourced recap supplies the visible text and speech; adding it to the routine creates a draft to approve. [Your day](docs/YOUR-DAY.md). |
@@ -39,12 +39,13 @@ Review measures **routine runs** and shows source-linked appearances in sampled 
 
 ## Where it stands
 
-**Current V2 source: `e150bfc`.** Saved observations can now supply an explicitly selected, dated spoken moment. Source edits or deletion block replay; samples remain separate from personal history even when kept in later routines. The Morning page stays compact.
+**Current V2 source: `6938137`.** Review can now correct one sampled screen label or keep it unknown. Your choice updates the weekly view and future learning while preserving the original extraction and model proposal. Saved-moment narration remains available; the Morning page stays compact.
 
 | Verified development behavior | Evidence |
 |---|---|
-| Saved-moment narration | **79 focused shared checks and 2/2 final native simulator journeys passed.** Exact preview, approval/persistence, synthesis-driven progression and deleted-source refusal. This proves native callbacks and app behavior, not listener audibility. |
-| Recording reliability | Earlier **69 focused checks and 2/2 recovery journeys passed** for actual fixture-video OCR and retained metadata. The new callback-ordering policy also has deterministic coverage. Real iPhone callback order remains unverified. |
+| Screen review and learning | **90 focused shared checks and 4/4 native simulator journeys passed.** Label/quote corrections, unknowns, weekly review, reset and relaunch preserve originals. A separate visual rerun also passed. These use manufactured observations. |
+| Earlier saved-moment narration | **79 focused shared checks and 2/2 final native simulator journeys passed.** Exact preview, approval/persistence, synthesis-driven progression and deleted-source refusal. This proves native callbacks and app behavior, not listener audibility. |
+| Recording reliability | Earlier **69 focused checks and 2/2 recovery journeys passed** for actual fixture-video OCR and retained metadata. The callback-ordering policy also has deterministic coverage. Real iPhone callback order remains unverified. |
 | Compact experience | Earlier no-scroll Morning, reviewed learning, Calendar/Weather, Live Activity, portable-file and local-forgetting checks keep their separate results in [verification](docs/PHASE-ONE.md). |
 | iPhone build | Simulator and unsigned generic iPhone builds pass. Signing still needs the Xcode developer account and a profile with WeatherKit. V2 has not been installed on the phone. |
 

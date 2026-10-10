@@ -16,11 +16,13 @@ The app stops its work before claiming completion. A screen recorder that may st
 
 **Spoken saved moments:** selecting an observation excerpt stores its quote, dated sentence and local source reference inside a routine. Earlier versions, saved runs and explicitly kept steps can retain these copies. Deleting the observation blocks source-backed playback but does not erase copies inside those other categories; full forgetting does. Portable files omit source references, while an export with notes includes the sentence. [Saved-moment lifecycle](SAVED-MOMENTS.md).
 
+**Screen reviews:** a label or unknown choice, frame ID, selected exact excerpt and review time live inside the corresponding observation. They are separate from original OCR and model output. Removing the review restores the retained interpretation; changing the observation's notes clears its screen reviews. Deleting the observation or full forgetting removes these records and invalidates dependent pending suggestions. Already approved routine quotations/history remain separate copies. Screen reviews add no raw media, upload or model-training store.
+
 The normal local data directory is the app's **Application Support/MorningOperator** directory inside its own container. Development overrides and isolated UI-test workspaces have their own locations; they must never be treated as the person's production workspace.
 
 | Copy | Location / ownership | Full forget |
 |---|---|---|
-| Routines, previous version, session, run history, observations/original OCR/corrections/layout/classification, suggestions, choice snapshots, thoughts, settings and local effect/entry receipts | `workspace.json` | Replaced by an explicit empty workspace; no retained routine or evidence recovery slot. |
+| Routines, previous version, session, run history, observations/original OCR/corrections/screen reviews/layout/classification, suggestions, choice snapshots, thoughts, settings and local effect/entry receipts | `workspace.json` | Replaced by an explicit empty workspace; no retained routine or evidence recovery slot. |
 | Invitation ID, chosen time/zone, expiry and consumption/cancellation metadata | `morning-invitation.json`; MORE's pending/delivered notification request | Cleared and removed; notification authorization remains unchanged. |
 | Optional Lock Screen progress | Opt-in in `workspace.json`; ActivityKit owns the generic category/status/count display and opaque IDs | Opt-in resets off; new publication is blocked and native immediate dismissal is awaited before reset completion. No step names, notes, source quotations, calendar facts or transcripts enter this payload. The native ActivityKit cleanup and off-after-relaunch journey passed in the dedicated simulator. Physical-device cleanup remains unverified. |
 | Selected calendar IDs, weather city name/coordinates and temperature unit | `briefing-settings.json` | Removed; no event titles or prepared recap text are persisted here. |

@@ -48,6 +48,14 @@ The operation has an 8,000-character submitted-prompt budget, including unit ide
 
 Each inferred moment retains typed citations with acquisition identity, a source revision, source layer, exact quote, character offsets and a sampled-frame identity where applicable. The app assigns dates and origins. The model cannot invent them, approve its own output, mark a ritual required or assign an executable operation. Preserved user decisions have no new inference citations. Model requests use independent sessions; assembly merges only matching normalized titles and categories, combining their citations without computing averages.
 
+## Reviewed screen labels
+
+A sampled screen can have a separate label supplied by you, or an explicit unknown choice. During the next suggestion, a label supplies bounded context alongside that frame's original OCR; it cannot replace the original citation, turn setup/interface text into activity evidence, or claim a read/action/duration. Unknown samples are omitted with **Samples you kept unknown** in the review. If a selected observation has no remaining usable activity evidence, preparation stops before calling the model.
+
+If saved screen reviews are damaged, original-video preparation and older pending proposals are blocked. Adding explicit reviewed notes in Learn supplies a separate user report and permits a new suggestion.
+
+Screen reviews participate in the source revision. Changing or removing one invalidates dependent pending suggestions, including after relaunch. Their original text, frame offsets and quotation checks remain unchanged. This is saved feedback for the next explicit inference, not training or an automatic background update. [Correct a screen](OBSERVED-MORNINGS.md#correct-one-screen).
+
 ## Saved choices in Review
 
 **Review → Your routine** is where the person edits a moment and chooses **Keep in future suggestions** or **Keep this duration**. Changing its minutes turns on the timing choice; it can be switched off before Save. These controls save a separate `RoutinePreferenceJournal`; they do not train the model or turn a personal choice into observed behavior. The journal is applied after the model's proposed activities and exact quotations have been checked.
@@ -80,7 +88,7 @@ This flow does not produce a habitual frequency, complete-day average, scroll co
 
 ## Durability and changes
 
-One pending proposal is saved in the same atomic workspace as its sources and current routine. Full source, base-routine and preference-journal revisions are checked when generation returns, during persistence, after restoration and before approval. The proposal stores the captured journal and its full revision digest. Restoration also replays the preference rules and checks step values and user-choice receipts. Changing corrected text, deleting a cited observation, changing its day/origin, changing the base routine or editing/clearing a saved choice invalidates the dependent suggestion. A late task cannot restore forgotten evidence.
+One pending proposal is saved in the same atomic workspace as its sources and current routine. Full source, base-routine and preference-journal revisions are checked when generation returns, during persistence, after restoration and before approval. The proposal stores the captured journal and its full revision digest. Restoration also replays the preference rules and checks step values and user-choice receipts. Changing corrected text or an individual screen review, deleting a cited observation, changing its day/origin, changing the base routine or editing/clearing a saved choice invalidates the dependent suggestion. A late task cannot restore forgotten evidence.
 
 Approval saves the new approved routine, previous approved version, ready session and removal of the pending proposal together. If saving fails, the previous in-memory values are restored for retry. Rejecting a proposal leaves sources, routine and saved runs intact. Unsupported saved derived proposals are discarded without making original observations or the existing morning unreadable.
 

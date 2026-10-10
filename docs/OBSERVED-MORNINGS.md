@@ -31,11 +31,19 @@ Open a label, then a quotation, to reach its current source moment directly. **T
 | No observation | No saved source for that date and partition. It is not a zero-minute morning. |
 | Invalid time order | Original samples stay available in extraction order; sequence and return claims are withheld. |
 
-## Correct something
+## Correct one screen
 
-Use **Edit in Learn** to correct the observation's notes. This removes its earlier screen interpretation while keeping the original extracted text and sampled evidence. Day and weekly views immediately derive their results from the current source, including after relaunch. Changing a day/origin or deleting an observation also changes the derived review; no separate hidden analytics copy is saved.
+Open a sampled moment, then **Correct label**. Describe what was on that screen and select an exact excerpt from its saved text. **Save** applies your label; **Cancel** changes nothing. **Keep this screen unknown** suppresses that sample's label and excludes it from later activity suggestions. **Remove my correction** reveals the original interpretation, if one exists.
 
-A correction is not yet a per-frame replacement label. Review a proposed routine separately before approving it. The [learning guide](ROUTINE-LEARNING.md) explains how accepted source observations can support that draft.
+The source keeps your review time, label and selected quotation separately from the original extraction and model result. The weekly view marks **Your label** and updates from the saved source, including after relaunch. Your labels form their own groups: a matching model label is not silently combined with a personal assertion. Different spelling or capitalization remains separate. Correcting one of several samples at the same timestamp does not resolve disagreement or establish their order.
+
+The next explicit routine suggestion receives your label as context beside the original text. It must still cite eligible original activity evidence. Marking a screen unknown prevents it from supporting that suggestion; it does not mean no activity happened. Editing or removing a screen review invalidates an older pending suggestion that used the observation. No model is trained, invoked or approved by saving a label.
+
+For broader changes, **Edit in Learn** changes the observation's notes. Changing those notes clears both the earlier model interpretation and your screen reviews while preserving original text and samples. Reverting the notes does not recreate cleared reviews. Day/origin changes, recognition reruns and same-file retries preserve individual screen reviews. Deleting the observation removes them.
+
+If saved screen reviews cannot be read, MORE removes their interpretation and reports the problem while preserving the original evidence. New suggestions from that recording stay blocked until you supply reviewed notes in Learn; an unreadable unknown choice must not silently become permission to reuse its screen text.
+
+Labels remain descriptions, not verified app identities, message reads, scroll counts or measured minutes. Review any proposed routine separately before approving it.
 
 ## Keep the recording's original date
 
