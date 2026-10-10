@@ -58,13 +58,14 @@ Invalid rows are not silently dropped and durations are not clamped. The bounded
 
 ## Validation snapshot
 
-Recorded 10 October 2026; app source `943766e`.
+Recorded 10 October 2026. Transfer implementation: `943766e`; native round-trip check included with `aec8fc8`.
 
 - **14 new shared checks passed:** 11 portable-format tests and three actual-file reader tests. They cover omitted/private fields, explicit details, version/identity semantics, manual unapproved imports, sample provenance, malformed input and bounds.
 - **Simulator UI passed:** export preview with deliberate notes and the default reset on reopening; staged real-file import review/cancel, manual draft persistence, repeated import and restoration of the prior approved routine. The corrected malformed-file journey also passed, verifying a decoding error and the unchanged routine after relaunch. The fixtures contain synthetic content and invoke the production bounded reader.
-- **Native file-sheet dismissal passed (78.153s)** in a corrected scoped run: the actual export and import panels dismiss, then the approved routine survives relaunch. Two earlier selector/hittability failures remain in the record. This does not establish a native save, native file selection or file-provider round trip.
-- **Builds passed:** signed generic iOS and simulator targets. This transfer slice has not been installed on the physical iPhone.
-- **The wider package run was not clean:** 271 passed, six skipped and two Vision tests failed. Both Vision checks also failed on their focused retry; a later screenshot-only check failed too. The transfer checks above passed independently; these failures are retained in the wider verification record.
+- **Native file-sheet dismissal passed (78.153s)** in a corrected scoped run: the actual export and import panels dismiss, then the approved routine survives relaunch. Two earlier selector/hittability failures remain in the record. This earlier check only establishes dismissal. The later round trip below establishes local native save/selection separately.
+- **Native local save/reopen passed (136.740s):** a uniquely named synthetic plan-only file was saved under **On My iPhone**, selected through the actual importer, reviewed without notes/source text and adopted as a manual unapproved draft that survived relaunch. The previous approved routine stayed restorable. No staged-file hook was used; provider bytes were not independently inspected. This is simulator local-provider evidence, not a cloud-provider or physical-device check.
+- **Original transfer builds passed:** signed generic iOS and simulator targets. This transfer slice has not been installed on the physical iPhone.
+- **The latest full shared run passed: 279 checks, six optional skips.** The earlier transfer run had 271 passes, six skips and two Vision failures; paired/isolated retries also failed. Scoped logs subsequently identified compiler storage exhaustion. Removing redundant project build caches restored both unchanged recognition checks; earlier failures remain in [the verification history](PHASE-ONE.md).
 
 No transfer test invokes a model or proves recording, narration or cross-app behavior.
 
