@@ -12,6 +12,8 @@ This is a native source-backed narration path in the V2 branch. It does not conn
 4. Choose **Add to my morning**, then review and approve the new draft. Adding never approves the routine.
 5. Enable spoken guidance and Hands free when you want supported moments to progress automatically. Start the morning. The saved moment completes only when native speech reports completion; manual activities still wait for you.
 
+From an individual sampled screen, **Read this saved moment** opens the same preview with its exact quotation selected. This shortcut is offered only for an eligible complete line from that exact frame. It does not pick a similar line, open the microphone or begin playback. If the source changed before presentation, the selection is refused; choose again from the current source.
+
 An observation needs a confirmed day and personal or synthetic origin. Original video excerpts come from successful, untruncated OCR frames. A written correction supplies its own note text instead. The chooser offers up to 24 complete lines, each at most 500 characters and 4,000 UTF-8 bytes; longer or incomplete lines are skipped, never silently shortened. Choosing a quotation does not establish that you opened, read, replied to or liked anything.
 
 The excerpt's wording stays fixed in the routine editor. A different excerpt comes from its observation in Review. Explicitly switching the action to **Read this text aloud** makes the content an ordinary static note and removes its source binding.
@@ -21,6 +23,7 @@ The excerpt's wording stays fixed in the routine editor. A different excerpt com
 ```mermaid
 flowchart LR
     A["Saved observation"] --> B["Choose exact line"]
+    Q["Eligible sampled quotation"] --> C["Dated preview"]
     B --> C["Dated preview"]
     C --> D["New draft"]
     D --> E["Approve and start"]

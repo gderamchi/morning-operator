@@ -109,3 +109,12 @@ The `ObservationVideoEvidence` adapter preserves frame order and validates ident
 ## Verification
 
 Use [PHASE-ONE.md](PHASE-ONE.md) for the dated build and device results. Package checks validate core history, state transitions, parser dates, action cancellation, draft validation and real Vision OCR; they do not prove OS permission flows, Siri phrase recognition or speaker output. Each device integration needs its own observed result.
+
+
+## Next opening and connected counts — 10 October 2026
+
+The [product direction addendum](PRODUCT-DIRECTION.md) records LEVE as a possible name and the requested short spoken start: greeting/weather, only verified source counts, then a choice to hear the brief. This opening is not implemented yet. Current Start runs the first approved moment, so an explicitly added sample/saved-note moment can currently speak first. Historical excerpts remain separate from live morning facts; the planned opening must not select them automatically.
+
+The [dated access matrix](PRODUCT-DIRECTION.md#apple-access-matrix-checked-10-october-2026) replaces blanket access assumptions with concrete routes. iOS 26+ LiveCommunicationKit can expose recent carrier conversation history after the app becomes the selected default dialer under Apple's requirements; TelephonyMessagingKit can serve a selected default carrier-messaging app. Neither capability is connected here, neither grants every messaging app's inbox, and the ordinary CallKit observer covers active calls. Email needs its own authorized mailbox connector. Contacts may be limited; unavailable data cannot become zero or an unknown-sender percentage.
+
+Instagram/TikTok back, replay, like and comment remain target-specific future actions. The existing local voice grammar controls MORE's routine. A paired-Mac XCTest demonstration must be identified as development automation with actual observed postconditions, not ordinary standalone app control. Subscription/voice products and optional mobile-use research are proposals; there is no billing or research collection/export implementation. Recording consent does not enroll anyone in that research.

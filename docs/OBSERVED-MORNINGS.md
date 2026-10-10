@@ -16,7 +16,11 @@ An unavailable model or unresolved screen still leaves the saved samples visible
 
 ## Look across days
 
-Choose a seven-day period in Review, then **From your observations**. **Observed mornings** separates each saved time zone and origin. It shows days with labeled samples, observed days with no labels, and dates without an observation. Notes-only sources remain visible without acquiring fictional screen samples.
+The selected seven-day period sits at the top of Review. When it contains dated observations, **Your observed mornings** leads with the labels that appeared across those days. **Routine-run timing** stays collapsed below. Samples and other origins stay apart from personal mornings, and each saved time zone keeps its own group.
+
+Tap the date range to reveal the days. Open a day to see a brief sequence for each recording, including unknown moments, then use **Inspect sampled moments** to reach its original text. Separate clips remain separate; the preview does not create a continuous morning. Notes-only sources remain visible without acquiring fictional screen samples.
+
+**From your observations** still opens the complete period view. The compact overview shows up to three groups and three labels per group, with omitted counts disclosed. Each clip previews up to six moments; its full observation retains the rest. The complete view shows days with labeled samples, observed days with no labels, and dates without an observation.
 
 A label seen on two of three labeled days means just that: its quoted evidence appeared on two distinct dates among the three dates that supplied at least one accepted label. Two recordings on one date still count as one date. It does not mean two complete mornings, a measured frequency of app launches, or a two-thirds habit probability.
 
@@ -30,6 +34,8 @@ Open a label, then a quotation, to reach its current source moment directly. **T
 | No labeled samples | Evidence may be unclassified, ambiguous, corrected, limited, or affected by a model failure. It is not zero activity. |
 | No observation | No saved source for that date and partition. It is not a zero-minute morning. |
 | Invalid time order | Original samples stay available in extraction order; sequence and return claims are withheld. |
+
+An eligible exact quotation also offers **Read this saved moment**. Its dated speech preview opens with that same source already selected. Opening it does not speak or change the routine; **Add to my morning** creates a draft for separate approval. Shortened quotations, unsupported sources and lines outside the bounded chooser do not substitute other text. [Saved-moment guide](SAVED-MOMENTS.md).
 
 ## Correct one screen
 

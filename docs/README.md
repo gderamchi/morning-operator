@@ -2,11 +2,13 @@
 
 MORE is a native iPhone app. The Mac is its development and test environment. The repository and Xcode project retain the Morning Operator name.
 
-**Current source: `6938137` on `codex/more-quiet-morning`.** V2 separates a compact Morning from Review: saved observations, cited proposals, dated spoken excerpts, prepared Calendar/Weather recaps and optional Lock Screen progress. A screen label can be corrected or kept unknown without replacing original evidence. Recording metadata and recovery remain separate from learned interpretations.
+**Current source: `c91f69e` on `codex/more-quiet-morning`.** Compact Morning and observed-first Review, exact-source corrections/narration and batched long-text learning are implemented. Calendar/Weather preparation and optional Lock Screen progress retain their own verification.
 
-**Testing on your phone:** the last verified installed baseline is `8a640ea`. V2 needs the Xcode developer account and WeatherKit signing setup before installation. Start with the [device guide](DEVICE-SETUP.md); its morning checklist describes the installed version.
+**Testing on your phone:** the signed candidate now builds with verified WeatherKit provisioning. Reconnect the phone to install it; the last verified installed baseline remains `8a640ea`.
 
-**Verification:** the current screen-review slice passes 90 focused shared checks and four native simulator journeys, plus one visual rerun. These validate corrections, unknowns, learning eligibility and persistence using manufactured observations. Earlier narration checks establish native speech callbacks and progression, not listener audibility. Physical V2, actual habit recognition, microphone/Siri, HomePod and listener-confirmed speech remain open. The [verification record](PHASE-ONE.md) keeps earlier results and failures.
+**Verification:** 322 shared checks passed with six optional skips; 62 final focused learning checks and the two corrected Review journeys pass. Long-video accuracy, real model generation, live connected counts, microphone/Siri and HomePod remain separate unverified work. See the [verification record](PHASE-ONE.md).
+
+**Latest direction:** [LEVE, short greeting, social playback and business](PRODUCT-DIRECTION.md) · [Long-recording test plan](LONG-RECORDING-TEST-PLAN.md).
 
 ## Use the app
 
