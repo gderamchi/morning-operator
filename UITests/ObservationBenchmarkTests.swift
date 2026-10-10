@@ -10,26 +10,39 @@ final class ObservationBenchmarkTests: XCTestCase {
             throw XCTSkip("Set MO_OBSERVATION_BENCHMARK=1 to control the installed synthetic fixture apps.")
         }
         let requestedVariant = ProcessInfo.processInfo.environment["MO_OBSERVATION_BENCHMARK_VARIANT"] ?? "baseline"
-        guard ["baseline", "heldout"].contains(requestedVariant) else {
+        guard ["baseline", "heldout", "digest"].contains(requestedVariant) else {
             throw BenchmarkFailure.precondition("Unknown benchmark variant; no fixture navigation was attempted.")
         }
         let inbox = Fixture(app: XCUIApplication(bundleIdentifier: "com.gibouu.morningoperator.fixture.inbox"),
                             name: "Cedar Mail", key: "fixture.inbox", detailKind: "Synthetic message")
         let calendar = Fixture(app: XCUIApplication(bundleIdentifier: "com.gibouu.morningoperator.fixture.calendar"),
                                name: "Lumen Calendar", key: "fixture.calendar", detailKind: "Synthetic event")
+        let content = try SeededBenchmarkContent.fromEnvironment(required: requestedVariant == "digest")
+        if let content {
+            for fixture in [inbox, calendar] {
+                fixture.app.launchEnvironment["MO_OBSERVATION_FIXTURE_CONTENT"] = content.rawJSON
+                fixture.app.launchEnvironment["MO_OBSERVATION_FIXTURE_SEED"] = content.seed
+            }
+        }
         let first = requestedVariant == "heldout" ? calendar : inbox
         let second = requestedVariant == "heldout" ? inbox : calendar
-        var truth = BenchmarkTruth(variant: requestedVariant)
+        var truth = BenchmarkTruth(variant: requestedVariant, seed: content?.seed,
+                                   generatorVersion: content?.generatorVersion)
         defer { attachTruth(truth) }
 
         do {
+            if requestedVariant == "digest" {
+                guard let content else { throw BenchmarkFailure.precondition("Digest requires a seeded rendering payload.") }
+                try digestJourney(inbox: inbox, calendar: calendar, content: content, truth: &truth)
+                return
+            }
             truth.record(kind: "manifest", outcome: "declared", fixture: nil, start: truth.stamp(),
                 note: "Synthetic native apps; planned sequence \(first.key) → \(second.key) → \(first.key), one upward gesture per app, one detail in the first app. Forty-five seconds of explicit holds. Movie is captured independently; timestamps are test-runner system uptime, not assumed movie time zero.")
             try launch(first, truth: &truth)
             try hold(first, seconds: 7, page: "list", truth: &truth)
             try scrollOnce(first, truth: &truth)
             try hold(first, seconds: 7, page: "list", truth: &truth)
-            try openObservedDetail(first, truth: &truth)
+            try openObservedDetail(first, content: content, truth: &truth)
             try hold(first, seconds: 7, page: "detail", truth: &truth)
             try returnToList(first, truth: &truth)
             try hold(first, seconds: 3, page: "list", truth: &truth)
@@ -46,6 +59,21 @@ final class ObservationBenchmarkTests: XCTestCase {
                          note: String(describing: error))
             throw error
         }
+    }
+
+    private func digestJourney(inbox: Fixture, calendar: Fixture, content: SeededBenchmarkContent,
+                               truth: inout BenchmarkTruth) throws {
+        truth.record(kind: "manifest", outcome: "declared", fixture: nil, start: truth.stamp(),
+            note: "Seeded synthetic digest journey. Open message 01 in Cedar Mail and event 01 in Lumen Calendar; each detail has a twelve-second hold. No swipe, reply, event creation or real account is involved. Fixture payload and visible-field truth are scoring artifacts, never model input.")
+        for fixture in [inbox, calendar] {
+            try launch(fixture, truth: &truth)
+            try hold(fixture, seconds: 3, page: "list", truth: &truth)
+            try openObservedDetail(fixture, targetRowID: "benchmark.row.01", content: content, truth: &truth)
+            try hold(fixture, seconds: 12, page: "detail", truth: &truth)
+            try returnToList(fixture, truth: &truth)
+        }
+        truth.record(kind: "benchmarkComplete", outcome: "verified", fixture: calendar, start: truth.stamp(),
+            note: "Both first-item details and their full visible synthetic fields were verified. This is capture/input verification only: it does not establish successful OCR, model inference, digest accuracy, speech or reading intent.")
     }
 
     private func launch(_ fixture: Fixture, truth: inout BenchmarkTruth) throws {
@@ -97,10 +125,16 @@ final class ObservationBenchmarkTests: XCTestCase {
         guard observedMovement else { throw BenchmarkFailure.postcondition("The one issued swipe had no verified row movement.") }
     }
 
-    private func openObservedDetail(_ fixture: Fixture, truth: inout BenchmarkTruth) throws {
+    private func openObservedDetail(_ fixture: Fixture, targetRowID: String? = nil,
+                                    content: SeededBenchmarkContent? = nil,
+                                    truth: inout BenchmarkTruth) throws {
         try verifyList(fixture)
         let list = fixture.app.scrollViews["benchmark.list"]
-        guard let row = rows(in: fixture).first(where: { $0.minY >= Double(list.frame.minY) + 8 && $0.maxY <= Double(list.frame.maxY) - 8 }) else {
+        let margin: Double = targetRowID == nil ? 8 : 0
+        guard let row = rows(in: fixture).first(where: {
+            (targetRowID == nil || $0.id == targetRowID) &&
+                $0.minY >= Double(list.frame.minY) + margin && $0.maxY <= Double(list.frame.maxY) - margin
+        }) else {
             throw BenchmarkFailure.precondition("No fully visible known fixture row to open; no guessed tap.")
         }
         let target = fixture.app.buttons[row.id]
@@ -122,7 +156,43 @@ final class ObservationBenchmarkTests: XCTestCase {
         truth.record(kind: "detailVisible", outcome: "verified", fixture: fixture, start: start, targetID: row.id,
                      postconditions: ["detailKind=\(kind.label)", "detailTitle=\(title.label)", "backButtonVisible"],
                      note: "Visible detail is not evidence that a person mentally read it.")
+        if let content {
+            try verifyDigestSource(fixture, itemID: itemID, content: content, start: start, truth: &truth)
+        }
         attachScreen(fixture, name: "\(fixture.key)-detail-\(itemID)")
+    }
+
+    private func verifyDigestSource(_ fixture: Fixture, itemID: String, content: SeededBenchmarkContent,
+                                    start: BenchmarkStamp, truth: inout BenchmarkTruth) throws {
+        let sourceKind = fixture.key == "fixture.inbox" ? "message" : "event"
+        let items = sourceKind == "message" ? content.messages : content.events
+        guard let item = items.first(where: { String(format: "%02d", $0.index) == itemID }) else {
+            throw BenchmarkFailure.precondition("The visibly opened item is absent from the rendering payload.")
+        }
+        let detail = fixture.app.scrollViews["benchmark.detail"]
+        let viewport = detail.frame.intersection(fixture.app.frame)
+        var observed: [String: String] = [:]
+        for field in item.fields.keys.sorted() {
+            let suffix = field == "subject" ? "title" : field
+            let element = fixture.app.staticTexts["benchmark.detail.\(suffix)"]
+            guard element.exists, element.isHittable, element.frame.width > 0, element.frame.height > 0,
+                  viewport.insetBy(dx: -1, dy: -1).contains(element.frame),
+                  element.label.utf8.elementsEqual(item.fields[field]!.utf8) else {
+                throw BenchmarkFailure.postcondition("A synthetic detail field was missing, clipped or different: \(field). No desired value was substituted into visible truth.")
+            }
+            observed[field] = element.label
+        }
+        let evidence = observed.keys.sorted().map { field in
+            DigestFieldEvidence(evidenceID: "\(item.sourceID).\(field)", text: observed[field]!, fields: [field])
+        }
+        let required = sourceKind == "message" ? ["sender", "subject", "body", "date", "time"]
+            : ["subject", "date", "time", "endTime", "location", "reminder"]
+        truth.record(kind: "digestSource", outcome: "verified", fixture: fixture, start: start,
+            targetID: "benchmark.row.\(itemID)", postconditions: ["allDeclaredFieldsFullyVisible", "exactRenderedFieldValues"],
+            note: "Field evidence was read from the visible UI. Hidden source/evidence IDs belong only to the scorer and must be independently aligned after inference, never supplied as model answers.",
+            digestSource: .init(sourceID: item.sourceID, sourceRevision: item.sourceRevision,
+                                sourceKind: sourceKind, availability: "available", fields: observed,
+                                evidence: evidence, requiredFields: required))
     }
 
     private func returnToList(_ fixture: Fixture, truth: inout BenchmarkTruth) throws {
@@ -232,6 +302,8 @@ private struct BenchmarkEvent: Codable {
     let schemaVersion: Int
     let runID: UUID
     let variant: String
+    let seed: String?
+    let generatorVersion: String?
     let sequence: Int
     let kind: String
     let outcome: String
@@ -244,12 +316,83 @@ private struct BenchmarkEvent: Codable {
     let afterRows: [RowEvidence]
     let observedVisiblePostconditions: [String]
     let note: String?
+    let digestSource: DigestSource?
+}
+
+private struct DigestFieldEvidence: Codable {
+    let evidenceID: String
+    let text: String
+    let fields: [String]
+}
+
+private struct DigestSource: Codable {
+    let sourceID: String
+    let sourceRevision: String
+    let sourceKind: String
+    let availability: String
+    let fields: [String: String]
+    let evidence: [DigestFieldEvidence]
+    let requiredFields: [String]
+}
+
+/// The controller's payload is only sent to the fixture processes, never Morning Operator.
+private struct SeededBenchmarkContent: Decodable {
+    let schemaVersion: Int
+    let generatorVersion: String
+    let seed: String
+    let messages: [Item]
+    let events: [Item]
+    var rawJSON: String = ""
+
+    private enum CodingKeys: String, CodingKey { case schemaVersion, generatorVersion, seed, messages, events }
+    struct Item: Decodable {
+        let index: Int
+        let sourceID: String
+        let sourceRevision: String
+        let title: String
+        let body: String
+        let fields: [String: String]
+    }
+
+    static func fromEnvironment(required: Bool) throws -> Self? {
+        let environment = ProcessInfo.processInfo.environment
+        guard let raw = environment["MO_OBSERVATION_BENCHMARK_CONTENT"] else {
+            guard !required, environment["MO_OBSERVATION_BENCHMARK_SEED"] == nil else {
+                throw BenchmarkFailure.precondition("Seeded fixture content is missing.")
+            }
+            return nil
+        }
+        guard raw.utf8.count <= 200_000 else { throw BenchmarkFailure.precondition("Fixture payload is oversized.") }
+        var result = try JSONDecoder().decode(Self.self, from: Data(raw.utf8))
+        guard result.schemaVersion == 1, result.generatorVersion == "seeded-fixture-v1",
+              result.seed.range(of: "^[0-9a-f]{16}$", options: .regularExpression) != nil,
+              result.seed == environment["MO_OBSERVATION_BENCHMARK_SEED"] else {
+            throw BenchmarkFailure.precondition("Fixture generator or seed does not match the controller.")
+        }
+        for (kind, items) in [("message", result.messages), ("event", result.events)] {
+            guard items.count == 30, items.map(\.index) == Array(1...30) else {
+                throw BenchmarkFailure.precondition("The fixture must contain exactly thirty ordered items per app.")
+            }
+            let expected = kind == "message" ? ["sender", "subject", "date", "time", "body"]
+                : ["subject", "date", "time", "endTime", "location", "reminder", "body"]
+            guard items.allSatisfy({ item in
+                item.sourceID == "fixture.\(kind).\(String(format: "%02d", item.index))" &&
+                item.sourceRevision.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil &&
+                Set(item.fields.keys) == Set(expected) && item.fields["subject"] == item.title &&
+                item.fields["body"] == item.body && item.fields.values.allSatisfy { !$0.isEmpty && $0.count <= 500 }
+            }) else { throw BenchmarkFailure.precondition("Fixture item provenance or fields are malformed.") }
+        }
+        result.rawJSON = raw
+        return result
+    }
 }
 
 @MainActor
 private struct BenchmarkTruth {
     let runID = UUID()
     let variant: String
+    let seed: String?
+    let generatorVersion: String?
     let originUptime = ProcessInfo.processInfo.systemUptime
     var events: [BenchmarkEvent] = []
 
@@ -263,10 +406,12 @@ private struct BenchmarkTruth {
 
     mutating func record(kind: String, outcome: String, fixture: Fixture?, start: BenchmarkStamp,
                          targetID: String? = nil, beforeRows: [RowEvidence] = [], afterRows: [RowEvidence] = [],
-                         postconditions: [String] = [], note: String? = nil) {
-        events.append(.init(schemaVersion: 1, runID: runID, variant: variant, sequence: events.count,
+                         postconditions: [String] = [], note: String? = nil, digestSource: DigestSource? = nil) {
+        events.append(.init(schemaVersion: 2, runID: runID, variant: variant,
+                            seed: seed, generatorVersion: generatorVersion, sequence: events.count,
                             kind: kind, outcome: outcome, appKey: fixture?.key, appName: fixture?.name,
                             targetID: targetID, before: start, after: stamp(), beforeRows: beforeRows,
-                            afterRows: afterRows, observedVisiblePostconditions: postconditions, note: note))
+                            afterRows: afterRows, observedVisiblePostconditions: postconditions, note: note,
+                            digestSource: digestSource))
     }
 }
