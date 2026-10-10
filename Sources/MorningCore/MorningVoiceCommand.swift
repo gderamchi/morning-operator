@@ -27,7 +27,7 @@ public enum MorningVoiceCommandParser {
         case "pause", "pause morning", "mets en pause": return .pause
         case "resume", "continue", "resume morning", "reprends", "reprendre", "continuer": return .resume
         case "skip", "skip step", "skip this step", "passe cette etape", "passer cette etape": return .skip
-        case "repeat", "repeat that", "repeat this step", "repete", "repeter", "repete cette etape": return .repeatStep
+        case "again", "read again", "repeat", "repeat that", "repeat this step", "repete", "repeter", "repete cette etape": return .repeatStep
         case "stop", "stop morning", "arrete", "arreter", "arrete la routine": return .stop
         default: return nil
         }

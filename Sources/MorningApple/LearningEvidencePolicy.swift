@@ -123,6 +123,14 @@ enum LearningEvidencePolicy {
         let hasGlassHomeFooter = glassHomeFooters.contains(where: lines.contains)
         if lines.contains("morning"),
            hasGlassHomeFooter || lines.contains("a new rhythm ready to review") { return true }
+        // The simplified approved home has no permanent explanatory footer.
+        // While native capture runs, its visible branded recording control is
+        // paired with the exact heading. Neither generic word alone is a guard.
+        // Accept only complete control/heading lines (including a merged row),
+        // not a message or event that happens to discuss recording a morning.
+        // A non-recording import without these markers remains heuristic-limited.
+        if (lines.contains("morning") && lines.contains("more recording")) ||
+            lines.contains("morning more recording") { return true }
         // The active home omits its large heading and the arrange instruction.
         // Require its distinctive footer plus the paired state/playback controls.
         if hasGlassHomeFooter,

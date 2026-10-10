@@ -10,6 +10,7 @@ struct MorningVoiceCommandTests {
             ("MORE, next step.", .next), ("Suivant", .next), ("mets en pause", .pause),
             ("MORE resume", .resume), ("reprends", .resume), ("skip this step", .skip),
             ("passe cette étape", .skip), ("répète", .repeatStep), ("More repeat that", .repeatStep),
+            ("Again", .repeatStep), ("MORE, read again.", .repeatStep),
             ("arrête la routine", .stop), ("stop", .stop)
         ]
         for (text, command) in cases { #expect(MorningVoiceCommandParser.parse(text) == command) }
@@ -18,7 +19,7 @@ struct MorningVoiceCommandTests {
     @Test("Negated, compound, descriptive and unknown utterances do not execute")
     func rejectsExtraMeaning() {
         for text in ["", "MORE", "next and stop", "don't stop", "do not skip", "ne passe pas cette étape",
-                     "the message says next", "please read the next email", "stop or pause", "more more next", "next 2"] {
+                     "the message says next", "please read the next email", "stop or pause", "more more next", "next 2", "do not read again", "again and next"] {
             #expect(MorningVoiceCommandParser.parse(text) == nil)
         }
     }

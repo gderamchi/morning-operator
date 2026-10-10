@@ -150,7 +150,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         attach("synthetic-saved-observation-review-opened-after-morning-ended", app)
         closeLearn(in: app)
         MorningUITestNavigation.selectTab("Morning", in: app)
-        let stopped = app.staticTexts["run.state"]
+        let stopped = app.staticTexts["morning.heading"]
         XCTAssertTrue(stopped.waitForExistence(timeout: 5))
         XCTAssertEqual(stopped.value as? String, "stopped")
         assertApprovedRoutine(currentTitle, count: 4, in: app)
@@ -807,9 +807,11 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         tap("run.controls", in: app)
         tap("run.stop", in: app)
         guard verifyStoppedState else { return }
-        let stopped = app.staticTexts["run.state"]
+        let stopped = app.staticTexts["morning.heading"]
         XCTAssertTrue(stopped.waitForExistence(timeout: 5))
         XCTAssertEqual(stopped.value as? String, "stopped")
+        XCTAssertFalse(app.buttons["run.pause"].exists)
+        XCTAssertFalse(app.buttons["run.resume"].exists)
     }
 
     private func tap(_ identifier: String, in app: XCUIApplication) {

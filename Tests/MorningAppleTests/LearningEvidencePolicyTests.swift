@@ -60,6 +60,47 @@ enum LearningEvidenceFixtures {
 
 @Suite("Conservative observation evidence")
 struct LearningEvidencePolicyTests {
+    @Test("Simplified home uses paired visible recording identity before learning")
+    func nativeRecordingHomeDoesNotBecomeObservedActivity() {
+        for markers in ["morning\nMORE · Recording", "MORNING\nmore • RECORDING",
+                        "morning   MORE · Recording"] {
+            let screen = markers + "\n19 min\n09:00 Team planning meeting"
+            #expect(!LearningEvidencePolicy.isEligibleVisualContext(screen))
+            #expect(ProposalValidation.step(title: "Review calendar", detail: "", kind: "calendar", durationMinutes: 3,
+                evidenceQuote: "09:00 Team planning meeting", source: "09:00 Team planning meeting", sourceContext: screen,
+                sourceKind: .visibleTaskContent, claimedEvidenceKind: "visibleTaskContent") == nil)
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen)
+            }
+        }
+    }
+
+    @Test("Recording words and external articles remain independent evidence")
+    func nativeRecordingMarkerIsNotAGenericMorningFilter() throws {
+        for screen in [
+            "Calendar\nmorning\nRecording\n09:00 Team planning meeting",
+            "Calendar\nMORE · Recording\n09:00 Team planning meeting",
+            "Messages\nmorning\nPlease discuss MORE · Recording with the design team.",
+            "Calendar\nmorning\n09:00 MORE · Recording planning meeting",
+            "Article\nA morning more recording project can help document family stories."
+        ] {
+            #expect(LearningEvidencePolicy.isEligibleVisualContext(screen))
+        }
+        let written = "I opened MORE's morning page while MORE · Recording was visible. Then I checked my calendar."
+        let units = try LearningEvidencePolicy.prepare(written)
+        #expect(units.first?.text == written)
+        #expect(units.first?.kind == .userReportedActivity)
+    }
+
+    @Test("Native capture home is omitted without changing adjacent external source text")
+    func nativeRecordingHomeKeepsAdjacentEvidence() throws {
+        let recording = "[Observed frame at 00:00.0]\nmorning\nMORE · Recording\n09:00 Team planning meeting"
+            + "\n[Observed frame at 00:10.0]\n" + LearningEvidenceFixtures.messageContent
+        let units = try LearningEvidencePolicy.prepare(recording)
+        try #require(units.count == 1)
+        #expect(units[0].text.utf8.elementsEqual(LearningEvidenceFixtures.messageContent.utf8))
+    }
+
     @Test("Glass home paired markers reject its displayed plan, including merged footer columns")
     func glassHomeIsNotNewObservedActivity() {
         for footer in ["Sample morning", "Your rhythm, at your pace", "Hold to arrange",

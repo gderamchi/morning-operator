@@ -197,7 +197,7 @@ final class FixtureJourneyTests: XCTestCase {
         selectTab("Morning", in: app)
         MorningUITestNavigation.revealMorningAction("morning.reviewDraft", in: app)
         XCTAssertTrue(app.buttons["morning.reviewDraft"].waitForExistence(timeout: 5), "The current draft must remain intact outside history.")
-        app.buttons["morning.actions"].tap()
+        app.buttons["morning.closeActions"].tap()
         tapButton("morning.date", in: app)
         XCTAssertTrue(app.buttons["review.period"].waitForExistence(timeout: 5), "The date must reopen the period, not a previously pushed day detail.")
         XCTAssertFalse(app.staticTexts["No routine saved for this day."].exists)
@@ -381,6 +381,12 @@ final class FixtureJourneyTests: XCTestCase {
     }
 
     private func assertState(_ expected: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        if expected == "stopped" {
+            MorningUITestNavigation.revealMorningAction("run.start", in: app, file: file, line: line)
+            XCTAssertTrue(app.buttons["run.start"].isHittable, file: file, line: line)
+            XCTAssertFalse(app.buttons["run.pause"].exists, file: file, line: line)
+            return
+        }
         let state = app.staticTexts["run.state"]
         XCTAssertTrue(state.waitForExistence(timeout: 5), file: file, line: line)
         let deadline = Date().addingTimeInterval(5)
