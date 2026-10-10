@@ -37,6 +37,14 @@ Use **Edit in Learn** to correct the observation's notes. This removes its earli
 
 A correction is not yet a per-frame replacement label. Review a proposed routine separately before approving it. The [learning guide](ROUTINE-LEARNING.md) explains how accepted source observations can support that draft.
 
+## Keep the recording's original date
+
+For new recordings made in MORE, **Recording details** keeps the start reported by Apple's recording output and the time zone at that moment. This stays separate from the observed day you assign for Review. Changing or removing that day, editing notes and reopening the app keep the original start. Older observations and selected files without this information remain unknown.
+
+If the exact same recording was already imported, a retry can add missing recording-start information without changing your edits, chosen day or existing start. If recovery information is damaged, MORE keeps the recording and shows an error instead of silently discarding the information. Retry only succeeds once it can read the saved information; Discard remains your explicit choice.
+
+These details do not establish your first phone pickup, how long an app was used, or exactly when each recorded frame occurred on the clock.
+
 ## What still needs to be built
 
 Reliable app identities, actions and comparable morning windows need more than sparse screen samples. Current video import retains at most 24 requested frames, which can miss many transitions in a long clip. Continuous capture coverage is unknown, so review does not turn the first/last frame into time spent. Exact scroll counts, reads, likes, pickups, full habit averages and continuing adaptation remain open work in [#21](https://github.com/gibouu/morning-operator/issues/21) and [#11](https://github.com/gibouu/morning-operator/issues/11).

@@ -38,11 +38,12 @@ Review measures **routine runs** and shows source-linked appearances in sampled 
 
 ## Where it stands
 
-**Current V2 source: `2f7e136`.** Sampled-morning review now connects screen sequences and distinct-day appearances to exact original evidence. Unknowns remain visible; corrections remove old labels without losing source text. This adds to the prepared Calendar/Weather recap and optional Lock Screen progress. The checks below describe their actual scope.
+**Current V2 source: `0d7171a`.** Recordings now keep their original start independently of the day you assign, preserve native frame timing, and stay recoverable when their saved information cannot be read. Optional details live in Review; the Morning page stays compact. The checks below describe their actual scope.
 
 | Verified development behavior | Evidence |
 |---|---|
-| New observed-morning review | **13 focused shared checks passed.** Both new simulator journeys passed across scoped runs: weekly quotation → source (26.551s), and correction → relaunch → preserved originals (63.775s). Two no-scroll Morning regressions also passed. Earlier failed assertions and the interrupted diagnostics phase remain documented. |
+| Recording reliability | **69 focused tests and 2/2 final simulator journeys passed.** Actual fixture-video OCR, preserved start after removing its review date, and damaged metadata retained for recovery. All 24 saved frame timestamps match that movie’s encoded index. These are not physical capture or habit-accuracy results. |
+| Earlier observed-morning review | **13 focused shared checks passed.** Both new simulator journeys passed across scoped runs: weekly quotation → source (26.551s), and correction → relaunch → preserved originals (63.775s). Two no-scroll Morning regressions also passed. Earlier failed assertions and the interrupted diagnostics phase remain documented. |
 | New Live Activity logic | **20 focused tests passed (21 parameterized cases).** They cover payload privacy, late results, explicit retry, dismissal, stale revalidation and cleanup. The earlier full-suite result remains separate below. |
 | Native Live Activity | **4/4 lifecycle journeys passed**, plus actual expanded Island → tap → same paused morning. The final stale-display check passed after Apple marked the content out of date. No physical-phone claim. |
 | Shared logic, storage and Apple adapters | **360 checks passed across a full run and one targeted retry; six optional checks skipped.** All 49 new briefing checks passed. The full run retained one native OCR failure after disk cleanup; its isolated retry passed. Earlier failures remain documented. |
@@ -54,7 +55,7 @@ Review measures **routine runs** and shows source-linked appearances in sampled 
 | Earlier learning and choices | Five preference/recovery journeys and five unified-learning journeys have passing results across their own scoped runs. Initial failures and corrected reruns remain in the verification record. |
 | Earlier controlled recording | Two separate native fixture apps, two verified scrolls and a synthetic message detail; the actual 97-second video reached saved text and survived relaunch. These checks do not establish detected scroll counts or reading intent. [Benchmark](docs/OBSERVATION-BENCHMARK.md). |
 
-**Recognition accuracy remains unproven.** The latest Mac model preflight returned `modelNotReady`; the earlier simulator backend rejected inference. No physical iPhone was available for this slice. Synthetic suggestions test the app's review flow, not model quality, capture or audio. [Verification](docs/PHASE-ONE.md) preserves actual runs, earlier failures and corrected reruns.
+**Recognition accuracy remains unproven.** The latest Mac model preflight returned `modelNotReady`; the earlier simulator backend rejected inference. Physical-device recognition remains unverified for V2. Synthetic suggestions test the app's review flow, not model quality, capture or audio. [Verification](docs/PHASE-ONE.md) preserves actual runs, earlier failures and corrected reruns.
 
 **Installed phone baseline: `8a640ea`.** The earlier signed app passed synthetic phone journeys and a separate real on-device model example. One short real recording reached saved OCR and a visible draft, but that draft mistook setup text for habits. Targeted deterministic guards reject the known input; broad habit accuracy is still open. V2 has not replaced this phone build.
 
