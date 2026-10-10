@@ -19,10 +19,10 @@ stateDiagram-v2
     ConfirmProvenance --> SavedEvidence: Save or cancel; no inference
     SavedEvidence --> Preparing: Explicit suggestion from eligible source(s)
     Preparing --> SavedEvidence: Cancel / unavailable / insufficient evidence
-    Preparing --> PendingReview: Validate sources + save
+    Preparing --> PendingReview: Validate sources and saved choices + save
     PendingReview --> PendingReview: Dismiss / relaunch
     PendingReview --> SavedEvidence: Keep current
-    PendingReview --> SavedEvidence: Source or base routine changes
+    PendingReview --> SavedEvidence: Source, routine or saved choices change
     PendingReview --> ApprovedVersion: Explicit approval + atomic save
     ApprovedVersion --> MorningRun: Separate Start action
 ```
@@ -37,8 +37,9 @@ flowchart LR
     B --> C[Original screen units or corrected report]
     C --> D[Local Foundation Models]
     D --> E[Validate supplied unit IDs and exact quotes]
-    E --> F[Preserve required user rituals]
-    F --> G[Pending suggestion]
+    E --> F[Apply saved keep, exclusion and timing choices]
+    P[Review: explicit preference journal] --> F
+    F --> G[Pending suggestion with evidence and choice receipts]
     G --> H[Explicit review and approval]
     H --> I[Next routine version]
 ```
@@ -47,7 +48,23 @@ The operation has an 8,000-character submitted-prompt budget, including unit ide
 
 Each inferred moment retains typed citations with acquisition identity, a source revision, source layer, exact quote, character offsets and a sampled-frame identity where applicable. The app assigns dates and origins. The model cannot invent them, approve its own output, mark a ritual required or assign an executable operation. Preserved user decisions have no new inference citations. Model requests use independent sessions; assembly merges only matching normalized titles and categories, combining their citations without computing averages.
 
-The existing required ritual is preserved as a user decision, with its user-owned fields. It is not relabeled as a newly observed habit. Preserving every optional edit, removal and duration preference across future updates still needs a durable preference journal.
+## Saved choices in Review
+
+**Review → Your routine** is where the person edits a moment and chooses **Keep in future suggestions** or **Keep this duration**. Changing its minutes turns on the timing choice; it can be switched off before Save. These controls save a separate `RoutinePreferenceJournal`; they do not train the model or turn a personal choice into observed behavior. The journal is applied after the model's proposed activities and exact quotations have been checked.
+
+| Choice | Effect on future suggestions |
+| --- | --- |
+| Keep in future suggestions | Retains the complete saved moment: identity, title, detail, category, duration, required flag and explicitly selected operation. It can be included even without new supporting observation. Its support is a user decision, with no invented new citations. |
+| Keep this duration | Applies the chosen 1–120 planned minutes to a matching suggested activity. By itself it does not insert an absent activity or preserve its generated wording. The generated moment keeps its exact observation citations and receives a separate saved-timing label. |
+| Remove from this draft | Removes the current row, while standing future choices remain saved. A retained Keep can therefore add it to a later suggestion. |
+| Exclude from future suggestions | Removes the row and saves an exclusion that prevents the matching activity from returning until that choice is cleared. |
+| Review → Your routine → Saved choices → Clear this choice | Removes that future preference without editing the current routine or its run history. Later suggestions can reconsider the activity. |
+
+Matching first uses the exact stable target ID, then a unique normalized title and category. Normalization folds case and whitespace; it does not infer synonyms or fuzzy matches. Ambiguous or conflicting matches stop the proposal for review. For a restored generated timing override, the title/category must still match even if a forged row reuses the preference's ID. The saved planned duration is not a measured average.
+
+The current app always supplies its journal, including an explicitly empty one. It therefore does not silently recreate a cleared Keep from an old routine's required flag. Only a legacy workspace with the journal field **missing** migrates its existing personal required steps into Keep entries; demonstration rituals, optional durations and removed activities are not guessed. A present-but-null or malformed journal is preserved through unrelated saves and blocks new suggestions and approval until **Review → Your routine → Saved choices → Reset saved choices** is explicitly confirmed. Reset leaves routines and observations intact. Older shared API callers and proposals with no journal retain their legacy required-step contract; the app's explicit journal is authoritative.
+
+The journal is bounded to 100 entries and 4 MiB encoded data, with no automatic eviction. Keep snapshots retain full saved content; exclusion and duration-only entries retain identity, title/category and the explicit choice. This is a current set of choices, not a complete history of every edit. Clearing a choice or restoring a previous routine does not erase quotations already retained in routines or history, and restoring a routine does not roll back standing future choices.
 
 ## What the dates mean
 
@@ -63,13 +80,15 @@ This flow does not produce a habitual frequency, complete-day average, scroll co
 
 ## Durability and changes
 
-One pending proposal is saved in the same atomic workspace as its sources and current routine. Full source and base-routine revisions are checked when generation returns, during persistence, after restoration and before approval. Changing corrected text, deleting a cited observation, changing its day/origin or changing the base routine invalidates the dependent suggestion. A late task cannot restore forgotten evidence.
+One pending proposal is saved in the same atomic workspace as its sources and current routine. Full source, base-routine and preference-journal revisions are checked when generation returns, during persistence, after restoration and before approval. The proposal stores the captured journal and its full revision digest. Restoration also replays the preference rules and checks step values and user-choice receipts. Changing corrected text, deleting a cited observation, changing its day/origin, changing the base routine or editing/clearing a saved choice invalidates the dependent suggestion. A late task cannot restore forgotten evidence.
 
 Approval saves the new approved routine, previous approved version, ready session and removal of the pending proposal together. If saving fails, the previous in-memory values are restored for retry. Rejecting a proposal leaves sources, routine and saved runs intact. Unsupported saved derived proposals are discarded without making original observations or the existing morning unreadable.
 
-Pending citations are local derived data. They are removed when the proposal is discarded, invalidated or approved. The approved routine retains its step content and embedded quotations; deleting an observation does not erase separately saved routine/history content. There is no automatic expiry, cloud upload or model training from these records. See the [retention table](ARCHITECTURE.md#data-retention-today) for other stored data.
+Pending citations and the proposal's captured preference snapshot are local derived data. They are removed when the proposal is discarded, invalidated or approved; the standing preference journal remains independently saved. The approved routine retains its step content and embedded quotations; deleting an observation does not erase separately saved routine/history content. There is no automatic expiry, cloud upload or model training from these records. See the [retention table](ARCHITECTURE.md#data-retention-today) for other stored data.
 
 ## Verification boundary
+
+The saved-choice source (`4022a0e`) passed the full shared run: **259 checks passed and six optional checks skipped**. Five preference/recovery simulator journeys have passing results across scoped runs, with earlier selector failures retained in [PHASE-ONE](PHASE-ONE.md). Simulator and signed iPhone builds passed; the signed build is ready but not installed. These checks made no model calls and do not establish physical capture or audio behavior.
 
 The unified Learn/import/provenance slice (`48e5c95`) passed the full shared package run: **235 checks passed and six optional checks skipped**. Simulator and unsigned iPhone builds passed. **Three UI journeys passed with no skips**: import preservation through relaunch; explicit provenance followed by a single-source pending suggestion, approval and relaunch; and rejection of setup-only input. No Apple model calls were made in this slice. Two additional notice-review journeys have passing results after the final routing changes: immediate review and review deferred until a paused morning ends after a blank-video error. These five journeys passed across scoped runs; earlier failures and corrected reruns remain in the verification record.
 

@@ -1,12 +1,30 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. The current unified Learn/import source **`48e5c95`** builds on saved-observation proposal source **`4a2fd30`** and archive source **`d9a6120`**, which added dated observation history and preserved original evidence alongside corrections. The preceding source **`fb0e4a2`** added optional native OCR layout evidence; its historical checks remain separate below. The historical **`e7666cd`/`dd611fd`** refinement and **`4ddb524`** baseline retain their separate results. None of these follow-ups replaced the owner's phone build, and no physical phone was connected for them.
+The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. Current source **`4022a0e`** adds saved keep/exclude/timing choices to unified Learn/import source **`48e5c95`**. Earlier saved-observation proposals (`4a2fd30`), dated archive (`d9a6120`), native OCR layout (`fb0e4a2`), header refinement (`e7666cd`/`dd611fd`) and recording benchmark (`4ddb524`) retain their separate evidence below. The new signed generic iPhone build is ready but not installed. None of these follow-ups replaced the owner's phone build, and no physical phone was available for this slice.
 
 ## V2 in this branch
 
 Morning now contains the date, compact routine and start/run controls. Review owns history, routine edits, approval, observations, thoughts and connections. Installed Apple voice selection considers language, dialect and quality; an explicit voice-command turn pauses the routine and releases playback before using on-device speech recognition. [Design](V2-DESIGN.md) · [Voice behavior](VOICE.md) · [Architecture](ARCHITECTURE.md).
 
-Learning preserves complete required rituals from the person's previous routine, keeps proposals unapproved and strips model-assigned automation. Sample rituals stay out of personal learning. This is not a complete edit/removal preference journal or a multi-day habit-quality result.
+Learning keeps proposals unapproved and strips model-assigned automation. Explicit user choices can retain a complete moment, exclude an activity or override its planned minutes. These controls live in Review; clearing them leaves the current routine unchanged. Sample rituals do not silently become personal preferences. Comparable habit averages, ongoing adaptation and real multi-day model quality remain unverified or future work.
+
+## Saved routine choices — 10 October 2026 (`4022a0e`)
+
+Source: **`4022a0e52e2c3bb12129f3dd0461ef83afab56e7`**. Review's moment editor saves optional keep and duration choices. Removal distinguishes this draft from future exclusion; Saved choices provides individual clearing and an explicit reset for unreadable data. A proposal retains exact source citations alongside a user timing override, labels kept moments as user choices, and stays separate until approval. Preference changes invalidate stale pending proposals. Rename/clear and save-failure rollback preserve the intended persistence boundary.
+
+Migration distinguishes a **missing** legacy preference field from an explicit **null or unreadable** payload. Missing data can migrate existing personal required moments; old optional minutes, removals and sample rituals do not become invented preferences. Unreadable payloads survive unrelated saves, block new suggestions and remain available for an explicit reset, including when no routine exists. Resetting choices preserves the routine and observations; it is not evidence deletion.
+
+| Check | Result and scope |
+|---|---|
+| Full shared package | **259 passed, six optional skipped**, in one full run: 108 Core passed; 151 Apple passed and six skipped. Includes 12 new journal checks, four recovery checks and eight proposal checks. |
+| Native builds and signing | **Succeeded** for the simulator, unsigned generic iPhone and signed generic iPhone targets with Xcode 27. Deep, strict code-signature verification exited 0. A signed build does not establish installation or physical runtime behavior. |
+| Initial preference UI attempt | **0/3 passed** in `more-preferences-ui.xcresult`. Tests tapped a full-width toggle row instead of its nested native switch or used the wrong native Stepper child selector. These were selector failures, not passing behavior checks. |
+| First corrected UI run | **Two passed, two failed** in `more-preferences-ui-fixed.xcresult`. Keep/duration → relaunch → clear/invalidation passed (**154.434s**); timing override with citations → approval/relaunch → rename/clear passed (**211.718s**). Unreadable/null preference preservation reached a duplicated confirmation selector and failed (**66.889s**); exclusion failed to reveal the editor's offscreen removal row (**82.807s**). |
+| Final scoped recovery/exclusion run | **3/3 passed**, **322.982s**, in `more-preferences-recovery-final.xcresult`: reset with an empty routine (**49.173s**), unreadable preference preservation through unrelated save/relaunch then reset (**103.634s**), and exclusion suppressing a returning synthetic suggestion while retaining a chosen ritual (**170.174s**). |
+| Final copy and build scope | Footer-only copy changed after those UI runs. Simulator and signed generic iPhone builds compiled the final copy; UI checks were not repeated for that change. |
+| Model and hardware availability | Mac Foundation Models preflight returned **`modelNotReady`**. No physical iPhone was available; installed source remains **`8a640ea`**. These checks add no generation, recording, microphone, Siri, output-route or listener-confirmed audio result. |
+
+There are **five distinct passing UI journeys across these runs**, not a single complete five-test green suite. Proposal UI tests use explicitly synthetic assembly and do not establish model quality or comparable multi-day habit averages. Result bundles, workspaces and screenshots remain local and ignored.
 
 ## Unified recording and learning review — 10 October 2026 (`48e5c95`)
 

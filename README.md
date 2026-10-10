@@ -23,7 +23,7 @@ This branch, `codex/more-quiet-morning`, introduces the V2 interface. It is **in
 |---|---|
 | Morning | A date, a compact routine and a clear start. Up to ten moments fit at default portrait size in the tested simulator; larger text and short layouts have a scrolling fallback. Pause and Stop remain reachable. |
 | Review | Open a seven-day period and its days; revisit dated observations and their originals, edit and approve your routine, find saved thoughts, and open settings or connections. There is no separate Notes tab. |
-| Learn across mornings | Choose up to five dated observations in Review, inspect exact supporting quotations, and approve a separately saved update. Your current routine remains ready during this review. [Learning flow](docs/ROUTINE-LEARNING.md). |
+| Learn across mornings | Choose up to five dated observations in Review, inspect exact supporting quotations, and approve a separately saved update. Your current routine remains ready during this review. Explicit keep/exclude/timing choices survive later suggestions and can be cleared in Review. [Learning flow](docs/ROUTINE-LEARNING.md). |
 | Show your morning | Explicit iOS 27 screen recording, or selected text/image/video import. Local extraction saves separate observations with original text and corrections; identical file imports keep the existing entry. Unknown recording dates stay explicit. Screen recognition and routine suggestions are separate explicit actions; suggestions stay pending until approval. Manual setup also works. |
 | Move through it | Supported spoken/calendar operations advance after completion. Other activities wait for you. A completion invitation opens capture; it is not yet a live spoken conversation. |
 | Begin with an invitation | Set one future notification in Review → Settings. Its tap or a foreground Start intent routes into an approved morning, waiting for a ready app. Physical delivery and Siri invocation remain unverified. [Morning entry](docs/MORNING-ENTRY.md). |
@@ -34,16 +34,17 @@ Review currently measures **routine runs**, not complete phone usage or learned 
 
 ## Where it stands
 
-**Current V2 source: `48e5c95`.** Recording and importing save evidence first. Learn and saved-morning selection then use the same review: confirm missing day/source details, request a suggestion, inspect its supporting quotations, and approve it. Your current routine stays ready throughout, and the previous approved version remains recoverable. [How learning works](docs/ROUTINE-LEARNING.md).
+**Current V2 source: `4022a0e`.** Review now saves optional keep, exclude and timing choices for future suggestions. Clear a choice without changing the current routine; unreadable choices have an explicit reset path. Recording and importing save evidence; an explicit suggestion request saves a separate proposal for approval. Your current routine remains in place during proposal review, and the previous approved version remains recoverable. [How learning works](docs/ROUTINE-LEARNING.md).
 
 | Verified development behavior | Evidence |
 |---|---|
-| Shared logic, storage and Apple adapters | 235 checks passed in the latest full run; six optional checks skipped. Includes native Vision OCR and three new atomic-save regressions. |
-| App builds | Simulator and unsigned iPhone targets succeeded with Xcode 27. No new phone installation. |
-| Unified learning review | Five simulator journeys passed across scoped runs, including import/relaunch, approval and deferred error review. Initial failures and corrected reruns are retained in the verification record. |
+| Shared logic, storage and Apple adapters | 259 checks passed in the latest full run; six optional checks skipped. Includes 24 new journal, recovery and proposal checks. |
+| App builds | Simulator, unsigned generic iPhone and signed generic iPhone builds succeeded with Xcode 27; strict signature verification passed. The signed build is ready but not installed. |
+| Saved routine choices | Five simulator journeys have passing results across scoped runs, covering persistence, citations, exclusion and recovery. The verification record includes initial failures and corrected reruns. |
+| Earlier unified learning review | Five simulator journeys passed across scoped runs, including import/relaunch, approval and deferred error review. Their chronology remains separate from the new preference checks. |
 | Earlier controlled recording | Two separate native fixture apps, two verified scrolls and a synthetic message detail; the actual 97-second video reached saved text and survived relaunch. These checks do not establish detected scroll counts or reading intent. [Benchmark](docs/OBSERVATION-BENCHMARK.md). |
 
-**Recognition accuracy remains unproven.** The earlier Mac model was unavailable and the simulator backend rejected inference. The latest device check found no physical iPhone. Synthetic suggestions test the app's review flow, not model quality. [Verification](docs/PHASE-ONE.md) preserves actual runs, earlier failures and corrected reruns.
+**Recognition accuracy remains unproven.** The latest Mac model preflight returned `modelNotReady`; the earlier simulator backend rejected inference. No physical iPhone was available for this slice. Synthetic suggestions test the app's review flow, not model quality, capture or audio. [Verification](docs/PHASE-ONE.md) preserves actual runs, earlier failures and corrected reruns.
 
 **Installed phone baseline: `8a640ea`.** The earlier signed app passed synthetic phone journeys and a separate real on-device model example. One short real recording reached saved OCR and a visible draft, but that draft mistook setup text for habits. Targeted deterministic guards reject the known input; broad habit accuracy is still open. V2 has not replaced this phone build.
 
@@ -64,7 +65,7 @@ The iPhone is the sole active product. The Mac is the development/test machine a
 
 ## Your data and the model
 
-Extraction and Foundation Models inference run locally. There is no cloud-model fallback, model fine-tuning, billing or research-data upload pipeline. Saved routines, the observation archive with original/corrected text and ordered video samples, thoughts and local activity logs have different lifecycles; a finalized app-owned clip can remain for recovery until its extracted text is saved or the person discards it. Review [what is retained and what each clear control removes](docs/ARCHITECTURE.md#data-retention-today).
+Extraction and Foundation Models inference run locally. There is no cloud-model fallback, model fine-tuning, billing or research-data upload pipeline. Saved routines, explicit routine choices, the observation archive with original/corrected text and ordered video samples, thoughts and local activity logs have different lifecycles; a finalized app-owned clip can remain for recovery until its extracted text is saved or the person discards it. Review [what is retained and what each clear control removes](docs/ARCHITECTURE.md#data-retention-today).
 
 A later, separately opted-in mobile-agent research dataset is a [feasibility question](https://github.com/gibouu/morning-operator/issues/24), not current collection behavior.
 

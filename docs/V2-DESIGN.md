@@ -14,7 +14,7 @@ Morning has no inline editing. “Update my morning” opens Review. More than t
 
 Active recording status and Stop remain available; completed observations and corrections live in Review. Apple's consent/picker remains system UI. A wake-time entry point never substitutes for a new required recording choice.
 
-Review now keeps saved observations across imports. Its day pages distinguish observations from routine runs; **Saved observations** reaches older entries and **Date needed** handles missing observed dates. Original extraction and corrected notes are separate, with explicit day/zone/origin assignment and scoped deletion. The compact Morning gains no archive controls or counters. These dated glimpses still do not establish comparable full mornings or observed-habit averages.
+Review now keeps saved observations across imports. Its day pages distinguish observations from routine runs; **Saved observations** reaches older entries and **Date needed** handles missing observed dates. Original extraction and corrected notes are separate, with explicit day/zone/origin assignment and scoped deletion. The compact Morning gains no archive controls or counters. Routine preferences also stay in Review: editing a moment can keep it in later suggestions or remember its planned minutes; removing a row distinguishes this draft from future exclusion. Saved choices can be cleared without changing the current morning. These are explicit choices, not inferred habits. These dated glimpses still do not establish comparable full mornings or observed-habit averages.
 
 ## Native presentation
 
