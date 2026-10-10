@@ -1,6 +1,6 @@
 import Foundation
 
-enum LearningEvidenceKind: String, Sendable {
+enum LearningEvidenceKind: String, Equatable, Sendable {
     case userReportedActivity
     case visibleTaskContent
 }
@@ -60,7 +60,7 @@ enum LearningEvidencePolicy {
 
     static func supports(quote: String, source: String, context: String,
                          kind: LearningEvidenceKind, claimedKind: String) -> Bool {
-        guard claimedKind == kind.rawValue, source.contains(quote), quote.count >= 8,
+        guard claimedKind == kind.rawValue, !quote.isEmpty, Data(source.utf8).range(of: Data(quote.utf8)) != nil, quote.count >= 8,
               !meaningfulWords(quote).isEmpty else { return false }
         switch kind {
         case .userReportedActivity:
@@ -74,7 +74,7 @@ enum LearningEvidencePolicy {
         !containsInterfaceOrPromotion(text) && containsTaskContent(text)
     }
 
-    private static func isEligibleWrittenContext(_ text: String) -> Bool {
+    static func isEligibleWrittenContext(_ text: String) -> Bool {
         // A person's own description may legitimately mention setup, screen sharing,
         // Messages or chess. Do not apply visual-screen classification to that description.
         !containsOwnMarketing(normalized(text)) && !meaningfulWords(text).isEmpty

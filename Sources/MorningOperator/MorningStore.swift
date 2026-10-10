@@ -33,6 +33,22 @@ private struct RecoverableObservationClassification: Codable, Sendable {
     }
 }
 
+/// A damaged derived suggestion must not strand the current routine or original
+/// observations. Restored proposals are also checked against live source revisions.
+private struct RecoverableRoutineProposal: Codable, Sendable {
+    let value: EvidenceRoutineProposal?
+    let wasInvalid: Bool
+    init(_ value: EvidenceRoutineProposal) { self.value = value; wasInvalid = false }
+    init(from decoder: any Decoder) throws {
+        do { value = try EvidenceRoutineProposal(from: decoder); wasInvalid = false }
+        catch { value = nil; wasInvalid = true }
+    }
+    func encode(to encoder: any Encoder) throws {
+        if let value { try value.encode(to: encoder) }
+        else { var container = encoder.singleValueContainer(); try container.encodeNil() }
+    }
+}
+
 private struct WorkspaceSnapshot: Codable, Sendable {
     var schemaVersion = 1
     var routine: RoutineVersion?
@@ -53,6 +69,7 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var observationContextClassification: RecoverableObservationClassification?
     var observationArchive: ObservationArchive?
     var selectedObservationID: UUID?
+    var pendingRoutineProposal: RecoverableRoutineProposal?
     var consumedMorningEntryIDs: [UUID]?
 }
 
@@ -68,6 +85,7 @@ final class MorningStore {
     private(set) var observationSaveIssue: String?
     private(set) var observationArchive = ObservationArchive()
     private(set) var selectedObservationID: UUID?
+    private(set) var pendingRoutineProposal: EvidenceRoutineProposal?
     var selectedObservation: ObservationAcquisition? { selectedObservationID.flatMap { observationArchive.entry(id: $0) } }
     private var observationEditsNeedSave = false
     var notice: String?
@@ -105,6 +123,8 @@ final class MorningStore {
     var voiceCommandPresented = false
     var morningDetailPresented = false
     var observationDetailPresented = false
+    var observationSelectionPresented = false
+    var routineProposalPresented = false
     private(set) var voiceCommandPreparing = false
     private(set) var voiceCommandFeedback: String?
     @ObservationIgnored private var voiceCommandTask: Task<Void, Never>?
@@ -213,6 +233,12 @@ final class MorningStore {
                     observationArchive.entries.contains(where: { !$0.warnings.isEmpty }) {
                     notice = "Your original observations are intact. An unsupported screen interpretation was removed and can be analyzed again."
                 }
+                if let proposal = saved.pendingRoutineProposal?.value,
+                   proposal.isCurrent(archive: observationArchive, baseRoutine: routine) {
+                    pendingRoutineProposal = proposal
+                } else if saved.pendingRoutineProposal != nil {
+                    notice = "A saved suggestion no longer matches its sources or routine. Your current morning and observations are intact. Choose mornings to suggest a fresh update."
+                }
                 sessionTimingInterrupted = saved.sessionTimingInterrupted ?? false
                 pendingCaptures = saved.pendingCaptures ?? [:]
                 consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
@@ -245,6 +271,16 @@ final class MorningStore {
     var currentStep: RoutineStep? { session?.currentStep }
     var sessionActive: Bool { session?.status == .running || session?.status == .paused }
     var modelSummary: String { intelligence.capabilitySummary }
+
+    /// Deterministic UI journeys are confined to explicitly isolated synthetic
+    /// workspaces. Normal launches never replace an unavailable Apple model.
+    var usesSyntheticProposalFixture: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("--ui-testing") && arguments.contains("--ui-testing-evidence-proposals") &&
+            arguments.first(where: { $0.hasPrefix("--ui-testing-workspace=") })
+                .flatMap { UUID(uuidString: String($0.dropFirst("--ui-testing-workspace=".count))) } != nil
+    }
+    var canSuggestSavedObservations: Bool { intelligence.isAvailable || usesSyntheticProposalFixture }
 
     func loadSample() {
         guard !sessionActive, !busy else {
@@ -481,6 +517,109 @@ final class MorningStore {
         }
     }
 
+    /// Selection is independent of the Learn editor. A bounded snapshot goes to
+    /// inference; a current, validated result becomes a pending proposal only.
+    func suggestRoutine(from observationIDs: Set<UUID>) {
+        guard !busy, !sessionActive, storageIsAvailable, saveObservationEdits() else { return }
+        do {
+            let acquisitions = observationArchive.entries.filter { observationIDs.contains($0.id) }
+            guard acquisitions.count == observationIDs.count else {
+                notice = "An observation was removed. Choose the mornings again."
+                return
+            }
+            let evidence = try LearningEvidencePreparation.prepare(acquisitions: acquisitions)
+            let base = routine
+            beginAnalysis()
+            analysisStatus = usesSyntheticProposalFixture
+                ? "Preparing a synthetic suggestion test…" : "Finding a routine in your saved mornings…"
+            analysisTask = Task { [weak self] in
+                guard let self else { return }
+                do {
+                    let proposal: EvidenceRoutineProposal
+                    if usesSyntheticProposalFixture {
+                        // The fixture exercises assembly, stale checks, saving and approval;
+                        // it is never evidence that a Foundation Models request succeeded.
+                        try await Task.sleep(for: .seconds(1))
+                        proposal = try syntheticEvidenceProposal(evidence: evidence, preserving: base)
+                    } else {
+                        proposal = try await intelligence.propose(evidence: evidence, preserving: base)
+                    }
+                    try Task.checkCancellation()
+                    guard proposal.isCurrent(archive: observationArchive, baseRoutine: routine) else {
+                        busy = false
+                        notice = "The observations or routine changed while the suggestion was being prepared. Choose mornings to try again."
+                        return
+                    }
+                    let previousProposal = pendingRoutineProposal
+                    pendingRoutineProposal = proposal
+                    guard persist() else {
+                        pendingRoutineProposal = previousProposal
+                        busy = false
+                        return
+                    }
+                    busy = false
+                    progress = 1
+                    notice = "An update is ready to review. Your current morning is unchanged."
+                } catch { finishAnalysis(error: error) }
+            }
+        } catch { notice = error.localizedDescription }
+    }
+
+    @discardableResult
+    func approvePendingRoutineProposal() -> Bool {
+        guard !busy, !sessionActive, !voiceInputBlocksPlayback, storageIsAvailable,
+              saveObservationEdits(), let proposal = pendingRoutineProposal else { return false }
+        guard proposal.isCurrent(archive: observationArchive, baseRoutine: routine) else {
+            notice = "This suggestion no longer matches the saved observations or routine. Choose mornings to prepare a fresh one."
+            return false
+        }
+        let oldRoutine = routine
+        let oldPrevious = previousRoutine
+        let oldSession = session
+        let oldHistory = history
+        archiveTerminalSession()
+        if let oldRoutine, oldRoutine.isApproved { previousRoutine = oldRoutine }
+        routine = proposal.routine.approved()
+        session = routine.map { RoutineSession(routine: $0) }
+        pendingRoutineProposal = nil
+        guard persist() else {
+            routine = oldRoutine
+            previousRoutine = oldPrevious
+            session = oldSession
+            history = oldHistory
+            pendingRoutineProposal = proposal
+            return false
+        }
+        notice = "Update approved. Your next morning will use this routine."
+        return true
+    }
+
+    @discardableResult
+    func discardPendingRoutineProposal() -> Bool {
+        guard !busy, let proposal = pendingRoutineProposal else { return false }
+        pendingRoutineProposal = nil
+        guard persist() else { pendingRoutineProposal = proposal; return false }
+        notice = "Suggestion discarded. Your current morning is unchanged."
+        return true
+    }
+
+    private func syntheticEvidenceProposal(evidence: PreparedLearningEvidence,
+                                           preserving base: RoutineVersion?) throws -> EvidenceRoutineProposal {
+        guard usesSyntheticProposalFixture,
+              evidence.sourceSnapshots.allSatisfy({ $0.origin == .synthetic }) else {
+            throw AppleIntelligenceError.insufficientActivityEvidence
+        }
+        var seen = Set<UUID>()
+        let citations = evidence.units.filter { seen.insert($0.acquisitionID).inserted }.map {
+            RoutineEvidenceCitationInput(unitID: $0.id, quote: String($0.text.prefix(220)))
+        }
+        return try LearningEvidencePreparation.assemble(evidence: evidence, steps: [
+            EvidenceRoutineStepInput(title: "A morning to review",
+                detail: "Synthetic review fixture from the selected observations. No Apple model call.",
+                kind: .custom, durationMinutes: 3, citations: citations)
+        ], preserving: base, at: Date())
+    }
+
     /// Returns true only after accepting ownership or starting an ordinary file import.
     /// The recorder must keep its ready URL until this returns true.
     @discardableResult
@@ -700,6 +839,10 @@ final class MorningStore {
     func updateObservationNotes(_ text: String) {
         guard !busy, !sessionActive, !text.utf8.elementsEqual(notes.utf8) else { return }
         notes = text
+        if let selectedObservationID,
+           pendingRoutineProposal?.sourceSnapshots.contains(where: { $0.acquisitionID == selectedObservationID }) == true {
+            pendingRoutineProposal = nil
+        }
         // Edited prose cannot remain attached to the unedited video's interpretation.
         observationVideoEvidence = nil
         observationContextClassification = nil
@@ -891,11 +1034,18 @@ final class MorningStore {
 
     func restorePreviousRoutine() {
         guard !busy, !sessionActive, let previousRoutine else { return }
+        let oldRoutine = routine
+        let oldSession = session
         routine = previousRoutine
         session = RoutineSession(routine: previousRoutine)
         self.previousRoutine = nil
+        guard persist() else {
+            routine = oldRoutine
+            session = oldSession
+            self.previousRoutine = previousRoutine
+            return
+        }
         notice = "Your previous approved routine is restored."
-        persist()
     }
 
     private func installCandidate(_ candidate: RoutineVersion) {
@@ -1069,6 +1219,12 @@ final class MorningStore {
         }
         do {
             try synchronizeObservationEdits()
+            // A proposal is derived from both sources and a full routine revision.
+            // Drop stale derived state in the same write as any edit or deletion.
+            // Keep the in-memory value intact if the write itself fails.
+            let validProposal = pendingRoutineProposal.flatMap {
+                $0.isCurrent(archive: observationArchive, baseRoutine: routine) ? $0 : nil
+            }
             try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
                 automatic: automatic, readAloud: readAloud, sessionTimingInterrupted: sessionTimingInterrupted,
@@ -1078,7 +1234,9 @@ final class MorningStore {
                 observationVideoEvidence: observationVideoEvidence,
                 observationContextClassification: observationContextClassification.map(RecoverableObservationClassification.init),
                 observationArchive: observationArchive, selectedObservationID: selectedObservationID,
+                pendingRoutineProposal: validProposal.map(RecoverableRoutineProposal.init),
                 consumedMorningEntryIDs: consumedMorningEntryIDs))
+            pendingRoutineProposal = validProposal
             observationEditsNeedSave = false
             projectObservation(selectedObservationID)
             if let observationSaveIssue, notice == observationSaveIssue { notice = nil }

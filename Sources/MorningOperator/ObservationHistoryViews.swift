@@ -8,11 +8,34 @@ struct ObservationHistoryView: View {
     var onlyUndated = false
     var onLearn: () -> Void
     @ViewState<Bool> private var confirmingClear = false
+    @ViewState<Bool> private var choosingMornings = false
+    @ViewState<Set<UUID>> private var selectedIDs = []
+    @ViewState<Bool> private var showingProposal = false
+    @ViewState<Bool> private var learnAfterProposalDismissal = false
+    @ViewState<Bool> private var awaitingSuggestion = false
+    @ViewState<UUID?> private var proposalBeforeRequest = nil
 
     private var entries: [ObservationAcquisition] {
         store.observationArchive.entries
             .filter { !onlyUndated || $0.observedDate == nil }
             .sorted { ($0.importedAt ?? .distantPast) > ($1.importedAt ?? .distantPast) }
+    }
+
+    private var selectedEntries: [ObservationAcquisition] { entries.filter { selectedIDs.contains($0.id) } }
+    private var holdsEntry: Bool { choosingMornings || confirmingClear || learnAfterProposalDismissal }
+    private var selectionIssue: String? {
+        guard !selectedIDs.isEmpty else { return "Choose one to five observations." }
+        guard selectedIDs.count <= 5 else { return "Choose at most five observations for one update." }
+        guard selectedEntries.count == selectedIDs.count else { return "A selected observation was removed. Clear the selection and choose again." }
+        if selectedEntries.contains(where: { eligibilityIssue($0) != nil }) { return "Check the date, origin and notes of your selected observations." }
+        guard Set(selectedEntries.compactMap { $0.observedDate?.timeZoneIdentifier }).count == 1 else { return "Choose observations from one time zone for this update." }
+        guard Set(selectedEntries.map { $0.origin.rawValue }).count == 1 else { return "Choose personal mornings or samples separately." }
+        return nil
+    }
+    private var selectionSummary: String {
+        let days = Set(selectedEntries.compactMap { $0.observedDate?.dayKey }).count
+        let prefix = selectedEntries.first?.origin == .synthetic ? "Sample update · " : ""
+        return "\(prefix)\(selectedIDs.count) \(selectedIDs.count == 1 ? "observation" : "observations") across \(days) dated \(days == 1 ? "day" : "days")"
     }
 
     var body: some View {
@@ -23,21 +46,52 @@ struct ObservationHistoryView: View {
                      : "Saved glimpses of your morning. Observations and routine runs stay separate; sampled screens don't measure complete phone use.")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
+            if store.pendingRoutineProposal != nil {
+                Section {
+                    Button { showingProposal = true } label: {
+                        Label("Review suggested update", systemImage: "list.bullet.clipboard")
+                    }.accessibilityIdentifier("observations.reviewProposal")
+                } footer: { Text("Your current routine stays in place until you approve the update.") }
+            }
+            if choosingMornings {
+                Section {
+                    Text("Choose dated observations from your own mornings, or a separate set of samples. Nothing is selected automatically.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                    if store.usesSyntheticProposalFixture {
+                        Text("Synthetic suggestion test — no Apple model call")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("observations.fixtureMode")
+                    }
+                    if !store.canSuggestSavedObservations {
+                        Text("\(store.intelligence.capabilitySummary) Your saved observations remain available.")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("observations.modelUnavailable")
+                    }
+                    if store.busy {
+                        ProgressView(store.analysisStatus).font(.subheadline)
+                        Button("Stop analysis") { store.cancelAnalysis() }
+                            .accessibilityIdentifier("observations.cancelAnalysis")
+                    }
+                }
+            }
             if entries.isEmpty {
                 ContentUnavailableView(onlyUndated ? "Every observation has a date" : "No saved observations",
                     systemImage: "sun.horizon", description: Text(onlyUndated ? "New undated imports will appear here." : "Record or import a little of your morning in Learn."))
             } else {
                 Section {
                     ForEach(entries) { entry in
-                        NavigationLink {
-                            ObservationHistoryDetail(store: store, observationID: entry.id, onLearn: onLearn)
-                        } label: {
-                            ObservationHistoryRow(entry: entry)
-                        }.accessibilityIdentifier("observation.row.\(entry.id.uuidString)")
+                        if choosingMornings { selectionRow(entry) }
+                        else {
+                            NavigationLink {
+                                ObservationHistoryDetail(store: store, observationID: entry.id, onLearn: onLearn)
+                            } label: {
+                                ObservationHistoryRow(entry: entry)
+                            }.accessibilityIdentifier("observation.row.\(entry.id.uuidString)")
+                        }
                     }
                 }
             }
-            if !onlyUndated, !entries.isEmpty {
+            if !onlyUndated, !entries.isEmpty, !choosingMornings {
                 Section {
                     Button("Delete all observations", role: .destructive) { confirmingClear = true }
                         .disabled(store.busy || store.sessionActive)
@@ -51,12 +105,117 @@ struct ObservationHistoryView: View {
         .scrollContentBackground(.hidden).background(MorningStyle.background)
         .navigationTitle(onlyUndated ? "Date needed" : "Observations")
         .accessibilityIdentifier("observations.list")
-        .onChange(of: confirmingClear) { _, presented in store.observationDetailPresented = presented }
+        .toolbar {
+            if !onlyUndated, !entries.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(choosingMornings ? "Done choosing" : "Choose mornings") { choosingMornings.toggle() }
+                        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable)
+                        .accessibilityIdentifier("observations.choose")
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if choosingMornings { suggestionControls }
+        }
+        .onChange(of: holdsEntry) { _, presented in store.observationSelectionPresented = presented }
+        .onAppear { if holdsEntry { store.observationSelectionPresented = true } }
+        .onDisappear { if holdsEntry { store.observationSelectionPresented = false } }
+        .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
+        .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
+        .sheet(isPresented: $showingProposal, onDismiss: {
+            if learnAfterProposalDismissal {
+                onLearn()
+                learnAfterProposalDismissal = false
+            }
+        }) {
+            RoutineEvidenceProposalView(store: store, onLearn: {
+                learnAfterProposalDismissal = true
+                showingProposal = false
+            })
+        }
         .alert("Delete all observations?", isPresented: $confirmingClear) {
             Button("Delete all", role: .destructive) { _ = store.clearAllObservations() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This removes all saved original text, corrections, sampled frame evidence and screen interpretations. Your routines, saved runs and any recording awaiting recovery remain.")
+        }
+    }
+
+    private func selectionRow(_ entry: ObservationAcquisition) -> some View {
+        let selected = selectedIDs.contains(entry.id)
+        let issue = eligibilityIssue(entry) ?? compatibilityIssue(entry)
+        return HStack(alignment: .top, spacing: 12) {
+            Button {
+                if selected { selectedIDs.remove(entry.id) }
+                else { selectedIDs.insert(entry.id) }
+            } label: {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3).frame(width: 36, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .disabled(store.busy || store.sessionActive || (!selected && (issue != nil || selectedIDs.count >= 5)))
+            .accessibilityLabel("Select \(entry.sourceLabel)")
+            .accessibilityValue(selected ? "Selected" : "Not selected")
+            .accessibilityIdentifier("observation.select.\(entry.id.uuidString)")
+            NavigationLink {
+                ObservationHistoryDetail(store: store, observationID: entry.id, onLearn: onLearn)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    ObservationHistoryRow(entry: entry)
+                    if let issue { Text(issue).font(.caption).foregroundStyle(.secondary) }
+                }
+            }.accessibilityIdentifier("observation.row.\(entry.id.uuidString)")
+        }
+    }
+
+    private var suggestionControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(selectionSummary).font(.caption).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("observations.selectionSummary")
+                Spacer()
+                if !selectedIDs.isEmpty {
+                    Button("Clear selection") { selectedIDs.removeAll() }
+                        .font(.caption).disabled(store.busy).accessibilityIdentifier("observations.clearSelection")
+                }
+            }
+            if let selectionIssue { Text(selectionIssue).font(.caption).foregroundStyle(.secondary) }
+            Button {
+                proposalBeforeRequest = store.pendingRoutineProposal?.id
+                awaitingSuggestion = true
+                store.suggestRoutine(from: selectedIDs)
+                finishSuggestionIfReady()
+            } label: {
+                Label("Suggest an update", systemImage: "sparkles").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.glassProminent).tint(MorningStyle.controlTint).controlSize(.large)
+            .disabled(selectionIssue != nil || store.busy || store.sessionActive || !store.storageIsAvailable || !store.canSuggestSavedObservations)
+            .accessibilityIdentifier("observations.suggestUpdate")
+        }.padding(20).background(.regularMaterial)
+    }
+
+    private func eligibilityIssue(_ entry: ObservationAcquisition) -> String? {
+        if entry.observedDate == nil { return "Set the observed day before using this observation." }
+        if entry.origin == .unknown { return "Confirm whether this is your morning or a sample." }
+        if entry.origin == .automated { return "Automated activity isn't used to learn a personal morning." }
+        if entry.effectiveText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "Add readable notes before using this observation." }
+        return nil
+    }
+
+    private func compatibilityIssue(_ entry: ObservationAcquisition) -> String? {
+        guard !selectedIDs.contains(entry.id), let first = selectedEntries.first else { return nil }
+        if first.origin != entry.origin { return "Choose personal mornings and samples separately." }
+        if first.observedDate?.timeZoneIdentifier != entry.observedDate?.timeZoneIdentifier { return "Choose observations from the same time zone." }
+        if selectedIDs.count >= 5 { return "Five observations selected; remove one to choose another." }
+        return nil
+    }
+
+    private func finishSuggestionIfReady() {
+        guard awaitingSuggestion, !store.busy else { return }
+        awaitingSuggestion = false
+        if let id = store.pendingRoutineProposal?.id, id != proposalBeforeRequest {
+            choosingMornings = false
+            showingProposal = true
         }
     }
 }
@@ -79,6 +238,7 @@ struct ObservationHistoryDetail: View {
     @Bindable var store: MorningStore
     let observationID: UUID
     var onLearn: () -> Void
+    var managesEntryOccupancy = true
     @ViewState<Bool> private var assigningDate = false
     @ViewState<Bool> private var confirmingDelete = false
     @Environment(\.dismiss) private var dismiss
@@ -179,8 +339,8 @@ struct ObservationHistoryDetail: View {
         .scrollContentBackground(.hidden).background(MorningStyle.background)
         .navigationTitle("Observation")
         .accessibilityIdentifier("observation.detail")
-        .onAppear { store.observationDetailPresented = true }
-        .onDisappear { store.observationDetailPresented = false }
+        .onAppear { if managesEntryOccupancy { store.observationDetailPresented = true } }
+        .onDisappear { if managesEntryOccupancy { store.observationDetailPresented = false } }
         .sheet(isPresented: $assigningDate) {
             if let entry { ObservationDateEditor(store: store, entry: entry) }
         }

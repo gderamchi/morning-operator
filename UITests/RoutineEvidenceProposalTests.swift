@@ -1,0 +1,356 @@
+import XCTest
+
+/// Explicit synthetic assembly through the real selection/persistence/approval flow.
+/// These tests do not call Foundation Models or prove model accuracy, audio or recording.
+@MainActor
+final class RoutineEvidenceProposalTests: XCTestCase {
+    private let firstID = "11111111-1111-4111-8111-111111111111"
+    private let secondID = "22222222-2222-4222-8222-222222222222"
+    private let undatedID = "33333333-3333-4333-8333-333333333333"
+    private let currentTitle = "A calm start"
+    private let proposedTitle = "A morning to review"
+
+    func testCompactProposalShowsMomentAndBothReviewActions() {
+        let app = launch()
+        createProposal(from: [firstID, secondID], in: app)
+        let moment = app.descendants(matching: .any).matching(identifier: "proposal.step.0").firstMatch
+        XCTAssertTrue(moment.isHittable, "The suggested moment must be visible before scrolling.")
+        XCTAssertTrue(app.buttons["proposal.keepCurrent"].isHittable,
+                      "Keeping the current routine must be immediately reachable.")
+        XCTAssertTrue(app.buttons["proposal.approve"].isHittable,
+                      "Approval must be immediately reachable.")
+        attach("synthetic-proposal-compact-review-actions", app)
+        closeProposal(in: app)
+    }
+
+    func testReviewAndRelaunchKeepCurrentRoutineUntilExplicitApproval() {
+        let app = launch()
+        createProposal(from: [firstID, secondID], in: app)
+        assertSelectedEvidence(in: app)
+        closeProposal(in: app)
+        assertApprovedRoutine(currentTitle, count: 4, in: app)
+
+        relaunchWithoutSeed(app)
+        assertApprovedRoutine(currentTitle, count: 4, in: app)
+        openPendingProposal(in: app)
+        XCTAssertTrue(app.buttons["proposal.approve"].isEnabled)
+        attach("synthetic-proposal-restored-current-routine-unchanged", app)
+        tap("proposal.approve", in: app)
+        waitForProposalToClose(in: app)
+
+        relaunchWithoutSeed(app)
+        openArchive(in: app)
+        XCTAssertFalse(app.buttons["observations.reviewProposal"].exists)
+        XCTAssertTrue(app.buttons["observation.row.\(firstID)"].exists,
+                      "Approval must preserve its source observations.")
+        XCTAssertTrue(app.buttons["observation.row.\(secondID)"].exists)
+        openRoutine(in: app)
+        assertRoutineRows(proposedTitle, count: 1, in: app)
+        XCTAssertFalse(app.buttons["routine.approve"].exists)
+        XCTAssertTrue(app.buttons["routine.restore"].exists,
+                      "The previous approved routine must remain recoverable after approval and relaunch.")
+        tap("routine.restore", in: app)
+        assertRoutineRows(currentTitle, count: 4, in: app)
+        XCTAssertFalse(app.buttons["routine.approve"].exists)
+        MorningUITestNavigation.closeRoutine(in: app)
+        relaunchWithoutSeed(app)
+        assertApprovedRoutine(currentTitle, count: 4, in: app)
+        attach("synthetic-proposal-approved-then-previous-routine-restored", app)
+    }
+
+    func testKeepCurrentDiscardsOnlyProposalAndCurrentRoutineStillStarts() {
+        let app = launch()
+        createProposal(from: [firstID, secondID], in: app)
+        tap("proposal.keepCurrent", in: app)
+        waitForProposalToClose(in: app)
+        relaunchWithoutSeed(app)
+        openArchive(in: app)
+        XCTAssertFalse(app.buttons["observations.reviewProposal"].exists)
+        for id in [firstID, secondID, undatedID] {
+            XCTAssertTrue(app.buttons["observation.row.\(id)"].exists,
+                          "Rejecting a proposal must not delete an observation.")
+        }
+        assertApprovedRoutine(currentTitle, count: 4, in: app)
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        tap("run.start", in: app)
+        assertRun("running", step: currentTitle, in: app)
+        attach("synthetic-proposal-rejected-current-routine-running", app)
+        stopRun(in: app)
+    }
+
+    func testCorrectingReferencedNotesInvalidatesProposalAcrossRelaunch() throws {
+        let app = launch()
+        createProposal(from: [firstID], in: app)
+        closeProposal(in: app)
+        openObservation(firstID, in: app)
+        tap("observation.edit", in: app)
+        let editor = app.textViews["learn.notes"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        scrollTo(editor, in: app)
+        let before = try XCTUnwrap(editor.value as? String)
+        editor.tap()
+        editor.typeText(" Keep this changed observation.")
+        let changed = try XCTUnwrap(editor.value as? String)
+        XCTAssertNotEqual(changed, before)
+        XCTAssertTrue(changed.contains("Keep this changed observation."))
+        let keyboardDone = app.buttons["input.done"]
+        if keyboardDone.exists && keyboardDone.isHittable { keyboardDone.tap() }
+        let learn = app.navigationBars["Learn my morning"]
+        XCTAssertTrue(learn.buttons["Done"].isHittable)
+        learn.buttons["Done"].tap()
+        waitAbsent(learn)
+
+        relaunchWithoutSeed(app)
+        openArchive(in: app)
+        XCTAssertFalse(app.buttons["observations.reviewProposal"].exists,
+                       "A proposal citing the previous notes must not reappear after relaunch.")
+        tap("observation.row.\(firstID)", in: app)
+        tap("Current notes", in: app)
+        XCTAssertEqual(app.staticTexts["observation.currentText"].label, changed)
+        tap("Original extracted text", in: app)
+        XCTAssertEqual(app.staticTexts["observation.originalText"].label,
+                       "Original sample A: calendar, water, chess.")
+        assertApprovedRoutine(currentTitle, count: 4, in: app)
+        attach("synthetic-proposal-invalidated-by-correction", app)
+    }
+
+    func testRemovingObservedDateAndDeletingSourceInvalidateTheirProposals() {
+        let app = launch()
+        createProposal(from: [firstID], in: app)
+        closeProposal(in: app)
+        openObservation(firstID, in: app)
+        tap("observation.setDate", in: app)
+        tap("observation.removeDate", in: app)
+        let dateValue = app.descendants(matching: .any).matching(identifier: "observation.observedDate").firstMatch
+        let undated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            dateValue.exists && (dateValue.value as? String) == "Date needed"
+        }, object: dateValue)
+        XCTAssertEqual(XCTWaiter.wait(for: [undated], timeout: 5), .completed)
+        relaunchWithoutSeed(app)
+        openArchive(in: app)
+        XCTAssertFalse(app.buttons["observations.reviewProposal"].exists,
+                       "Changing an observation's date must invalidate the saved proposal.")
+
+        // A separate still-dated source can produce a new explicit synthetic proposal.
+        createProposal(from: [secondID], in: app)
+        closeProposal(in: app)
+        openObservation(secondID, in: app)
+        tap("observation.delete", in: app)
+        let alert = app.alerts["Delete this observation?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        alert.buttons["Delete observation"].tap()
+        XCTAssertTrue(app.navigationBars["Observations"].waitForExistence(timeout: 5))
+        relaunchWithoutSeed(app)
+        openArchive(in: app)
+        XCTAssertFalse(app.buttons["observations.reviewProposal"].exists,
+                       "A deleted cited observation cannot leave an approvable proposal.")
+        XCTAssertFalse(app.buttons["observation.row.\(secondID)"].exists)
+        XCTAssertTrue(app.buttons["observation.row.\(firstID)"].exists)
+        XCTAssertTrue(app.buttons["observation.row.\(undatedID)"].exists)
+        assertApprovedRoutine(currentTitle, count: 4, in: app)
+        attach("synthetic-proposals-invalidated-by-date-and-source-deletion", app)
+    }
+
+    func testPausedSessionBlocksProposalApprovalWithoutChangingPinnedStep() {
+        let app = launch()
+        createProposal(from: [firstID, secondID], in: app)
+        closeProposal(in: app)
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        tap("run.start", in: app)
+        assertRun("running", step: currentTitle, in: app)
+        tap("run.pause", in: app)
+        assertRun("paused", step: currentTitle, in: app)
+        openPendingProposal(in: app)
+        XCTAssertFalse(app.buttons["proposal.approve"].isEnabled,
+                       "A paused session is still active and pins its approved version.")
+        attach("synthetic-proposal-approval-blocked-by-paused-session", app)
+        closeProposal(in: app)
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        assertRun("paused", step: currentTitle, in: app)
+        stopRun(in: app)
+        openPendingProposal(in: app)
+        XCTAssertTrue(app.buttons["proposal.approve"].isEnabled,
+                      "Stopping the pinned run should permit an otherwise current proposal.")
+        closeProposal(in: app)
+    }
+
+    private func launch() -> XCUIApplication {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
+            "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-approved",
+            "--ui-testing-observation-archive", "--ui-testing-evidence-proposals"]
+        app.launch()
+        return app
+    }
+
+    private func relaunchWithoutSeed(_ app: XCUIApplication) {
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-testing-observation-archive" || $0 == "--ui-testing-approved" }
+        app.launch()
+    }
+
+    private func reviewRoot(in app: XCUIApplication) {
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        tap("morning.date", in: app)
+        XCTAssertTrue(app.buttons["review.period"].waitForExistence(timeout: 5))
+    }
+
+    private func openArchive(in app: XCUIApplication) {
+        reviewRoot(in: app)
+        tap("review.observations", in: app)
+        XCTAssertTrue(app.navigationBars["Observations"].waitForExistence(timeout: 5))
+    }
+
+    private func openObservation(_ id: String, in app: XCUIApplication) {
+        openArchive(in: app)
+        tap("observation.row.\(id)", in: app)
+        XCTAssertTrue(app.navigationBars["Observation"].waitForExistence(timeout: 5))
+    }
+
+    private func createProposal(from ids: [String], in app: XCUIApplication) {
+        openArchive(in: app)
+        tap("observations.choose", in: app)
+        for id in ids {
+            let choice = app.buttons["observation.select.\(id)"]
+            XCTAssertTrue(choice.waitForExistence(timeout: 5))
+            XCTAssertTrue(choice.isEnabled)
+            if (choice.value as? String) != "Selected" { tap(choice.identifier, in: app) }
+            XCTAssertEqual(choice.value as? String, "Selected")
+        }
+        let fixture = app.descendants(matching: .any).matching(identifier: "observations.fixtureMode").firstMatch
+        XCTAssertTrue(fixture.exists)
+        XCTAssertTrue(fixture.label.contains("no Apple model call"),
+                      "The synthetic path must disclose that it did not invoke the native model.")
+        let suggest = app.buttons["observations.suggestUpdate"]
+        XCTAssertTrue(suggest.isEnabled)
+        tap("observations.suggestUpdate", in: app)
+        assertProposalPresented(in: app)
+    }
+
+    private func openPendingProposal(in app: XCUIApplication) {
+        openArchive(in: app)
+        tap("observations.reviewProposal", in: app)
+        assertProposalPresented(in: app)
+    }
+
+    private func assertProposalPresented(in app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 15))
+        let step = app.descendants(matching: .any).matching(identifier: "proposal.step.0").firstMatch
+        XCTAssertTrue(step.waitForExistence(timeout: 5))
+        XCTAssertEqual(step.value as? String, proposedTitle)
+        XCTAssertEqual(app.alerts.count, 0, "Synthetic suggestions must not request external permissions.")
+    }
+
+    private func assertSelectedEvidence(in app: XCUIApplication) {
+        let explanation = app.buttons["Why this suggestion?"]
+        revealProposalElement(explanation, in: app)
+        explanation.tap()
+        // A has a saved correction; B still uses its original text. Both exact
+        // quotations must be reviewable rather than only a count of sources.
+        for text in ["Edited sample A: calendar, water, chess and tea.",
+                     "Original sample B: weather and a walk."] {
+            let quote = app.staticTexts.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label == %@", "proposal.quote.", "“\(text)”")).firstMatch
+            revealProposalElement(quote, in: app)
+            XCTAssertEqual(quote.label, "“\(text)”")
+        }
+        for id in [firstID, secondID] {
+            let source = app.buttons["proposal.source.\(id)"]
+            revealProposalElement(source, in: app)
+            XCTAssertTrue(source.isEnabled, "The cited acquisition must have a reachable source link.")
+        }
+        attach("synthetic-proposal-exact-corrected-and-original-evidence", app)
+    }
+
+    /// A List can instantiate evidence rows only after scrolling. Choose the
+    /// visible sheet's list, rather than the hidden Review list underneath it.
+    private func revealProposalElement(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<8 where !element.isHittable {
+            let collections = app.collectionViews.allElementsBoundByIndex
+            let tables = app.tables.allElementsBoundByIndex
+            let scrolls = app.scrollViews.allElementsBoundByIndex
+            guard let list = (collections + tables + scrolls).first(where: { $0.isHittable }) else {
+                XCTFail("No visible suggestion list for the evidence control.")
+                return
+            }
+            if element.exists, element.frame.height > 0, element.frame.midY < list.frame.midY { list.swipeDown() }
+            else { list.swipeUp() }
+        }
+        XCTAssertTrue(element.exists, "Missing suggestion evidence: \(element.identifier)")
+        XCTAssertTrue(element.isHittable, "Suggestion evidence must be visible: \(element.identifier)")
+    }
+
+    private func closeProposal(in app: XCUIApplication) {
+        tap("proposal.close", in: app)
+        waitForProposalToClose(in: app)
+    }
+
+    private func waitForProposalToClose(in app: XCUIApplication) {
+        waitAbsent(app.buttons["proposal.approve"])
+    }
+
+    private func openRoutine(in app: XCUIApplication) {
+        reviewRoot(in: app)
+        tap("review.routine", in: app)
+        XCTAssertTrue(app.navigationBars["Your routine"].waitForExistence(timeout: 5))
+    }
+
+    private func assertApprovedRoutine(_ title: String, count: Int, in app: XCUIApplication) {
+        openRoutine(in: app)
+        assertRoutineRows(title, count: count, in: app)
+        XCTAssertFalse(app.buttons["routine.approve"].exists)
+        MorningUITestNavigation.closeRoutine(in: app)
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        XCTAssertTrue(app.buttons["run.start"].waitForExistence(timeout: 5))
+    }
+
+    private func assertRoutineRows(_ title: String, count: Int, in app: XCUIApplication) {
+        let first = app.buttons["routine.step.0"]
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        XCTAssertTrue(first.label.contains(title))
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "routine.step.")).count, count)
+    }
+
+    private func assertRun(_ state: String, step: String, in app: XCUIApplication) {
+        let status = app.staticTexts["run.state"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertEqual(status.value as? String, state)
+        XCTAssertEqual(app.staticTexts["run.step"].label, step)
+    }
+
+    private func stopRun(in app: XCUIApplication) {
+        tap("run.controls", in: app)
+        tap("run.stop", in: app)
+        let stopped = app.staticTexts["run.state"]
+        XCTAssertTrue(stopped.waitForExistence(timeout: 5))
+        XCTAssertEqual(stopped.value as? String, "stopped")
+    }
+
+    private func tap(_ identifier: String, in app: XCUIApplication) {
+        MorningUITestNavigation.tapButton(identifier, in: app)
+    }
+
+    private func waitAbsent(_ element: XCUIElement) {
+        let absent = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [absent], timeout: 5), .completed)
+    }
+
+    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<6 where !element.isHittable {
+            let scroll = app.scrollViews.containing(element.elementType, identifier: element.identifier).firstMatch
+            let container = scroll.exists ? scroll : app.collectionViews.firstMatch
+            XCTAssertTrue(container.exists)
+            if element.frame.height > 0, element.frame.midY < container.frame.midY { container.swipeDown() }
+            else { container.swipeUp() }
+        }
+        XCTAssertTrue(element.isHittable)
+    }
+
+    private func attach(_ name: String, _ app: XCUIApplication) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

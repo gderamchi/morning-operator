@@ -1,0 +1,483 @@
+import CryptoKit
+import Foundation
+import MorningCore
+
+public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equatable {
+    case invalidSelection, dateRequired, incompatibleSources, unsupportedSource, insufficientEvidence
+    case inputBudgetExceeded, tooManySteps, invalidCitation, invalidProposal
+    public var errorDescription: String? {
+        switch self {
+        case .invalidSelection: "Select one to five different saved observations."
+        case .dateRequired: "Assign an observed day to every selected observation first."
+        case .incompatibleSources: "Select observations in the same time zone and with the same human or synthetic origin."
+        case .unsupportedSource: "This source needs a reviewed written correction before it can support a proposal."
+        case .insufficientEvidence: "Each selected observation needs usable activity evidence. Review its notes or choose another observation."
+        case .inputBudgetExceeded: "These observations exceed the local proposal budget. Select fewer observations or add shorter reviewed corrections. Nothing was silently shortened."
+        case .tooManySteps: "This proposal needs more than ten moments, including your kept rituals. Select fewer observations; no kept ritual was removed."
+        case .invalidCitation: "A proposed step could not be tied to the exact supplied evidence. Your current routine is unchanged."
+        case .invalidProposal: "This proposal is incomplete or inconsistent with its saved evidence. Create another proposal."
+        }
+    }
+}
+
+public enum RoutineEvidenceSourceLayer: String, Codable, Sendable {
+    case original, correction, videoFrame
+    public var displayName: String {
+        switch self {
+        case .original: "Original observation"
+        case .correction: "Your correction"
+        case .videoFrame: "Recorded screen text"
+        }
+    }
+}
+
+public struct LearningSourceSnapshot: Codable, Equatable, Sendable {
+    public let acquisitionID: UUID
+    public let sourceRevision: String
+    public let sourceLabel: String
+    public let observedDate: ObservationObservedDate
+    public let origin: ObservationAcquisitionOrigin
+    public let sourceLayer: RoutineEvidenceSourceLayer
+}
+
+public enum LearningEvidenceOmissionReason: String, Codable, Sendable {
+    case unavailableOrTruncatedFrame, unsupportedVisualContext
+}
+
+/// A disclosed pre-inference rejection, never a claim that no activity occurred.
+public struct LearningEvidenceOmission: Codable, Equatable, Sendable {
+    public let acquisitionID: UUID
+    public let sampleID: UUID
+    public let reason: LearningEvidenceOmissionReason
+}
+
+public struct RoutineEvidenceCitation: Codable, Equatable, Sendable {
+    public let acquisitionID: UUID
+    public let sourceRevision: String
+    public let sampleID: UUID?
+    public let quote: String
+    /// Character offsets into frame.text when sampleID is present, otherwise into the
+    /// selected original/corrected acquisition text. Bounds are half-open.
+    public let startCharacterOffset: Int
+    public let endCharacterOffset: Int
+    public let sourceLayer: RoutineEvidenceSourceLayer
+}
+
+public enum RoutineProposalSupportReason: String, Codable, Sendable {
+    case inferredEvidence, preservedUserDecision
+}
+
+public struct RoutineProposalSupport: Codable, Equatable, Sendable {
+    public let stepID: UUID
+    public let citations: [RoutineEvidenceCitation]
+    public let reason: RoutineProposalSupportReason
+}
+
+public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiable {
+    public let id: UUID
+    public let baseRoutineID: UUID?
+    public let baseRoutineRevision: String?
+    public let routine: RoutineVersion
+    public let sourceSnapshots: [LearningSourceSnapshot]
+    public let support: [RoutineProposalSupport]
+    public let omissions: [LearningEvidenceOmission]
+
+    fileprivate init(base: RoutineVersion?, routine: RoutineVersion, sources: [LearningSourceSnapshot],
+                     support: [RoutineProposalSupport], omissions: [LearningEvidenceOmission]) throws {
+        id = UUID()
+        baseRoutineID = base?.id
+        baseRoutineRevision = try base.map { try EvidenceRevision.hash($0) }
+        self.routine = routine
+        sourceSnapshots = sources
+        self.support = support
+        self.omissions = omissions
+        try validateStructure()
+    }
+
+    /// Checks current source bytes/metadata and every base-routine field, including approval.
+    /// Store must also invalidate immediately on unsaved edits and cancellation; this method
+    /// cannot inspect editor state that has not yet reached the supplied archive.
+    public func isCurrent(archive: ObservationArchive, baseRoutine: RoutineVersion?) -> Bool {
+        do {
+            try validateStructure()
+            let baseNumber = baseRoutine?.number ?? 0
+            guard baseNumber >= 0, baseNumber < Int.max,
+                  baseRoutine == nil || baseNumber >= 1,
+                  routine.number == baseNumber + 1 else { return false }
+            guard baseRoutineID == baseRoutine?.id,
+                  baseRoutineRevision == (try baseRoutine.map { try EvidenceRevision.hash($0) }) else { return false }
+            for snapshot in sourceSnapshots {
+                guard let entry = archive.entry(id: snapshot.acquisitionID),
+                      try LearningEvidencePreparation.snapshot(entry) == snapshot else { return false }
+            }
+            let kept = Self.keptSteps(in: baseRoutine)
+            for item in support {
+                guard let step = routine.steps.first(where: { $0.id == item.stepID }) else { return false }
+                if item.reason == .preservedUserDecision {
+                    guard try kept.contains(where: { try EvidenceRevision.hash($0) == EvidenceRevision.hash(step) }) else { return false }
+                } else {
+                    guard !step.isRequired, step.automation == nil else { return false }
+                    for citation in item.citations {
+                        guard let entry = archive.entry(id: citation.acquisitionID),
+                              let text = Self.citationSource(citation, entry: entry),
+                              EvidenceText.matches(citation.quote, in: text,
+                                start: citation.startCharacterOffset, end: citation.endCharacterOffset) else { return false }
+                    }
+                }
+            }
+            // A tampered restored proposal cannot quietly remove one of the kept rituals.
+            guard kept.allSatisfy({ keptStep in
+                routine.steps.contains(keptStep) && support.contains { $0.stepID == keptStep.id && $0.reason == .preservedUserDecision }
+            }) else { return false }
+            return true
+        } catch { return false }
+    }
+
+    fileprivate static func keptSteps(in base: RoutineVersion?) -> [RoutineStep] {
+        guard let base, !base.sourceLabel.localizedCaseInsensitiveContains("demo fixture") else { return [] }
+        return base.steps.filter(\.isRequired)
+    }
+
+    private static func citationSource(_ citation: RoutineEvidenceCitation, entry: ObservationAcquisition) -> String? {
+        switch citation.sourceLayer {
+        case .correction:
+            guard citation.sampleID == nil else { return nil }
+            return entry.correctedText
+        case .original:
+            guard citation.sampleID == nil, entry.correctedText == nil else { return nil }
+            return entry.originalText
+        case .videoFrame:
+            guard entry.correctedText == nil, let id = citation.sampleID,
+                  let frame = entry.videoEvidence?.frames.first(where: { $0.id == id }), frame.canSupportIdentity else { return nil }
+            return frame.text
+        }
+    }
+
+    private func validateStructure() throws {
+        guard (1...5).contains(sourceSnapshots.count), Set(sourceSnapshots.map(\.acquisitionID)).count == sourceSnapshots.count,
+              !routine.isApproved, routine.number >= 1, !routine.sourceLabel.isEmpty, routine.sourceLabel.count <= 256,
+              !routine.steps.isEmpty, routine.steps.count <= 10,
+              routine.createdAt.timeIntervalSince1970.isFinite,
+              Set(routine.steps.map(\.id)).count == routine.steps.count,
+              support.count == routine.steps.count, Set(support.map(\.stepID)) == Set(routine.steps.map(\.id)),
+              (baseRoutineID == nil) == (baseRoutineRevision == nil),
+              baseRoutineRevision.map(EvidenceRevision.isValid) ?? true,
+              omissions.count <= 120 else { throw RoutineEvidenceProposalError.invalidProposal }
+        let first = sourceSnapshots[0]
+        guard first.origin == .human || first.origin == .synthetic,
+              sourceSnapshots.allSatisfy({ EvidenceRevision.isValid($0.sourceRevision) && !$0.sourceLabel.isEmpty && $0.sourceLabel.count <= 256 &&
+                  $0.origin == first.origin && $0.observedDate.timeZoneIdentifier == first.observedDate.timeZoneIdentifier }) else {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
+        if first.origin == .synthetic && !routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
+        guard omissions.allSatisfy({ omission in sourceSnapshots.contains { $0.acquisitionID == omission.acquisitionID && $0.sourceLayer == .videoFrame } }) else {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
+        for item in support {
+            guard let step = routine.steps.first(where: { $0.id == item.stepID }),
+                  !step.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  step.title.count <= (item.reason == .inferredEvidence ? 120 : 2_000),
+                  step.detail.count <= (item.reason == .inferredEvidence ? 8_000 : 32_000),
+                  (1...(item.reason == .inferredEvidence ? 60 : 1_440)).contains(step.durationMinutes),
+                  item.reason != .inferredEvidence || (!step.isRequired && step.automation == nil),
+                  item.citations.count <= 24,
+                  (item.reason == .preservedUserDecision) == item.citations.isEmpty else {
+                throw RoutineEvidenceProposalError.invalidProposal
+            }
+            for citation in item.citations {
+                guard let snapshot = sourceSnapshots.first(where: { $0.acquisitionID == citation.acquisitionID }),
+                      snapshot.sourceRevision == citation.sourceRevision, snapshot.sourceLayer == citation.sourceLayer,
+                      (citation.sampleID != nil) == (citation.sourceLayer == .videoFrame),
+                      (8...240).contains(citation.quote.count), citation.startCharacterOffset >= 0,
+                      citation.endCharacterOffset >= citation.startCharacterOffset,
+                      citation.endCharacterOffset <= ObservationArchive.maximumOriginalTextCharacters,
+                      citation.endCharacterOffset - citation.startCharacterOffset == citation.quote.count,
+                      Data(step.detail.utf8).range(of: Data("Evidence: “\(citation.quote)”".utf8)) != nil else {
+                    throw RoutineEvidenceProposalError.invalidProposal
+                }
+            }
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, baseRoutineID, baseRoutineRevision, routine, sourceSnapshots, support, omissions }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        baseRoutineID = try values.decodeIfPresent(UUID.self, forKey: .baseRoutineID)
+        baseRoutineRevision = try values.decodeIfPresent(String.self, forKey: .baseRoutineRevision)
+        routine = try values.decode(RoutineVersion.self, forKey: .routine)
+        sourceSnapshots = try values.decode([LearningSourceSnapshot].self, forKey: .sourceSnapshots)
+        support = try values.decode([RoutineProposalSupport].self, forKey: .support)
+        omissions = try values.decodeIfPresent([LearningEvidenceOmission].self, forKey: .omissions) ?? []
+        try validateStructure()
+    }
+}
+
+/// Exact, bounded submitted text. Unit identity is local to one preparation, never guessed
+/// from a date, label or matching quote. The full source context is retained only in memory.
+public struct PreparedLearningEvidenceUnit: Equatable, Sendable, Identifiable {
+    public let id: UUID
+    public let acquisitionID: UUID
+    public let text: String
+    public let sourceLayer: RoutineEvidenceSourceLayer
+    public let sampleID: UUID?
+    public let startCharacterOffset: Int
+    fileprivate let context: String
+    var kind: LearningEvidenceKind { sourceLayer == .videoFrame ? .visibleTaskContent : evidenceKind }
+    fileprivate let evidenceKind: LearningEvidenceKind
+}
+
+public struct PreparedLearningEvidence: Equatable, Sendable {
+    public let sourceSnapshots: [LearningSourceSnapshot]
+    public let units: [PreparedLearningEvidenceUnit]
+    public let omissions: [LearningEvidenceOmission]
+    public let submittedCharacterCount: Int
+    public var modelRequestCount: Int { batches.count }
+    let batches: [[PreparedLearningEvidenceUnit]]
+    let prompts: [String]
+}
+
+public struct RoutineEvidenceCitationInput: Equatable, Sendable {
+    public let unitID: UUID
+    public let quote: String
+    public init(unitID: UUID, quote: String) { self.unitID = unitID; self.quote = quote }
+}
+
+public struct EvidenceRoutineStepInput: Equatable, Sendable {
+    public let title: String
+    public let detail: String
+    public let kind: StepKind
+    public let durationMinutes: Int
+    public let citations: [RoutineEvidenceCitationInput]
+    public init(title: String, detail: String, kind: StepKind, durationMinutes: Int,
+                citations: [RoutineEvidenceCitationInput]) {
+        self.title = title; self.detail = detail; self.kind = kind
+        self.durationMinutes = durationMinutes; self.citations = citations
+    }
+}
+
+public enum LearningEvidencePreparation {
+    public static let maximumSubmittedCharacters = 8_000
+    public static let maximumModelCalls = 6
+    private static let maximumBatchCharacters = 1_500
+    private static let maximumUnitCharacters = 1_100
+
+    public static func prepare(acquisitions: [ObservationAcquisition]) throws -> PreparedLearningEvidence {
+        guard (1...5).contains(acquisitions.count), Set(acquisitions.map(\.id)).count == acquisitions.count else {
+            throw RoutineEvidenceProposalError.invalidSelection
+        }
+        let sources = try acquisitions.map(snapshot)
+        let first = sources[0]
+        guard first.origin == .human || first.origin == .synthetic,
+              sources.allSatisfy({ $0.origin == first.origin && $0.observedDate.timeZoneIdentifier == first.observedDate.timeZoneIdentifier }) else {
+            throw RoutineEvidenceProposalError.incompatibleSources
+        }
+        let digests = acquisitions.compactMap(\.fileSHA256)
+        guard Set(digests).count == digests.count else { throw RoutineEvidenceProposalError.invalidSelection }
+        var units: [PreparedLearningEvidenceUnit] = []
+        var omissions: [LearningEvidenceOmission] = []
+        for entry in acquisitions {
+            let previousCount = units.count
+            if let correction = entry.correctedText {
+                guard LearningEvidencePolicy.isEligibleWrittenContext(correction) else { throw RoutineEvidenceProposalError.insufficientEvidence }
+                units += makeUnits(text: correction, entry: entry, layer: .correction, sampleID: nil, kind: .userReportedActivity)
+            } else if let video = entry.videoEvidence {
+                for frame in video.frames {
+                    guard frame.canSupportIdentity else {
+                        omissions.append(.init(acquisitionID: entry.id, sampleID: frame.id, reason: .unavailableOrTruncatedFrame)); continue
+                    }
+                    guard LearningEvidencePolicy.isEligibleVisualContext(frame.text) else {
+                        omissions.append(.init(acquisitionID: entry.id, sampleID: frame.id, reason: .unsupportedVisualContext)); continue
+                    }
+                    units += makeUnits(text: frame.text, entry: entry, layer: .videoFrame, sampleID: frame.id, kind: .visibleTaskContent)
+                }
+            } else {
+                let kind: LearningEvidenceKind
+                switch entry.sourceKind {
+                case .text, .manual: kind = .userReportedActivity
+                case .image: kind = .visibleTaskContent
+                case .video, .unknown: throw RoutineEvidenceProposalError.unsupportedSource
+                }
+                var text = entry.originalText
+                var sourceOffset = 0
+                let screenshotHeader = "[User-selected screenshot; one moment, not a confirmed habit]\n"
+                if entry.sourceKind == .image, text.hasPrefix(screenshotHeader) {
+                    text = String(text.dropFirst(screenshotHeader.count))
+                    sourceOffset = screenshotHeader.count
+                }
+                let valid = kind == .userReportedActivity ? LearningEvidencePolicy.isEligibleWrittenContext(text)
+                    : LearningEvidencePolicy.isEligibleVisualContext(text)
+                guard valid else { throw RoutineEvidenceProposalError.insufficientEvidence }
+                units += makeUnits(text: text, entry: entry, layer: .original, sampleID: nil, kind: kind, startingOffset: sourceOffset)
+            }
+            guard units.count > previousCount else { throw RoutineEvidenceProposalError.insufficientEvidence }
+        }
+        // No cross-day deduplication. Even identical text keeps independent source IDs.
+        // Each prompt includes its identifiers/type overhead in the overall 8k limit.
+        var batches: [[PreparedLearningEvidenceUnit]] = []
+        var current: [PreparedLearningEvidenceUnit] = []
+        for unit in units {
+            if prompt(current + [unit]).count > maximumBatchCharacters, !current.isEmpty {
+                batches.append(current); current = []
+            }
+            current.append(unit)
+            guard prompt(current).count <= maximumBatchCharacters else { throw RoutineEvidenceProposalError.inputBudgetExceeded }
+        }
+        if !current.isEmpty { batches.append(current) }
+        let prompts = batches.map(prompt)
+        let count = prompts.reduce(0) { $0 + $1.count }
+        guard batches.count <= maximumModelCalls, count <= maximumSubmittedCharacters else {
+            throw RoutineEvidenceProposalError.inputBudgetExceeded
+        }
+        return PreparedLearningEvidence(sourceSnapshots: sources, units: units, omissions: omissions,
+            submittedCharacterCount: count, batches: batches, prompts: prompts)
+    }
+
+    /// The same deterministic gate is used for model output and explicitly labeled UI fixtures.
+    /// It validates provenance; it does not prove the model's semantic interpretation is true.
+    public static func assemble(evidence: PreparedLearningEvidence, steps: [EvidenceRoutineStepInput],
+                                preserving base: RoutineVersion?, at date: Date = Date()) throws -> EvidenceRoutineProposal {
+        guard !steps.isEmpty, steps.count <= 24, date.timeIntervalSince1970.isFinite else {
+            throw RoutineEvidenceProposalError.insufficientEvidence
+        }
+        if let base {
+            guard base.number >= 1, base.number < Int.max else { throw RoutineEvidenceProposalError.invalidProposal }
+        }
+        var proposed: [RoutineStep] = []
+        var citationsByStep: [UUID: [RoutineEvidenceCitation]] = [:]
+        var keyIndexes: [String: Int] = [:]
+        for input in steps {
+            let title = input.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let detail = input.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty, title.count <= 120, detail.count <= 500, (1...60).contains(input.durationMinutes),
+                  (1...24).contains(input.citations.count) else { throw RoutineEvidenceProposalError.invalidProposal }
+            var citations: [RoutineEvidenceCitation] = []
+            for inputCitation in input.citations {
+                guard let unit = evidence.units.first(where: { $0.id == inputCitation.unitID }),
+                      let snapshot = evidence.sourceSnapshots.first(where: { $0.acquisitionID == unit.acquisitionID }),
+                      (8...240).contains(inputCitation.quote.count),
+                      let range = EvidenceText.exactRange(of: inputCitation.quote, in: unit.text),
+                      LearningEvidencePolicy.supports(quote: inputCitation.quote, source: unit.text, context: unit.context,
+                          kind: unit.kind, claimedKind: unit.kind.rawValue) else {
+                    throw RoutineEvidenceProposalError.invalidCitation
+                }
+                let citation = RoutineEvidenceCitation(acquisitionID: unit.acquisitionID, sourceRevision: snapshot.sourceRevision,
+                    sampleID: unit.sampleID, quote: inputCitation.quote,
+                    startCharacterOffset: unit.startCharacterOffset + range.lowerBound,
+                    endCharacterOffset: unit.startCharacterOffset + range.upperBound, sourceLayer: unit.sourceLayer)
+                if !citations.contains(citation) { citations.append(citation) }
+            }
+            let key = input.kind.rawValue + ":" + ObservationText.normalized(title)
+            if let index = keyIndexes[key] {
+                let id = proposed[index].id
+                var existing = citationsByStep[id] ?? []
+                for citation in citations where !existing.contains(citation) { existing.append(citation) }
+                guard existing.count <= 24 else { throw RoutineEvidenceProposalError.invalidProposal }
+                citationsByStep[id] = existing
+            } else {
+                let step = RoutineStep(title: title,
+                    detail: detail + "\nTentative suggestion from selected evidence; duration is planned, not measured.",
+                    kind: input.kind, durationMinutes: input.durationMinutes)
+                keyIndexes[key] = proposed.count
+                proposed.append(step); citationsByStep[step.id] = citations
+            }
+        }
+        // Pending receipts hold structured provenance. Keep bounded, exact quotations in
+        // the routine too, so explicit approval does not erase the established source text.
+        for index in proposed.indices {
+            var seenQuotes = Set<Data>()
+            let quotes = (citationsByStep[proposed[index].id] ?? []).compactMap { citation -> String? in
+                seenQuotes.insert(Data(citation.quote.utf8)).inserted ? citation.quote : nil
+            }
+            proposed[index].detail += "\nEvidence: " + quotes.map { "“\($0)”" }.joined(separator: "\nEvidence: ")
+            guard proposed[index].detail.count <= 8_000 else { throw RoutineEvidenceProposalError.invalidProposal }
+        }
+        let synthetic = evidence.sourceSnapshots.first?.origin == .synthetic
+        let source = synthetic ? "Demo fixture — synthetic saved observations" : "Selected saved observations — tentative proposal"
+        let candidate = RoutineVersion(createdAt: date, sourceLabel: source, steps: proposed, isApproved: false)
+        let routine = RoutineVersion.inferredDraft(from: candidate, preserving: base, at: date)
+        guard routine.steps.count <= 10 else { throw RoutineEvidenceProposalError.tooManySteps }
+        let keptIDs = Set(EvidenceRoutineProposal.keptSteps(in: base).map(\.id))
+        let support = try routine.steps.map { step -> RoutineProposalSupport in
+            if keptIDs.contains(step.id) { return .init(stepID: step.id, citations: [], reason: .preservedUserDecision) }
+            guard let citations = citationsByStep[step.id], !citations.isEmpty else { throw RoutineEvidenceProposalError.invalidProposal }
+            return .init(stepID: step.id, citations: citations, reason: .inferredEvidence)
+        }
+        return try EvidenceRoutineProposal(base: base, routine: routine, sources: evidence.sourceSnapshots,
+            support: support, omissions: evidence.omissions)
+    }
+
+    fileprivate static func snapshot(_ entry: ObservationAcquisition) throws -> LearningSourceSnapshot {
+        guard let date = entry.observedDate else { throw RoutineEvidenceProposalError.dateRequired }
+        return LearningSourceSnapshot(acquisitionID: entry.id, sourceRevision: try EvidenceRevision.source(entry),
+            sourceLabel: entry.sourceLabel, observedDate: date, origin: entry.origin,
+            sourceLayer: entry.correctedText != nil ? .correction : (entry.videoEvidence != nil ? .videoFrame : .original))
+    }
+
+    private static func makeUnits(text: String, entry: ObservationAcquisition, layer: RoutineEvidenceSourceLayer,
+                                  sampleID: UUID?, kind: LearningEvidenceKind, startingOffset: Int = 0) -> [PreparedLearningEvidenceUnit] {
+        var result: [PreparedLearningEvidenceUnit] = []
+        var offset = startingOffset
+        var index = text.startIndex
+        while index < text.endIndex {
+            let end = text.index(index, offsetBy: maximumUnitCharacters, limitedBy: text.endIndex) ?? text.endIndex
+            let chunk = String(text[index..<end])
+            result.append(.init(id: UUID(), acquisitionID: entry.id, text: chunk, sourceLayer: layer,
+                sampleID: sampleID, startCharacterOffset: offset, context: text, evidenceKind: kind))
+            offset += chunk.count; index = end
+        }
+        return result
+    }
+
+    private static func prompt(_ units: [PreparedLearningEvidenceUnit]) -> String {
+        "Suggest only activities supported by these identified units. Empty output is valid. Cite each exact unitID and quote; never infer measured duration, frequency or a completed action.\n" +
+        units.map { "<unit id=\"\($0.id.uuidString)\" type=\"\($0.kind.rawValue)\">\n\($0.text)\n</unit>" }.joined(separator: "\n")
+    }
+}
+
+private enum EvidenceRevision {
+    static func hash<T: Encodable>(_ value: T) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return SHA256.hash(data: try encoder.encode(value)).map { String(format: "%02x", $0) }.joined()
+    }
+    static func isValid(_ value: String) -> Bool {
+        value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
+    }
+    static func source(_ value: ObservationAcquisition) throws -> String {
+        // Derived classification/warnings are intentionally excluded. All source, date,
+        // correction, origin and extraction fields are included, not just the immutable ID.
+        struct Payload: Encodable {
+            let id: UUID; let importedAt: Date?; let fileSHA256: String?
+            let observedDate: ObservationObservedDate?; let origin: ObservationAcquisitionOrigin
+            let sourceKind: ObservationAcquisitionSourceKind; let sourceLabel: String
+            let originalText: String; let correctedText: String?; let videoEvidence: ObservationVideoEvidence?
+        }
+        return try hash(Payload(id: value.id, importedAt: value.importedAt, fileSHA256: value.fileSHA256,
+            observedDate: value.observedDate, origin: value.origin, sourceKind: value.sourceKind,
+            sourceLabel: value.sourceLabel, originalText: value.originalText, correctedText: value.correctedText,
+            videoEvidence: value.videoEvidence))
+    }
+}
+
+private enum EvidenceText {
+    static func exactRange(of quote: String, in source: String) -> Range<Int>? {
+        guard !quote.isEmpty, let bytes = Data(source.utf8).range(of: Data(quote.utf8)) else { return nil }
+        var boundaries: [Int: Int] = [0: 0]
+        var byteOffset = 0
+        for (index, character) in source.enumerated() {
+            byteOffset += String(character).utf8.count
+            boundaries[byteOffset] = index + 1
+        }
+        guard let start = boundaries[bytes.lowerBound], let end = boundaries[bytes.upperBound] else { return nil }
+        return start..<end
+    }
+    static func matches(_ quote: String, in source: String, start: Int, end: Int) -> Bool {
+        guard start >= 0, end >= start, end <= source.count else { return false }
+        let a = source.index(source.startIndex, offsetBy: start)
+        let b = source.index(a, offsetBy: end - start)
+        return source[a..<b].utf8.elementsEqual(quote.utf8)
+    }
+}

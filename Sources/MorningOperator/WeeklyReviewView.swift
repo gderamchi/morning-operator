@@ -297,7 +297,7 @@ private struct RoutineReviewEditor: View {
                         Text("Minutes are planned. Editing creates a new draft; your saved mornings keep their original routine.")
                     }
                     Section {
-                        if store.previousRoutine != nil, !routine.isApproved {
+                        if store.previousRoutine != nil {
                             Button("Restore previous routine") { store.restorePreviousRoutine() }
                                 .disabled(store.busy || store.sessionActive).accessibilityIdentifier("routine.restore")
                         }
