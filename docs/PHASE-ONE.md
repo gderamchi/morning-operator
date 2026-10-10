@@ -1,12 +1,30 @@
 # MORE: implementation and verification
 
-The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. Current source **`4022a0e`** adds saved keep/exclude/timing choices to unified Learn/import source **`48e5c95`**. Earlier saved-observation proposals (`4a2fd30`), dated archive (`d9a6120`), native OCR layout (`fb0e4a2`), header refinement (`e7666cd`/`dd611fd`) and recording benchmark (`4ddb524`) retain their separate evidence below. The new signed generic iPhone build is ready but not installed. None of these follow-ups replaced the owner's phone build, and no physical phone was available for this slice.
+The installed iPhone app remains at **`8a640ea`**. The **`codex/more-quiet-morning`** branch has been built and checked on an iPhone 15 Pro Max simulator running iOS 27.0 with Xcode 27. Current source **`943766e`** adds reviewed portable routine export/import to saved choices source **`4022a0e`** and unified Learn/import source **`48e5c95`**. Earlier saved-observation proposals (`4a2fd30`), dated archive (`d9a6120`), native OCR layout (`fb0e4a2`), header refinement (`e7666cd`/`dd611fd`) and recording benchmark (`4ddb524`) retain their separate evidence below. The new signed generic iPhone build is ready but not installed. None of these follow-ups replaced the owner's phone build, and no physical phone was available for this slice.
 
 ## V2 in this branch
 
 Morning now contains the date, compact routine and start/run controls. Review owns history, routine edits, approval, observations, thoughts and connections. Installed Apple voice selection considers language, dialect and quality; an explicit voice-command turn pauses the routine and releases playback before using on-device speech recognition. [Design](V2-DESIGN.md) · [Voice behavior](VOICE.md) · [Architecture](ARCHITECTURE.md).
 
 Learning keeps proposals unapproved and strips model-assigned automation. Explicit user choices can retain a complete moment, exclude an activity or override its planned minutes. These controls live in Review; clearing them leaves the current routine unchanged. Sample rituals do not silently become personal preferences. Comparable habit averages, ongoing adaptation and real multi-day model quality remain unverified or future work.
+
+## Portable routine files — 10 October 2026 (`943766e`)
+
+Review now opens an immutable export preview with notes/source text excluded by default. Explicit notes inclusion shows exactly what will be written. A bounded, versioned document preserves source identity/version as metadata; import review creates a new local unapproved draft with no executable operations. The prior approved plan remains restorable while reviewing. A changed base or failed save cannot silently replace the current routine. [Format and user flow](ROUTINE-FILES.md).
+
+| Check | Result and scope |
+|---|---|
+| Full shared package | **271 passed, six optional skipped, two failed**: 119 Core passes; 152 Apple passes, six skips and two Vision failures. All **11 new format tests and three actual-file reader tests passed**. No model calls. |
+| Native Vision failures | Screenshot recognition failed in **15.338s** with e5rt precompiled operation creation code 13; layout failed in **15.323s** with e5rt compiler code 11. Focused retry again failed both (**13.471s / 13.480s**). A later screenshot-only process also failed (**14.360s**, compiler code 11); isolation did not restore recognition. Cause remains unresolved; these are failures, not skips or passing extraction. The earlier passing run recorded below does not override them. |
+| Native builds | Simulator build-for-testing and signed generic iOS build **succeeded**; strict/deep signature verification exited 0. The final import explanation and native-control test fix were compiled; the earlier preview/import tests were not repeated after that wording-only app change. Signed iOS compiles recording code absent from the simulator SDK; no physical install occurred. |
+| Initial transfer UI run | **Two passed, one failed**, **263.929s**, `more-portable-ui.xcresult`. Export scope/default reset passed (**78.495s**); staged actual-file import/cancel/manual draft/relaunch/repeated import/restore passed (**140.291s**). Malformed-file preservation failed at relaunch (**45.144s**) because the fixture had seeded approval only in memory, without persisting its baseline. |
+| Corrected malformed-file check | **Passed, 58.346s**, `more-portable-final-ui.xcresult`, after the test saved its approved baseline using the real UI. The real malformed file produces an error; the approved routine remains unchanged after relaunch. |
+| Native dialog first attempt | **Failed, 44.977s**, in the same two-test result. The system exporter exposes Cancel as an accessibility Other outside its navigation bar; a navigation-button-only selector could not find it. This was not a passing cancellation check. |
+| Native selector retry | **Failed, 41.500s**, `more-portable-native-cancel.xcresult`: the labelled Cancel accessibility element existed but was not hittable. The captured system UI showed Browse/More/Save, with no visible Cancel button. |
+| Native dialog dismissal check | **Passed, 78.153s**, `more-portable-native-dismiss.xcresult`. The test dismissed the actual exporter/importer sheets with their native header drag, returned to the active preview/editor and preserved the approved routine through relaunch. |
+| Scope boundaries | Staged synthetic files use the production bounded reader and explicit adoption path. These journeys do not establish a native file save/selection, provider round trip, model quality, recording, narration or cross-app use. |
+
+No physical phone was present. The installed phone remains `8a640ea`; listener-confirmed speech, V2 capture and hardware interactions remain unverified. Full forgetting, raw-evidence expiry and research export remain separate issue #8/#24 scope.
 
 ## Saved routine choices — 10 October 2026 (`4022a0e`)
 

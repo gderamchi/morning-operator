@@ -2,11 +2,11 @@
 
 The active product is the iPhone app. The Mac hosts development, package tests and optional tethered experiments. The repository and Xcode target still use Morning Operator naming.
 
-**Choose the right version:** `codex/more-quiet-morning` contains the in-progress two-tab V2. Source `4022a0e` adds explicit keep, exclude and timing choices to the unified [routine suggestion review](ROUTINE-LEARNING.md). Choices live in Review and survive later proposals; the current routine stays in place until proposal approval. A signed iPhone build is ready but has not been installed; the physical baseline remains `8a640ea`. The [verification record](PHASE-ONE.md) separates current checks, older archive/proposal results and remaining hardware work. The [V2 design contract](V2-DESIGN.md) defines navigation; older phone walkthroughs describe the installed baseline.
+**Choose the right version:** `codex/more-quiet-morning` contains the in-progress two-tab V2. Source `943766e` adds reviewed [portable routine files](ROUTINE-FILES.md): notes are omitted by default, and imports become manual, unapproved drafts. The [learning guide](ROUTINE-LEARNING.md) covers separate observations, proposals and saved choices. A signed iPhone build is ready but has not been installed; the physical baseline remains `8a640ea`. The [verification record](PHASE-ONE.md) separates current checks, earlier results and hardware work. The [V2 design contract](V2-DESIGN.md) defines navigation; older phone walkthroughs describe the installed baseline.
 
 The [morning-entry slice](MORNING-ENTRY.md) adds a one-time local invitation. The real simulator delivery → tap → approved start rerun passed after a callback crash was corrected; five other entry checks passed before that fix. Physical delivery, cold launch, locked-device behavior and spoken Siri invocation still need separate trials.
 
-The latest full shared run passed **259 checks with six optional skips**. Simulator and iPhone builds succeeded, and the signed build passed signature verification. **Five preference/recovery UI journeys have passing results across scoped runs**. Initial failures, corrected reruns and the scope of each check remain in the [verification record](PHASE-ONE.md).
+The latest full shared run had **271 passes, six optional skips and two Vision failures**; the focused Vision retry and one isolated screenshot check also failed. All **14 new routine-format/file-reader checks passed**. Simulator and signed iPhone builds succeeded. Export-scope/default reset, reviewed import/persistence/restoration, and corrected malformed-file preservation have passing UI results. Native dialog cancellation: passed in a corrected scoped run. Actual native save/selection remains unverified. Initial failures, corrected reruns and earlier preference/learning checks remain in the [verification record](PHASE-ONE.md).
 
 Earlier controlled recording, movie import/relaunch, layout extraction and archive checks retain their own evidence. Actual screen recognition and multi-observation model quality remain unproved: the latest Mac preflight returned `modelNotReady`, and the earlier simulator backend rejected inference. No physical phone was available; there is no new model-generation, capture or audio result. Shared logic, build and UI outcomes are recorded separately in [verification](PHASE-ONE.md).
 
@@ -15,6 +15,7 @@ Earlier controlled recording, movie import/relaunch, layout extraction and archi
 | Guide | What it answers |
 |---|---|
 | [Learn from saved mornings](ROUTINE-LEARNING.md) | Select comparable sources, inspect quotations, manage keep/exclude/timing choices, and approve or discard a pending update |
+| [Portable routine files](ROUTINE-FILES.md) | Preview a plan-only export, choose whether to include notes, and review an imported draft |
 | [Morning entry](MORNING-ENTRY.md) | Schedule one invitation, enter through Start, and understand permissions, expiry and manual fallback |
 | [Voice commands](VOICE.md) | Use an explicit listening turn; understand commands, audio handoff and outstanding device checks |
 | [V2 design contract](V2-DESIGN.md) | How Morning and Review divide the experience, with completion capture and accessible layout fallbacks |
