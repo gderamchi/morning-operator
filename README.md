@@ -39,21 +39,20 @@ Review measures **routine runs** and shows source-linked appearances in sampled 
 
 ## Where it stands
 
-**Current V2 source: `6938137`.** Review can now correct one sampled screen label or keep it unknown. Your choice updates the weekly view and future learning while preserving the original extraction and model proposal. Saved-moment narration remains available; the Morning page stays compact.
+**Current V2 source: `c91f69e`.** Long saved observations now run in small sequential analysis requests with progress and cancellation, replacing the 8,000-character whole-input rejection. Review leads with observed mornings, opens day-by-day sampled sequences, and links a chosen original quote directly to an optional spoken preview. The compact Morning screen keeps its two-tab layout.
 
 | Verified development behavior | Evidence |
 |---|---|
-| Screen review and learning | **90 focused shared checks and 4/4 native simulator journeys passed.** Label/quote corrections, unknowns, weekly review, reset and relaunch preserve originals. A separate visual rerun also passed. These use manufactured observations. |
-| Earlier saved-moment narration | **79 focused shared checks and 2/2 final native simulator journeys passed.** Exact preview, approval/persistence, synthesis-driven progression and deleted-source refusal. This proves native callbacks and app behavior, not listener audibility. |
-| Recording reliability | Earlier **69 focused checks and 2/2 recovery journeys passed** for actual fixture-video OCR and retained metadata. The callback-ordering policy also has deterministic coverage. Real iPhone callback order remains unverified. |
-| Compact experience | Earlier no-scroll Morning, reviewed learning, Calendar/Weather, Live Activity, portable-file and local-forgetting checks keep their separate results in [verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md). |
-| iPhone build | Simulator and unsigned generic iPhone builds pass. Signing still needs the Xcode developer account and a profile with WeatherKit. V2 has not been installed on the phone. |
+| Long-input learning and evidence | **322 shared checks passed; 6 optional checks skipped.** A final **62-test** focused run passes after the request-wrapper correction. Covers long sources, Unicode, exact offsets, final-batch coverage, cancellation, late failure and rejection of the app's own overview as habit evidence. Model generation/accuracy was not tested. |
+| Review navigation | Both corrected native simulator journeys pass: week → day → source → correction/relaunch, and exact quote → preview → explicitly added unapproved draft. Four existing review/home checks passed in the initial run. Initial failures and fixes remain in [verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md). |
+| Phone candidate | **Signed iPhone build succeeds**, signature and WeatherKit provisioning verified. The embedded Live Activity extension is present. It is ready for installation; the last device check found only the simulator. |
+| Earlier native features | Saved-moment speech progression, fixture-video OCR/recovery, Calendar/Weather preparation, Live Activity, portable files and local forgetting retain separate scoped results in [verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md). |
 
-**Recognition accuracy remains unproven.** The latest Mac model preflight returned `modelNotReady`; the earlier simulator backend rejected inference. Physical-device recognition remains unverified for V2. Synthetic suggestions test the app's review flow, not model quality, capture or audio. [Verification](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PHASE-ONE.md) preserves actual runs, earlier failures and corrected reruns.
+**Full-morning accuracy is still open.** The importer currently accepts up to 31 minutes and samples at most 24 screens with bounded OCR. Removing the text rejection does not measure every scroll, message read or time spent in apps. [Long-recording work #27](https://github.com/gibouu/morning-operator/issues/27) includes denser, resumable video ingestion. The Mac model still reports `modelNotReady`; skipped inference checks are not passes.
 
-**Installed phone baseline: `8a640ea`.** The earlier signed app passed synthetic phone journeys and a separate real on-device model example. One short real recording reached saved OCR and a visible draft, but that draft mistook setup text for habits. Targeted deterministic guards reject the known input; broad habit accuracy is still open. V2 has not replaced this phone build.
+**Installed phone baseline: `8a640ea`.** V2 has not yet replaced it. The earlier short real recording reached saved OCR and a draft, but that draft mistook setup text for habits. Targeted guards address the known failure; physical recognition quality remains unproven.
 
-Observed-habit averages, ongoing adaptation, first-use/alarm opportunities and narrated cross-app actions remain [planned work](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/ROADMAP.md). Physical V2, actual microphone/Siri, HomePod and listener-confirmed speech quality need their own checks. The owner has not confirmed hearing the earlier phone greeting.
+The requested short opening, connected inbox counts, social-feed commands and subscription/research hypotheses are specified in the [product direction](https://github.com/gibouu/morning-operator/blob/codex/more-quiet-morning/docs/PRODUCT-DIRECTION.md). LEVE is a proposed name with existing App Store matches, not a completed rename. Real microphone/Siri, HomePod and listener-confirmed speech remain open. No issue is closed merely because its source compiles.
 
 ## Build on your iPhone
 
