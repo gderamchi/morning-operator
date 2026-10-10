@@ -8,7 +8,7 @@ The structured extraction and latest-frame persistence path has controlled simul
 
 Source `d9a6120` adds the observation archive, recording-date provenance and local file fingerprint described below. Shared checks and the native build pass, and six archive/import journeys have passing results across the initial and corrected runs. [Verification](PHASE-ONE.md) preserves the native-service and accessibility-test failures and their targeted reruns. Physical recording-date behavior and V2 installation remain unverified.
 
-The current source adds [reviewed routine updates from saved observations](ROUTINE-LEARNING.md). Its shared validation, native build and six synthetic proposal journeys have passing results across scoped runs, including a corrected action layout. The verification record preserves the initial failure. It has no real multi-observation model-quality result or new phone installation. The earlier archive results remain evidence for their recorded source, not a substitute for this slice's checks.
+The saved-observation proposal slice at `4a2fd30` adds [reviewed routine updates](ROUTINE-LEARNING.md), with its initial failure and six passing synthetic journeys preserved in verification. The newer unified Learn/import slice (`48e5c95`) uses that pending review with explicit provenance and no inference during acquisition. Its full shared run passed **235 checks with six optional skips**; the native simulator build and three UI journeys passed. Those journeys cover import preservation/relaunch, provenance → single-source pending review → approval/relaunch, and setup-only rejection. No Apple model call or phone installation occurred. Two further notice-review journeys passed after the final routing changes, and the unsigned iPhone target also builds; [PHASE-ONE](PHASE-ONE.md) records the exact scopes.
 
 ## Components and boundaries
 
@@ -23,13 +23,12 @@ flowchart TB
     Excerpts --> Context["Explicit local visible-context classification"]
     Context --> Trace["Validated citations and ordered trace"]
     Trace --> Store
-    Media --> Evidence["Evidence policy and source text"]
-    Evidence --> Model["Foundation Models: propose or abstain"]
-    Model --> Store
+    Media --> Store
     Store --> Core["MorningCore: versions, sessions, history"]
     Store --> Archive["Dated acquisitions: original evidence and corrections"]
-    Archive --> Selection["Explicit source selection and bounded local proposal"]
-    Selection --> Pending["Validated citations and saved pending review"]
+    Archive --> Selection["Explicit suggestion and eligible source selection"]
+    Selection --> Model["Bounded Foundation Models: propose or abstain"]
+    Model --> Pending["Validated citations and saved pending review"]
     Pending --> Store
     Archive --> Disk
     Store --> Disk["Local workspace and recording recovery"]
@@ -76,12 +75,13 @@ stateDiagram-v2
     SavedClip --> Extracting: Foreground and idle; same session or Retry
     Extracting --> SavedClip: Blank, OCR, cancellation or save failure
     Extracting --> SavedText: Readable text and frame evidence saved
-    SavedText --> Draft: Eligible evidence and model available
-    SavedText --> NeedsReview: Insufficient evidence or model unavailable
+    SavedText --> NeedsReview: Review evidence and confirm missing provenance
     SavedClip --> Idle: Explicit discard
 ```
 
-`ScreenRecordingService.shared` owns the stream independently of sheets. Its finalization callback stages a successfully finalized clip into one durable recovery slot before releasing ownership. The foreground coordinator starts same-session extraction only when the app is active and no analysis or routine session is in progress. A clip recovered after app relaunch requires **Retry**; relaunch does not silently reprocess it.
+`ScreenRecordingService.shared` owns the stream independently of sheets. Its finalization callback stages a successfully finalized clip into one durable recovery slot before releasing ownership. The foreground coordinator starts same-session extraction only when the app is active, no analysis or routine session is in progress, and review/settings/capture/voice surfaces are unoccupied. It retries that eligibility check after those surfaces close. A clip recovered after app relaunch requires **Retry**; relaunch does not silently reprocess it.
+
+Import, retry and same-file reimport stop after saving/selecting evidence; they do not call the model. Recording completion queues Learn review until extraction is idle and the active app can present it. Review readiness is observed separately from Start occupancy: pending raw recovery cannot block its own review, and ending a session can resume a queued request. A Morning notice dismisses before Learn opens; imported-text review remains available without ScreenCaptureKit. The person reviews the text, confirms missing date/origin and explicitly requests a suggestion. This keeps acquisition, inference and approval as separate actions, including for the first routine.
 
 The app closes its own Record/Learn sheets when it can handle acknowledged capture in the active scene. Apple's sharing panel is a separate system surface: it remained visible seven seconds into an observed clip. Automatic dismissal is not established. Use the system's normal dismissal/navigation controls; do not interpret an open panel as proof that capture has not started.
 
@@ -118,7 +118,7 @@ Records and selected ID share the existing schema-1 workspace's atomic save. Leg
 
 ## Proposed updates from saved observations
 
-**Review → Saved observations → Choose mornings** selects one to five dated acquisitions independently of Learn's selected observation. All selected sources must share a time zone and be either human observations or synthetic samples; the two origins cannot mix. Undated, unknown-origin and automated entries remain available for review and correction, with a reason why they cannot enter this selection. No import date is substituted for the observed day.
+Learn prepares its selected acquisition for the same pending-proposal operation used by **Review → Saved observations → Choose mornings**. The latter selects one to five dated acquisitions independently of Learn's selection. All selected sources must share a time zone and be either human observations or synthetic samples; the two origins cannot mix. Learn's **Confirm this observation** / **Day and source** form records missing provenance explicitly. Native recording dates do not imply human origin, and import time does not supply an observed day. Undated, unknown-origin and automated entries remain reviewable but cannot pass suggestion preparation.
 
 Preparation uses the current correction as an explicit user report, or the original text/eligible original video frames. Source identities, revisions, dates, origins and frame identities stay in an app-owned mapping. Excluded or truncated frames are disclosed as omissions; every selected acquisition must contribute eligible input. A selected source need not produce an accepted model suggestion, so selection counts are not support or coverage counts.
 
@@ -134,7 +134,7 @@ One unapproved `EvidenceRoutineProposal` is saved alongside the sources and unch
 
 The current evidence-policy revision separates user-reported activity from visible task content. It filters whole visual frames before chunking, rejects recognized setup/picker/launcher/marketing contexts, and allows an insufficient-evidence outcome. This is a targeted, incomplete heuristic. Rejection by that deterministic prefilter happens before model inference; it is distinct from the model returning its own insufficient-evidence outcome. Deterministic guard tests do not establish real-model abstention. The validation record is in [PHASE-ONE](PHASE-ONE.md).
 
-For the separate single-observation **Suggest a routine** path, the original trimmed observation must fit within 8,000 characters before filtering; filtering does not rescue an oversized input. Equivalent eligible frames are deduplicated and coalesced into inference chunks of at most 1,500 characters. Dynamic guided-generation schemas constrain outcome, step category, evidence kind, quote and tentative duration. Post-generation checks require an eligible source context and exact supporting quotation, valid kind/duration and matching evidence type. Duplicate proposals are collapsed. This path installs an **unapproved** routine draft, with no inferred execution operation attached; the saved-observation update above remains pending alongside the current routine until approval.
+Learn's **Suggest a routine** / **Suggest an update** and the multi-selection action now use the same preparation and 8,000-character submitted-prompt budget above. Independent source identities remain distinct even when their text matches. Dynamic guided-generation schemas constrain outcome, step category, evidence kind, quote and tentative duration. Post-generation checks require valid source-unit identities, exact supporting quotations, valid kind/duration and matching evidence type. Assembly merges matching titles/categories and their citations without averaging durations. The result remains **unapproved and pending**, with no inferred execution operation; only explicit approval installs it.
 
 A matching quote proves only that text appeared in the input. It does not prove that the person opened an app, read a message, performed the activity or repeats it daily. A screenshot is a moment. Durations generated by the model are suggestions, not measurements. Source text is untrusted data and cannot approve a plan, change consent, invoke an external tool or override app policy.
 
@@ -208,6 +208,8 @@ Core `ActionJournalStore` also implements scoped approvals and unknown-outcome r
 ## Data retention today
 
 The following describes actual local storage and controls, not a proposed privacy policy. Ordinary app data lives under its Application Support directory. JSON uses a schema envelope and atomic replacement with owner-only file permissions; there is no app-level encrypted database or account/cloud-sync service. Do not equate local storage with exclusion from every device backup: only the recording-recovery directory is explicitly excluded in this implementation.
+
+The revised `AtomicJSONFile` encodes first, exclusively creates a sibling temporary file and sets mode `0600` before writing content. It writes, synchronizes and closes that file before one atomic rename replaces the destination. A thrown save leaves the old destination unchanged; failed staging is cleaned up on a best-effort basis, and no throwing operation follows successful rename. This gives Store rollback a clear commit boundary. Its replacement/permission, failed-rename cleanup and failed-encoding preservation regressions passed in the shared run. It still requires one authoritative writer and does not synchronize the parent directory, so it makes no sudden-power-loss guarantee for the renamed directory entry.
 
 | Data | Stored today | Retention / removal today |
 |---|---|---|

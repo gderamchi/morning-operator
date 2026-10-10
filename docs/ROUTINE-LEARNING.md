@@ -1,19 +1,23 @@
 # From observations to a morning
 
-The **Choose mornings** flow keeps the current morning usable while a proposed update is reviewed. Learning begins with explicitly saved evidence; a date on a recording does not establish a complete morning or measured phone use. The separate single-observation **Learn → Suggest a routine** path still installs an unapproved draft and offers restoration of the prior approved routine.
+Learn and **Choose mornings** now use the same saved, source-linked pending review for first routines and later updates. Learning begins with explicitly saved evidence; a date on a recording does not establish a complete morning or measured phone use. Recording, importing, retrying and reimporting save evidence without running the model or replacing the current routine.
 
 ## The review flow
 
-Open **Review → Saved observations → Choose mornings**. Choose one to five dated observations from the same time zone. Personal observations and synthetic samples are separate selections. An undated observation needs an assigned day; unknown or automated activity cannot silently become personal behavior.
+For a new recording or imported file, review its saved text in Learn. **Confirm this observation** opens the observed-day, time-zone and activity-origin form when information is missing; **Day and source** reopens it later. Native recording can supply its recorded start date/zone, but does not establish human activity. Files and written notes have no inferred observed day. Canceling confirmation leaves saved evidence available. Saving the form does not generate a routine: choose **Suggest a routine** or **Suggest an update** afterward.
 
-**Suggest an update** asks the local Apple model for supported activities. The resulting sheet shows planned minutes and the observations behind each suggestion. **Done** leaves the suggestion available for later. **Keep current** discards it. **Approve update** saves the approved version for the next morning. Approval does not start playback or grant permission to control another app.
+For several observations, open **Review → Saved observations → Choose mornings**. Choose one to five dated observations from the same time zone. Personal observations and synthetic samples are separate selections. Unknown or automated activity cannot silently become personal behavior. Both entry points use the same preparation, citation checks and pending proposal below.
+
+The explicit suggestion action asks the local Apple model for supported activities. The resulting sheet shows planned minutes and the observations behind each suggestion. **Done** leaves the suggestion available for later; **Review suggested update** reopens it. **Keep current** discards it, or **Discard** when there is no current routine. **Approve update** saves the approved version for the next morning. Approval does not start playback or grant permission to control another app. Unavailable models, cancellation and failed generation leave the saved evidence and current routine intact.
 
 The existing routine stays unchanged during generation and review. An active or paused morning keeps its original version and blocks replacement. After approval, **Review → Your routine → Restore previous routine** can restore the previous approved version while no morning is active.
 
 ```mermaid
 stateDiagram-v2
     [*] --> SavedEvidence
-    SavedEvidence --> Preparing: Choose observations
+    SavedEvidence --> ConfirmProvenance: Missing observed day or origin
+    ConfirmProvenance --> SavedEvidence: Save or cancel; no inference
+    SavedEvidence --> Preparing: Explicit suggestion from eligible source(s)
     Preparing --> SavedEvidence: Cancel / unavailable / insufficient evidence
     Preparing --> PendingReview: Validate sources + save
     PendingReview --> PendingReview: Dismiss / relaunch
@@ -67,8 +71,10 @@ Pending citations are local derived data. They are removed when the proposal is 
 
 ## Verification boundary
 
-Shared validation tests and six isolated synthetic app journeys have passing results across scoped runs for provenance, preservation, persistence, approval and compact review. The first UI run passed four checks and failed to reach an offscreen discard action. Moving both choices into a fixed footer passed the two affected journeys, and the final compact layout passed its separate visibility check. A deterministic suggestion used by a UI test is explicitly labeled and is not an Apple model result. Normal app launches never use it as a fallback.
+The unified Learn/import/provenance slice (`48e5c95`) passed the full shared package run: **235 checks passed and six optional checks skipped**. Simulator and unsigned iPhone builds passed. **Three UI journeys passed with no skips**: import preservation through relaunch; explicit provenance followed by a single-source pending suggestion, approval and relaunch; and rejection of setup-only input. No Apple model calls were made in this slice. Two additional notice-review journeys have passing results after the final routing changes: immediate review and review deferred until a paused morning ends after a blank-video error. These five journeys passed across scoped runs; earlier failures and corrected reruns remain in the verification record.
 
-Actual multi-observation generation and proposal quality still require a ready model on supported hardware. The latest native Mac readiness probe reported `modelNotReady`; the connected device query listed only a simulator. The existing simulator model backend rejects inference. This implementation does not turn those unavailable checks into successful learning evidence. Exact runs and failures are recorded in [PHASE-ONE](PHASE-ONE.md).
+The preceding saved-mornings slice at `4a2fd30` retains its six passing synthetic journeys across scoped runs, including the initial offscreen-discard failure and corrected footer/layout reruns in [verification](PHASE-ONE.md). A deterministic suggestion used by a UI test is explicitly labeled and is not an Apple model result. Normal app launches never use it as a fallback.
+
+Actual model generation and proposal quality still require a ready model on supported hardware. A fresh physical-device query at **2026-10-10 00:27:21 UTC found no phones**. Model readiness was not re-probed; the prior Mac `modelNotReady` result and unsupported simulator backend remain historical findings. The current UI has not been installed on a physical phone, and capture, microphone/audio and route behavior need their own checks. Exact runs and failures are recorded in [PHASE-ONE](PHASE-ONE.md).
 
 Relevant work remains in [#11 — multi-day routine versions](https://github.com/gibouu/morning-operator/issues/11), [#21 — observation analytics](https://github.com/gibouu/morning-operator/issues/21) and [#23 — controlled recording benchmark](https://github.com/gibouu/morning-operator/issues/23).

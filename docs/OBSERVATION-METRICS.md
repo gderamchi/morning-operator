@@ -25,8 +25,7 @@ flowchart TD
     X --> D[Explicit local visible-context classification]
     D --> E[Validated decisions and core trace]
     E --> F[Sample outcomes and recognized appearances in Learn]
-    C -->|Selected observation| R[Unapproved routine draft]
-    C -->|Choose dated sources| P[Source-linked pending routine update]
+    C -->|Explicit suggestion from confirmed source(s)| P[Source-linked pending routine review]
     E --> J[Update analysis on the same acquisition]
     J --> C
     C -. Pending comparable coverage/window integration .-> G[Implemented comparable-day calculations]
@@ -42,7 +41,7 @@ Core accepts at most **256 line records per frame**. Initializers and decoding v
 
 One Vision pass preserves the existing trimmed-line order and newline joining before the usual text budgets. Unavailable, invalid or excess geometry is omitted with warnings while its text remains; no bounds are guessed or clamped. When a budget truncates OCR, only whole original line spans inside the retained prefix survive. A remaining partial text line is not given a fabricated shortened box, and source-truncated frames still cannot support identity.
 
-The notes renderer collapses adjacent identical OCR, while structured frames retain their IDs and order. The single-observation routine-learning path globally deduplicates its eligible text. The separate [saved-observation proposal flow](ROUTINE-LEARNING.md) preserves independent source identities even when their text matches; it uses eligible original frames or labeled corrections and discloses excluded samples. Context classification also uses the original structured frames. `extractText` renders the same extraction rather than running OCR a second time. Planned proposal minutes and selected-date counts are not measured duration or habit averages.
+The notes renderer collapses adjacent identical OCR, while structured frames retain their IDs and order. Learn and multi-observation selection now share the [source-linked proposal flow](ROUTINE-LEARNING.md), preserving independent source identities even when text matches. It uses eligible original frames or labeled corrections and discloses excluded samples. Import/retry/reimport saves evidence without inference; the person explicitly confirms missing provenance and requests a suggestion. The unified slice (`48e5c95`) passed its shared package run, native simulator build and three scoped import/provenance/negative UI journeys, without any Apple model call. Two later notice-review journeys passed after the routing changes, including review deferred until a paused morning ends; the unsigned iPhone target also builds. Initial failures and corrected reruns remain separately recorded. Context classification also uses the original structured frames. `extractText` renders the same extraction rather than running OCR a second time. Planned proposal minutes and selected-date counts are not measured duration or habit averages.
 
 ## The trace contract
 
