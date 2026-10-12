@@ -21,7 +21,7 @@ struct MorningBriefingView: View {
     var body: some View {
         NavigationStack {
           ScrollViewReader { proxy in
-            Form {
+            MorningForm {
                 Section {
                     Text("A little context.\nA calmer start.").font(.title2.weight(.semibold))
                     Text("Choose what you'd like to hear before the rest of your morning.")
