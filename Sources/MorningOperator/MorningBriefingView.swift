@@ -85,7 +85,12 @@ struct MorningBriefingView: View {
                 Button("Cancel", role: .cancel) { }
             } message: { Text("This removes your selected calendars and city from MORE. Your routine and Apple app data stay in place.") }
           }
-        }.tint(MorningStyle.accent)
+        }
+        // The sheet's own background showed beside the keyboard's rounded corners;
+        // extend the screen color under the keyboard too.
+        .background(MorningStyle.background.ignoresSafeArea())
+        .presentationBackground(MorningStyle.background)
+        .tint(MorningStyle.accent)
     }
 
     private var calendarSection: some View {
