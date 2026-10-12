@@ -57,12 +57,11 @@ struct MorningBriefingView: View {
             .onChange(of: cityFocused) { _, focused in if focused { scrollToCitySearch(proxy) } }
             .onChange(of: controller.citySuggestions) { _, _ in if cityFocused { scrollToCitySearch(proxy) } }
             .navigationTitle("Your day").navigationBarTitleDisplayMode(.inline)
+            // No keyboard accessory bar: it covered the city suggestions. Choosing a
+            // city, Search, or dragging the form closes the keyboard.
+            .scrollDismissesKeyboard(.interactively)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { cityFocused = false }.accessibilityIdentifier("input.done")
-                }
             }
             .disabled(store.privacyBlocksWork)
             .task {
