@@ -108,21 +108,6 @@ struct Card<Content: View>: View {
             .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 26))
     }
 }
-/// Grouped forms and lists with warm rows that match cards, instead of iOS's
-/// white cells on the beige background. Rows that set their own background keep it.
-struct MorningForm<Content: View>: View {
-    @ViewBuilder var content: Content
-    var body: some View { Form { Group { content }.morningRows() } }
-}
-struct MorningList<Content: View>: View {
-    @ViewBuilder var content: Content
-    var body: some View { List { Group { content }.morningRows() } }
-}
-extension View {
-    func morningRows() -> some View {
-        listRowBackground(MorningStyle.surface).listRowSeparatorTint(MorningStyle.line)
-    }
-}
 struct PageHeading: View {
     let eyebrow: String
     let title: String
@@ -148,5 +133,21 @@ struct EmptyMoment: View {
             Text(detail).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(26)
             .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 28))
+    }
+}
+
+/// Grouped forms and lists with warm rows that match cards, instead of iOS's
+/// white cells on the beige background. Rows that set their own background keep it.
+struct MorningForm<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View { Form { Group { content }.morningRows() } }
+}
+struct MorningList<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View { List { Group { content }.morningRows() } }
+}
+extension View {
+    func morningRows() -> some View {
+        listRowBackground(MorningStyle.surface).listRowSeparatorTint(MorningStyle.line)
     }
 }
