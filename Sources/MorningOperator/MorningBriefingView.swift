@@ -8,9 +8,6 @@ struct MorningBriefingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @ViewState<String> private var cityQuery = ""
-    @ViewState<Bool> private var didSearch = false
-    @ViewState<Bool> private var didSuggest = false
-    @ViewState<Task<Void, Never>?> private var suggestionTask = nil
     @ViewState<Bool> private var confirmingReset = false
     @ViewState<String?> private var savedMessage = nil
     @ViewState<UUID?> private var previewAttempt = nil
@@ -76,7 +73,7 @@ struct MorningBriefingView: View {
             }
             .onDisappear {
                 stopPreview()
-                suggestionTask?.cancel(); suggestionTask = nil
+                controller.clearCitySearch()
             }
             .confirmationDialog("Reset Your day settings?", isPresented: $confirmingReset, titleVisibility: .visible) {
                 Button("Reset sources", role: .destructive) {
@@ -144,7 +141,7 @@ struct MorningBriefingView: View {
                 TextField("Search for a city", text: $cityQuery).textInputAutocapitalization(.words)
                     .focused($cityFocused)
                     .submitLabel(.search).onSubmit(search)
-                    .onChange(of: cityQuery) { _, text in suggestCities(for: text) }
+                    .onChange(of: cityQuery) { _, text in controller.cityQueryChanged(text) }
                     .accessibilityIdentifier("briefing.citySearch")
                 Button(action: search) { Image(systemName: "magnifyingglass") }
                     .accessibilityLabel("Search cities").accessibilityIdentifier("briefing.searchCities")
@@ -173,9 +170,11 @@ struct MorningBriefingView: View {
                     .accessibilityIdentifier("briefing.citySuggestion.\(suggestion.title)")
                 }
             }
-            if (didSearch || didSuggest) && !controller.isSearchingCities && controller.cityResults.isEmpty
-                && controller.citySuggestions.isEmpty && controller.errorMessage == nil {
-                Text("No matching cities. Try a nearby city or include the country.").font(.caption).foregroundStyle(.secondary)
+            if let outcome = controller.citySearchOutcome, !controller.isSearchingCities, controller.cityResults.isEmpty,
+               controller.citySuggestions.isEmpty, controller.errorMessage == nil {
+                Text(outcome == .noMatch ? "No matching cities. Try a nearby city or include the country."
+                     : WeatherObservationError.searchUnavailable.localizedDescription)
+                    .font(.caption).foregroundStyle(.secondary)
             }
         } header: { Text("Weather · optional") } footer: {
             Text("Searches go to Apple Maps; the city you choose is sent to Apple Weather. MORE doesn't request your device location.")
@@ -228,33 +227,14 @@ struct MorningBriefingView: View {
         withAnimation { proxy.scrollTo(Self.citySearchAnchor, anchor: .top) }
     }
 
-    /// Suggestions follow typing after two characters and a short pause, so each
-    /// keystroke doesn't become an Apple Maps request.
-    private func suggestCities(for text: String) {
-        suggestionTask?.cancel()
-        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.count >= 2 else {
-            suggestionTask = nil; didSuggest = false; didSearch = false; controller.clearCitySearch(); return
-        }
-        suggestionTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(250))
-            guard !Task.isCancelled,
-                  cityQuery.trimmingCharacters(in: .whitespacesAndNewlines) == query else { return }
-            await controller.suggestCities(query)
-            if !Task.isCancelled { didSuggest = true }
-        }
-    }
-
     private func choose(_ city: WeatherLocation) {
         var settings = controller.settings; settings.weatherLocation = city; save(settings)
-        cityQuery = ""; didSearch = false; didSuggest = false; cityFocused = false
+        cityQuery = ""; cityFocused = false
     }
 
     private func search() {
         guard !cityQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        suggestionTask?.cancel(); suggestionTask = nil
         cityFocused = false
-        didSearch = true
         Task { await controller.searchCities(cityQuery) }
     }
 
