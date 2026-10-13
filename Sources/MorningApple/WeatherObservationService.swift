@@ -217,18 +217,36 @@ public final class WeatherObservationService {
 /// request. Convert framework objects to Sendable values on the main queue.
 @MainActor
 private final class NativeWeatherCitySearch {
-    private let search: MKLocalSearch
+    private let query: String
+    private var search: MKLocalSearch?
 
-    init(query: String) {
+    init(query: String) { self.query = query }
+
+    /// Cities first; if MapKit finds none with the place filter (it rejects
+    /// "London", for example), retry once without it.
+    func results() async throws -> [WeatherLocation] {
+        do {
+            let filtered = try await run(filter: MKAddressFilter(including: [.locality, .administrativeArea]))
+            if !filtered.isEmpty { return filtered }
+        } catch {
+            if error is CancellationError { throw error }
+        }
+        return try await run(filter: nil)
+    }
+
+    private func run(filter: MKAddressFilter?) async throws -> [WeatherLocation] {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
         request.resultTypes = .address
-        request.addressFilter = MKAddressFilter(including: .locality)
-        search = MKLocalSearch(request: request)
-    }
-
-    func results() async throws -> [WeatherLocation] {
-        try await withTaskCancellationHandler {
+        if let filter { request.addressFilter = filter }
+        // Without location access MapKit otherwise biases an unregioned query
+        // toward a default map region. Search the whole world; the device's
+        // region is ranked first below.
+        request.region = MKCoordinateRegion(.world)
+        request.regionPriority = .default
+        let search = MKLocalSearch(request: request)
+        self.search = search
+        return try await withTaskCancellationHandler {
             try Task.checkCancellation()
             let values: [WeatherLocation] = try await withCheckedThrowingContinuation { continuation in
                 search.start { response, error in
@@ -236,18 +254,47 @@ private final class NativeWeatherCitySearch {
                     guard let response else {
                         continuation.resume(throwing: WeatherObservationError.searchUnavailable); return
                     }
-                    let values = response.mapItems.compactMap { item -> WeatherLocation? in
+                    let candidates = response.mapItems.compactMap { item -> (WeatherLocation, String?)? in
                         let coordinate = item.location.coordinate
-                        guard let label = item.addressRepresentations?.cityWithContext(.full) ?? item.name else { return nil }
-                        return try? WeatherLocation(latitude: coordinate.latitude, longitude: coordinate.longitude, displayName: label)
+                        let address = item.addressRepresentations
+                        guard let label = WeatherCityRanking.label(context: address?.cityWithContext(.full),
+                                  city: address?.cityName, country: address?.regionName, name: item.name),
+                              let location = try? WeatherLocation(latitude: coordinate.latitude,
+                                  longitude: coordinate.longitude, displayName: label) else { return nil }
+                        return (location, address?.region?.identifier)
                     }
-                    continuation.resume(returning: values)
+                    continuation.resume(returning: WeatherCityRanking.preferringRegion(candidates,
+                        region: Locale.current.region?.identifier))
                 }
             }
             try Task.checkCancellation()
             return values
         } onCancel: {
-            Task { @MainActor [self] in search.cancel() }
+            Task { @MainActor [search] in search.cancel() }
         }
+    }
+}
+
+/// Keeps MapKit's relevance order but lists cities in the person's own region
+/// first, so a worldwide search still favors the expected "Paris" or "Lyon".
+enum WeatherCityRanking {
+    /// MapKit returns an empty `cityWithContext` for many places outside the
+    /// US (Lyon, Marseille…); those results were dropped. Fall back to the city
+    /// and country names, then the item name.
+    static func label(context: String?, city: String?, country: String?, name: String?) -> String? {
+        func value(_ text: String?) -> String? {
+            guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+            return text
+        }
+        if let context = value(context) { return context }
+        if let city = value(city) { return value(country).map { "\(city), \($0)" } ?? city }
+        return value(name)
+    }
+
+    static func preferringRegion(_ candidates: [(WeatherLocation, String?)], region: String?) -> [WeatherLocation] {
+        guard let region = region?.uppercased() else { return candidates.map(\.0) }
+        let local = candidates.filter { $0.1?.uppercased() == region }
+        let other = candidates.filter { $0.1?.uppercased() != region }
+        return (local + other).map(\.0)
     }
 }
