@@ -108,6 +108,19 @@ struct Card<Content: View>: View {
             .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 26))
     }
 }
+/// A card that is one button: the whole rounded surface, including its padding
+/// and the space between the text and the chevron, responds to a tap.
+struct CardButton<Content: View>: View {
+    let action: () -> Void
+    @ViewBuilder var content: Content
+    var body: some View {
+        Button(action: action) {
+            content.padding(22).frame(maxWidth: .infinity, alignment: .leading)
+                .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 26))
+                .contentShape(RoundedRectangle(cornerRadius: 26))
+        }.buttonStyle(.plain)
+    }
+}
 struct PageHeading: View {
     let eyebrow: String
     let title: String

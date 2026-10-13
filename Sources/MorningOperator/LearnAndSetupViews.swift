@@ -315,49 +315,43 @@ struct SetupView: View {
             PageHeading(eyebrow: "Make yourself at home", title: "A few things, your way.",
                 subtitle: "Choose what to connect and how you'd like your morning to sound.")
 
-            Card {
-                Button { choosingInvitation = true } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "sun.horizon").font(.title2)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Your next morning").font(.headline)
-                            Text(store.invitation.statusText).font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.caption)
+            CardButton { choosingInvitation = true } content: {
+                HStack(spacing: 14) {
+                    Image(systemName: "sun.horizon").font(.title2)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Your next morning").font(.headline)
+                        Text(store.invitation.statusText).font(.caption).foregroundStyle(.secondary)
                     }
-                }.buttonStyle(.plain).accessibilityIdentifier("setup.invitation")
-            }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+            }.accessibilityIdentifier("setup.invitation")
 
-            Card {
-                Button { choosingBriefing = true } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "sun.max").font(.title2)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Your day").font(.headline)
-                            Text("A little context before your morning begins.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.caption)
+            CardButton { choosingBriefing = true } content: {
+                HStack(spacing: 14) {
+                    Image(systemName: "sun.max").font(.title2)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Your day").font(.headline)
+                        Text("A little context before your morning begins.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                }.buttonStyle(.plain).accessibilityIdentifier("setup.briefing")
-            }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+            }.accessibilityIdentifier("setup.briefing")
 
-            Card {
-                Button { choosingActivity = true } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "platter.filled.top.iphone").font(.title2)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Morning at a glance").font(.headline)
-                            Text("Keep your place on the Lock Screen.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.caption)
+            CardButton { choosingActivity = true } content: {
+                HStack(spacing: 14) {
+                    Image(systemName: "platter.filled.top.iphone").font(.title2)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Morning at a glance").font(.headline)
+                        Text("Keep your place on the Lock Screen.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                }.buttonStyle(.plain).accessibilityIdentifier("setup.activity")
-            }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+            }.accessibilityIdentifier("setup.activity")
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
@@ -372,7 +366,7 @@ struct SetupView: View {
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.caption)
-                        }
+                        }.contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(store.sessionActive)
                         .accessibilityIdentifier("setup.voice")
                     Toggle(isOn: $store.readAloud) {
@@ -414,20 +408,18 @@ struct SetupView: View {
                 }
             }
 
-            Card {
-                Button { showingPrivacy = true } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "lock.shield").font(.title2)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Privacy & data").font(.headline)
-                            Text("What stays here, and what you can remove.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.caption)
+            CardButton { showingPrivacy = true } content: {
+                HStack(spacing: 14) {
+                    Image(systemName: "lock.shield").font(.title2)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Privacy & data").font(.headline)
+                        Text("What stays here, and what you can remove.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                }.buttonStyle(.plain).accessibilityIdentifier("setup.privacy")
-            }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+            }.accessibilityIdentifier("setup.privacy")
 
             DisclosureGroup("Availability & device details") {
                 VStack(alignment: .leading, spacing: 18) {
