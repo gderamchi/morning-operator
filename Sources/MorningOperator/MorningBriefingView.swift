@@ -8,7 +8,6 @@ struct MorningBriefingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @ViewState<String> private var cityQuery = ""
-    @ViewState<Bool> private var didSearch = false
     @ViewState<Bool> private var confirmingReset = false
     @ViewState<String?> private var savedMessage = nil
     @ViewState<UUID?> private var previewAttempt = nil
@@ -18,6 +17,7 @@ struct MorningBriefingView: View {
 
     var body: some View {
         NavigationStack {
+          ScrollViewReader { proxy in
             Form {
                 Section {
                     Text("A little context.\nA calmer start.").font(.title2.weight(.semibold))
@@ -50,13 +50,15 @@ struct MorningBriefingView: View {
                 }.font(.caption).foregroundStyle(.secondary)
             }
             .scrollContentBackground(.hidden).background(MorningStyle.background)
+            // Keep the city field and its suggestions above the keyboard.
+            .onChange(of: cityFocused) { _, focused in if focused { scrollToCitySearch(proxy) } }
+            .onChange(of: controller.citySuggestions) { _, _ in if cityFocused { scrollToCitySearch(proxy) } }
             .navigationTitle("Your day").navigationBarTitleDisplayMode(.inline)
+            // No keyboard accessory bar: it covered the city suggestions. Choosing a
+            // city, Search, or dragging the form closes the keyboard.
+            .scrollDismissesKeyboard(.interactively)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { cityFocused = false }.accessibilityIdentifier("input.done")
-                }
             }
             .disabled(store.privacyBlocksWork)
             .task {
@@ -71,6 +73,7 @@ struct MorningBriefingView: View {
             }
             .onDisappear {
                 stopPreview()
+                controller.clearCitySearch()
             }
             .confirmationDialog("Reset Your day settings?", isPresented: $confirmingReset, titleVisibility: .visible) {
                 Button("Reset sources", role: .destructive) {
@@ -78,7 +81,13 @@ struct MorningBriefingView: View {
                 }
                 Button("Cancel", role: .cancel) { }
             } message: { Text("This removes your selected calendars and city from MORE. Your routine and Apple app data stay in place.") }
-        }.tint(MorningStyle.accent)
+          }
+        }
+        // The sheet's own background showed beside the keyboard's rounded corners;
+        // extend the screen color under the keyboard too.
+        .background(MorningStyle.background.ignoresSafeArea())
+        .presentationBackground(MorningStyle.background)
+        .tint(MorningStyle.accent)
     }
 
     private var calendarSection: some View {
@@ -132,20 +141,38 @@ struct MorningBriefingView: View {
                 TextField("Search for a city", text: $cityQuery).textInputAutocapitalization(.words)
                     .focused($cityFocused)
                     .submitLabel(.search).onSubmit(search)
+                    .onChange(of: cityQuery) { _, text in controller.cityQueryChanged(text) }
                     .accessibilityIdentifier("briefing.citySearch")
                 Button(action: search) { Image(systemName: "magnifyingglass") }
                     .accessibilityLabel("Search cities").accessibilityIdentifier("briefing.searchCities")
                     .disabled(cityQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.isSearchingCities)
-            }
+            }.id(Self.citySearchAnchor)
             if controller.isSearchingCities { ProgressView("Finding cities…") }
             ForEach(controller.cityResults) { city in
-                Button(city.displayName) {
-                    var settings = controller.settings; settings.weatherLocation = city; save(settings)
-                    cityQuery = ""; didSearch = false
-                }.accessibilityIdentifier("briefing.cityResult.\(city.id)")
+                Button(city.displayName) { choose(city) }
+                    .accessibilityIdentifier("briefing.cityResult.\(city.id)")
             }
-            if didSearch && !controller.isSearchingCities && controller.cityResults.isEmpty && controller.errorMessage == nil {
-                Text("No matching cities. Try a nearby city or include the country.").font(.caption).foregroundStyle(.secondary)
+            if controller.cityResults.isEmpty {
+                // Five suggestions keep the list short under the field.
+                ForEach(controller.citySuggestions.prefix(5)) { suggestion in
+                    Button { choose(suggestion) } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(suggestion.title)
+                            if !suggestion.subtitle.isEmpty {
+                                Text(suggestion.subtitle).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .disabled(controller.isSearchingCities)
+                    .accessibilityLabel(suggestion.label)
+                    .accessibilityIdentifier("briefing.citySuggestion.\(suggestion.title)")
+                }
+            }
+            if let outcome = controller.citySearchOutcome, !controller.isSearchingCities, controller.cityResults.isEmpty,
+               controller.citySuggestions.isEmpty, controller.errorMessage == nil {
+                Text(outcome == .noMatch ? "No matching cities. Try a nearby city or include the country."
+                     : WeatherObservationError.searchUnavailable.localizedDescription)
+                    .font(.caption).foregroundStyle(.secondary)
             }
         } header: { Text("Weather · optional") } footer: {
             Text("Searches go to Apple Maps; the city you choose is sent to Apple Weather. MORE doesn't request your device location.")
@@ -192,10 +219,33 @@ struct MorningBriefingView: View {
         }
     }
 
+    private static let citySearchAnchor = "briefing.citySearchRow"
+
+    private func scrollToCitySearch(_ proxy: ScrollViewProxy) {
+        withAnimation { proxy.scrollTo(Self.citySearchAnchor, anchor: .top) }
+    }
+
+    /// The controller resolves and saves the city in one step. Text typed after
+    /// the tap cancels the choice; it is never cleared here.
+    private func choose(_ suggestion: CitySuggestion) {
+        let typed = cityQuery
+        Task {
+            guard await controller.chooseCity(suggestion) != nil else { return }
+            previewAttempt = nil; playingPreview = nil
+            if !store.sessionActive { store.speech.stop() }
+            if cityQuery == typed { cityQuery = ""; cityFocused = false }
+            await store.prepareDayIfConfigured()
+        }
+    }
+
+    private func choose(_ city: WeatherLocation) {
+        var settings = controller.settings; settings.weatherLocation = city; save(settings)
+        cityQuery = ""; cityFocused = false
+    }
+
     private func search() {
         guard !cityQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         cityFocused = false
-        didSearch = true
         Task { await controller.searchCities(cityQuery) }
     }
 
