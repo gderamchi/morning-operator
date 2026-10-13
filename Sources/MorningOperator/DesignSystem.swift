@@ -74,6 +74,19 @@ struct PrimaryButtonStyle: ButtonStyle {
             .opacity(isEnabled ? 1 : 0.45)
     }
 }
+/// The primary brown fill at the secondary button's compact size, so the two
+/// actions sit side by side without the primary one dominating.
+struct CompactPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 18).padding(.vertical, 14)
+            .foregroundStyle(.white)
+            .background(MorningStyle.controlTint.opacity(configuration.isPressed ? 0.8 : 1), in: Capsule())
+            .contentShape(Capsule())
+            .opacity(isEnabled ? 1 : 0.45)
+    }
+}
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
