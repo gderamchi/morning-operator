@@ -348,9 +348,11 @@ final class NativeWeatherCitySearch {
 
 /// Decides when a typed fragment needs the suggestion source and when the
 /// source's last results may be reused. Results belong to a fragment only after
-/// the source completed it successfully: a failure or a reset discards the
+/// the source completed it successfully. A failure, a reset, or a wait that is
+/// cancelled unanswered (the caller's deadline, for example) discards the
 /// source, so the same fragment is asked again instead of returning older
-/// results. Kept apart from MapKit so these rules run in package tests.
+/// results or waiting on a stalled request. Kept apart from MapKit so these
+/// rules run in package tests.
 @MainActor
 final class CitySuggestionLookup {
     private let start: (String) -> Void
@@ -372,14 +374,15 @@ final class CitySuggestionLookup {
             try await withCheckedThrowingContinuation { continuation in
                 finish(throwing: CancellationError())
                 pending = (id, continuation)
-                // A fragment still in flight is awaited, not sent again: the
+                // A second wait for the fragment in flight joins it: the
                 // source does not call back for an unchanged fragment.
                 if requested != query { requested = query; completed = nil; start(query) }
             }
         } onCancel: {
             Task { @MainActor [weak self] in
                 guard let self, pending?.id == id else { return }
-                finish(throwing: CancellationError())
+                // Nobody waits for this request any more and it may never answer.
+                forget(); finish(throwing: CancellationError())
             }
         }
     }

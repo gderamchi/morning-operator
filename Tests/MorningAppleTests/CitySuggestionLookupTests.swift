@@ -27,22 +27,38 @@ struct CitySuggestionLookupTests {
         try await retry.value
     }
 
-    @Test func cancelledFragmentIsNotTreatedAsCompleted() async throws {
+    @Test func unansweredFragmentExpiresWithItsCancelledWait() async throws {
         let source = SuggestionSourceFixture()
         let lookup = source.lookup()
-        let cancelled = Task { try await lookup.wait(for: "To") }
+        // The caller's deadline cancels a wait the source never answered.
+        let stalled = Task { try await lookup.wait(for: "To") }
         await until { source.started == ["To"] }
-        cancelled.cancel()
-        await #expect(throws: CancellationError.self) { try await cancelled.value }
+        stalled.cancel()
+        await #expect(throws: CancellationError.self) { try await stalled.value }
+        #expect(source.discards == 1, "A request nobody waits for is expired, not kept.")
 
         var returned = false
         let again = Task { try await lookup.wait(for: "To"); returned = true }
-        await settle()
-        #expect(!returned, "Results are not attributed to a fragment the source has not completed.")
-        #expect(source.started == ["To"], "A fragment still in flight is not sent twice.")
+        await until { source.started == ["To", "To"] }
+        #expect(!returned, "The fragment is sent again and is not complete until the source answers.")
         lookup.succeeded()
         try await again.value
         #expect(returned)
+    }
+
+    @Test func newerFragmentSupersedesTheWaitingOneOnTheSameSource() async throws {
+        let source = SuggestionSourceFixture()
+        let lookup = source.lookup()
+        let older = Task { try await lookup.wait(for: "To") }
+        await until { source.started == ["To"] }
+        let newer = Task { try await lookup.wait(for: "Tok") }
+        await until { source.started == ["To", "Tok"] }
+        await #expect(throws: CancellationError.self) { try await older.value }
+        #expect(source.discards == 0)
+        lookup.succeeded()
+        try await newer.value
+        try await lookup.wait(for: "Tok")
+        #expect(source.started == ["To", "Tok"])
     }
 
     @Test func resetForgetsTheFragmentAndEndsAPendingWait() async throws {
@@ -69,10 +85,6 @@ struct CitySuggestionLookupTests {
     private func until(_ condition: () -> Bool, sourceLocation: SourceLocation = #_sourceLocation) async {
         for _ in 0..<10_000 where !condition() { await Task.yield() }
         #expect(condition(), sourceLocation: sourceLocation)
-    }
-
-    private func settle() async {
-        for _ in 0..<100 { await Task.yield() }
     }
 }
 
