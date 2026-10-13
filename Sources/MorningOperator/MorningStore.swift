@@ -113,6 +113,11 @@ final class MorningStore {
     private(set) var routine: RoutineVersion?
     private(set) var session: RoutineSession?
     private(set) var previousRoutine: RoutineVersion?
+    /// Counts successful approvals in this launch, so feedback can follow each one —
+    /// an approved update replaces an approved routine and leaves `isApproved` unchanged.
+    private(set) var approvalCount = 0
+    /// Counts mornings that began and were saved in this launch; resuming does not count.
+    private(set) var morningStartCount = 0
     private(set) var notes = ""
     private(set) var observationVideoEvidence: ObservationVideoEvidence?
     private(set) var observationContextClassification: ObservationContextClassification?
@@ -530,6 +535,7 @@ final class MorningStore {
             session = savedSession
             return false
         }
+        approvalCount += 1
         return true
     }
 
@@ -684,6 +690,7 @@ final class MorningStore {
         if session?.status == .running { return true }
         discardCompletionReflection()
         let previousEntryIDs = consumedMorningEntryIDs
+        let beginsMorning = session?.status != .paused
         do {
             if session?.status == .paused { try session?.resume() }
             else if session?.status != .running {
@@ -700,6 +707,7 @@ final class MorningStore {
                 pauseAfterSaveFailure()
                 return false
             }
+            if beginsMorning { morningStartCount += 1 }
             runCurrentIfEnabled()
             synchronizeMorningActivity(allowStart: true)
             return true
@@ -1294,6 +1302,7 @@ final class MorningStore {
             pendingRoutineProposal = proposal
             return false
         }
+        approvalCount += 1
         notice = "Update approved. Your next morning will use this routine."
         return true
     }
