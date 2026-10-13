@@ -155,9 +155,7 @@ struct MorningBriefingView: View {
             if controller.cityResults.isEmpty {
                 // Five suggestions keep the list short under the field.
                 ForEach(controller.citySuggestions.prefix(5)) { suggestion in
-                    Button {
-                        Task { if let city = await controller.chooseCity(suggestion) { choose(city) } }
-                    } label: {
+                    Button { choose(suggestion) } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(suggestion.title)
                             if !suggestion.subtitle.isEmpty {
@@ -225,6 +223,19 @@ struct MorningBriefingView: View {
 
     private func scrollToCitySearch(_ proxy: ScrollViewProxy) {
         withAnimation { proxy.scrollTo(Self.citySearchAnchor, anchor: .top) }
+    }
+
+    /// The controller resolves and saves the city in one step. Text typed after
+    /// the tap cancels the choice; it is never cleared here.
+    private func choose(_ suggestion: CitySuggestion) {
+        let typed = cityQuery
+        Task {
+            guard await controller.chooseCity(suggestion) != nil else { return }
+            previewAttempt = nil; playingPreview = nil
+            if !store.sessionActive { store.speech.stop() }
+            if cityQuery == typed { cityQuery = ""; cityFocused = false }
+            await store.prepareDayIfConfigured()
+        }
     }
 
     private func choose(_ city: WeatherLocation) {

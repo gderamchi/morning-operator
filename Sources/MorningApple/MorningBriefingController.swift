@@ -232,7 +232,9 @@ public final class MorningBriefingController {
         guard prepareForAccess() else { return }
         cancelCityLookups()
         let attempt = UUID(), expectedRevision = revision
-        searchAttempt = attempt; isSearchingCities = true; cityResults = []; citySearchOutcome = nil; errorMessage = nil
+        // The explicit search owns the list now; suggestions for earlier typing go.
+        searchAttempt = attempt; isSearchingCities = true; cityResults = []; citySuggestions = []
+        citySearchOutcome = nil; errorMessage = nil
         let service = weather, timeout = sourceTimeout
         let task = Task { @MainActor [weak self] () -> WeatherLocation? in
             guard let self else { return nil }
@@ -267,7 +269,7 @@ public final class MorningBriefingController {
         guard query != cityQuery else { return }
         guard query.count >= 2 else { clearCitySearch(); cityQuery = query; return }
         cancelCityLookups()
-        cityResults = []
+        cityResults = []; citySearchOutcome = nil
         cityQuery = query
         startSuggestions(query, after: suggestionDelay)
     }
@@ -308,9 +310,10 @@ public final class MorningBriefingController {
         return task
     }
 
-    /// Resolves the chosen suggestion to a place; the caller saves it explicitly.
-    /// Newer typing, a new search or leaving the city field cancels the choice,
-    /// which then returns nil.
+    /// Resolves the chosen suggestion to a place and saves it as the weather city.
+    /// The last check and the save are one step, so newer typing, a new search or
+    /// leaving the city field either cancels the choice (nil, nothing saved) or
+    /// comes after a completed save.
     public func chooseCity(_ suggestion: CitySuggestion) async -> WeatherLocation? {
         guard prepareForAccess() else { return nil }
         cancelCityLookups()
@@ -329,7 +332,13 @@ public final class MorningBriefingController {
                 try Task.checkCancellation()
                 guard revision == expectedRevision, searchAttempt == attempt else { return nil }
                 try withCurrentAccess { }
-                if location == nil { errorMessage = WeatherObservationError.searchUnavailable.localizedDescription }
+                guard let location else {
+                    errorMessage = WeatherObservationError.searchUnavailable.localizedDescription
+                    return nil
+                }
+                searchAttempt = nil; searchTask = nil; isSearchingCities = false
+                var next = settings; next.weatherLocation = location
+                try updateSettings(next)
                 return location
             } catch {
                 guard revision == expectedRevision, searchAttempt == attempt else { return nil }

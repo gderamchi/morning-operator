@@ -74,12 +74,24 @@ struct CitySuggestionTests {
         controller.cityQueryChanged("Tok")
         #expect(!controller.isSearchingCities)
         gate.release([lyon])
-        #expect(await choice.value == nil, "A late place must not be saved over newer typing.")
+        #expect(await choice.value == nil)
+        #expect(controller.settings.weatherLocation == nil, "A late place must not be saved over newer typing.")
+
+        let dismissed = Task { await controller.chooseCity(CitySuggestion(title: "Lyon", subtitle: "France")) }
+        await until { gate.calls == 2 }
+        controller.clearCitySearch()
+        gate.release([lyon])
+        #expect(await dismissed.value == nil)
+        #expect(controller.settings.weatherLocation == nil, "Leaving the city field cancels the choice too.")
 
         let kept = Task { await controller.chooseCity(CitySuggestion(title: "Lyon", subtitle: "France")) }
-        await until { gate.calls == 2 }
+        await until { gate.calls == 3 }
         gate.release([lyon])
         #expect(await kept.value == lyon)
+        #expect(controller.settings.weatherLocation == lyon, "The choice is saved by the controller itself.")
+        #expect(!controller.isSearchingCities && controller.citySuggestions.isEmpty)
+        let reopened = makeController(directory: directory, suggestions: { _ in [] })
+        #expect(reopened.settings.weatherLocation == lyon)
     }
 
     @Test func explicitResultsDoNotHideSuggestionsForNewerTyping() async throws {
@@ -96,6 +108,26 @@ struct CitySuggestionTests {
         controller.cityQueryChanged("Tokyo")
         #expect(controller.cityResults.isEmpty)
         await until { controller.citySuggestions == [tokyo] }
+
+        // An explicit search takes over the list, so an empty answer is shown as
+        // no match instead of leaving suggestions for earlier typing.
+        let pendingSuggestions = CityGate<[CitySuggestion]>()
+        let missing = makeController(directory: temporaryDirectory(), suggestions: { fragment in
+            fragment == "Pa" ? [self.paris] : try await pendingSuggestions.value()
+        })
+        missing.cityQueryChanged("Pa")
+        await until { missing.citySuggestions == [paris] }
+        missing.cityQueryChanged("Zzz")
+        await until { pendingSuggestions.calls == 1 }
+        await missing.searchCities("Zzz")
+        #expect(missing.citySuggestions.isEmpty && missing.cityResults.isEmpty && missing.citySearchOutcome == .noMatch)
+        missing.cityQueryChanged("Zzzz")
+        #expect(missing.citySearchOutcome == nil, "A new query is not yet known to have no match.")
+        await until { pendingSuggestions.calls == 2 }
+        missing.clearCitySearch()
+        pendingSuggestions.release([paris]); pendingSuggestions.release([paris])
+        await settle()
+        #expect(missing.citySuggestions.isEmpty)
 
         // A search still running when the text changes cannot publish either.
         held = true
@@ -120,17 +152,24 @@ struct CitySuggestionTests {
         gate.release([tokyo])
         await until { controller.citySuggestions == [tokyo] }
 
+        // Dismissed while a suggestion lookup is active: its late answer is dropped.
         controller.cityQueryChanged("Tok")
         await until { gate.calls == 2 }
+        controller.clearCitySearch()
+        #expect(controller.citySuggestions.isEmpty && controller.citySearchOutcome == nil)
+        gate.release([paris])
+        await settle()
+        #expect(controller.citySuggestions.isEmpty, "A reopened sheet starts without the earlier query's suggestions.")
+        #expect(controller.citySearchOutcome == nil)
+
+        // Dismissed while a choice is being resolved.
         let choice = Task { await controller.chooseCity(tokyo) }
         await until { resolverGate.calls == 1 }
         controller.clearCitySearch()
-        #expect(controller.citySuggestions.isEmpty && controller.citySearchOutcome == nil && !controller.isSearchingCities)
-        gate.release([tokyo])
+        #expect(!controller.isSearchingCities)
         resolverGate.release([try WeatherLocation(latitude: 35.68, longitude: 139.69, displayName: "Tokyo, Japan")])
         #expect(await choice.value == nil)
-        await settle()
-        #expect(controller.citySuggestions.isEmpty, "A reopened sheet starts without the earlier query's suggestions.")
+        #expect(controller.settings.weatherLocation == nil)
 
         controller.cityQueryChanged("Tok")
         await until { gate.calls == 3 }
