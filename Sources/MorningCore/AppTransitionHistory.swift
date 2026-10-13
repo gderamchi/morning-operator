@@ -1,15 +1,66 @@
 import Foundation
 
-public enum ObservedApp: String, Codable, CaseIterable, Sendable, Identifiable, Hashable {
-    case instagram, tiktok, snapchat
-    public var id: String { rawValue }
-    public var displayName: String {
-        switch self {
-        case .instagram: "Instagram"
-        case .tiktok: "TikTok"
-        case .snapchat: "Snapchat"
-        }
+/// An app the person names in a Shortcuts automation. iOS lets an automation fire for any
+/// installed app but never tells this app which apps exist, so the name comes from that
+/// automation (a suggested name or one the person typed). It is not a bundle identifier.
+public struct ObservedApp: Codable, Sendable, Identifiable, Hashable {
+    public static let maximumNameLength = 60
+
+    /// Case, accent and spacing-insensitive, so "whatsapp" and "WhatsApp" are one app.
+    public let id: String
+    public let displayName: String
+
+    public init?(name: String) {
+        let trimmed = name.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard (1...Self.maximumNameLength).contains(trimmed.count),
+              trimmed.unicodeScalars.contains(where: CharacterSet.letters.union(.decimalDigits).contains),
+              !trimmed.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return nil }
+        let key = Self.key(for: trimmed)
+        id = key
+        // A typed name that matches a suggestion uses the suggestion's spelling.
+        displayName = Self.suggested.first { $0.id == key }?.displayName ?? trimmed
     }
+
+    private init(known name: String) {
+        id = Self.key(for: name); displayName = name
+    }
+
+    public static func key(for name: String) -> String {
+        name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    public static let instagram = ObservedApp(known: "Instagram")
+    public static let tiktok = ObservedApp(known: "TikTok")
+    public static let snapchat = ObservedApp(known: "Snapchat")
+
+    /// Suggestions only; any other name is accepted. Ordered for the Shortcuts picker.
+    public static let suggested: [ObservedApp] = [
+        "WhatsApp", "Messages", "Mail", "Gmail", "Outlook", "Instagram", "TikTok", "Snapchat",
+        "Facebook", "Messenger", "X", "Threads", "LinkedIn", "Reddit", "YouTube", "Netflix",
+        "Spotify", "Safari", "Chrome", "Google", "Calendar", "Notes", "Reminders", "Photos",
+        "Camera", "Maps", "Weather", "News", "Telegram", "Signal", "Discord", "Slack",
+        "Teams", "Pinterest", "BeReal", "Twitch", "Duolingo", "Chess.com", "Lichess", "Strava",
+        "Music", "Podcasts", "Books", "Settings", "Shortcuts", "App Store", "Phone", "FaceTime",
+        "Clock", "Files", "Wallet", "Health", "Fitness", "Amazon", "Uber", "Vinted", "Le Monde"
+    ].map(ObservedApp.init(known:))
+
+    /// Older journals stored a lowercase case name ("instagram"); a name decodes the same way.
+    public init(from decoder: any Decoder) throws {
+        let name = try decoder.singleValueContainer().decode(String.self)
+        guard let app = ObservedApp(name: name) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid app name."))
+        }
+        self = app
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(displayName)
+    }
+
+    public static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+    public func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 public enum AppTransitionKind: String, Codable, Sendable { case entered, exited }
@@ -117,8 +168,15 @@ public struct AppTransitionHistory: Codable, Sendable, Equatable {
         // Preserve the local date captured with each event when the person travels.
         let dayEvents = try events.filter { try Self.dayKey($0.observedAt, timeZoneIdentifier: $0.timeZoneIdentifier) == key }
         let entries = dayEvents.filter { $0.kind == .entered }
-        let counts = ObservedApp.allCases.map { app in
+        // Only apps that actually appear; no zero is asserted for apps without automations.
+        var seen: [ObservedApp] = []
+        for entry in entries where !seen.contains(entry.app) { seen.append(entry.app) }
+        let unsorted: [ObservedAppEntryCount] = seen.map { app in
             ObservedAppEntryCount(app: app, count: entries.filter { $0.app == app }.count)
+        }
+        let counts = unsorted.sorted { (left: ObservedAppEntryCount, right: ObservedAppEntryCount) -> Bool in
+            if left.count != right.count { return left.count > right.count }
+            return left.app.displayName < right.app.displayName
         }
         let tiedTimestamps = Set(entries.map(\.observedAt)).count != entries.count
         var switches = 0
@@ -138,6 +196,23 @@ public struct AppTransitionHistory: Codable, Sendable, Equatable {
         return AppTransitionDaySummary(dayKey: key, eventCount: dayEvents.count,
             foregroundEntryCount: entries.count, entryCounts: counts,
             observedSwitchCount: tiedTimestamps ? nil : switches, returns: tiedTimestamps ? nil : returns)
+    }
+
+    /// Apps whose "closed" event keeps arriving within two seconds of "opened" — usually an
+    /// Is Closed automation that also has Is Opened selected. Their times cannot place the app
+    /// on a recording, so the setup screen points them out.
+    public func appsClosingRightAfterOpening(minimumPairs: Int = 3) -> [ObservedApp] {
+        var quick: [ObservedApp: Int] = [:]
+        var exits: [ObservedApp: Int] = [:]
+        for (index, event) in events.enumerated() where event.kind == .exited {
+            exits[event.app, default: 0] += 1
+            guard index > 0 else { continue }
+            let previous = events[index - 1]
+            if previous.kind == .entered, previous.app == event.app,
+               event.observedAt.timeIntervalSince(previous.observedAt) < 2 { quick[event.app, default: 0] += 1 }
+        }
+        return quick.filter { app, count in count >= minimumPairs && Double(count) >= Double(exits[app] ?? 0) * 0.8 }
+            .keys.sorted { $0.displayName < $1.displayName }
     }
 
     private static func dayKey(_ date: Date, timeZoneIdentifier: String) throws -> String {

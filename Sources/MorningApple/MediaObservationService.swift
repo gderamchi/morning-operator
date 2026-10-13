@@ -14,6 +14,9 @@ public struct MediaObservation: Sendable, Equatable {
     public let warnings: [String]
     /// Present only for videos. Every requested frame survives here before notes deduplication.
     public let videoEvidence: ObservationVideoEvidence?
+    /// Compressed copies of decoded video frames for on-device app recognition. In memory
+    /// only; the caller discards them after recognition and never saves them.
+    public var frameImages: [ObservationFrameImage] = []
     public var hasRecognizedText: Bool {
         videoEvidence?.hasRecognizedText ?? !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -127,6 +130,7 @@ public actor MediaObservationService {
 
         let times = FrameSampling.timestamps(duration: duration, maximumFrames: Self.maximumFrames)
         var builder = try VideoObservationBuilder(durationSeconds: duration)
+        var frameImages: [ObservationFrameImage] = []
         for (index, seconds) in times.enumerated() {
             try Task.checkCancellation()
             let sampleID = UUID()
@@ -145,6 +149,9 @@ public actor MediaObservationService {
             // Convert metadata outside the image-decode catch. Unsupported native timing
             // cannot relabel a successfully decoded image as a decode failure.
             let timing = DecodedFrameTiming(decoded.actualTime)
+            if let thumbnail = ObservationFrameImage(sampleID: sampleID, image: decoded.image) {
+                frameImages.append(thumbnail)
+            }
             let recognized: RecognizedFrameText
             do {
                 recognized = try await recognizeFrame(in: decoded.image)
@@ -166,7 +173,7 @@ public actor MediaObservationService {
         }
         try Task.checkCancellation()
         let evidence = try builder.finish()
-        return MediaObservation(
+        var observation = MediaObservation(
             kind: .video,
             text: evidence.renderedText,
             sampledFrameCount: evidence.decodedFrameCount,
@@ -174,6 +181,8 @@ public actor MediaObservationService {
             warnings: evidence.warnings,
             videoEvidence: evidence
         )
+        observation.frameImages = frameImages
+        return observation
     }
 
     /// Internal so a synthetic-image test can inspect the exact native result used by video extraction.

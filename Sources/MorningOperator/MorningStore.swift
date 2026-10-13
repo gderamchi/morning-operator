@@ -251,6 +251,9 @@ final class MorningStore {
     private let media = MediaObservationService()
     private let fingerprintService = ObservationFileFingerprintService()
     private let contextClassifier = ObservationContextClassifier()
+    private let visualAppRecognizer = ObservationVisualAppRecognizer()
+    /// Whether Apple's on-device model can look at sampled images to name apps.
+    var canRecognizeAppsInImages: Bool { visualAppRecognizer.isAvailable }
     private var notesSourceLabel = String(localized: "Your written observation")
     private let snapshot: AtomicJSONFile<WorkspaceSnapshot>
     private let recordingRecovery: PendingScreenRecordingStore
@@ -1389,6 +1392,48 @@ final class MorningStore {
     /// Returns true only after accepting ownership or starting an ordinary file import.
     /// The recorder must keep its ready URL until this returns true. Import saves
     /// evidence only and never starts routine inference.
+    /// Names the app on each sampled screen while the frames are still in memory:
+    /// Shortcuts "opened/closed" times for a recording made in MORE, then Apple's
+    /// on-device image model where available. Images are discarded afterward.
+    private func recognizeApps(in observation: MediaObservation, recordingContext: ObservationRecordingContext?,
+                               attempt: UUID) async throws -> [ObservationFrameAppSignal] {
+        guard let evidence = observation.videoEvidence else { return [] }
+        var signals: [ObservationFrameAppSignal] = []
+        var candidates = ObservedApp.suggested
+        if let events = try? await AppTransitionLogStore.shared.events() {
+            for app in events.map(\.app) where !candidates.contains(app) { candidates.append(app) }
+            if let recordingContext {
+                signals += ShortcutAppAlignment.signals(frames: evidence.frames,
+                    recordingStartedAt: recordingContext.startedAt, events: events)
+            }
+        }
+        // Known apps' own interface phrases are checked first, offline and without a model.
+        var named = Set<UUID>()
+        for frame in evidence.frames where frame.outcome == .observed
+            && !ObservationVisualAppRecognizer.screenListsApps(frame.text, candidates: candidates) {
+            guard let app = ObservationAppSignatures.app(in: frame.text) else { continue }
+            signals.append(.init(sampleID: frame.id, source: .screenText, app: app))
+            named.insert(frame.id)
+        }
+        try Task.checkCancellation()
+        guard acceptsAnalysis(attempt), visualAppRecognizer.isAvailable else { return signals }
+        // Skip undecoded frames, frames already named by their text, and screens that list
+        // many apps (App Library, an app picker).
+        let decoded = Set(evidence.frames.filter {
+            $0.outcome != .decodeFailed && !named.contains($0.id)
+                && !ObservationVisualAppRecognizer.screenListsApps($0.text, candidates: candidates)
+        }.map(\.id))
+        let images = observation.frameImages.filter { decoded.contains($0.sampleID) }
+        guard !images.isEmpty else { return signals }
+        analysisStatus = String(localized: "Recognizing the apps on your screens…")
+        let texts = Dictionary(uniqueKeysWithValues: evidence.frames.map { ($0.id, $0.text) })
+        signals += try await visualAppRecognizer.recognize(frames: images, candidates: candidates, screenText: texts) { [weak self] done, total in
+            guard let self, self.acceptsAnalysis(attempt), total > 0 else { return }
+            self.progress = Double(done) / Double(total)
+        }
+        return signals
+    }
+
     /// Suggesting a routine is a separate explicit action after provenance review.
     @discardableResult
     func importObservation(_ url: URL) -> Bool {
@@ -1477,13 +1522,15 @@ final class MorningStore {
                     try ObservationObservedDate(date: $0.startedAt, timeZoneIdentifier: $0.timeZoneIdentifier,
                         provenance: .recordingSession)
                 }
+                let appSignals = try await recognizeApps(in: observation, recordingContext: recordingContext, attempt: attempt)
+                guard acceptsAnalysis(attempt) else { return }
                 let entry = try ObservationAcquisition(id: recordingContext?.id ?? UUID(),
                     fileSHA256: fingerprint.sha256, observedDate: observedDate,
                     origin: ProcessInfo.processInfo.arguments.contains("--ui-testing") ? .synthetic : .unknown,
                     sourceKind: ObservationAcquisitionSourceKind(rawValue: observation.kind.rawValue) ?? .unknown,
                     sourceLabel: ownedRecording ? String(localized: "Your explicitly shared screen recording") : String(String(localized: "Selected file: \(selectedURL.lastPathComponent)").prefix(256)),
                     originalText: extracted, videoEvidence: observation.videoEvidence,
-                    recordingContext: recordingContext)
+                    recordingContext: recordingContext, appSignals: appSignals)
                 let id = try observationArchive.insert(entry)
                 projectObservation(id)
                 observationEditsNeedSave = true

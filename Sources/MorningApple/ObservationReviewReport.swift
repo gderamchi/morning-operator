@@ -17,7 +17,9 @@ public enum ObservationReviewResolution: String, Sendable, Equatable {
 
 /// Who supplied the effective context; user review does not imply model success.
 public enum ObservationReviewContextProvenance: String, Codable, Sendable, Equatable {
-    case userReviewed, model, none
+    /// `model` reads quoted screen text; `shortcut` comes from the person's Shortcuts
+    /// automations aligned to the recording; `visualModel` is the on-device image model.
+    case userReviewed, shortcut, screenText, model, visualModel, none
 }
 
 /// A source frame and its separately quoted interpretation, retained only in this
@@ -88,6 +90,7 @@ public struct ObservationClipReview: Identifiable, Sendable, Equatable {
         let decisions = state == .available ? (acquisition.classification?.decisions ?? []) : []
         let byID = Dictionary(uniqueKeysWithValues: decisions.map { ($0.sampleID, $0) })
         let reviews = Dictionary(uniqueKeysWithValues: acquisition.frameReviews.map { ($0.sampleID, $0) })
+        let signals = Dictionary(grouping: acquisition.appSignals, by: \.sampleID)
         var effectiveDecisions: [ObservationFrameIdentityDecision] = []
         var groups: [[ObservationReviewSample]] = []
         for frame in evidence.frames {
@@ -96,24 +99,45 @@ public struct ObservationClipReview: Identifiable, Sendable, Equatable {
             let context: ObservationAppEvidence
             let quote: String?
             let provenance: ObservationReviewContextProvenance
+            let frameSignals = signals[frame.id] ?? []
+            let shortcut = frameSignals.first { $0.source == .shortcut }
+            let screenText = frameSignals.first { $0.source == .screenText }
+            let visual = frameSignals.first { $0.source == .visualModel }
+            let textIdentified = decision.map { $0.evidence != .unknown } ?? false
+            // Priority: the person's label, then Shortcuts timing, then app phrases in the
+            // screen text, then the text model's quote, then the image model. Only quoted
+            // sources become trace citations.
             if timelineOrderIsValid, acquisition.correctedText == nil, let review {
                 context = review.contextIdentity.map { .identified(app: $0, reference: frame.evidenceReference) } ?? .unknown
                 quote = review.evidenceQuote
                 provenance = .userReviewed
+            } else if timelineOrderIsValid, let shortcut {
+                context = .identified(app: shortcut.app.observationIdentity, reference: frame.evidenceReference)
+                quote = nil
+                provenance = .shortcut
+            } else if timelineOrderIsValid, let screenText {
+                context = .identified(app: screenText.app.observationIdentity, reference: frame.evidenceReference)
+                quote = nil
+                provenance = .screenText
+            } else if !textIdentified, timelineOrderIsValid, let visual {
+                context = .identified(app: visual.app.observationIdentity, reference: frame.evidenceReference)
+                quote = nil
+                provenance = .visualModel
             } else {
                 context = decision?.evidence ?? .unknown
                 quote = decision?.evidenceQuote
                 provenance = decision == nil ? .none : .model
             }
+            let quoted = provenance == .userReviewed || provenance == .model
             effectiveDecisions.append(.init(sampleID: frame.id, timeSeconds: frame.timeSeconds,
-                timeBasis: frame.timeBasis, evidence: context, evidenceQuote: quote))
+                timeBasis: frame.timeBasis, evidence: quoted ? context : .unknown, evidenceQuote: quoted ? quote : nil))
             let sample = ObservationReviewSample(frame: frame, context: context, quote: quote,
                                                 frameReview: review, provenance: provenance)
             if groups.last?.first?.timeSeconds == frame.timeSeconds { groups[groups.count - 1].append(sample) }
             else { groups.append([sample]) }
         }
         let moments = groups.map { samples -> ObservationReviewMoment in
-            let identities = samples.compactMap { Self.identity($0.context) }
+            let identities = samples.compactMap { Self.identity($0.context).map(Self.canonical) }
             let signatures = Set(identities.map(ReviewIdentitySignature.init))
             let hasAmbiguous = samples.contains { if case .ambiguous = $0.context { true } else { false } }
             let resolution: ObservationReviewResolution
@@ -131,11 +155,17 @@ public struct ObservationClipReview: Identifiable, Sendable, Equatable {
         // Swift String equality permits canonical equivalence. Treat differing exact
         // label bytes at one timestamp as conflicting before asking the existing trace
         // algorithm for minimum visits. Never display a visit rejected by the rows.
-        let resolvedIDs = Set(moments.filter { $0.resolution == .recognized }.flatMap { $0.samples.map(\.id) })
+        var resolved: [UUID: ObservationAppIdentity] = [:]
+        for moment in moments where moment.resolution == .recognized {
+            for sample in moment.samples { resolved[sample.id] = moment.resolvedContext }
+        }
+        // Visits need a readable sample; a recognized blank frame stays in the rows only.
         let conservative = try ObservationTrace(id: trace.id, durationSeconds: trace.durationSeconds,
             capturedIntervals: nil, origin: trace.origin, samples: trace.samples.map { sample in
-                .init(id: sample.id, timeSeconds: sample.timeSeconds, timeBasis: sample.timeBasis,
-                      outcome: sample.outcome, appEvidence: resolvedIDs.contains(sample.id) ? sample.appEvidence : .unknown)
+                let identity = sample.outcome == .observed ? resolved[sample.id] : nil
+                return .init(id: sample.id, timeSeconds: sample.timeSeconds, timeBasis: sample.timeBasis,
+                      outcome: sample.outcome,
+                      appEvidence: identity.map { .identified(app: $0, reference: "sample:\(sample.id.uuidString)") } ?? .unknown)
             })
         traceReport = try conservative.report(maximumSampleGapSeconds: 5)
     }
@@ -145,6 +175,13 @@ public struct ObservationClipReview: Identifiable, Sendable, Equatable {
     }
     fileprivate static func identity(_ evidence: ObservationAppEvidence) -> ObservationAppIdentity? {
         if case .identified(let identity, _) = evidence { identity } else { nil }
+    }
+
+    /// A known app keeps one spelling whichever source named it ("whatsapp" from screen
+    /// text, "WhatsApp" from Shortcuts), so the same app never looks like two.
+    fileprivate static func canonical(_ identity: ObservationAppIdentity) -> ObservationAppIdentity {
+        guard let known = ObservedApp.suggested.first(where: { $0.observationIdentity.key == identity.key }) else { return identity }
+        return known.observationIdentity
     }
 }
 
@@ -210,6 +247,7 @@ public struct ObservationReviewPartition: Identifiable, Sendable, Equatable {
         var identities: [ReviewIdentitySignature: ObservationAppIdentity] = [:]
         var namesByKey: [Data: Set<Data>] = [:]
         var citations: [ReviewIdentitySignature: [ObservationReviewCitation]] = [:]
+        var dayKeys: [ReviewIdentitySignature: Set<String>] = [:]
         for day in days {
             for clip in day.clips {
                 for row in clip.rows {
@@ -217,6 +255,7 @@ public struct ObservationReviewPartition: Identifiable, Sendable, Equatable {
                     let signature = ReviewIdentitySignature(identity)
                     identities[signature] = identity
                     namesByKey[signature.key, default: []].insert(signature.label)
+                    dayKeys[signature, default: []].insert(day.dayKey)
                     for sample in row.samples {
                         guard let quote = sample.quote else { continue }
                         citations[signature, default: []].append(.init(acquisitionID: clip.id, sampleID: sample.id,
@@ -232,7 +271,8 @@ public struct ObservationReviewPartition: Identifiable, Sendable, Equatable {
             let references = (citations[signature] ?? []).sorted {
                 $0.dayKey == $1.dayKey ? $0.id < $1.id : $0.dayKey < $1.dayKey
             }
-            return .init(context: identities[signature]!, seenDayKeys: Array(Set(references.map(\.dayKey))).sorted(),
+            // Shortcuts and image-model signals have no quote but still count their day.
+            return .init(context: identities[signature]!, seenDayKeys: Array(dayKeys[signature] ?? []).sorted(),
                          citations: references)
         }
     }

@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import MorningCore
+import MorningApple
 
 struct LearnView: View {
     @Bindable var store: MorningStore
@@ -82,10 +83,20 @@ struct LearnView: View {
                         Text(observation.sourceLabel).font(.caption).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("learn.observationSource")
                     }
-                    notesEditor
+                    if let observation = store.selectedObservation, store.observationVideoEvidence != nil,
+                       case let openings = ObservationAppTimeline.openings(for: observation), !openings.isEmpty {
+                        // A recording reads as the apps it opened; the raw screen text stays
+                        // available to correct, folded away.
+                        appOpenings(openings)
+                        DisclosureGroup("Text read on screen") { notesEditor.padding(.top, 8) }
+                            .font(.subheadline).tint(MorningStyle.accent)
+                    } else {
+                        notesEditor
+                    }
                     if let evidence = store.observationVideoEvidence {
                         ObservationEvidenceView(evidence: evidence,
                             classification: store.observationContextClassification,
+                            acquisition: store.selectedObservation,
                             isBusy: store.busy, canAnalyze: !store.sessionActive,
                             analyze: store.recognizeObservationScreens)
                     }
@@ -304,6 +315,19 @@ struct LearnView: View {
         .accessibilityIdentifier("learn.import")
     }
 
+    private func appOpenings(_ openings: [ObservationAppOpening]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(openings) { opening in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(opening.wallClock.map { $0.formatted(date: .omitted, time: .shortened) }
+                         ?? String(format: "%d:%02d", Int(opening.timeSeconds) / 60, Int(opening.timeSeconds) % 60))
+                        .monospacedDigit().foregroundStyle(MorningStyle.muted)
+                    Text("Opened \(opening.app.displayName)").foregroundStyle(MorningStyle.ink)
+                }.font(.subheadline)
+            }
+        }.accessibilityElement(children: .combine).accessibilityIdentifier("learn.appOpenings")
+    }
+
     private func sectionTitle(_ title: String, symbol: String) -> some View {
         Label(title, systemImage: symbol)
             .font(.title3.weight(.semibold)).foregroundStyle(MorningStyle.ink)
@@ -435,6 +459,11 @@ struct SetupView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Apple Intelligence", systemImage: "sparkles").font(.subheadline.weight(.semibold))
                         Text(store.modelSummary).font(.footnote).foregroundStyle(MorningStyle.muted)
+                        Text(store.canRecognizeAppsInImages
+                             ? "App recognition in screen recordings: available on this device."
+                             : "App recognition in screen recordings: unavailable here. Apps can still come from your Shortcuts automations or your labels.")
+                            .font(.footnote).foregroundStyle(MorningStyle.muted)
+                            .accessibilityIdentifier("setup.imageAppRecognition")
                         Button("Check again") { store.refreshCapabilities() }.buttonStyle(SecondaryButtonStyle())
                     }
                     Divider()

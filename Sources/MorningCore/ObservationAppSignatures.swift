@@ -1,0 +1,55 @@
+import Foundation
+
+/// Distinctive interface phrases of popular apps, in English and French, matched against
+/// a sampled screen's text. Deterministic and offline. A bare app name is never enough,
+/// because notifications, folders and links mention other apps.
+public enum ObservationAppSignatures {
+    struct Rule {
+        let app: String
+        /// Any one phrase is enough.
+        var any: [String] = []
+        /// Every phrase in at least one group must appear.
+        var all: [[String]] = []
+        var pattern: String? = nil
+    }
+
+    // Order matters: the first matching rule wins (Gmail before Mail, for example).
+    static let rules: [Rule] = [
+        .init(app: "WhatsApp", any: ["demander a meta ai", "ask meta ai"],
+              all: [["discussions", "communautes"], ["discussions", "actus"], ["chats", "communities", "updates"]]),
+        .init(app: "Duolingo", any: ["quest points", "points de quete", "daily quests", "quetes du jour"],
+              pattern: #"section \d+, (unit|unite) \d+"#),
+        .init(app: "LinkedIn", any: ["offres d'emploi", "offres d’emploi", "mon reseau", "my network", "mes posts"],
+              all: [["jobs", "my network"]]),
+        .init(app: "Instagram", any: ["votre story", "your story"], all: [["reels", "pour vous", "suivis"]]),
+        .init(app: "Snapchat", any: ["snap map", "spotlight"], all: [["my ai", "chat"], ["chat", "pres de moi"]]),
+        .init(app: "TikTok", all: [["pour toi", "abonnements"], ["for you", "following", "friends"], ["pour toi", "amis"]]),
+        .init(app: "Gmail", any: ["boite principale", "rechercher dans les e-mails", "search in mail", "search in emails"]),
+        .init(app: "Mail", any: ["boites aux lettres", "mailboxes"], all: [["selectionner", "principale"], ["select", "primary"]]),
+        .init(app: "YouTube", all: [["shorts", "abonnements"], ["shorts", "subscriptions"]]),
+        .init(app: "Facebook", any: ["quoi de neuf ?", "what's on your mind"]),
+        .init(app: "Messenger", any: ["discussions messenger"], all: [["discussions", "stories", "meta ai"]]),
+        .init(app: "Netflix", any: ["ma liste netflix"], all: [["nouveautes", "ma liste", "series"]]),
+        .init(app: "Spotify", any: ["votre bibliotheque spotify"], all: [["accueil", "rechercher", "votre bibliotheque"],
+                                                                          ["home", "search", "your library"]]),
+        .init(app: "X", all: [["pour vous", "abonnements", "quoi de neuf"], ["for you", "following", "what's happening"]]),
+        .init(app: "Reddit", any: ["r/popular", "join community"], all: [["accueil", "communautes", "r/"]]),
+        .init(app: "Discord", any: ["direct messages", "messages prives"], all: [["serveurs", "messages prives"]]),
+        .init(app: "Slack", any: ["unreads", "huddles"], all: [["fils de discussion", "huddles"]])
+    ]
+
+    /// The app whose interface phrases appear in this screen text, if exactly one rule matches first.
+    public static func app(in text: String) -> ObservedApp? {
+        let lines = text.split(whereSeparator: \.isNewline).map { ObservedApp.key(for: String($0)) }
+        let whole = lines.joined(separator: "\n")
+        let lineSet = Set(lines)
+        func has(_ phrase: String) -> Bool { lineSet.contains(phrase) || whole.contains(phrase) }
+        for rule in rules {
+            let byAny = rule.any.contains(where: has)
+            let byAll = rule.all.contains { group in group.allSatisfy(has) }
+            let byPattern = rule.pattern.map { whole.range(of: $0, options: .regularExpression) != nil } ?? false
+            if byAny || byAll || byPattern { return ObservedApp(name: rule.app) }
+        }
+        return nil
+    }
+}

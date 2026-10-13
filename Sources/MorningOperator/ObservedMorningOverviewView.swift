@@ -236,6 +236,9 @@ private enum ObservedMorningPresentation {
         if moment.samples.count > 1 { return String(localized: "\(time) · \(moment.samples.count) samples share this time") }
         if moment.hasRequestedTimeFallback { return String(localized: "\(time) · requested time only") }
         if moment.samples.contains(where: { $0.provenance == .userReviewed }) { return String(localized: "\(time) · Your label") }
+        if moment.samples.contains(where: { $0.provenance == .shortcut }) { return String(localized: "\(time) · Shortcuts") }
+        if moment.samples.contains(where: { $0.provenance == .screenText }) { return String(localized: "\(time) · Screen text") }
+        if moment.samples.contains(where: { $0.provenance == .visualModel }) { return String(localized: "\(time) · Seen in image") }
         return time
     }
 }

@@ -47,6 +47,10 @@ public actor AppTransitionLogStore {
         try privacy.withReadyAccess { _ in try load().events }
     }
 
+    public func appsClosingRightAfterOpening() throws -> [ObservedApp] {
+        try privacy.withReadyAccess { _ in try load().appsClosingRightAfterOpening() }
+    }
+
     public func summary(for date: Date, timeZoneIdentifier: String = TimeZone.current.identifier) throws -> AppTransitionDaySummary {
         try privacy.withReadyAccess { _ in try load().summary(for: date, timeZoneIdentifier: timeZoneIdentifier) }
     }
