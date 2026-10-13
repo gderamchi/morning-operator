@@ -1407,14 +1407,12 @@ final class MorningStore {
                     recordingStartedAt: recordingContext.startedAt, events: events)
             }
         }
-        // Known apps' own interface phrases are checked first, offline and without a model.
-        var named = Set<UUID>()
-        for frame in evidence.frames where frame.outcome == .observed
-            && !ObservationVisualAppRecognizer.screenListsApps(frame.text, candidates: candidates) {
-            guard let app = ObservationAppSignatures.app(in: frame.text) else { continue }
-            signals.append(.init(sampleID: frame.id, source: .screenText, app: app))
-            named.insert(frame.id)
-        }
+        // Frames already named by known apps' interface phrases skip the image model; review
+        // recomputes those phrases each time, so they are not saved here.
+        let named = Set(evidence.frames.filter {
+            $0.outcome == .observed && !ObservationVisualAppRecognizer.screenListsApps($0.text, candidates: candidates)
+                && ObservationAppSignatures.app(in: $0.text) != nil
+        }.map(\.id))
         try Task.checkCancellation()
         guard acceptsAnalysis(attempt), visualAppRecognizer.isAvailable else { return signals }
         // Skip undecoded frames, frames already named by their text, and screens that list

@@ -106,7 +106,8 @@ public final class ObservationVisualAppRecognizer {
                 }
                 try Task.checkCancellation()
                 let answer = try response.content.value(String.self, forProperty: "app")
-                if let app = names.apps[answer] {
+                if let app = names.apps[answer],
+                   Self.plausible(app, screenText: screenText[frame.sampleID] ?? "") {
                     signals.append(.init(sampleID: frame.sampleID, source: .visualModel, app: app))
                 }
             } catch {
@@ -123,12 +124,29 @@ public final class ObservationVisualAppRecognizer {
 
     /// Screen text that shows many app names (App Library, an app picker) cannot be one
     /// app's own screen; the image model's answer for such a frame is discarded.
+    /// French names of Apple's apps as they appear under home-screen icons.
+    nonisolated static let homeScreenNames: Set<String> = ["horloge", "telephone", "calendrier", "appareil photo", "reglages",
+        "photos", "plans", "meteo", "rappels", "musique", "notes", "raccourcis", "fichiers", "app store", "facetime",
+        "mail", "messages", "safari", "sante", "portefeuille", "podcasts", "livres", "traduire", "calculette"]
+
     nonisolated public static func screenListsApps(_ text: String, candidates: [ObservedApp]) -> Bool {
-        let lines = text.split(whereSeparator: \.isNewline).map { ObservedApp.key(for: String($0)) }
+        let lines = text.split(whereSeparator: \.isNewline).map {
+            ObservedApp.key(for: String($0)).trimmingCharacters(in: .punctuationCharacters.union(.whitespaces))
+        }
         let markers = ["bibliotheque d'apps", "bibliotheque d’apps", "app library"]
         if lines.contains(where: { line in markers.contains { line.contains($0) } }) { return true }
-        let names = Set(candidates.map(\.id))
+        let names = Set(candidates.map(\.id)).union(homeScreenNames)
         return Set(lines.filter { names.contains($0) }).count >= 4
+    }
+
+    /// The model answers "Messages" for almost any conversation, including WhatsApp's.
+    /// Accept that answer only when the screen shows Apple's own Messages words.
+    nonisolated static func plausible(_ app: ObservedApp, screenText: String) -> Bool {
+        guard app.id == "messages" else { return true }
+        let lines = screenText.split(whereSeparator: \.isNewline).map { ObservedApp.key(for: String($0)) }
+        return lines.contains("messages") || lines.contains { line in
+            ["imessage", "message texte", "text message"].contains { line.contains($0) }
+        }
     }
 
     /// The first readable lines after the status bar, bounded so the prompt stays small.

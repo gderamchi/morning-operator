@@ -99,10 +99,24 @@ struct ObservationAppSignatureTests {
         #expect(name("Boîte principale\nPromotions") == "Gmail")
     }
 
-    @Test func appleAppsListsAndNotificationsAreLeftToOtherSources() {
-        #expect(name("Modifier\nMessages\nSynthetic contact\nhier") == nil)
-        #expect(name("Paris\n18°\nNuageux\n10 h") == nil)
+    @Test func appleAppsHaveTheirOwnWordsWhileNotificationsAndFoldersDoNot() {
+        #expect(name("Modifier\nMessages\nSynthetic contact\nhier") == "Messages")
+        #expect(name("Paris\n18°\nNuageux\n10 h") == "Weather")
         #expect(name("WhatsApp\nNouveau message de Synthetic") == nil, "A bare app name is not its own screen.")
         #expect(name("Réseaux sociaux\nBeReal.\nDiscord\nFacebook") == nil)
+    }
+}
+
+@Suite("App phrases from the 13:14 recording")
+struct ObservationAppSignatureRegressionTests {
+    private func name(_ text: String) -> String? { ObservationAppSignatures.app(in: text)?.displayName }
+
+    @Test func musicWeatherConversationsAndMessengerAreTellApart() {
+        #expect(name("Bibliothèque\nEpinglez votre musique\npréférée") == "Music")
+        #expect(name("MA POSITION\nParis\n18°\nNuageux") == "Weather")
+        #expect(name("Synthetic Contact\nく\nen ligne aujourd'hui à 13:07\nAujourd'hui") == "WhatsApp")
+        #expect(name("messenger\nQ Demandez à Meta Al ou faites une rech...\nQuoi de") == "Messenger")
+        #expect(name("Discussions\nQ Demander à Meta Al ou rechercher\nToutes") == "WhatsApp")
+        #expect(name("Modifier\nMessages\nSynthetic contact") == "Messages")
     }
 }

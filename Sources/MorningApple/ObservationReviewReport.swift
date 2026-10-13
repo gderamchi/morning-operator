@@ -101,8 +101,17 @@ public struct ObservationClipReview: Identifiable, Sendable, Equatable {
             let provenance: ObservationReviewContextProvenance
             let frameSignals = signals[frame.id] ?? []
             let shortcut = frameSignals.first { $0.source == .shortcut }
-            let screenText = frameSignals.first { $0.source == .screenText }
-            let visual = frameSignals.first { $0.source == .visualModel }
+            // Screen-text signatures are deterministic, so they are recomputed here: saved
+            // recordings benefit from every improved signature. Screens that list apps
+            // (home screen, App Library, an app picker) name no app at all.
+            let listsApps = frame.outcome == .observed
+                && ObservationVisualAppRecognizer.screenListsApps(frame.text, candidates: ObservedApp.suggested)
+            let liveText = frame.outcome == .observed && !listsApps ? ObservationAppSignatures.app(in: frame.text) : nil
+            // Always the current rules; a saved older result is never preferred.
+            let screenText = liveText.map { ObservationFrameAppSignal(sampleID: frame.id, source: .screenText, app: $0) }
+            let visual = listsApps ? nil : frameSignals.first {
+                $0.source == .visualModel && ObservationVisualAppRecognizer.plausible($0.app, screenText: frame.text)
+            }
             let textIdentified = decision.map { $0.evidence != .unknown } ?? false
             // Priority: the person's label, then Shortcuts timing, then app phrases in the
             // screen text, then the text model's quote, then the image model. Only quoted

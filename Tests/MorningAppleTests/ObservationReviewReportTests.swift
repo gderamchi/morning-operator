@@ -374,3 +374,15 @@ struct ObservationAppTimelineTests {
         #expect(ObservationAppTimeline.labels(for: entry)[frames[2].id] == nil)
     }
 }
+
+@Suite("Image answers checked against screen text")
+struct VisualAppPlausibilityTests {
+    @Test func messagesAnswerNeedsAppleMessagesWordsAndHomeScreensNameNoApp() throws {
+        let messages = try #require(ObservedApp(name: "Messages"))
+        #expect(!ObservationVisualAppRecognizer.plausible(messages, screenText: "Synthetic Contact\nen ligne aujourd'hui à 13:10"))
+        #expect(ObservationVisualAppRecognizer.plausible(messages, screenText: "Modifier\nMessages\nSynthetic"))
+        #expect(ObservationVisualAppRecognizer.plausible(.instagram, screenText: "anything"))
+        #expect(ObservationVisualAppRecognizer.screenListsApps("FaceTime\nHorloge\nMar.\n13\nTéléphone\nCalendrier", candidates: ObservedApp.suggested))
+        #expect(ObservationVisualAppRecognizer.screenListsApps("Réseaux sociaux\nf\nBeReal.\nDiscord\nFacebook\nInstagram", candidates: ObservedApp.suggested))
+    }
+}

@@ -15,7 +15,11 @@ public enum ObservationAppSignatures {
 
     // Order matters: the first matching rule wins (Gmail before Mail, for example).
     static let rules: [Rule] = [
-        .init(app: "WhatsApp", any: ["demander a meta ai", "ask meta ai"],
+        // OCR often reads "AI" as "Al", so Meta AI phrases stop at "meta a". WhatsApp uses
+        // the infinitive "Demander", Messenger the imperative "Demandez".
+        .init(app: "Messenger", any: ["demandez a meta a"], all: [["messenger", "quoi de neuf"]]),
+        .init(app: "WhatsApp", any: ["demander a meta a", "ask meta a", "en ligne aujourd'hui a", "en ligne aujourd’hui a",
+                                     "vu aujourd'hui a", "vu aujourd’hui a", "last seen today at", "touchez ici pour les infos"],
               all: [["discussions", "communautes"], ["discussions", "actus"], ["chats", "communities", "updates"]]),
         .init(app: "Duolingo", any: ["quest points", "points de quete", "daily quests", "quetes du jour"],
               pattern: #"section \d+, (unit|unite) \d+"#),
@@ -28,14 +32,19 @@ public enum ObservationAppSignatures {
         .init(app: "Mail", any: ["boites aux lettres", "mailboxes"], all: [["selectionner", "principale"], ["select", "primary"]]),
         .init(app: "YouTube", all: [["shorts", "abonnements"], ["shorts", "subscriptions"]]),
         .init(app: "Facebook", any: ["quoi de neuf ?", "what's on your mind"]),
-        .init(app: "Messenger", any: ["discussions messenger"], all: [["discussions", "stories", "meta ai"]]),
         .init(app: "Netflix", any: ["ma liste netflix"], all: [["nouveautes", "ma liste", "series"]]),
         .init(app: "Spotify", any: ["votre bibliotheque spotify"], all: [["accueil", "rechercher", "votre bibliotheque"],
                                                                           ["home", "search", "your library"]]),
         .init(app: "X", all: [["pour vous", "abonnements", "quoi de neuf"], ["for you", "following", "what's happening"]]),
         .init(app: "Reddit", any: ["r/popular", "join community"], all: [["accueil", "communautes", "r/"]]),
         .init(app: "Discord", any: ["direct messages", "messages prives"], all: [["serveurs", "messages prives"]]),
-        .init(app: "Slack", any: ["unreads", "huddles"], all: [["fils de discussion", "huddles"]])
+        .init(app: "Slack", any: ["unreads", "huddles"], all: [["fils de discussion", "huddles"]]),
+        // Apple's own apps, last: their words are more generic.
+        .init(app: "Music", any: ["epinglez votre musique", "pin your favorite music", "ecouter maintenant", "listen now"],
+              all: [["bibliotheque", "playlists", "artistes"], ["library", "playlists", "artists"]]),
+        .init(app: "Weather", any: ["ma position", "my location"],
+              pattern: #"\b\d{1,2}°\n(nuageux|bruine|ensoleille|pluie|averses|couvert|degage|orageux|neige|brouillard|partiellement nuageux|cloudy|mostly cloudy|sunny|clear|rain|drizzle|showers|snow|fog)\b"#),
+        .init(app: "Messages", any: ["imessage", "message texte", "text message"], all: [["modifier", "messages"], ["edit", "messages"]])
     ]
 
     /// The app whose interface phrases appear in this screen text, if exactly one rule matches first.
