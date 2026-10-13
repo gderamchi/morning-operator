@@ -311,7 +311,7 @@ private struct RoutineReviewEditor: View {
     var body: some View {
         let pickerGeneration = importGeneration
         NavigationStack {
-            List {
+            MorningList {
                 if let routine = store.routine {
                     Section {
                         ForEach(Array(routine.steps.enumerated()), id: \.element.id) { index, step in
@@ -546,7 +546,7 @@ private struct RoutinePreferencesView: View {
     @ViewState<Bool> private var confirmingReset = false
 
     var body: some View {
-        List {
+        MorningList {
             Section {
                 Text("These are choices you've made for future suggestions. Clearing a choice leaves your current routine unchanged.")
                     .font(.subheadline).foregroundStyle(.secondary)
@@ -603,7 +603,7 @@ private struct ReviewDayDetail: View {
     }
 
     var body: some View {
-        List {
+        MorningList {
             if observations.isEmpty {
                 Section("Observed mornings") {
                     Text("No observation dated to this day.").foregroundStyle(.secondary)

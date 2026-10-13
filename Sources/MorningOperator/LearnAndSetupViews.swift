@@ -478,7 +478,7 @@ struct StepEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            MorningForm {
                 Section {
                     TextField("Give this step a name", text: $step.title)
                         .accessibilityLabel("Step name")
