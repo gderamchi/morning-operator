@@ -174,6 +174,10 @@ struct EvidenceRemovalSheet: View {
                                     .first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) {
                                     Text("“\(String(line.prefix(160)))”").font(.caption)
                                 }
+                                DisclosureGroup(String(localized: "Full text")) {
+                                    Text(entry.effectiveText).font(.caption).textSelection(.enabled)
+                                }
+                                .font(.caption).tint(MorningStyle.accent)
                             }
                                 .accessibilityElement(children: .combine)
                                 .accessibilityIdentifier("retention.observation.\(index)")

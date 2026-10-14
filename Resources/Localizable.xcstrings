@@ -3360,6 +3360,16 @@
         }
       }
     },
+    "An earlier removal still needs to finish. Choose Finish the interrupted removal in Privacy first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression précédente doit encore se terminer. Choisissez d’abord « Terminer la suppression interrompue » dans Confidentialité. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "An interrupted removal couldn't be read, so nothing more was removed. Review your observations again.": {
       "localizations": {
         "fr": {
@@ -5632,6 +5642,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "D’après vos observations"
+          }
+        }
+      }
+    },
+    "Full text": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texte complet"
           }
         }
       }

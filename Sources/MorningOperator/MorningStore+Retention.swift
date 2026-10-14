@@ -131,6 +131,10 @@ extension MorningStore {
         guard !busy, !sessionActive else {
             return .notStarted(String(localized: "Finish or stop this morning and wait for current work to end, then try again. Nothing was removed."))
         }
+        // An earlier removal's marker still guards its cleanup. It is never overwritten.
+        guard !hasPendingEvidenceRemoval else {
+            return .notStarted(String(localized: "An earlier removal still needs to finish. Choose Finish the interrupted removal in Privacy first. Nothing was removed."))
+        }
         guard saveEditsOutside(confirmed) else {
             return .notStarted(String(localized: "Your other changes couldn't be saved first. Nothing was removed."))
         }
