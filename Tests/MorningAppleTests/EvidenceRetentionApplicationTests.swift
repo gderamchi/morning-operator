@@ -302,3 +302,37 @@ struct EvidenceRetentionApplicationTests {
         #expect(marker.resumption(in: before) == .apply(review))
     }
 }
+
+extension EvidenceRetentionApplicationTests {
+    @Test func aReplacedSuggestionIsAChangedPlan() throws {
+        let quoted = try ObservationAcquisition(importedAt: Date(timeIntervalSince1970: 1_791_417_600 - 40 * 86_400),
+            observedDate: ObservationObservedDate(date: Date(timeIntervalSince1970: 1_791_417_600 - 60 * 86_400),
+                timeZoneIdentifier: "Europe/Paris", provenance: .userAssigned),
+            origin: .human, sourceKind: .text, sourceLabel: "Synthetic test notes", originalText: "A quiet cup of tea.")
+        let learned = try ObservationAcquisition(importedAt: Date(timeIntervalSince1970: 1_791_417_600),
+            observedDate: ObservationObservedDate(date: Date(timeIntervalSince1970: 1_791_417_600 - 59 * 86_400),
+                timeZoneIdentifier: "Europe/Paris", provenance: .userAssigned),
+            origin: .human, sourceKind: .text, sourceLabel: "Synthetic test notes", originalText: "I review my calendar after breakfast.")
+        let candidate = try #require(ObservationNarrationComposer.candidates(for: quoted).first)
+        let prepared = try ObservationNarrationComposer.prepare(acquisition: quoted, candidate: candidate)
+        let draft = RoutineVersion(sourceLabel: "Your morning", steps: [RoutineStep(title: "A saved moment",
+            detail: prepared.spokenText, kind: .briefing, durationMinutes: 1, automation: .savedObservation,
+            observationReference: prepared.reference)])
+        func suggestion(_ title: String) throws -> EvidenceRoutineProposal {
+            let evidence = try LearningEvidencePreparation.prepare(acquisitions: [learned])
+            return try LearningEvidencePreparation.assemble(evidence: evidence, steps: evidence.units.map {
+                EvidenceRoutineStepInput(title: title, detail: "Consider a short calendar review.",
+                    kind: .calendar, durationMinutes: 3, citations: [.init(unitID: $0.id, quote: $0.text)])
+            }, preserving: draft, preferences: .init(), at: Date(timeIntervalSince1970: 1_791_417_600))
+        }
+        let shown = EvidenceRetentionWorkspace(archive: try ObservationArchive(entries: [quoted, learned]),
+            currentRoutine: draft, previousRoutine: nil, session: nil, pendingProposal: try suggestion("Review calendar"),
+            preferences: .init(), history: .init())
+        let review = try #require(EvidenceRemovalReview.forgetting(quoted.id, in: shown))
+        #expect(review.setsAsidePendingSuggestion)
+        var replaced = shown
+        replaced.pendingProposal = try suggestion("Plan the day")
+        #expect(throws: EvidenceRemovalError.self) { try review.applied(to: replaced, now: Date(timeIntervalSince1970: 1_791_417_600)) }
+        #expect(EvidenceRemovalMarker(review: review, confirmedAt: .init(timeIntervalSince1970: 1_791_417_600)).resumption(in: replaced) == .abandon)
+    }
+}

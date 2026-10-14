@@ -78,6 +78,8 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
     /// Steps (by store) that any copy, of any observation, lists as kept. A listed
     /// removal inside one of them would also remove kept words.
     let keptSteps: Set<String>
+    /// A digest of the pending suggestion as saved: a replacement is a different review.
+    let proposalRevision: String?
     /// True when applying would remove words listed as kept: nothing can be applied.
     public var removesKeptWords: Bool {
         copies.contains { $0.disposition == .removed && Self.keptKey($0).map(keptSteps.contains) == true }
@@ -129,6 +131,11 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
         }
         let kept = Set(plan.dependentCopies.filter { $0.disposition == .separatelyRetained }.compactMap(Self.keptKey))
         keptSteps = kept
+        proposalRevision = workspace.pendingProposal.map { proposal in
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            return Self.hex(SHA256.hash(data: (try? encoder.encode(proposal)) ?? Data()))
+        }
         if let proposal = workspace.pendingProposal, !ids.isEmpty {
             let listed = copies.contains { $0.store == .pendingProposal && $0.disposition != .separatelyRetained }
             // The suggestion is checked against the workspace this removal would leave.
@@ -163,6 +170,7 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
         lines += unknownAgeAcquisitionIDs.map { "unknown \($0.uuidString)" }
         lines += acquisitionRevisions.map { "revision \($0)" }
         lines += keptSteps.sorted().map { "kept \($0)" }
+        lines.append("suggestion \(proposalRevision ?? "-")")
         for copy in copies {
             let quote = copy.quote.map { Self.hex(SHA256.hash(data: Data($0.utf8))) } ?? "-"
             lines.append([copy.acquisitionID.uuidString, copy.store.rawValue, copy.kind.rawValue,

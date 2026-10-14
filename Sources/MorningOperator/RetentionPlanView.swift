@@ -166,7 +166,15 @@ struct EvidenceRemovalSheet: View {
                 Section {
                     ForEach(Array(review.acquisitionIDs.enumerated()), id: \.element) { index, id in
                         if let entry = store.observationArchive.entry(id: id) {
-                            ObservationHistoryRow(entry: entry)
+                            VStack(alignment: .leading, spacing: 4) {
+                                ObservationHistoryRow(entry: entry)
+                                Text(entry.importedAt.map { String(localized: "Imported: \($0.formatted(date: .abbreviated, time: .omitted))") } ?? String(localized: "No import date saved"))
+                                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                                if let line = entry.effectiveText.split(whereSeparator: \.isNewline)
+                                    .first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) {
+                                    Text("“\(String(line.prefix(160)))”").font(.caption)
+                                }
+                            }
                                 .accessibilityElement(children: .combine)
                                 .accessibilityIdentifier("retention.observation.\(index)")
                         }

@@ -5886,6 +5886,16 @@
         }
       }
     },
+    "Imported: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importée : %@"
+          }
+        }
+      }
+    },
     "In Settings → Accessibility → Read & Speak → Voices, choose your language and download an Enhanced or Premium voice if offered. Return here after the download finishes.": {
       "localizations": {
         "fr": {
@@ -6676,6 +6686,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucune observation datée sur cette période."
+          }
+        }
+      }
+    },
+    "No import date saved": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune date d’importation enregistrée"
           }
         }
       }
