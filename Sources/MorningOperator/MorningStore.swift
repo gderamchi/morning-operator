@@ -62,6 +62,7 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var readAloud: Bool?
     var showMorningOnLockScreen: Bool?
     var sessionTimingInterrupted: Bool?
+    var budgetAndFeedback: RoutineBudgetAndFeedback?
     var pendingCaptures: [String: String]?
     var voiceIdentifier: String?
     var observationNotes: String?
@@ -92,6 +93,7 @@ private extension WorkspaceSnapshot {
         readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
         showMorningOnLockScreen = try values.decodeIfPresent(Bool.self, forKey: .showMorningOnLockScreen)
         sessionTimingInterrupted = try values.decodeIfPresent(Bool.self, forKey: .sessionTimingInterrupted)
+        budgetAndFeedback = try values.decodeIfPresent(RoutineBudgetAndFeedback.self, forKey: .budgetAndFeedback)
         pendingCaptures = try values.decodeIfPresent([String: String].self, forKey: .pendingCaptures)
         voiceIdentifier = try values.decodeIfPresent(String.self, forKey: .voiceIdentifier)
         observationNotes = try values.decodeIfPresent(String.self, forKey: .observationNotes)
@@ -181,6 +183,11 @@ final class MorningStore {
     private(set) var captures: [QuickCapture] = []
     private(set) var receipts: [String: String] = [:]
     private(set) var pendingCaptures: [String: String] = [:]
+    // Time budget, recap and feedback (#10). Change these through MorningStore+Budget.swift.
+    var budgetAndFeedback = RoutineBudgetAndFeedback()
+    /// The ending event of each ended run that the last successful save wrote to disk.
+    private(set) var savedRunEndings: Set<UUID> = []
+    func saveBudgetAndFeedback() -> Bool { persist() }
     private var sessionTimingInterrupted = false
     private var sessionTimeZone = TimeZone.current.identifier
     let reminders = ReminderService()
@@ -202,10 +209,12 @@ final class MorningStore {
     let usesSyntheticBriefing: Bool
     private(set) var consumedMorningEntryIDs: [UUID] = []
     // The opening of a morning (issue #28). The logic is in MorningStore+Opening.swift;
-    // only that file writes these three.
+    // only that file writes these four.
     var openingPresentation: MorningOpeningPresentation?
     var greetingState = MorningGreetingState()
     @ObservationIgnored var openingTask: Task<Void, Never>?
+    /// How many times the current morning's opening handed over to its routine (one, at most).
+    var openingRoutineStarts = 0
     var storageIsAvailable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
     var voiceCommandPresented = false
     var morningDetailPresented = false
@@ -333,8 +342,9 @@ final class MorningStore {
                     })
             }
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-approved") { routine = routine?.approved() }
-            automatic = false
-            readAloud = false
+            // Off unless a test asks: a hands-free or spoken morning (issue #99).
+            automatic = ProcessInfo.processInfo.arguments.contains("--ui-testing-hands-free")
+            readAloud = ProcessInfo.processInfo.arguments.contains("--ui-testing-read-aloud")
             seedObservationArchiveIfRequested()
             #if DEBUG
             seedPrivacyFixtureIfRequested(directory: directory)
@@ -344,6 +354,11 @@ final class MorningStore {
             // Synthetic: the message a model failure shows, without asking a model (issue #89).
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-model-not-ready") {
                 notice = AppleIntelligenceError.modelDidNotAnswer(.notReady).localizedDescription
+            }
+            // A sample run stopped after its first moment and saved, for the recap screenshots (#10).
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-stopped-run"), let approved = routine?.approved() {
+                routine = approved; session = RoutineSession(routine: approved)
+                try? session?.start(); try? session?.advance(); try? session?.stop(); archiveTerminalSession(); persist()
             }
             #endif
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
@@ -379,6 +394,8 @@ final class MorningStore {
                     }
                 }
                 history = saved.history ?? MorningHistory()
+                budgetAndFeedback = (saved.budgetAndFeedback ?? RoutineBudgetAndFeedback()).droppingAcceptance(unlessFor: routine)
+                savedRunEndings = runEndingsInMemory
                 captures = saved.captures ?? []
                 receipts = saved.receipts ?? [:]
                 sessionTimeZone = saved.sessionTimeZone ?? TimeZone.current.identifier
@@ -734,12 +751,14 @@ final class MorningStore {
                 pauseAfterSaveFailure()
                 return false
             }
+            // A new morning opens first: the opening decides when its routine begins
+            // (issue #99). A resumed one continues.
             if beginsMorning {
                 morningStartCount += 1
                 beginOpening(mayGreet: mayGreet)
+            } else {
+                runCurrentIfEnabled()
             }
-            // A new morning waits for the choice at its opening; a resumed one continues.
-            runCurrentIfEnabled()
             synchronizeMorningActivity(allowStart: true)
             return true
         } catch { notice = error.localizedDescription; return false }
@@ -789,7 +808,7 @@ final class MorningStore {
         guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
         // Pause, Next, Stop and Again take over from the opening. A changed listening
-        // choice does not: the first moment still waits for the answer.
+        // choice does not, except that a hands-free morning never waits for the answer.
         endOpening()
         cancelStepPlayback()
         let wasCompleted = session?.status == .completed
@@ -1944,7 +1963,9 @@ final class MorningStore {
         cancelStepPlayback()
         speech.stop()
         guard persist() else { pauseAfterSaveFailure(); return }
-        runCurrentIfEnabled()
+        // The greeting or recap, if one was still being read, has just stopped. A
+        // hands-free morning then starts its routine; a normal one keeps waiting.
+        if !openingListeningSettingsChanged() { runCurrentIfEnabled() }
     }
 
     func openCapture(text: String = "", source: QuickCaptureSource = .typed) {
@@ -2083,6 +2104,9 @@ final class MorningStore {
             return false
         }
         do {
+            // An accepted longer plan ends with any change of routine, whether or not this write succeeds.
+            let currentBudget = budgetAndFeedback.droppingAcceptance(unlessFor: routine)
+            if currentBudget != budgetAndFeedback { budgetAndFeedback = currentBudget }
             try synchronizeObservationEdits()
             // A proposal is derived from both sources and a full routine revision.
             // Drop stale derived state in the same write as any edit or deletion.
@@ -2095,6 +2119,7 @@ final class MorningStore {
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
                 automatic: automatic, readAloud: readAloud, showMorningOnLockScreen: showMorningOnLockScreen,
                 sessionTimingInterrupted: sessionTimingInterrupted,
+                budgetAndFeedback: budgetAndFeedback,
                 pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
                 observationNotes: notes.isEmpty ? nil : notes,
                 observationSource: notes.isEmpty && observationVideoEvidence == nil ? nil : notesSourceLabel,
@@ -2108,6 +2133,7 @@ final class MorningStore {
             }
             pendingRoutineProposal = validProposal
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
+            savedRunEndings = runEndingsInMemory
             observationEditsNeedSave = false
             projectObservation(selectedObservationID)
             if let observationSaveIssue, notice == observationSaveIssue { notice = nil }
@@ -2254,6 +2280,7 @@ final class MorningStore {
         pendingRoutineProposal = nil
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
+        budgetAndFeedback = RoutineBudgetAndFeedback(); savedRunEndings = []
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
         pendingRecordingInterruption = nil; pendingRecordingContext = nil
         captureBusy = false; capturePresented = false; capturePrefill = ""; captureSource = .typed
