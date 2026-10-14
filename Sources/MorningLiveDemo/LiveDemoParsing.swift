@@ -30,7 +30,7 @@ public enum LiveDemoReplyIntent: Equatable, Sendable {
     ].sorted { $0.count > $1.count }
 
     /// Folds case, diacritics and apostrophes; keeps the original wording for the draft.
-    static func normalizedWords(_ text: String) -> [String] {
+    public static func normalizedWords(_ text: String) -> [String] {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .replacingOccurrences(of: "'", with: "").replacingOccurrences(of: "\u{2019}", with: "")
             .components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }

@@ -40,6 +40,12 @@ public enum LiveDemoGate {
         environment["MO_LIVE_DEMO_ANY"] == "1"
     }
 
+    /// How many conversations to open (`MO_LIVE_DEMO_CONVERSATIONS`), 1 to 3, default 3.
+    public static func conversationCount(environment: [String: String]) -> Int {
+        guard let raw = environment["MO_LIVE_DEMO_CONVERSATIONS"], let value = Int(raw) else { return 3 }
+        return min(max(value, 1), 3)
+    }
+
     /// Number of reels to swipe through. Default 10, bounded to 0...50 so a typo cannot
     /// leave the phone swiping for an hour.
     public static func reelCount(environment: [String: String]) -> Int {

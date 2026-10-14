@@ -21,6 +21,8 @@ public enum LiveDemoWire {
         case listen
         /// Today's events from MORE's EventKit reader (titles in memory only).
         case calendar
+        /// Spoken commands heard since the last poll (MORE listens all the time).
+        case poll
         /// Stop audio and close the listener.
         case stop
     }
@@ -33,11 +35,13 @@ public enum LiveDemoWire {
         public let seconds: Double?
         /// hello only: also ask for calendar access while MORE is in front.
         public let wantsCalendar: Bool?
+        /// hello only: commands must start with "MORE".
+        public let requireWakeWord: Bool?
 
         public init(token: String, id: Int, command: Command, text: String? = nil, seconds: Double? = nil,
-                    wantsCalendar: Bool? = nil) {
+                    wantsCalendar: Bool? = nil, requireWakeWord: Bool? = nil) {
             self.token = token; self.id = id; self.command = command; self.text = text; self.seconds = seconds
-            self.wantsCalendar = wantsCalendar
+            self.wantsCalendar = wantsCalendar; self.requireWakeWord = requireWakeWord
         }
     }
 
@@ -52,11 +56,13 @@ public enum LiveDemoWire {
         public let detail: [String]?
         /// Only for `calendar`. Never logged by either side.
         public let events: [LiveDemoDayPlan.Event]?
+        /// Only for `poll`. A reply intent carries draft text: never logged.
+        public let intents: [LiveDemoVoiceIntent]?
 
         public init(id: Int, ok: Bool, code: String? = nil, transcript: String? = nil, detail: [String]? = nil,
-                    events: [LiveDemoDayPlan.Event]? = nil) {
+                    events: [LiveDemoDayPlan.Event]? = nil, intents: [LiveDemoVoiceIntent]? = nil) {
             self.id = id; self.ok = ok; self.code = code; self.transcript = transcript; self.detail = detail
-            self.events = events
+            self.events = events; self.intents = intents
         }
     }
 

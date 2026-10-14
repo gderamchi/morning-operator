@@ -26,6 +26,10 @@ struct LiveDemoGateTests {
     func flags() {
         #expect(!LiveDemoGate.allowsReadConversations(environment: ["MO_LIVE_DEMO": "1"]))
         #expect(LiveDemoGate.allowsReadConversations(environment: ["MO_LIVE_DEMO_ANY": "1"]))
+        #expect(LiveDemoGate.conversationCount(environment: [:]) == 3)
+        #expect(LiveDemoGate.conversationCount(environment: ["MO_LIVE_DEMO_CONVERSATIONS": "1"]) == 1)
+        #expect(LiveDemoGate.conversationCount(environment: ["MO_LIVE_DEMO_CONVERSATIONS": "9"]) == 3)
+        #expect(LiveDemoGate.conversationCount(environment: ["MO_LIVE_DEMO_CONVERSATIONS": "0"]) == 1)
         #expect(LiveDemoGate.reelCount(environment: [:]) == 10)
         #expect(LiveDemoGate.reelCount(environment: ["MO_LIVE_DEMO_REELS": "3"]) == 3)
         #expect(LiveDemoGate.reelCount(environment: ["MO_LIVE_DEMO_REELS": "0"]) == 0)

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Owner-present live morning demo on the tethered iPhone (docs/DEVICE-SETUP.md).
-# Usage: scripts/live-demo.sh [--device ID] [--team TEAM] [--reels N] [--any] [--stop-after summary] [--steps calendar,reels]
+# Usage: scripts/live-demo.sh [--device ID] [--team TEAM] [--reels N] [--any] [--stop-after summary] [--steps calendar,reels] [--conversations N] [--wake]
 #
 # The demo reads Messages and Mail aloud and may type a spoken draft. XCTest's own
 # activity log records typed text, so this script keeps the result bundle and test
@@ -15,6 +15,8 @@ reels="10"
 any="0"
 stop_after=""
 steps=""
+conversations="3"
+wake="0"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --device) device="$2"; shift 2 ;;
@@ -23,6 +25,8 @@ while [[ $# -gt 0 ]]; do
         --any) any="1"; shift ;;
         --stop-after) stop_after="$2"; shift 2 ;;
         --steps) steps="$2"; shift 2 ;;
+        --conversations) conversations="$2"; shift 2 ;;
+        --wake) wake="1"; shift ;;
         --help|-h) sed -n '2,8p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
@@ -88,6 +92,8 @@ set -m  # the pipeline gets its own process group, so it can be stopped as a who
     TEST_RUNNER_MO_LIVE_DEMO_ANY="$any" \
     TEST_RUNNER_MO_LIVE_DEMO_STOP_AFTER="$stop_after" \
     TEST_RUNNER_MO_LIVE_DEMO_STEPS="$steps" \
+    TEST_RUNNER_MO_LIVE_DEMO_CONVERSATIONS="$conversations" \
+    TEST_RUNNER_MO_LIVE_DEMO_WAKE="$wake" \
     TEST_RUNNER_CI="${CI:-}" \
     TEST_RUNNER_GITHUB_ACTIONS="${GITHUB_ACTIONS:-}" \
     TEST_RUNNER_CONTINUOUS_INTEGRATION="${CONTINUOUS_INTEGRATION:-}" \

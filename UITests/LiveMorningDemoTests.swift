@@ -42,6 +42,9 @@ final class LiveMorningDemoTests: XCTestCase {
     private var listening = false
     private var report = LiveDemoReport()
     private var utteranceCount = 0
+    private var stoppedByOwner = false
+    /// The message just read, kept in memory only so "read it again" can repeat it.
+    private var lastReadAloud: String?
     /// Why the last checked tap was refused: a fixed token, for the report only.
     private var lastTapRefusal = "none"
 
@@ -92,7 +95,8 @@ final class LiveMorningDemoTests: XCTestCase {
         let steps = LiveDemoSteps.from(environment: environment)
         for step in LiveDemoSteps.all.subtracting(steps) { report.record(step, .skipped(.disabled)) }
         let hello = XCTContext.runActivity(named: "MORE sound check") { _ in
-            client.call(.hello, wantsCalendar: steps.contains(.calendar), timeout: 150)
+            client.call(.hello, wantsCalendar: steps.contains(.calendar),
+                        requireWakeWord: environment["MO_LIVE_DEMO_WAKE"] == "1", timeout: 150)
         }
         emit(LiveDemoReport.line(["audio", "runner=\(Self.name(runnerState))", "more=\(hello == nil ? "no-answer" : "answered")"]
                                  + (hello?.detail ?? [])))
@@ -172,10 +176,29 @@ final class LiveMorningDemoTests: XCTestCase {
             }
         }
         if !steps.isDisjoint(with: [.instagramMessages, .instagramFeed, .reels]) {
-            try XCTContext.runActivity(named: "Instagram") { _ in try runInstagram(steps: steps) }
+            let exit = try XCTContext.runActivity(named: "Instagram") { _ in try runInstagram(steps: steps) }
+            switch exit {
+            case .leave(.messages):
+                try say("OK. Your messages.")
+                try XCTContext.runActivity(named: "Messages") { _ in try readMessages() }
+            case .leave(.mail):
+                try say("OK. Your mail.")
+                try XCTContext.runActivity(named: "Mail") { _ in try readMail() }
+            case .leave(.calendar):
+                try say("OK. Your calendar.")
+                try XCTContext.runActivity(named: "Calendar") { _ in
+                    try readCalendar(accessGranted: detail.contains("calendar=ready"))
+                }
+            case .stopped:
+                try say("OK. Stopping here.")
+                stoppedByOwner = true
+            case .finished:
+                break
+            }
         }
 
         try XCTContext.runActivity(named: "Return to MORE") { _ in
+            guard !stoppedByOwner else { return }
             more.activate()
             _ = more.wait(for: .runningForeground, timeout: 10)
             hold(2)
@@ -240,7 +263,8 @@ final class LiveMorningDemoTests: XCTestCase {
             return
         }
         let allowRead = LiveDemoGate.allowsReadConversations(environment: environment)
-        let chosen = Array(visibleRows(in: messages).filter { allowRead || $0.row.isUnread }.prefix(3))
+        let chosen = Array(visibleRows(in: messages).filter { allowRead || $0.row.isUnread }
+            .prefix(LiveDemoGate.conversationCount(environment: environment)))
         report.record(.messages, .ran)
         guard !chosen.isEmpty else {
             try say("There are no unread messages now.")
@@ -266,8 +290,10 @@ final class LiveMorningDemoTests: XCTestCase {
         hold(2)
         try say("Message from \(row.sender).")
         if !row.detail.isEmpty { try say(row.detail) }
+        lastReadAloud = row.detail.isEmpty ? nil : row.detail
         hold(1)
         try offerReply(in: messages)
+        lastReadAloud = nil
         hold(2)
         goBack(in: messages)
         hold(1)
@@ -280,7 +306,17 @@ final class LiveMorningDemoTests: XCTestCase {
             try say("No answer. I'll move on.")
             return
         }
-        var intent = LiveDemoReplyIntent.parse(listen() ?? "")
+        let heard = listen() ?? ""
+        if LiveDemoVoiceIntent.parse(heard) == .repeatLast, let again = lastReadAloud {
+            try say(again)
+            try say("Do you want to reply?")
+            return try offerReplyAnswer(listen() ?? "", in: messages)
+        }
+        try offerReplyAnswer(heard, in: messages)
+    }
+
+    private func offerReplyAnswer(_ heard: String, in messages: XCUIApplication) throws {
+        var intent = LiveDemoReplyIntent.parse(heard)
         if intent == .affirm {
             try say("What should I say?")
             intent = LiveDemoReplyIntent.parseDictation(listen(seconds: 15) ?? "")
@@ -470,25 +506,26 @@ final class LiveMorningDemoTests: XCTestCase {
 
     /// Instagram: unread DMs (count, then up to three senders and previews from the list,
     /// without opening a thread), then reels. TikTok's feed is the fallback for reels only.
-    private func runInstagram(steps: Set<LiveDemoStep>) throws {
+    private enum ReelExit { case finished, stopped, leave(LiveDemoVoiceIntent.Destination) }
+
+    private func runInstagram(steps: Set<LiveDemoStep>) throws -> ReelExit {
         let count = LiveDemoGate.reelCount(environment: environment)
         if steps.contains(.reels) && count == 0 { report.record(.reels, .skipped(.disabled)) }
         let wantsMessages = steps.contains(.instagramMessages)
         let wantsFeed = steps.contains(.instagramFeed)
         let wantsReels = steps.contains(.reels) && count > 0
-        guard wantsMessages || wantsFeed || wantsReels else { return }
+        guard wantsMessages || wantsFeed || wantsReels else { return .finished }
         let instagram: XCUIApplication
         switch launch(App.instagram) {
         case .skipped(let reason):
             report.record(.instagramMessages, .skipped(reason))
             report.record(.instagramFeed, .skipped(reason))
             if wantsReels, reason == .notInstalled {
-                try scrollTikTok(count: count)
-            } else {
-                report.record(.reels, .skipped(reason))
-                try say("Instagram is not available. I'll skip it.")
+                return try scrollTikTok(count: count)
             }
-            return
+            report.record(.reels, .skipped(reason))
+            try say("Instagram is not available. I'll skip it.")
+            return .finished
         case .app(let app):
             instagram = app
         }
@@ -496,7 +533,7 @@ final class LiveMorningDemoTests: XCTestCase {
         emitTabBar(of: instagram)
         if wantsMessages { try readInstagramMessages(in: instagram) }
         if wantsFeed { try scrollInstagramHome(in: instagram) }
-        if wantsReels { try scrollInstagramReels(in: instagram, count: count) }
+        return wantsReels ? try scrollInstagramReels(in: instagram, count: count) : .finished
     }
 
     /// Instagram's floating tab bar on iOS 27: Home, Reels, Direct, Search, Profile.
@@ -657,23 +694,24 @@ final class LiveMorningDemoTests: XCTestCase {
         return match != nil
     }
 
-    private func scrollInstagramReels(in app: XCUIApplication, count: Int) throws {
+    private func scrollInstagramReels(in app: XCUIApplication, count: Int) throws -> ReelExit {
         guard openInstagramTab(.reels, in: app) else {
             report.record(.reels, .skipped(.notFound))
             try say("I couldn't open Instagram reels. I won't swipe.")
-            return
+            return .finished
         }
-        try say("Now some reels. I'll swipe every eight seconds. I won't like or follow anything.")
-        let advanced = swipeFeed(app, count: count)
+        try say("Now some reels. Say next, eight more, or let me finish this one. I won't like or follow anything.")
+        let (advanced, exit) = swipeFeed(app, count: count)
         report.record(.reels, advanced > 0 ? .ran : .skipped(.swipeNoAdvance))
-        hold(4)
+        hold(2)
+        return exit
     }
 
-    private func scrollTikTok(count: Int) throws {
+    private func scrollTikTok(count: Int) throws -> ReelExit {
         guard case .app(let feed) = launch(App.tiktok) else {
             report.record(.reels, .skipped(.notInstalled))
             try say("Instagram and TikTok are not installed. No reels today.")
-            return
+            return .finished
         }
         hold(3)
         guard let tab = snapshotDescendants(of: feed).first(where: { node in
@@ -682,13 +720,14 @@ final class LiveMorningDemoTests: XCTestCase {
         }), tapChecked(Target(tab), kind: .feedTab, in: feed) else {
             report.record(.reels, .skipped(.notFound))
             try say("I couldn't find the video feed. I'll skip reels.")
-            return
+            return .finished
         }
         hold(2)
         try say("Now some videos. I'll swipe every eight seconds. I won't like or follow anything.")
-        let advanced = swipeFeed(feed, count: count)
+        let (advanced, exit) = swipeFeed(feed, count: count)
         report.record(.reels, advanced > 0 ? .ran : .skipped(.swipeNoAdvance))
-        hold(4)
+        hold(2)
+        return exit
     }
 
     /// One fast upward flick per reel, every eight seconds: a drag, never a tap or a double
@@ -696,11 +735,32 @@ final class LiveMorningDemoTests: XCTestCase {
     /// tab bar. After each flick the reel must have changed (a hash of what is on screen,
     /// kept in memory, never logged); otherwise one longer flick is tried. Returns how many
     /// flicks advanced. Stops at once if the screen changes (a sheet, a keyboard).
-    @discardableResult
-    private func swipeFeed(_ feed: XCUIApplication, count: Int) -> Int {
+    private func swipeFeed(_ feed: XCUIApplication, count: Int) -> (Int, ReelExit) {
+        var target = count
         var advanced = 0
-        for index in 0..<count {
-            hold(8)
+        var index = 0
+        var exit = ReelExit.finished
+        var commands = 0
+        reels: while index < target {
+            // Watch for eight seconds, listening for spoken commands every half second.
+            var advanceNow = false
+            var holding = false
+            let watchUntil = Date().addingTimeInterval(8)
+            let holdLimit = Date().addingTimeInterval(180)
+            while (holding ? Date() < holdLimit : Date() < watchUntil) && !advanceNow {
+                hold(0.5)
+                for intent in pollIntents() {
+                    commands += 1
+                    switch LiveDemoReelAction.decide(intent) {
+                    case .advanceNow: advanceNow = true; holding = false
+                    case .extend(let more): target = LiveDemoReelAction.extendedTarget(current: target, by: more)
+                    case .holdUntilNext: holding = true
+                    case .endReels: exit = .stopped; break reels
+                    case .leave(let destination): exit = .leave(destination); break reels
+                    case .ignore: break
+                    }
+                }
+            }
             let result = XCTContext.runActivity(named: "Reel \(index + 1)") { _ -> Bool? in
                 guard feed.state == .runningForeground, noPrompt(in: feed),
                       !feed.keyboards.firstMatch.exists else { return nil }
@@ -718,9 +778,21 @@ final class LiveMorningDemoTests: XCTestCase {
                 break
             }
             if moved { advanced += 1 }
+            index += 1
         }
-        emit(LiveDemoReport.line(["reels", "advanced=\(advanced)", "of=\(count)"]))
-        return advanced
+        let exitToken = switch exit {
+        case .finished: "finished"
+        case .stopped: "stopped"
+        case .leave(let destination): "leave-\(destination.rawValue)"
+        }
+        emit(LiveDemoReport.line(["reels", "advanced=\(advanced)", "of=\(target)", "commands=\(commands)", "exit=\(exitToken)"]))
+        return (advanced, exit)
+    }
+
+    /// Spoken commands MORE heard since the last poll (never logged).
+    private func pollIntents() -> [LiveDemoVoiceIntent] {
+        guard listening, let voice else { return [] }
+        return voice.call(.poll, timeout: 6)?.intents ?? []
     }
 
     /// The single drag site: a short press, then a fast drag up the middle of the screen.
@@ -1029,11 +1101,11 @@ final class VoiceClient: @unchecked Sendable {
     /// Connects (retrying while MORE's listener starts), sends one request, waits for its
     /// answer. Nil on timeout or a broken channel.
     func call(_ command: LiveDemoWire.Command, text: String? = nil, seconds: Double? = nil,
-              wantsCalendar: Bool? = nil, timeout: TimeInterval) -> LiveDemoWire.Response? {
+              wantsCalendar: Bool? = nil, requireWakeWord: Bool? = nil, timeout: TimeInterval) -> LiveDemoWire.Response? {
         guard connect(within: 15) else { return nil }
         let id = lock.withLock { () -> Int in nextID += 1; return nextID }
         let request = LiveDemoWire.Request(token: token, id: id, command: command, text: text, seconds: seconds,
-                                           wantsCalendar: wantsCalendar)
+                                           wantsCalendar: wantsCalendar, requireWakeWord: requireWakeWord)
         connection.send(content: LiveDemoWire.encode(request), completion: .contentProcessed { [weak self] error in
             if error != nil { self?.lock.withLock { self?.broken = true } }
         })
