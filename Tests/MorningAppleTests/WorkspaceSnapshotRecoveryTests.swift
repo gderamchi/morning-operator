@@ -167,6 +167,17 @@ struct WorkspaceSnapshotRecoveryTests {
         let saved = try load { value in value["setAside"] = "something odd" }
         #expect(saved.setAside == [.string("something odd")])
         #expect(saved.routine != nil && saved.newlySetAside.isEmpty)
+        // Deep enough that wrapping it in a list would make a file the next launch refuses.
+        var deep: Any = NSNull()
+        for _ in 0..<(PreservedJSONValue.maximumDepth - 2) { deep = ["n": deep] }
+        do { _ = try load { value in value["setAside"] = deep }; Issue.record("A too-deep list was kept") }
+        catch { #expect(UnreadableWorkspacePart(error: error) == .other) }
+        var fits: Any = NSNull()
+        for _ in 0..<(PreservedJSONValue.maximumDepth - 3) { fits = ["n": fits] }
+        let wrapped = try load { value in value["setAside"] = fits }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("workspace-\(UUID().uuidString).json")
+        try AtomicJSONFile<WorkspaceSnapshot>(url: url).save(WorkspaceSnapshot(setAside: wrapped.setAside))
+        #expect(try AtomicJSONFile<WorkspaceSnapshot>(url: url).load().setAside == wrapped.setAside)
         let null = try load { value in value["setAside"] = NSNull() }
         #expect(null.setAside == nil)
     }

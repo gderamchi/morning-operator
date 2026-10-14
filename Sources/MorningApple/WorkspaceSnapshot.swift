@@ -169,7 +169,13 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         switch try values.decodeIfPresent(PreservedJSONValue.self, forKey: .setAside) {
         case .array(let earlier): kept = earlier
         case .some(.null), nil: break
-        case .some(let other): kept = [other]
+        case .some(let other):
+            // Wrapped in a list it sits one level deeper, at value.setAside[0].
+            guard 3 + other.height <= PreservedJSONValue.maximumDepth else {
+                throw DecodingError.dataCorrupted(.init(codingPath: values.codingPath + [CodingKeys.setAside],
+                    debugDescription: "Nested too deeply to keep."))
+            }
+            kept = [other]
         }
         // Set aside, an element sits at value.setAside[i].original, deeper than where it was
         // read. Refuse rather than write a file the next launch could not read back.
