@@ -26,9 +26,12 @@ struct LiveDemoVoiceIntentTests {
         #expect(LiveDemoVoiceIntent.parse("Let me finish this one") == .hold)
         #expect(LiveDemoVoiceIntent.parse("laisse-moi finir") == .hold)
         #expect(LiveDemoVoiceIntent.parse("read it again") == .repeatLast)
-        #expect(LiveDemoVoiceIntent.parse("Go to my messages") == .goTo(.messages))
-        #expect(LiveDemoVoiceIntent.parse("open my mail") == .goTo(.mail))
-        #expect(LiveDemoVoiceIntent.parse("va dans mon calendrier") == .goTo(.calendar))
+        #expect(LiveDemoVoiceIntent.parse("MORE, go to my messages") == .goTo(.messages))
+        #expect(LiveDemoVoiceIntent.parse("More open my mail") == .goTo(.mail))
+        #expect(LiveDemoVoiceIntent.parse("MORE va dans mon calendrier") == .goTo(.calendar))
+        // Without the wake word, "go to" is ignored: media could say it.
+        #expect(LiveDemoVoiceIntent.parse("Go to my messages") == nil)
+        #expect(LiveDemoVoiceIntent.parse("open my mail") == nil)
         #expect(LiveDemoVoiceIntent.parse("hey, next please") == .next)
     }
 

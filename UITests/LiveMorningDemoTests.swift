@@ -281,10 +281,10 @@ final class LiveMorningDemoTests: XCTestCase {
     }
 
     private func openConversation(_ row: LiveDemoListRow, in messages: XCUIApplication) throws {
-        guard noPrompt(in: messages), showConversationList(in: messages),
-              let fresh = visibleRows(in: messages).first(where: {
-                  $0.row.sender == row.sender && $0.row.detail == row.detail
-              }),
+        // Exactly one row may match sender and preview; two alike are not told apart.
+        let matching = showConversationList(in: messages)
+            ? visibleRows(in: messages).filter { $0.row.sender == row.sender && $0.row.detail == row.detail } : []
+        guard noPrompt(in: messages), matching.count == 1, let fresh = matching.first,
               tapChecked(fresh.target, kind: .listRow, in: messages) else {
             try say("I couldn't open that conversation. I'll move on.")
             return
@@ -356,7 +356,7 @@ final class LiveMorningDemoTests: XCTestCase {
         guard fields.count == 1, let field = fields.first,
               tapChecked(Target(field, label: field.label.isEmpty ? (field.placeholderValue ?? "") : field.label),
                          kind: .composeField, in: messages) else { return false }
-        guard messages.keyboards.firstMatch.waitForExistence(timeout: 4) else { return false }
+        guard messages.keyboards.firstMatch.waitForExistence(timeout: 4), stillInOpenConversation(messages) else { return false }
         messages.typeText(line)
         return true
     }
@@ -596,6 +596,14 @@ final class LiveMorningDemoTests: XCTestCase {
 
     /// A tab label is printed only if it starts with a known generic word; anything else (a
     /// profile tab can carry the account name) prints as "other".
+    /// Same for identifiers: only Instagram's known generic tab identifiers are printed.
+    private static func diagnosticTabIdentifier(_ identifier: String) -> String {
+        guard !identifier.isEmpty else { return "none" }
+        let known: Set<String> = ["mainfeed-tab", "reels-tab", "clips-tab", "direct-inbox-tab", "explore-tab", "profile-tab",
+                                  "feed-tab", "home-tab", "direct-tab"]
+        return known.contains(identifier.lowercased()) ? identifier.lowercased() : "other"
+    }
+
     private static func diagnosticTabLabel(_ label: String) -> String {
         guard !label.isEmpty else { return "none" }
         let first = label.lowercased().split(whereSeparator: { !$0.isLetter }).first.map(String.init) ?? ""
@@ -607,7 +615,7 @@ final class LiveMorningDemoTests: XCTestCase {
     private func emitTabBar(of app: XCUIApplication) {
         for (index, button) in tabBarButtons(in: app, nodes: snapshotDescendants(of: app)).enumerated() {
             let f = button.frame
-            emit(LiveDemoReport.line(["tab", "i=\(index)", "id=\(button.identifier.isEmpty ? "none" : button.identifier)",
+            emit(LiveDemoReport.line(["tab", "i=\(index)", "id=\(Self.diagnosticTabIdentifier(button.identifier))",
                                       "label=\(Self.diagnosticTabLabel(button.label))",
                                       "frame=\(Int(f.minX)).\(Int(f.minY)).\(Int(f.width)).\(Int(f.height))"]))
         }
@@ -734,7 +742,7 @@ final class LiveMorningDemoTests: XCTestCase {
             return .finished
         }
         try say("Now some reels. Say next, eight more, or let me finish this one. I won't like or follow anything.")
-        let (advanced, exit) = swipeFeed(app, count: count)
+        let (advanced, exit) = try swipeFeed(app, count: count)
         report.record(.reels, advanced > 0 ? .ran : .skipped(.swipeNoAdvance))
         hold(2)
         return exit
@@ -757,7 +765,7 @@ final class LiveMorningDemoTests: XCTestCase {
         }
         hold(2)
         try say("Now some videos. I'll swipe every eight seconds. I won't like or follow anything.")
-        let (advanced, exit) = swipeFeed(feed, count: count)
+        let (advanced, exit) = try swipeFeed(feed, count: count)
         report.record(.reels, advanced > 0 ? .ran : .skipped(.swipeNoAdvance))
         hold(2)
         return exit
@@ -768,7 +776,7 @@ final class LiveMorningDemoTests: XCTestCase {
     /// tab bar. After each flick the reel must have changed (a hash of what is on screen,
     /// kept in memory, never logged); otherwise one longer flick is tried. Returns how many
     /// flicks advanced. Stops at once if the screen changes (a sheet, a keyboard).
-    private func swipeFeed(_ feed: XCUIApplication, count: Int) -> (Int, ReelExit) {
+    private func swipeFeed(_ feed: XCUIApplication, count: Int) throws -> (Int, ReelExit) {
         var target = count
         var advanced = 0
         var index = 0
@@ -779,10 +787,14 @@ final class LiveMorningDemoTests: XCTestCase {
             var advanceNow = false
             var holding = false
             let watchUntil = Date().addingTimeInterval(8)
+            let reelShownAt = Date()
             let holdLimit = Date().addingTimeInterval(180)
             while (holding ? Date() < holdLimit : Date() < watchUntil) && !advanceNow {
                 hold(0.5)
-                for intent in pollIntents() {
+                // "Stop" wins over anything else heard in the same breath.
+                var heard = pollIntents(since: reelShownAt)
+                if heard.contains(.stop) { heard = [.stop] }
+                for intent in heard {
                     commands += 1
                     switch LiveDemoReelAction.decide(intent) {
                     case .advanceNow: advanceNow = true; holding = false
@@ -792,7 +804,7 @@ final class LiveMorningDemoTests: XCTestCase {
                     case .leave(let destination):
                         // Reel audio could say "go to my messages": ask first, and only a yes
                         // in the next words leaves the reels.
-                        if confirmLeaving(to: destination) { exit = .leave(destination); break reels }
+                        if try confirmLeaving(to: destination) { exit = .leave(destination); break reels }
                     case .ignore: break
                     }
                 }
@@ -825,15 +837,17 @@ final class LiveMorningDemoTests: XCTestCase {
         return (advanced, exit)
     }
 
-    private func confirmLeaving(to destination: LiveDemoVoiceIntent.Destination) -> Bool {
-        guard (try? say("Open your \(destination.rawValue)? Say yes or no.")) != nil else { return false }
+    /// A voice failure here stops the demo like everywhere else.
+    private func confirmLeaving(to destination: LiveDemoVoiceIntent.Destination) throws -> Bool {
+        try say("Open your \(destination.rawValue)? Say yes or no.")
         return LiveDemoYesNo.parse(listen(seconds: 6) ?? "") == .yes
     }
 
     /// Spoken commands MORE heard since the last poll (never logged).
-    private func pollIntents() -> [LiveDemoVoiceIntent] {
+    /// Only words that started after `since` count (e.g. after the current reel appeared).
+    private func pollIntents(since: Date) -> [LiveDemoVoiceIntent] {
         guard listening, let voice else { return [] }
-        return voice.call(.poll, timeout: 6)?.intents ?? []
+        return voice.call(.poll, seconds: since.timeIntervalSince1970, timeout: 6)?.intents ?? []
     }
 
     /// The single drag site: a short press, then a fast drag up the middle of the screen.
@@ -1057,12 +1071,15 @@ final class LiveMorningDemoTests: XCTestCase {
             // Nothing under the finger may name an action. A container around the whole target
             // (a screen, a video) is judged on the strong action words only (send, like,
             // follow, comment, share, reply, post, delete...), not on words like "video".
+            // Text and images inside the target are its own content (a message preview may say
+            // "send"); every other element under the finger is judged on its label too.
+            let ownContent = target.frame.contains(node.frame) && [.staticText, .image].contains(node.elementType)
             let forbidden = isContainer
                 ? LiveDemoTapPolicy.containsStrongActionWord(node.identifier) || LiveDemoTapPolicy.containsStrongActionWord(node.label)
                 : LiveDemoTapPolicy.containsForbiddenWord(node.identifier)
-                    || (Self.isButtonLike(node.elementType) && LiveDemoTapPolicy.containsForbiddenWord(node.label))
+                    || (!ownContent && LiveDemoTapPolicy.containsForbiddenWord(node.label))
             if forbidden {
-                lastTapRefusal = "forbidden-under-point type=\(node.elementType.rawValue) id=\(node.identifier.isEmpty ? "none" : node.identifier)"
+                lastTapRefusal = "forbidden-under-point type=\(node.elementType.rawValue) id=\(node.identifier.isEmpty ? "none" : "named")"
                 return false
             }
             // Another control under the finger is allowed only if it wraps the target or sits

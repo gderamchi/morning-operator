@@ -102,17 +102,25 @@ private final class VoiceHost: @unchecked Sendable {
     }
 
     private func receive() {
-        connection?.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { [weak self] data, _, isComplete, error in
-            guard let self else { return }
+        guard let current = connection else { return }
+        current.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { [weak self, weak current] data, _, isComplete, error in
+            // Callbacks of a replaced or dropped connection are ignored.
+            guard let self, let current, self.connection === current else { return }
             if let data { self.buffer.append(data) }
             do {
                 for line in try LiveDemoWire.takeLines(from: &self.buffer) { self.handle(line) }
             } catch {
-                self.close()
+                self.endConnection()
                 return
             }
-            if isComplete || error != nil { self.close() } else if !self.closed { self.receive() }
+            guard self.connection === current else { return }
+            if isComplete || error != nil { self.endConnection() } else if !self.closed { self.receive() }
         }
+    }
+
+    /// The authenticated runner leaving ends the demo; anyone else only loses its connection.
+    private func endConnection() {
+        if authenticated { close() } else { dropConnection() }
     }
 
     /// Runs on `queue`, one command at a time. A wrong token drops that connection only.
@@ -129,7 +137,8 @@ private final class VoiceHost: @unchecked Sendable {
             response = hello(id: request.id, wantsCalendar: request.wantsCalendar == true,
                              requireWakeWord: request.requireWakeWord == true)
         case .poll:
-            response = .init(id: request.id, ok: audio != nil, intents: audio?.poll() ?? [])
+            response = .init(id: request.id, ok: audio != nil,
+                             intents: audio?.poll(since: request.seconds.map(Date.init(timeIntervalSince1970:))) ?? [])
         case .calendar:
             response = todaysEvents(id: request.id)
         case .say:
@@ -561,8 +570,9 @@ private final class DemoVoice: @unchecked Sendable {
             self.request = request
         }
         segmentStarted = Date()
-        segmentTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            self?.receive(result.map { ($0.bestTranscription.formattedString, $0.isFinal) }, failed: error != nil)
+        segmentTask = recognizer.recognitionTask(with: request) { [weak self, weak request] result, error in
+            guard let request else { return }
+            self?.receive(result.map { ($0.bestTranscription.formattedString, $0.isFinal) }, failed: error != nil, for: request)
         }
     }
 
@@ -628,12 +638,14 @@ private final class DemoVoice: @unchecked Sendable {
 
     /// Commands heard since the last poll. The strict grammar first; for short phrases it
     /// does not know, the on-device model may pick one allowed token, nothing else.
-    func poll() -> [LiveDemoVoiceIntent] {
-        // Only words that ended in the last 4 seconds: an older command belonged to an
-        // earlier moment (another reel, another screen) and must not act on this one.
+    func poll(since: Date?) -> [LiveDemoVoiceIntent] {
+        // Only words that ended in the last 4 seconds, and that started after `since` (the
+        // runner's last screen change): an older command belonged to an earlier moment
+        // (another reel, another screen) and must not act on this one.
         let now = Date()
         let heard = lock.withLock { () -> [String] in
-            let fresh = segments.filter { now.timeIntervalSince($0.endedAt) <= 4 }.map(\.text)
+            let fresh = segments.filter { now.timeIntervalSince($0.endedAt) <= 4 && $0.startedAt >= (since ?? .distantPast) }
+                .map(\.text)
             segments.removeAll()
             return fresh
         }
@@ -666,8 +678,10 @@ private final class DemoVoice: @unchecked Sendable {
         return answer.get().flatMap(LiveDemoVoiceIntent.fromModelAnswer)
     }
 
-    private func receive(_ hypothesis: (String, Bool)?, failed didFail: Bool) {
+    /// Results of a cancelled request (an earlier segment) are ignored.
+    private func receive(_ hypothesis: (String, Bool)?, failed didFail: Bool, for source: SFSpeechAudioBufferRecognitionRequest) {
         lock.withLock {
+            guard request === source else { return }
             if let (text, final) = hypothesis {
                 if text != latest {
                     if latest.isEmpty, !text.isEmpty, segmentFirstHeard == nil { segmentFirstHeard = Date() }

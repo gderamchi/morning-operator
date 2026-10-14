@@ -66,8 +66,10 @@ public enum LiveDemoVoiceIntent: Codable, Equatable, Sendable {
         default:
             break
         }
+        // Leaving for private content needs the wake word ("MORE, go to my messages"), so a
+        // reel or a podcast saying "go to my messages" can never start it.
         let goVerbs: Set<String> = ["go", "open", "show", "va", "ouvre", "montre"]
-        if let first = words.first, goVerbs.contains(first) {
+        if hadWake, let first = words.first, goVerbs.contains(first) {
             let rest = Set(words.dropFirst())
             if !rest.isDisjoint(with: ["messages", "texts", "sms", "imessage"]) { return .goTo(.messages) }
             if !rest.isDisjoint(with: ["mail", "email", "emails", "mails", "inbox", "courrier"]) { return .goTo(.mail) }
