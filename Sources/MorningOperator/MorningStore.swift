@@ -206,10 +206,12 @@ final class MorningStore {
     let usesSyntheticBriefing: Bool
     private(set) var consumedMorningEntryIDs: [UUID] = []
     // The opening of a morning (issue #28). The logic is in MorningStore+Opening.swift;
-    // only that file writes these three.
+    // only that file writes these four.
     var openingPresentation: MorningOpeningPresentation?
     var greetingState = MorningGreetingState()
     @ObservationIgnored var openingTask: Task<Void, Never>?
+    /// How many times the current morning's opening handed over to its routine (one, at most).
+    var openingRoutineStarts = 0
     var storageIsAvailable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
     var voiceCommandPresented = false
     var morningDetailPresented = false
@@ -337,8 +339,9 @@ final class MorningStore {
                     })
             }
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-approved") { routine = routine?.approved() }
-            automatic = false
-            readAloud = false
+            // Off unless a test asks: a hands-free or spoken morning (issue #99).
+            automatic = ProcessInfo.processInfo.arguments.contains("--ui-testing-hands-free")
+            readAloud = ProcessInfo.processInfo.arguments.contains("--ui-testing-read-aloud")
             seedObservationArchiveIfRequested()
             #if DEBUG
             seedPrivacyFixtureIfRequested(directory: directory)
@@ -741,12 +744,14 @@ final class MorningStore {
                 pauseAfterSaveFailure()
                 return false
             }
+            // A new morning opens first: the opening decides when its routine begins
+            // (issue #99). A resumed one continues.
             if beginsMorning {
                 morningStartCount += 1
                 beginOpening(mayGreet: mayGreet)
+            } else {
+                runCurrentIfEnabled()
             }
-            // A new morning waits for the choice at its opening; a resumed one continues.
-            runCurrentIfEnabled()
             synchronizeMorningActivity(allowStart: true)
             return true
         } catch { notice = error.localizedDescription; return false }
@@ -796,7 +801,7 @@ final class MorningStore {
         guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
         // Pause, Next, Stop and Again take over from the opening. A changed listening
-        // choice does not: the first moment still waits for the answer.
+        // choice does not, except that a hands-free morning never waits for the answer.
         endOpening()
         cancelStepPlayback()
         do {
@@ -1941,7 +1946,9 @@ final class MorningStore {
         cancelStepPlayback()
         speech.stop()
         guard persist() else { pauseAfterSaveFailure(); return }
-        runCurrentIfEnabled()
+        // The greeting or recap, if one was still being read, has just stopped. A
+        // hands-free morning then starts its routine; a normal one keeps waiting.
+        if !openingListeningSettingsChanged() { runCurrentIfEnabled() }
     }
 
     func openCapture(text: String = "", source: QuickCaptureSource = .typed) {
