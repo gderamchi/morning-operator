@@ -154,14 +154,17 @@ struct LearnView: View {
             else { finishSuggestionIfReady() }
         }
         .onDisappear { store.saveObservationEdits() }
-        .sheet(isPresented: $recording) {
+        .sheet(isPresented: $recording, onDismiss: { recordingStartsAtOnce = false }) {
             RecordMorningView(canStartRecording: store.canStartRecording, startsAtOnce: recordingStartsAtOnce) { url in
                 store.importObservation(url)
             }
         }
         #if DEBUG
-        .task {
-            if MorningIntentRouter.shared.consumeWatchMorning() { recordingStartsAtOnce = true; recording = true }
+        // Observed, not only read on appear: a request that arrives while Learn is already
+        // open is handled at once instead of surprising a later visit.
+        .onChange(of: MorningIntentRouter.shared.pendingWatchMorning, initial: true) { _, pending in
+            guard pending, MorningIntentRouter.shared.consumeWatchMorning(), !recording else { return }
+            recordingStartsAtOnce = true; recording = true
         }
         #endif
         .sheet(isPresented: $confirmingObservation) {

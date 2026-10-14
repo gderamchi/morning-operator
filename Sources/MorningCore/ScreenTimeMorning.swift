@@ -65,34 +65,43 @@ public struct ScreenTimeMorningSummary: Equatable, Sendable {
 
     /// Builds the summary. Rows whose segment does not overlap the window are dropped,
     /// rows for `excludingBundleIdentifiers` (MORE itself) are dropped, and the same app
-    /// in the same segment returned twice (a repeated live read) is counted once.
+    /// in the same segment returned twice (a repeated live read) counts once, using the
+    /// latest row. Only time on screen makes an app appear or sets its first-use hour;
+    /// notifications are added to an app that was used, never on their own.
     public static func summarize(rows: [ScreenTimeUsageRow], window: DateInterval,
                                  firstPickups: [Date] = [], lastUpdated: [Date] = [],
                                  excludingBundleIdentifiers excluded: Set<String> = []) -> ScreenTimeMorningSummary {
-        var seen = Set<String>()
+        var latest: [String: ScreenTimeUsageRow] = [:]
+        var order: [String] = []
+        for row in rows {
+            let key = row.bundleIdentifier ?? "name:" + row.appName
+            let rowKey = "\(key)|\(row.segment.start.timeIntervalSinceReferenceDate)|\(row.segment.end.timeIntervalSinceReferenceDate)"
+            if latest.updateValue(row, forKey: rowKey) == nil { order.append(rowKey) }
+        }
+        let unique = order.compactMap { latest[$0] }
+        var notificationsByApp: [String: Int] = [:]
         var byApp: [String: (name: String, bundle: String?, seconds: TimeInterval, pickups: Int, notifications: Int, first: Date)] = [:]
         var outside = false
-        for row in rows where row.seconds > 0 || row.pickups > 0 || row.notifications > 0 {
+        for row in unique {
             guard row.segment.end > window.start, row.segment.start < window.end else { continue }
             if let bundle = row.bundleIdentifier, excluded.contains(bundle) { continue }
             let key = row.bundleIdentifier ?? "name:" + row.appName
-            let rowKey = "\(key)|\(row.segment.start.timeIntervalSinceReferenceDate)|\(row.segment.end.timeIntervalSinceReferenceDate)"
-            guard seen.insert(rowKey).inserted else { continue }
-            if row.segment.start < window.start || row.segment.end > window.end, row.seconds > 0 { outside = true }
+            notificationsByApp[key, default: 0] += max(0, row.notifications)
+            guard row.seconds > 0 else { continue }
+            if row.segment.start < window.start || row.segment.end > window.end { outside = true }
             if var current = byApp[key] {
-                current.seconds += max(0, row.seconds)
+                current.seconds += row.seconds
                 current.pickups += max(0, row.pickups)
-                current.notifications += max(0, row.notifications)
                 current.first = min(current.first, row.segment.start)
                 byApp[key] = current
             } else {
-                byApp[key] = (row.appName, row.bundleIdentifier, max(0, row.seconds), max(0, row.pickups),
-                              max(0, row.notifications), row.segment.start)
+                byApp[key] = (row.appName, row.bundleIdentifier, row.seconds, max(0, row.pickups), 0, row.segment.start)
             }
         }
-        let apps = byApp.values
-            .map { App(name: $0.name, bundleIdentifier: $0.bundle, seconds: $0.seconds, pickups: $0.pickups,
-                       notifications: $0.notifications, firstSegmentStart: $0.first) }
+        let apps = byApp
+            .map { key, value in
+                App(name: value.name, bundleIdentifier: value.bundle, seconds: value.seconds, pickups: value.pickups,
+                    notifications: notificationsByApp[key] ?? 0, firstSegmentStart: value.first) }
             .sorted { $0.seconds != $1.seconds ? $0.seconds > $1.seconds : $0.name < $1.name }
         return ScreenTimeMorningSummary(
             window: window, apps: apps, totalSeconds: apps.reduce(0) { $0 + $1.seconds },

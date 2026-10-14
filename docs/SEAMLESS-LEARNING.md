@@ -2,71 +2,92 @@
 
 Written 14 October 2026 for [#105](https://github.com/gibouu/morning-operator/issues/105) (M2). The goal: MORE learns which apps the owner goes through each morning, how long he spends in each and what he checks, with so little friction that he doesn't notice it. The result feeds a routine and, later, a doom-scroll minimizer.
 
-Each claim below is marked **proven on the phone**, **checked in the SDK** (read in the iOS 27.0 SDK interfaces or Apple's documentation, not run) or **assumed**.
+Each claim is marked **proven on the phone** (iPhone 15 Pro Max, iOS 27, 14 October 2026), **checked in the SDK** (iOS 27.0 SDK interfaces or Apple's documentation, not run) or **not proven**. No personal app names or minutes are recorded here; they stay on the phone.
 
-## What each path gives
+## The answer in short
 
-| Path | Timeline (order) | Minutes per app | Content (what he looked at) | Friction | Privacy |
+**Screen Time data access alone can draft the morning from day one.** After one approval (Continue + Face ID, once), MORE can read per-app minutes for each hour, with real bundle identifiers and categories, for yesterday evening and this morning, silently, with no extension and no daily tap. On the phone it found the morning's start to the second and listed every app used, with its minutes. What it cannot give is the order of apps *within* an hour, or what was on screen. Those are the jobs of the app-transition log (#108's timeline) and the occasional recording, which become future work, not prerequisites.
+
+## What Screen Time data access really returns (proven on the phone)
+
+The query `DeviceActivityData.activityData(filteredBy: .hourly(during: 18:00 yesterday → now), using: .live)` returned one result with 118–145 rows, about one second after the approval. `AuthorizationCenter.authorizationStatus` read `approvedWithDataAccess`.
+
+| Field | What came back |
+|---|---|
+| `ActivitySegment.dateInterval` | One segment per **hour**. Hourly is the finest the API offers (`hourly`, `daily`, `weekly`). Hours with no use simply return no segment. |
+| `ActivitySegment.totalActivityDuration` | Seconds of use in the hour. It can exceed the sum of the apps (the Home Screen and the Lock Screen count too). |
+| `ActivitySegment.firstPickup` | **A timestamp to the second.** In the first hour of the morning it is the real wake-up pickup. In later hours it is often exactly hh:00:00, meaning use carried over from the previous hour. |
+| `ActivitySegment.longestActivity` | A `DateInterval` to the second: the longest continuous session in that hour. This is the only within-hour timing besides the first pickup. |
+| `ActivitySegment.totalPickupsWithoutApplicationActivity` | Pickups with no app opened (glances at the Lock Screen). |
+| `CategoryActivity.category.localizedDisplayName` | Real names, for example Social, Entertainment, Games, Productivity & Finance, System, Utilities, Creativity, Other. |
+| `ApplicationActivity.application.bundleIdentifier` | **Real bundle IDs** (for example `net.whatsapp.WhatsApp`, `com.apple.MobileSMS`), not tokens. |
+| `ApplicationActivity.application.localizedDisplayName` | **nil on every row.** `FamilyActivityData.installedApplications` did not fill the names either, so MORE needs its own bundle-ID → name table (#108 already has one for its signatures). |
+| `ApplicationActivity.totalActivityDuration` | Seconds per app per hour. |
+| `ApplicationActivity.numberOfPickups` | Pickups that went straight into that app. In the morning's first hour, it shows **which app he opened first**. |
+| `ApplicationActivity.numberOfNotifications` | **0 on every row** this morning; not reliable as a signal yet. |
+| `WebDomainActivity` | **None returned**, even with long Safari use. No websites. |
+| `DeviceActivityData.lastUpdatedDate` | Equal to the time of the read (`.live`). |
+
+It also counts system helpers as apps (Face ID sheet `LocalAuthenticationUIService`, `ScreenshotServicesService`, `AuthKitUIService`, `ServicesPaymentAngel`) and **XCTest-driven use**: the hours when the tethered demo drove MORE show up as MORE usage. A routine must filter out system services and MORE itself; the summary already excludes MORE.
+
+**What it does not give:** order inside an hour, per-session timestamps (other than the longest one), screens inside an app, content (messages, reels, articles), taps, or website domains.
+
+## From this morning's data to a draft routine (proven on the phone)
+
+The owner's rule (implemented in `MorningCore/MorningStartDetection.swift`, with package tests): **the morning starts at the first phone use after at least 3 hours without use**, and ends after a 20-minute pause or 3 hours, whichever comes first. A short check before 05:00 that is followed by another 3-hour gap is skipped as a night-time check. A HealthKit sleep end, when given, moves the start to the first session after waking (the hint is not wired in the app yet).
+
+Hourly data turns into timed evidence in three ways, from exact to coarse:
+
+1. `firstPickup` and `longestActivity` are timed to the second.
+2. **An hour whose use leaves less idle time than the pause threshold** (for example 59 minutes of use with a 20-minute rule) has no room for a pause, so it is continuous use. That is arithmetic, not a guess.
+3. Any other hour with use adds only its start as a coarse point.
+
+On the phone this found the start of the morning at the exact second of the first pickup, after a night with no use. It carried the morning through two busy hours and ended it at the first hour with too little use to prove continuity (end reason `pause`). The minutes per app then come from the hours inside that morning. The first hour's pickups name the first app opened.
+
+The draft routine has the shape *first app (from the pickup) → apps of hour 1 by minutes → apps of hour 2 by minutes → …*, for example "Messages 1 min → Browser 54 min → Messages 3 min, Mail 2 min → Video 28 min → Chess 21 min".
+
+- **Measured:** the start time, minutes per app (summed over whole hours), category, the first app opened, the hour each app was used, and the longest session in each hour.
+- **Guessed:** the order of apps inside each hour (sorted by minutes here), and whether two uses of the same app in one hour were one stretch or several. The end of the morning is exact only to the hour when the last hour was light.
+- **What fills the gap cheaply:** the app-transition log. PR #108 makes *Log an app transition* accept any app and builds a timeline from it. With one Shortcuts automation per app the owner cares about (silent, set up once), it gives the order to the second; Screen Time gives the minutes and catches every app the automations miss. A recording is only needed to learn *what* he looked at.
+
+## Paths compared
+
+| Path | Order | Minutes | Content | Friction | Status |
 |---|---|---|---|---|---|
-| **A. Screen Time data access** (`DeviceActivityData.activityData`) | Coarse: the hour each app was first used, plus the first pickup | **Yes**, per app per hour, with pickups and notifications | No | **Once**: a Face ID approval. After that it is silent every day and needs no extension. | Aggregates only. App names are readable after approval. Stays on the phone. |
-| **B. Shortcuts "App is opened/closed" automations** → `LogAppTransitionIntent` | **Yes**, the order of the apps he configured, timed when each callback ran | Roughly, from open/close pairs, for configured apps only | No | **Once per app**: one automation each, set to "Run Immediately", no notification. Silent after that. | Event times only. |
-| **C. Screen recording** (ScreenCaptureKit picker, iOS 27) | Yes, inside the recorded stretch | Yes, inside the stretch | **Yes**: visible text, through OCR and the on-device model | **Every time**: the picker needs his confirmation. Today that is 5 taps. A one-step entry gets it down to 2 (see below). | Screen pixels, kept on the device until the text is saved. |
-| D. DeviceActivityMonitor thresholds (one event every N minutes per app) | Coarse | Approximate, in whole threshold steps | No | Once | Opaque tokens inside the extension |
-| E. Global tap capture | — | — | — | — | — |
+| **A. Screen Time data access** | By hour, plus the first app and the longest session | Yes, per app per hour | No | Once (Continue + Face ID) | **Proven on the phone** |
+| **B. Shortcuts app automations** → `LogAppTransitionIntent` (#108: any app) | To the second, for configured apps | From open/close pairs | No | Once per app | Implemented; silent delivery on this phone not proven here |
+| **C. Screen recording** (ScreenCaptureKit picker) | Yes, inside the stretch | Yes, inside the stretch | **Yes** | Every time: 5 taps today; 2 with the one-step route (Action button + Apple's Start) | Recording works (earlier phone runs); the one-step route is **not proven** (see below) |
+| D. DeviceActivityMonitor thresholds | Coarse | Approximate | No | Once | Not needed now that A works |
+| E. Global tap capture | — | — | — | — | **Impossible**: iOS delivers touches only to the app's own windows. Dropped. |
 
-**E is impossible and is dropped.** No App Store or development API lets an ordinary app see touches made in other apps. UIKit only delivers touches to the app's own windows. The only cross-app control is the XCTest runner on a tethered Mac, which drives the phone; it does not watch it. That is a development harness, not something to learn from.
+### Recording taps (C)
 
-**D is not needed if A works.** A returns the real number of minutes per app directly. D rebuilds an estimate from threshold callbacks. Those are opaque tokens unless the app also has A's data access, with roughly 20 monitored activities per app and a small extension memory budget. D stays as the fallback only if A cannot be provisioned. The `intervalDidStart` callback (first phone use inside a scheduled window) is still worth a later spike as the trigger for path C (see the issues below).
+From the code: open MORE (1) → Morning actions (2) → Learn (3) → Record (4) → Start screen recording (5) → Apple's Start (the owner's tap), then a 3-second countdown. A third-party app cannot present the picker without being in front, and Apple's confirmation can never be skipped. The Debug route `more://watch-morning` opens Learn and the recorder and presents the picker straight away. Any Shortcut can open that URL from the Action button, Control Center, the Lock Screen or Back Tap, which would make it **2 taps**. The phone check (`UITests/SeamlessLearningSpikeTests.swift`) did not run: the UI-test runner exited before connecting, three times. One of those runs overlapped another agent's live demo by mistake.
 
-### A. Screen Time data access: checked in the SDK, phone proof pending
+## Day-one product path (recommendation)
 
-- iOS 26.4 added `DeviceActivityData.activityData(filteredBy:using:)`, `AuthorizationStatus.approvedWithDataAccess` and `FamilyActivityData`. Checked in the iOS 27.0 SDK swiftinterface.
-- The app needs the entitlement `com.apple.developer.family-controls.app-and-website-usage` together with `com.apple.developer.family-controls`. The team's capability list (Xcode's cached `capabilities-27.0-U6Z87CS4W3`) shows "Family Controls App and Website Usage" as **public, editable and needing no approval**, for Development and App Store. "Family Controls (Development)" is public as well.
-- Each result gives `ActivitySegment`s (**hourly** is the finest segment), and inside each segment, per category, an `ApplicationActivity` with `totalActivityDuration`, `numberOfPickups` and `numberOfNotifications`. Each segment also has `firstPickup` and `longestActivity`, and each result has `lastUpdatedDate`. With data access, `Application.localizedDisplayName` and `bundleIdentifier` are real values, not tokens.
-- Conditions, from Apple's documentation: development works in any region. A customer install works only on a device in the EU signed in with an EU Apple Account; the owner qualifies. Only one app per device can hold data access: if another app gets it, MORE drops back to `.notDetermined`. `.live` may still return recently cached data.
-- What it cannot give: order inside an hour, which screen inside an app, what he read or watched.
-- **Prototype** (Debug builds only): Settings → Availability & device details → **Screen Time spike (debug)**. It asks for access, then reads 05:00–11:00 (adjustable) and shows "Instagram ≈ N min", a coarse order by hour, the first pickup and the data freshness. Nothing is saved or logged. The pure summary logic is `MorningCore/ScreenTimeMorning.swift`, with package tests.
-- **Phone status: blocked, not run.** `xcodebuild -allowProvisioningUpdates` fails with *No Accounts*: Xcode on the Mac has no Apple ID signed in. The only cached `com.gibouu.morningoperator` profile contains WeatherKit only, so no build with Family Controls can be signed until the owner adds his account in Xcode → Settings → Accounts. To leave the main install alone, the spike installs beside it:
+The shortest change that delivers "one approval → one analysis of the last few mornings → a proposed routine for review", reusing what exists:
 
-  ```
-  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild build \
-    -project MorningOperator.xcodeproj -scheme MorningOperator -destination 'id=<UDID>' \
-    -derivedDataPath .build/iphone -allowProvisioningUpdates DEVELOPMENT_TEAM=<team> \
-    MO_BUNDLE_ID_BASE=com.gibouu.morningoperator.screentime 'MO_DISPLAY_NAME=MORE ST' \
-    MO_ENTITLEMENTS=Configuration/MorningOperator-ScreenTime.entitlements
-  ```
+1. **Ship the entitlements** (`com.apple.developer.family-controls` and `.app-and-website-usage`) in the main app. Both are self-service for the team, with no Apple request. They are now provisioned for the spike bundle.
+2. **One card in Learn: "Learn from Screen Time".** It explains the scope (minutes per app, no content, stays on the phone, only one app can hold this access), then calls `requestAuthorization(for: .individual)`.
+3. **One analysis:** query hourly data for the last 3–7 days (`.hourly(during:)`), split it into local days, and run `MorningStartDetector` on each day. Summarize each morning with `ScreenTimeMorningSummary` (filtering system services), and turn the mornings into a pending routine proposal: apps that recur on most mornings, in first-hour order, with their median minutes. The existing proposal review (Choose mornings / Suggest a routine) shows it, labelled "from Screen Time, order within the hour estimated", and nothing changes until approval.
+4. **Later, without blocking:** merge #108's transition timeline to fix the order, add the HealthKit sleep end as the start hint, and use recordings only to learn content.
 
-  Release and ordinary Debug builds keep the original bundle ID and entitlements.
+How far back the data goes (3–7 mornings) has not been measured yet: this spike only read from 18:00 yesterday.
 
-### B. App-transition order: implemented, delivery not yet proven
+## How to run the spike
 
-`LogAppTransitionIntent` runs in the background and logs "opened or switched to" and "closed or switched from" for Instagram, TikTok and Snapchat into a separate journal. The owner builds one personal automation per app and transition in Shortcuts, set to *Run Immediately* with *Notify When Run* off. After that it runs silently. The automation is the only way an app learns about other apps opening. Limits: only the apps in the enum, the callback time can lag the real switch, and any app without an automation is invisible between two that have one. Combined with A's hourly minutes, B gives the order and A gives the totals. Widening the app list is a follow-up issue.
+The spike installs beside the main app as **MORE ST**, with its own bundle, URL scheme and entitlements. An Apple ID must be signed in to Xcode (Settings → Accounts) for automatic signing.
 
-### C. Recording, and how many taps it really takes
+```
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild build \
+  -project MorningOperator.xcodeproj -scheme MorningOperator -destination 'id=<UDID>' \
+  -derivedDataPath .build/iphone-st -allowProvisioningUpdates DEVELOPMENT_TEAM=<team> \
+  MO_BUNDLE_ID_BASE=com.gibouu.morningoperator.screentime 'MO_DISPLAY_NAME=MORE ST' \
+  MO_URL_SCHEME=more-st MO_ENTITLEMENTS=Configuration/MorningOperator-ScreenTime.entitlements
+xcrun devicectl device install app --device <UDID> .build/iphone-st/Build/Products/Debug-iphoneos/MorningOperator.app
+xcrun devicectl device process launch --device <UDID> --terminate-existing \
+  com.gibouu.morningoperator.screentime --screen-time-spike-auto
+```
 
-Today's flow (from the code, to be counted on the phone): open MORE → open the action dock → **Learn** → **Record** → **Start screen recording** → Apple's sharing sheet **Start** (Apple's own tap). That is about 5 taps by the owner, plus the 3-second countdown. Apple's panel may then stay on screen until he leaves it.
-
-What can shorten it (checked in the SDK and the documentation, not run):
-
-- A third-party app cannot start the picker from a Control Center control, a widget, a Live Activity button or a background App Intent without opening the app. `SCContentSharingPicker.present()` needs MORE in the foreground, and Apple's confirmation can never be skipped.
-- What can be cut is MORE's own screens. The prototype adds a Debug route, **`more://watch-morning`**: MORE opens Learn → Record and presents Apple's picker straight away. Any foreground trigger can open that URL: a Shortcut on the **Action button** (the iPhone 15 Pro Max has one), a Control Center or Lock Screen Shortcut control, Back Tap, or the morning notification. That makes it **one press + Apple's Start = 2 taps**. Whether the picker shows without a tap inside MORE is still unproven on the phone (open issue). The Debug URL becomes a real `Watch my morning` App Intent only after that.
-- The system Screen Recording control in Control Center is also 1 tap, but it saves to Photos and MORE has to import the file afterwards. That only moves the friction to later.
-
-## Recommendation
-
-1. **Every morning, silently: A, then B.** A gives minutes per app, pickups and the first pickup with no daily action, after one Face ID approval. B adds the real order for the apps that matter (social, messages, mail), after a one-time set of automations. Together they give the "which apps, how long, in what order" timeline without his noticing. The doom-scroll minimizer later uses the same data, with ManagedSettings shields from #17.
-2. **Some mornings, for content: C in one step.** On a morning he chooses, one Action-button press plus Apple's Start records a short stretch, so MORE learns *what* he checked (the messages screen, the calendar, reels). This is the only path that sees content, and it is never silent.
-3. **Drop** global tap capture, and keep the threshold monitor (D) only as the fallback if A cannot be provisioned.
-
-The working hypothesis (Screen Time minutes + transition order + an occasional one-tap recording) holds. The one change is that the minutes come from the direct data API, not from threshold events.
-
-## What the owner must do (only he can)
-
-- Add his Apple ID in Xcode → Settings → Accounts (team U6Z87CS4W3) so Family Controls can be provisioned.
-- On the phone, the first time: open **MORE ST** → Settings → Screen Time spike → Allow, and pass Face ID.
-- For B, once: create the Shortcuts automations (App → Is Opened / Is Closed → Log an app transition; Run Immediately).
-- For C: press Start in Apple's sharing sheet. That tap is always his.
-
-## Phone results
-
-Recorded at the end of the spike pull request. Nothing below the SDK level counts as proven until it has a phone result.
+In the app: Settings → Availability & device details → **Screen Time spike (debug)**. With `--screen-time-spike-auto`, the screen opens at launch, asks for access if needed, reads once, and writes a plain summary to the app's temporary folder (`tmp/screen-time-spike.txt`, overwritten on every run), which a tethered Mac can copy with `devicectl device copy from`. That file holds personal app names and minutes: keep it local, never commit it, and delete the spike app when done. Ordinary Debug and Release builds keep the original bundle ID and entitlements, and include none of this unless the Debug screen is opened.

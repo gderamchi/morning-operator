@@ -38,6 +38,25 @@ struct ScreenTimeMorningTests {
         #expect(summary.apps.first?.seconds == 120)
     }
 
+    @Test func aLaterReadOfTheSameHourReplacesTheEarlierOne() {
+        let first = ScreenTimeUsageRow(segment: hour(7), appName: "Mail", bundleIdentifier: "m", seconds: 120)
+        let later = ScreenTimeUsageRow(segment: hour(7), appName: "Mail", bundleIdentifier: "m", seconds: 300)
+        let summary = ScreenTimeMorningSummary.summarize(rows: [first, later], window: DateInterval(start: at(5), end: at(11)))
+        #expect(summary.apps.first?.seconds == 300)
+    }
+
+    @Test func notificationsAloneNeitherListAnAppNorSetItsFirstHour() {
+        let rows = [
+            ScreenTimeUsageRow(segment: hour(5), appName: "Mail", bundleIdentifier: "m", seconds: 0, notifications: 2),
+            ScreenTimeUsageRow(segment: hour(9), appName: "Mail", bundleIdentifier: "m", seconds: 600),
+            ScreenTimeUsageRow(segment: hour(6), appName: "News", bundleIdentifier: "n", seconds: 0, notifications: 4)
+        ]
+        let summary = ScreenTimeMorningSummary.summarize(rows: rows, window: DateInterval(start: at(5), end: at(11)))
+        #expect(summary.apps.map(\.name) == ["Mail"])
+        #expect(summary.apps[0].firstSegmentStart == at(9))
+        #expect(summary.apps[0].notifications == 2)
+    }
+
     @Test func segmentsOutsideTheWindowAreDroppedAndPartialOnesAreFlagged() {
         let window = DateInterval(start: at(7, 30), end: at(11))
         let rows = [

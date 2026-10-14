@@ -36,7 +36,7 @@
 			<string>com.gibouu.morningoperator.morning</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>more</string>
+				<string>$(MO_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>

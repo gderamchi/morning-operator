@@ -8,6 +8,9 @@ struct MorningRootView: View {
     @ViewState<Bool> private var showingSettings = false
     @ViewState<Bool> private var showingInvitation = false
     @ViewState<Bool> private var showingLearn = false
+    #if DEBUG && os(iOS)
+    @State private var showingScreenTimeSpike = ScreenTimeSpikeModel.autoRunRequested
+    #endif
     @ViewState<Bool> private var showingRoutineEditor = false
     @ViewState<UUID> private var reviewRootIdentity = UUID()
     @ViewState<Bool> private var resetReviewAfterSettingsDismissal = false
@@ -196,7 +199,10 @@ struct MorningRootView: View {
         .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
         .onOpenURL { url in
             #if DEBUG
-            if url.scheme == "more", url.host == "watch-morning", !store.privacyBlocksWork, store.canStartRecording {
+            // A side-by-side spike build registers its own scheme (MO_URL_SCHEME).
+            let ownSchemes = ((Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]]) ?? [])
+                .flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
+            if let scheme = url.scheme, ownSchemes.contains(scheme), url.host == "watch-morning", !store.privacyBlocksWork, store.canStartRecording {
                 MorningIntentRouter.shared.requestWatchMorning()
                 store.tab = .review; showingLearn = true
                 return
@@ -209,6 +215,9 @@ struct MorningRootView: View {
             store.tab = .today
         }
         .task { await initializeMorning() }
+        #if DEBUG && os(iOS)
+        .sheet(isPresented: $showingScreenTimeSpike) { NavigationStack { ScreenTimeSpikeView() } }
+        #endif
     }
 
     private func initializeMorning() async {

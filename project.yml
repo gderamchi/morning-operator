@@ -21,10 +21,11 @@ settings:
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     CURRENT_PROJECT_VERSION: "1"
     # A spike build can sit beside the main install with its own bundle and entitlements:
-    # MO_BUNDLE_ID_BASE=com.gibouu.morningoperator.screentime MO_DISPLAY_NAME="MORE ST"
+    # MO_BUNDLE_ID_BASE=com.gibouu.morningoperator.screentime MO_DISPLAY_NAME="MORE ST" MO_URL_SCHEME=more-st
     # MO_ENTITLEMENTS=Configuration/MorningOperator-ScreenTime.entitlements (docs/SEAMLESS-LEARNING.md).
     MO_BUNDLE_ID_BASE: com.gibouu.morningoperator
     MO_DISPLAY_NAME: MORE
+    MO_URL_SCHEME: more
     MO_ENTITLEMENTS: Configuration/MorningOperator.entitlements
 targets:
   MorningOperator:

@@ -31,6 +31,9 @@ final class MorningIntentRouter {
         pendingStart = nil
         invitationPayload = nil
         pendingCaptureText = nil
+        #if DEBUG
+        pendingWatchMorning = false
+        #endif
     }
 
     func requestStart(invitation: MorningInvitationPayload? = nil) {
