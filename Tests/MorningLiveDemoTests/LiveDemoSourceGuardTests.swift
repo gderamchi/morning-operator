@@ -24,7 +24,8 @@ struct LiveDemoSourceGuardTests {
         #expect(count("press(forDuration:", in: code) == 1)
         for banned in ["doubleTap", "twoFingerTap", "tap(withNumberOfTaps", "swipeUp(", "swipeDown(", "swipeLeft(",
                        "swipeRight(", "typeKey(", "pinch(", "rotate(", "XCUIKeyboardKey", "\\n\")", "adjust(to",
-                       "XCTAttachment", "screenshot()", "print(", "NSLog(", "os_log", "Logger("] {
+                       "XCTAttachment", "screenshot()", "NSLog(", "os_log", "Logger(", "debugPrint(", "dump(",
+                       "FileHandle.standard", "XCTAssert"] {
             #expect(!code.contains(banned), "Unexpected \(banned) in the live demo")
         }
         let tapLine = try #require(code.components(separatedBy: "\n").firstIndex { $0.contains(".tap()") })
@@ -33,5 +34,21 @@ struct LiveDemoSourceGuardTests {
         #expect(guardBlock.contains("LiveDemoTapPolicy.permits("))
         #expect(guardBlock.contains("noPrompt(in: app)"))
         #expect(guardBlock.contains("pointIsSafe("))
+    }
+
+    @Test("One print site and one failure site, both fed only by LiveDemoReport")
+    func reportingSurface() throws {
+        let code = try source()
+        #expect(count("print(", in: code) == 1)
+        #expect(count("XCTFail(", in: code) == 1)
+        let lines = code.components(separatedBy: "\n")
+        let printLine = try #require(lines.first { $0.contains("print(") })
+        #expect(printLine.contains("print(LiveDemoReport.line("))
+        let failLine = try #require(lines.first { $0.contains("XCTFail(") })
+        #expect(failLine.contains("XCTFail(LiveDemoReport.failureMessage("))
+        // Every emitted line is built by LiveDemoReport.line or LiveDemoReport.lines.
+        for line in lines where line.contains("emit(") && !line.contains("func emit(") {
+            #expect(line.contains("emit(LiveDemoReport.line(") || line.contains("emit(line)"))
+        }
     }
 }

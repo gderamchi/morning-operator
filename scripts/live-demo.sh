@@ -69,8 +69,12 @@ trap 'on_signal 143' TERM
 cd "$repo_dir"
 set +e
 set -m  # the pipeline gets its own process group, so it can be stopped as a whole
-# Only lines that start with a status marker are printed: a draft containing the
-# words "Test Case" mid-line cannot pass the anchored filter.
+# Only these lines are printed, each anchored and strict:
+#  - xcodebuild's own status lines (Test Case/Test Suite/** TEST/xcodebuild: error);
+#  - the demo's report, "MO-DEMO" plus [a-z0-9=._-] tokens only;
+#  - the demo's failures, "MO-DEMO-FAIL" plus the same tokens, at the end of XCTest's
+#    "error: ... failed -" line.
+# A draft containing these words mid-line cannot pass.
 (
     TEST_RUNNER_MO_LIVE_DEMO=1 \
     TEST_RUNNER_MO_LIVE_DEMO_REELS="$reels" \
@@ -87,7 +91,10 @@ set -m  # the pipeline gets its own process group, so it can be stopped as a who
         -only-testing:MorningOperatorUITests/LiveMorningDemoTests \
         -test-timeouts-enabled YES -maximum-test-execution-time-allowance 1800 \
         -resultBundlePath "$work/Results.xcresult" \
-        2>&1 | grep -E --line-buffered '^(Test Case |Test Suite |\*\* TEST |xcodebuild: error)'
+        2>&1 | grep -E --line-buffered \
+            -e '^(Test Case |Test Suite |\*\* TEST |xcodebuild: error)' \
+            -e '^MO-DEMO( [a-z0-9=._-]+)+$' \
+            -e '^[^ ]*LiveMorningDemoTests\.swift:[0-9]+: error: -\[MorningOperatorUITests\.LiveMorningDemoTests testLiveMorningDemo\] : failed - MO-DEMO-FAIL( [a-z0-9=._-]+)+$'
     exit "${PIPESTATUS[0]}"
 ) &
 child=$!
