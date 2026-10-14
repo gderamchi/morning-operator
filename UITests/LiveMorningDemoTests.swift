@@ -501,6 +501,13 @@ final class LiveMorningDemoTests: XCTestCase {
 
     /// The tab button by label or identifier first, then by position in a five-button bar.
     private func instagramTab(_ tab: InstagramTab, in app: XCUIApplication) -> Target? {
+        // Identifier first, by a direct query: Instagram's whole tree can be too large to
+        // walk reliably, the tab bar comes last in it.
+        let identifiers = tab == .reels ? ["reels-tab", "clips-tab"] : ["direct-inbox-tab", "direct-tab"]
+        for identifier in identifiers {
+            let query = app.buttons.matching(identifier: identifier)
+            if query.count >= 1, let found = try? query.element(boundBy: 0).snapshot() { return Target(found) }
+        }
         let bar = tabBarButtons(in: app, nodes: snapshotDescendants(of: app))
         let words: [String] = tab == .reels ? ["reels", "clips"] : ["direct", "inbox", "messages", "messenger"]
         if let named = bar.first(where: { node in
@@ -536,9 +543,11 @@ final class LiveMorningDemoTests: XCTestCase {
             return false
         }
         hold(2)
-        let selected = snapshotDescendants(of: app).contains { node in
-            node.elementType == target.elementType && node.frame == target.frame && node.isSelected
-        }
+        let selected = target.identifier.isEmpty
+            ? snapshotDescendants(of: app).contains { node in
+                node.elementType == target.elementType && node.frame == target.frame && node.isSelected
+            }
+            : app.buttons.matching(identifier: target.identifier).firstMatch.isSelected
         emit(LiveDemoReport.line(["instagram-tab", "tab=\(tab)", "tapped=true", "selected=\(selected)"]))
         return selected && app.state == .runningForeground && noPrompt(in: app)
     }
@@ -873,7 +882,7 @@ final class LiveMorningDemoTests: XCTestCase {
     private static func descendants(of root: any XCUIElementSnapshot) -> [any XCUIElementSnapshot] {
         var result: [any XCUIElementSnapshot] = []
         var stack: [any XCUIElementSnapshot] = [root]
-        while let node = stack.popLast(), result.count < 5_000 {
+        while let node = stack.popLast(), result.count < 30_000 {
             result.append(node)
             stack.append(contentsOf: node.children.reversed())
         }
