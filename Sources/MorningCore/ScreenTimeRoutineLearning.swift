@@ -122,9 +122,13 @@ public enum ScreenTimeMorningLearner {
         }
         // A night check whose hours hold more use than a check may last is not one, wherever
         // in the hour that use fell: either the session was longer, or another came too soon.
+        // Use that is not one unbroken stretch has gaps, so it spans more than its total:
+        // one second is added then, which matters only at exactly the maximum.
         let useInside = { (session: DateInterval) -> TimeInterval in
-            hours.filter { $0.interval.end > session.start && $0.interval.start <= session.end }
-                .reduce(0) { $0 + $1.apps.reduce(0) { $0 + $1.seconds } }
+            let overlapping = hours.filter { $0.interval.end > session.start && $0.interval.start <= session.end }
+            let total = overlapping.reduce(0) { $0 + $1.apps.reduce(0) { $0 + $1.seconds } }
+            let unbroken = overlapping.count == 1 && (overlapping[0].longestActivity?.duration ?? 0) >= total
+            return unbroken ? total : total + 1
         }
         var mornings: [ScreenTimeMorning] = []
         var missing = 0
