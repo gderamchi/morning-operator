@@ -19,8 +19,16 @@ struct MorningOperatorApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--design-preview") {
+                HorizonDesignPreview().preferredColorScheme(testAppearance)
+            } else {
+                MorningRootView(store: store).preferredColorScheme(testAppearance)
+            }
+            #else
             MorningRootView(store: store)
                 .preferredColorScheme(testAppearance)
+            #endif
         }
     }
 }

@@ -1,0 +1,93 @@
+<!doctype html><html><head><meta charset="utf-8"><title>01 Dawn dither</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..100;1,9..144,300..600,0..100&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+.screen { background:#0c1a2e; color:#F2EDE3; font-family:"IBM Plex Mono",monospace; font-weight:300; }
+.sky { position:absolute; inset:0; width:100%; height:100%; }
+.content { position:absolute; inset:0; padding:64px 28px 40px; display:flex; flex-direction:column; }
+.date { font-size:12px; letter-spacing:.18em; text-transform:uppercase; opacity:.7; }
+h1 { font-family:Fraunces,serif; font-weight:300; font-variation-settings:"SOFT" 80,"opsz" 120; font-size:46px; line-height:1; margin:14px 0 0; letter-spacing:-.02em; }
+h1 i { font-style:italic; color:#E8895D; }
+.total { margin-top:10px; font-size:13px; opacity:.75; }
+ol { list-style:none; margin:40px 0 0; padding:0; display:flex; flex-direction:column; gap:0; }
+li { display:flex; justify-content:space-between; align-items:baseline; padding:13px 0; border-top:1px solid rgba(242,237,227,.18); font-size:17px; }
+li small { font-size:12px; opacity:.7; }
+li.done { opacity:.45; text-decoration:line-through; }
+li.now { color:#E8895D; }
+.foot { margin-top:auto; display:flex; justify-content:space-between; font-size:12px; letter-spacing:.16em; text-transform:uppercase; }
+.foot span { padding:12px 0; }
+.foot b { font-weight:500; color:#0c1a2e; background:#E8895D; padding:12px 18px; border-radius:2px; }
+.big { font-family:Fraunces,serif; font-weight:300; font-size:112px; line-height:.9; letter-spacing:-.04em; margin:26px 0 0; font-variation-settings:"opsz" 144; font-variant-numeric:tabular-nums; }
+.now-title { font-family:Fraunces,serif; font-size:34px; line-height:1.05; margin:18px 0 8px; font-weight:400; }
+.purpose { font-size:14px; line-height:1.7; opacity:.8; max-width:30ch; }
+.ctrl { margin-top:auto; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.ctrl span { text-align:center; padding:16px 0; border:1px solid rgba(242,237,227,.35); font-size:13px; letter-spacing:.14em; text-transform:uppercase; }
+.ctrl span.p { background:#F2EDE3; color:#0c1a2e; border-color:#F2EDE3; }
+.rec p { margin:0 0 18px; font-size:19px; line-height:1.55; }
+.rec p.w { font-family:Fraunces,serif; font-size:30px; line-height:1.15; font-weight:300; }
+.rec p em { font-style:normal; color:#E8895D; }
+.stack { margin-top:auto; display:flex; flex-direction:column; gap:8px; }
+.stack span { padding:16px; text-align:center; font-size:13px; letter-spacing:.14em; text-transform:uppercase; border:1px solid rgba(242,237,227,.35); }
+.stack span.p { background:#E8895D; color:#0c1a2e; border-color:#E8895D; }
+.pixsun { position:absolute; right:28px; top:60px; width:56px; height:56px; }
+</style></head><body>
+<div class="phone"><div class="screen">
+  <canvas class="sky" id="s1"></canvas>
+  <canvas class="pixsun" id="p1"></canvas>
+  <div class="content">
+    <div class="date">Tuesday 14 October</div>
+    <h1>good <i>morning</i></h1>
+    <div class="total">42 min planned</div>
+    <ol>
+      <li><span>Your day</span><small>3 min</small></li>
+      <li><span>People and messages</span><small>8 min</small></li>
+      <li><span>Mail</span><small>7 min</small></li>
+      <li><span>Make some tea</span><small>5 min</small></li>
+      <li><span>A little reading</span><small>6 min</small></li>
+      <li><span>A moment to move</span><small>10 min</small></li>
+      <li><span>One thought for later</span><small>3 min</small></li>
+    </ol>
+    <div class="foot"><span>Learn</span><span>History</span><b>Play</b></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <canvas class="sky" id="s2"></canvas>
+  <canvas class="pixsun" id="p2"></canvas>
+  <div class="content">
+    <div class="date">Now · 4 of 7</div>
+    <div class="big">3:40</div>
+    <div class="now-title">Make some tea</div>
+    <div class="purpose">A moment you’ve made room for.</div>
+    <ol style="margin-top:28px">
+      <li class="done"><span>Mail</span><small>7 min</small></li>
+      <li class="now"><span>Make some tea</span><small>5 min</small></li>
+      <li><span>A little reading</span><small>6 min</small></li>
+    </ol>
+    <div class="ctrl"><span class="p">Pause</span><span>Next</span><span>Again</span></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <canvas class="sky" id="s3"></canvas>
+  <canvas class="pixsun" id="p3"></canvas>
+  <div class="content rec">
+    <div class="date">Your day</div>
+    <p class="w" style="margin-top:26px">Here is your briefing for Tuesday 14 October.</p>
+    <p>Weather in Paris: <em>mostly cloudy, 11 degrees</em> Celsius.</p>
+    <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+    <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+    <div class="stack"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+  </div>
+</div></div>
+<script src="pix.js"></script>
+<script>
+const stops=['#0c1a2e','#2b2a4a','#7a3f4a','#c4653f','#e8895d','#f2ede3'];
+pix.ditherSky(document.getElementById('s1'),49,106,stops,{horizon:1.7,bias:0});   // pre-dawn: mostly night, glow at bottom
+pix.ditherSky(document.getElementById('s2'),49,106,stops,{horizon:1.15,bias:.1}); // mid: dawn climbing
+pix.ditherSky(document.getElementById('s3'),49,106,stops,{horizon:.9,bias:.25});  // day: light reaches the top
+pix.pixelSun(document.getElementById('p1'),7,'#e8895d',{fill:.3,dim:'rgba(232,137,93,.25)'});
+pix.pixelSun(document.getElementById('p2'),7,'#e8895d',{fill:.6,dim:'rgba(232,137,93,.25)'});
+pix.pixelSun(document.getElementById('p3'),7,'#f2ede3',{fill:1});
+</script>
+</body></html>
