@@ -63,7 +63,7 @@ public final class ObservationVisualAppRecognizer {
 
     /// Requires iOS 27's image input and an available on-device model with vision.
     public var isAvailable: Bool {
-        #if canImport(FoundationModels)
+        #if canImport(FoundationModels) && compiler(>=6.4)
         if #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) {
             let model = SystemLanguageModel.default
             guard case .available = model.availability else { return false }
@@ -80,7 +80,7 @@ public final class ObservationVisualAppRecognizer {
                           progress: (@MainActor (Int, Int) -> Void)? = nil) async throws -> [ObservationFrameAppSignal] {
         let names = Self.choices(candidates)
         guard isAvailable, !frames.isEmpty, !names.apps.isEmpty else { return [] }
-        #if canImport(FoundationModels)
+        #if canImport(FoundationModels) && compiler(>=6.4)
         guard #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) else { return [] }
         let schema: GenerationSchema
         do {
