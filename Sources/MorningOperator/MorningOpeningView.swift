@@ -25,7 +25,7 @@ struct MorningOpeningView: View {
                         .accessibilityValue(store.openingSpeechObservation)
                 }
                 if let attribution = presentation.document?.weatherAttribution,
-                   opening.segments.contains(where: { $0.source == .weather || $0.source == .umbrella }) {
+                   opening.segments.contains(where: { $0.source == .weather || $0.source == .umbrella || $0.id == "extra.weatherChange" }) {
                     MorningWeatherAttributionView(attribution: attribution, synthetic: store.usesSyntheticBriefing)
                 }
                 choices(opening)

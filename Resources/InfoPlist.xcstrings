@@ -37,6 +37,42 @@
         }
       }
     },
+    "NSContactsUsageDescription": {
+      "comment": "Privacy usage description",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE reads contact birthdays to mention one in your morning. Names are spoken and never saved."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE lit les anniversaires de vos contacts pour en mentionner un le matin. Les noms sont dits et jamais enregistrés."
+          }
+        }
+      }
+    },
+    "NSHealthShareUsageDescription": {
+      "comment": "Privacy usage description",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE reads your sleep and step count to say one short sentence in your morning. Nothing is written to Health or saved by MORE."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE lit votre sommeil et votre nombre de pas pour dire une phrase courte le matin. Rien n’est écrit dans Santé ni enregistré par MORE."
+          }
+        }
+      }
+    },
     "NSMicrophoneUsageDescription": {
       "comment": "Privacy usage description",
       "extractionState": "manual",

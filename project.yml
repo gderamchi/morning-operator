@@ -44,6 +44,9 @@ targets:
         product: MorningCore
       - package: MorningOperatorShared
         product: MorningApple
+      # Sleep and steps for the morning extras. HealthKit needs the capability on the App ID.
+      - package: MorningOperatorShared
+        product: MorningHealth
       - target: MorningActivityWidget
         embed: true
         link: false

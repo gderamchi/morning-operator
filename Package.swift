@@ -8,8 +8,8 @@ let package = Package(
     products: [
         .library(name: "MorningCore", targets: ["MorningCore"]),
         .library(name: "MorningApple", targets: ["MorningApple"]),
-        // The only code that imports HealthKit. The app does not link this product:
-        // it stays out until the owner adds the HealthKit entitlement and usage text.
+        // The only code that imports HealthKit. The app links it for the morning extras
+        // (sleep and steps); the briefing's own sleep section still has no reader.
         .library(name: "MorningHealth", targets: ["MorningHealth"])
     ],
     targets: [

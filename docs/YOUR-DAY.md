@@ -36,7 +36,7 @@ During a routine, the recap is pinned to that session and moment. **Repeat** use
 
 ## Sleep duration (logic only, not connected)
 
-Sleep duration is the one health observation chosen for [issue #15](https://github.com/gibouu/morning-operator/issues/15). The shared logic exists and is tested with synthetic samples. **The app reads no health data today**: it has no HealthKit entitlement, no usage description, no screen for the choice, and it does not link the module that imports HealthKit (`MorningHealth`). That module's reader has never run against real data. A device check is still to do.
+Sleep duration is the one health observation chosen for [issue #15](https://github.com/gibouu/morning-operator/issues/15). The shared logic exists and is tested with synthetic samples. **The recap's sleep section still has no reader**: it has no screen for the choice. The app now links `MorningHealth`, declares the HealthKit entitlement and a usage description, but only for the short extras below. No HealthKit reader has run against real data yet. A device check is still to do.
 
 What the logic does once a reader is connected:
 
@@ -59,6 +59,44 @@ No sentence says that permission was refused. HealthKit answers a refused read w
 **Expected sources.** An Apple Watch worn at night records sleep stages. An iPhone alone records mostly "in bed" time from a sleep schedule, which is not counted. Other apps and entries typed in the Health app may record asleep time. The source kind (watch, phone, another app, manual entry, unknown) is worked out from the source's bundle identifier, its hardware model string and the "entered by the user" flag; HealthKit has no field that states it. An iPad or a Mac may have no health data store. None of this coverage has been checked on a device.
 
 Samples, the total and the sentence stay in memory. Only the on/off choice is saved, in `briefing-settings.json`.
+
+## Short extras
+
+After the opening's own facts, MORE can add up to three short sentences, about ten seconds in all, then asks its usual question. Turn each one on or off in **Settings → Your day → Short extras**.
+
+| Extra | Source | Needs an Apple Watch? | On by default |
+|---|---|---|---|
+| Sleep last night | Health sleep analysis. Asleep stages when a watch recorded them; otherwise "time in bed" from an iPhone Sleep schedule, said as time in bed, never as sleep. | No | Yes |
+| Steps yesterday | Health step count (the iPhone counts steps), compared with the mean of the seven days before. | No | Yes |
+| Weather change | WeatherKit, for the city chosen above: rain or snow likely later today, or a daily high at least 5 °C (9 °F) away from yesterday's. | No | Yes |
+| Calendar clash | The calendars chosen above: the first overlap, or a gap under ten minutes, among today's timed events. | No | No |
+| Birthdays | Contacts, names spoken and never saved. | No | No |
+| Screen time | A hook for the Screen Time work. Shown as not available until that work provides a reader. | — | No |
+
+The rules:
+
+- **No data is silence.** A source that is off, not permitted, failed, late (four seconds) or has no record says nothing. A day without steps is left out of the mean, not counted as zero; the mean needs four recorded days.
+- **Units.** Temperature follows the unit chosen above. A difference converts by 9/5 only: 10 °C warmer is 18 °F warmer.
+- **Time.** Days are local midnights in the device's time zone (a day across a clock change is 23 or 25 hours). Clock times are in the device's time zone, like the recap.
+- **Choice.** Calendar clashes and birthdays come first when they exist. The other kinds rotate: a kind said yesterday steps back so another can speak.
+- **Weather attribution.** A weather extra is shown only when the recap's weather, with Apple Weather's attribution, is current.
+- **Prompts.** Reading never prompts. Health asks once, from **Allow Health for sleep and steps** or when you turn sleep or steps on. Contacts asks when you turn birthdays on. Until Health was asked, sleep and steps are not read at all.
+
+Only the choices and the day each kind was last said are saved, in `morning-extras.json`. Full local forgetting removes it.
+
+**Device setup.** The app's App ID needs the HealthKit capability (Xcode → Signing & Capabilities), as WeatherKit does. Without it the Health prompt fails and sleep and steps stay silent. None of these readers has been checked on a device yet.
+
+## Closing questions
+
+When the routine is complete, the closing card asks three questions, one at a time:
+
+1. "Did you have a dream you want to note?" → the dream capture.
+2. "Anything you want to remember today, or something you forgot?" → a reminder draft.
+3. "Any note to take?" → a thought.
+
+**Speak** opens the existing listening sheet, which reads the question aloud (when spoken guidance is on) and listens. "No", "nothing", "non merci" or silence moves to the next question in the same sheet. An answer opens the usual review screen, starting with the question's kind; the words still decide, so "I dreamed…" stays a dream. **Write** opens the same review typed. **Skip** moves on; **Not now** ends the questions.
+
+A reminder is created only by **Add to Reminders** in review, through the existing EventKit path. A spoken time ("remind me at 5 to call the bank", "à 17h") becomes a proposed alert time to review: without am or pm, the next of 05:00 and 17:00. Without a time, the reminder has no alert. Closing the review, saved or not, moves to the next question. The questions live in memory; a relaunch does not ask them again.
 
 ## What is saved and sent
 

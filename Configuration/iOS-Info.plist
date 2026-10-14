@@ -63,6 +63,10 @@
 	<string>MORE adds the calendar event you review and choose to save.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>MORE saves the reminders you confirm and can read reminders for your morning briefing.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>MORE reads your sleep and step count to say one short sentence in your morning. Nothing is written to Health or saved by MORE.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>MORE reads contact birthdays to mention one in your morning. Names are spoken and never saved.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

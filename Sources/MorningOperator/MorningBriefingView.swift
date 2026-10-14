@@ -38,6 +38,7 @@ struct MorningBriefingView: View {
                 } else {
                     calendarSection.disabled(store.sessionActive)
                     weatherSection.disabled(store.sessionActive)
+                    MorningExtrasSettingsSection(store: store).disabled(store.sessionActive)
                     previewSection
                     routineSection
                 }

@@ -248,6 +248,7 @@ struct MorningRootView: View {
     private func captureReviewDismissed() {
         store.capturePrefill = ""
         store.captureSource = .typed
+        store.closingReviewEnded()
         if presentingIntentCapture {
             MorningIntentRouter.shared.finishCaptureReview()
             presentingIntentCapture = false
@@ -828,8 +829,16 @@ struct TodayView: View {
 
     private var closingMoment: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(store.shouldOfferCompletionReflection ? "Save a thought?" : "Morning complete.")
-                .font(.headline).accessibilityIdentifier("run.step")
+            Group {
+                if let question = store.currentClosingQuestion {
+                    // One closing question at a time, in the app's language.
+                    Text(verbatim: question.prompt(french: AppLanguage.localeIdentifier.hasPrefix("fr")))
+                } else {
+                    Text(store.shouldOfferCompletionReflection ? "Save a thought?" : "Morning complete.")
+                }
+            }
+            .font(.headline).accessibilityIdentifier("run.step")
+            .accessibilityValue(store.currentClosingQuestion?.rawValue ?? "")
             Text(store.stateLabel).font(.caption).foregroundStyle(MorningStyle.muted)
                 .accessibilityIdentifier("run.state").accessibilityValue(store.stateLabel)
             if store.shouldOfferCompletionReflection {
@@ -844,8 +853,13 @@ struct TodayView: View {
         Button("Speak", systemImage: "mic") { store.openCompletionCapture() }
             .buttonStyle(.glassProminent).tint(MorningStyle.controlTint)
             .disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
-        Button("Write", systemImage: "square.and.pencil") { store.openCapture() }
+        Button("Write", systemImage: "square.and.pencil") { store.answerClosingQuestionInWriting() }
             .buttonStyle(.borderless).accessibilityIdentifier("morning.reflect")
+        if store.currentClosingQuestion != nil {
+            // "No" to this question; the next one follows.
+            Button("Skip") { store.skipClosingQuestion() }
+                .buttonStyle(.borderless).accessibilityIdentifier("morning.skipQuestion")
+        }
         Button("Not now") { store.discardCompletionReflection() }
             .buttonStyle(.borderless).accessibilityIdentifier("morning.dismissReflection")
     }

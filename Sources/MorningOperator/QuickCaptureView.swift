@@ -100,6 +100,8 @@ struct QuickCaptureView: View {
     @ViewState<String?> private var lastInterpretedText = nil
     @ViewState<UUID> private var captureID = UUID()
     @ViewState<QuickCaptureSource> private var source: QuickCaptureSource = .typed
+    /// The kind a closing question asked for. Only words without their own kind take it.
+    @ViewState<QuickCaptureKind?> private var kindHint = nil
     private var isSchedule: Bool { kind == .reminder || kind == .calendarIdea }
     private var buttonTitle: String {
         if isSchedule && saveToSystem { return kind == .reminder ? String(localized: "Add to Reminders") : String(localized: "Add to Calendar") }
@@ -185,13 +187,24 @@ struct QuickCaptureView: View {
             store.notice = nil
             text = store.capturePrefill
             source = store.captureSource
+            kindHint = store.captureKindHint
+            if let kindHint { kind = kindHint }
             if !text.isEmpty { interpret() }
         }
     }
 
     private func interpret() {
         guard text != lastInterpretedText else { return }
-        let parsed = CaptureRequestParser.parse(text)
+        let destination: CaptureDestination
+        switch kindHint {
+        case .dream: destination = .dream
+        case .reminder: destination = .reminder
+        case .calendarIdea: destination = .calendar
+        case .thought, nil: destination = .thought
+        }
+        // A reminder is still only a draft: the person reviews the text and any time, and
+        // nothing is added to Reminders before "Add to Reminders".
+        let parsed = CaptureRequestParser.parse(text, defaultDestination: destination)
         switch parsed.destination {
         case .thought: kind = .thought
         case .dream: kind = .dream

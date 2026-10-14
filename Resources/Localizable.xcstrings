@@ -3240,6 +3240,16 @@
         }
       }
     },
+    "Allow Health for sleep and steps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autoriser Santé pour le sommeil et les pas"
+          }
+        }
+      }
+    },
     "Already in your morning": {
       "localizations": {
         "fr": {
@@ -3306,6 +3316,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’analyse utilise le modèle d’Apple sur l’appareil lorsqu’il est disponible. Elle ne lance pas d’autres apps et n’approuve pas de routine à votre place."
+          }
+        }
+      }
+    },
+    "Answer in your own words, or say “no” to skip.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondez avec vos mots, ou dites « non » pour passer."
           }
         }
       }
@@ -3810,6 +3830,16 @@
         }
       }
     },
+    "Birthdays among contacts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anniversaires de vos contacts"
+          }
+        }
+      }
+    },
     "Bring a recording you've made": {
       "localizations": {
         "fr": {
@@ -3856,6 +3886,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Calendrier"
+          }
+        }
+      }
+    },
+    "Calendar clash or tight gap": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conflit ou battement serré dans l’agenda"
           }
         }
       }
@@ -4062,6 +4102,16 @@
         }
       }
     },
+    "Choose a city above first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez d’abord une ville ci-dessus."
+          }
+        }
+      }
+    },
     "Choose a date and time for the calendar event.": {
       "localizations": {
         "fr": {
@@ -4138,6 +4188,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choisir les calendriers"
+          }
+        }
+      }
+    },
+    "Choose calendars above first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez d’abord des calendriers ci-dessus."
           }
         }
       }
@@ -4602,6 +4662,16 @@
         }
       }
     },
+    "Contacts access is off. Allow it in the Settings app.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès aux contacts est désactivé. Autorisez-le dans l’app Réglages."
+          }
+        }
+      }
+    },
     "Continue": {
       "localizations": {
         "fr": {
@@ -4648,6 +4718,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossible de restaurer votre espace enregistré : %@"
+          }
+        }
+      }
+    },
+    "Counted by your iPhone, compared with your 7-day average.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptés par votre iPhone, comparés à votre moyenne sur 7 jours."
           }
         }
       }
@@ -5566,6 +5646,16 @@
         }
       }
     },
+    "Health access couldn't be asked. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès à Santé n’a pas pu être demandé. %@"
+          }
+        }
+      }
+    },
     "Hear my recap": {
       "localizations": {
         "fr": {
@@ -6430,6 +6520,16 @@
         }
       }
     },
+    "Names are spoken, never saved.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les noms sont dits, jamais enregistrés."
+          }
+        }
+      }
+    },
     "New app activity will no longer be saved. Existing activity stays until you remove local data.": {
       "localizations": {
         "fr": {
@@ -6486,6 +6586,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Non"
+          }
+        }
+      }
+    },
+    "No Apple Watch needed: an iPhone with a Sleep schedule records time in bed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas besoin d’Apple Watch : un iPhone avec un horaire de sommeil enregistre le temps au lit."
           }
         }
       }
@@ -6806,6 +6916,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucune"
+          }
+        }
+      }
+    },
+    "Not available in this build.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas disponible dans cette version de l’app."
+          }
+        }
+      }
+    },
+    "Not available in this version.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas disponible dans cette version."
           }
         }
       }
@@ -9342,6 +9472,16 @@
         }
       }
     },
+    "Screen time yesterday": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran d’hier"
+          }
+        }
+      }
+    },
     "Screens that appeared across your mornings.": {
       "localizations": {
         "fr": {
@@ -9802,6 +9942,16 @@
         }
       }
     },
+    "Short extras": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Petits plus"
+          }
+        }
+      }
+    },
     "Show all languages": {
       "localizations": {
         "fr": {
@@ -9892,6 +10042,16 @@
         }
       }
     },
+    "Skip": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer"
+          }
+        }
+      }
+    },
     "Skip this moment": {
       "localizations": {
         "fr": {
@@ -9908,6 +10068,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Passé"
+          }
+        }
+      }
+    },
+    "Sleep last night": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sommeil de la nuit"
           }
         }
       }
@@ -10192,6 +10362,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nom de l’étape"
+          }
+        }
+      }
+    },
+    "Steps yesterday": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas d’hier"
           }
         }
       }
@@ -11022,6 +11202,16 @@
         }
       }
     },
+    "This choice couldn't be saved or the permission couldn't be asked. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce choix n’a pas pu être enregistré ou l’autorisation n’a pas pu être demandée. %@"
+          }
+        }
+      }
+    },
     "This evidence stays separate from personal mornings. Dates and origins can be reviewed in the source observation.": {
       "localizations": {
         "fr": {
@@ -11772,6 +11962,16 @@
         }
       }
     },
+    "Up to three short facts after the opening, about ten seconds in all. Nothing read for them is saved; only these choices are. When a source has nothing, MORE says nothing about it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jusqu’à trois faits courts après l’ouverture, environ dix secondes en tout. Rien de ce qui est lu n’est enregistré, seulement ces choix. Quand une source n’a rien, MORE n’en dit rien."
+          }
+        }
+      }
+    },
     "Update approved. Your next morning will use this routine.": {
       "localizations": {
         "fr": {
@@ -11908,6 +12108,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Météo"
+          }
+        }
+      }
+    },
+    "Weather change worth knowing": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changement de météo utile"
           }
         }
       }

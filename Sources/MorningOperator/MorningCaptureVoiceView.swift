@@ -18,10 +18,19 @@ struct MorningCaptureVoiceView: View {
                     Image(systemName: store.voiceCommands.state == .listening ? "waveform" : "mic")
                         .scaledFont(36, relativeTo: .largeTitle, weight: .light).foregroundStyle(MorningStyle.accent)
                         .accessibilityHidden(true)
-                    Text("What's on your mind?")
-                        .font(.system(.largeTitle, design: .serif, weight: .medium))
-                    Text("A thought, a dream, something for later. Say it in your own words.")
-                        .foregroundStyle(MorningStyle.muted)
+                    if let question = store.currentClosingQuestion {
+                        Text(verbatim: question.prompt(french: language == .french))
+                            .font(.system(.largeTitle, design: .serif, weight: .medium))
+                            .accessibilityIdentifier("captureVoice.question")
+                            .accessibilityValue(question.rawValue)
+                        Text("Answer in your own words, or say “no” to skip.")
+                            .foregroundStyle(MorningStyle.muted)
+                    } else {
+                        Text("What's on your mind?")
+                            .font(.system(.largeTitle, design: .serif, weight: .medium))
+                        Text("A thought, a dream, something for later. Say it in your own words.")
+                            .foregroundStyle(MorningStyle.muted)
+                    }
                     Picker("Spoken language", selection: $language) {
                         Text("English").tag(MorningVoiceCommandLanguage.english)
                         Text("Français").tag(MorningVoiceCommandLanguage.french)

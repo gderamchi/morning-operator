@@ -1,6 +1,7 @@
 import Foundation
 import MorningCore
 import MorningApple
+import MorningHealth
 
 /// The opening of a morning as the screen shows it (issue #28). It lives in memory only:
 /// a relaunch pauses the morning and does not bring the opening back.
@@ -77,24 +78,57 @@ extension MorningStore {
         guard !privacyBlocksWork, let session, session.status == .running else { return }
         let sessionID = session.id
         openingPresentation = MorningOpeningPresentation(sessionID: sessionID)
-        guard briefing.hasConfiguredSources else {
+        let readsExtras = extras.hasReadableSources(weatherLocation: briefing.settings.weatherLocation,
+                                                    calendarSelected: !briefing.settings.calendarIDs.isEmpty)
+        guard briefing.hasConfiguredSources || readsExtras else {
             // Nothing to read: the opening is on screen before `start()` returns.
-            presentOpening(document: nil, sessionID: sessionID, mayGreet: mayGreet)
+            presentOpening(document: nil, extras: .empty, sessionID: sessionID, mayGreet: mayGreet)
             return
         }
         openingTask = Task { [weak self] in
             guard let self else { return }
-            // The same preparation a briefing moment uses: current sections come from
-            // memory, the others are read again within the source deadline.
-            let document = await briefing.refresh()
+            // The extras are read at the same time as the briefing, each within its own deadline.
+            let extrasTask = readsExtras ? Task { [weak self] in await self?.prepareExtras() ?? .empty } : nil
+            // Pause, Stop or forgetting cancels this task; the extras reads stop with it.
+            let (document, selection) = await withTaskCancellationHandler {
+                // The same preparation a briefing moment uses: current sections come from
+                // memory, the others are read again within the source deadline.
+                let document = briefing.hasConfiguredSources ? await briefing.refresh() : nil
+                return (document, await extrasTask?.value ?? .empty)
+            } onCancel: { extrasTask?.cancel() }
             guard !Task.isCancelled, openingPresentation?.sessionID == sessionID,
-                  openingPresentation?.phase == .preparing else { return }
+                  openingPresentation?.phase == .preparing else { extrasTask?.cancel(); return }
             openingTask = nil
-            presentOpening(document: document, sessionID: sessionID, mayGreet: mayGreet)
+            presentOpening(document: document, extras: selection, sessionID: sessionID, mayGreet: mayGreet)
         }
     }
 
-    private func presentOpening(document: PreparedMorningBriefing?, sessionID: UUID, mayGreet: Bool) {
+    /// The readers this build has. UI tests get none: no Health, Contacts or Weather request.
+    static func makeExtras(directory: URL, testing: Bool) -> MorningExtrasProvider {
+        let store = MorningExtrasPreferencesStore(directory: directory)
+        guard !testing else { return MorningExtrasProvider(store: store) }
+        return MorningExtrasProvider(store: store, health: HealthKitMorningExtrasReader(),
+                                     birthdays: ContactsBirthdayReader(),
+                                     weatherOutlook: { try await NativeWeatherOutlook.read($0, frame: $1) })
+    }
+
+    private func prepareExtras() async -> MorningExtrasSelection {
+        let settings = briefing.settings
+        let source = briefing
+        let calendarEvents: MorningExtrasProvider.CalendarEventsProvider? = settings.calendarIDs.isEmpty ? nil : { @MainActor frame in
+            guard let events = source.selectedEvents(on: frame.now, timeZone: frame.timeZone) else {
+                throw CalendarObservationError.notAuthorized
+            }
+            return events
+        }
+        return await extras.prepare(now: Date(), timeZone: .current, localeIdentifier: AppLanguage.localeIdentifier,
+            weatherLocation: settings.weatherLocation,
+            temperatureUnit: settings.temperatureUnit == .fahrenheit ? .fahrenheit : .celsius,
+            calendarEvents: calendarEvents)
+    }
+
+    private func presentOpening(document: PreparedMorningBriefing?, extras selection: MorningExtrasSelection,
+                                sessionID: UUID, mayGreet: Bool) {
         let now = Date(), zone = TimeZone.current.identifier
         guard !privacyBlocksWork, session?.id == sessionID, session?.status == .running,
               let source = document ?? briefingWithoutFacts(at: now, timeZoneIdentifier: zone) else {
@@ -105,7 +139,14 @@ extension MorningStore {
         }
         // No counts, forecast or sender share: this version has no source for them, so
         // the composer says nothing about them.
-        let opening = MorningOpeningComposer.compose(briefing: source, at: now, timeZoneIdentifier: zone)
+        // Weather extras are presented only beside Apple Weather's attribution, which comes
+        // with a fresh weather section of the briefing.
+        var shown = document?.weatherAttribution == nil ? selection.removing(.weatherChange) : selection
+        // Prepared before midnight or in another time zone: its "today" and its clock times
+        // belong elsewhere.
+        if !shown.isCurrent(day: MorningExtrasDay.number(for: now, timeZone: .current), timeZoneIdentifier: zone) { shown = .empty }
+        let opening = MorningOpeningComposer.compose(briefing: source, at: now, timeZoneIdentifier: zone, extras: shown)
+        if opening.segments.contains(where: { $0.source == .extra }) { extras.recordSpoken(shown, now: now, timeZone: .current) }
         openingPresentation = MorningOpeningPresentation(sessionID: sessionID, phase: .choosing,
                                                          opening: opening, document: document)
         if mayGreet, readAloud, !voiceInputBlocksPlayback {
