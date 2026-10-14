@@ -226,6 +226,34 @@ struct ScreenTimeRoutineLearningTests {
         #expect(proposal.steps.first { $0.title == "Safari" }?.minutes == 12)
     }
 
+    @Test func aLongUseAtNightIsNotSkippedAsANightCheck() throws {
+        let hours = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(3), pickup: at(3), longest: (at(3), at(3, 10)), [app("com.apple.mobilesafari", 30)]),
+                     hour(at(7), pickup: at(7, 5), longest: (at(7, 5), at(7, 30)), [app("com.apple.MobileSMS", 25)])]
+        let morning = try #require(learn(hours, now: at(12), queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning.start == at(3))
+        let short = [hours[0], hour(at(3), pickup: at(3), longest: (at(3), at(3, 4)), [app("com.apple.mobilesafari", 4)]), hours[2]]
+        #expect(learn(short, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(7, 5))
+    }
+
+    @Test func savedChoicesApplyByTitleEvenWithDuplicatesOrKeeps() throws {
+        let hours = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(7), pickup: at(7, 5), longest: (at(7, 5), at(7, 50)),
+                          [app("com.lichess.mobileapp", 10), app("org.lichess.mobileapp", 8), app("com.apple.mobilesafari", 20), app("com.apple.MobileSMS", 12)])]
+        let learning = learn(hours, now: at(12), queryStart: at(18, day: 13))
+        var proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        var journal = RoutinePreferenceJournal()
+        let lichess = try RoutinePreference(target: RoutineStep(title: "Lichess", kind: .entertainment), durationMinutes: 6)
+        let safari = try RoutinePreference(target: RoutineStep(title: "Safari", kind: .custom), presence: .exclude)
+        let messages = try RoutinePreference(target: RoutineStep(title: "Messages", kind: .messages), presence: .keep, durationMinutes: 5)
+        for entry in [lichess, safari, messages] { try journal.upsert(entry) }
+        let kept = proposal.applyPreferences(journal)
+        #expect(kept)
+        #expect(!proposal.steps.contains { $0.title == "Safari" })
+        #expect(proposal.steps.filter { $0.title == "Lichess" }.allSatisfy { $0.minutes == 6 })
+        #expect(proposal.steps.first { $0.title == "Messages" }?.minutes == 5)
+    }
+
     @Test func useAroundMidnightIsNotADoubleMorning() {
         let hours = [hour(at(20, day: 13), pickup: at(20, 0, day: 13), longest: (at(20, 0, day: 13), at(20, 10, day: 13)), [app("com.apple.mobilesafari", 10)]),
                      hour(at(0, day: 14), pickup: at(0, 0, day: 14), longest: (at(0, 0, day: 14), at(0, 30, day: 14)), [app("com.apple.mobilesafari", 30)]),

@@ -107,8 +107,20 @@ public enum ScreenTimeMorningLearner {
         let lastDay = calendar.startOfDay(for: now)
         while day <= lastDay, days < 60 {
             days += 1
-            switch MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
-                                               policy: policy, calendar: calendar) {
+            var result = MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
+                                                     policy: policy, calendar: calendar)
+            // A skipped "night check" whose hours hold more use than a night check may last was
+            // real use the hourly evidence could not place: by the rule it is not a night check.
+            if case .found(let found) = result, found.skippedSessions.contains(where: { skipped in
+                hours.filter { $0.interval.end > skipped.start && $0.interval.start <= skipped.end }
+                    .reduce(0) { $0 + $1.apps.reduce(0) { $0 + $1.seconds } } > policy.nightCheckMaximumLength
+            }) {
+                var strict = policy
+                strict.nightCheckLatestHour = 0
+                result = MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
+                                                     policy: strict, calendar: calendar)
+            }
+            switch result {
             case .found(let found) where calendar.component(.hour, from: found.start) >= latestStartHour
                 || calendar.startOfDay(for: found.start) != day:
                 // An evening, or use at midnight that belongs to the day before: not this day's morning.
@@ -371,14 +383,17 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
     }
 
     /// Applies the owner's saved choices: an app he excluded from suggestions is removed and
-    /// a saved duration becomes the starting minutes. Returns false when nothing is left.
-    /// Unclear matches leave the suggestion as it is: the review still shows everything.
+    /// a saved duration becomes the starting minutes. Matching is by title and kind, as the
+    /// journal matches, and every step that matches gets the choice. Keep choices add nothing:
+    /// the review shows only what Screen Time found. Returns false when nothing is left.
     public mutating func applyPreferences(_ journal: RoutinePreferenceJournal) -> Bool {
-        let candidates = steps.map { RoutineStep(id: $0.id, title: $0.title, kind: $0.kind.stepKind, durationMinutes: $0.minutes) }
-        guard let result = try? journal.reconcile(steps: candidates) else { return !steps.isEmpty }
-        steps.removeAll { result.excludedStepIDs.contains($0.id) }
-        for index in steps.indices where result.durationOverriddenStepIDs.contains(steps[index].id) {
-            if let minutes = result.steps.first(where: { $0.id == steps[index].id })?.durationMinutes {
+        for entry in journal.entries {
+            let matches = { (step: Step) in
+                step.kind.stepKind == entry.targetKind && preferenceTitleKey(step.title) == entry.normalizedTitle
+            }
+            if entry.presence == .exclude { steps.removeAll(where: matches); continue }
+            guard let minutes = entry.durationMinutes else { continue }
+            for index in steps.indices where matches(steps[index]) {
                 steps[index].minutes = min(max(minutes, Self.minutesRange.lowerBound), Self.minutesRange.upperBound)
             }
         }
