@@ -108,9 +108,13 @@ public enum ScreenTimeMorningLearner {
             days += 1
             switch MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
                                                policy: policy, calendar: calendar) {
-            case .found(let detected) where calendar.component(.hour, from: detected.start) >= latestStartHour:
+            case .found(let detected) where calendar.component(.hour, from: detected.start) >= latestStartHour
+                || calendar.startOfDay(for: detected.start) != day:
+                // An evening, or use at midnight that belongs to the day before: not this day's morning.
                 missing += 1
-            case .found(let detected) where detected.endReason != .ongoing:
+            case .found(let detected) where detected.endReason != .ongoing
+                // Hourly data for the last hour is not final: a pause seen in it may not be real.
+                && now.timeIntervalSince(detected.end) >= 3600 + policy.sessionGap:
                 mornings.append(morning(detected, hours: hours, calendar: calendar))
             case .found: break
             case .noData, .noSleepGapCovered: missing += 1
@@ -143,8 +147,11 @@ public enum ScreenTimeMorningLearner {
                 ScreenTimeAppHour(bundleIdentifier: app.bundleIdentifier, seconds: min(app.seconds, hour.interval.duration),
                                   pickups: max(0, app.pickups), categoryName: app.categoryName)
             }
-            let onlyOwnUse = clipped.isEmpty && hour.apps.contains { ScreenTimeAppCatalog.isOwnOrTest($0.bundleIdentifier, ownBundleIdentifiers: ownBundleIdentifiers) }
-                && hour.apps.allSatisfy { ScreenTimeAppCatalog.isOwnOrTest($0.bundleIdentifier, ownBundleIdentifiers: ownBundleIdentifiers) || $0.seconds <= 0 }
+            // System sheets (Face ID) appear alongside test-driven use too, so they do not
+            // make an hour of MORE or test-runner use count as the owner's.
+            let onlyOwnUse = clipped.isEmpty && hour.apps.contains {
+                $0.seconds > 0 && ScreenTimeAppCatalog.isOwnOrTest($0.bundleIdentifier, ownBundleIdentifiers: ownBundleIdentifiers)
+            }
             if onlyOwnUse { return nil }
             guard !clipped.isEmpty || hour.firstPickup != nil || hour.longestActivity != nil else { return nil }
             return ScreenTimeHour(interval: hour.interval, firstPickup: hour.firstPickup, longestActivity: hour.longestActivity, apps: clipped)
@@ -235,8 +242,8 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
         public let morningsSeen: Int
         /// True when every contributing hour lay wholly inside its morning.
         public let minutesMeasured: Bool
-        /// True only for the first-pickup app when it was first on most mornings; any other
-        /// position comes from hourly data and is estimated.
+        /// Always false today: pickups per app are counts without times, so even the first
+        /// app is a likely guess. Kept so a timed source (app-transition log) can set it.
         public let orderMeasured: Bool
         /// Social, video or games with a typical stretch of `attentionSinkMinutes` or more.
         public let isAttentionSink: Bool
@@ -313,7 +320,7 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
             return Step(id: UUID(), bundleIdentifier: candidate.id, title: entry.name, kind: entry.kind,
                         medianMinutes: candidate.minutes, morningsSeen: candidate.item.seconds.count,
                         minutesMeasured: candidate.item.measured,
-                        orderMeasured: candidate.id == leader && candidate.first * 2 >= mornings.count,
+                        orderMeasured: false,
                         isAttentionSink: entry.kind.isAttentionSink && candidate.minutes >= attentionSinkMinutes,
                         included: true, minutes: candidate.minutes)
         }
@@ -334,21 +341,16 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
         steps[index].minutes = min(max(minutes, Self.minutesRange.lowerBound), Self.minutesRange.upperBound)
     }
 
-    /// The draft routine for the included steps, in order. Kept rituals and saved timing
-    /// choices of the current routine are carried over the same way as for any suggestion.
-    public func draft(preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal, at date: Date = .now) throws -> RoutineVersion {
+    /// The draft routine: exactly the included steps, in order, with the reviewed minutes.
+    /// What the owner approves is what he saw; nothing is added, removed or retimed after review.
+    public func draft(preserving base: RoutineVersion?, at date: Date = .now) throws -> RoutineVersion {
         let steps = includedSteps.map { step in
             RoutineStep(title: step.title, detail: Self.detail(for: step, of: morningsUsed), kind: step.kind.stepKind,
                         durationMinutes: step.minutes)
         }
         guard !steps.isEmpty else { throw ScreenTimeProposalError.nothingIncluded }
-        let candidate = RoutineVersion(createdAt: date, sourceLabel: String(localized: "From Screen Time", bundle: .module), steps: steps)
-        // As for any suggestion, kept moments come back only through the journal.
-        let inheritance = base.map { prior -> RoutineVersion in var copy = prior; copy.steps = []; return copy }
-        let inferred = RoutineVersion.inferredDraft(from: candidate, preserving: inheritance, at: date)
-        var routine = inferred
-        routine.steps = try preferences.reconcile(steps: inferred.steps).steps
-        return routine
+        return RoutineVersion(number: base?.nextNumber ?? 1, createdAt: date,
+                              sourceLabel: String(localized: "From Screen Time", bundle: .module), steps: steps)
     }
 
     static func detail(for step: Step, of mornings: Int) -> String {

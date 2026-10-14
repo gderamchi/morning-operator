@@ -80,7 +80,7 @@ struct ScreenTimeProposalView: View {
                                 .font(.subheadline).foregroundStyle(MorningStyle.muted)
                                 .accessibilityIdentifier("screenTimeProposal.sources")
                             Text(store.routine == nil ? "Review the apps, then approve when ready."
-                                 : "Your current routine stays ready until you approve.")
+                                 : "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.")
                                 .font(.caption).foregroundStyle(MorningStyle.muted)
                         }.padding(.vertical, 4)
                     }
@@ -91,7 +91,7 @@ struct ScreenTimeProposalView: View {
                         DisclosureGroup("Measured or estimated?") {
                             Text("Measured: Screen Time counted these minutes inside your morning. Estimated: an hour ran past the end of your morning, so its minutes were shared out.")
                                 .font(.caption).foregroundStyle(MorningStyle.muted)
-                            Text("Screen Time gives minutes per hour, not the order inside an hour. The first app comes from what you opened from the Lock Screen; the rest follow by hour, then by minutes.")
+                            Text("Screen Time gives minutes per hour, not the order inside an hour. So the order is estimated: the app you open most often from the Lock Screen comes first, then the others by hour, then by minutes.")
                                 .font(.caption).foregroundStyle(MorningStyle.muted)
                         }
                     }
@@ -158,9 +158,6 @@ struct ScreenTimeProposalView: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(step.minutesMeasured ? MorningStyle.green : MorningStyle.muted)
                     .accessibilityIdentifier("screenTimeProposal.label.\(index)")
-                if !step.orderMeasured {
-                    Text("Place in order estimated").font(.caption).foregroundStyle(MorningStyle.muted)
-                }
                 if step.isAttentionSink {
                     Label("Long scroll: you could keep this one shorter", systemImage: "exclamationmark.triangle")
                         .font(.caption).foregroundStyle(MorningStyle.accent)

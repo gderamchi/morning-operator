@@ -79,7 +79,8 @@ struct SystemScreenTimeSource: ScreenTimeSource {
 
     @available(iOS 26.4, *)
     nonisolated private static func read(from start: Date, to end: Date) async throws -> [ScreenTimeHour] {
-        let filter = DeviceActivityFilter(segment: .hourly(during: DateInterval(start: start, end: end)), devices: .init([.iPhone]))
+        // No device filter: this iPhone only, never another device on the same account.
+        let filter = DeviceActivityFilter(segment: .hourly(during: DateInterval(start: start, end: end)))
         var hours: [ScreenTimeHour] = []
         for try await data in DeviceActivityData.activityData(filteredBy: filter, using: .live) {
             for await segment in data.activitySegments {

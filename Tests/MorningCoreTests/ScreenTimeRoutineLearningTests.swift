@@ -95,8 +95,7 @@ struct ScreenTimeRoutineLearningTests {
         #expect(proposal.typicalStartMinuteOfDay == 7 * 60 + 12)
         #expect(proposal.steps.map(\.title) == ["WhatsApp", "Safari", "YouTube", "Chess.com", "Mail"])
         #expect(proposal.steps.map(\.minutes) == [3, 40, 30, 25, 4])
-        #expect(proposal.steps.first?.orderMeasured == true)
-        #expect(proposal.steps[1].orderMeasured == false)
+        #expect(proposal.steps.allSatisfy { !$0.orderMeasured }, "Pickup counts have no times: order is always estimated.")
         #expect(proposal.steps.last?.minutesMeasured == false)
         #expect(proposal.steps.first { $0.title == "YouTube" }?.isAttentionSink == true)
         #expect(proposal.steps.first { $0.title == "Safari" }?.isAttentionSink == false)
@@ -119,6 +118,11 @@ struct ScreenTimeRoutineLearningTests {
                           [app("com.gibouu.morningoperator", 45), app("com.gibouu.morningoperator.uitests.xctrunner", 1)]))
         let morning = try #require(learn(hours, queryStart: at(18, day: 13)).mornings.last)
         #expect(morning.start == at(7, 12))
+        // A Face ID sheet during the test run does not make it the owner's use.
+        var withHelper = ordinaryDay(14)
+        withHelper.append(hour(at(4), pickup: at(4, 10), longest: (at(4, 10), at(4, 55)),
+                               [app("com.gibouu.morningoperator", 45), app("com.apple.LocalAuthenticationUIService", 1)]))
+        #expect(learn(withHelper, queryStart: at(18, day: 13)).mornings.last?.start == at(7, 12))
     }
 
     @Test func anHourReturnedTwiceCountsOnce() throws {
@@ -151,6 +155,20 @@ struct ScreenTimeRoutineLearningTests {
     @Test func aMorningStillRunningIsLeftOut() {
         let learning = learn(Array(ordinaryDay(14).prefix(2)), now: at(7, 40), queryStart: at(18, day: 13))
         #expect(learning.mornings.isEmpty)
+        // 07:05–07:10 then 07:25–07:29, read at 07:31: the pause seen in hourly data is not final.
+        let light = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(7), pickup: at(7, 5), longest: (at(7, 5), at(7, 10)), [app("com.apple.mobilesafari", 9)])]
+        #expect(learn(light, now: at(7, 31), queryStart: at(18, day: 13)).mornings.isEmpty)
+        #expect(learn(light, now: at(8, 31), queryStart: at(18, day: 13)).mornings.count == 1)
+    }
+
+    @Test func useAroundMidnightIsNotADoubleMorning() {
+        let hours = [hour(at(20, day: 13), pickup: at(20, 0, day: 13), longest: (at(20, 0, day: 13), at(20, 10, day: 13)), [app("com.apple.mobilesafari", 10)]),
+                     hour(at(0, day: 14), pickup: at(0, 0, day: 14), longest: (at(0, 0, day: 14), at(0, 30, day: 14)), [app("com.apple.mobilesafari", 30)]),
+                     hour(at(8, day: 14), pickup: at(8, 5, day: 14), longest: (at(8, 5, day: 14), at(8, 30, day: 14)), [app("com.apple.MobileSMS", 25)])]
+        let learning = learn(hours, queryStart: at(12, day: 13))
+        #expect(Set(learning.mornings.map(\.start)).count == learning.mornings.count)
+        #expect(learning.mornings.allSatisfy { calendar().component(.hour, from: $0.start) < 14 })
     }
 
     @Test func daysOfDataCountsFromTheEarliestReturnedHour() {
@@ -259,7 +277,7 @@ struct ScreenTimeRoutineLearningTests {
         proposal.setMinutes(15, stepID: safari.id)
         proposal.setMinutes(10_000, stepID: try #require(proposal.steps.first).id)
         let base = DemoFixtures.candidateRoutine.approved()
-        let draft = try proposal.draft(preserving: base, preferences: RoutinePreferenceJournal())
+        let draft = try proposal.draft(preserving: base)
         #expect(!draft.isApproved)
         #expect(draft.number == base.number + 1)
         #expect(draft.steps.map(\.title) == ["WhatsApp", "Safari", "Chess.com", "Mail"])
@@ -270,7 +288,7 @@ struct ScreenTimeRoutineLearningTests {
         #expect(draft.steps[1].detail.contains("Measured"))
 
         for step in proposal.steps { proposal.setIncluded(false, stepID: step.id) }
-        #expect(throws: ScreenTimeProposalError.nothingIncluded) { try proposal.draft(preserving: nil, preferences: RoutinePreferenceJournal()) }
+        #expect(throws: ScreenTimeProposalError.nothingIncluded) { try proposal.draft(preserving: nil) }
     }
 
     @Test func aSavedSuggestionRoundTripsAndADamagedOneIsRefused() throws {

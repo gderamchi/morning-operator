@@ -44,9 +44,6 @@ extension MorningStore {
                         : String(localized: "Screen Time had \(learning.daysOfData) days, but no complete morning with app use was found yet. Try again tomorrow.")
                     return
                 }
-                #if DEBUG
-                self.exportScreenTimeProposalIfRequested(proposal, learning: learning)
-                #endif
                 if self.savePendingScreenTimeProposal(proposal) {
                     self.screenTimeMessage = nil
                 } else if self.notice == nil {
@@ -66,25 +63,5 @@ extension MorningStore {
     /// tethered build can be checked without taps (Apple's sheet still needs the owner).
     static var screenTimeAutoLearnRequested: Bool { ProcessInfo.processInfo.arguments.contains("--screen-time-learn-auto") }
 
-    /// Debug launch argument `--screen-time-export`: writes the suggestion (app names,
-    /// minutes, labels; no bundle identifiers or hours) to the app's temporary folder for a
-    /// tethered Mac to copy. Overwritten on each read; never in a Release build.
-    private func exportScreenTimeProposalIfRequested(_ proposal: ScreenTimeRoutineProposal, learning: ScreenTimeLearning) {
-        guard ProcessInfo.processInfo.arguments.contains("--screen-time-export") else { return }
-        let starts = learning.mornings.map { $0.start.formatted(date: .abbreviated, time: .shortened) }
-        var lines = [
-            "daysOfData: \(learning.daysOfData) earliest: \(learning.earliestData.map { "\($0)" } ?? "-")",
-            "morningsFound: \(learning.mornings.count) used: \(proposal.morningsUsed) daysWithoutMorning: \(learning.daysWithoutMorning)",
-            "morningStarts: \(starts.joined(separator: ", "))",
-            String(format: "typicalStart: %02d:%02d", proposal.typicalStartMinuteOfDay / 60, proposal.typicalStartMinuteOfDay % 60)
-        ]
-        for step in proposal.steps {
-            lines.append("step: \(step.title) | \(step.minutes) min | \(step.morningsSeen)/\(proposal.morningsUsed) mornings | "
-                + "\(step.minutesMeasured ? "measured" : "estimated") | order \(step.orderMeasured ? "measured" : "estimated")"
-                + (step.isAttentionSink ? " | long scroll" : ""))
-        }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("screen-time-proposal.txt")
-        try? Data(lines.joined(separator: "\n").utf8).write(to: url, options: [.atomic, .completeFileProtection])
-    }
     #endif
 }

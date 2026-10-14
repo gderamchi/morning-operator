@@ -1413,7 +1413,7 @@ final class MorningStore {
             return false
         }
         let draft: RoutineVersion
-        do { draft = try proposal.draft(preserving: routine, preferences: routinePreferences) }
+        do { draft = try proposal.draft(preserving: routine) }
         catch { notice = String(localized: "Keep at least one app to approve this suggestion."); return false }
         let oldRoutine = routine
         let oldPrevious = previousRoutine

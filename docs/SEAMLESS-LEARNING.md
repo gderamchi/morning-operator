@@ -75,19 +75,23 @@ The shortest change that delivers "one approval → one analysis of the last few
 
 How far back the data goes (3–7 mornings) has not been measured yet: this spike only read from 18:00 yesterday.
 
-## How to run the spike
+## The product path (built, 14 October 2026)
 
-The spike installs beside the main app as **MORE ST**, with its own bundle, URL scheme and entitlements. An Apple ID must be signed in to Xcode (Settings → Accounts) for automatic signing.
+The recommendation above is now in the main app:
 
-```
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild build \
-  -project MorningOperator.xcodeproj -scheme MorningOperator -destination 'id=<UDID>' \
-  -derivedDataPath .build/iphone-st -allowProvisioningUpdates DEVELOPMENT_TEAM=<team> \
-  MO_BUNDLE_ID_BASE=com.gibouu.morningoperator.screentime 'MO_DISPLAY_NAME=MORE ST' \
-  MO_URL_SCHEME=more-st MO_ENTITLEMENTS=Configuration/MorningOperator-ScreenTime.entitlements
-xcrun devicectl device install app --device <UDID> .build/iphone-st/Build/Products/Debug-iphoneos/MorningOperator.app
-xcrun devicectl device process launch --device <UDID> --terminate-existing \
-  com.gibouu.morningoperator.screentime --screen-time-spike-auto
-```
+- **Entitlements.** `Configuration/MorningOperator.entitlements` carries Family Controls and App and Website Usage. The separate MORE ST entitlements and the spike screen are gone. `MO_BUNDLE_ID_BASE`, `MO_DISPLAY_NAME` and `MO_URL_SCHEME` still let a test build sit beside the main install.
+- **Learn → Learn from Screen Time.** One card, in English and French. It asks once, then reads the last seven days of hourly data from this iPhone only (`ScreenTimeReader.swift`). Only app names and minutes are kept, in the workspace on the phone. Nothing is logged or exported.
+- **Pure logic** (`MorningCore/ScreenTimeAppCatalog.swift`, `ScreenTimeRoutineLearning.swift`, with package tests):
+  - System sheets, MORE itself (any build) and XCTest runners are filtered. An hour of test-driven MORE use is not counted as phone use, even with a Face ID sheet in it.
+  - Bundle IDs get names from a local table of common apps. An unknown ID gets a name from its last meaningful part.
+  - Each local day runs `MorningStartDetector`. A start at 14:00 or later is not a morning. Use at midnight is not counted for two days. A morning that ended less than an hour and a pause before the read is left out, because the last hour is not final. Coverage starts at the earliest hour returned, so data that starts mid-morning is not taken for a wake-up.
+  - Minutes: an hour fully inside the morning counts in full and is **measured**. An hour that runs past the end is shared out in proportion to the time the morning spent in it, and is **estimated**.
+  - The suggestion uses mornings of the same kind as the next one (weekday or weekend) when there are at least two. It keeps apps seen on at least half of them, with the median minutes and the median start time. Social, video and game apps at 15 minutes or more are flagged as long scrolls. The order is always labelled estimated: pickups per app have no times.
+- **Review.** The suggestion opens in its own review sheet. The owner can leave apps out and change minutes, then approve or keep the current routine. Approving installs exactly what was shown. Nothing changes without approval. A change of routine makes the suggestion stale.
+- **UI test** `UITests/ScreenTimeLearningTests.swift` uses the DEBUG fixture source (`--ui-testing-screen-time-fixture`), never real Screen Time.
 
-In the app: Settings → Availability & device details → **Screen Time spike (debug)**. With `--screen-time-spike-auto`, the screen opens at launch, asks for access if needed, reads once, and writes a plain summary to the app's temporary folder (`tmp/screen-time-spike.txt`, overwritten on every run), which a tethered Mac can copy with `devicectl device copy from`. That file holds personal app names and minutes: keep it local, never commit it, and delete the spike app when done. Ordinary Debug and Release builds keep the original bundle ID and entitlements, and include none of this unless the Debug screen is opened.
+How far back the data goes is measured on each read (`ScreenTimeLearning.daysOfData`) and shown in the review ("Screen Time had N days").
+
+## How to run it on a phone
+
+Automatic signing needs an Apple ID signed in to Xcode (Settings → Accounts) so the main bundle's profile gets both capabilities. Debug launch argument `--screen-time-learn-auto` opens Learn and starts the read at once; Apple's sheet still needs the owner. Only one app can hold Screen Time data access: delete an older MORE ST install.

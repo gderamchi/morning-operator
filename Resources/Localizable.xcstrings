@@ -12978,16 +12978,6 @@
         }
       }
     },
-    "Place in order estimated": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Place dans l’ordre estimée"
-          }
-        }
-      }
-    },
     "Reading your last mornings…": {
       "localizations": {
         "fr": {
@@ -13034,16 +13024,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Temps d’écran n’a pas répondu cette fois. Réessayez dans un instant."
-          }
-        }
-      }
-    },
-    "Screen Time gives minutes per hour, not the order inside an hour. The first app comes from what you opened from the Lock Screen; the rest follow by hour, then by minutes.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran donne des minutes par heure, pas l’ordre dans l’heure. La première app est celle ouverte depuis l’écran verrouillé ; les autres suivent par heure, puis par minutes."
           }
         }
       }
@@ -13146,6 +13126,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre routine a peut-être changé. Apprenez à nouveau avec Temps d’écran pour une suggestion à jour."
+          }
+        }
+      }
+    },
+    "Screen Time gives minutes per hour, not the order inside an hour. So the order is estimated: the app you open most often from the Lock Screen comes first, then the others by hour, then by minutes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran donne des minutes par heure, pas l’ordre dans l’heure. L’ordre est donc estimé : l’app que vous ouvrez le plus souvent depuis l’écran verrouillé vient d’abord, puis les autres par heure, puis par minutes."
+          }
+        }
+      }
+    },
+    "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici."
           }
         }
       }
