@@ -1742,6 +1742,16 @@
         }
       }
     },
+    "Some feedback on past mornings couldn’t be read and is left out.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certains avis sur des matins passés n’ont pas pu être lus et sont laissés de côté."
+          }
+        }
+      }
+    },
     "Some past mornings couldn’t be read and are left out of your history.": {
       "localizations": {
         "fr": {
@@ -3078,6 +3088,16 @@
         }
       }
     },
+    "Your choice to keep a longer plan couldn’t be read, so it is not applied.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre choix de garder un plan plus long n’a pas pu être lu, il n’est donc pas appliqué."
+          }
+        }
+      }
+    },
     "Your correction": {
       "localizations": {
         "fr": {
@@ -3254,6 +3274,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos sources ont changé. Mettez à jour ce récap avant de le relire."
+          }
+        }
+      }
+    },
+    "Your time target and feedback on past mornings couldn’t be read and are left out.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre durée cible et vos avis sur des matins passés n’ont pas pu être lus et sont laissés de côté."
+          }
+        }
+      }
+    },
+    "Your time target couldn’t be read, so no target is set.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre durée cible n’a pas pu être lue, aucune cible n’est donc fixée."
           }
         }
       }

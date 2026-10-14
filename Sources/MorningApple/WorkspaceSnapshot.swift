@@ -38,8 +38,8 @@ public struct RecoverableRoutineProposal: Codable, Sendable {
 /// It lives in this package, not in the app, so the package tests decode a real earlier
 /// file through the exact type and path the app uses (`AtomicJSONFile.load`).
 ///
-/// One unreadable morning in progress, previous routine, past morning, day of app usage
-/// or saved note is set aside on load instead of refusing the file: it is left out,
+/// One unreadable morning in progress, previous routine, past morning, day of app usage,
+/// saved note, time target, accepted longer plan or run feedback is set aside on load instead of refusing the file: it is left out,
 /// named in `newlySetAside`, and kept as its exact saved text in `setAside` (one
 /// {"part", "raw"} object per element), which the app writes back
 /// on every save. Only forgetting all local data removes it. Any other unreadable part
@@ -57,6 +57,8 @@ public struct WorkspaceSnapshot: Codable, Sendable {
     public var readAloud: Bool?
     public var showMorningOnLockScreen: Bool?
     public var sessionTimingInterrupted: Bool?
+    /// The time target, an accepted longer plan and run feedback (#10).
+    public var budgetAndFeedback: RoutineBudgetAndFeedback?
     public var pendingCaptures: [String: String]?
     public var voiceIdentifier: String?
     public var observationNotes: String?
@@ -77,7 +79,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, routine, session, previousRoutine, history, captures, receipts, sessionTimeZone
-        case automatic, readAloud, showMorningOnLockScreen, sessionTimingInterrupted, pendingCaptures
+        case automatic, readAloud, showMorningOnLockScreen, sessionTimingInterrupted, budgetAndFeedback, pendingCaptures
         case voiceIdentifier, observationNotes, observationSource, observationVideoEvidence
         case observationContextClassification, observationArchive, selectedObservationID
         case pendingRoutineProposal, consumedMorningEntryIDs, routinePreferences, greeting, setAside
@@ -87,6 +89,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
                 history: MorningHistory? = nil, captures: [QuickCapture]? = nil, receipts: [String: String]? = nil,
                 sessionTimeZone: String? = nil, automatic: Bool? = nil, readAloud: Bool? = nil,
                 showMorningOnLockScreen: Bool? = nil, sessionTimingInterrupted: Bool? = nil,
+                budgetAndFeedback: RoutineBudgetAndFeedback? = nil,
                 pendingCaptures: [String: String]? = nil, voiceIdentifier: String? = nil,
                 observationNotes: String? = nil, observationSource: String? = nil,
                 observationVideoEvidence: ObservationVideoEvidence? = nil,
@@ -99,6 +102,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         self.history = history; self.captures = captures; self.receipts = receipts
         self.sessionTimeZone = sessionTimeZone; self.automatic = automatic; self.readAloud = readAloud
         self.showMorningOnLockScreen = showMorningOnLockScreen; self.sessionTimingInterrupted = sessionTimingInterrupted
+        self.budgetAndFeedback = budgetAndFeedback
         self.pendingCaptures = pendingCaptures; self.voiceIdentifier = voiceIdentifier
         self.observationNotes = observationNotes; self.observationSource = observationSource
         self.observationVideoEvidence = observationVideoEvidence
@@ -147,6 +151,10 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
         showMorningOnLockScreen = try values.decodeIfPresent(Bool.self, forKey: .showMorningOnLockScreen)
         sessionTimingInterrupted = try values.decodeIfPresent(Bool.self, forKey: .sessionTimingInterrupted)
+        if let read = try values.decodeIfPresent(RecoverableBudgetAndFeedback.self, forKey: .budgetAndFeedback) {
+            budgetAndFeedback = read.value
+            setAsideNow += read.setAside
+        }
         pendingCaptures = try values.decodeIfPresent([String: String].self, forKey: .pendingCaptures)
         voiceIdentifier = try values.decodeIfPresent(String.self, forKey: .voiceIdentifier)
         observationNotes = try values.decodeIfPresent(String.self, forKey: .observationNotes)

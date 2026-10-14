@@ -54,7 +54,22 @@ struct WorkspaceRecoveryAttackTests {
                 timeZoneIdentifier: "Europe/Paris"))
         }
         value["voiceIdentifier"] = "synthetic.voice"
+        value["budgetAndFeedback"] = budgetObject()
         return value
+    }
+
+    /// A time target and two feedback records (#10), as JSONEncoder writes them.
+    private func budgetObject(records: [Int] = [0, 1]) -> [String: Any] {
+        ["targetMinutes": 30, "feedback": records.map { index -> [String: Any] in
+            ["id": "20000000-0000-0000-0000-00000000000\(index)",
+             "sessionID": "30000000-0000-0000-0000-00000000000\(index)",
+             "routineVersionID": "40000000-0000-0000-0000-000000000000",
+             "wasUseful": index == 0 ? "yes" : "no", "recordedAt": 781_000_000 + index]
+        }]
+    }
+
+    private func budget(_ object: [String: Any]) throws -> RoutineBudgetAndFeedback {
+        try JSONDecoder().decode(RoutineBudgetAndFeedback.self, from: jsonData(object))
     }
 
     private func load(_ edit: (inout [String: Any]) throws -> Void = { _ in }) throws -> WorkspaceSnapshot {
@@ -78,7 +93,8 @@ struct WorkspaceRecoveryAttackTests {
         WorkspaceSnapshot(routine: s.routine, session: s.session, previousRoutine: s.previousRoutine,
             history: s.history, captures: s.captures, receipts: s.receipts, sessionTimeZone: s.sessionTimeZone,
             automatic: s.automatic, readAloud: s.readAloud, showMorningOnLockScreen: s.showMorningOnLockScreen,
-            sessionTimingInterrupted: s.sessionTimingInterrupted, pendingCaptures: s.pendingCaptures,
+            sessionTimingInterrupted: s.sessionTimingInterrupted, budgetAndFeedback: s.budgetAndFeedback,
+            pendingCaptures: s.pendingCaptures,
             voiceIdentifier: s.voiceIdentifier, observationNotes: s.observationNotes,
             observationSource: s.observationSource, observationVideoEvidence: s.observationVideoEvidence,
             observationContextClassification: s.observationContextClassification,
@@ -127,6 +143,7 @@ struct WorkspaceRecoveryAttackTests {
         for part in SetAsideWorkspacePart.allCases {
             var expected = clean
             var damaged: [String: Any] = [:]
+            var scalar: Any?
             let saved = try load { value in
                 switch part {
                 case .session, .previousRoutine:
@@ -155,9 +172,31 @@ struct WorkspaceRecoveryAttackTests {
                     all[1] = damaged
                     value["captures"] = all
                     expected.captures = [try #require(clean.captures?.first)]
+                case .timeTarget, .longerPlanAcceptance:
+                    var saved = budgetObject()
+                    let key = part == .timeTarget ? "targetMinutes" : "acceptedLongerPlan"
+                    scalar = part == .timeTarget ? 999 : ["routineVersionID": "nope"]
+                    saved[key] = scalar
+                    value["budgetAndFeedback"] = saved
+                    var kept = budgetObject()
+                    if part == .timeTarget { kept.removeValue(forKey: "targetMinutes") }
+                    expected.budgetAndFeedback = try budget(kept)
+                case .runFeedback:
+                    var saved = budgetObject()
+                    var all = try #require(saved["feedback"] as? [[String: Any]])
+                    damaged = all[1]
+                    damaged["wasUseful"] = "maybe"
+                    all[1] = damaged
+                    saved["feedback"] = all
+                    value["budgetAndFeedback"] = saved
+                    expected.budgetAndFeedback = try budget(budgetObject(records: [0]))
+                case .timeBudgetAndFeedback:
+                    scalar = "thirty minutes"
+                    value["budgetAndFeedback"] = scalar
+                    expected.budgetAndFeedback = RoutineBudgetAndFeedback()
                 }
             }
-            expected.setAside = [entry(part, try json(damaged))]
+            expected.setAside = [entry(part, try json(scalar ?? damaged))]
             #expect(saved.newlySetAside == [part])
             var comparable = saved
             comparable.setAside = try normalized(saved.setAside)

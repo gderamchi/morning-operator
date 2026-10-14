@@ -153,6 +153,69 @@ struct RecoverableHistory: Decodable, Sendable {
     }
 }
 
+/// Reads `RoutineBudgetAndFeedback` with its own decoder, which never fails and leaves out
+/// what it cannot use, then sets aside as exact saved text every saved part that the result
+/// left out: an unreadable or out-of-range target, an acceptance it does not keep, a feedback
+/// record it does not keep, or the whole value when it is not an object. Nothing that was
+/// saved is dropped without being kept and named. Null or missing parts are "none", as before.
+struct RecoverableBudgetAndFeedback: Decodable, Sendable {
+    let value: RoutineBudgetAndFeedback
+    let setAside: [(SetAsideWorkspacePart, String)]
+
+    private enum CodingKeys: String, CodingKey { case targetMinutes, acceptedLongerPlan, feedback }
+    private struct Index: CodingKey {
+        let intValue: Int?
+        var stringValue: String { String(intValue ?? 0) }
+        init(_ index: Int) { intValue = index }
+        init?(intValue: Int) { self.intValue = intValue }
+        init?(stringValue: String) { nil }
+    }
+    /// Always decodes, so the list advances past an unreadable record.
+    private struct Probe: Decodable {
+        let record: RoutineSessionFeedback?
+        init(from decoder: any Decoder) throws { record = try? RoutineSessionFeedback(from: decoder) }
+    }
+
+    init(from decoder: any Decoder) throws {
+        let value = try RoutineBudgetAndFeedback(from: decoder)
+        self.value = value
+        func raw(_ path: [any CodingKey]) throws -> String {
+            guard let data = decoder.userInfo[.atomicJSONFileData] as? Data,
+                  let text = RawJSONText.find(in: data, at: decoder.codingPath + path) else {
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath + path,
+                    debugDescription: "An unreadable element whose saved text could not be kept."))
+            }
+            return text
+        }
+        guard let values = try? decoder.container(keyedBy: CodingKeys.self) else {
+            setAside = [(.timeBudgetAndFeedback, try raw([]))]
+            return
+        }
+        func saved(_ key: CodingKeys) -> Bool { values.contains(key) && (try? values.decodeNil(forKey: key)) == false }
+        var parts: [(SetAsideWorkspacePart, String)] = []
+        if saved(.targetMinutes), value.targetMinutes == nil {
+            parts.append((.timeTarget, try raw([CodingKeys.targetMinutes])))
+        }
+        if saved(.acceptedLongerPlan), value.acceptedLongerPlan == nil {
+            parts.append((.longerPlanAcceptance, try raw([CodingKeys.acceptedLongerPlan])))
+        }
+        if saved(.feedback) {
+            if var list = try? values.nestedUnkeyedContainer(forKey: .feedback) {
+                while !list.isAtEnd {
+                    let index = list.currentIndex
+                    let probe = try list.decode(Probe.self)
+                    // An exact repeat of a kept record loses nothing.
+                    if let record = probe.record, value.feedback.contains(record) { continue }
+                    parts.append((.runFeedback, try raw([CodingKeys.feedback, Index(index)])))
+                }
+            } else {
+                parts.append((.runFeedback, try raw([CodingKeys.feedback])))
+            }
+        }
+        setAside = parts
+    }
+}
+
 /// One entry of the saved `setAside` list in its own form: exactly a part name and a text.
 struct SetAsideEntry: Decodable, Sendable {
     let part: String
@@ -182,6 +245,7 @@ struct SetAsideEntry: Decodable, Sendable {
 /// An element of the saved workspace that could not be read and was set aside on load.
 public enum SetAsideWorkspacePart: String, Sendable, CaseIterable {
     case session, previousRoutine, historyRun, appObservation, capture
+    case timeTarget, longerPlanAcceptance, runFeedback, timeBudgetAndFeedback
 
     /// The saved form: the part's name and the element's exact saved JSON text.
     static func entry(part: SetAsideWorkspacePart, raw: String) -> PreservedJSONValue {
@@ -196,6 +260,10 @@ public enum SetAsideWorkspacePart: String, Sendable, CaseIterable {
         case .historyRun: "Some past mornings couldn’t be read and are left out of your history."
         case .appObservation: "Some days of app use couldn’t be read and are left out of your history."
         case .capture: "Some saved thoughts and ideas couldn’t be read and are left out."
+        case .timeTarget: "Your time target couldn’t be read, so no target is set."
+        case .longerPlanAcceptance: "Your choice to keep a longer plan couldn’t be read, so it is not applied."
+        case .runFeedback: "Some feedback on past mornings couldn’t be read and is left out."
+        case .timeBudgetAndFeedback: "Your time target and feedback on past mornings couldn’t be read and are left out."
         }
     }
 

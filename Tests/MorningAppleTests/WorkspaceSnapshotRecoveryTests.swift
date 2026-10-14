@@ -140,7 +140,7 @@ struct WorkspaceSnapshotRecoveryTests {
             value["history"] = history
             value["captures"] = [noteObject, ["kind": "dream"]]
         }
-        #expect(Set(saved.newlySetAside) == Set(SetAsideWorkspacePart.allCases))
+        #expect(Set(saved.newlySetAside) == [.session, .previousRoutine, .historyRun, .appObservation, .capture])
         #expect(saved.session == nil && saved.previousRoutine == nil)
         #expect(saved.history?.runs.count == 2 && saved.history?.appObservations.isEmpty == true)
         #expect(saved.captures == [note])
@@ -222,6 +222,122 @@ struct WorkspaceSnapshotRecoveryTests {
         let file = AtomicJSONFile<WorkspaceSnapshot>(url: url)
         try file.save(WorkspaceSnapshot(history: history))
         #expect(try file.load().history == history)
+    }
+
+    // MARK: Time budget and feedback (#10)
+
+    /// A time budget with a target and feedback on the fixture's runs, in the form the app saves.
+    private func savedBudget() throws -> (budget: RoutineBudgetAndFeedback, object: [String: Any]) {
+        let clean = try load()
+        let sessions = try #require(clean.history?.runs.map(\.session))
+        var budget = RoutineBudgetAndFeedback()
+        budget.setTarget(30)
+        budget.setFeedback(for: sessions[0], wasUseful: .yes, wasEnjoyable: .somewhat)
+        budget.setFeedback(for: sessions[1], wasUseful: .no, wasEnjoyable: nil)
+        budget.setFeedback(for: sessions[2], wasUseful: nil, wasEnjoyable: .yes)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("workspace-\(UUID().uuidString).json")
+        try AtomicJSONFile<WorkspaceSnapshot>(url: url).save(WorkspaceSnapshot(budgetAndFeedback: budget))
+        let root = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let object = try #require((root["value"] as? [String: Any])?["budgetAndFeedback"] as? [String: Any])
+        #expect(try AtomicJSONFile<WorkspaceSnapshot>(url: url).load().budgetAndFeedback == budget)
+        return (budget, object)
+    }
+
+    private func raws(_ saved: WorkspaceSnapshot) -> [(String, Any)] {
+        (saved.setAside ?? []).compactMap {
+            guard case .object(let fields) = $0, case .string(let part)? = fields["part"],
+                  case .string(let raw)? = fields["raw"],
+                  let value = try? JSONSerialization.jsonObject(with: Data(raw.utf8), options: .fragmentsAllowed)
+            else { return nil }
+            return (part, value)
+        }
+    }
+
+    @Test("One unreadable feedback record is set aside alone; the target, other records and routine load")
+    func oneBadFeedbackRecordIsSetAside() throws {
+        let clean = try load()
+        let (budget, object) = try savedBudget()
+        var damaged: [String: Any] = [:]
+        let saved = try load { value in
+            var edited = object
+            var records = try #require(edited["feedback"] as? [[String: Any]])
+            records[1]["wasUseful"] = "maybe"
+            damaged = records[1]
+            edited["feedback"] = records
+            value["budgetAndFeedback"] = edited
+        }
+        #expect(saved.newlySetAside == [.runFeedback])
+        let kept = try #require(saved.budgetAndFeedback)
+        #expect(kept.targetMinutes == 30)
+        #expect(kept.feedback == budget.feedback.enumerated().filter { $0.offset != 1 }.map(\.element))
+        #expect(saved.routine == clean.routine && saved.session == clean.session)
+        #expect(saved.history?.runs == clean.history?.runs)
+        let entries = raws(saved)
+        #expect(entries.count == 1 && entries.first?.0 == "runFeedback")
+        #expect((entries.first?.1 as? NSDictionary) == damaged as NSDictionary, "Kept as saved")
+        #expect(SetAsideWorkspacePart.notice(for: saved.newlySetAside) != nil, "The person is told")
+        // Saved again as the app does: the record stays kept and is not set aside twice.
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("workspace-\(UUID().uuidString).json")
+        let file = AtomicJSONFile<WorkspaceSnapshot>(url: url)
+        try file.save(WorkspaceSnapshot(routine: saved.routine, budgetAndFeedback: saved.budgetAndFeedback,
+                                        setAside: saved.setAside))
+        let again = try file.load()
+        #expect(again.newlySetAside.isEmpty && again.setAside == saved.setAside)
+        #expect(again.budgetAndFeedback == kept)
+    }
+
+    @Test("A bad target, acceptance, feedback list or whole value is set aside, never silently dropped")
+    func everyBudgetPartIsSetAside() throws {
+        let (budget, object) = try savedBudget()
+        let target = try load { value in
+            var edited = object
+            edited["targetMinutes"] = 999
+            value["budgetAndFeedback"] = edited
+        }
+        #expect(target.newlySetAside == [.timeTarget])
+        #expect(target.budgetAndFeedback?.targetMinutes == nil && target.budgetAndFeedback?.feedback == budget.feedback)
+        #expect((raws(target).first?.1 as? Int) == 999)
+
+        let acceptance = try load { value in
+            var edited = object
+            edited["acceptedLongerPlan"] = ["routineVersionID": "nope"]
+            value["budgetAndFeedback"] = edited
+        }
+        #expect(acceptance.newlySetAside == [.longerPlanAcceptance])
+        #expect(acceptance.budgetAndFeedback?.targetMinutes == 30)
+
+        let list = try load { value in
+            var edited = object
+            edited["feedback"] = ["not": "a list"]
+            value["budgetAndFeedback"] = edited
+        }
+        #expect(list.newlySetAside == [.runFeedback])
+        #expect(list.budgetAndFeedback?.feedback.isEmpty == true && list.budgetAndFeedback?.targetMinutes == 30)
+
+        let duplicate = try load { value in
+            var edited = object
+            var records = try #require(edited["feedback"] as? [[String: Any]])
+            var other = records[0]
+            other["id"] = UUID().uuidString
+            other["wasUseful"] = "no"
+            records.append(other)
+            edited["feedback"] = records
+            value["budgetAndFeedback"] = edited
+        }
+        #expect(duplicate.newlySetAside == [.runFeedback], "A second record for one run is kept, not dropped")
+        #expect(duplicate.budgetAndFeedback?.feedback == budget.feedback)
+
+        let whole = try load { value in value["budgetAndFeedback"] = "thirty minutes" }
+        #expect(whole.newlySetAside == [.timeBudgetAndFeedback])
+        #expect(whole.budgetAndFeedback == RoutineBudgetAndFeedback() && whole.routine != nil)
+        #expect((raws(whole).first?.1 as? String) == "thirty minutes")
+
+        let none = try load { value in
+            value["budgetAndFeedback"] = ["targetMinutes": NSNull(), "acceptedLongerPlan": NSNull(), "feedback": NSNull()]
+        }
+        #expect(none.newlySetAside.isEmpty && none.setAside == nil)
+        let null = try load { value in value["budgetAndFeedback"] = NSNull() }
+        #expect(null.newlySetAside.isEmpty && null.budgetAndFeedback == nil)
     }
 
     /// Writes the fixture with `captures` replaced by hand-written JSON text.
