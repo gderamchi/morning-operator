@@ -145,3 +145,15 @@ public enum LiveDemoReelAction: Equatable, Sendable {
         min(current + count, LiveDemoVoiceIntent.maximumMore)
     }
 }
+
+/// Did a flick move to another reel? Compares the hashed texts and controls on screen
+/// before and after: most of them must be new. One changed counter is not a new reel, and
+/// an empty reading is never counted as an advance.
+public enum LiveDemoReelChange {
+    public static func advanced(before: Set<Int>, after: Set<Int>) -> Bool {
+        guard !before.isEmpty, !after.isEmpty else { return false }
+        let shared = Double(before.intersection(after).count)
+        let union = Double(before.union(after).count)
+        return shared / union < 0.6
+    }
+}

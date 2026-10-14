@@ -100,6 +100,16 @@ public enum LiveDemoTapPolicy {
         text.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
     }
 
+    /// The words that name an outward action; used for containers around a target.
+    static let strongActionWords: Set<String> = ["send", "reply", "post", "share", "like", "follow", "comment",
+                                                 "delete", "remove", "trash", "repost", "buy", "pay", "call"]
+
+    public static func containsStrongActionWord(_ text: String) -> Bool {
+        let lower = text.lowercased().replacingOccurrences(of: " ", with: "")
+        return words(text).contains { strongActionWords.contains($0) }
+            || strongActionWords.contains { lower.contains($0 + "button") }
+    }
+
     public static func containsForbiddenWord(_ text: String) -> Bool {
         words(text).contains { forbiddenWords.contains($0) }
             // camelCase identifiers such as "sendButton" or "likeButton"

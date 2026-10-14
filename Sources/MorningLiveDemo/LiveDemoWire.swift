@@ -10,6 +10,10 @@ public enum LiveDemoWire {
     /// A line longer than this is refused and the connection closed.
     public static let maxLineBytes = 16_384
     public static let tokenEnvironmentKey = "MO_LIVE_DEMO_TOKEN"
+    /// A second one-time secret, known only to the runner and MORE. MORE puts it in every
+    /// answer, so the runner can tell MORE from another process on the same port before it
+    /// sends any sentence.
+    public static let proofEnvironmentKey = "MO_LIVE_DEMO_PROOF"
     public static let portEnvironmentKey = "MO_LIVE_DEMO_PORT"
     public static let launchArgument = "--live-demo-voice"
     public static let portRange: ClosedRange<UInt16> = 49_152...65_535
@@ -58,11 +62,16 @@ public enum LiveDemoWire {
         public let events: [LiveDemoDayPlan.Event]?
         /// Only for `poll`. A reply intent carries draft text: never logged.
         public let intents: [LiveDemoVoiceIntent]?
+        /// MORE's proof secret (see `proofEnvironmentKey`).
+        public var proof: String?
+        /// Only for `listen`: when the returned words started (seconds since 1970). The
+        /// confirmation gate rejects words that began before its read-back had played.
+        public let heardAt: Double?
 
         public init(id: Int, ok: Bool, code: String? = nil, transcript: String? = nil, detail: [String]? = nil,
-                    events: [LiveDemoDayPlan.Event]? = nil, intents: [LiveDemoVoiceIntent]? = nil) {
+                    events: [LiveDemoDayPlan.Event]? = nil, intents: [LiveDemoVoiceIntent]? = nil, heardAt: Double? = nil) {
             self.id = id; self.ok = ok; self.code = code; self.transcript = transcript; self.detail = detail
-            self.events = events; self.intents = intents
+            self.events = events; self.intents = intents; self.heardAt = heardAt
         }
     }
 

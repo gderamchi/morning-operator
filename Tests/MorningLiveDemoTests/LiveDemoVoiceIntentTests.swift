@@ -78,3 +78,16 @@ struct LiveDemoVoiceIntentTests {
         #expect(LiveDemoReelAction.extendedTarget(current: 45, by: 20) == 50)
     }
 }
+
+@Suite("Live morning demo reel change")
+struct LiveDemoReelChangeTests {
+    @Test("Most elements new: advanced; one counter changed or nothing read: not advanced")
+    func change() {
+        let before: Set<Int> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        #expect(LiveDemoReelChange.advanced(before: before, after: [1, 2, 11, 12, 13, 14, 15, 16, 17, 18]))
+        #expect(!LiveDemoReelChange.advanced(before: before, after: [1, 2, 3, 4, 5, 6, 7, 8, 9, 99]))
+        #expect(!LiveDemoReelChange.advanced(before: before, after: before))
+        #expect(!LiveDemoReelChange.advanced(before: [], after: [1]))
+        #expect(!LiveDemoReelChange.advanced(before: before, after: []))
+    }
+}

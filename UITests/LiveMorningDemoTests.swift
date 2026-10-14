@@ -77,10 +77,12 @@ final class LiveMorningDemoTests: XCTestCase {
         //    one-time token. Fixture mode keeps MORE's own data and speech out of the way.
         let runnerState = UIApplication.shared.applicationState
         let token = LiveDemoWire.makeToken()
+        let proof = LiveDemoWire.makeToken()
         let port = LiveDemoWire.makePort()
         let more = XCUIApplication()
         more.launchArguments = ["--ui-testing", "--fixture-mode", LiveDemoWire.launchArgument]
-        more.launchEnvironment = [LiveDemoWire.tokenEnvironmentKey: token, LiveDemoWire.portEnvironmentKey: String(port)]
+        more.launchEnvironment = [LiveDemoWire.tokenEnvironmentKey: token, LiveDemoWire.proofEnvironmentKey: proof,
+                                  LiveDemoWire.portEnvironmentKey: String(port)]
         more.launch()
         guard more.wait(for: .runningForeground, timeout: 15) else {
             emit(LiveDemoReport.line(["audio", "runner=\(Self.name(runnerState))", "more=not-foreground"]))
@@ -88,7 +90,7 @@ final class LiveMorningDemoTests: XCTestCase {
             fail(.moreNotReady, [])
             throw VoiceFailed()
         }
-        let client = VoiceClient(port: port, token: token)
+        let client = VoiceClient(port: port, token: token, proof: proof)
         voice = client
         // MORE prepares audio, plays "Sound check." and asks for the microphone and speech
         // recognition (tap Allow on the phone) before it answers.
@@ -288,6 +290,7 @@ final class LiveMorningDemoTests: XCTestCase {
             return
         }
         hold(2)
+        openConversationSignature = conversationSignature(in: messages)
         try say("Message from \(row.sender).")
         if !row.detail.isEmpty { try say(row.detail) }
         lastReadAloud = row.detail.isEmpty ? nil : row.detail
@@ -341,7 +344,10 @@ final class LiveMorningDemoTests: XCTestCase {
     /// Focuses the compose field and types one sanitized line. Never taps Send: there is no
     /// code here that could, and the keyboard's return key is never pressed.
     private func typeDraft(_ text: String, in messages: XCUIApplication) -> Bool {
-        guard let line = LiveDemoDraft.sanitize(text), noPrompt(in: messages) else { return false }
+        // The draft goes only into the conversation that was opened and read aloud.
+        guard let line = LiveDemoDraft.sanitize(text), noPrompt(in: messages), stillInOpenConversation(messages) else {
+            return false
+        }
         let fields = snapshotDescendants(of: messages).filter { node in
             (node.elementType == .textView || node.elementType == .textField)
                 && LiveDemoTapPolicy.permits(kind: .composeField, label: node.label.isEmpty ? (node.placeholderValue ?? "") : node.label,
@@ -353,6 +359,24 @@ final class LiveMorningDemoTests: XCTestCase {
         guard messages.keyboards.firstMatch.waitForExistence(timeout: 4) else { return false }
         messages.typeText(line)
         return true
+    }
+
+    /// The open conversation's header (its top bar texts and buttons), hashed in memory.
+    private var openConversationSignature: Int?
+
+    private func conversationSignature(in messages: XCUIApplication) -> Int? {
+        guard let bar = try? messages.navigationBars.firstMatch.snapshot() else { return nil }
+        let labels = Self.descendants(of: bar).filter { [.staticText, .button].contains($0.elementType) }
+            .map { $0.label + "|" + $0.identifier }
+        guard !labels.isEmpty else { return nil }
+        var hasher = Hasher()
+        for label in labels { hasher.combine(label) }
+        return hasher.finalize()
+    }
+
+    private func stillInOpenConversation(_ messages: XCUIApplication) -> Bool {
+        guard let opened = openConversationSignature else { return false }
+        return messages.state == .runningForeground && conversationSignature(in: messages) == opened
     }
 
     /// The Messages list is showing when no back button is offered. Goes back at most twice.
@@ -570,12 +594,21 @@ final class LiveMorningDemoTests: XCTestCase {
         return Target(bar[tab.rawValue])
     }
 
+    /// A tab label is printed only if it starts with a known generic word; anything else (a
+    /// profile tab can carry the account name) prints as "other".
+    private static func diagnosticTabLabel(_ label: String) -> String {
+        guard !label.isEmpty else { return "none" }
+        let first = label.lowercased().split(whereSeparator: { !$0.isLetter }).first.map(String.init) ?? ""
+        return ["home", "main", "reels", "direct", "explore", "search", "profile", "for", "inbox", "shop"].contains(first)
+            ? first : "other"
+    }
+
     /// Diagnostics: only the bottom tab bar's buttons (identifier, label, frame).
     private func emitTabBar(of app: XCUIApplication) {
         for (index, button) in tabBarButtons(in: app, nodes: snapshotDescendants(of: app)).enumerated() {
             let f = button.frame
             emit(LiveDemoReport.line(["tab", "i=\(index)", "id=\(button.identifier.isEmpty ? "none" : button.identifier)",
-                                      "label=\(button.label.isEmpty ? "none" : button.label)",
+                                      "label=\(Self.diagnosticTabLabel(button.label))",
                                       "frame=\(Int(f.minX)).\(Int(f.minY)).\(Int(f.width)).\(Int(f.height))"]))
         }
     }
@@ -756,7 +789,10 @@ final class LiveMorningDemoTests: XCTestCase {
                     case .extend(let more): target = LiveDemoReelAction.extendedTarget(current: target, by: more)
                     case .holdUntilNext: holding = true
                     case .endReels: exit = .stopped; break reels
-                    case .leave(let destination): exit = .leave(destination); break reels
+                    case .leave(let destination):
+                        // Reel audio could say "go to my messages": ask first, and only a yes
+                        // in the next words leaves the reels.
+                        if confirmLeaving(to: destination) { exit = .leave(destination); break reels }
                     case .ignore: break
                     }
                 }
@@ -767,11 +803,11 @@ final class LiveMorningDemoTests: XCTestCase {
                 let before = reelSignature(feed)
                 flick(feed, from: 0.80, to: 0.15)
                 hold(1.5)
-                if reelSignature(feed) != before { return true }
+                if LiveDemoReelChange.advanced(before: before, after: reelSignature(feed)) { return true }
                 guard feed.state == .runningForeground, noPrompt(in: feed), !feed.keyboards.firstMatch.exists else { return nil }
                 flick(feed, from: 0.84, to: 0.04)
                 hold(1.5)
-                return reelSignature(feed) != before
+                return LiveDemoReelChange.advanced(before: before, after: reelSignature(feed))
             }
             guard let moved = result else {
                 emit(LiveDemoReport.line(["reels", "stopped-at=\(index)"]))
@@ -789,6 +825,11 @@ final class LiveMorningDemoTests: XCTestCase {
         return (advanced, exit)
     }
 
+    private func confirmLeaving(to destination: LiveDemoVoiceIntent.Destination) -> Bool {
+        guard (try? say("Open your \(destination.rawValue)? Say yes or no.")) != nil else { return false }
+        return LiveDemoYesNo.parse(listen(seconds: 6) ?? "") == .yes
+    }
+
     /// Spoken commands MORE heard since the last poll (never logged).
     private func pollIntents() -> [LiveDemoVoiceIntent] {
         guard listening, let voice else { return [] }
@@ -803,16 +844,19 @@ final class LiveMorningDemoTests: XCTestCase {
     }
 
     /// A hash of the texts and identifiers in the reel area, compared in memory only.
-    private func reelSignature(_ app: XCUIApplication) -> Int {
+    /// One hash per text, button or image in the reel area (label and identifier), kept in
+    /// memory only. A new reel changes most of them; a like counter changes one.
+    private func reelSignature(_ app: XCUIApplication) -> Set<Int> {
         let screen = app.frame
-        var hasher = Hasher()
-        for node in snapshotDescendants(of: app)
-        where node.frame.midY > screen.height * 0.08 && node.frame.midY < screen.height * 0.86
-            && (node.elementType == .staticText || node.elementType == .button || node.elementType == .image) {
+        return Set(snapshotDescendants(of: app).compactMap { node -> Int? in
+            guard node.frame.midY > screen.height * 0.08, node.frame.midY < screen.height * 0.86,
+                  [.staticText, .button, .image].contains(node.elementType),
+                  !(node.label.isEmpty && node.identifier.isEmpty) else { return nil }
+            var hasher = Hasher()
             hasher.combine(node.label)
             hasher.combine(node.identifier)
-        }
-        return hasher.finalize()
+            return hasher.finalize()
+        })
     }
 
     /// Buttons of the bottom tab bar: inside a tab bar element if there is one, otherwise
@@ -853,12 +897,16 @@ final class LiveMorningDemoTests: XCTestCase {
     }
 
     /// One on-device listening turn in MORE. Nil when MORE could not listen.
-    private func listen(seconds: Double = 10) -> String? {
+    private func listen(seconds: Double = 10) -> String? { listenTimed(seconds: seconds)?.text }
+
+    /// The words and the time they started (MORE's clock; same phone).
+    private func listenTimed(seconds: Double) -> (text: String, at: Date?)? {
         guard let voice else { return nil }
         let response = XCTContext.runActivity(named: "Listen") { _ in
             voice.call(.listen, seconds: seconds, timeout: seconds + 15)
         }
-        return response?.ok == true ? response?.transcript : nil
+        guard let response, response.ok else { return nil }
+        return (response.transcript ?? "", response.heardAt.map(Date.init(timeIntervalSince1970:)))
     }
 
     /// The only failure site. Messages are fixed codes and technical tokens.
@@ -1006,17 +1054,25 @@ final class LiveMorningDemoTests: XCTestCase {
             // A plain container around the whole target (a screen, a video, a list) is not
             // what a tap lands on; only controls and smaller elements are judged.
             let isContainer = !Self.isButtonLike(node.elementType) && node.frame.contains(target.frame)
-            // Nothing under the finger may name an action, by identifier or (for controls) label.
-            if !isContainer, LiveDemoTapPolicy.containsForbiddenWord(node.identifier)
-                || (Self.isButtonLike(node.elementType) && LiveDemoTapPolicy.containsForbiddenWord(node.label)) {
+            // Nothing under the finger may name an action. A container around the whole target
+            // (a screen, a video) is judged on the strong action words only (send, like,
+            // follow, comment, share, reply, post, delete...), not on words like "video".
+            let forbidden = isContainer
+                ? LiveDemoTapPolicy.containsStrongActionWord(node.identifier) || LiveDemoTapPolicy.containsStrongActionWord(node.label)
+                : LiveDemoTapPolicy.containsForbiddenWord(node.identifier)
+                    || (Self.isButtonLike(node.elementType) && LiveDemoTapPolicy.containsForbiddenWord(node.label))
+            if forbidden {
                 lastTapRefusal = "forbidden-under-point type=\(node.elementType.rawValue) id=\(node.identifier.isEmpty ? "none" : node.identifier)"
                 return false
             }
             // Another control under the finger is allowed only if it wraps the target or sits
             // inside it (the same control drawn in layers), never beside or over it.
+            // A layered copy (a selection pill) must be unnamed or pass the same policy.
+            let layered = Self.mostlyOverlaps(node.frame, target.frame)
+                && ((node.label.isEmpty && node.identifier.isEmpty)
+                    || LiveDemoTapPolicy.permits(kind: kind, label: node.label, identifier: node.identifier, isButtonLike: true))
             if Self.isButtonLike(node.elementType),
-               !(node.frame.contains(target.frame) || target.frame.contains(node.frame)
-                 || Self.mostlyOverlaps(node.frame, target.frame)) {
+               !(node.frame.contains(target.frame) || target.frame.contains(node.frame) || layered) {
                 lastTapRefusal = "other-control-under-point"
                 return false
             }
@@ -1093,8 +1149,13 @@ final class VoiceClient: @unchecked Sendable {
     private var ready = false
     private var broken = false
 
-    init(port: UInt16, token: String) {
+    private let proof: String
+    /// True once an answer carried MORE's proof secret; no sentence is sent before.
+    private var verified = false
+
+    init(port: UInt16, token: String, proof: String) {
         self.token = token
+        self.proof = proof
         connection = NWConnection(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port) ?? .any, using: .tcp)
     }
 
@@ -1103,6 +1164,8 @@ final class VoiceClient: @unchecked Sendable {
     func call(_ command: LiveDemoWire.Command, text: String? = nil, seconds: Double? = nil,
               wantsCalendar: Bool? = nil, requireWakeWord: Bool? = nil, timeout: TimeInterval) -> LiveDemoWire.Response? {
         guard connect(within: 15) else { return nil }
+        // Nothing but hello goes out until MORE has proved itself.
+        guard command == .hello || lock.withLock({ verified }) else { return nil }
         let id = lock.withLock { () -> Int in nextID += 1; return nextID }
         let request = LiveDemoWire.Request(token: token, id: id, command: command, text: text, seconds: seconds,
                                            wantsCalendar: wantsCalendar, requireWakeWord: requireWakeWord)
@@ -1149,7 +1212,14 @@ final class VoiceClient: @unchecked Sendable {
                 if let data { self.buffer.append(data) }
                 if let lines = try? LiveDemoWire.takeLines(from: &self.buffer) {
                     for line in lines {
-                        if let response = LiveDemoWire.decodeResponse(line) { self.responses[response.id] = response }
+                        // An answer without MORE's proof is not MORE: the channel is closed.
+                        guard let response = LiveDemoWire.decodeResponse(line),
+                              LiveDemoWire.tokensMatch(response.proof ?? "", self.proof) else {
+                            self.broken = true
+                            continue
+                        }
+                        self.verified = true
+                        self.responses[response.id] = response
                     }
                 } else {
                     self.broken = true

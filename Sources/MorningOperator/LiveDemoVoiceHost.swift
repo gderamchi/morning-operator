@@ -28,8 +28,9 @@ enum LiveDemoVoiceHost {
                                  environment: [String: String] = ProcessInfo.processInfo.environment) {
         guard host == nil, arguments.contains(LiveDemoWire.launchArgument),
               let token = environment[LiveDemoWire.tokenEnvironmentKey], LiveDemoWire.isWellFormedToken(token),
+              let proof = environment[LiveDemoWire.proofEnvironmentKey], LiveDemoWire.isWellFormedToken(proof),
               let port = LiveDemoWire.port(from: environment[LiveDemoWire.portEnvironmentKey]) else { return }
-        let created = VoiceHost(token: token, port: port)
+        let created = VoiceHost(token: token, proof: proof, port: port)
         host = created
         created.start()
     }
@@ -37,7 +38,10 @@ enum LiveDemoVoiceHost {
 
 private final class VoiceHost: @unchecked Sendable {
     private let token: String
+    private let proof: String
     private let port: UInt16
+    /// True once the current connection has shown the token.
+    private var authenticated = false
     private let queue = DispatchQueue(label: "more.live-demo.voice")
     private var listener: NWListener?
     private var connection: NWConnection?
@@ -45,8 +49,9 @@ private final class VoiceHost: @unchecked Sendable {
     private var audio: DemoVoice?
     private var closed = false
 
-    init(token: String, port: UInt16) {
+    init(token: String, proof: String, port: UInt16) {
         self.token = token
+        self.proof = proof
         self.port = port
     }
 
@@ -64,22 +69,36 @@ private final class VoiceHost: @unchecked Sendable {
         queue.asyncAfter(deadline: .now() + 45 * 60) { [weak self] in self?.close() }
     }
 
-    /// One connection, from loopback only.
+    /// One authenticated connection, from loopback only. A connection that has not shown
+    /// the token yet can be replaced by a new one, and is dropped after 3 seconds, so a
+    /// silent local peer cannot hold the slot.
     private func accept(_ incoming: NWConnection) {
-        guard connection == nil, !closed, case .hostPort(let host, _) = incoming.endpoint,
+        guard !closed, !authenticated, case .hostPort(let host, _) = incoming.endpoint,
               LiveDemoWire.isLoopback(host: "\(host)") else {
             incoming.cancel()
             return
         }
+        dropConnection()
         connection = incoming
-        incoming.stateUpdateHandler = { [weak self] state in
+        incoming.stateUpdateHandler = { [weak self, weak incoming] state in
+            guard let self, let incoming, self.connection === incoming else { return }
             switch state {
-            case .failed, .cancelled: self?.close()
+            case .failed, .cancelled: if self.authenticated { self.close() } else { self.dropConnection() }
             default: break
             }
         }
         incoming.start(queue: queue)
         receive()
+        queue.asyncAfter(deadline: .now() + 3) { [weak self, weak incoming] in
+            guard let self, let incoming, self.connection === incoming, !self.authenticated else { return }
+            self.dropConnection()
+        }
+    }
+
+    private func dropConnection() {
+        connection?.cancel()
+        connection = nil
+        buffer.removeAll()
     }
 
     private func receive() {
@@ -96,13 +115,14 @@ private final class VoiceHost: @unchecked Sendable {
         }
     }
 
-    /// Runs on `queue`, one command at a time. A wrong token closes everything.
+    /// Runs on `queue`, one command at a time. A wrong token drops that connection only.
     private func handle(_ line: Data) {
         guard !closed else { return }
         guard let request = LiveDemoWire.decodeRequest(line), LiveDemoWire.tokensMatch(request.token, token) else {
-            close()
+            if authenticated { close() } else { dropConnection() }
             return
         }
+        authenticated = true
         let response: LiveDemoWire.Response
         switch request.command {
         case .hello:
@@ -123,8 +143,9 @@ private final class VoiceHost: @unchecked Sendable {
                 response = .init(id: request.id, ok: false, code: failure.rawValue, detail: detail + audio.diagnostics())
             }
         case .listen:
-            let transcript = audio?.listen(maxSeconds: min(max(request.seconds ?? 10, 1), 20))
-            response = .init(id: request.id, ok: transcript != nil, transcript: transcript)
+            let heard = audio?.listen(maxSeconds: min(max(request.seconds ?? 10, 1), 20))
+            response = .init(id: request.id, ok: heard != nil, transcript: heard?.text,
+                             heardAt: heard?.startedAt?.timeIntervalSince1970)
         case .stop:
             send(.init(id: request.id, ok: true))
             close()
@@ -199,6 +220,8 @@ private final class VoiceHost: @unchecked Sendable {
     }
 
     private func send(_ response: LiveDemoWire.Response) {
+        var response = response
+        response.proof = proof
         connection?.send(content: LiveDemoWire.encode(response), completion: .contentProcessed { _ in })
     }
 
@@ -494,8 +517,11 @@ private final class DemoVoice: @unchecked Sendable {
     private var segmentTimer: DispatchSourceTimer?
     private var segmentTask: SFSpeechRecognitionTask?
     private var segmentStarted = Date()
-    private var segments: [String] = []
+    /// Finished segments with the time their first words were heard and the time they ended.
+    private var segments: [(text: String, startedAt: Date, endedAt: Date)] = []
+    private var segmentFirstHeard: Date?
     private var speaking = false
+    private var speakingGeneration = 0
 
     /// Starts the always-on listener: one recognition request at a time; a segment ends
     /// 1.2 s after the words stop changing. Microphone audio is dropped while MORE speaks
@@ -530,7 +556,10 @@ private final class DemoVoice: @unchecked Sendable {
         request.shouldReportPartialResults = true
         request.addsPunctuation = true
         request.taskHint = .dictation
-        lock.withLock { latest = ""; lastChange = nil; isFinal = false; recognitionFailed = false; self.request = request }
+        lock.withLock {
+            latest = ""; lastChange = nil; isFinal = false; recognitionFailed = false; segmentFirstHeard = nil
+            self.request = request
+        }
         segmentStarted = Date()
         segmentTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
             self?.receive(result.map { ($0.bestTranscription.formattedString, $0.isFinal) }, failed: error != nil)
@@ -545,7 +574,7 @@ private final class DemoVoice: @unchecked Sendable {
             latest = ""
             lastChange = nil
             if keep, !text.isEmpty {
-                segments.append(text)
+                segments.append((text, segmentFirstHeard ?? Date(), Date()))
                 if segments.count > 20 { segments.removeFirst(segments.count - 20) }
             }
             return text
@@ -565,24 +594,32 @@ private final class DemoVoice: @unchecked Sendable {
     /// Marks MORE as speaking; the listener drops audio until 0.6 s after it ends.
     func setSpeaking(_ value: Bool) {
         if value {
-            lock.withLock { speaking = true }
+            lock.withLock { speaking = true; speakingGeneration += 1 }
         } else {
+            let generation = lock.withLock { speakingGeneration }
             listenQueue.asyncAfter(deadline: .now() + 0.6) { [weak self] in
                 guard let self else { return }
-                self.lock.withLock { self.speaking = false; self.segments.removeAll() }
+                // A sentence that started in the meantime keeps the microphone closed.
+                self.lock.withLock {
+                    guard self.speakingGeneration == generation else { return }
+                    self.speaking = false
+                    self.segments.removeAll()
+                }
             }
         }
     }
 
     /// The next thing said, for a question (yes/no, a reply). Earlier segments are dropped.
     /// Ends after `maxSeconds`; returns "" when nothing was said, nil if not listening.
-    func listen(maxSeconds: TimeInterval) -> String? {
+    func listen(maxSeconds: TimeInterval) -> (text: String, startedAt: Date?)? {
         guard recognizer != nil, hasInputTap, engine.isRunning, segmentTimer != nil else { return nil }
         Thread.sleep(forTimeInterval: 0.7)
+        // Words already in progress belong to whatever came before the question.
+        listenQueue.sync { endSegment(keep: false) }
         lock.withLock { segments.removeAll() }
-        var heard = ""
+        var heard: (text: String, startedAt: Date?) = ("", nil)
         _ = Self.wait(min(maxSeconds, 20) + 1.5) {
-            if let first = lock.withLock({ segments.first }) { heard = first; return true }
+            if let first = lock.withLock({ segments.first }) { heard = (first.text, first.startedAt); return true }
             return false
         }
         lock.withLock { segments.removeAll() }
@@ -592,17 +629,22 @@ private final class DemoVoice: @unchecked Sendable {
     /// Commands heard since the last poll. The strict grammar first; for short phrases it
     /// does not know, the on-device model may pick one allowed token, nothing else.
     func poll() -> [LiveDemoVoiceIntent] {
+        // Only words that ended in the last 4 seconds: an older command belonged to an
+        // earlier moment (another reel, another screen) and must not act on this one.
+        let now = Date()
         let heard = lock.withLock { () -> [String] in
-            let taken = segments
+            let fresh = segments.filter { now.timeIntervalSince($0.endedAt) <= 4 }.map(\.text)
             segments.removeAll()
-            return taken
+            return fresh
         }
-        return heard.compactMap { text in
-            if let intent = LiveDemoVoiceIntent.parse(text, requireWakeWord: requireWakeWord) { return intent }
-            guard !requireWakeWord || LiveDemoReplyIntent.normalizedWords(text).first == "more",
-                  LiveDemoVoiceIntent.worthAskingModel(text) else { return nil }
-            return Self.askModel(text)
-        }
+        let intents = heard.compactMap { LiveDemoVoiceIntent.parse($0, requireWakeWord: requireWakeWord) }
+        // A recognised command (such as stop) never waits on the model.
+        if !intents.isEmpty { return intents }
+        // At most one model call per poll (3 s), for the newest short phrase only.
+        guard let last = heard.last,
+              !requireWakeWord || LiveDemoReplyIntent.normalizedWords(last).first == "more",
+              LiveDemoVoiceIntent.worthAskingModel(last), let intent = Self.askModel(last) else { return [] }
+        return [intent]
     }
 
     /// On-device Foundation Model, 3 s at most. Its answer counts only if it is exactly one
@@ -627,7 +669,10 @@ private final class DemoVoice: @unchecked Sendable {
     private func receive(_ hypothesis: (String, Bool)?, failed didFail: Bool) {
         lock.withLock {
             if let (text, final) = hypothesis {
-                if text != latest { latest = text; lastChange = Date() }
+                if text != latest {
+                    if latest.isEmpty, !text.isEmpty, segmentFirstHeard == nil { segmentFirstHeard = Date() }
+                    latest = text; lastChange = Date()
+                }
                 if final { isFinal = true }
             }
             if didFail { recognitionFailed = true }
