@@ -43,7 +43,10 @@ cleanup() {
 # supervisor's SIGTERM never leaves the demo running or its results on disk.
 on_signal() {
     local code="$1"
-    trap - INT TERM
+    # Further INT/TERM are ignored until shutdown and cleanup finish; a second signal
+    # must not skip the wait below. (The group's KILL escalation still bounds it.)
+    trap '' INT TERM
+    trap - EXIT
     if [[ -n "$child" ]]; then
         # Ask the whole group to stop, wait up to 15 s for every member to exit, then
         # force it and wait up to 5 s more. Cleanup runs only after the group is gone,
