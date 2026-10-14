@@ -99,6 +99,14 @@ public enum ScreenTimeMorningLearner {
             let seconds = hour.apps.reduce(0) { $0 + $1.seconds }
             uses += PhoneUse.fromScreenTimeSegment(hour: hour.interval, totalSeconds: seconds,
                 firstPickup: hour.firstPickup, longestActivity: hour.longestActivity, sessionGap: policy.sessionGap)
+            // All of an hour's use comes after its first pickup (or its start), so some use goes
+            // on until at least that moment plus the hour's total. Without this point, untimed
+            // minutes would vanish: a 30-minute hour would look like its 10-minute longest
+            // session, inventing a sleep gap after it or a short "night check".
+            if seconds > 0 {
+                let from = hour.firstPickup.flatMap { hour.interval.contains($0) ? $0 : nil } ?? hour.interval.start
+                uses.append(PhoneUse(at: min(hour.interval.end, from.addingTimeInterval(seconds)), source: .screenTimeHour))
+            }
         }
         var mornings: [ScreenTimeMorning] = []
         var missing = 0
@@ -107,19 +115,8 @@ public enum ScreenTimeMorningLearner {
         let lastDay = calendar.startOfDay(for: now)
         while day <= lastDay, days < 60 {
             days += 1
-            var result = MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
+            let result = MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
                                                      policy: policy, calendar: calendar)
-            // A skipped "night check" whose hours hold more use than a night check may last was
-            // real use the hourly evidence could not place: by the rule it is not a night check.
-            if case .found(let found) = result, found.skippedSessions.contains(where: { skipped in
-                hours.filter { $0.interval.end > skipped.start && $0.interval.start <= skipped.end }
-                    .reduce(0) { $0 + $1.apps.reduce(0) { $0 + $1.seconds } } > policy.nightCheckMaximumLength
-            }) {
-                var strict = policy
-                strict.nightCheckLatestHour = 0
-                result = MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
-                                                     policy: strict, calendar: calendar)
-            }
             switch result {
             case .found(let found) where calendar.component(.hour, from: found.start) >= latestStartHour
                 || calendar.startOfDay(for: found.start) != day:

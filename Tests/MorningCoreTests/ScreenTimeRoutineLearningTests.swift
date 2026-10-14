@@ -103,12 +103,14 @@ struct ScreenTimeRoutineLearningTests {
 
     @Test func anHourPastTheEndOfTheMorningIsSharedOutNotCountedInFull() throws {
         var hours = ordinaryDay(14)
-        // A light 09:00 hour with 30 min in all, but the morning ends at 09:04.
+        // A light 09:00 hour with 30 min in all and no time for most of it.
         hours[3] = hour(at(9), pickup: at(9), longest: (at(9), at(9, 4)), [app("com.apple.mobilemail", 10), app("com.burbn.instagram", 20)])
         let morning = try #require(learn(hours, queryStart: at(18, day: 13)).mornings.last)
         let lastHour = morning.apps.filter { $0.firstHourIndex == 2 }
         let total = lastHour.reduce(0) { $0 + $1.seconds }
-        #expect(abs(total - 4 * 60) < 0.001, "At most the four minutes the morning spent in that hour.")
+        // Use goes on to 09:30 at least (pickup + 30 min), so the morning ends there.
+        #expect(morning.end == at(9, 30))
+        #expect(total <= morning.end.timeIntervalSince(at(9)) + 0.001, "At most the minutes the morning spent in that hour.")
         #expect(lastHour.allSatisfy { !$0.secondsMeasured })
     }
 
@@ -159,7 +161,7 @@ struct ScreenTimeRoutineLearningTests {
         let light = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
                      hour(at(7), pickup: at(7, 5), longest: (at(7, 5), at(7, 10)), [app("com.apple.mobilesafari", 9)])]
         #expect(learn(light, now: at(7, 31), queryStart: at(18, day: 13)).mornings.isEmpty)
-        #expect(learn(light, now: at(8, 31), queryStart: at(18, day: 13)).mornings.count == 1)
+        #expect(learn(light, now: at(8, 45), queryStart: at(18, day: 13)).mornings.count == 1)
     }
 
     @Test func lightHoursWithUnplacedUseDoNotEndTheMorningEarly() throws {
@@ -170,7 +172,7 @@ struct ScreenTimeRoutineLearningTests {
                      hour(at(8), pickup: at(8, 3), longest: (at(8, 3), at(8, 8)), [app("com.apple.mobilesafari", 13)])]
         #expect(learn(hours, now: at(8, 50), queryStart: at(18, day: 13)).mornings.isEmpty, "Still possibly going on.")
         let morning = try #require(learn(hours, now: at(11), queryStart: at(18, day: 13)).mornings.last)
-        #expect(morning.end == at(8, 8))
+        #expect(morning.end == at(8, 16), "08:03 plus the hour's 13 minutes.")
         let safari = try #require(morning.apps.first)
         #expect(safari.seconds > 13 * 60, "Not only the first five minutes.")
         #expect(!safari.secondsMeasured)
@@ -252,6 +254,20 @@ struct ScreenTimeRoutineLearningTests {
         #expect(!proposal.steps.contains { $0.title == "Safari" })
         #expect(proposal.steps.filter { $0.title == "Lichess" }.allSatisfy { $0.minutes == 6 })
         #expect(proposal.steps.first { $0.title == "Messages" }?.minutes == 5)
+    }
+
+    @Test func untimedMinutesCloseAGapTheyMustFill() throws {
+        // 22:00 hour: 30 min, longest 22:00–22:10, so use goes on to 22:30 at least.
+        let hours = [hour(at(22, day: 13), pickup: at(22, 0, day: 13), longest: (at(22, 0, day: 13), at(22, 10, day: 13)), [app("com.apple.mobilesafari", 30)]),
+                     hour(at(1), pickup: at(1, 15), longest: (at(1, 15), at(1, 35)), [app("com.apple.mobilesafari", 20)]),
+                     hour(at(7), pickup: at(7), longest: (at(7), at(7, 25)), [app("com.apple.MobileSMS", 25)])]
+        #expect(learn(hours, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(7))
+        // A short check at 00:30 stays skipped when a long use follows at 04:00.
+        let nights = [hour(at(20, day: 13), pickup: at(20, 0, day: 13), [app("com.apple.mobilesafari", 5)]),
+                      hour(at(0), pickup: at(0, 30), longest: (at(0, 30), at(0, 34)), [app("com.apple.mobilesafari", 4)]),
+                      hour(at(4), pickup: at(4), longest: (at(4), at(4, 10)), [app("com.apple.mobilesafari", 30)]),
+                      hour(at(8), pickup: at(8), longest: (at(8), at(8, 25)), [app("com.apple.MobileSMS", 25)])]
+        #expect(learn(nights, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(4))
     }
 
     @Test func useAroundMidnightIsNotADoubleMorning() {
