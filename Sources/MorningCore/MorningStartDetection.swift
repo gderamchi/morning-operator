@@ -5,8 +5,8 @@ public struct PhoneUse: Equatable, Sendable {
     public enum Source: String, Sendable {
         case screenTimePickup, screenTimeLongestActivity, screenTimeHour, appTransition, recording
         /// The earliest moment an hour's use can have ended (first pickup plus the hour's
-        /// total). It is a bound, not a time of use: it closes gaps after it, but never joins
-        /// the evidence before it into one session.
+        /// total). It is a bound, not a time of use: a gap it closes is real, but continuity
+        /// it adds is not proven, so minutes it bridges are never called measured.
         case screenTimeLatestUse
     }
     public let interval: DateInterval
@@ -132,15 +132,14 @@ public enum MorningStartDetector {
                                       skippedSessions: skipped, usedSleepHint: usedHint))
     }
 
-    /// Merges uses whose gap is under `gap` into sessions, sorted by start. A
-    /// `screenTimeLatestUse` bound always starts its own session.
+    /// Merges uses whose gap is under `gap` into sessions, sorted by start.
     static func sessionsOf(_ uses: [PhoneUse], gap: TimeInterval, coveredFrom: Date) -> [DateInterval] {
         let sorted = uses.sorted { $0.interval.start < $1.interval.start }
         var sessions: [DateInterval] = []
         for use in sorted {
             let interval = use.interval
             let clipped = DateInterval(start: max(interval.start, coveredFrom), end: max(interval.end, coveredFrom))
-            if use.source != .screenTimeLatestUse, let last = sessions.last, clipped.start.timeIntervalSince(last.end) < gap {
+            if let last = sessions.last, clipped.start.timeIntervalSince(last.end) < gap {
                 sessions[sessions.count - 1] = DateInterval(start: last.start, end: max(last.end, clipped.end))
             } else {
                 sessions.append(clipped)

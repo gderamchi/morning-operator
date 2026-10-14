@@ -270,7 +270,7 @@ struct ScreenTimeRoutineLearningTests {
         #expect(learn(nights, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(4))
     }
 
-    @Test func theBoundNeverJoinsEvidenceOrStartsAMorning() throws {
+    @Test func theBoundNeitherMeasuresMinutesNorStartsAMorning() throws {
         // 07:00 pickup, 19 min, longest 07:30–07:45: a 26-minute pause is possible, so the
         // first hour is not measured.
         let gap = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
@@ -282,6 +282,28 @@ struct ScreenTimeRoutineLearningTests {
         let late = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
                     hour(at(7), longest: (at(7, 45), at(7, 55)), [app("com.apple.mobilesafari", 10)])]
         #expect(learn(late, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(7, 45))
+    }
+
+    @Test func boundsBridgeRealGapsAndKeepNightChecksShort() throws {
+        // 07:45–07:54 timed, 10 min in all, then 08:10–08:20: one morning.
+        let joined = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                      hour(at(7), pickup: at(7, 45), longest: (at(7, 45), at(7, 54)), [app("com.apple.mobilesafari", 10)]),
+                      hour(at(8), pickup: at(8, 10), longest: (at(8, 10), at(8, 20)), [app("com.apple.MobileSMS", 10)])]
+        let morning = try #require(learn(joined, now: at(12), queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning.end == at(8, 20))
+        #expect(morning.apps.contains { $0.bundleIdentifier == "com.apple.MobileSMS" })
+        // 03:50–03:54, 5 min in all, then 07:05: still a night check.
+        let night = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(3), pickup: at(3, 50), longest: (at(3, 50), at(3, 54)), [app("com.apple.mobilesafari", 5)]),
+                     hour(at(7), pickup: at(7, 5), longest: (at(7, 5), at(7, 30)), [app("com.apple.MobileSMS", 25)])]
+        #expect(learn(night, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(7, 5))
+        // 07:30–08:00 fully timed, then 08:30: the pause at the hour is real.
+        let pause = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(7), pickup: at(7, 30), longest: (at(7, 30), at(8)), [app("com.apple.mobilesafari", 30)]),
+                     hour(at(8), pickup: at(8, 30), longest: (at(8, 30), at(8, 40)), [app("com.apple.MobileSMS", 15)])]
+        let ended = try #require(learn(pause, now: at(12), queryStart: at(18, day: 13)).mornings.last)
+        #expect(ended.end == at(8))
+        #expect(!ended.apps.contains { $0.bundleIdentifier == "com.apple.MobileSMS" })
     }
 
     @Test func useAroundMidnightIsNotADoubleMorning() {

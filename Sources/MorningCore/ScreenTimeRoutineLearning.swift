@@ -103,7 +103,7 @@ public enum ScreenTimeMorningLearner {
             // earlier than that moment plus the hour's total. Without this bound, untimed minutes
             // would vanish: a 30-minute hour would look like its 10-minute longest session,
             // inventing a sleep gap after it or a short "night check". It is added only when it
-            // lies past the hour's timed evidence, and never joins that evidence (see the source).
+            // lies past the hour's timed evidence, and minutes it bridges stay estimated.
             if seconds > 0 {
                 let from = hour.firstPickup.flatMap { hour.interval.contains($0) ? $0 : nil } ?? hour.interval.start
                 let bound = min(hour.interval.end, from.addingTimeInterval(seconds))
@@ -132,7 +132,15 @@ public enum ScreenTimeMorningLearner {
                 let detected = extended(found, hours: hours, uses: uses, coveredFrom: coveredFrom, policy: policy)
                 // Hourly data for the last hour is not final: a pause seen in it may not be real.
                 guard detected.endReason != .ongoing, now.timeIntervalSince(detected.end) >= 3600 + policy.sessionGap else { break }
-                mornings.append(morning(detected, hours: hours, calendar: calendar, measuredUntil: found.end))
+                // Minutes count as measured only up to the end that timed evidence alone proves.
+                let timedOnly = uses.filter { $0.source != .screenTimeLatestUse }
+                var measuredUntil = found.start
+                if case .found(let timed) = MorningStartDetector.detect(uses: timedOnly, on: day, coveredFrom: coveredFrom,
+                                                                        now: now, policy: policy, calendar: calendar),
+                   timed.start == found.start {
+                    measuredUntil = min(timed.end, found.end)
+                }
+                mornings.append(morning(detected, hours: hours, calendar: calendar, measuredUntil: measuredUntil))
             case .noData, .noSleepGapCovered: missing += 1
             }
             guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
@@ -155,7 +163,8 @@ public enum ScreenTimeMorningLearner {
         let cap = detected.start.addingTimeInterval(policy.maximumLength)
         var end = detected.end
         var reason = DetectedMorning.EndReason.pause
-        while let hour = hours.first(where: { $0.interval.start <= end && end < $0.interval.end }) {
+        // The hour the use ends in: an end exactly on the hour belongs to the hour before.
+        while let hour = hours.first(where: { $0.interval.start < end && end <= $0.interval.end }) {
             let used = hour.apps.reduce(0) { $0 + $1.seconds }
             let placed = evidence.reduce(0) { total, session in
                 let lower = max(session.start, hour.interval.start), upper = min(session.end, hour.interval.end)
