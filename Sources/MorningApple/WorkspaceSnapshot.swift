@@ -118,8 +118,18 @@ public struct WorkspaceSnapshot: Codable, Sendable {
             if let original = read.original { setAsideNow.append((part, original)) }
             return read.value
         }
+        // A type that validates its content may throw its own error, which carries no
+        // coding path. Give it the key, so the person is told which part failed.
+        func strict<Value: Decodable>(_ type: Value.Type, _ key: CodingKeys) throws -> Value? {
+            do { return try values.decodeIfPresent(type, forKey: key) }
+            catch let error as DecodingError { throw error }
+            catch {
+                throw DecodingError.dataCorrupted(.init(codingPath: values.codingPath + [key],
+                    debugDescription: "The saved value was refused.", underlyingError: error))
+            }
+        }
         schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
-        routine = try values.decodeIfPresent(RoutineVersion.self, forKey: .routine)
+        routine = try strict(RoutineVersion.self, .routine)
         session = try element(RoutineSession.self, .session, .session)
         previousRoutine = try element(RoutineVersion.self, .previousRoutine, .previousRoutine)
         if let read = try values.decodeIfPresent(RecoverableHistory.self, forKey: .history) {
@@ -140,9 +150,9 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         voiceIdentifier = try values.decodeIfPresent(String.self, forKey: .voiceIdentifier)
         observationNotes = try values.decodeIfPresent(String.self, forKey: .observationNotes)
         observationSource = try values.decodeIfPresent(String.self, forKey: .observationSource)
-        observationVideoEvidence = try values.decodeIfPresent(ObservationVideoEvidence.self, forKey: .observationVideoEvidence)
+        observationVideoEvidence = try strict(ObservationVideoEvidence.self, .observationVideoEvidence)
         observationContextClassification = try values.decodeIfPresent(RecoverableObservationClassification.self, forKey: .observationContextClassification)
-        observationArchive = try values.decodeIfPresent(ObservationArchive.self, forKey: .observationArchive)
+        observationArchive = try strict(ObservationArchive.self, .observationArchive)
         selectedObservationID = try values.decodeIfPresent(UUID.self, forKey: .selectedObservationID)
         pendingRoutineProposal = try values.decodeIfPresent(RecoverableRoutineProposal.self, forKey: .pendingRoutineProposal)
         consumedMorningEntryIDs = try values.decodeIfPresent([UUID].self, forKey: .consumedMorningEntryIDs)
