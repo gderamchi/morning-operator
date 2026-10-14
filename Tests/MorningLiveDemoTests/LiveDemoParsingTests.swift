@@ -80,3 +80,14 @@ struct LiveDemoListRowTests {
         #expect(LiveDemoWeather.summary(texts: ["Paris", "Loading"]) == nil)
     }
 }
+
+@Suite("Live morning demo Instagram")
+struct LiveDemoInstagramTests {
+    @Test("Unread count from the Direct tab label")
+    func unreadCount() {
+        #expect(LiveDemoInstagram.unreadCount(fromTabLabel: "Direct messages - 0 unread message") == 0)
+        #expect(LiveDemoInstagram.unreadCount(fromTabLabel: "Direct messages - 3 unread messages") == 3)
+        #expect(LiveDemoInstagram.unreadCount(fromTabLabel: "Direct messages") == nil)
+        #expect(LiveDemoInstagram.unreadCount(fromTabLabel: "unread") == nil)
+    }
+}

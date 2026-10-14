@@ -164,3 +164,15 @@ public enum LiveDemoWeather {
             && text.unicodeScalars.allSatisfy { CharacterSet.letters.union(.whitespaces).contains($0) }
     }
 }
+
+// MARK: - Instagram
+
+public enum LiveDemoInstagram {
+    /// The unread count Instagram puts in its Direct tab label, e.g.
+    /// "Direct messages - 3 unread messages" -> 3. Nil when the label has no count.
+    public static func unreadCount(fromTabLabel label: String) -> Int? {
+        let words = label.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        guard let index = words.firstIndex(of: "unread"), index > 0, let count = Int(words[index - 1]) else { return nil }
+        return count
+    }
+}

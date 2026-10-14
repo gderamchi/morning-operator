@@ -553,6 +553,8 @@ final class LiveMorningDemoTests: XCTestCase {
     }
 
     private func readInstagramMessages(in app: XCUIApplication) throws {
+        // Instagram states the unread count in the Direct tab's own label; prefer it.
+        let tabCount = instagramTab(.direct, in: app).flatMap { LiveDemoInstagram.unreadCount(fromTabLabel: $0.label) }
         guard openInstagramTab(.direct, in: app) else {
             report.record(.instagramMessages, .skipped(.notFound))
             try say("I couldn't open your Instagram messages.")
@@ -562,12 +564,14 @@ final class LiveMorningDemoTests: XCTestCase {
         // Rows on the inbox list, parsed in memory; no thread is opened.
         let rows = instagramInboxRows(in: app)
         let unread = rows.filter(\.isUnread)
-        emit(LiveDemoReport.line(["instagram-inbox", "rows=\(rows.count)", "unread=\(unread.count)"]))
+        let unreadCount = tabCount ?? unread.count
+        emit(LiveDemoReport.line(["instagram-inbox", "rows=\(rows.count)", "unread-rows=\(unread.count)",
+                                  "unread-tab=\(tabCount.map(String.init) ?? "none")"]))
         report.record(.instagramMessages, .ran)
-        switch unread.count {
+        switch unreadCount {
         case 0: try say("You have no unread messages on Instagram.")
         case 1: try say("You have one unread message on Instagram.")
-        default: try say("You have \(unread.count) unread messages on Instagram.")
+        default: try say("You have \(unreadCount) unread messages on Instagram.")
         }
         let allowRead = LiveDemoGate.allowsReadConversations(environment: environment)
         for row in rows.filter({ allowRead || $0.isUnread }).prefix(3) {
@@ -602,9 +606,9 @@ final class LiveMorningDemoTests: XCTestCase {
             try say("I couldn't open Instagram reels. I won't swipe.")
             return
         }
-        report.record(.reels, .ran)
         try say("Now some reels. I'll swipe every eight seconds. I won't like or follow anything.")
-        swipeFeed(app, count: count)
+        let advanced = swipeFeed(app, count: count)
+        report.record(.reels, advanced > 0 ? .ran : .skipped(.swipeNoAdvance))
         hold(4)
     }
 
@@ -624,30 +628,62 @@ final class LiveMorningDemoTests: XCTestCase {
             return
         }
         hold(2)
-        report.record(.reels, .ran)
         try say("Now some videos. I'll swipe every eight seconds. I won't like or follow anything.")
-        swipeFeed(feed, count: count)
+        let advanced = swipeFeed(feed, count: count)
+        report.record(.reels, advanced > 0 ? .ran : .skipped(.swipeNoAdvance))
         hold(4)
     }
 
-    /// Upward drags from the middle of the screen, one every eight seconds: drags, never a
-    /// tap or a double tap. Stops at once if the screen changes (a sheet, a keyboard).
-    private func swipeFeed(_ feed: XCUIApplication, count: Int) {
+    /// One fast upward flick per reel, every eight seconds: a drag, never a tap or a double
+    /// tap, in the horizontal middle (clear of the right-hand button column) and above the
+    /// tab bar. After each flick the reel must have changed (a hash of what is on screen,
+    /// kept in memory, never logged); otherwise one longer flick is tried. Returns how many
+    /// flicks advanced. Stops at once if the screen changes (a sheet, a keyboard).
+    @discardableResult
+    private func swipeFeed(_ feed: XCUIApplication, count: Int) -> Int {
+        var advanced = 0
         for index in 0..<count {
             hold(8)
-            let fine = XCTContext.runActivity(named: "Reel \(index + 1)") { _ in
+            let result = XCTContext.runActivity(named: "Reel \(index + 1)") { _ -> Bool? in
                 guard feed.state == .runningForeground, noPrompt(in: feed),
-                      !feed.keyboards.firstMatch.exists else { return false }
-                let start = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
-                let end = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
-                start.press(forDuration: 0.05, thenDragTo: end)
-                return true
+                      !feed.keyboards.firstMatch.exists else { return nil }
+                let before = reelSignature(feed)
+                flick(feed, from: 0.80, to: 0.15)
+                hold(1.5)
+                if reelSignature(feed) != before { return true }
+                guard feed.state == .runningForeground, noPrompt(in: feed), !feed.keyboards.firstMatch.exists else { return nil }
+                flick(feed, from: 0.84, to: 0.04)
+                hold(1.5)
+                return reelSignature(feed) != before
             }
-            if !fine {
+            guard let moved = result else {
                 emit(LiveDemoReport.line(["reels", "stopped-at=\(index)"]))
-                return
+                break
             }
+            if moved { advanced += 1 }
         }
+        emit(LiveDemoReport.line(["reels", "advanced=\(advanced)", "of=\(count)"]))
+        return advanced
+    }
+
+    /// The single drag site: a short press, then a fast drag up the middle of the screen.
+    private func flick(_ app: XCUIApplication, from startY: CGFloat, to endY: CGFloat) {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0)
+    }
+
+    /// A hash of the texts and identifiers in the reel area, compared in memory only.
+    private func reelSignature(_ app: XCUIApplication) -> Int {
+        let screen = app.frame
+        var hasher = Hasher()
+        for node in snapshotDescendants(of: app)
+        where node.frame.midY > screen.height * 0.08 && node.frame.midY < screen.height * 0.86
+            && (node.elementType == .staticText || node.elementType == .button || node.elementType == .image) {
+            hasher.combine(node.label)
+            hasher.combine(node.identifier)
+        }
+        return hasher.finalize()
     }
 
     /// Buttons of the bottom tab bar: inside a tab bar element if there is one, otherwise

@@ -32,6 +32,7 @@ public enum LiveDemoSkip: String, Sendable, Equatable {
     case voiceFailed = "voice-failed"
     case notReached = "not-reached"
     case stoppedEarly = "stopped-early"
+    case swipeNoAdvance = "swipe-no-advance"
 }
 
 /// Why the run fails. Fixed codes only, so a failure message cannot carry content.
