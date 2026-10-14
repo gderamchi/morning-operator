@@ -12,6 +12,7 @@
 // and answers hello / say / listen / stop. Text lives only in memory; nothing here logs,
 // prints or stores it. The listener closes on stop, on disconnect, or after 45 minutes.
 import AVFoundation
+import EventKit
 import Foundation
 import MorningApple
 import MorningLiveDemo
@@ -146,7 +147,12 @@ private final class VoiceHost: @unchecked Sendable {
             "voice=\(audio.voiceQuality.name)",
             "listening=\(audio.listeningSkip?.rawValue ?? "ready")"
         ]
-        if wantsCalendar { detail.append("calendar=\(Self.requestCalendarAccess() ? "ready" : "permission-denied")") }
+        if wantsCalendar {
+            let granted = Self.requestCalendarAccess()
+            detail.append("calendar=\(granted ? "ready" : "permission-denied")")
+            // 0 not asked, 1 restricted, 2 denied, 3 full access, 4 add-only.
+            detail.append("calendar-status=\(EKEventStore.authorizationStatus(for: .event).rawValue)")
+        }
         return .init(id: id, ok: true, detail: detail)
     }
 

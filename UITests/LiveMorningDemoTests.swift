@@ -487,9 +487,20 @@ final class LiveMorningDemoTests: XCTestCase {
             feed = app
         }
         hold(3)
-        let tab = snapshotDescendants(of: feed).first { node in
+        let nodes = snapshotDescendants(of: feed)
+        let tab = nodes.first { node in
             node.elementType == .button && tabLabels.contains(node.label)
                 && LiveDemoTapPolicy.permits(kind: .feedTab, label: node.label, identifier: node.identifier, isButtonLike: true)
+        }
+        if tab == nil {
+            // Diagnostics: only the bottom tab bar's buttons (identifier, label, frame).
+            // No other element, no screenshot, no post text.
+            for (index, button) in tabBarButtons(in: feed, nodes: nodes).enumerated() {
+                let f = button.frame
+                emit(LiveDemoReport.line(["tab", "i=\(index)", "id=\(button.identifier.isEmpty ? "none" : button.identifier)",
+                                          "label=\(button.label.isEmpty ? "none" : button.label)",
+                                          "frame=\(Int(f.minX)).\(Int(f.minY)).\(Int(f.width)).\(Int(f.height))"]))
+            }
         }
         // Swipes happen only after the feed tab itself was found and tapped.
         guard let tab, tapChecked(Target(tab), kind: .feedTab, in: feed) else {
@@ -517,6 +528,18 @@ final class LiveMorningDemoTests: XCTestCase {
             }
         }
         hold(4)
+    }
+
+    /// Buttons of the bottom tab bar: inside a tab bar element if there is one, otherwise
+    /// button-like controls whose centre is in the bottom 12% of the screen.
+    private func tabBarButtons(in app: XCUIApplication, nodes: [any XCUIElementSnapshot]) -> [any XCUIElementSnapshot] {
+        let screen = app.frame
+        let bars = nodes.filter { $0.elementType == .tabBar && $0.frame.midY > screen.maxY * 0.8 }
+        let inBars = bars.flatMap { Self.descendants(of: $0).filter { Self.isButtonLike($0.elementType) } }
+        let buttons = inBars.isEmpty
+            ? nodes.filter { Self.isButtonLike($0.elementType) && $0.frame.midY > screen.maxY * 0.88 && isOnScreen($0.frame, in: app) }
+            : inBars
+        return buttons.sorted { $0.frame.minX < $1.frame.minX }
     }
 
     // MARK: - Speaking, reporting and holding
