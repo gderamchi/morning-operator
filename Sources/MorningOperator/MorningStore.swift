@@ -341,6 +341,10 @@ final class MorningStore {
             if let archive = ObservationReviewUITestFixture.archive(directory: directory) {
                 observationArchive = archive
             }
+            // Synthetic: the message a model failure shows, without asking a model (issue #89).
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-model-not-ready") {
+                notice = AppleIntelligenceError.modelDidNotAnswer(.notReady).localizedDescription
+            }
             #endif
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             do {

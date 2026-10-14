@@ -67,6 +67,18 @@ final class InterfaceTourTests: XCTestCase {
         attach("\(prefix)-observed-mornings", app)
         app.terminate()
 
+        // Learn with the message a model failure shows, set by a labelled fixture: a plain
+        // sentence, never an error code (issue #89).
+        app = launch(arguments + ["--ui-testing-model-not-ready"], workspace: UUID())
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 15), app.debugDescription)
+        MorningUITestNavigation.revealMorningAction("morning.learn", in: app)
+        app.buttons["morning.learn"].tap()
+        let message = app.descendants(matching: .any)["app.notice"].firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 10), app.debugDescription)
+        for _ in 0..<12 where !message.isHittable { app.swipeUp() }
+        attach("\(prefix)-learn-model-not-ready", app)
+        app.terminate()
+
         // Last, because it starts a morning in this workspace: the opening (issue #28).
         app = launch(arguments, workspace: workspace)
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
