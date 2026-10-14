@@ -339,6 +339,7 @@ struct ObservationHistoryDetail: View {
                 }
 
                 Section {
+                    ForgetObservationButton(store: store, observationID: observationID) { dismiss() }
                     Button("Delete this observation", role: .destructive) { confirmingDelete = true }
                         .disabled(store.busy || store.sessionActive)
                         .accessibilityIdentifier("observation.delete")

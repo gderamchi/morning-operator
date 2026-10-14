@@ -35,6 +35,7 @@ struct MorningPrivacyView: View {
                 Text("This also includes observation text and corrections, retained quotations, suggestions, recording recovery copies, app activity, invitation settings, your chosen calendars and weather city, and local Apple-app save receipts.")
                     .font(.caption).foregroundStyle(MorningStyle.muted)
             }
+            if !store.privacyBlocksWork { EvidenceRetentionSection(store: store) }
             Section {
                 Toggle("Save app activity from Shortcuts", isOn: Binding(
                     get: { store.activityLoggingAllowed },

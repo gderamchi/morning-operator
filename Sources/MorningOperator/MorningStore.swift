@@ -75,6 +75,8 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var routinePreferences: RecoverableRoutinePreferences?
     /// Which morning sessions were already greeted (issue #28). Session identifiers only.
     var greeting: MorningGreetingState?
+    /// Keep raw evidence for this many days (issue #8). Missing means Off: nothing expires.
+    var evidenceRetentionDays: Int?
 }
 
 private extension WorkspaceSnapshot {
@@ -109,6 +111,8 @@ private extension WorkspaceSnapshot {
         // Missing is an older workspace. An unreadable value must not close the whole
         // workspace: at worst a morning in progress is treated as not greeted yet.
         greeting = (try? values.decodeIfPresent(MorningGreetingState.self, forKey: .greeting)) ?? nil
+        // An unreadable value reads as Off, which never removes anything.
+        evidenceRetentionDays = (try? values.decodeIfPresent(Int.self, forKey: .evidenceRetentionDays)) ?? nil
     }
 }
 
@@ -263,6 +267,10 @@ final class MorningStore {
     private(set) var privacyCompletedID: UUID?
     private(set) var activityLoggingAllowed = true
     var privacyBlocksWork: Bool { privacyIsForgetting || privacyNeedsCleanup }
+    // Evidence retention and forgetting one observation (#8). Change these through MorningStore+Retention.swift.
+    var evidenceRetentionDays: Int?
+    var evidenceRemovalStatus: String?
+    var evidenceRemovalInProgress = false
     var privacyInventoryIsReadable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
 
     init() {
@@ -337,6 +345,11 @@ final class MorningStore {
             seedPrivacyFixtureIfRequested(directory: directory)
             if let archive = ObservationReviewUITestFixture.archive(directory: directory) {
                 observationArchive = archive
+            }
+            if let retention = EvidenceRetentionUITestFixture.workspace() {
+                observationArchive = retention.archive; routine = retention.routine
+                session = RoutineSession(routine: retention.routine); pendingRoutineProposal = retention.proposal
+                persist()
             }
             #endif
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
@@ -414,6 +427,7 @@ final class MorningStore {
                 pendingCaptures = saved.pendingCaptures ?? [:]
                 consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
                 greetingState = saved.greeting ?? MorningGreetingState()
+                evidenceRetentionDays = saved.evidenceRetentionDays.flatMap { EvidenceRemovalReview.maximumAgeChoices.contains($0) ? $0 : nil }
                 if !pendingCaptures.isEmpty { notice = String(localized: "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again.") }
                 if session?.status == .running {
                     sessionTimingInterrupted = true
@@ -432,6 +446,8 @@ final class MorningStore {
                 notice = String(localized: "\(message) Your existing file is protected from changes.")
             }
         }
+        // A confirmed removal interrupted before it finished (#8).
+        resumeEvidenceRemovalIfNeeded()
     }
 
     /// Unsaved typed notes have no archive entry yet and are never imported evidence.
@@ -1702,6 +1718,33 @@ final class MorningStore {
         return changeObservationArchive(selecting: nil) { $0.clear() }
     }
 
+    /// Evidence retention (#8): the one write MorningStore+Retention.swift makes. It replaces
+    /// the parts a confirmed removal changes in a single save; a failed save changes nothing.
+    func commitEvidenceRemoval(_ next: EvidenceRetentionWorkspace, removing ids: Set<UUID>) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !busy, !sessionActive else { return false }
+        let old = (observationArchive, routine, previousRoutine, session, pendingRoutineProposal)
+        let oldSelection = (selectedObservationID, notes, observationVideoEvidence, observationContextClassification,
+                            notesSourceLabel, observationEditsNeedSave)
+        observationArchive = next.archive
+        routine = next.currentRoutine; previousRoutine = next.previousRoutine; session = next.session
+        pendingRoutineProposal = next.pendingProposal
+        projectObservation(selectedObservationID.flatMap { ids.contains($0) ? nil : $0 })
+        observationEditsNeedSave = true
+        guard persist() else {
+            (observationArchive, routine, previousRoutine, session, pendingRoutineProposal) = old
+            (selectedObservationID, notes, observationVideoEvidence, observationContextClassification,
+             notesSourceLabel, observationEditsNeedSave) = oldSelection
+            return false
+        }
+        return true
+    }
+
+    /// Evidence retention (#8): a removal waits for the running analysis, which may hold an observation.
+    func waitForRunningAnalysis() async { await analysisTask?.value }
+
+    /// Evidence retention (#8): saves the "Keep raw evidence for…" choice.
+    func saveEvidenceRetentionSetting() -> Bool { persist() }
+
     private func projectObservation(_ id: UUID?) {
         let entry = id.flatMap { observationArchive.entry(id: $0) }
         selectedObservationID = entry?.id
@@ -2087,7 +2130,8 @@ final class MorningStore {
                 pendingRoutineProposal: validProposal.map(RecoverableRoutineProposal.init),
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences),
-                greeting: greetingState))
+                greeting: greetingState,
+                evidenceRetentionDays: evidenceRetentionDays))
             }
             pendingRoutineProposal = validProposal
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
@@ -2170,7 +2214,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", EvidenceRemovalMarker.fileName] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2235,6 +2279,7 @@ final class MorningStore {
         observationVideoEvidence = nil; observationContextClassification = nil
         observationSaveIssue = nil; observationEditsNeedSave = false; observationIssue = nil
         pendingRoutineProposal = nil
+        evidenceRetentionDays = nil; evidenceRemovalStatus = nil; evidenceRemovalInProgress = false
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
