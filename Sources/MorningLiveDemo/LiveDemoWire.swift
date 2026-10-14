@@ -19,6 +19,8 @@ public enum LiveDemoWire {
         case hello
         case say
         case listen
+        /// Today's events from MORE's EventKit reader (titles in memory only).
+        case calendar
         /// Stop audio and close the listener.
         case stop
     }
@@ -29,9 +31,13 @@ public enum LiveDemoWire {
         public let command: Command
         public let text: String?
         public let seconds: Double?
+        /// hello only: also ask for calendar access while MORE is in front.
+        public let wantsCalendar: Bool?
 
-        public init(token: String, id: Int, command: Command, text: String? = nil, seconds: Double? = nil) {
+        public init(token: String, id: Int, command: Command, text: String? = nil, seconds: Double? = nil,
+                    wantsCalendar: Bool? = nil) {
             self.token = token; self.id = id; self.command = command; self.text = text; self.seconds = seconds
+            self.wantsCalendar = wantsCalendar
         }
     }
 
@@ -44,9 +50,13 @@ public enum LiveDemoWire {
         public let transcript: String?
         /// Short technical tokens (route, volume, voice quality), never content.
         public let detail: [String]?
+        /// Only for `calendar`. Never logged by either side.
+        public let events: [LiveDemoDayPlan.Event]?
 
-        public init(id: Int, ok: Bool, code: String? = nil, transcript: String? = nil, detail: [String]? = nil) {
+        public init(id: Int, ok: Bool, code: String? = nil, transcript: String? = nil, detail: [String]? = nil,
+                    events: [LiveDemoDayPlan.Event]? = nil) {
             self.id = id; self.ok = ok; self.code = code; self.transcript = transcript; self.detail = detail
+            self.events = events
         }
     }
 

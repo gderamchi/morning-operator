@@ -13,6 +13,7 @@
 // prints or stores it. The listener closes on stop, on disconnect, or after 45 minutes.
 import AVFoundation
 import Foundation
+import MorningApple
 import MorningLiveDemo
 import Network
 import Speech
@@ -103,7 +104,9 @@ private final class VoiceHost: @unchecked Sendable {
         let response: LiveDemoWire.Response
         switch request.command {
         case .hello:
-            response = hello(id: request.id)
+            response = hello(id: request.id, wantsCalendar: request.wantsCalendar == true)
+        case .calendar:
+            response = todaysEvents(id: request.id)
         case .say:
             guard let audio, let text = request.text, !text.isEmpty else {
                 response = .init(id: request.id, ok: false, code: LiveDemoFailure.moreNotReady.rawValue)
@@ -126,7 +129,7 @@ private final class VoiceHost: @unchecked Sendable {
     }
 
     /// Prepares audio while MORE is in front and plays the sound check.
-    private func hello(id: Int) -> LiveDemoWire.Response {
+    private func hello(id: Int, wantsCalendar: Bool) -> LiveDemoWire.Response {
         if audio == nil {
             switch DemoVoice.start() {
             case .failed(let failure, let detail):
@@ -139,10 +142,46 @@ private final class VoiceHost: @unchecked Sendable {
         if case .failed(let failure, let detail) = audio.speak("Sound check.") {
             return .init(id: id, ok: false, code: failure.rawValue, detail: detail + audio.diagnostics())
         }
-        return .init(id: id, ok: true, detail: audio.diagnostics() + [
+        var detail = audio.diagnostics() + [
             "voice=\(audio.voiceQuality.name)",
             "listening=\(audio.listeningSkip?.rawValue ?? "ready")"
-        ])
+        ]
+        if wantsCalendar { detail.append("calendar=\(Self.requestCalendarAccess() ? "ready" : "permission-denied")") }
+        return .init(id: id, ok: true, detail: detail)
+    }
+
+    /// Asks for full calendar access while MORE is in front (the prompt appears now).
+    private static func requestCalendarAccess() -> Bool {
+        let granted = Box<Bool?>(nil)
+        Task { @MainActor in
+            let service = CalendarObservationService()
+            do { try await service.requestAccess(); granted.set(service.isAuthorized) } catch { granted.set(false) }
+        }
+        _ = DemoVoice.wait(60) { granted.get() != nil }
+        return granted.get() == true
+    }
+
+    /// Today's events from every calendar on the phone, read with MORE's read-only
+    /// EventKit service. The demo reads all calendars on purpose (owner present); titles
+    /// stay in memory and go back to the runner only.
+    private func todaysEvents(id: Int) -> LiveDemoWire.Response {
+        let result = Box<[LiveDemoDayPlan.Event]?>(nil)
+        let done = Box<Bool>(false)
+        Task { @MainActor in
+            let service = CalendarObservationService()
+            if service.isAuthorized, let choices = try? service.calendarChoices(), !choices.isEmpty,
+               let snapshot = try? service.snapshot(for: Date(), calendarIDs: Set(choices.map(\.id))) {
+                result.set(snapshot.events.map {
+                    LiveDemoDayPlan.Event(title: $0.title, start: $0.start, end: $0.end, isAllDay: $0.isAllDay)
+                })
+            }
+            done.set(true)
+        }
+        _ = DemoVoice.wait(20) { done.get() }
+        guard let events = result.get() else {
+            return .init(id: id, ok: false, code: LiveDemoSkip.permissionDenied.rawValue)
+        }
+        return .init(id: id, ok: true, events: events)
     }
 
     private func send(_ response: LiveDemoWire.Response) {
@@ -293,7 +332,7 @@ private final class DemoVoice: @unchecked Sendable {
                 "cfg=\(currentGeneration)"]
     }
 
-    private static func wait(_ seconds: TimeInterval, until done: () -> Bool) -> Bool {
+    static func wait(_ seconds: TimeInterval, until done: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
             if done() { return true }

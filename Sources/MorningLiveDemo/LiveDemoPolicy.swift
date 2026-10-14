@@ -67,6 +67,8 @@ public enum LiveDemoTapPolicy {
         case feedTab
         /// A mailbox row, e.g. "Inbox".
         case mailbox
+        /// Calendar's "Today" button (navigation only; events are never opened).
+        case calendarToday
     }
 
     static let forbiddenWords: Set<String> = [
@@ -117,6 +119,9 @@ public enum LiveDemoTapPolicy {
         case .mailbox:
             return !containsForbiddenWord(label) && !containsForbiddenWord(identifier)
                 && mailboxLabels.contains(normalizedLabel)
+        case .calendarToday:
+            return !containsForbiddenWord(label) && !containsForbiddenWord(identifier)
+                && normalizedLabel == "today"
         }
     }
 }

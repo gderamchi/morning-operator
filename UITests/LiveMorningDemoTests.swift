@@ -29,6 +29,7 @@ final class LiveMorningDemoTests: XCTestCase {
         static let messages = "com.apple.MobileSMS"
         static let mail = "com.apple.mobilemail"
         static let weather = "com.apple.weather"
+        static let calendar = "com.apple.mobilecal"
         static let instagram = "com.burbn.instagram"
         static let tiktok = "com.zhiliaoapp.musically"
         static let springboard = "com.apple.springboard"
@@ -86,7 +87,11 @@ final class LiveMorningDemoTests: XCTestCase {
         voice = client
         // MORE prepares audio, plays "Sound check." and asks for the microphone and speech
         // recognition (tap Allow on the phone) before it answers.
-        let hello = XCTContext.runActivity(named: "MORE sound check") { _ in client.call(.hello, timeout: 90) }
+        let steps = LiveDemoSteps.from(environment: environment)
+        for step in LiveDemoSteps.all.subtracting(steps) { report.record(step, .skipped(.disabled)) }
+        let hello = XCTContext.runActivity(named: "MORE sound check") { _ in
+            client.call(.hello, wantsCalendar: steps.contains(.calendar), timeout: 150)
+        }
         emit(LiveDemoReport.line(["audio", "runner=\(Self.name(runnerState))", "more=\(hello == nil ? "no-answer" : "answered")"]
                                  + (hello?.detail ?? [])))
         guard let hello, hello.ok else {
@@ -109,25 +114,44 @@ final class LiveMorningDemoTests: XCTestCase {
         }
 
         // 2. Look first, then say a short summary.
-        try say("Good morning. One moment. I'm looking at your morning.")
-        let unreadConversations = try XCTContext.runActivity(named: "Survey Messages") { _ in try surveyMessages() }
-        let unreadEmails = try XCTContext.runActivity(named: "Survey Mail") { _ in try surveyMail() }
-        let weather = try XCTContext.runActivity(named: "Weather") { _ in try readWeather() }
-        for sentence in LiveDemoSummary.sentences(unreadConversations: unreadConversations, unreadEmails: unreadEmails,
-                                                  weather: weather).dropFirst() {
-            try say(sentence)
+        var unreadConversations: Int?
+        var unreadEmails: Int?
+        if steps.isDisjoint(with: [.messages, .mail, .weather]) {
+            report.record(.summary, .skipped(.disabled))
+            try say("Good morning.")
+        } else {
+            try say("Good morning. One moment. I'm looking at your morning.")
+            if steps.contains(.messages) {
+                unreadConversations = try XCTContext.runActivity(named: "Survey Messages") { _ in try surveyMessages() }
+            }
+            if steps.contains(.mail) {
+                unreadEmails = try XCTContext.runActivity(named: "Survey Mail") { _ in try surveyMail() }
+            }
+            let weather = steps.contains(.weather)
+                ? try XCTContext.runActivity(named: "Weather") { _ in try readWeather() } : nil
+            for sentence in LiveDemoSummary.sentences(unreadConversations: unreadConversations, unreadEmails: unreadEmails,
+                                                      weather: weather).dropFirst() {
+                try say(sentence)
+            }
+            report.record(.summary, .ran)
+            hold(2)
         }
-        report.record(.summary, .ran)
-        hold(2)
         if LiveDemoStopAfter.from(environment: environment) == .summary {
-            // Owner-present check: nothing is opened or read after the summary.
-            for step in [LiveDemoStep.messages, .mail, .reels] { report.record(step, .skipped(.stoppedEarly)) }
+            // Owner-present check: nothing is opened or read after the summary. A survey that
+            // succeeded counts as ran.
+            if unreadConversations != nil { report.record(.messages, .ran) }
+            if unreadEmails != nil { report.record(.mail, .ran) }
+            for step in [LiveDemoStep.messages, .mail, .calendar, .reels] { report.record(step, .skipped(.stoppedEarly)) }
             try say("That's all for this check.")
             return
         }
+        if steps.contains(.calendar) {
+            let calendarReady = detail.contains("calendar=ready")
+            try XCTContext.runActivity(named: "Calendar") { _ in try readCalendar(accessGranted: calendarReady) }
+        }
 
         // 3. Ask, then read.
-        if let count = unreadConversations {
+        if steps.contains(.messages), let count = unreadConversations {
             if count == 0 && !LiveDemoGate.allowsReadConversations(environment: environment) {
                 report.record(.messages, .ran)
             } else if try askToStartWithMessages() {
@@ -136,14 +160,16 @@ final class LiveMorningDemoTests: XCTestCase {
                 report.record(.messages, .skipped(.ownerDeclined))
             }
         }
-        if let count = unreadEmails {
+        if steps.contains(.mail), let count = unreadEmails {
             if count == 0 {
                 report.record(.mail, .ran)
             } else {
                 try XCTContext.runActivity(named: "Mail") { _ in try readMail() }
             }
         }
-        try XCTContext.runActivity(named: "Reels") { _ in try scrollReels() }
+        if steps.contains(.reels) {
+            try XCTContext.runActivity(named: "Reels") { _ in try scrollReels() }
+        }
 
         try XCTContext.runActivity(named: "Return to MORE") { _ in
             more.activate()
@@ -397,6 +423,43 @@ final class LiveMorningDemoTests: XCTestCase {
         }
         report.record(.weather, .ran)
         return summary
+    }
+
+    // MARK: - Calendar
+
+    /// Shows Calendar on today (the Today button is the only tap; no event is opened) and
+    /// speaks today's plan from MORE's EventKit reader, not from the screen.
+    private func readCalendar(accessGranted: Bool) throws {
+        let calendarApp: XCUIApplication
+        switch launch(App.calendar) {
+        case .skipped(let reason):
+            report.record(.calendar, .skipped(reason))
+            return
+        case .app(let app):
+            calendarApp = app
+        }
+        hold(2)
+        if let today = snapshotDescendants(of: calendarApp).first(where: { node in
+            node.elementType == .button
+                && LiveDemoTapPolicy.permits(kind: .calendarToday, label: node.label, identifier: node.identifier, isButtonLike: true)
+        }) {
+            _ = tapChecked(Target(today), kind: .calendarToday, in: calendarApp)
+            hold(1.5)
+        }
+        guard accessGranted, let voice,
+              let response = XCTContext.runActivity(named: "Today's events", block: { _ in voice.call(.calendar, timeout: 30) }),
+              response.ok, let events = response.events else {
+            report.record(.calendar, .skipped(.permissionDenied))
+            try say("I can't read your calendar. Allow calendar access for MORE in Settings.")
+            return
+        }
+        report.record(.calendar, .ran)
+        try say("Now your calendar.")
+        for sentence in LiveDemoDayPlan.sentences(events: events, now: Date(), calendar: .current) {
+            try say(sentence)
+        }
+        emit(LiveDemoReport.line(["calendar", "events=\(events.count)"]))
+        hold(3)
     }
 
     // MARK: - Reels
@@ -688,10 +751,11 @@ final class VoiceClient: @unchecked Sendable {
     /// Connects (retrying while MORE's listener starts), sends one request, waits for its
     /// answer. Nil on timeout or a broken channel.
     func call(_ command: LiveDemoWire.Command, text: String? = nil, seconds: Double? = nil,
-              timeout: TimeInterval) -> LiveDemoWire.Response? {
+              wantsCalendar: Bool? = nil, timeout: TimeInterval) -> LiveDemoWire.Response? {
         guard connect(within: 15) else { return nil }
         let id = lock.withLock { () -> Int in nextID += 1; return nextID }
-        let request = LiveDemoWire.Request(token: token, id: id, command: command, text: text, seconds: seconds)
+        let request = LiveDemoWire.Request(token: token, id: id, command: command, text: text, seconds: seconds,
+                                           wantsCalendar: wantsCalendar)
         connection.send(content: LiveDemoWire.encode(request), completion: .contentProcessed { [weak self] error in
             if error != nil { self?.lock.withLock { self?.broken = true } }
         })
