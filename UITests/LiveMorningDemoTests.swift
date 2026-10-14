@@ -874,10 +874,13 @@ final class LiveMorningDemoTests: XCTestCase {
         }
         for index in nodes.indices where !matches.contains(index) && nodes[index].frame.contains(point) {
             let node = nodes[index]
+            // A plain container around the whole target (a screen, a video, a list) is not
+            // what a tap lands on; only controls and smaller elements are judged.
+            let isContainer = !Self.isButtonLike(node.elementType) && node.frame.contains(target.frame)
             // Nothing under the finger may name an action, by identifier or (for controls) label.
-            if LiveDemoTapPolicy.containsForbiddenWord(node.identifier)
+            if !isContainer, LiveDemoTapPolicy.containsForbiddenWord(node.identifier)
                 || (Self.isButtonLike(node.elementType) && LiveDemoTapPolicy.containsForbiddenWord(node.label)) {
-                lastTapRefusal = "forbidden-under-point"
+                lastTapRefusal = "forbidden-under-point type=\(node.elementType.rawValue) id=\(node.identifier.isEmpty ? "none" : node.identifier)"
                 return false
             }
             // Another control under the finger is allowed only if it wraps the target or sits
