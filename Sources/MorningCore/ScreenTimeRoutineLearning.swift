@@ -110,7 +110,13 @@ public enum ScreenTimeMorningLearner {
                 let hourEvidence = PhoneUse.fromScreenTimeSegment(hour: hour.interval, totalSeconds: seconds,
                     firstPickup: hour.firstPickup, longestActivity: hour.longestActivity, sessionGap: policy.sessionGap)
                 if let latest = hourEvidence.map(\.interval.end).max(), bound > latest {
-                    uses.append(PhoneUse(at: bound, source: .screenTimeLatestUse))
+                    uses.append(PhoneUse(at: bound, source: .screenTimeBound))
+                }
+                // Without a first pickup, the hour's use must also have begun by its end minus
+                // its total: the late longest session cannot be the first use.
+                let startBound = max(hour.interval.start, hour.interval.end.addingTimeInterval(-seconds))
+                if hour.firstPickup == nil, let earliest = hourEvidence.map(\.interval.start).min(), startBound < earliest {
+                    uses.append(PhoneUse(at: startBound, source: .screenTimeBound))
                 }
             }
         }
@@ -133,7 +139,7 @@ public enum ScreenTimeMorningLearner {
                 // Hourly data for the last hour is not final: a pause seen in it may not be real.
                 guard detected.endReason != .ongoing, now.timeIntervalSince(detected.end) >= 3600 + policy.sessionGap else { break }
                 // Minutes count as measured only up to the end that timed evidence alone proves.
-                let timedOnly = uses.filter { $0.source != .screenTimeLatestUse }
+                let timedOnly = uses.filter { $0.source != .screenTimeBound }
                 var measuredUntil = found.start
                 if case .found(let timed) = MorningStartDetector.detect(uses: timedOnly, on: day, coveredFrom: coveredFrom,
                                                                         now: now, policy: policy, calendar: calendar),

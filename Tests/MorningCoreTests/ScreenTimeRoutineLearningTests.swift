@@ -282,6 +282,11 @@ struct ScreenTimeRoutineLearningTests {
         let late = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
                     hour(at(7), longest: (at(7, 45), at(7, 55)), [app("com.apple.mobilesafari", 10)])]
         #expect(learn(late, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(7, 45))
+        // No pickup, longest 07:45–07:55, but 30 min in the hour: use began by 07:30.
+        let early = [late[0], hour(at(7), longest: (at(7, 45), at(7, 55)), [app("com.apple.mobilesafari", 30)])]
+        let morning2 = try #require(learn(early, now: at(12), queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning2.start <= at(7, 30))
+        #expect(morning2.apps.allSatisfy { !$0.secondsMeasured })
     }
 
     @Test func boundsBridgeRealGapsAndKeepNightChecksShort() throws {

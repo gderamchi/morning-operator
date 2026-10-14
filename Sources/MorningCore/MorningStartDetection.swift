@@ -4,10 +4,11 @@ import Foundation
 public struct PhoneUse: Equatable, Sendable {
     public enum Source: String, Sendable {
         case screenTimePickup, screenTimeLongestActivity, screenTimeHour, appTransition, recording
-        /// The earliest moment an hour's use can have ended (first pickup plus the hour's
-        /// total). It is a bound, not a time of use: a gap it closes is real, but continuity
-        /// it adds is not proven, so minutes it bridges are never called measured.
-        case screenTimeLatestUse
+        /// A moment the hour's totals force: its use cannot end before the first pickup plus
+        /// the hour's total, nor (without a first pickup) start after the hour's end minus it.
+        /// It is a bound, not a timed use: gaps it closes are real, but continuity it adds is
+        /// not proven, so minutes it bridges are never called measured.
+        case screenTimeBound
     }
     public let interval: DateInterval
     public let source: Source
