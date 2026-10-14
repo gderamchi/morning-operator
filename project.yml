@@ -20,6 +20,12 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     CURRENT_PROJECT_VERSION: "1"
+    # A spike build can sit beside the main install with its own bundle and entitlements:
+    # MO_BUNDLE_ID_BASE=com.gibouu.morningoperator.screentime MO_DISPLAY_NAME="MORE ST"
+    # MO_ENTITLEMENTS=Configuration/MorningOperator-ScreenTime.entitlements (docs/SEAMLESS-LEARNING.md).
+    MO_BUNDLE_ID_BASE: com.gibouu.morningoperator
+    MO_DISPLAY_NAME: MORE
+    MO_ENTITLEMENTS: Configuration/MorningOperator.entitlements
 targets:
   MorningOperator:
     type: application
@@ -32,11 +38,11 @@ targets:
       - path: Resources/AppShortcuts.xcstrings
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator
+        PRODUCT_BUNDLE_IDENTIFIER: $(MO_BUNDLE_ID_BASE)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Configuration/iOS-Info.plist
-        CODE_SIGN_ENTITLEMENTS: Configuration/MorningOperator.entitlements
+        CODE_SIGN_ENTITLEMENTS: $(MO_ENTITLEMENTS)
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
     dependencies:
@@ -54,7 +60,7 @@ targets:
       - path: Sources/MorningActivityWidget
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator.activity
+        PRODUCT_BUNDLE_IDENTIFIER: $(MO_BUNDLE_ID_BASE).activity
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Configuration/ActivityWidget-Info.plist
         APPLICATION_EXTENSION_API_ONLY: YES

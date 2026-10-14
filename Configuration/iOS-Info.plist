@@ -18,7 +18,7 @@
 	<key>CFBundleName</key>
 	<string>MORE</string>
 	<key>CFBundleDisplayName</key>
-	<string>MORE</string>
+	<string>$(MO_DISPLAY_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

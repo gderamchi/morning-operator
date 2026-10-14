@@ -195,6 +195,13 @@ struct MorningRootView: View {
         .onChange(of: observationReviewCanPresent) { _, ready in if ready { processPendingEntries() } }
         .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
         .onOpenURL { url in
+            #if DEBUG
+            if url.scheme == "more", url.host == "watch-morning", !store.privacyBlocksWork, store.canStartRecording {
+                MorningIntentRouter.shared.requestWatchMorning()
+                store.tab = .review; showingLearn = true
+                return
+            }
+            #endif
             guard url.scheme == "more", url.host == "morning", url.path.isEmpty,
                   url.query == nil, url.fragment == nil, !store.privacyBlocksWork else { return }
             // Revealing progress is not a request to start or resume. Keep any

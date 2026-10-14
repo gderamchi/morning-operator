@@ -7,6 +7,7 @@ struct LearnView: View {
     @ViewState<Bool> private var importing = false
     @ViewState<UUID?> private var importGeneration = nil
     @ViewState<Bool> private var recording = false
+    @ViewState<Bool> private var recordingStartsAtOnce = false
     @ViewState<Bool> private var confirmingObservation = false
     @ViewState<Bool> private var showingProposal = false
     @ViewState<Bool> private var awaitingSuggestion = false
@@ -154,10 +155,15 @@ struct LearnView: View {
         }
         .onDisappear { store.saveObservationEdits() }
         .sheet(isPresented: $recording) {
-            RecordMorningView(canStartRecording: store.canStartRecording) { url in
+            RecordMorningView(canStartRecording: store.canStartRecording, startsAtOnce: recordingStartsAtOnce) { url in
                 store.importObservation(url)
             }
         }
+        #if DEBUG
+        .task {
+            if MorningIntentRouter.shared.consumeWatchMorning() { recordingStartsAtOnce = true; recording = true }
+        }
+        #endif
         .sheet(isPresented: $confirmingObservation) {
             if let entry = store.selectedObservation {
                 ObservationDateEditor(store: store, entry: entry)
@@ -437,6 +443,11 @@ struct SetupView: View {
                         Text(store.modelSummary).font(.footnote).foregroundStyle(MorningStyle.muted)
                         Button("Check again") { store.refreshCapabilities() }.buttonStyle(SecondaryButtonStyle())
                     }
+                    #if DEBUG && os(iOS)
+                    NavigationLink { ScreenTimeSpikeView() } label: {
+                        Label { Text(verbatim: "Screen Time spike (debug)") } icon: { Image(systemName: "hourglass") }
+                    }.accessibilityIdentifier("setup.screenTimeSpike")
+                    #endif
                     Divider()
                     Text("You can capture thoughts and dreams, edit a routine, and use spoken guidance even while the on-device model is unavailable.")
                     Text("Connecting a phone to a Mac doesn't automatically give this app control of the phone. The separate development test runner is needed for the phone-control experiment.")
