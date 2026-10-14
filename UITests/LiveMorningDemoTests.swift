@@ -804,7 +804,11 @@ final class LiveMorningDemoTests: XCTestCase {
                     case .leave(let destination):
                         // Reel audio could say "go to my messages": ask first, and only a yes
                         // in the next words leaves the reels.
-                        if try confirmLeaving(to: destination) { exit = .leave(destination); break reels }
+                        switch try confirmLeaving(to: destination) {
+                        case .yes: exit = .leave(destination); break reels
+                        case .stop: exit = .stopped; break reels
+                        case .no: break
+                        }
                     case .ignore: break
                     }
                 }
@@ -838,9 +842,14 @@ final class LiveMorningDemoTests: XCTestCase {
     }
 
     /// A voice failure here stops the demo like everywhere else.
-    private func confirmLeaving(to destination: LiveDemoVoiceIntent.Destination) throws -> Bool {
+    private enum LeaveAnswer { case yes, no, stop }
+
+    private func confirmLeaving(to destination: LiveDemoVoiceIntent.Destination) throws -> LeaveAnswer {
         try say("Open your \(destination.rawValue)? Say yes or no.")
-        return LiveDemoYesNo.parse(listen(seconds: 6) ?? "") == .yes
+        let heard = listen(seconds: 6) ?? ""
+        // "Stop" here still stops; it is not just a no.
+        if LiveDemoVoiceIntent.parse(heard) == .stop { return .stop }
+        return LiveDemoYesNo.parse(heard) == .yes ? .yes : .no
     }
 
     /// Spoken commands MORE heard since the last poll (never logged).
@@ -1003,6 +1012,8 @@ final class LiveMorningDemoTests: XCTestCase {
         let identifier: String
         let frame: CGRect
         let blockingButtons: [CGRect]
+        /// The target's own texts and images (from its own subtree), by type, label and frame.
+        let ownContent: Set<String>
 
         init(_ node: any XCUIElementSnapshot, label: String? = nil) {
             elementType = node.elementType
@@ -1011,6 +1022,9 @@ final class LiveMorningDemoTests: XCTestCase {
             identifier = node.identifier
             frame = node.frame
             // Buttons nested inside the element that would be refused on their own.
+            ownContent = Set(LiveMorningDemoTests.descendants(of: node).dropFirst()
+                .filter { [.staticText, .image].contains($0.elementType) }
+                .map { LiveMorningDemoTests.contentKey($0) })
             blockingButtons = LiveMorningDemoTests.descendants(of: node).dropFirst()
                 .filter { LiveMorningDemoTests.isButtonLike($0.elementType)
                     && (LiveDemoTapPolicy.containsForbiddenWord($0.label) || LiveDemoTapPolicy.containsForbiddenWord($0.identifier)) }
@@ -1073,7 +1087,7 @@ final class LiveMorningDemoTests: XCTestCase {
             // follow, comment, share, reply, post, delete...), not on words like "video".
             // Text and images inside the target are its own content (a message preview may say
             // "send"); every other element under the finger is judged on its label too.
-            let ownContent = target.frame.contains(node.frame) && [.staticText, .image].contains(node.elementType)
+            let ownContent = target.ownContent.contains(Self.contentKey(node))
             let forbidden = isContainer
                 ? LiveDemoTapPolicy.containsStrongActionWord(node.identifier) || LiveDemoTapPolicy.containsStrongActionWord(node.label)
                 : LiveDemoTapPolicy.containsForbiddenWord(node.identifier)
@@ -1138,6 +1152,12 @@ final class LiveMorningDemoTests: XCTestCase {
         guard !overlap.isNull, !overlap.isEmpty else { return false }
         let smaller = min(a.width * a.height, b.width * b.height)
         return smaller > 0 && overlap.width * overlap.height >= 0.8 * smaller
+    }
+
+    /// Identity of a text or image inside a target, for ownership (not geometry alone).
+    private static func contentKey(_ node: any XCUIElementSnapshot) -> String {
+        let f = node.frame
+        return "\(node.elementType.rawValue)|\(node.label)|\(Int(f.minX)),\(Int(f.minY)),\(Int(f.width)),\(Int(f.height))"
     }
 
     private static func isButtonLike(_ type: XCUIElement.ElementType) -> Bool {

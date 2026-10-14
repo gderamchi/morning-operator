@@ -102,7 +102,8 @@ public enum LiveDemoTapPolicy {
 
     /// The words that name an outward action; used for containers around a target.
     static let strongActionWords: Set<String> = ["send", "reply", "post", "share", "like", "follow", "comment",
-                                                 "delete", "remove", "trash", "repost", "buy", "pay", "call"]
+                                                 "delete", "remove", "trash", "repost", "buy", "pay", "call",
+                                                 "subscribe", "unsubscribe", "unfollow", "block", "report", "gift"]
 
     public static func containsStrongActionWord(_ text: String) -> Bool {
         let lower = text.lowercased().replacingOccurrences(of: " ", with: "")

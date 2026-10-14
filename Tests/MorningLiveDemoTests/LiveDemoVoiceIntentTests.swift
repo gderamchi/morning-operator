@@ -61,7 +61,8 @@ struct LiveDemoVoiceIntentTests {
     @Test("The model's answer counts only if it is exactly one allowed token")
     func model() {
         #expect(LiveDemoVoiceIntent.fromModelAnswer(" next\n") == .next)
-        #expect(LiveDemoVoiceIntent.fromModelAnswer("Messages.") == .goTo(.messages))
+        #expect(LiveDemoVoiceIntent.fromModelAnswer("Messages.") == nil)
+        #expect(LiveDemoVoiceIntent.fromModelAnswer("calendar") == nil)
         for answer in ["send", "like", "next and stop", "reply hello", "none", ""] {
             #expect(LiveDemoVoiceIntent.fromModelAnswer(answer) == nil)
         }

@@ -16,10 +16,10 @@ public enum LiveDemoVoiceIntent: Codable, Equatable, Sendable {
 
     public enum Destination: String, Codable, Sendable { case messages, mail, calendar }
 
-    /// The only answers the on-device model may give (one per line of its instructions).
+    /// The only answers the on-device model may give. Never a "go to": leaving for private
+    /// content needs the owner's wake word, which only the strict grammar can see.
     public static let modelTokens: [String: LiveDemoVoiceIntent] = [
-        "hold": .hold, "next": .next, "skip": .skip, "stop": .stop, "repeat": .repeatLast,
-        "messages": .goTo(.messages), "mail": .goTo(.mail), "calendar": .goTo(.calendar)
+        "hold": .hold, "next": .next, "skip": .skip, "stop": .stop, "repeat": .repeatLast
     ]
 
     public static let maximumMore = 50
