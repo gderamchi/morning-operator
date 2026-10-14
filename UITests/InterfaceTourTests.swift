@@ -89,10 +89,13 @@ final class InterfaceTourTests: XCTestCase {
         for _ in 0..<4 where scroll.exists { scroll.swipeDown() }
         // Issue #99: while the opening waits, the first moment's Now card is not shown.
         XCTAssertFalse(app.staticTexts["run.step"].exists, app.debugDescription)
+        // The sample stays labelled while the Now card, which can carry the label, is hidden.
+        XCTAssertTrue(app.staticTexts["routine.source"].exists, app.debugDescription)
         attach("\(prefix)-opening", app)
         // After "Start my routine" the Now card appears in its place.
         MorningUITestNavigation.chooseRoutineAtOpening(in: app)
         XCTAssertTrue(app.staticTexts["run.step"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["routine.source"].exists, app.debugDescription)
         for _ in 0..<4 where scroll.exists { scroll.swipeDown() }
         attach("\(prefix)-opening-routine-started", app)
         app.terminate()

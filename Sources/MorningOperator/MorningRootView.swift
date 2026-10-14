@@ -829,7 +829,10 @@ struct TodayView: View {
         }
     }
 
-    private var sampleLabelInNowCard: Bool { store.sessionActive && !dynamicType.isAccessibilitySize }
+    /// Only while the Now card is on screen: the opening hides it (issue #99).
+    private var sampleLabelInNowCard: Bool {
+        store.sessionActive && store.currentOpening == nil && !dynamicType.isAccessibilitySize
+    }
 
     private var sampleLabel: some View {
         Text("Sample morning").font(.caption2).foregroundStyle(MorningStyle.muted)
