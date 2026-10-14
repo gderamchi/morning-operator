@@ -1,17 +1,120 @@
 import Foundation
 import MorningCore
 
-/// One saved element that is either read or kept verbatim. Decoding never fails for
-/// valid JSON, so one damaged element cannot refuse the file that holds it.
+/// One saved element that is either read or kept as its exact saved text. Decoding never
+/// fails because of the element itself, so one damaged element cannot refuse its file.
 /// The element's own decoder stays strict; this wrapper only decides what to do on failure.
+///
+/// The text is cut from the bytes `AtomicJSONFile.load` decodes (`atomicJSONFileData`), so
+/// numbers, escapes and spacing are kept byte for byte. Without those bytes, or if the
+/// element cannot be found in them, the failure stands and the whole file is refused.
 public struct RecoverableElement<Value: Decodable & Sendable>: Decodable, Sendable {
     public let value: Value?
-    /// The element as it was saved, when it could not be read.
-    public let original: PreservedJSONValue?
+    /// The element's exact saved JSON text, when it could not be read.
+    public let raw: String?
 
     public init(from decoder: any Decoder) throws {
-        if let read = try? Value(from: decoder) { value = read; original = nil }
-        else { value = nil; original = try PreservedJSONValue(from: decoder) }
+        if let read = try? Value(from: decoder) { value = read; raw = nil; return }
+        guard let data = decoder.userInfo[.atomicJSONFileData] as? Data,
+              let text = RawJSONText.find(in: data, at: decoder.codingPath) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
+                debugDescription: "An unreadable element whose saved text could not be kept."))
+        }
+        value = nil
+        raw = text
+    }
+}
+
+/// Finds the exact text of one value in a JSON document by its coding path. It walks only
+/// the objects and arrays on the path and skips every other value without recursion.
+/// Returns nil for anything unexpected, including a key that appears twice.
+enum RawJSONText {
+    static func find(in data: Data, at path: [any CodingKey]) -> String? {
+        let bytes = [UInt8](data)
+        var index = 0
+        skipSpace(bytes, &index)
+        for key in path {
+            guard index < bytes.count else { return nil }
+            if let position = key.intValue {
+                guard bytes[index] == UInt8(ascii: "[") else { return nil }
+                index += 1
+                for _ in 0..<position {
+                    skipSpace(bytes, &index)
+                    guard skipValue(bytes, &index) else { return nil }
+                    skipSpace(bytes, &index)
+                    guard index < bytes.count, bytes[index] == UInt8(ascii: ",") else { return nil }
+                    index += 1
+                }
+                skipSpace(bytes, &index)
+            } else {
+                guard bytes[index] == UInt8(ascii: "{") else { return nil }
+                index += 1
+                var found: Int?
+                while true {
+                    skipSpace(bytes, &index)
+                    guard index < bytes.count else { return nil }
+                    if bytes[index] == UInt8(ascii: "}") { break }
+                    let keyStart = index
+                    guard bytes[index] == UInt8(ascii: "\""), skipValue(bytes, &index),
+                          let name = try? JSONDecoder().decode(String.self, from: Data(bytes[keyStart..<index]))
+                    else { return nil }
+                    skipSpace(bytes, &index)
+                    guard index < bytes.count, bytes[index] == UInt8(ascii: ":") else { return nil }
+                    index += 1
+                    skipSpace(bytes, &index)
+                    if name == key.stringValue {
+                        guard found == nil else { return nil }
+                        found = index
+                    }
+                    guard skipValue(bytes, &index) else { return nil }
+                    skipSpace(bytes, &index)
+                    guard index < bytes.count else { return nil }
+                    if bytes[index] == UInt8(ascii: ",") { index += 1 }
+                    else if bytes[index] != UInt8(ascii: "}") { return nil }
+                }
+                guard let found else { return nil }
+                index = found
+            }
+        }
+        let start = index
+        guard skipValue(bytes, &index) else { return nil }
+        return String(bytes: bytes[start..<index], encoding: .utf8)
+    }
+
+    private static func skipSpace(_ bytes: [UInt8], _ index: inout Int) {
+        while index < bytes.count, [0x20, 0x09, 0x0A, 0x0D].contains(bytes[index]) { index += 1 }
+    }
+
+    /// Moves past one value. Strings are skipped with their escapes; brackets are counted.
+    private static func skipValue(_ bytes: [UInt8], _ index: inout Int) -> Bool {
+        guard index < bytes.count else { return false }
+        var depth = 0
+        repeat {
+            guard index < bytes.count else { return false }
+            switch bytes[index] {
+            case UInt8(ascii: "\""):
+                index += 1
+                while index < bytes.count, bytes[index] != UInt8(ascii: "\"") {
+                    index += bytes[index] == UInt8(ascii: "\\") ? 2 : 1
+                }
+                guard index < bytes.count else { return false }
+                index += 1
+            case UInt8(ascii: "{"), UInt8(ascii: "["): depth += 1; index += 1
+            case UInt8(ascii: "}"), UInt8(ascii: "]"):
+                guard depth > 0 else { return false }
+                depth -= 1; index += 1
+            case UInt8(ascii: ","), 0x20, 0x09, 0x0A, 0x0D:
+                guard depth > 0 else { return false }
+                index += 1
+            default:
+                // A scalar: a number, true, false or null.
+                index += 1
+                if depth == 0 {
+                    while index < bytes.count, !",]} \t\n\r".utf8.contains(bytes[index]) { index += 1 }
+                }
+            }
+        } while depth > 0
+        return true
     }
 }
 
@@ -19,7 +122,7 @@ public struct RecoverableElement<Value: Decodable & Sendable>: Decodable, Sendab
 /// usage is set aside alone. The keys are those `MorningHistory` writes.
 struct RecoverableHistory: Decodable, Sendable {
     let value: MorningHistory
-    let setAside: [(SetAsideWorkspacePart, PreservedJSONValue)]
+    let setAside: [(SetAsideWorkspacePart, String)]
 
     private enum CodingKeys: String, CodingKey { case runs, appObservations }
     init(from decoder: any Decoder) throws {
@@ -27,8 +130,40 @@ struct RecoverableHistory: Decodable, Sendable {
         let runs = try values.decodeIfPresent([RecoverableElement<MorningRunRecord>].self, forKey: .runs) ?? []
         let days = try values.decodeIfPresent([RecoverableElement<DailyAppObservation>].self, forKey: .appObservations) ?? []
         value = MorningHistory(runs: runs.compactMap(\.value), appObservations: days.compactMap(\.value))
-        setAside = runs.compactMap { $0.original.map { (.historyRun, $0) } }
-            + days.compactMap { $0.original.map { (.appObservation, $0) } }
+        setAside = runs.compactMap { $0.raw.map { (.historyRun, $0) } }
+            + days.compactMap { $0.raw.map { (.appObservation, $0) } }
+    }
+}
+
+/// One entry of the saved `setAside` list in its own form: exactly a part name and a text.
+struct SetAsideEntry: Decodable, Sendable {
+    let part: String
+    let raw: String
+
+    private enum CodingKeys: String, CodingKey { case part, raw }
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        // Another key would be lost by writing back only these two: keep it as text instead.
+        // Count every key present, not only the two this type names.
+        guard try decoder.container(keyedBy: AnyKey.self).allKeys.count == 2 else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Not an entry."))
+        }
+        part = try values.decode(String.self, forKey: .part)
+        raw = try values.decode(String.self, forKey: .raw)
+    }
+
+    var saved: PreservedJSONValue { .object(["part": .string(part), "raw": .string(raw)]) }
+
+    private struct AnyKey: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+
+    /// An earlier entry not in this form, kept as its exact saved text.
+    static func unrecognized(_ raw: String) -> PreservedJSONValue {
+        .object(["part": .string("unrecognized"), "raw": .string(raw)])
     }
 }
 
@@ -36,19 +171,9 @@ struct RecoverableHistory: Decodable, Sendable {
 public enum SetAsideWorkspacePart: String, Sendable, CaseIterable {
     case session, previousRoutine, historyRun, appObservation, capture
 
-    /// Where the element is read in the snapshot, for naming a failure.
-    var key: any CodingKey {
-        switch self {
-        case .session: AnyKey("session")
-        case .previousRoutine: AnyKey("previousRoutine")
-        case .historyRun, .appObservation: AnyKey("history")
-        case .capture: AnyKey("captures")
-        }
-    }
-
-    /// The saved form: the part's name and the element exactly as it was read.
-    static func entry(part: SetAsideWorkspacePart, original: PreservedJSONValue) -> PreservedJSONValue {
-        .object(["part": .string(part.rawValue), "original": original])
+    /// The saved form: the part's name and the element's exact saved JSON text.
+    static func entry(part: SetAsideWorkspacePart, raw: String) -> PreservedJSONValue {
+        .object(["part": .string(part.rawValue), "raw": .string(raw)])
     }
 
     /// The English sentence, which is also its key in the String Catalog.
@@ -140,10 +265,3 @@ public enum UnreadableWorkspacePart: Sendable, Equatable, CaseIterable {
     }
 }
 
-private struct AnyKey: CodingKey {
-    let stringValue: String
-    var intValue: Int? { nil }
-    init(_ value: String) { stringValue = value }
-    init?(stringValue: String) { self.stringValue = stringValue }
-    init?(intValue: Int) { nil }
-}

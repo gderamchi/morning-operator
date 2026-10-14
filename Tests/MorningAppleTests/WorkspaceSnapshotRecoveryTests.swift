@@ -10,6 +10,11 @@ import Testing
 /// build installed on the owner's phone on 10 October: that commit's own package and a copy
 /// of its app-side snapshot type, run in a scratch directory. Every text in it is invented.
 /// Its key names and value types were checked against a real file from that build.
+/// Decodes captures as the snapshot does, without the bytes `AtomicJSONFile.load` supplies.
+private struct WorkspaceSnapshotProbe: Decodable {
+    let captures: [RecoverableElement<QuickCapture>]
+}
+
 @Suite("Saved workspace: real earlier file and one bad element")
 struct WorkspaceSnapshotRecoveryTests {
     private static let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -96,7 +101,13 @@ struct WorkspaceSnapshotRecoveryTests {
         #expect(saved.routine == clean.routine && saved.session == clean.session)
         #expect(saved.previousRoutine == clean.previousRoutine)
         #expect(saved.pendingRoutineProposal?.value == clean.pendingRoutineProposal?.value)
-        #expect(saved.setAside == [.object(["part": .string("historyRun"), "original": try json(damagedRun)])])
+        let entry = try #require(saved.setAside?.first)
+        guard case .object(let fields) = entry, case .string(let raw)? = fields["raw"] else {
+            Issue.record("Not a {part, raw} entry"); return
+        }
+        #expect(saved.setAside?.count == 1 && fields["part"] == .string("historyRun"))
+        let kept = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? NSDictionary
+        #expect(kept == damagedRun as NSDictionary, "The raw text is the damaged run as saved")
     }
 
     @Test("An unreadable morning in progress is set aside; the rest loads")
@@ -162,22 +173,32 @@ struct WorkspaceSnapshotRecoveryTests {
         #expect(!text.contains("setAside"))
     }
 
-    @Test("A damaged earlier set-aside list is kept as it is and never refuses the file")
+    @Test("A damaged earlier set-aside list is kept as exact text and never refuses the file")
     func damagedSetAsideListIsKept() throws {
         let saved = try load { value in value["setAside"] = "something odd" }
-        #expect(saved.setAside == [.string("something odd")])
+        #expect(saved.setAside == [.object(["part": .string("unrecognized"), "raw": .string("\"something odd\"")])])
         #expect(saved.routine != nil && saved.newlySetAside.isEmpty)
-        // Deep enough that wrapping it in a list would make a file the next launch refuses.
+        // A list holding a foreign item, an entry with an extra key and a deep value: each
+        // foreign item is kept as its exact text; an entry in the snapshot's own form as it is.
         var deep: Any = NSNull()
-        for _ in 0..<(PreservedJSONValue.maximumDepth - 2) { deep = ["n": deep] }
-        do { _ = try load { value in value["setAside"] = deep }; Issue.record("A too-deep list was kept") }
-        catch { #expect(UnreadableWorkspacePart(error: error) == .other) }
-        var fits: Any = NSNull()
-        for _ in 0..<(PreservedJSONValue.maximumDepth - 3) { fits = ["n": fits] }
-        let wrapped = try load { value in value["setAside"] = fits }
+        for _ in 0..<300 { deep = ["n": deep] }
+        let own: [String: Any] = ["part": "capture", "raw": "{}"]
+        let mixed = try load { value in
+            value["setAside"] = [own, ["part": "capture", "raw": "{}", "extra": 1], 7, deep]
+        }
+        let list = try #require(mixed.setAside)
+        #expect(list.count == 4)
+        #expect(list[0] == .object(["part": .string("capture"), "raw": .string("{}")]))
+        for item in list.dropFirst() {
+            guard case .object(let fields) = item, case .string(let raw)? = fields["raw"] else {
+                Issue.record("Not kept as text"); continue
+            }
+            #expect(fields["part"] == .string("unrecognized"))
+            #expect((try? JSONSerialization.jsonObject(with: Data(raw.utf8), options: .fragmentsAllowed)) != nil)
+        }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("workspace-\(UUID().uuidString).json")
-        try AtomicJSONFile<WorkspaceSnapshot>(url: url).save(WorkspaceSnapshot(setAside: wrapped.setAside))
-        #expect(try AtomicJSONFile<WorkspaceSnapshot>(url: url).load().setAside == wrapped.setAside)
+        try AtomicJSONFile<WorkspaceSnapshot>(url: url).save(WorkspaceSnapshot(setAside: mixed.setAside))
+        #expect(try AtomicJSONFile<WorkspaceSnapshot>(url: url).load().setAside == mixed.setAside)
         let null = try load { value in value["setAside"] = NSNull() }
         #expect(null.setAside == nil)
     }
@@ -203,37 +224,44 @@ struct WorkspaceSnapshotRecoveryTests {
         #expect(try file.load().history == history)
     }
 
-    @Test("An element too deep to set aside refuses the file instead of writing one that cannot be read back")
-    func tooDeepToSetAside() throws {
-        let depth = PreservedJSONValue.maximumDepth - 2
-        var nested: Any = [String: Any]()
-        for _ in 0..<depth { nested = [nested] }
-        do {
-            _ = try load { value in value["previousRoutine"] = nested }
-            Issue.record("A previous routine nested \(depth) deep was set aside")
-        } catch { #expect(UnreadableWorkspacePart(error: error) == .other) }
-        // Shallow enough to be written and read back: set aside and reloaded unchanged.
-        var shallow: Any = [String: Any]()
-        for _ in 0..<(PreservedJSONValue.maximumDepth - 5) { shallow = [shallow] }
-        let saved = try load { value in value["previousRoutine"] = shallow }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("workspace-\(UUID().uuidString).json")
-        let file = AtomicJSONFile<WorkspaceSnapshot>(url: url)
-        try file.save(WorkspaceSnapshot(routine: saved.routine, setAside: saved.setAside))
-        #expect(try file.load().setAside == saved.setAside)
+    /// Writes the fixture with `captures` replaced by hand-written JSON text.
+    private func loadWithCaptures(_ text: String) throws -> (WorkspaceSnapshot, URL) {
+        var source = try String(contentsOf: Self.fixture, encoding: .utf8)
+        let range = try #require(source.range(of: "\"captures\" : [\n\n    ]"), "The fixture's empty captures list")
+        source.replaceSubrange(range, with: "\"captures\" : \(text)")
+        let url = try write([String: Any]())
+        try Data(source.utf8).write(to: url)
+        return (try AtomicJSONFile<WorkspaceSnapshot>(url: url).load(), url)
     }
 
-    @Test("Numbers the app writes are set aside and written back with the same digits")
-    func numbersKeepTheirDigits() throws {
-        let values: [Double] = [0.1, 1.2345678901234567, 1_760_000_000.437, -0.125, 3, 1e20]
-        let saved = try load { value in value["captures"] = values.map { ["n": $0] } }
+    @Test("A set-aside element keeps its exact saved text through later saves, numbers and all")
+    func setAsideTextIsExact() throws {
+        // Numbers no Swift number type holds exactly, escapes, spacing and deep nesting.
+        let damaged = [#"{"n":1.0000000000000001, "m" : 0.16894785220002650112}"#,
+                       #"{"big":18446744073709551617,"huge":1e400,"tiny":-0.10000000000000000000000000000000000000001}"#,
+                       #"{"text":"caf\u00e9 \"quoted\" \\ ]}","list":[1, [2, {"x": [ ]}]]}"#,
+                       String(repeating: "[", count: 200) + "{}" + String(repeating: "]", count: 200)]
+        let (saved, _) = try loadWithCaptures("[" + damaged.joined(separator: ",\n  ") + "]")
+        #expect(saved.newlySetAside == Array(repeating: .capture, count: damaged.count))
+        let raws: [String] = (saved.setAside ?? []).compactMap {
+            guard case .object(let fields) = $0, case .string(let raw)? = fields["raw"] else { return nil }
+            return raw
+        }
+        #expect(raws == damaged)
+        // Saved and read again twice: the text is unchanged and nothing is set aside twice.
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("workspace-\(UUID().uuidString).json")
         let file = AtomicJSONFile<WorkspaceSnapshot>(url: url)
-        try file.save(WorkspaceSnapshot(setAside: saved.setAside))
-        struct Number: Decodable { let n: Double }
-        struct Entry: Decodable { let original: Number }
-        struct Envelope: Decodable { struct Value: Decodable { let setAside: [Entry] }; let value: Value }
-        let back = try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: url)).value.setAside.map(\.original.n)
-        #expect(back == values)
+        try file.save(WorkspaceSnapshot(routine: saved.routine, captures: saved.captures, setAside: saved.setAside))
+        let again = try file.load()
+        try file.save(WorkspaceSnapshot(routine: again.routine, captures: again.captures, setAside: again.setAside))
+        #expect(try file.load().setAside == saved.setAside)
+        #expect(again.newlySetAside.isEmpty)
+    }
+
+    @Test("Without the saved bytes an unreadable element is not set aside: the file is refused")
+    func noBytesNoSetAside() throws {
+        let data = Data(#"{"captures":[{"kind":"dream"}]}"#.utf8)
+        #expect(throws: DecodingError.self) { try JSONDecoder().decode(WorkspaceSnapshotProbe.self, from: data) }
     }
 
     // MARK: Say what failed

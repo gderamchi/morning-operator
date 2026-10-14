@@ -40,7 +40,8 @@ public struct RecoverableRoutineProposal: Codable, Sendable {
 ///
 /// One unreadable morning in progress, previous routine, past morning, day of app usage
 /// or saved note is set aside on load instead of refusing the file: it is left out,
-/// named in `newlySetAside`, and kept verbatim in `setAside`, which the app writes back
+/// named in `newlySetAside`, and kept as its exact saved text in `setAside` (one
+/// {"part", "raw"} object per element), which the app writes back
 /// on every save. Only forgetting all local data removes it. Any other unreadable part
 /// still refuses the whole file; `UnreadableWorkspacePart` names it for the person.
 public struct WorkspaceSnapshot: Codable, Sendable {
@@ -110,12 +111,12 @@ public struct WorkspaceSnapshot: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        var setAsideNow: [(SetAsideWorkspacePart, PreservedJSONValue)] = []
+        var setAsideNow: [(SetAsideWorkspacePart, String)] = []
         func element<Value: Decodable & Sendable>(_ type: Value.Type, _ key: CodingKeys,
                                                     _ part: SetAsideWorkspacePart) throws -> Value? {
             // Missing and null are both "none", as before; only a present value can be set aside.
             guard let read = try values.decodeIfPresent(RecoverableElement<Value>.self, forKey: key) else { return nil }
-            if let original = read.original { setAsideNow.append((part, original)) }
+            if let raw = read.raw { setAsideNow.append((part, raw)) }
             return read.value
         }
         // A type that validates its content may throw its own error, which carries no
@@ -138,7 +139,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         }
         if let read = try values.decodeIfPresent([RecoverableElement<QuickCapture>].self, forKey: .captures) {
             captures = read.compactMap(\.value)
-            setAsideNow += read.compactMap { $0.original.map { (.capture, $0) } }
+            setAsideNow += read.compactMap { $0.raw.map { (.capture, $0) } }
         }
         receipts = try values.decodeIfPresent([String: String].self, forKey: .receipts)
         sessionTimeZone = try values.decodeIfPresent(String.self, forKey: .sessionTimeZone)
@@ -163,27 +164,19 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         // Missing is an older workspace. An unreadable value must not close the whole
         // workspace: at worst a morning in progress is treated as not greeted yet.
         greeting = (try? values.decodeIfPresent(MorningGreetingState.self, forKey: .greeting)) ?? nil
-        // Earlier set-aside elements are kept as they are, whatever their shape: this
-        // list is never interpreted, so nothing in it can refuse the file.
+        // Earlier set-aside elements are kept, whatever their shape: this list is never
+        // interpreted. An entry in this type's own form stays as it is; anything else is
+        // kept as its exact saved text, so no number is rounded and nothing can refuse the file.
         var kept: [PreservedJSONValue] = []
-        switch try values.decodeIfPresent(PreservedJSONValue.self, forKey: .setAside) {
-        case .array(let earlier): kept = earlier
-        case .some(.null), nil: break
-        case .some(let other):
-            // Wrapped in a list it sits one level deeper, at value.setAside[0].
-            guard 3 + other.height <= PreservedJSONValue.maximumDepth else {
-                throw DecodingError.dataCorrupted(.init(codingPath: values.codingPath + [CodingKeys.setAside],
-                    debugDescription: "Nested too deeply to keep."))
+        if let earlier = try values.decodeIfPresent(RecoverableElement<[RecoverableElement<SetAsideEntry>]>.self,
+                                                     forKey: .setAside) {
+            if let items = earlier.value {
+                kept = items.compactMap { $0.value?.saved ?? $0.raw.map(SetAsideEntry.unrecognized) }
+            } else if let raw = earlier.raw {
+                kept = [SetAsideEntry.unrecognized(raw)]
             }
-            kept = [other]
         }
-        // Set aside, an element sits at value.setAside[i].original, deeper than where it was
-        // read. Refuse rather than write a file the next launch could not read back.
-        for (part, original) in setAsideNow where 4 + original.height > PreservedJSONValue.maximumDepth {
-            throw DecodingError.dataCorrupted(.init(codingPath: values.codingPath + [part.key],
-                debugDescription: "Nested too deeply to set aside."))
-        }
-        kept += setAsideNow.map { SetAsideWorkspacePart.entry(part: $0.0, original: $0.1) }
+        kept += setAsideNow.map { SetAsideWorkspacePart.entry(part: $0.0, raw: $0.1) }
         setAside = kept.isEmpty ? nil : kept
         newlySetAside = setAsideNow.map(\.0)
     }

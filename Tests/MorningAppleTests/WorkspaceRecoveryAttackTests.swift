@@ -104,6 +104,23 @@ struct WorkspaceRecoveryAttackTests {
         .object(["part": .string(part.rawValue), "original": original])
     }
 
+    /// Set-aside entries hold the exact saved text ({"part", "raw"}). For structural
+    /// comparison, read each text back into the {"part", "original"} form above.
+    private func normalized(_ list: [PreservedJSONValue]?) throws -> [PreservedJSONValue]? {
+        try list?.map { item in
+            guard case .object(let fields) = item, fields.count == 2, let part = fields["part"],
+                  case .string(let raw)? = fields["raw"] else { return item }
+            return .object(["part": part, "original": try JSONDecoder().decode(PreservedJSONValue.self, from: Data(raw.utf8))])
+        }
+    }
+
+    private func raws(_ list: [PreservedJSONValue]?) -> [String] {
+        (list ?? []).compactMap { item in
+            guard case .object(let fields) = item, case .string(let raw)? = fields["raw"] else { return nil }
+            return raw
+        }
+    }
+
     @Test("Each damaged part leaves every other saved field and sibling unchanged")
     func individualDamageIsIsolated() throws {
         let clean = try load()
@@ -142,7 +159,9 @@ struct WorkspaceRecoveryAttackTests {
             }
             expected.setAside = [entry(part, try json(damaged))]
             #expect(saved.newlySetAside == [part])
-            #expect(try json(object(saved)) == json(object(expected)), "Changed unrelated data for \(part)")
+            var comparable = saved
+            comparable.setAside = try normalized(saved.setAside)
+            #expect(try json(object(comparable)) == json(object(expected)), "Changed unrelated data for \(part)")
             try assertStable(saved)
         }
     }
@@ -163,7 +182,7 @@ struct WorkspaceRecoveryAttackTests {
                 value["history"] = history
             }
             #expect(saved.history == clean.history)
-            #expect(saved.setAside == [entry(.historyRun, try json(raw))])
+            #expect(try normalized(saved.setAside) == [entry(.historyRun, try json(raw))])
             #expect(saved.newlySetAside == [.historyRun])
             try assertStable(saved)
         }
@@ -214,7 +233,9 @@ struct WorkspaceRecoveryAttackTests {
         expected.session = nil; expected.previousRoutine = nil
         expected.history = MorningHistory(); expected.captures = []; expected.setAside = originals
         #expect(saved.newlySetAside == parts)
-        #expect(try json(object(saved)) == json(object(expected)))
+        var comparable = saved
+        comparable.setAside = try normalized(saved.setAside)
+        #expect(try json(object(comparable)) == json(object(expected)))
         try assertStable(saved)
     }
 
@@ -228,7 +249,7 @@ struct WorkspaceRecoveryAttackTests {
         let parts: [SetAsideWorkspacePart] = [.historyRun, .appObservation, .capture]
         let expected = try parts.flatMap { part in try raw.map { entry(part, try json($0)) } }
         #expect(saved.history == MorningHistory() && saved.captures == [])
-        #expect(saved.setAside == expected)
+        #expect(try normalized(saved.setAside) == expected)
         #expect(saved.newlySetAside == parts.flatMap { Array(repeating: $0, count: raw.count) })
         try assertStable(saved)
     }
@@ -268,21 +289,21 @@ struct WorkspaceRecoveryAttackTests {
         #expect(try load { $0["captures"] = [] }.captures == [])
     }
 
-    @Test("Earlier setAside objects, numbers and nested arrays retain their contents")
+    @Test("Earlier setAside objects, numbers and nested arrays retain their exact text")
     func arbitraryEarlierSetAsideShapes() throws {
         let shapes: [String] = [#"{"part":42,"original":[null,{},["雪"]]}"#,
-            "18446744073709551615", "-9223372036854775808", "-0.125", "true", "\"\"",
+            "18446744073709551617", "-9223372036854775809", "1e400", "true", "\"\"",
             #"[[[{}]],null,[[1,"é"]],{"arbitrary":false}]"#, "[]", "{}", "null"]
         for raw in shapes {
-            let decoded = try JSONDecoder().decode(PreservedJSONValue.self, from: Data(raw.utf8))
-            let expected: [PreservedJSONValue]?
-            switch decoded {
-            case .null: expected = nil
-            case .array(let values): expected = values.isEmpty ? nil : values
-            default: expected = [decoded]
-            }
             let saved = try loadRaw("\"setAside\":\(raw)")
-            #expect(saved.setAside == expected)
+            switch raw {
+            case "null", "[]": #expect(saved.setAside == nil)
+            case _ where raw.hasPrefix("[["):
+                // A list: each foreign item is kept as its own exact text.
+                #expect(raws(saved.setAside) == [#"[[{}]]"#, "null", #"[[1,"é"]]"#, #"{"arbitrary":false}"#])
+            default:
+                #expect(raws(saved.setAside) == [raw], "Kept \(raw) as its exact text")
+            }
             #expect(saved.newlySetAside.isEmpty)
             try assertStable(saved)
         }
@@ -291,69 +312,25 @@ struct WorkspaceRecoveryAttackTests {
     @Test("A newly damaged occurrence equal to an earlier one is kept once per occurrence")
     func equalPreviouslySetAsidePayloadIsNotMistakenForRetry() throws {
         let raw: [String: Any] = ["broken": ["é", "雪"]]
-        let original = try json(raw)
-        let prior = entry(.capture, original)
+        let text = String(decoding: try jsonData(raw), as: UTF8.self)
+        let prior: [String: Any] = ["part": "capture", "raw": text]
         let saved = try load { value in
-            value["setAside"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode([original, prior]))
+            value["setAside"] = [prior]
             value["captures"] = [raw, raw]
         }
-        #expect(saved.setAside == [original, prior, prior, prior])
+        #expect(raws(saved.setAside) == [text, text, text])
         #expect(saved.newlySetAside == [.capture, .capture])
         #expect(saved.captures == [])
         try assertStable(saved)
     }
 
-    @Test("64-bit boundaries, negatives, doubles, unicode and empty containers survive recovery")
-    func preservedJSONRoundTripFidelity() throws {
-        let raw = #"{"signed":-9223372036854775808,"unsigned":18446744073709551615,"aboveDoubleInteger":9007199254740993,"negative":-17,"fraction":-0.125,"double":1.2345678901234567,"nested":[[],{},[true,false,null,{"é":"雪 👩🏽‍💻 \u0000 e\u0301"}]],"empty":{}}"#
-        let expected: PreservedJSONValue = .object([
-            "signed": .integer(.min), "unsigned": .unsigned(.max),
-            "aboveDoubleInteger": .integer(9_007_199_254_740_993), "negative": .integer(-17),
-            "fraction": .number(-0.125), "double": .decimal(try #require(Decimal(string: "1.2345678901234567",
-                locale: Locale(identifier: "en_US_POSIX")))),
-            "nested": .array([.array([]), .object([:]), .array([.bool(true), .bool(false), .null,
-                .object(["é": .string("雪 👩🏽‍💻 \0 e\u{0301}")])])]), "empty": .object([:])])
-        let saved = try loadRaw("\"captures\":[\(raw)],\"setAside\":[\(raw)]")
-        #expect(saved.setAside == [expected, entry(.capture, expected)])
+    @Test("Numbers no Swift type holds exactly, escapes and unicode keep their exact text")
+    func setAsideTextFidelity() throws {
+        let raw = #"{"signed":-9223372036854775809,"unsigned":18446744073709551617,"aboveDoubleInteger":9007199254740993,"one":1.0000000000000001,"long":0.16894785220002650112,"tiny":5e-324,"huge":1e400,"nested":[[],{},[true,false,null,{"é":"雪 👩🏽‍💻 \u0000 e\u0301 \" ] }"}]],"empty":{}}"#
+        let saved = try loadRaw("\"captures\":[ \(raw) ]")
+        #expect(raws(saved.setAside) == [raw])
         #expect(saved.newlySetAside == [.capture])
         try assertStable(saved)
-    }
-
-    private func assertExactLargeInteger(_ token: String) throws {
-        let saved = try loadRaw("\"captures\":[{\"integer\":\(token)}]")
-        #expect(saved.newlySetAside == [.capture])
-        let kept = try #require(saved.setAside?.first)
-        // Decimal is an independent exact oracle for these 20-digit integers.
-        struct Raw: Decodable { let integer: Decimal }
-        struct Entry: Decodable { let original: Raw }
-        let recovered = try JSONDecoder().decode(Entry.self, from: JSONEncoder().encode(kept))
-        #expect(recovered.original.integer == Decimal(string: token, locale: Locale(identifier: "en_US_POSIX")),
-                "Recovery changed the mathematical value of \(token)")
-        try assertStable(saved)
-    }
-
-    @Test("An integer above UInt64.max is preserved exactly")
-    func integerAboveUInt64IsNotRounded() throws {
-        try assertExactLargeInteger("18446744073709551617")
-    }
-
-    @Test("An integer below Int64.min is preserved exactly")
-    func integerBelowInt64IsNotRounded() throws {
-        try assertExactLargeInteger("-9223372036854775809")
-    }
-
-    // Decision: a number neither Double nor Decimal can hold cannot be kept exactly, so the
-    // file is refused and left unchanged (the earlier behaviour), with the part named,
-    // rather than set aside as an altered copy. Only a hand-edited file can hold one.
-    @Test("A number beyond every numeric type refuses the file unchanged and names the part")
-    func outOfRangeNumberRefusesTheFile() throws {
-        for (fields, part) in [(#""setAside":{"unknown":1e400}"#, UnreadableWorkspacePart.other),
-                               (#""captures":[{"unknown":1e400}]"#, .captures),
-                               (#""captures":[{"tiny":5e-324}]"#, .captures),
-                               (#""captures":[{"n":0.1234567890123456789012345678901234567891}]"#, .captures)] {
-            do { _ = try loadRaw(fields); Issue.record("Loaded \(fields)") }
-            catch { #expect(UnreadableWorkspacePart(error: error) == part) }
-        }
     }
 
     @Test("Deep arrays and objects survive both initial isolation and later saves")
@@ -401,21 +378,12 @@ struct WorkspaceRecoveryAttackTests {
         struct Header: Decodable { let schemaVersion: Int }
         let document = Data("{\"schemaVersion\":1,\"value\":{\"schemaVersion\":1,\(fields)}}".utf8)
         #expect(try JSONDecoder().decode(Header.self, from: document).schemaVersion == 1)
-        var original: PreservedJSONValue = .object([:])
-        for _ in 0..<depth {
-            original = isArray ? .array([original]) : .object(["child": original])
-        }
         func mark(_ stage: String) { FileHandle.standardOutput.write(Data("\(stage)\n".utf8)) }
         mark("JSON syntax accepted; loading workspace")
-        // Decision: deeper than PreservedJSONValue.maximumDepth is refused, never a crash.
-        if depth > PreservedJSONValue.maximumDepth - 8 {
-            #expect(throws: (any Error).self) { try loadRaw(fields) }
-            mark("Save/reload checks complete")
-            return
-        }
         let saved = try loadRaw(fields)
         mark("Workspace loaded; checking contents")
-        #expect(saved.setAside == [isArray ? entry(.capture, original) : original])
+        // Both are kept as their exact text: a damaged capture, or a foreign earlier entry.
+        #expect(raws(saved.setAside) == [nested])
         #expect(saved.newlySetAside == (isArray ? [.capture] : []))
         mark("Contents checked; saving and reloading")
         try assertStable(saved)
