@@ -639,12 +639,22 @@ final class LiveMorningDemoTests: XCTestCase {
         }
     }
 
+    /// The marker counts only when it is fully on screen, between the top bar and the tab
+    /// bar, and not zero-sized (a lazily built list can hold off-screen or empty copies).
     private func caughtUpMarkerVisible(in app: XCUIApplication) -> Bool {
         let screen = app.frame
-        return snapshotDescendants(of: app).contains { node in
-            node.frame.midY > 0 && node.frame.midY < screen.height
-                && LiveDemoInstagram.isCaughtUpMarker(text: node.label, identifier: node.identifier)
+        let match = snapshotDescendants(of: app).first { node in
+            LiveDemoInstagram.isCaughtUpMarker(text: node.label, identifier: node.identifier)
+                && node.frame.width > 1 && node.frame.height > 1
+                && node.frame.minY >= screen.height * 0.08 && node.frame.maxY <= screen.height * 0.9
         }
+        if let match {
+            let f = match.frame
+            emit(LiveDemoReport.line(["caught-up-marker", "type=\(match.elementType.rawValue)",
+                                      "by=\(LiveDemoInstagram.isCaughtUpMarker(text: match.label) ? "text" : "id")",
+                                      "frame=\(Int(f.minX)).\(Int(f.minY)).\(Int(f.width)).\(Int(f.height))"]))
+        }
+        return match != nil
     }
 
     private func scrollInstagramReels(in app: XCUIApplication, count: Int) throws {
