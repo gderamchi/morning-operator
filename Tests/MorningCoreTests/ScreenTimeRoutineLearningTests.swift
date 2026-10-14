@@ -302,6 +302,10 @@ struct ScreenTimeRoutineLearningTests {
                      hour(at(3), pickup: at(3, 50), longest: (at(3, 50), at(3, 54)), [app("com.apple.mobilesafari", 5)]),
                      hour(at(7), pickup: at(7, 5), longest: (at(7, 5), at(7, 30)), [app("com.apple.MobileSMS", 25)])]
         #expect(learn(night, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(7, 5))
+        // 03:00 hour without pickup: 20 min, longest 03:45–03:55. Not a night check by its total.
+        let busyNight = [night[0], hour(at(3), longest: (at(3, 45), at(3, 55)), [app("com.apple.mobilesafari", 20)]), night[2]]
+        let start = try #require(learn(busyNight, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start)
+        #expect(calendar().component(.hour, from: start) == 3)
         // 07:30–08:00 fully timed, then 08:30: the pause at the hour is real.
         let pause = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
                      hour(at(7), pickup: at(7, 30), longest: (at(7, 30), at(8)), [app("com.apple.mobilesafari", 30)]),

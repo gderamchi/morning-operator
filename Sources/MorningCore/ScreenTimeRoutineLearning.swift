@@ -120,6 +120,12 @@ public enum ScreenTimeMorningLearner {
                 }
             }
         }
+        // A night check whose hours hold more use than a check may last is not one, wherever
+        // in the hour that use fell: either the session was longer, or another came too soon.
+        let useInside = { (session: DateInterval) -> TimeInterval in
+            hours.filter { $0.interval.end > session.start && $0.interval.start <= session.end }
+                .reduce(0) { $0 + $1.apps.reduce(0) { $0 + $1.seconds } }
+        }
         var mornings: [ScreenTimeMorning] = []
         var missing = 0
         var days = 0
@@ -128,7 +134,7 @@ public enum ScreenTimeMorningLearner {
         while day <= lastDay, days < 60 {
             days += 1
             let result = MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
-                                                     policy: policy, calendar: calendar)
+                                                     policy: policy, calendar: calendar, useInside: useInside)
             switch result {
             case .found(let found) where calendar.component(.hour, from: found.start) >= latestStartHour
                 || calendar.startOfDay(for: found.start) != day:
@@ -142,7 +148,7 @@ public enum ScreenTimeMorningLearner {
                 let timedOnly = uses.filter { $0.source != .screenTimeBound }
                 var measuredUntil = found.start
                 if case .found(let timed) = MorningStartDetector.detect(uses: timedOnly, on: day, coveredFrom: coveredFrom,
-                                                                        now: now, policy: policy, calendar: calendar),
+                                                                        now: now, policy: policy, calendar: calendar, useInside: useInside),
                    timed.start == found.start {
                     measuredUntil = min(timed.end, found.end)
                 }

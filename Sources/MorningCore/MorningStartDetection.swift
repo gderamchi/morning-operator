@@ -77,9 +77,12 @@ public enum MorningStartDetector {
     ///     from `coveredFrom` onward; before it nothing is known.
     ///   - coveredFrom: start of the evidence's coverage (for example the earliest hour queried).
     ///   - sleepEnd: optional HealthKit sleep end, used only as a hint.
+    ///   - useInside: total known use during a session, when the evidence knows more than the
+    ///     session's span (hourly totals). A night check must also fit within its maximum length.
     public static func detect(uses: [PhoneUse], on day: Date, coveredFrom: Date, now: Date = .now,
                               sleepEnd: Date? = nil, policy: MorningDetectionPolicy = MorningDetectionPolicy(),
-                              calendar: Calendar = .current) -> MorningDetectionResult {
+                              calendar: Calendar = .current,
+                              useInside: ((DateInterval) -> TimeInterval)? = nil) -> MorningDetectionResult {
         guard let dayInterval = calendar.dateInterval(of: .day, for: day) else { return .noData }
         let sessions = sessionsOf(uses.filter { $0.interval.end >= coveredFrom && $0.interval.start <= now },
                                   gap: policy.sessionGap, coveredFrom: coveredFrom)
@@ -109,6 +112,7 @@ public enum MorningStartDetector {
                 let hour = calendar.component(.hour, from: candidate.session.start)
                 let isNightCheck = hour < policy.nightCheckLatestHour
                     && candidate.session.duration <= policy.nightCheckMaximumLength
+                    && (useInside?(candidate.session) ?? 0) <= policy.nightCheckMaximumLength
                     && position + 1 < candidates.count
                     // Only when he really went back to sleep: the next use is a sleep gap later.
                     && sessions[candidate.index + 1].start.timeIntervalSince(candidate.session.end) >= policy.sleepGap
