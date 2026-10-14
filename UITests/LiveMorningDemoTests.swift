@@ -42,6 +42,8 @@ final class LiveMorningDemoTests: XCTestCase {
     private var listening = false
     private var report = LiveDemoReport()
     private var utteranceCount = 0
+    /// Why the last checked tap was refused: a fixed token, for the report only.
+    private var lastTapRefusal = "none"
 
     func testLiveMorningDemo() throws {
         #if targetEnvironment(simulator)
@@ -516,11 +518,23 @@ final class LiveMorningDemoTests: XCTestCase {
         }
         // Swipes happen only after the feed tab itself was found and tapped.
         guard let tab, tapChecked(Target(tab), kind: .feedTab, in: feed) else {
+            emit(LiveDemoReport.line(["reels-tab", "found=\(tab != nil)", "refused=\(lastTapRefusal)"]))
             report.record(.reels, .skipped(.notFound))
             try say("I couldn't find the video feed. Are you logged in? I'll skip reels.")
             return
         }
         hold(2)
+        // Verify the feed before any swipe: the same tab must now be the selected one.
+        let selected = snapshotDescendants(of: feed).contains { node in
+            node.elementType == tab.elementType && node.label == tab.label && node.identifier == tab.identifier
+                && node.isSelected
+        }
+        emit(LiveDemoReport.line(["reels-tab", "tapped=true", "selected=\(selected)"]))
+        guard selected, feed.state == .runningForeground, noPrompt(in: feed) else {
+            report.record(.reels, .skipped(.notFound))
+            try say("I couldn't confirm the reels feed. I won't swipe.")
+            return
+        }
         report.record(.reels, .ran)
         try say("Now some reels. I'll swipe every eight seconds. I won't like or follow anything.")
         for index in 0..<count {
@@ -679,11 +693,13 @@ final class LiveMorningDemoTests: XCTestCase {
     /// The single place this test taps. The policy decides; a refused tap returns false.
     private func tapChecked(_ target: Target, kind: LiveDemoTapPolicy.Kind, in app: XCUIApplication) -> Bool {
         let point = CGPoint(x: target.frame.midX, y: target.frame.midY)
+        lastTapRefusal = "none"
         guard LiveDemoTapPolicy.permits(kind: kind, label: target.label, identifier: target.identifier,
-                                        isButtonLike: Self.isButtonLike(target.elementType)),
-              isOnScreen(target.frame, in: app),
-              !target.blockingButtons.contains(where: { $0.contains(point) }),
-              noPrompt(in: app), pointIsSafe(point, for: target, kind: kind, in: app) else { return false }
+                                        isButtonLike: Self.isButtonLike(target.elementType)) else { lastTapRefusal = "policy"; return false }
+        guard isOnScreen(target.frame, in: app) else { lastTapRefusal = "off-screen"; return false }
+        guard !target.blockingButtons.contains(where: { $0.contains(point) }) else { lastTapRefusal = "blocking-button"; return false }
+        guard noPrompt(in: app) else { lastTapRefusal = "prompt"; return false }
+        guard pointIsSafe(point, for: target, kind: kind, in: app) else { return false }
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
         return true
     }
@@ -701,17 +717,30 @@ final class LiveMorningDemoTests: XCTestCase {
             return node.elementType == target.elementType && node.frame == target.frame
                 && node.label == target.rawLabel && node.identifier == target.identifier
         }
-        guard matches.count == 1, let matched = matches.first else { return false }
+        // Identical copies (same type, frame, label, identifier) are one control seen twice.
+        guard let matched = matches.first else { lastTapRefusal = "target-gone"; return false }
         let fresh = nodes[matched]
         let judgedLabel = kind == .mailbox ? (fresh.label.components(separatedBy: ", ").first ?? "") : fresh.label
         guard LiveDemoTapPolicy.permits(kind: kind, label: judgedLabel.isEmpty && kind == .composeField
                                             ? (fresh.placeholderValue ?? "") : judgedLabel,
                                         identifier: fresh.identifier,
-                                        isButtonLike: Self.isButtonLike(fresh.elementType)) else { return false }
-        for index in nodes.indices where index != matched && nodes[index].frame.contains(point) {
+                                        isButtonLike: Self.isButtonLike(fresh.elementType)) else {
+            lastTapRefusal = "policy"
+            return false
+        }
+        for index in nodes.indices where !matches.contains(index) && nodes[index].frame.contains(point) {
             let node = nodes[index]
-            // Any other control under the finger, or anything whose identifier names an action.
-            if Self.isButtonLike(node.elementType) || LiveDemoTapPolicy.containsForbiddenWord(node.identifier) {
+            // Nothing under the finger may name an action, by identifier or (for controls) label.
+            if LiveDemoTapPolicy.containsForbiddenWord(node.identifier)
+                || (Self.isButtonLike(node.elementType) && LiveDemoTapPolicy.containsForbiddenWord(node.label)) {
+                lastTapRefusal = "forbidden-under-point"
+                return false
+            }
+            // Another control under the finger is allowed only if it wraps the target or sits
+            // inside it (the same control drawn in layers), never beside or over it.
+            if Self.isButtonLike(node.elementType),
+               !(node.frame.contains(target.frame) || target.frame.contains(node.frame)) {
+                lastTapRefusal = "other-control-under-point"
                 return false
             }
         }
