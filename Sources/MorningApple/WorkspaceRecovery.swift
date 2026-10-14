@@ -158,6 +158,8 @@ struct RecoverableHistory: Decodable, Sendable {
 /// left out: an unreadable or out-of-range target, an acceptance it does not keep, a feedback
 /// record it does not keep, or the whole value when it is not an object. Nothing that was
 /// saved is dropped without being kept and named. Null or missing parts are "none", as before.
+/// A key repeated in the value, its acceptance or a feedback record would be collapsed by the
+/// decoder, so such a value is set aside whole and none of it is used. The app never writes one.
 struct RecoverableBudgetAndFeedback: Decodable, Sendable {
     let value: RoutineBudgetAndFeedback
     let setAside: [(SetAsideWorkspacePart, String)]
@@ -178,9 +180,9 @@ struct RecoverableBudgetAndFeedback: Decodable, Sendable {
 
     init(from decoder: any Decoder) throws {
         let value = try RoutineBudgetAndFeedback(from: decoder)
-        self.value = value
+        let data = decoder.userInfo[.atomicJSONFileData] as? Data
         func raw(_ path: [any CodingKey]) throws -> String {
-            guard let data = decoder.userInfo[.atomicJSONFileData] as? Data,
+            guard let data,
                   let text = RawJSONText.find(in: data, at: decoder.codingPath + path) else {
                 throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath + path,
                     debugDescription: "An unreadable element whose saved text could not be kept."))
@@ -188,9 +190,23 @@ struct RecoverableBudgetAndFeedback: Decodable, Sendable {
             return text
         }
         guard let values = try? decoder.container(keyedBy: CodingKeys.self) else {
+            self.value = value
             setAside = [(.timeBudgetAndFeedback, try raw([]))]
             return
         }
+        // Without the saved bytes (never the case for the workspace file) keys cannot be counted.
+        func repeats(_ path: [any CodingKey]) -> Bool {
+            guard let data, let keys = RawJSONText.keys(in: data, at: decoder.codingPath + path) else { return false }
+            return Set(keys).count != keys.count
+        }
+        let count = (try? values.nestedUnkeyedContainer(forKey: .feedback))?.count ?? 0
+        if repeats([]) || repeats([CodingKeys.acceptedLongerPlan])
+            || (0..<count).contains(where: { repeats([CodingKeys.feedback, Index($0)]) }) {
+            self.value = RoutineBudgetAndFeedback()
+            setAside = [(.timeBudgetAndFeedback, try raw([]))]
+            return
+        }
+        self.value = value
         func saved(_ key: CodingKeys) -> Bool { values.contains(key) && (try? values.decodeNil(forKey: key)) == false }
         var parts: [(SetAsideWorkspacePart, String)] = []
         if saved(.targetMinutes), value.targetMinutes == nil {

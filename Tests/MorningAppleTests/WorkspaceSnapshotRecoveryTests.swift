@@ -340,6 +340,28 @@ struct WorkspaceSnapshotRecoveryTests {
         #expect(null.newlySetAside.isEmpty && null.budgetAndFeedback == nil)
     }
 
+    @Test("A repeated key anywhere in the time budget sets the whole value aside, byte for byte")
+    func repeatedBudgetKeysAreSetAsideWhole() throws {
+        let record = #"{"id":"20000000-0000-0000-0000-000000000000","sessionID":"30000000-0000-0000-0000-000000000000","routineVersionID":"40000000-0000-0000-0000-000000000000","wasUseful":"yes","recordedAt":781000000}"#
+        let repeated = #"{"id":"20000000-0000-0000-0000-000000000001","sessionID":"30000000-0000-0000-0000-000000000001","routineVersionID":"40000000-0000-0000-0000-000000000000","wasUseful":"yes","wasUseful":"no","recordedAt":781000000}"#
+        let cases = [#"{"targetMinutes":30,"targetMinutes":45,"feedback":[]}"#,
+                     #"{"targetMinutes":30,"feedback":[\#(record)],"feedback":[]}"#,
+                     #"{"targetMinutes":30,"acceptedLongerPlan":{"routineVersionID":"40000000-0000-0000-0000-000000000000","targetMinutes":30,"targetMinutes":30,"totalMinutes":40}}"#,
+                     #"{"targetMinutes":30,"feedback":[\#(record),\#(repeated)]}"#]
+        for text in cases {
+            var source = try String(contentsOf: Self.fixture, encoding: .utf8)
+            let range = try #require(source.range(of: "\"captures\" : [\n\n    ],"))
+            source.replaceSubrange(range, with: "\"captures\" : [],\n    \"budgetAndFeedback\" : \(text),")
+            let url = try write([String: Any]())
+            try Data(source.utf8).write(to: url)
+            let saved = try AtomicJSONFile<WorkspaceSnapshot>(url: url).load()
+            #expect(saved.newlySetAside == [.timeBudgetAndFeedback], "\(text)")
+            #expect(saved.budgetAndFeedback == RoutineBudgetAndFeedback())
+            #expect(saved.setAside == [.object(["part": .string("timeBudgetAndFeedback"), "raw": .string(text)])])
+            #expect(saved.routine != nil)
+        }
+    }
+
     /// Writes the fixture with `captures` replaced by hand-written JSON text.
     private func loadWithCaptures(_ text: String) throws -> (WorkspaceSnapshot, URL) {
         var source = try String(contentsOf: Self.fixture, encoding: .utf8)
