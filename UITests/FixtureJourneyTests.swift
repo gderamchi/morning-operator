@@ -440,7 +440,7 @@ enum MorningUITestNavigation {
             let expandedReview = app.buttons["morning.review"]
             if expandedReview.exists, expandedReview.isHittable {
                 expandedReview.tap()
-            } else if date.waitForExistence(timeout: 5), date.isHittable {
+            } else if date.waitForExistence(timeout: 5), becomesHittable(date) {
                 date.tap()
             } else {
                 revealMorningAction("morning.review", in: app, file: file, line: line)
@@ -453,6 +453,15 @@ enum MorningUITestNavigation {
         }
     }
 
+    /// Right after launch the home screen can still be settling, so an element on screen
+    /// can read as not hittable for a moment. Waits briefly instead of judging once.
+    static func becomesHittable(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
+        if element.isHittable { return true }
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"),
+                                                 object: element)
+        return XCTWaiter.wait(for: [hittable], timeout: timeout) == .completed
+    }
+
     /// Opens the visible sunrise menu only when the requested action is hidden.
     static func revealMorningAction(_ identifier: String, in app: XCUIApplication,
                                     file: StaticString = #filePath, line: UInt = #line) {
@@ -460,7 +469,7 @@ enum MorningUITestNavigation {
         if action.exists, action.isHittable { return }
         let sunrise = app.buttons["morning.actions"]
         if sunrise.exists {
-            XCTAssertTrue(sunrise.isHittable, app.debugDescription, file: file, line: line)
+            XCTAssertTrue(becomesHittable(sunrise), app.debugDescription, file: file, line: line)
             sunrise.tap()
         } else if !app.buttons["morning.closeActions"].exists {
             XCTAssertTrue(sunrise.waitForExistence(timeout: 5), app.debugDescription, file: file, line: line)
