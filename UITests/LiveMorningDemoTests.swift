@@ -164,7 +164,8 @@ final class LiveMorningDemoTests: XCTestCase {
                                              identifier: node.identifier, isButtonLike: false)
         }
         guard fields.count == 1, let field = fields.first,
-              tapChecked(Target(field), kind: .composeField, in: messages) else { return false }
+              tapChecked(Target(field, label: field.label.isEmpty ? (field.placeholderValue ?? "") : field.label),
+                         kind: .composeField, in: messages) else { return false }
         guard messages.keyboards.firstMatch.waitForExistence(timeout: 4) else { return false }
         messages.typeText(line)
         return true
@@ -359,7 +360,10 @@ final class LiveMorningDemoTests: XCTestCase {
     @MainActor
     private struct Target {
         let elementType: XCUIElement.ElementType
+        /// The label the policy judges (for a mailbox row, its first component).
         let label: String
+        /// The element's own label, used only in memory to re-identify it before tapping.
+        let rawLabel: String
         let identifier: String
         let frame: CGRect
         let blockingButtons: [CGRect]
@@ -367,6 +371,7 @@ final class LiveMorningDemoTests: XCTestCase {
         init(_ node: any XCUIElementSnapshot, label: String? = nil) {
             elementType = node.elementType
             self.label = label ?? node.label
+            rawLabel = node.label
             identifier = node.identifier
             frame = node.frame
             // Buttons nested inside the element that would be refused on their own.
@@ -384,7 +389,7 @@ final class LiveMorningDemoTests: XCTestCase {
                                         isButtonLike: Self.isButtonLike(target.elementType)),
               isOnScreen(target.frame, in: app),
               !target.blockingButtons.contains(where: { $0.contains(point) }),
-              noPrompt(in: app), pointIsSafe(point, for: target, in: app) else { return false }
+              noPrompt(in: app), pointIsSafe(point, for: target, kind: kind, in: app) else { return false }
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
         return true
     }
@@ -392,11 +397,25 @@ final class LiveMorningDemoTests: XCTestCase {
     /// Fresh hit-test just before tapping: the target must still be there with the same
     /// frame, and no other button-like control, nor any control with a forbidden word,
     /// may cover the point. Catches layout changes after the snapshot and overlays.
-    private func pointIsSafe(_ point: CGPoint, for target: Target, in app: XCUIApplication) -> Bool {
+    private func pointIsSafe(_ point: CGPoint, for target: Target, kind: LiveDemoTapPolicy.Kind,
+                             in app: XCUIApplication) -> Bool {
         let nodes = snapshotDescendants(of: app)
-        guard nodes.contains(where: { $0.elementType == target.elementType && $0.frame == target.frame }) else { return false }
-        for node in nodes where node.frame.contains(point) {
-            if node.elementType == target.elementType && node.frame == target.frame { continue }
+        // Exactly one fresh element must still be the same control: type, frame, label and
+        // identifier. A same-sized replacement (say Back turning into Delete) does not match.
+        let matches = nodes.indices.filter { index in
+            let node = nodes[index]
+            return node.elementType == target.elementType && node.frame == target.frame
+                && node.label == target.rawLabel && node.identifier == target.identifier
+        }
+        guard matches.count == 1, let matched = matches.first else { return false }
+        let fresh = nodes[matched]
+        let judgedLabel = kind == .mailbox ? (fresh.label.components(separatedBy: ", ").first ?? "") : fresh.label
+        guard LiveDemoTapPolicy.permits(kind: kind, label: judgedLabel.isEmpty && kind == .composeField
+                                            ? (fresh.placeholderValue ?? "") : judgedLabel,
+                                        identifier: fresh.identifier,
+                                        isButtonLike: Self.isButtonLike(fresh.elementType)) else { return false }
+        for index in nodes.indices where index != matched && nodes[index].frame.contains(point) {
+            let node = nodes[index]
             // Any other control under the finger, or anything whose identifier names an action.
             if Self.isButtonLike(node.elementType) || LiveDemoTapPolicy.containsForbiddenWord(node.identifier) {
                 return false

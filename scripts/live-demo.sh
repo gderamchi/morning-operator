@@ -34,30 +34,51 @@ done
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/mo-live-demo.XXXXXX")"
 derived="$repo_dir/.build/iphone"
+child=""
 cleanup() {
     rm -rf "${work:?}"
     rm -rf "${derived:?}/Logs/Test"
 }
-trap cleanup EXIT INT TERM
+# A signal to this script stops the whole test pipeline first, then cleans up, so a
+# supervisor's SIGTERM never leaves the demo running or its results on disk.
+on_signal() {
+    local code="$1"
+    trap - INT TERM
+    if [[ -n "$child" ]]; then
+        kill -TERM -- "-$child" 2>/dev/null || kill -TERM "$child" 2>/dev/null
+        wait "$child" 2>/dev/null
+    fi
+    cleanup
+    exit "$code"
+}
+trap cleanup EXIT
+trap 'on_signal 130' INT
+trap 'on_signal 143' TERM
 
 cd "$repo_dir"
 set +e
+set -m  # the pipeline gets its own process group, so it can be stopped as a whole
 # Only lines that start with a status marker are printed: a draft containing the
 # words "Test Case" mid-line cannot pass the anchored filter.
-TEST_RUNNER_MO_LIVE_DEMO=1 \
-TEST_RUNNER_MO_LIVE_DEMO_REELS="$reels" \
-TEST_RUNNER_MO_LIVE_DEMO_ANY="$any" \
-TEST_RUNNER_CI="${CI:-}" \
-TEST_RUNNER_GITHUB_ACTIONS="${GITHUB_ACTIONS:-}" \
-DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}" \
-xcodebuild test \
-    -project MorningOperator.xcodeproj -scheme MorningLiveDemo \
-    -destination "id=$device" \
-    -derivedDataPath "$derived" \
-    -allowProvisioningUpdates DEVELOPMENT_TEAM="$team" \
-    -only-testing:MorningOperatorUITests/LiveMorningDemoTests \
-    -test-timeouts-enabled YES -maximum-test-execution-time-allowance 1800 \
-    -resultBundlePath "$work/Results.xcresult" \
-    2>&1 | grep -E --line-buffered '^(Test Case |Test Suite |\*\* TEST |xcodebuild: error)'
-status="${PIPESTATUS[0]}"
-exit "$status"
+(
+    TEST_RUNNER_MO_LIVE_DEMO=1 \
+    TEST_RUNNER_MO_LIVE_DEMO_REELS="$reels" \
+    TEST_RUNNER_MO_LIVE_DEMO_ANY="$any" \
+    TEST_RUNNER_CI="${CI:-}" \
+    TEST_RUNNER_GITHUB_ACTIONS="${GITHUB_ACTIONS:-}" \
+    TEST_RUNNER_CONTINUOUS_INTEGRATION="${CONTINUOUS_INTEGRATION:-}" \
+    DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}" \
+    xcodebuild test \
+        -project MorningOperator.xcodeproj -scheme MorningLiveDemo \
+        -destination "id=$device" \
+        -derivedDataPath "$derived" \
+        -allowProvisioningUpdates DEVELOPMENT_TEAM="$team" \
+        -only-testing:MorningOperatorUITests/LiveMorningDemoTests \
+        -test-timeouts-enabled YES -maximum-test-execution-time-allowance 1800 \
+        -resultBundlePath "$work/Results.xcresult" \
+        2>&1 | grep -E --line-buffered '^(Test Case |Test Suite |\*\* TEST |xcodebuild: error)'
+    exit "${PIPESTATUS[0]}"
+) &
+child=$!
+wait "$child"
+exit $?
