@@ -133,6 +133,16 @@ public struct WorkspaceSnapshot: Codable, Sendable {
                     debugDescription: "The saved value was refused.", underlyingError: error))
             }
         }
+        // The decoder keeps only one value of a repeated key, so the other would be lost on
+        // the next save, even when the kept one is null. The app never writes one: refuse the
+        // file unchanged. Keys this scan cannot count could hide a repeat too.
+        if let data = decoder.userInfo[.atomicJSONFileData] as? Data {
+            let keys = RawJSONText.keys(in: data, at: values.codingPath)
+            guard let keys, Set(keys).count == keys.count else {
+                throw DecodingError.dataCorrupted(.init(codingPath: values.codingPath,
+                    debugDescription: "A repeated key, or keys that could not be counted."))
+            }
+        }
         schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
         routine = try strict(RoutineVersion.self, .routine)
         session = try element(RoutineSession.self, .session, .session)

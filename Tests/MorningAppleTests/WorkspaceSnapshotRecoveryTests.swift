@@ -365,6 +365,26 @@ struct WorkspaceSnapshotRecoveryTests {
         }
     }
 
+    @Test("A workspace key saved twice refuses the file unchanged, even when the first is null")
+    func repeatedWorkspaceKeyRefusesTheFile() throws {
+        for text in [#""budgetAndFeedback" : null, "budgetAndFeedback" : {"targetMinutes":30,"feedback":[]}, "budgetAndFeedback" : null,"#,
+                     #""captures" : null,"#] {
+            var source = try String(contentsOf: Self.fixture, encoding: .utf8)
+            let range = try #require(source.range(of: "\"captures\" : [\n\n    ],"))
+            source.replaceSubrange(range, with: "\"captures\" : [],\n    \(text)")
+            let url = try write([String: Any]())
+            try Data(source.utf8).write(to: url)
+            let before = try Data(contentsOf: url)
+            do {
+                _ = try AtomicJSONFile<WorkspaceSnapshot>(url: url).load()
+                Issue.record("A repeated key was read: \(text)")
+            } catch {
+                #expect(UnreadableWorkspacePart(error: error) == .file)
+            }
+            #expect(try Data(contentsOf: url) == before)
+        }
+    }
+
     /// Writes the fixture with `captures` replaced by hand-written JSON text.
     private func loadWithCaptures(_ text: String) throws -> (WorkspaceSnapshot, URL) {
         var source = try String(contentsOf: Self.fixture, encoding: .utf8)
