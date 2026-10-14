@@ -156,7 +156,7 @@ What it does, in short spoken sentences, holding each screen for a few seconds:
 
 **Report.** At the end the script prints one line per step, for example `MO-DEMO step mail ran` or `MO-DEMO step reels skipped screen-not-found`, plus an `MO-DEMO audio ...` line with the route, volume and runner state. These lines hold step names, fixed reason codes and technical values only. The run fails if every app step was skipped.
 
-**HomePod and AirPlay.** Speech plays on the phone's speaker or Bluetooth headphones. AirPlay output (HomePod) works only with the `.playback` category, and `.playback` cannot record. So speaking on the HomePod means no listening on that route, unless the demo switches category for each turn (speak with `.playback`, then switch to `.playAndRecord` to listen). Switching while another app is in front may fail, because a background process cannot start audio. This is not built yet (issue #117).
+**HomePod and AirPlay.** Speech plays on the phone's speaker or Bluetooth headphones only. The session does not set `.allowAirPlay`, so a HomePod is never chosen. Apple allows `.allowAirPlay` with `.playAndRecord`, so speaking on the HomePod while the phone's microphone listens may work with that one option. It is not verified, and the tradeoff is real: an AirPlay route adds delay, so the demo's "played back" check and its pause before listening would need tuning, and the HomePod's own speech could be heard by the phone's microphone. The fallback is a HomePod-only mode with `.playback` and no listening. Issue #117 tracks this; it is not built now.
 
 Stop any other agent using the phone first, unlock it, and keep it awake. Then run:
 

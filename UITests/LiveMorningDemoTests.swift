@@ -689,7 +689,23 @@ final class DemoAudio: @unchecked Sendable {
         voice = chosenVoice.flatMap { AVSpeechSynthesisVoice(identifier: $0.identifier) }
             ?? AVSpeechSynthesisVoice(language: "en-US")
         synthesizer.usesApplicationAudioSession = true
+        // Any interruption, engine configuration change or route change bumps the
+        // generation; a sentence whose playback overlaps a bump does not count as heard.
+        let center = NotificationCenter.default
+        for name in [AVAudioSession.interruptionNotification, AVAudioSession.routeChangeNotification,
+                     AVAudioSession.mediaServicesWereResetNotification] {
+            observers.append(center.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in self?.bump() })
+        }
+        observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
+            self?.bump()
+        })
     }
+
+    private var observers: [any NSObjectProtocol] = []
+    private var generation = 0
+
+    private func bump() { lock.withLock { generation += 1 } }
+    private var currentGeneration: Int { lock.withLock { generation } }
 
     static func start() -> StartResult {
         let session = AVAudioSession.sharedInstance()
@@ -764,6 +780,8 @@ final class DemoAudio: @unchecked Sendable {
             do { try engine.start() } catch { return .failed(.audioEngineFailed, ["os=\((error as NSError).code)"]) }
         }
         if !player.isPlaying { player.play() }
+        let startGeneration = currentGeneration
+        let started = Date()
         let done = Flag()
         for (index, buffer) in buffers.enumerated() {
             if index == buffers.count - 1 {
@@ -774,13 +792,28 @@ final class DemoAudio: @unchecked Sendable {
         }
         let frames = buffers.reduce(0.0) { $0 + Double($1.frameLength) }
         let deadline = Date().addingTimeInterval(frames / format.sampleRate + 5)
+        var mutedDuringPlayback = false
         while Date() < deadline, !done.isSet {
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            if session.outputVolume <= 0 { mutedDuringPlayback = true }
         }
         guard done.isSet else {
             player.stop()
             player.play()
             return .failed(.voiceNoPlayback, [])
+        }
+        // The completion also fires when the player is stopped, so check that playback was
+        // not cut short: nothing changed the audio path, the engine and player are still
+        // running, the volume stayed up, and at least most of the sentence's time passed.
+        if currentGeneration != startGeneration || !engine.isRunning || !player.isPlaying {
+            return .failed(.audioInterrupted, ["engine=\(engine.isRunning ? "running" : "stopped")"])
+        }
+        if mutedDuringPlayback || session.outputVolume <= 0 { return .failed(.volumeZero, []) }
+        if Date().timeIntervalSince(started) < 0.8 * frames / format.sampleRate {
+            return .failed(.voiceNoPlayback, ["cut-short"])
+        }
+        if session.currentRoute.outputs.contains(where: { $0.portType == .builtInReceiver }) {
+            return .failed(.routeEarpiece, [])
         }
         // A short gap between sentences.
         let gap = Date().addingTimeInterval(0.25)
@@ -862,6 +895,10 @@ final class DemoAudio: @unchecked Sendable {
         }
         player.play()
         self.recognizer = recognizer
+        // Let the route and configuration notifications from adding the microphone arrive
+        // now, before the next sentence starts, so they are not mistaken for an interruption.
+        let settle = Date().addingTimeInterval(1)
+        while Date() < settle { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
         return nil
     }
 
@@ -915,6 +952,8 @@ final class DemoAudio: @unchecked Sendable {
     }
 
     func shutDown() {
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        observers.removeAll()
         lock.withLock { request = nil }
         player.stop()
         if engine.isRunning { engine.stop() }

@@ -37,6 +37,7 @@ public enum LiveDemoFailure: String, Sendable, Equatable {
     case audioEngineFailed = "audio-engine-failed"
     case voiceNoRender = "voice-no-render"
     case voiceNoPlayback = "voice-no-playback"
+    case audioInterrupted = "audio-interrupted"
     case voiceFormat = "voice-format"
     case routeEarpiece = "route-earpiece"
     case routeMissing = "route-missing"
