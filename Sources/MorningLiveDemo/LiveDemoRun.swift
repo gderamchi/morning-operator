@@ -13,10 +13,11 @@ public enum LiveDemoStep: String, CaseIterable, Sendable {
     case mail
     case weather
     case calendar
+    case instagramMessages = "instagram-messages"
     case reels
 
     /// The steps that open another app. If all of them were skipped, the run fails.
-    public static let appSteps: [LiveDemoStep] = [.messages, .mail, .weather, .calendar, .reels]
+    public static let appSteps: [LiveDemoStep] = [.messages, .mail, .weather, .calendar, .instagramMessages, .reels]
 }
 
 public enum LiveDemoSkip: String, Sendable, Equatable {

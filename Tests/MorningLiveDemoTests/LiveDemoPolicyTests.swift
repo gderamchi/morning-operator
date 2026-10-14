@@ -71,6 +71,19 @@ struct LiveDemoTapPolicyTests {
         #expect(!LiveDemoTapPolicy.permits(kind: .composeField, label: "iMessage", identifier: "", isButtonLike: true))
     }
 
+    @Test("A tab chosen by position: any plain label, never an action")
+    func positionalTab() {
+        for label in ["Reels", "Direct", "Messages", "", "Search"] {
+            #expect(LiveDemoTapPolicy.permits(kind: .tabBarPosition, label: label, identifier: "", isButtonLike: true))
+        }
+        for label in ["Share", "Send", "New post", "Like"] {
+            #expect(!LiveDemoTapPolicy.permits(kind: .tabBarPosition, label: label, identifier: "", isButtonLike: true))
+        }
+        #expect(!LiveDemoTapPolicy.permits(kind: .tabBarPosition, label: "Reels", identifier: "", isButtonLike: false))
+        #expect(LiveDemoTapPolicy.permits(kind: .calendarToday, label: "Today", identifier: "", isButtonLike: true))
+        #expect(!LiveDemoTapPolicy.permits(kind: .calendarToday, label: "Add", identifier: "", isButtonLike: true))
+    }
+
     @Test("A conversation row is opened by type, whatever its message text says")
     func listRows() {
         #expect(LiveDemoTapPolicy.permits(kind: .listRow, label: "Unread, Sam, can you send me the file", identifier: "", isButtonLike: false))

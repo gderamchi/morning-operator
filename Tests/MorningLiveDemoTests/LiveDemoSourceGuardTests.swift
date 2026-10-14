@@ -28,9 +28,10 @@ struct LiveDemoSourceGuardTests {
                        "FileHandle.standard", "XCTAssert"] {
             #expect(!code.contains(banned), "Unexpected \(banned) in the live demo")
         }
-        let tapLine = try #require(code.components(separatedBy: "\n").firstIndex { $0.contains(".tap()") })
         let lines = code.components(separatedBy: "\n")
-        let guardBlock = lines[max(0, tapLine - 8)..<tapLine].joined(separator: "\n")
+        let tapLine = try #require(lines.firstIndex { $0.contains(".tap()") })
+        let functionStart = try #require(lines[..<tapLine].lastIndex { $0.contains("private func tapChecked(") })
+        let guardBlock = lines[functionStart..<tapLine].joined(separator: "\n")
         #expect(guardBlock.contains("LiveDemoTapPolicy.permits("))
         #expect(guardBlock.contains("noPrompt(in: app)"))
         #expect(guardBlock.contains("pointIsSafe("))

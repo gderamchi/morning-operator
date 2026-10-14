@@ -143,7 +143,9 @@ final class LiveMorningDemoTests: XCTestCase {
             // succeeded counts as ran.
             if unreadConversations != nil { report.record(.messages, .ran) }
             if unreadEmails != nil { report.record(.mail, .ran) }
-            for step in [LiveDemoStep.messages, .mail, .calendar, .reels] { report.record(step, .skipped(.stoppedEarly)) }
+            for step in [LiveDemoStep.messages, .mail, .calendar, .instagramMessages, .reels] {
+                report.record(step, .skipped(.stoppedEarly))
+            }
             try say("That's all for this check.")
             return
         }
@@ -169,8 +171,8 @@ final class LiveMorningDemoTests: XCTestCase {
                 try XCTContext.runActivity(named: "Mail") { _ in try readMail() }
             }
         }
-        if steps.contains(.reels) {
-            try XCTContext.runActivity(named: "Reels") { _ in try scrollReels() }
+        if !steps.isDisjoint(with: [.instagramMessages, .reels]) {
+            try XCTContext.runActivity(named: "Instagram") { _ in try runInstagram(steps: steps) }
         }
 
         try XCTContext.runActivity(named: "Return to MORE") { _ in
@@ -466,94 +468,177 @@ final class LiveMorningDemoTests: XCTestCase {
 
     // MARK: - Reels
 
-    private func scrollReels() throws {
+    /// Instagram: unread DMs (count, then up to three senders and previews from the list,
+    /// without opening a thread), then reels. TikTok's feed is the fallback for reels only.
+    private func runInstagram(steps: Set<LiveDemoStep>) throws {
         let count = LiveDemoGate.reelCount(environment: environment)
-        guard count > 0 else {
-            report.record(.reels, .skipped(.disabled))
-            return
-        }
-        var tabLabels = ["Reels"]
-        var launched = launch(App.instagram)
-        if case .skipped(.notInstalled) = launched {
-            launched = launch(App.tiktok)
-            tabLabels = ["For You", "Home"]
-        }
-        let feed: XCUIApplication
-        switch launched {
+        if steps.contains(.reels) && count == 0 { report.record(.reels, .skipped(.disabled)) }
+        let wantsMessages = steps.contains(.instagramMessages)
+        let wantsReels = steps.contains(.reels) && count > 0
+        guard wantsMessages || wantsReels else { return }
+        let instagram: XCUIApplication
+        switch launch(App.instagram) {
         case .skipped(let reason):
-            report.record(.reels, .skipped(reason))
-            try say(reason == .notInstalled ? "Instagram and TikTok are not installed. No reels today."
-                    : "The reels app is showing a prompt. I'll skip reels.")
+            report.record(.instagramMessages, .skipped(reason))
+            if wantsReels, reason == .notInstalled {
+                try scrollTikTok(count: count)
+            } else {
+                report.record(.reels, .skipped(reason))
+                try say("Instagram is not available. I'll skip it.")
+            }
             return
         case .app(let app):
-            feed = app
+            instagram = app
         }
         hold(3)
-        let nodes = snapshotDescendants(of: feed)
-        let tab = nodes.first { node in
-            node.elementType == .button && tabLabels.contains(node.label)
-                && LiveDemoTapPolicy.permits(kind: .feedTab, label: node.label, identifier: node.identifier, isButtonLike: true)
+        emitTabBar(of: instagram)
+        if wantsMessages { try readInstagramMessages(in: instagram) }
+        if wantsReels { try scrollInstagramReels(in: instagram, count: count) }
+    }
+
+    /// Instagram's floating tab bar on iOS 27: Home, Reels, Direct, Search, Profile.
+    private enum InstagramTab: Int { case reels = 1, direct = 2 }
+
+    /// The tab button by label or identifier first, then by position in a five-button bar.
+    private func instagramTab(_ tab: InstagramTab, in app: XCUIApplication) -> Target? {
+        let bar = tabBarButtons(in: app, nodes: snapshotDescendants(of: app))
+        let words: [String] = tab == .reels ? ["reels", "clips"] : ["direct", "inbox", "messages", "messenger"]
+        if let named = bar.first(where: { node in
+            let text = (node.label + " " + node.identifier).lowercased()
+            return words.contains { text.contains($0) }
+        }) { return Target(named) }
+        // Position fallback, checked against the frames: five buttons in one row, each a
+        // fifth of the screen wide or less, in left-to-right order.
+        let width = app.frame.width
+        guard bar.count == 5, bar.allSatisfy({ $0.frame.width <= width / 4 }),
+              zip(bar, bar.dropFirst()).allSatisfy({ $0.frame.maxX <= $1.frame.minX + 1 }) else { return nil }
+        return Target(bar[tab.rawValue])
+    }
+
+    /// Diagnostics: only the bottom tab bar's buttons (identifier, label, frame).
+    private func emitTabBar(of app: XCUIApplication) {
+        for (index, button) in tabBarButtons(in: app, nodes: snapshotDescendants(of: app)).enumerated() {
+            let f = button.frame
+            emit(LiveDemoReport.line(["tab", "i=\(index)", "id=\(button.identifier.isEmpty ? "none" : button.identifier)",
+                                      "label=\(button.label.isEmpty ? "none" : button.label)",
+                                      "frame=\(Int(f.minX)).\(Int(f.minY)).\(Int(f.width)).\(Int(f.height))"]))
         }
-        if tab == nil {
-            // Diagnostics: only the bottom tab bar's buttons (identifier, label, frame).
-            // No other element, no screenshot, no post text.
-            let snapshotError: String
-            do { _ = try feed.snapshot(); snapshotError = "none" } catch { snapshotError = "\((error as NSError).code)" }
-            let known = ["clips-tab", "reels-tab", "clips_tab", "reels_tab"].map { id in
-                "\(id)=\(feed.descendants(matching: .any).matching(identifier: id).count)"
-            }
-            emit(LiveDemoReport.line(["tab-probe", "nodes=\(nodes.count)", "snapshot-error=\(snapshotError)",
-                                      "tabbars=\(feed.tabBars.count)"] + known))
-            var bar = tabBarButtons(in: feed, nodes: nodes)
-            if bar.isEmpty, let barSnapshot = try? feed.tabBars.firstMatch.snapshot() {
-                bar = Self.descendants(of: barSnapshot).filter { Self.isButtonLike($0.elementType) }
-                    .sorted { $0.frame.minX < $1.frame.minX }
-            }
-            for (index, button) in bar.enumerated() {
-                let f = button.frame
-                emit(LiveDemoReport.line(["tab", "i=\(index)", "id=\(button.identifier.isEmpty ? "none" : button.identifier)",
-                                          "label=\(button.label.isEmpty ? "none" : button.label)",
-                                          "frame=\(Int(f.minX)).\(Int(f.minY)).\(Int(f.width)).\(Int(f.height))"]))
-            }
+    }
+
+    /// Taps an Instagram tab and confirms it became the selected one.
+    private func openInstagramTab(_ tab: InstagramTab, in app: XCUIApplication) -> Bool {
+        guard let target = instagramTab(tab, in: app) else {
+            emit(LiveDemoReport.line(["instagram-tab", "tab=\(tab)", "found=false"]))
+            return false
         }
-        // Swipes happen only after the feed tab itself was found and tapped.
-        guard let tab, tapChecked(Target(tab), kind: .feedTab, in: feed) else {
-            emit(LiveDemoReport.line(["reels-tab", "found=\(tab != nil)", "refused=\(lastTapRefusal)"]))
-            report.record(.reels, .skipped(.notFound))
-            try say("I couldn't find the video feed. Are you logged in? I'll skip reels.")
-            return
+        guard tapChecked(target, kind: .tabBarPosition, in: app) else {
+            emit(LiveDemoReport.line(["instagram-tab", "tab=\(tab)", "refused=\(lastTapRefusal)"]))
+            return false
         }
         hold(2)
-        // Verify the feed before any swipe: the same tab must now be the selected one.
-        let selected = snapshotDescendants(of: feed).contains { node in
-            node.elementType == tab.elementType && node.label == tab.label && node.identifier == tab.identifier
-                && node.isSelected
+        let selected = snapshotDescendants(of: app).contains { node in
+            node.elementType == target.elementType && node.frame == target.frame && node.isSelected
         }
-        emit(LiveDemoReport.line(["reels-tab", "tapped=true", "selected=\(selected)"]))
-        guard selected, feed.state == .runningForeground, noPrompt(in: feed) else {
+        emit(LiveDemoReport.line(["instagram-tab", "tab=\(tab)", "tapped=true", "selected=\(selected)"]))
+        return selected && app.state == .runningForeground && noPrompt(in: app)
+    }
+
+    private func readInstagramMessages(in app: XCUIApplication) throws {
+        guard openInstagramTab(.direct, in: app) else {
+            report.record(.instagramMessages, .skipped(.notFound))
+            try say("I couldn't open your Instagram messages.")
+            return
+        }
+        hold(1)
+        // Rows on the inbox list, parsed in memory; no thread is opened.
+        let rows = instagramInboxRows(in: app)
+        let unread = rows.filter(\.isUnread)
+        emit(LiveDemoReport.line(["instagram-inbox", "rows=\(rows.count)", "unread=\(unread.count)"]))
+        report.record(.instagramMessages, .ran)
+        switch unread.count {
+        case 0: try say("You have no unread messages on Instagram.")
+        case 1: try say("You have one unread message on Instagram.")
+        default: try say("You have \(unread.count) unread messages on Instagram.")
+        }
+        let allowRead = LiveDemoGate.allowsReadConversations(environment: environment)
+        for row in rows.filter({ allowRead || $0.isUnread }).prefix(3) {
+            try say("From \(row.sender).")
+            if !row.detail.isEmpty { try say(row.detail) }
+            hold(1)
+        }
+        hold(2)
+    }
+
+    /// Inbox rows: cells if the list uses them, otherwise tall full-width buttons between
+    /// the top bar and the tab bar.
+    private func instagramInboxRows(in app: XCUIApplication) -> [LiveDemoListRow] {
+        let nodes = snapshotDescendants(of: app)
+        let screen = app.frame
+        let candidates = nodes.filter { node in
+            (node.elementType == .cell
+                || (node.elementType == .button && node.frame.width > screen.width * 0.8 && node.frame.height >= 50))
+                && node.frame.midY > screen.height * 0.12 && node.frame.midY < screen.height * 0.88
+                && isOnScreen(node.frame, in: app)
+        }
+        let rows = candidates.contains { $0.elementType == .cell } ? candidates.filter { $0.elementType == .cell } : candidates
+        return rows.sorted { $0.frame.minY < $1.frame.minY }.compactMap { node in
+            let texts = Self.descendants(of: node).filter { $0.elementType == .staticText }.map(\.label)
+            return LiveDemoListRow.parse(label: node.label, value: (node.value as? String) ?? "", texts: texts)
+        }
+    }
+
+    private func scrollInstagramReels(in app: XCUIApplication, count: Int) throws {
+        guard openInstagramTab(.reels, in: app) else {
             report.record(.reels, .skipped(.notFound))
-            try say("I couldn't confirm the reels feed. I won't swipe.")
+            try say("I couldn't open Instagram reels. I won't swipe.")
             return
         }
         report.record(.reels, .ran)
         try say("Now some reels. I'll swipe every eight seconds. I won't like or follow anything.")
+        swipeFeed(app, count: count)
+        hold(4)
+    }
+
+    private func scrollTikTok(count: Int) throws {
+        guard case .app(let feed) = launch(App.tiktok) else {
+            report.record(.reels, .skipped(.notInstalled))
+            try say("Instagram and TikTok are not installed. No reels today.")
+            return
+        }
+        hold(3)
+        guard let tab = snapshotDescendants(of: feed).first(where: { node in
+            node.elementType == .button && ["For You", "Home"].contains(node.label)
+                && LiveDemoTapPolicy.permits(kind: .feedTab, label: node.label, identifier: node.identifier, isButtonLike: true)
+        }), tapChecked(Target(tab), kind: .feedTab, in: feed) else {
+            report.record(.reels, .skipped(.notFound))
+            try say("I couldn't find the video feed. I'll skip reels.")
+            return
+        }
+        hold(2)
+        report.record(.reels, .ran)
+        try say("Now some videos. I'll swipe every eight seconds. I won't like or follow anything.")
+        swipeFeed(feed, count: count)
+        hold(4)
+    }
+
+    /// Upward drags from the middle of the screen, one every eight seconds: drags, never a
+    /// tap or a double tap. Stops at once if the screen changes (a sheet, a keyboard).
+    private func swipeFeed(_ feed: XCUIApplication, count: Int) {
         for index in 0..<count {
             hold(8)
             let fine = XCTContext.runActivity(named: "Reel \(index + 1)") { _ in
                 guard feed.state == .runningForeground, noPrompt(in: feed),
                       !feed.keyboards.firstMatch.exists else { return false }
-                // One upward drag from the middle of the screen: a drag, never a tap or double tap.
-                let start = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
-                let end = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.22))
+                let start = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+                let end = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
                 start.press(forDuration: 0.05, thenDragTo: end)
                 return true
             }
             if !fine {
-                try say("Something changed on screen. I stopped the reels.")
+                emit(LiveDemoReport.line(["reels", "stopped-at=\(index)"]))
                 return
             }
         }
-        hold(4)
     }
 
     /// Buttons of the bottom tab bar: inside a tab bar element if there is one, otherwise
@@ -562,9 +647,16 @@ final class LiveMorningDemoTests: XCTestCase {
         let screen = app.frame
         let bars = nodes.filter { $0.elementType == .tabBar && $0.frame.midY > screen.maxY * 0.8 }
         let inBars = bars.flatMap { Self.descendants(of: $0).filter { Self.isButtonLike($0.elementType) } }
-        let buttons = inBars.isEmpty
-            ? nodes.filter { Self.isButtonLike($0.elementType) && $0.frame.midY > screen.maxY * 0.88 && isOnScreen($0.frame, in: app) }
+        var buttons = inBars.isEmpty
+            ? nodes.filter { Self.isButtonLike($0.elementType) && $0.frame.midY > screen.maxY * 0.85 && isOnScreen($0.frame, in: app) }
             : inBars
+        // Keep one row (the floating capsule): the lowest row of buttons, within 12 points.
+        if let row = buttons.map(\.frame.midY).max() {
+            buttons = buttons.filter { abs($0.frame.midY - row) <= 12 }
+        }
+        // Layered copies of one control (same frame) count once.
+        var seen: Set<String> = []
+        buttons = buttons.filter { seen.insert("\(Int($0.frame.minX)):\(Int($0.frame.width))").inserted }
         return buttons.sorted { $0.frame.minX < $1.frame.minX }
     }
 
@@ -697,10 +789,17 @@ final class LiveMorningDemoTests: XCTestCase {
         guard LiveDemoTapPolicy.permits(kind: kind, label: target.label, identifier: target.identifier,
                                         isButtonLike: Self.isButtonLike(target.elementType)) else { lastTapRefusal = "policy"; return false }
         guard isOnScreen(target.frame, in: app) else { lastTapRefusal = "off-screen"; return false }
-        guard !target.blockingButtons.contains(where: { $0.contains(point) }) else { lastTapRefusal = "blocking-button"; return false }
         guard noPrompt(in: app) else { lastTapRefusal = "prompt"; return false }
-        guard pointIsSafe(point, for: target, kind: kind, in: app) else { return false }
-        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+        // The centre first, then other points inside the target, so a control drawn over
+        // content can be tapped where nothing that names an action lies beneath it.
+        let f = target.frame
+        let candidates = [point] + [(0.5, 0.3), (0.5, 0.7), (0.3, 0.5), (0.7, 0.5), (0.3, 0.3), (0.7, 0.3), (0.3, 0.7), (0.7, 0.7)]
+            .map { CGPoint(x: f.minX + f.width * $0.0, y: f.minY + f.height * $0.1) }
+        guard let safe = candidates.first(where: { candidate in
+            !target.blockingButtons.contains(where: { $0.contains(candidate) })
+                && pointIsSafe(candidate, for: target, kind: kind, in: app)
+        }) else { return false }
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: safe.x, dy: safe.y)).tap()
         return true
     }
 

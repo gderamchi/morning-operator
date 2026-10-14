@@ -69,6 +69,9 @@ public enum LiveDemoTapPolicy {
         case mailbox
         /// Calendar's "Today" button (navigation only; events are never opened).
         case calendarToday
+        /// A button of an app's bottom tab bar chosen by position (e.g. Instagram's 2nd or
+        /// 3rd). Any label is allowed unless it names an action.
+        case tabBarPosition
     }
 
     static let forbiddenWords: Set<String> = [
@@ -119,6 +122,8 @@ public enum LiveDemoTapPolicy {
         case .mailbox:
             return !containsForbiddenWord(label) && !containsForbiddenWord(identifier)
                 && mailboxLabels.contains(normalizedLabel)
+        case .tabBarPosition:
+            return isButtonLike && !containsForbiddenWord(label) && !containsForbiddenWord(identifier)
         case .calendarToday:
             return !containsForbiddenWord(label) && !containsForbiddenWord(identifier)
                 && normalizedLabel == "today"
