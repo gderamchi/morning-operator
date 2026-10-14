@@ -548,8 +548,9 @@ struct TodayView: View {
                 if store.sessionActive { nowPlaying(compact: compact) }
                 if store.session?.status == .completed { closingMoment }
                 compactTimeline(routine, compact: compact)
-                // While a morning runs, the Now card carries this label (issue #67).
-                if routine.isSynthetic, !store.sessionActive { sampleLabel.padding(.horizontal, 4) }
+                // While a morning runs, the Now card carries this label (issue #67),
+                // except at accessibility sizes, where the page scrolls anyway.
+                if routine.isSynthetic, !sampleLabelInNowCard { sampleLabel.padding(.horizontal, 4) }
                 Spacer(minLength: 4)
                 if store.sessionActive { actionArea(routine) }
             } else {
@@ -825,6 +826,8 @@ struct TodayView: View {
         }
     }
 
+    private var sampleLabelInNowCard: Bool { store.sessionActive && !dynamicType.isAccessibilitySize }
+
     private var sampleLabel: some View {
         Text("Sample morning").font(.caption2).foregroundStyle(MorningStyle.muted)
             .accessibilityIdentifier("routine.source")
@@ -843,7 +846,7 @@ struct TodayView: View {
                 Spacer()
                 // In the card's own header row, so a running sample morning stays
                 // labelled without a line of its own: ten moments fit (issue #67).
-                if store.routine?.isSynthetic == true { sampleLabel }
+                if store.routine?.isSynthetic == true, sampleLabelInNowCard { sampleLabel }
             }
             Text(store.currentStep?.title ?? String(localized: "Your morning"))
                 .font(.headline).accessibilityIdentifier("run.step")
