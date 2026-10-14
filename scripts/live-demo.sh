@@ -45,7 +45,15 @@ on_signal() {
     local code="$1"
     trap - INT TERM
     if [[ -n "$child" ]]; then
-        kill -TERM -- "-$child" 2>/dev/null || kill -TERM "$child" 2>/dev/null
+        # Ask the whole group to stop, wait up to 15 s for every member to exit, then
+        # force it and wait up to 5 s more. Cleanup runs only after the group is gone,
+        # so nothing can recreate results behind it.
+        kill -TERM -- "-$child" 2>/dev/null
+        for _ in $(seq 1 150); do kill -0 -- "-$child" 2>/dev/null || break; sleep 0.1; done
+        if kill -0 -- "-$child" 2>/dev/null; then
+            kill -KILL -- "-$child" 2>/dev/null
+            for _ in $(seq 1 50); do kill -0 -- "-$child" 2>/dev/null || break; sleep 0.1; done
+        fi
         wait "$child" 2>/dev/null
     fi
     cleanup
