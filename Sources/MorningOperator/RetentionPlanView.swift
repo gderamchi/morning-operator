@@ -149,6 +149,13 @@ struct EvidenceRemovalSheet: View {
     var body: some View {
         NavigationStack {
             MorningList {
+                // The question sits in the list, not the bar, so it wraps at every text size (#8).
+                Section {
+                    Text(title).font(.title2.weight(.bold))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("retention.title")
+                }
                 if changed {
                     Section {
                         Text("Your saved data changed after this list was shown, so nothing was removed. This is the updated list.")
@@ -240,7 +247,6 @@ struct EvidenceRemovalSheet: View {
                     }
                 }
             }
-            .navigationTitle(isSingle ? String(localized: "Forget this observation?") : String(localized: "Remove old observations?"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -267,6 +273,10 @@ struct EvidenceRemovalSheet: View {
         }
         .interactiveDismissDisabled(applying)
         .presentationDragIndicator(.visible)
+    }
+
+    private var title: String {
+        isSingle ? String(localized: "Forget this observation?") : String(localized: "Remove old observations?")
     }
 
     private var headline: String {

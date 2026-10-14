@@ -33,18 +33,43 @@ public struct RoutineTimeBudget: Sendable, Equatable {
     /// In routine order.
     public let requiredStepIDs: [UUID]
 
-    /// A journal keep counts by exact step identity, which is what a reconciled
-    /// routine carries. Exclusions and timing-only choices do not protect a step.
+    /// A journal keep protects the step the journal itself would apply it to: the step
+    /// with that exact identity or, when no step has it, the single step with the same
+    /// category and title. Exclusions and timing-only choices do not protect a step.
     public init(routine: RoutineVersion, targetMinutes: Int,
                 preferences: RoutinePreferenceJournal = RoutinePreferenceJournal()) {
-        let required = routine.steps.filter {
-            $0.isRequired || preferences.entry(targetID: $0.id)?.presence == .keep
-        }
+        let kept = Self.keptStepIDs(in: routine.steps, preferences: preferences)
+        let required = routine.steps.filter { $0.isRequired || kept.contains($0.id) }
         routineVersionID = routine.id
         self.targetMinutes = max(1, targetMinutes)
         totalMinutes = routine.totalDurationMinutes
         requiredMinutes = required.reduce(0) { $0 + $1.durationMinutes }
         requiredStepIDs = required.map(\.id)
+    }
+
+    /// The journal's own matching rule (`RoutinePreferenceJournal.reconcile`), read without
+    /// changing the journal. Each choice claims the step with its identity or, when no step
+    /// has it, the single step with its category and title. A choice that matches several
+    /// steps claims none, and a step claimed by two choices is protected by neither: where
+    /// the journal refuses to guess about a step, the budget does not protect that step.
+    /// The rule is applied choice by choice. A refusal about one activity does not hide a
+    /// keep the person made for another step by its identity: the report would then leave
+    /// out minutes they did ask to keep.
+    private static func keptStepIDs(in steps: [RoutineStep], preferences: RoutinePreferenceJournal) -> Set<UUID> {
+        var claims: [UUID: [RoutinePreference]] = [:]
+        for entry in preferences.entries {
+            if steps.contains(where: { $0.id == entry.targetID }) {
+                claims[entry.targetID, default: []].append(entry)
+                continue
+            }
+            let matches = steps.filter {
+                $0.kind == entry.targetKind && preferenceTitleKey($0.title) == entry.normalizedTitle
+            }
+            if matches.count == 1 { claims[matches[0].id, default: []].append(entry) }
+        }
+        return Set(claims.compactMap { stepID, entries in
+            entries.count == 1 && entries[0].presence == .keep ? stepID : nil
+        })
     }
 
     public var minutesOverTarget: Int { max(0, totalMinutes - targetMinutes) }

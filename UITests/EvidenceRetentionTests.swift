@@ -33,6 +33,7 @@ final class EvidenceRetentionTests: XCTestCase {
 
         tap("privacy.retention.review", in: app)
         XCTAssertTrue(app.buttons["retention.confirm"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["retention.title"].label, "Remove old observations?", "The question is a heading in the sheet, not a bar title.")
         assertValue("retention.count.observations", "2", in: app)
         assertValue("retention.count.removed", "0", in: app)
         XCTAssertNotEqual(value("retention.count.invalidated", in: app), "0")
