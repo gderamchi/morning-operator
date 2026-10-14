@@ -29,6 +29,9 @@ struct MorningPrivacyView: View {
                     countRow(String(localized: "Observations"), value: String(store.observationArchive.entries.count), identifier: "privacy.observations")
                     countRow(String(localized: "Saved thoughts & ideas"), value: String(store.captures.count), identifier: "privacy.captures")
                     countRow(String(localized: "Saved choices"), value: store.routinePreferencesIssue == nil ? String(store.routinePreferences.entries.count) : String(localized: "Unavailable"), identifier: "privacy.choices")
+                    if store.setAsideWorkspaceCount > 0 {
+                        countRow(String(localized: "Unreadable parts kept"), value: String(store.setAsideWorkspaceCount), identifier: "privacy.setAside")
+                    }
                 } else {
                     Text(store.privacyBlocksWork ? "Saved data is unavailable while removal needs attention." : "Saved data couldn’t be read. You can still choose to remove it.")
                 }

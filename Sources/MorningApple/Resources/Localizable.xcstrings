@@ -851,6 +851,16 @@
         }
       }
     },
+    "Everything else is restored. What couldn’t be read is kept in your saved file, not deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout le reste est restauré. Ce qui n’a pas pu être lu est conservé dans votre fichier enregistré, sans être supprimé."
+          }
+        }
+      }
+    },
     "Evidence:": {
       "localizations": {
         "fr": {
@@ -1341,6 +1351,16 @@
         }
       }
     },
+    "One part of your saved workspace couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie de votre espace enregistré n’a pas pu être lue."
+          }
+        }
+      }
+    },
     "One-time invitation scheduled. Delivery follows your notification settings.": {
       "localizations": {
         "fr": {
@@ -1712,6 +1732,36 @@
         }
       }
     },
+    "Some days of app use couldn’t be read and are left out of your history.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certains jours d’utilisation des apps n’ont pas pu être lus et ne figurent pas dans votre historique."
+          }
+        }
+      }
+    },
+    "Some past mornings couldn’t be read and are left out of your history.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certaines matinées passées n’ont pas pu être lues et ne figurent pas dans votre historique."
+          }
+        }
+      }
+    },
+    "Some saved thoughts and ideas couldn’t be read and are left out.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certaines pensées et idées enregistrées n’ont pas pu être lues et sont laissées de côté."
+          }
+        }
+      }
+    },
     "Sparse sampling may miss fast transitions and does not reveal exact taps or the user's intent.": {
       "localizations": {
         "fr": {
@@ -2068,6 +2118,16 @@
         }
       }
     },
+    "The list of mornings started from a shortcut couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La liste des matinées lancées depuis un raccourci n’a pas pu être lue."
+          }
+        }
+      }
+    },
     "The local model abstained.": {
       "localizations": {
         "fr": {
@@ -2254,6 +2314,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les métadonnées de début d’enregistrement sont invalides pour cette observation."
+          }
+        }
+      }
+    },
+    "The saved file couldn’t be opened.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier enregistré n’a pas pu être ouvert."
+          }
+        }
+      }
+    },
+    "The saved file is damaged as a whole, so none of it could be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier enregistré est endommagé dans son ensemble : aucune partie n’a pu être lue."
+          }
+        }
+      }
+    },
+    "The saved file was written by a newer version of MORE.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier enregistré a été écrit par une version plus récente de MORE."
           }
         }
       }
@@ -2978,6 +3068,16 @@
         }
       }
     },
+    "Your approved routine couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine approuvée n’a pas pu être lue."
+          }
+        }
+      }
+    },
     "Your correction": {
       "localizations": {
         "fr": {
@@ -2998,6 +3098,16 @@
         }
       }
     },
+    "Your file is kept unchanged and new changes are not saved. An update of MORE may be able to read it. To start again now, forget MORE’s local data in Privacy.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre fichier est conservé tel quel et les nouvelles modifications ne sont pas enregistrées. Une mise à jour de MORE pourra peut-être le lire. Pour repartir de zéro maintenant, oubliez les données locales de MORE dans Confidentialité."
+          }
+        }
+      }
+    },
     "Your learning window is open": {
       "localizations": {
         "fr": {
@@ -3014,6 +3124,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos données locales ont changé. Rouvrez Matinée avant de programmer une invitation."
+          }
+        }
+      }
+    },
+    "Your morning in progress couldn’t be read, so it was not resumed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre matinée en cours n’a pas pu être lue, elle n’a donc pas été reprise."
+          }
+        }
+      }
+    },
+    "Your past mornings couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos matinées passées n’ont pas pu être lues."
+          }
+        }
+      }
+    },
+    "Your previous routine couldn’t be read, so going back to it is not offered.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine précédente n’a pas pu être lue, le retour à celle-ci n’est donc pas proposé."
+          }
+        }
+      }
+    },
+    "Your record of items sent to Calendar and Reminders couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le suivi des éléments envoyés à Calendrier et Rappels n’a pas pu être lu."
           }
         }
       }
@@ -3048,12 +3198,52 @@
         }
       }
     },
+    "Your saved choices or a saved suggestion couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos choix enregistrés ou une suggestion enregistrée n’ont pas pu être lus."
+          }
+        }
+      }
+    },
+    "Your saved observations couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos observations enregistrées n’ont pas pu être lues."
+          }
+        }
+      }
+    },
+    "Your saved thoughts and ideas couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos pensées et idées enregistrées n’ont pas pu être lues."
+          }
+        }
+      }
+    },
     "Your selected calendars aren't ready. Check Your day in Settings, or tap Next.": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Vos calendriers sélectionnés ne sont pas prêts. Vérifiez « Votre journée » dans Réglages, ou touchez Suivant."
+          }
+        }
+      }
+    },
+    "Your settings couldn’t be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos réglages n’ont pas pu être lus."
           }
         }
       }

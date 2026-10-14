@@ -18,16 +18,6 @@
         }
       }
     },
-    "%@ Your existing file is protected from changes.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ Votre fichier existant est protégé contre toute modification."
-          }
-        }
-      }
-    },
     "%@ Your existing file is protected; new changes cannot be saved until it can be restored.": {
       "localizations": {
         "fr": {
@@ -4438,16 +4428,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les corrections modifient les notes utilisées pour les suggestions. Les éléments d’origine restent disponibles ici."
-          }
-        }
-      }
-    },
-    "Couldn't restore your saved workspace: %@": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de restaurer votre espace enregistré : %@"
           }
         }
       }
@@ -11028,6 +11008,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les écrans inconnus restent visibles dans votre relecture et sont exclus des nouvelles suggestions d’activités."
+          }
+        }
+      }
+    },
+    "Unreadable parts kept": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parties illisibles conservées"
           }
         }
       }

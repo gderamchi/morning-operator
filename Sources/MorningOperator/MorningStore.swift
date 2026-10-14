@@ -17,101 +17,6 @@ enum MorningTab: String, CaseIterable, Identifiable {
     }
 }
 
-/// Legacy derived output is optional. An unsupported model payload must not make
-/// the person's valid routine and original observation impossible to restore.
-private struct RecoverableObservationClassification: Codable, Sendable {
-    let value: ObservationContextClassification?
-    let wasInvalid: Bool
-    init(_ value: ObservationContextClassification) { self.value = value; wasInvalid = false }
-    init(from decoder: any Decoder) throws {
-        do { value = try ObservationContextClassification(from: decoder); wasInvalid = false }
-        catch { value = nil; wasInvalid = true }
-    }
-    func encode(to encoder: any Encoder) throws {
-        if let value { try value.encode(to: encoder) }
-        else { var container = encoder.singleValueContainer(); try container.encodeNil() }
-    }
-}
-
-/// A damaged derived suggestion must not strand the current routine or original
-/// observations. Restored proposals are also checked against live source revisions.
-private struct RecoverableRoutineProposal: Codable, Sendable {
-    let value: EvidenceRoutineProposal?
-    let wasInvalid: Bool
-    init(_ value: EvidenceRoutineProposal) { self.value = value; wasInvalid = false }
-    init(from decoder: any Decoder) throws {
-        do { value = try EvidenceRoutineProposal(from: decoder); wasInvalid = false }
-        catch { value = nil; wasInvalid = true }
-    }
-    func encode(to encoder: any Encoder) throws {
-        if let value { try value.encode(to: encoder) }
-        else { var container = encoder.singleValueContainer(); try container.encodeNil() }
-    }
-}
-
-private struct WorkspaceSnapshot: Codable, Sendable {
-    var schemaVersion = 1
-    var routine: RoutineVersion?
-    var session: RoutineSession?
-    var previousRoutine: RoutineVersion?
-    var history: MorningHistory?
-    var captures: [QuickCapture]?
-    var receipts: [String: String]?
-    var sessionTimeZone: String?
-    var automatic: Bool?
-    var readAloud: Bool?
-    var showMorningOnLockScreen: Bool?
-    var sessionTimingInterrupted: Bool?
-    var pendingCaptures: [String: String]?
-    var voiceIdentifier: String?
-    var observationNotes: String?
-    var observationSource: String?
-    var observationVideoEvidence: ObservationVideoEvidence?
-    var observationContextClassification: RecoverableObservationClassification?
-    var observationArchive: ObservationArchive?
-    var selectedObservationID: UUID?
-    var pendingRoutineProposal: RecoverableRoutineProposal?
-    var consumedMorningEntryIDs: [UUID]?
-    var routinePreferences: RecoverableRoutinePreferences?
-    /// Which morning sessions were already greeted (issue #28). Session identifiers only.
-    var greeting: MorningGreetingState?
-}
-
-private extension WorkspaceSnapshot {
-    init(from decoder: any Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-        schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
-        routine = try values.decodeIfPresent(RoutineVersion.self, forKey: .routine)
-        session = try values.decodeIfPresent(RoutineSession.self, forKey: .session)
-        previousRoutine = try values.decodeIfPresent(RoutineVersion.self, forKey: .previousRoutine)
-        history = try values.decodeIfPresent(MorningHistory.self, forKey: .history)
-        captures = try values.decodeIfPresent([QuickCapture].self, forKey: .captures)
-        receipts = try values.decodeIfPresent([String: String].self, forKey: .receipts)
-        sessionTimeZone = try values.decodeIfPresent(String.self, forKey: .sessionTimeZone)
-        automatic = try values.decodeIfPresent(Bool.self, forKey: .automatic)
-        readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
-        showMorningOnLockScreen = try values.decodeIfPresent(Bool.self, forKey: .showMorningOnLockScreen)
-        sessionTimingInterrupted = try values.decodeIfPresent(Bool.self, forKey: .sessionTimingInterrupted)
-        pendingCaptures = try values.decodeIfPresent([String: String].self, forKey: .pendingCaptures)
-        voiceIdentifier = try values.decodeIfPresent(String.self, forKey: .voiceIdentifier)
-        observationNotes = try values.decodeIfPresent(String.self, forKey: .observationNotes)
-        observationSource = try values.decodeIfPresent(String.self, forKey: .observationSource)
-        observationVideoEvidence = try values.decodeIfPresent(ObservationVideoEvidence.self, forKey: .observationVideoEvidence)
-        observationContextClassification = try values.decodeIfPresent(RecoverableObservationClassification.self, forKey: .observationContextClassification)
-        observationArchive = try values.decodeIfPresent(ObservationArchive.self, forKey: .observationArchive)
-        selectedObservationID = try values.decodeIfPresent(UUID.self, forKey: .selectedObservationID)
-        pendingRoutineProposal = try values.decodeIfPresent(RecoverableRoutineProposal.self, forKey: .pendingRoutineProposal)
-        consumedMorningEntryIDs = try values.decodeIfPresent([UUID].self, forKey: .consumedMorningEntryIDs)
-        // Missing is an older workspace. Present-but-null is damaged saved data;
-        // keep it unreadable until the user explicitly resets their choices.
-        routinePreferences = values.contains(.routinePreferences)
-            ? try values.decode(RecoverableRoutinePreferences.self, forKey: .routinePreferences) : nil
-        // Missing is an older workspace. An unreadable value must not close the whole
-        // workspace: at worst a morning in progress is treated as not greeted yet.
-        greeting = (try? values.decodeIfPresent(MorningGreetingState.self, forKey: .greeting)) ?? nil
-    }
-}
-
 @MainActor @Observable
 final class MorningStore {
     var tab: MorningTab = .today
@@ -133,6 +38,10 @@ final class MorningStore {
     private(set) var routinePreferences = RoutinePreferenceJournal()
     private(set) var routinePreferencesIssue: String?
     private var unreadablePreferences: RecoverableRoutinePreferences?
+    /// Saved elements that could not be read, kept verbatim and written back on every save
+    /// until all local data is forgotten (issue #94). Never interpreted.
+    private var setAsideWorkspaceElements: [PreservedJSONValue] = []
+    var setAsideWorkspaceCount: Int { setAsideWorkspaceElements.count }
 
     var selectedObservation: ObservationAcquisition? { selectedObservationID.flatMap { observationArchive.entry(id: $0) } }
     private var observationEditsNeedSave = false
@@ -349,6 +258,7 @@ final class MorningStore {
                 }
                 routine = saved.routine
                 session = saved.session
+                setAsideWorkspaceElements = saved.setAside ?? []
                 savedCompletionSessionID = saved.session?.status == .completed ? saved.session?.id : nil
                 previousRoutine = saved.previousRoutine
                 if let stored = saved.routinePreferences {
@@ -426,10 +336,16 @@ final class MorningStore {
                     // another launch. A write failure leaves the original intact.
                     persist()
                 }
+                // Last, so an earlier notice on this launch is not replaced. A save above
+                // writes the set-aside elements back with everything else.
+                if let setAside = SetAsideWorkspacePart.notice(for: saved.newlySetAside) {
+                    notice = [notice, setAside].compactMap { $0 }.joined(separator: " ")
+                }
             } catch {
-                let message = String(localized: "Couldn't restore your saved workspace: \(error.localizedDescription)")
-                snapshotRecoveryError = message
-                notice = String(localized: "\(message) Your existing file is protected from changes.")
+                // Name the part that failed, never the raw error, and say what the person can do.
+                let part = UnreadableWorkspacePart(error: error)
+                snapshotRecoveryError = part.sentence()
+                notice = "\(part.sentence()) \(UnreadableWorkspacePart.advice())"
             }
         }
     }
@@ -2087,7 +2003,7 @@ final class MorningStore {
                 pendingRoutineProposal: validProposal.map(RecoverableRoutineProposal.init),
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences),
-                greeting: greetingState))
+                greeting: greetingState, setAside: setAsideWorkspaceElements))
             }
             pendingRoutineProposal = validProposal
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
@@ -2248,6 +2164,7 @@ final class MorningStore {
         morningDetailPresented = false; observationDetailPresented = false
         observationSelectionPresented = false; routineProposalPresented = false
         consumedMorningEntryIDs = []; sessionTimingInterrupted = false; sessionTimeZone = TimeZone.current.identifier
+        setAsideWorkspaceElements = []
         readAloud = true; automatic = true; speech.voiceIdentifier = nil
         showMorningOnLockScreen = false; morningActivityIssue = nil; morningActivitySaveBlocked = false
         morningActivityStartSessionID = nil
