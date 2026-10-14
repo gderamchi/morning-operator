@@ -309,6 +309,11 @@ struct ScreenTimeRoutineLearningTests {
         // Exactly 15 min, but in more than one stretch (longest 10 min): longer than a check.
         let split = [night[0], hour(at(3), pickup: at(3, 40), longest: (at(3, 45), at(3, 55)), [app("com.apple.mobilesafari", 15)]), night[2]]
         #expect(learn(split, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(3, 40))
+        // One unbroken 15-minute check across 04:00 is still a night check.
+        let across = [night[0], hour(at(3), pickup: at(3, 55), longest: (at(3, 55), at(4)), [app("com.apple.mobilesafari", 5)]),
+                      hour(at(4), pickup: at(4), longest: (at(4), at(4, 10)), [app("com.apple.mobilesafari", 10)]),
+                      hour(at(7), pickup: at(7, 15), longest: (at(7, 15), at(7, 40)), [app("com.apple.MobileSMS", 25)])]
+        #expect(learn(across, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(7, 15))
         // 07:30–08:00 fully timed, then 08:30: the pause at the hour is real.
         let pause = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
                      hour(at(7), pickup: at(7, 30), longest: (at(7, 30), at(8)), [app("com.apple.mobilesafari", 30)]),

@@ -127,7 +127,12 @@ public enum ScreenTimeMorningLearner {
         let useInside = { (session: DateInterval) -> TimeInterval in
             let overlapping = hours.filter { $0.interval.end > session.start && $0.interval.start <= session.end }
             let total = overlapping.reduce(0) { $0 + $1.apps.reduce(0) { $0 + $1.seconds } }
-            let unbroken = overlapping.count == 1 && (overlapping[0].longestActivity?.duration ?? 0) >= total
+            // Unbroken: each hour's use is its longest stretch, and stretches meet at the hour.
+            let stretches = overlapping.map { hour in
+                hour.longestActivity.flatMap { $0.duration >= hour.apps.reduce(0) { $0 + $1.seconds } ? $0 : nil }
+            }
+            let unbroken = !stretches.isEmpty && stretches.allSatisfy { $0 != nil }
+                && zip(stretches, stretches.dropFirst()).allSatisfy { $0!.end == $1!.start }
             return unbroken ? total : total + 1
         }
         var mornings: [ScreenTimeMorning] = []
