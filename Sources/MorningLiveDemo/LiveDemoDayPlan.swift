@@ -128,7 +128,7 @@ public enum LiveDemoDayPlan {
 
 /// Which parts of the demo to run (`MO_LIVE_DEMO_STEPS=calendar,reels`). Default: all.
 public enum LiveDemoSteps {
-    public static let all: Set<LiveDemoStep> = [.messages, .mail, .weather, .calendar, .instagramMessages, .reels]
+    public static let all: Set<LiveDemoStep> = [.messages, .mail, .weather, .calendar, .instagramMessages, .instagramFeed, .reels]
 
     public static func from(environment: [String: String]) -> Set<LiveDemoStep> {
         guard let raw = environment["MO_LIVE_DEMO_STEPS"]?.trimmingCharacters(in: .whitespaces), !raw.isEmpty else {

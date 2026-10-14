@@ -175,4 +175,16 @@ public enum LiveDemoInstagram {
         guard let index = words.firstIndex(of: "unread"), index > 0, let count = Int(words[index - 1]) else { return nil }
         return count
     }
+
+    /// Instagram's end-of-new-posts marker, in English or French, by text or identifier.
+    public static func isCaughtUpMarker(text: String, identifier: String = "") -> Bool {
+        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+        let phrases = ["you're all caught up", "youre all caught up", "you've seen all new posts", "you have seen all new posts",
+                       "you've seen the latest posts", "vous etes a jour", "vous avez vu toutes les nouvelles publications",
+                       "vous avez vu les dernieres publications", "tu es a jour", "tu as vu toutes les nouvelles publications"]
+        let id = identifier.lowercased()
+        return phrases.contains { folded.contains($0) }
+            || ["caught-up", "caught_up", "caughtup", "end-of-feed", "end_of_feed"].contains { id.contains($0) }
+    }
 }

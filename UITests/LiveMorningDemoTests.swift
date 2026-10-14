@@ -143,7 +143,7 @@ final class LiveMorningDemoTests: XCTestCase {
             // succeeded counts as ran.
             if unreadConversations != nil { report.record(.messages, .ran) }
             if unreadEmails != nil { report.record(.mail, .ran) }
-            for step in [LiveDemoStep.messages, .mail, .calendar, .instagramMessages, .reels] {
+            for step in [LiveDemoStep.messages, .mail, .calendar, .instagramMessages, .instagramFeed, .reels] {
                 report.record(step, .skipped(.stoppedEarly))
             }
             try say("That's all for this check.")
@@ -171,7 +171,7 @@ final class LiveMorningDemoTests: XCTestCase {
                 try XCTContext.runActivity(named: "Mail") { _ in try readMail() }
             }
         }
-        if !steps.isDisjoint(with: [.instagramMessages, .reels]) {
+        if !steps.isDisjoint(with: [.instagramMessages, .instagramFeed, .reels]) {
             try XCTContext.runActivity(named: "Instagram") { _ in try runInstagram(steps: steps) }
         }
 
@@ -474,12 +474,14 @@ final class LiveMorningDemoTests: XCTestCase {
         let count = LiveDemoGate.reelCount(environment: environment)
         if steps.contains(.reels) && count == 0 { report.record(.reels, .skipped(.disabled)) }
         let wantsMessages = steps.contains(.instagramMessages)
+        let wantsFeed = steps.contains(.instagramFeed)
         let wantsReels = steps.contains(.reels) && count > 0
-        guard wantsMessages || wantsReels else { return }
+        guard wantsMessages || wantsFeed || wantsReels else { return }
         let instagram: XCUIApplication
         switch launch(App.instagram) {
         case .skipped(let reason):
             report.record(.instagramMessages, .skipped(reason))
+            report.record(.instagramFeed, .skipped(reason))
             if wantsReels, reason == .notInstalled {
                 try scrollTikTok(count: count)
             } else {
@@ -493,23 +495,32 @@ final class LiveMorningDemoTests: XCTestCase {
         hold(3)
         emitTabBar(of: instagram)
         if wantsMessages { try readInstagramMessages(in: instagram) }
+        if wantsFeed { try scrollInstagramHome(in: instagram) }
         if wantsReels { try scrollInstagramReels(in: instagram, count: count) }
     }
 
     /// Instagram's floating tab bar on iOS 27: Home, Reels, Direct, Search, Profile.
-    private enum InstagramTab: Int { case reels = 1, direct = 2 }
+    private enum InstagramTab: Int { case home = 0, reels = 1, direct = 2 }
 
     /// The tab button by label or identifier first, then by position in a five-button bar.
     private func instagramTab(_ tab: InstagramTab, in app: XCUIApplication) -> Target? {
         // Identifier first, by a direct query: Instagram's whole tree can be too large to
         // walk reliably, the tab bar comes last in it.
-        let identifiers = tab == .reels ? ["reels-tab", "clips-tab"] : ["direct-inbox-tab", "direct-tab"]
+        let identifiers = switch tab {
+        case .home: ["mainfeed-tab", "feed-tab", "home-tab"]
+        case .reels: ["reels-tab", "clips-tab"]
+        case .direct: ["direct-inbox-tab", "direct-tab"]
+        }
         for identifier in identifiers {
             let query = app.buttons.matching(identifier: identifier)
             if query.count >= 1, let found = try? query.element(boundBy: 0).snapshot() { return Target(found) }
         }
         let bar = tabBarButtons(in: app, nodes: snapshotDescendants(of: app))
-        let words: [String] = tab == .reels ? ["reels", "clips"] : ["direct", "inbox", "messages", "messenger"]
+        let words: [String] = switch tab {
+        case .home: ["main feed", "mainfeed", "home"]
+        case .reels: ["reels", "clips"]
+        case .direct: ["direct", "inbox", "messages", "messenger"]
+        }
         if let named = bar.first(where: { node in
             let text = (node.label + " " + node.identifier).lowercased()
             return words.contains { text.contains($0) }
@@ -597,6 +608,42 @@ final class LiveMorningDemoTests: XCTestCase {
         return rows.sorted { $0.frame.minY < $1.frame.minY }.compactMap { node in
             let texts = Self.descendants(of: node).filter { $0.elementType == .staticText }.map(\.label)
             return LiveDemoListRow.parse(label: node.label, value: (node.value as? String) ?? "", texts: texts)
+        }
+    }
+
+    /// Scrolls the home timeline until Instagram's "all caught up" marker shows (English or
+    /// French), at most 20 flicks. Posts are never tapped. Text is matched in memory only.
+    private func scrollInstagramHome(in app: XCUIApplication) throws {
+        guard openInstagramTab(.home, in: app) else {
+            report.record(.instagramFeed, .skipped(.notFound))
+            try say("I couldn't open your Instagram home feed.")
+            return
+        }
+        report.record(.instagramFeed, .ran)
+        try say("Now your Instagram feed. I'll scroll until you're caught up.")
+        var flicks = 0
+        var caughtUp = caughtUpMarkerVisible(in: app)
+        while !caughtUp, flicks < 20 {
+            guard app.state == .runningForeground, noPrompt(in: app), !app.keyboards.firstMatch.exists else { break }
+            flick(app, from: 0.80, to: 0.15)
+            flicks += 1
+            hold(2.5)
+            caughtUp = caughtUpMarkerVisible(in: app)
+        }
+        emit(LiveDemoReport.line(["instagram-feed", "flicks=\(flicks)", "caught-up=\(caughtUp)"]))
+        if caughtUp {
+            hold(2)
+            try say("You're all caught up on Instagram.")
+        } else {
+            try say("I scrolled \(flicks) times. You're not caught up yet.")
+        }
+    }
+
+    private func caughtUpMarkerVisible(in app: XCUIApplication) -> Bool {
+        let screen = app.frame
+        return snapshotDescendants(of: app).contains { node in
+            node.frame.midY > 0 && node.frame.midY < screen.height
+                && LiveDemoInstagram.isCaughtUpMarker(text: node.label, identifier: node.identifier)
         }
     }
 

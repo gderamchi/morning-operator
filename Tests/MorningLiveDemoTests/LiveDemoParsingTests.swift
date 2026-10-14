@@ -90,4 +90,16 @@ struct LiveDemoInstagramTests {
         #expect(LiveDemoInstagram.unreadCount(fromTabLabel: "Direct messages") == nil)
         #expect(LiveDemoInstagram.unreadCount(fromTabLabel: "unread") == nil)
     }
+
+    @Test("All-caught-up marker in English and French")
+    func caughtUp() {
+        for text in ["You're All Caught Up", "You\u{2019}ve seen all new posts from the past 3 days.",
+                     "You've seen the latest posts", "Vous êtes à jour", "Vous avez vu toutes les nouvelles publications"] {
+            #expect(LiveDemoInstagram.isCaughtUpMarker(text: text))
+        }
+        #expect(LiveDemoInstagram.isCaughtUpMarker(text: "", identifier: "feed-caught-up-view"))
+        for text in ["Suggested for you", "Caught a fish today", "Liked by friends", ""] {
+            #expect(!LiveDemoInstagram.isCaughtUpMarker(text: text))
+        }
+    }
 }
