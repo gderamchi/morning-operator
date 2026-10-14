@@ -51,6 +51,8 @@ struct UnavailableScreenTimeSource: ScreenTimeSource {
 /// (docs/SEAMLESS-LEARNING.md). Only what MORE needs is kept: identifier, seconds, pickups, category.
 struct SystemScreenTimeSource: ScreenTimeSource {
     var access: ScreenTimeAccess {
+        // App and Website Usage data needs iOS 26.4; asking earlier cannot give it.
+        guard #available(iOS 26.4, *) else { return .unavailable }
         let status = AuthorizationCenter.shared.authorizationStatus
         if #available(iOS 26.4, *), status == .approvedWithDataAccess { return .approved }
         switch status {
@@ -62,6 +64,7 @@ struct SystemScreenTimeSource: ScreenTimeSource {
     }
 
     func requestAccess() async throws {
+        guard #available(iOS 26.4, *) else { throw ScreenTimeReadError.unavailable }
         try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
     }
 

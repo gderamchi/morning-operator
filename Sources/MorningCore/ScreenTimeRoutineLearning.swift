@@ -108,21 +108,51 @@ public enum ScreenTimeMorningLearner {
             days += 1
             switch MorningStartDetector.detect(uses: uses, on: day, coveredFrom: coveredFrom, now: now,
                                                policy: policy, calendar: calendar) {
-            case .found(let detected) where calendar.component(.hour, from: detected.start) >= latestStartHour
-                || calendar.startOfDay(for: detected.start) != day:
+            case .found(let found) where calendar.component(.hour, from: found.start) >= latestStartHour
+                || calendar.startOfDay(for: found.start) != day:
                 // An evening, or use at midnight that belongs to the day before: not this day's morning.
                 missing += 1
-            case .found(let detected) where detected.endReason != .ongoing
+            case .found(let found):
+                let detected = extended(found, hours: hours, uses: uses, coveredFrom: coveredFrom, policy: policy)
                 // Hourly data for the last hour is not final: a pause seen in it may not be real.
-                && now.timeIntervalSince(detected.end) >= 3600 + policy.sessionGap:
+                guard detected.endReason != .ongoing, now.timeIntervalSince(detected.end) >= 3600 + policy.sessionGap else { break }
                 mornings.append(morning(detected, hours: hours, calendar: calendar))
-            case .found: break
             case .noData, .noSleepGapCovered: missing += 1
             }
             guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
             day = next
         }
         return ScreenTimeLearning(mornings: mornings, earliestData: earliest, daysOfData: days, daysWithoutMorning: missing)
+    }
+
+    /// A light hour gives only its first pickup and longest session, so the rest of its use
+    /// has no time. When the hour holding the end of the morning has such unplaced use, and
+    /// the next use starts less than a pause after that hour ends, the pause may not be real:
+    /// the morning runs on through that next session (up to the cap). Its minutes are then
+    /// shared out and marked estimated, never counted as measured.
+    static func extended(_ detected: DetectedMorning, hours: [ScreenTimeHour], uses: [PhoneUse],
+                         coveredFrom: Date, policy: MorningDetectionPolicy) -> DetectedMorning {
+        guard detected.endReason == .pause else { return detected }
+        let sessions = MorningStartDetector.sessionsOf(uses.map(\.interval).map { PhoneUse($0, source: .screenTimeHour) },
+                                                      gap: policy.sessionGap, coveredFrom: coveredFrom)
+        let cap = detected.start.addingTimeInterval(policy.maximumLength)
+        var end = detected.end
+        var reason = DetectedMorning.EndReason.pause
+        while let hour = hours.first(where: { $0.interval.start <= end && end < $0.interval.end }) {
+            let used = hour.apps.reduce(0) { $0 + $1.seconds }
+            let placed = sessions.reduce(0) { total, session in
+                let lower = max(session.start, hour.interval.start), upper = min(session.end, hour.interval.end)
+                return total + max(0, upper.timeIntervalSince(lower))
+            }
+            guard used - placed > 60,
+                  let next = sessions.first(where: { $0.start > end }),
+                  next.start.timeIntervalSince(hour.interval.end) < policy.sessionGap else { break }
+            end = min(next.end, cap)
+            if end >= cap { reason = .cap; break }
+        }
+        guard end != detected.end else { return detected }
+        return DetectedMorning(start: detected.start, end: end, endReason: reason,
+                               skippedSessions: detected.skippedSessions, usedSleepHint: detected.usedSleepHint)
     }
 
     /// Drops noise rows and rows without time, merges hours returned twice (a repeated live
@@ -153,6 +183,15 @@ public enum ScreenTimeMorningLearner {
                 $0.seconds > 0 && ScreenTimeAppCatalog.isOwnOrTest($0.bundleIdentifier, ownBundleIdentifiers: ownBundleIdentifiers)
             }
             if onlyOwnUse { return nil }
+            // In an hour mostly spent in MORE or a test runner (a test run, not the owner using
+            // MORE in his morning), the first pickup and the longest session may be the test's.
+            // Keep only the owner's minutes, and drop a trace too small to matter.
+            let ownSeconds = hour.apps.filter { $0.seconds > 0 && ScreenTimeAppCatalog.isOwnOrTest($0.bundleIdentifier, ownBundleIdentifiers: ownBundleIdentifiers) }
+                .reduce(0) { $0 + $1.seconds }
+            if ownSeconds > clipped.reduce(0, { $0 + $1.seconds }) {
+                guard clipped.reduce(0, { $0 + $1.seconds }) >= 120 else { return nil }
+                return ScreenTimeHour(interval: hour.interval, firstPickup: nil, longestActivity: nil, apps: clipped)
+            }
             guard !clipped.isEmpty || hour.firstPickup != nil || hour.longestActivity != nil else { return nil }
             return ScreenTimeHour(interval: hour.interval, firstPickup: hour.firstPickup, longestActivity: hour.longestActivity, apps: clipped)
         }

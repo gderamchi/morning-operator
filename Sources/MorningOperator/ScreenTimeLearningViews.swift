@@ -36,8 +36,12 @@ struct ScreenTimeLearnCard: View {
                               systemImage: "sparkles")
                     }
                     .buttonStyle(store.pendingScreenTimeProposal == nil ? AnyButtonStyle(PrimaryButtonStyle()) : AnyButtonStyle(SecondaryButtonStyle()))
-                    .disabled(store.busy || !store.storageIsAvailable)
+                    .disabled(store.busy || !store.storageIsAvailable || store.screenTimeAccess == .unavailable)
                     .accessibilityIdentifier("learn.screenTime.start")
+                    if store.screenTimeAccess == .unavailable {
+                        Text("Learning from Screen Time needs iOS 26.4 or later.")
+                            .font(.footnote).foregroundStyle(MorningStyle.muted)
+                    }
                 }
                 if let message = store.screenTimeMessage {
                     Text(message).font(.footnote).foregroundStyle(MorningStyle.muted)

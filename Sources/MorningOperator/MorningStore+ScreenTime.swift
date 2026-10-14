@@ -20,6 +20,10 @@ extension MorningStore {
             guard let self else { return }
             defer { if self.dataGeneration == generation { self.screenTimeBusy = false } }
             do {
+                guard source.access != .unavailable else {
+                    self.screenTimeMessage = String(localized: "Learning from Screen Time needs iOS 26.4 or later.")
+                    return
+                }
                 if source.access != .approved { try await source.requestAccess() }
                 self.refreshScreenTimeAccess()
                 guard self.screenTimeAccess == .approved else {
@@ -50,6 +54,7 @@ extension MorningStore {
                     self.screenTimeMessage = String(localized: "The suggestion couldn't be saved. Your routine is unchanged.")
                 }
             } catch {
+                guard self.dataGeneration == generation, !self.privacyBlocksWork else { return }
                 self.refreshScreenTimeAccess()
                 self.screenTimeMessage = self.screenTimeAccess == .approved
                     ? String(localized: "Screen Time didn't answer this time. Try again in a moment.")

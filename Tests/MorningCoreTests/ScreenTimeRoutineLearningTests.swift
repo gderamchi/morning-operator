@@ -162,6 +162,30 @@ struct ScreenTimeRoutineLearningTests {
         #expect(learn(light, now: at(8, 31), queryStart: at(18, day: 13)).mornings.count == 1)
     }
 
+    @Test func lightHoursWithUnplacedUseDoNotEndTheMorningEarly() throws {
+        // Sessions every 15 min from 07:05 to 08:46: 13 min per hour, but each hour only shows
+        // its first pickup and a five-minute longest session.
+        let hours = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(7), pickup: at(7, 5), longest: (at(7, 5), at(7, 10)), [app("com.apple.mobilesafari", 13)]),
+                     hour(at(8), pickup: at(8, 3), longest: (at(8, 3), at(8, 8)), [app("com.apple.mobilesafari", 13)])]
+        #expect(learn(hours, now: at(8, 50), queryStart: at(18, day: 13)).mornings.isEmpty, "Still possibly going on.")
+        let morning = try #require(learn(hours, now: at(11), queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning.end == at(8, 8))
+        let safari = try #require(morning.apps.first)
+        #expect(safari.seconds > 13 * 60, "Not only the first five minutes.")
+        #expect(!safari.secondsMeasured)
+    }
+
+    @Test func aTestRunSharingAnHourWithRealUseDoesNotHideTheMorning() throws {
+        var hours = ordinaryDay(14)
+        hours.append(hour(at(4), pickup: at(4, 0), longest: (at(4, 10), at(4, 55)),
+                          [app("com.apple.mobilesafari", 1), app("com.gibouu.morningoperator", 45)]))
+        hours.append(hour(at(5), pickup: at(5, 2), longest: (at(5, 2), at(5, 30)),
+                          [app("com.apple.mobilesafari", 1.5), app("com.gibouu.morningoperator.uitests.xctrunner", 28)]))
+        let morning = try #require(learn(hours, queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning.start == at(7, 12))
+    }
+
     @Test func useAroundMidnightIsNotADoubleMorning() {
         let hours = [hour(at(20, day: 13), pickup: at(20, 0, day: 13), longest: (at(20, 0, day: 13), at(20, 10, day: 13)), [app("com.apple.mobilesafari", 10)]),
                      hour(at(0, day: 14), pickup: at(0, 0, day: 14), longest: (at(0, 0, day: 14), at(0, 30, day: 14)), [app("com.apple.mobilesafari", 30)]),

@@ -13149,6 +13149,16 @@
           }
         }
       }
+    },
+    "Learning from Screen Time needs iOS 26.4 or later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apprendre avec Temps d’écran demande iOS 26.4 ou plus récent."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
