@@ -258,6 +258,18 @@ struct WorkspaceSnapshotRecoveryTests {
         #expect(again.newlySetAside.isEmpty)
     }
 
+    @Test("An earlier entry with a repeated key is kept whole as text, not collapsed")
+    func repeatedKeyEntryIsKeptAsText() throws {
+        let item = #"{"part":"capture","raw":"{\"a\":1}","raw":"{\"b\":2}"}"#
+        var source = try String(contentsOf: Self.fixture, encoding: .utf8)
+        let range = try #require(source.range(of: "\"captures\" : [\n\n    ],"))
+        source.replaceSubrange(range, with: "\"captures\" : [],\n    \"setAside\" : [\(item)],")
+        let url = try write([String: Any]())
+        try Data(source.utf8).write(to: url)
+        let saved = try AtomicJSONFile<WorkspaceSnapshot>(url: url).load()
+        #expect(saved.setAside == [.object(["part": .string("unrecognized"), "raw": .string(item)])])
+    }
+
     @Test("Without the saved bytes an unreadable element is not set aside: the file is refused")
     func noBytesNoSetAside() throws {
         let data = Data(#"{"captures":[{"kind":"dream"}]}"#.utf8)

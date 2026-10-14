@@ -30,74 +30,91 @@ public struct RecoverableElement<Value: Decodable & Sendable>: Decodable, Sendab
 /// Returns nil for anything unexpected, including a key that appears twice.
 enum RawJSONText {
     static func find(in data: Data, at path: [any CodingKey]) -> String? {
-        let bytes = [UInt8](data)
-        var index = 0
+        guard var index = locate(data, path) else { return nil }
+        let start = index
+        guard skipValue(data, &index) else { return nil }
+        return String(bytes: data[start..<index], encoding: .utf8)
+    }
+
+    /// Every key of the object at `path`, in order and with repeats, or nil.
+    static func keys(in data: Data, at path: [any CodingKey]) -> [String]? {
+        guard var index = locate(data, path) else { return nil }
+        return members(data, &index)?.map(\.name)
+    }
+
+    /// Where the value at `path` starts.
+    private static func locate(_ bytes: Data, _ path: [any CodingKey]) -> Int? {
+        var index = bytes.startIndex
+        // JSONDecoder accepts a UTF-8 byte order mark before the document.
+        if bytes.starts(with: [0xEF, 0xBB, 0xBF]) { index += 3 }
         skipSpace(bytes, &index)
         for key in path {
-            guard index < bytes.count else { return nil }
+            guard index < bytes.endIndex else { return nil }
             if let position = key.intValue {
-                guard bytes[index] == UInt8(ascii: "[") else { return nil }
+                guard position >= 0, bytes[index] == UInt8(ascii: "[") else { return nil }
                 index += 1
                 for _ in 0..<position {
                     skipSpace(bytes, &index)
                     guard skipValue(bytes, &index) else { return nil }
                     skipSpace(bytes, &index)
-                    guard index < bytes.count, bytes[index] == UInt8(ascii: ",") else { return nil }
+                    guard index < bytes.endIndex, bytes[index] == UInt8(ascii: ",") else { return nil }
                     index += 1
                 }
                 skipSpace(bytes, &index)
+                guard index < bytes.endIndex, bytes[index] != UInt8(ascii: "]") else { return nil }
             } else {
-                guard bytes[index] == UInt8(ascii: "{") else { return nil }
-                index += 1
-                var found: Int?
-                while true {
-                    skipSpace(bytes, &index)
-                    guard index < bytes.count else { return nil }
-                    if bytes[index] == UInt8(ascii: "}") { break }
-                    let keyStart = index
-                    guard bytes[index] == UInt8(ascii: "\""), skipValue(bytes, &index),
-                          let name = try? JSONDecoder().decode(String.self, from: Data(bytes[keyStart..<index]))
-                    else { return nil }
-                    skipSpace(bytes, &index)
-                    guard index < bytes.count, bytes[index] == UInt8(ascii: ":") else { return nil }
-                    index += 1
-                    skipSpace(bytes, &index)
-                    if name == key.stringValue {
-                        guard found == nil else { return nil }
-                        found = index
-                    }
-                    guard skipValue(bytes, &index) else { return nil }
-                    skipSpace(bytes, &index)
-                    guard index < bytes.count else { return nil }
-                    if bytes[index] == UInt8(ascii: ",") { index += 1 }
-                    else if bytes[index] != UInt8(ascii: "}") { return nil }
-                }
-                guard let found else { return nil }
-                index = found
+                guard let found = members(bytes, &index)?.filter({ $0.name == key.stringValue }),
+                      found.count == 1 else { return nil }
+                index = found[0].valueStart
             }
         }
-        let start = index
-        guard skipValue(bytes, &index) else { return nil }
-        return String(bytes: bytes[start..<index], encoding: .utf8)
+        return index
     }
 
-    private static func skipSpace(_ bytes: [UInt8], _ index: inout Int) {
-        while index < bytes.count, [0x20, 0x09, 0x0A, 0x0D].contains(bytes[index]) { index += 1 }
+    /// Walks the object starting at `index` and leaves `index` after its closing brace.
+    private static func members(_ bytes: Data, _ index: inout Int) -> [(name: String, valueStart: Int)]? {
+        guard index < bytes.endIndex, bytes[index] == UInt8(ascii: "{") else { return nil }
+        index += 1
+        var result: [(name: String, valueStart: Int)] = []
+        while true {
+            skipSpace(bytes, &index)
+            guard index < bytes.endIndex else { return nil }
+            if bytes[index] == UInt8(ascii: "}"), result.isEmpty { index += 1; return result }
+            let keyStart = index
+            guard bytes[index] == UInt8(ascii: "\""), skipValue(bytes, &index),
+                  let name = try? JSONDecoder().decode(String.self, from: Data(bytes[keyStart..<index]))
+            else { return nil }
+            skipSpace(bytes, &index)
+            guard index < bytes.endIndex, bytes[index] == UInt8(ascii: ":") else { return nil }
+            index += 1
+            skipSpace(bytes, &index)
+            result.append((name, index))
+            guard skipValue(bytes, &index) else { return nil }
+            skipSpace(bytes, &index)
+            guard index < bytes.endIndex else { return nil }
+            if bytes[index] == UInt8(ascii: ",") { index += 1 }
+            else if bytes[index] == UInt8(ascii: "}") { index += 1; return result }
+            else { return nil }
+        }
+    }
+
+    private static func skipSpace(_ bytes: Data, _ index: inout Int) {
+        while index < bytes.endIndex, [0x20, 0x09, 0x0A, 0x0D].contains(bytes[index]) { index += 1 }
     }
 
     /// Moves past one value. Strings are skipped with their escapes; brackets are counted.
-    private static func skipValue(_ bytes: [UInt8], _ index: inout Int) -> Bool {
-        guard index < bytes.count else { return false }
+    private static func skipValue(_ bytes: Data, _ index: inout Int) -> Bool {
+        guard index < bytes.endIndex else { return false }
         var depth = 0
         repeat {
-            guard index < bytes.count else { return false }
+            guard index < bytes.endIndex else { return false }
             switch bytes[index] {
             case UInt8(ascii: "\""):
                 index += 1
-                while index < bytes.count, bytes[index] != UInt8(ascii: "\"") {
+                while index < bytes.endIndex, bytes[index] != UInt8(ascii: "\"") {
                     index += bytes[index] == UInt8(ascii: "\\") ? 2 : 1
                 }
-                guard index < bytes.count else { return false }
+                guard index < bytes.endIndex else { return false }
                 index += 1
             case UInt8(ascii: "{"), UInt8(ascii: "["): depth += 1; index += 1
             case UInt8(ascii: "}"), UInt8(ascii: "]"):
@@ -108,9 +125,10 @@ enum RawJSONText {
                 index += 1
             default:
                 // A scalar: a number, true, false or null.
+                guard depth > 0 || "-0123456789tfn".utf8.contains(bytes[index]) else { return false }
                 index += 1
                 if depth == 0 {
-                    while index < bytes.count, !",]} \t\n\r".utf8.contains(bytes[index]) { index += 1 }
+                    while index < bytes.endIndex, !",]} \t\n\r".utf8.contains(bytes[index]) { index += 1 }
                 }
             }
         } while depth > 0
@@ -143,9 +161,10 @@ struct SetAsideEntry: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey { case part, raw }
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        // Another key would be lost by writing back only these two: keep it as text instead.
-        // Count every key present, not only the two this type names.
-        guard try decoder.container(keyedBy: AnyKey.self).allKeys.count == 2 else {
+        // Another key, or a repeated one (which the decoder silently collapses), would be lost
+        // by writing back only these two: keep the entry as text instead. Read from the bytes.
+        guard let data = decoder.userInfo[.atomicJSONFileData] as? Data,
+              RawJSONText.keys(in: data, at: decoder.codingPath)?.sorted() == ["part", "raw"] else {
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Not an entry."))
         }
         part = try values.decode(String.self, forKey: .part)
@@ -153,13 +172,6 @@ struct SetAsideEntry: Decodable, Sendable {
     }
 
     var saved: PreservedJSONValue { .object(["part": .string(part), "raw": .string(raw)]) }
-
-    private struct AnyKey: CodingKey {
-        let stringValue: String
-        var intValue: Int? { nil }
-        init?(stringValue: String) { self.stringValue = stringValue }
-        init?(intValue: Int) { nil }
-    }
 
     /// An earlier entry not in this form, kept as its exact saved text.
     static func unrecognized(_ raw: String) -> PreservedJSONValue {
