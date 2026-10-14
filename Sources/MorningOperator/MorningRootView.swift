@@ -726,7 +726,8 @@ struct TodayView: View {
     private func compactTimeline(_ routine: RoutineVersion, compact: Bool) -> some View {
         let generation = store.dataGeneration
         let dense = compact || routine.steps.count > 6 || store.sessionActive || terminal
-        let spacing: CGFloat = store.sessionActive && compact ? 4 : 7
+        // Ten running moments fit above the controls at the standard size (issue #67).
+        let spacing: CGFloat = store.sessionActive && compact ? 3 : 7
         return GlassEffectContainer(spacing: 4) {
             VStack(spacing: spacing) {
                 if #available(iOS 27.0, macOS 27.0, *) {
@@ -886,13 +887,15 @@ struct TodayView: View {
 
     @ViewBuilder private func actionArea(_ routine: RoutineVersion) -> some View {
         if store.sessionActive {
+            // Pause and Continue are as tall as the round buttons beside them, so the row
+            // is no taller than it needs to be (issue #67).
             HStack(spacing: 12) {
                 if store.session?.status == .paused {
-                    Button { store.resume() } label: { Label("Continue", systemImage: "play.fill").frame(maxWidth: .infinity).padding(.vertical, 9) }
+                    Button { store.resume() } label: { Label("Continue", systemImage: "play.fill").frame(maxWidth: .infinity).padding(.vertical, 6) }
                         .buttonStyle(.glass).accessibilityIdentifier("run.resume")
                         .disabled(store.voiceInputBlocksPlayback)
                 } else {
-                    Button { store.pause() } label: { Label("Pause", systemImage: "pause.fill").frame(maxWidth: .infinity).padding(.vertical, 9) }
+                    Button { store.pause() } label: { Label("Pause", systemImage: "pause.fill").frame(maxWidth: .infinity).padding(.vertical, 6) }
                         .buttonStyle(.glass).accessibilityIdentifier("run.pause")
                     if !store.automatic || [.waitingForUser, .unavailable, .failed].contains(store.automation.status) {
                         Button { store.advance() } label: { Image(systemName: "arrow.right").frame(width: 32, height: 32) }

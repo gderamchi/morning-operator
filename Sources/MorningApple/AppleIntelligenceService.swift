@@ -68,10 +68,10 @@ public enum LocalModelFailureReason: String, Sendable, Equatable {
         }
     }
 
-    /// Reads only the error's type, case and an allowlisted code: never its text.
+    /// Reads the error's type, case and an allowlisted code. Its text is compared with one
+    /// fixed marker and never kept or shown.
     public static func reason(for error: any Error) -> LocalModelFailureReason {
-        let native = error as NSError
-        if native.domain.hasSuffix("ModelManagerError"), native.code == 1019 { return .notReady }
+        if isMissingModel(error) { return .notReady }
         switch ObservationContextErrorSanitizer.map(error).category {
         case .refusal, .guardrailViolation, .unsupportedTranscriptContent: return .declined
         case .contextSizeExceeded: return .tooLong
@@ -81,6 +81,20 @@ public enum LocalModelFailureReason: String, Sendable, Equatable {
         case .unsupportedGuide, .decodingFailure, .unsupportedCapability, .transcriptMutationWhileResponding,
              .unknownFoundationModelsError, .other: return .failed
         }
+    }
+
+    /// Model-manager code 1019: the model's files are missing. The framework may wrap that
+    /// error in its own type, whose description still names it, so the description is
+    /// checked for the same marker the hosted simulator shows.
+    private static func isMissingModel(_ error: any Error) -> Bool {
+        var native: NSError? = error as NSError
+        for _ in 0..<4 {
+            guard let current = native else { break }
+            if current.domain.hasSuffix("ModelManagerError"), current.code == 1019 { return true }
+            native = current.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        // "error 1019.)" ends the code, so 10190 does not match.
+        return error.localizedDescription.contains("ModelManagerError error 1019.)")
     }
 }
 

@@ -15,6 +15,20 @@ struct LocalModelFailureTests {
         #expect(shown == LocalModelFailureReason.notReady.sentence)
     }
 
+    /// The framework can wrap the missing-model error in its own type.
+    private struct WrappedFailure: LocalizedError {
+        var errorDescription: String? { "The operation couldn’t be completed. (ModelManagerServices.ModelManagerError error 1019.)" }
+    }
+
+    @Test func aWrappedMissingModelReadsAsNotReady() {
+        #expect(LocalModelFailureReason.reason(for: WrappedFailure()) == .notReady)
+        let underlying = NSError(domain: "ModelManagerServices.ModelManagerError", code: 1019)
+        let outer = NSError(domain: "FoundationModels.Other", code: 7, userInfo: [NSUnderlyingErrorKey: underlying])
+        #expect(LocalModelFailureReason.reason(for: outer) == .notReady)
+        let longerCode = NSError(domain: "ModelManagerServices.ModelManagerError", code: 10190)
+        #expect(LocalModelFailureReason.reason(for: longerCode) == .failed)
+    }
+
     @Test func anotherModelManagerCodeIsAFailureWithoutItsCode() {
         let error = NSError(domain: "FoundationModels.ModelManagerError", code: 1020)
         #expect(LocalModelFailureReason.reason(for: error) == .failed)
