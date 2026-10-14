@@ -305,13 +305,12 @@ struct WorkspaceRecoveryAttackTests {
 
     @Test("64-bit boundaries, negatives, doubles, unicode and empty containers survive recovery")
     func preservedJSONRoundTripFidelity() throws {
-        let raw = #"{"signed":-9223372036854775808,"unsigned":18446744073709551615,"aboveDoubleInteger":9007199254740993,"negative":-17,"fraction":-0.125,"double":1.2345678901234567,"tiny":5e-324,"large":1.7976931348623157e308,"nested":[[],{},[true,false,null,{"é":"雪 👩🏽‍💻 \u0000 e\u0301"}]],"empty":{}}"#
+        let raw = #"{"signed":-9223372036854775808,"unsigned":18446744073709551615,"aboveDoubleInteger":9007199254740993,"negative":-17,"fraction":-0.125,"double":1.2345678901234567,"nested":[[],{},[true,false,null,{"é":"雪 👩🏽‍💻 \u0000 e\u0301"}]],"empty":{}}"#
         let expected: PreservedJSONValue = .object([
             "signed": .integer(.min), "unsigned": .unsigned(.max),
             "aboveDoubleInteger": .integer(9_007_199_254_740_993), "negative": .integer(-17),
             "fraction": .number(-0.125), "double": .decimal(try #require(Decimal(string: "1.2345678901234567",
                 locale: Locale(identifier: "en_US_POSIX")))),
-            "tiny": .number(Double.leastNonzeroMagnitude), "large": .number(Double.greatestFiniteMagnitude),
             "nested": .array([.array([]), .object([:]), .array([.bool(true), .bool(false), .null,
                 .object(["é": .string("雪 👩🏽‍💻 \0 e\u{0301}")])])]), "empty": .object([:])])
         let saved = try loadRaw("\"captures\":[\(raw)],\"setAside\":[\(raw)]")
@@ -349,7 +348,9 @@ struct WorkspaceRecoveryAttackTests {
     @Test("A number beyond every numeric type refuses the file unchanged and names the part")
     func outOfRangeNumberRefusesTheFile() throws {
         for (fields, part) in [(#""setAside":{"unknown":1e400}"#, UnreadableWorkspacePart.other),
-                               (#""captures":[{"unknown":1e400}]"#, .captures)] {
+                               (#""captures":[{"unknown":1e400}]"#, .captures),
+                               (#""captures":[{"tiny":5e-324}]"#, .captures),
+                               (#""captures":[{"n":0.1234567890123456789012345678901234567891}]"#, .captures)] {
             do { _ = try loadRaw(fields); Issue.record("Loaded \(fields)") }
             catch { #expect(UnreadableWorkspacePart(error: error) == part) }
         }

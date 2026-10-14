@@ -36,6 +36,16 @@ struct RecoverableHistory: Decodable, Sendable {
 public enum SetAsideWorkspacePart: String, Sendable, CaseIterable {
     case session, previousRoutine, historyRun, appObservation, capture
 
+    /// Where the element is read in the snapshot, for naming a failure.
+    var key: any CodingKey {
+        switch self {
+        case .session: AnyKey("session")
+        case .previousRoutine: AnyKey("previousRoutine")
+        case .historyRun, .appObservation: AnyKey("history")
+        case .capture: AnyKey("captures")
+        }
+    }
+
     /// The saved form: the part's name and the element exactly as it was read.
     static func entry(part: SetAsideWorkspacePart, original: PreservedJSONValue) -> PreservedJSONValue {
         .object(["part": .string(part.rawValue), "original": original])
@@ -70,6 +80,8 @@ public enum UnreadableWorkspacePart: Sendable, Equatable, CaseIterable {
 
     public init(error: any Error) {
         if case PersistenceError.unsupportedSchema? = error as? PersistenceError { self = .newerFormat; return }
+        // Thrown after decoding, while moving a single legacy observation into the archive.
+        if error is ObservationArchiveError { self = .observations; return }
         let path: [any CodingKey]
         switch error as? DecodingError {
         case .typeMismatch(_, let context)?, .valueNotFound(_, let context)?, .dataCorrupted(let context)?:
@@ -126,4 +138,12 @@ public enum UnreadableWorkspacePart: Sendable, Equatable, CaseIterable {
     public static func advice(bundle: Bundle? = nil) -> String {
         (bundle ?? .module).localizedString(forKey: adviceKey, value: nil, table: nil)
     }
+}
+
+private struct AnyKey: CodingKey {
+    let stringValue: String
+    var intValue: Int? { nil }
+    init(_ value: String) { stringValue = value }
+    init?(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { nil }
 }

@@ -171,6 +171,12 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         case .some(.null), nil: break
         case .some(let other): kept = [other]
         }
+        // Set aside, an element sits at value.setAside[i].original, deeper than where it was
+        // read. Refuse rather than write a file the next launch could not read back.
+        for (part, original) in setAsideNow where 4 + original.height > PreservedJSONValue.maximumDepth {
+            throw DecodingError.dataCorrupted(.init(codingPath: values.codingPath + [part.key],
+                debugDescription: "Nested too deeply to set aside."))
+        }
         kept += setAsideNow.map { SetAsideWorkspacePart.entry(part: $0.0, original: $0.1) }
         setAside = kept.isEmpty ? nil : kept
         newlySetAside = setAsideNow.map(\.0)

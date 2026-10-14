@@ -192,6 +192,39 @@ struct WorkspaceSnapshotRecoveryTests {
         #expect(try file.load().history == history)
     }
 
+    @Test("An element too deep to set aside refuses the file instead of writing one that cannot be read back")
+    func tooDeepToSetAside() throws {
+        let depth = PreservedJSONValue.maximumDepth - 2
+        var nested: Any = [String: Any]()
+        for _ in 0..<depth { nested = [nested] }
+        do {
+            _ = try load { value in value["previousRoutine"] = nested }
+            Issue.record("A previous routine nested \(depth) deep was set aside")
+        } catch { #expect(UnreadableWorkspacePart(error: error) == .other) }
+        // Shallow enough to be written and read back: set aside and reloaded unchanged.
+        var shallow: Any = [String: Any]()
+        for _ in 0..<(PreservedJSONValue.maximumDepth - 5) { shallow = [shallow] }
+        let saved = try load { value in value["previousRoutine"] = shallow }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("workspace-\(UUID().uuidString).json")
+        let file = AtomicJSONFile<WorkspaceSnapshot>(url: url)
+        try file.save(WorkspaceSnapshot(routine: saved.routine, setAside: saved.setAside))
+        #expect(try file.load().setAside == saved.setAside)
+    }
+
+    @Test("Numbers the app writes are set aside and written back with the same digits")
+    func numbersKeepTheirDigits() throws {
+        let values: [Double] = [0.1, 1.2345678901234567, 1_760_000_000.437, -0.125, 3, 1e20]
+        let saved = try load { value in value["captures"] = values.map { ["n": $0] } }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("workspace-\(UUID().uuidString).json")
+        let file = AtomicJSONFile<WorkspaceSnapshot>(url: url)
+        try file.save(WorkspaceSnapshot(setAside: saved.setAside))
+        struct Number: Decodable { let n: Double }
+        struct Entry: Decodable { let original: Number }
+        struct Envelope: Decodable { struct Value: Decodable { let setAside: [Entry] }; let value: Value }
+        let back = try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: url)).value.setAside.map(\.original.n)
+        #expect(back == values)
+    }
+
     // MARK: Say what failed
 
     private func failure(_ edit: (inout [String: Any]) throws -> Void) throws -> UnreadableWorkspacePart {
@@ -214,6 +247,8 @@ struct WorkspaceSnapshotRecoveryTests {
         #expect(try failure { value in value["history"] = ["runs": "none"] } == .history)
         #expect(try failure { value in value["captures"] = "none" } == .captures)
         #expect(try failure { value in value.removeValue(forKey: "schemaVersion") } == .file)
+        #expect(UnreadableWorkspacePart(error: ObservationArchiveError.invalidSource) == .observations,
+                "A legacy observation that cannot move into the archive")
     }
 
     @Test("A file that is not JSON, not there, or newer is named too")
