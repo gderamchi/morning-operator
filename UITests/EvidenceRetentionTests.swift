@@ -126,7 +126,8 @@ final class EvidenceRetentionTests: XCTestCase {
         XCTAssertTrue(app.buttons["retention.confirm"].waitForNonExistence(timeout: 5))
         app.terminate()
         app.launch()
-        MorningUITestNavigation.reviewAction("review.observations", in: app)
+        MorningUITestNavigation.selectTab("Review", in: app)
+        tap("review.observations", in: app)
         tap("observation.row.\(freshID)", in: app)
         tap("observation.forget", in: app)
         XCTAssertTrue(app.buttons["retention.confirm"].waitForExistence(timeout: 5))
@@ -151,18 +152,29 @@ final class EvidenceRetentionTests: XCTestCase {
     }
 
     private func openPrivacy(_ app: XCUIApplication) {
-        MorningUITestNavigation.reviewAction("navigation.setup", in: app)
-        MorningUITestNavigation.tapButton("setup.privacy", in: app)
+        MorningUITestNavigation.selectTab("Review", in: app)
+        tap("navigation.setup", in: app)
+        tap("setup.privacy", in: app)
         XCTAssertTrue(element("privacy.retention.option.off", in: app).waitForExistence(timeout: 10))
     }
 
     private func openArchive(_ app: XCUIApplication) {
-        MorningUITestNavigation.reviewAction("review.observations", in: app)
+        MorningUITestNavigation.selectTab("Review", in: app)
+        tap("review.observations", in: app)
         XCTAssertTrue(app.navigationBars["Observations"].waitForExistence(timeout: 5))
     }
 
+    /// At the largest text size a row can start far above or below the fold, so this
+    /// scrolls toward it until it can be tapped instead of assuming a fixed distance.
     private func tap(_ identifier: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        MorningUITestNavigation.tapButton(identifier, in: app, file: file, line: line)
+        let button = app.buttons[identifier]
+        _ = button.waitForExistence(timeout: 10)
+        for _ in 0..<12 where !(button.exists && button.isHittable) {
+            if button.exists, button.frame.height > 0, button.frame.midY < app.frame.midY { app.swipeDown() }
+            else { app.swipeUp() }
+        }
+        XCTAssertTrue(button.exists && button.isHittable, "Control is not hittable: \(identifier)", file: file, line: line)
+        button.tap()
     }
 
     /// Scrolls the list until the element exists; native lists create rows as they appear.

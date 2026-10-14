@@ -6,7 +6,9 @@ import MorningApple
 /// it only lists what is older, for review and explicit confirmation.
 struct EvidenceRetentionSection: View {
     @Bindable var store: MorningStore
-    @ViewState private var reviewing: EvidenceRemovalReview?
+    /// Presented by the list that holds this section (`evidenceRemovalSheet`): a sheet
+    /// attached to a section would be attached to each of its rows.
+    @Binding var reviewing: EvidenceRemovalReview?
 
     private struct Choice: Identifiable {
         let days: Int?
@@ -76,9 +78,15 @@ struct EvidenceRetentionSection: View {
         } footer: {
             Text("Off keeps every observation until you remove it. When an age is chosen, nothing is removed until you review the list and confirm. Quotations in a routine you approved and moments you chose to keep stay.")
         }
-        .sheet(isPresented: Binding(get: { reviewing != nil }, set: { if !$0 { reviewing = nil } })) {
-            if let review = reviewing {
-                EvidenceRemovalSheet(store: store, review: review) { _ in }
+    }
+}
+
+extension View {
+    /// The expiry review sheet for `EvidenceRetentionSection`, attached once to its list.
+    func evidenceRemovalSheet(store: MorningStore, review: Binding<EvidenceRemovalReview?>) -> some View {
+        sheet(isPresented: Binding(get: { review.wrappedValue != nil }, set: { if !$0 { review.wrappedValue = nil } })) {
+            if let current = review.wrappedValue {
+                EvidenceRemovalSheet(store: store, review: current) { _ in }
             }
         }
     }
