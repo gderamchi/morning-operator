@@ -139,10 +139,9 @@ private final class VoiceHost: @unchecked Sendable {
         if case .failed(let failure, let detail) = audio.speak("Sound check.") {
             return .init(id: id, ok: false, code: failure.rawValue, detail: detail + audio.diagnostics())
         }
-        let listening = audio.enableListening()
         return .init(id: id, ok: true, detail: audio.diagnostics() + [
             "voice=\(audio.voiceQuality.name)",
-            "listening=\(listening?.rawValue ?? "ready")"
+            "listening=\(audio.listeningSkip?.rawValue ?? "ready")"
         ])
     }
 
@@ -201,6 +200,8 @@ private final class DemoVoice: @unchecked Sendable {
 
     private var recognizer: SFSpeechRecognizer?
     private var hasInputTap = false
+    private(set) var listeningSkip: LiveDemoSkip?
+    private var goodGeneration = 0
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var latest = ""
     private var lastChange: Date?
@@ -240,15 +241,32 @@ private final class DemoVoice: @unchecked Sendable {
         guard let format = AVAudioFormat(standardFormatWithSampleRate: first.format.sampleRate,
                                          channels: first.format.channelCount) else { return .failed(.voiceFormat, []) }
         audio.speechFormat = format
+        // Set up listening first (permission prompts appear while MORE is in front), so the
+        // engine is wired once, microphone and player together, and started once. Adding
+        // the microphone to a running engine changed its configuration and lost playback
+        // on the phone (voice-no-playback right after a heard sound check).
+        audio.listeningSkip = audio.prepareListening()
         audio.engine.attach(audio.player)
         audio.engine.connect(audio.player, to: audio.engine.mainMixerNode, format: format)
         audio.engine.prepare()
         do {
             try audio.engine.start()
         } catch {
-            return .failed(.audioEngineFailed, ["os=\((error as NSError).code)"])
+            guard audio.hasInputTap else { return .failed(.audioEngineFailed, ["os=\((error as NSError).code)"]) }
+            // Keep the voice even if the microphone cannot run.
+            audio.engine.inputNode.removeTap(onBus: 0)
+            audio.hasInputTap = false
+            audio.recognizer = nil
+            audio.listeningSkip = .audioInputFailed
+            audio.engine.prepare()
+            do { try audio.engine.start() } catch {
+                return .failed(.audioEngineFailed, ["os=\((error as NSError).code)"])
+            }
         }
         audio.player.play()
+        // Let the start-up notifications arrive, then treat this configuration as good.
+        Thread.sleep(forTimeInterval: 0.5)
+        audio.goodGeneration = audio.currentGeneration
         return .ready(audio)
     }
 
@@ -270,7 +288,9 @@ private final class DemoVoice: @unchecked Sendable {
         let outputs = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: "+")
         return ["route=\(outputs.isEmpty ? "none" : outputs)",
                 "volume=\(String(format: "%.2f", session.outputVolume))",
-                "engine=\(engine.isRunning ? "running" : "stopped")"]
+                "engine=\(engine.isRunning ? "running" : "stopped")",
+                "player=\(player.isPlaying ? "playing" : "stopped")",
+                "cfg=\(currentGeneration)"]
     }
 
     private static func wait(_ seconds: TimeInterval, until done: () -> Bool) -> Bool {
@@ -297,10 +317,11 @@ private final class DemoVoice: @unchecked Sendable {
             guard let converted = convert(buffer, to: format) else { return .failed(.voiceFormat, []) }
             buffers.append(converted)
         }
-        if !engine.isRunning {
-            do { try engine.start() } catch { return .failed(.audioEngineFailed, ["os=\((error as NSError).code)"]) }
+        if currentGeneration != goodGeneration || !engine.isRunning || !player.isPlaying {
+            // Something changed the audio path since the last sentence (a route or engine
+            // configuration change stops the engine). Rewire the player and start again.
+            if let failure = rewire(format: format) { return .failed(.audioEngineFailed, [failure, "rewired"]) }
         }
-        if !player.isPlaying { player.play() }
         let startGeneration = currentGeneration
         let started = Date()
         let done = Flag()
@@ -336,6 +357,20 @@ private final class DemoVoice: @unchecked Sendable {
         return .spoken
     }
 
+    /// Stops the engine, reconnects the player, starts again. Nil on success.
+    private func rewire(format: AVAudioFormat) -> String? {
+        player.stop()
+        engine.stop()
+        engine.disconnectNodeOutput(player)
+        engine.connect(player, to: engine.mainMixerNode, format: format)
+        engine.prepare()
+        do { try engine.start() } catch { return "os=\((error as NSError).code)" }
+        player.play()
+        Thread.sleep(forTimeInterval: 0.3)
+        goodGeneration = currentGeneration
+        return nil
+    }
+
     private func render(_ text: String) -> [AVAudioPCMBuffer]? {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
@@ -363,8 +398,9 @@ private final class DemoVoice: @unchecked Sendable {
 
     // MARK: Listening
 
-    /// Nil when listening is ready; otherwise why not. Runs while MORE is in front.
-    func enableListening() -> LiveDemoSkip? {
+    /// Asks for the microphone and speech recognition (MORE is in front) and installs the
+    /// microphone tap before the engine starts. Nil when listening is ready.
+    private func prepareListening() -> LiveDemoSkip? {
         guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US")),
               recognizer.supportsOnDeviceRecognition else { return .onDeviceUnavailable }
         let speechGranted = Box<Bool?>(nil)
@@ -374,29 +410,14 @@ private final class DemoVoice: @unchecked Sendable {
         _ = Self.wait(45) { speechGranted.get() != nil && micGranted.get() != nil }
         guard speechGranted.get() == true, micGranted.get() == true else { return .permissionDenied }
         guard recognizer.isAvailable else { return .onDeviceUnavailable }
-        engine.stop()
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
-        var started = false
-        if format.channelCount > 0, format.sampleRate > 0 {
-            input.installTap(onBus: 0, bufferSize: 1_024, format: format) { [weak self] buffer, _ in
-                self?.append(buffer)
-            }
-            hasInputTap = true
-            engine.prepare()
-            started = (try? engine.start()) != nil
+        guard format.channelCount > 0, format.sampleRate > 0 else { return .audioInputFailed }
+        input.installTap(onBus: 0, bufferSize: 1_024, format: format) { [weak self] buffer, _ in
+            self?.append(buffer)
         }
-        if !started {
-            if hasInputTap { input.removeTap(onBus: 0); hasInputTap = false }
-            engine.prepare()
-            try? engine.start()
-            player.play()
-            return .audioInputFailed
-        }
-        player.play()
+        hasInputTap = true
         self.recognizer = recognizer
-        // Let the notifications from adding the microphone arrive before the next sentence.
-        Thread.sleep(forTimeInterval: 1)
         return nil
     }
 
