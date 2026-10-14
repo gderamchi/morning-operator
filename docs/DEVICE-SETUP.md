@@ -154,7 +154,12 @@ Stop any other agent using the phone first, unlock it, and keep it awake. Then r
 
 ```sh
 cd ~/code/github/morning-operator
-rm -rf "$TMPDIR/mo-live-demo.xcresult"
+scripts/live-demo.sh            # options: --reels N (0-50), --any, --device ID, --team TEAM
+```
+
+The script refuses to run when `CI`, `GITHUB_ACTIONS` or `CONTINUOUS_INTEGRATION` is set, forwards those markers to the phone anyway, and runs exactly this:
+
+```sh
 TEST_RUNNER_MO_LIVE_DEMO=1 TEST_RUNNER_MO_LIVE_DEMO_REELS=10 \
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -project MorningOperator.xcodeproj -scheme MorningLiveDemo \
@@ -163,12 +168,12 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
   -allowProvisioningUpdates DEVELOPMENT_TEAM=U6Z87CS4W3 \
   -only-testing:MorningOperatorUITests/LiveMorningDemoTests \
   -test-timeouts-enabled YES -maximum-test-execution-time-allowance 1800 \
-  -resultBundlePath "$TMPDIR/mo-live-demo.xcresult" \
-  2>&1 | grep -E "Test Case|Test Suite|error:|\*\* TEST"
-rm -rf "$TMPDIR/mo-live-demo.xcresult" .build/iphone/Logs/Test
+  -resultBundlePath "$work/Results.xcresult"
 ```
 
-Privacy: the `MorningLiveDemo` scheme turns automatic screenshots off and keeps no system attachments, and the test attaches nothing. Message and mail text is spoken, never printed. XCTest's own activity log does record the text of a typed draft, which is why the output is filtered and the result bundle and test logs are deleted right after the run.
+The demo runs only under the `MorningLiveDemo` scheme: that scheme sets `MO_LIVE_DEMO_SCHEME=1`, which the test requires, and it turns automatic screenshots off and keeps no system attachments. The test attaches nothing, and message and mail text is spoken, never printed. XCTest's own activity log does record the text of a typed draft, so the script keeps the result bundle in a private temporary folder, prints only lines that start with a test status, and deletes the bundle and `.build/iphone/Logs/Test` on exit, including after Ctrl-C.
+
+Taps are refused unless the label is an expected one (a conversation row, the message field, Back, Inbox, Reels/For You), and a fresh check just before each tap refuses it if the layout moved or another control sits under the finger. There is no swipe-to-go-back: a sideways swipe on a row is a row action in Messages and Mail. A screen the demo does not recognise is skipped with a spoken message, never guessed at.
 
 ## Real HomePod spike
 

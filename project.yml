@@ -179,6 +179,9 @@ schemes:
       gatherCoverageData: false
       captureScreenshotsAutomatically: false
       deleteScreenshotsWhenEachTestSucceeds: true
+      # The test's gate requires this, so no other scheme can run the demo.
+      environmentVariables:
+        MO_LIVE_DEMO_SCHEME: "1"
       targets:
         - name: MorningOperatorUITests
           parallelizable: false

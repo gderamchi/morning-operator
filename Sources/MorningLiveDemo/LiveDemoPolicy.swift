@@ -13,10 +13,16 @@ public enum LiveDemoGate {
     }
 
     /// The demo drives other apps on a real, tethered phone with the owner present.
-    /// It runs only with `MO_LIVE_DEMO=1`, never on a simulator and never in CI.
+    /// It runs only with `MO_LIVE_DEMO=1` under the MorningLiveDemo scheme, never on a
+    /// simulator and never in CI (scripts/live-demo.sh forwards the host's CI markers).
     public static func evaluate(environment: [String: String], isSimulator: Bool) -> Decision {
         guard environment["MO_LIVE_DEMO"] == "1" else {
             return .skip("The live morning demo needs TEST_RUNNER_MO_LIVE_DEMO=1. No app was opened.")
+        }
+        // Set only by the MorningLiveDemo scheme, whose screenshots and system attachments
+        // are off. Other schemes would keep screens of Messages and Mail on a failure.
+        guard environment["MO_LIVE_DEMO_SCHEME"] == "1" else {
+            return .skip("Run the live morning demo through the MorningLiveDemo scheme (scripts/live-demo.sh).")
         }
         guard !isSimulator else {
             return .skip("The live morning demo runs only on a tethered physical iPhone.")
@@ -104,7 +110,7 @@ public enum LiveDemoTapPolicy {
                 && (composeLabels.contains(normalizedLabel) || composeLabels.contains(normalizedID))
         case .back:
             return !containsForbiddenWord(label) && !containsForbiddenWord(identifier)
-                && backLabels.contains(normalizedLabel)
+                && (backLabels.contains(normalizedLabel) || normalizedID == "backbutton")
         case .feedTab:
             return !containsForbiddenWord(label) && !containsForbiddenWord(identifier)
                 && feedTabLabels.contains(normalizedLabel)

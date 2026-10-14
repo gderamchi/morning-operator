@@ -4,17 +4,22 @@ import Testing
 
 @Suite("Live morning demo gate")
 struct LiveDemoGateTests {
-    @Test("Runs only with MO_LIVE_DEMO=1 on a physical phone outside CI")
+    private let optedIn = ["MO_LIVE_DEMO": "1", "MO_LIVE_DEMO_SCHEME": "1"]
+
+    @Test("Runs only with MO_LIVE_DEMO=1 under the demo scheme on a physical phone outside CI")
     func gate() {
-        #expect(LiveDemoGate.evaluate(environment: ["MO_LIVE_DEMO": "1"], isSimulator: false) == .run)
-        for environment in [[:], ["MO_LIVE_DEMO": "0"], ["MO_LIVE_DEMO": "true"], ["MO_LIVE_DEMO": " 1"]] {
+        #expect(LiveDemoGate.evaluate(environment: optedIn, isSimulator: false) == .run)
+        for environment in [[:], ["MO_LIVE_DEMO": "1"], ["MO_LIVE_DEMO_SCHEME": "1"],
+                            ["MO_LIVE_DEMO": "0", "MO_LIVE_DEMO_SCHEME": "1"],
+                            ["MO_LIVE_DEMO": "true", "MO_LIVE_DEMO_SCHEME": "1"],
+                            ["MO_LIVE_DEMO": " 1", "MO_LIVE_DEMO_SCHEME": "1"]] {
             #expect(LiveDemoGate.evaluate(environment: environment, isSimulator: false) != .run)
         }
-        #expect(LiveDemoGate.evaluate(environment: ["MO_LIVE_DEMO": "1"], isSimulator: true) != .run)
+        #expect(LiveDemoGate.evaluate(environment: optedIn, isSimulator: true) != .run)
         for ci in [["CI": "true"], ["CI": "1"], ["GITHUB_ACTIONS": "true"], ["CONTINUOUS_INTEGRATION": "yes"]] {
-            #expect(LiveDemoGate.evaluate(environment: ci.merging(["MO_LIVE_DEMO": "1"]) { $1 }, isSimulator: false) != .run)
+            #expect(LiveDemoGate.evaluate(environment: ci.merging(optedIn) { $1 }, isSimulator: false) != .run)
         }
-        #expect(LiveDemoGate.evaluate(environment: ["MO_LIVE_DEMO": "1", "CI": "false"], isSimulator: false) == .run)
+        #expect(LiveDemoGate.evaluate(environment: optedIn.merging(["CI": "false"]) { $1 }, isSimulator: false) == .run)
     }
 
     @Test("Read conversations need their own flag; reel count is bounded")
@@ -53,6 +58,8 @@ struct LiveDemoTapPolicyTests {
     func allowlists() {
         #expect(LiveDemoTapPolicy.permits(kind: .back, label: "Back", identifier: "BackButton", isButtonLike: true))
         #expect(LiveDemoTapPolicy.permits(kind: .back, label: "Messages", identifier: "", isButtonLike: true))
+        #expect(LiveDemoTapPolicy.permits(kind: .back, label: "Sam", identifier: "BackButton", isButtonLike: true))
+        #expect(!LiveDemoTapPolicy.permits(kind: .back, label: "Delete", identifier: "BackButton", isButtonLike: true))
         #expect(!LiveDemoTapPolicy.permits(kind: .back, label: "Details", identifier: "", isButtonLike: true))
         #expect(LiveDemoTapPolicy.permits(kind: .feedTab, label: "Reels", identifier: "", isButtonLike: true))
         #expect(LiveDemoTapPolicy.permits(kind: .feedTab, label: "For You", identifier: "", isButtonLike: true))

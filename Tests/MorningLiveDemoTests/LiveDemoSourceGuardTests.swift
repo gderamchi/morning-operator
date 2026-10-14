@@ -3,7 +3,7 @@ import Testing
 
 /// The live-morning demo drives Messages, Mail and Instagram on the owner's phone. These
 /// checks keep its interaction surface exactly as reviewed: one policy-checked tap site,
-/// one typing site (a draft), two drag sites (back swipe and reel swipe), nothing else.
+/// one typing site (a draft), one drag site (the reel swipe), nothing else.
 @Suite("Live morning demo interaction surface")
 struct LiveDemoSourceGuardTests {
     private func source() throws -> String {
@@ -21,7 +21,7 @@ struct LiveDemoSourceGuardTests {
         let code = try source()
         #expect(count(".tap()", in: code) == 1)
         #expect(count("typeText(", in: code) == 1)
-        #expect(count("press(forDuration:", in: code) == 2)
+        #expect(count("press(forDuration:", in: code) == 1)
         for banned in ["doubleTap", "twoFingerTap", "tap(withNumberOfTaps", "swipeUp(", "swipeDown(", "swipeLeft(",
                        "swipeRight(", "typeKey(", "pinch(", "rotate(", "XCUIKeyboardKey", "\\n\")", "adjust(to",
                        "XCTAttachment", "screenshot()", "print(", "NSLog(", "os_log", "Logger("] {
@@ -32,5 +32,6 @@ struct LiveDemoSourceGuardTests {
         let guardBlock = lines[max(0, tapLine - 8)..<tapLine].joined(separator: "\n")
         #expect(guardBlock.contains("LiveDemoTapPolicy.permits("))
         #expect(guardBlock.contains("noPrompt(in: app)"))
+        #expect(guardBlock.contains("pointIsSafe("))
     }
 }

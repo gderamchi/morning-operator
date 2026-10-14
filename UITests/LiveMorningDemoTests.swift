@@ -178,8 +178,7 @@ final class LiveMorningDemoTests: XCTestCase {
                backButton(in: messages) == nil {
                 return true
             }
-            guard noPrompt(in: messages) else { return false }
-            goBack(in: messages)
+            guard noPrompt(in: messages), goBack(in: messages) else { return false }
             hold(1.5)
         }
         return false
@@ -218,18 +217,20 @@ final class LiveMorningDemoTests: XCTestCase {
         for _ in 0..<3 {
             if !mail.wait(for: .runningForeground, timeout: 5) || !noPrompt(in: mail) { return false }
             if onInbox() { return true }
-            // On the Mailboxes page, open Inbox; otherwise go back one level.
-            let mailbox = snapshotDescendants(of: mail).first { node in
+            // Open Inbox only from the Mailboxes screen, so a message row whose label starts
+            // with "Inbox" can never be opened; anywhere else, go back one level.
+            let onMailboxes = mail.navigationBars.matching(NSPredicate(format: "identifier == %@", "Mailboxes")).count > 0
+            let mailbox = !onMailboxes ? nil : snapshotDescendants(of: mail).first { node in
                 node.elementType == .cell
                     && LiveDemoTapPolicy.permits(kind: .mailbox,
                                                  label: node.label.components(separatedBy: ", ").first ?? "",
                                                  identifier: "", isButtonLike: false)
             }
             if let mailbox {
-                _ = tapChecked(Target(mailbox, label: mailbox.label.components(separatedBy: ", ").first ?? ""),
-                               kind: .mailbox, in: mail)
+                guard tapChecked(Target(mailbox, label: mailbox.label.components(separatedBy: ", ").first ?? ""),
+                                 kind: .mailbox, in: mail) else { return false }
             } else {
-                goBack(in: mail)
+                guard goBack(in: mail) else { return false }
             }
             hold(1.5)
         }
@@ -273,11 +274,12 @@ final class LiveMorningDemoTests: XCTestCase {
             node.elementType == .button && tabLabels.contains(node.label)
                 && LiveDemoTapPolicy.permits(kind: .feedTab, label: node.label, identifier: node.identifier, isButtonLike: true)
         }
-        if let tab { _ = tapChecked(Target(tab), kind: .feedTab, in: feed) }
-        if tab == nil && tabLabels == ["Reels"] {
-            say("I couldn't find the Reels tab, so I'll skip reels.")
+        // Swipes happen only after the feed tab itself was found and tapped.
+        guard let tab, tapChecked(Target(tab), kind: .feedTab, in: feed) else {
+            say("I couldn't find the video feed, so I'll skip reels.")
             return
         }
+        hold(2)
         say("Now some reels. I'll swipe every eight seconds and won't like, comment or follow anything.")
         for index in 0..<count {
             hold(8)
@@ -343,12 +345,12 @@ final class LiveMorningDemoTests: XCTestCase {
         return back.map { Target($0) }
     }
 
-    /// A permitted back button, else the system edge-swipe back gesture. Neither can send.
-    private func goBack(in app: XCUIApplication) {
-        if let back = backButton(in: app), tapChecked(back, kind: .back, in: app) { return }
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.45))
-        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.45))
-        start.press(forDuration: 0.05, thenDragTo: end)
+    /// Only a permitted back button. There is no swipe fallback: a horizontal swipe on a
+    /// list row is a row action in Messages and Mail (mark unread, delete), not navigation.
+    @discardableResult
+    private func goBack(in app: XCUIApplication) -> Bool {
+        guard let back = backButton(in: app) else { return false }
+        return tapChecked(back, kind: .back, in: app)
     }
 
     // MARK: - Snapshots and the one checked tap
@@ -382,8 +384,24 @@ final class LiveMorningDemoTests: XCTestCase {
                                         isButtonLike: Self.isButtonLike(target.elementType)),
               isOnScreen(target.frame, in: app),
               !target.blockingButtons.contains(where: { $0.contains(point) }),
-              noPrompt(in: app) else { return false }
+              noPrompt(in: app), pointIsSafe(point, for: target, in: app) else { return false }
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+        return true
+    }
+
+    /// Fresh hit-test just before tapping: the target must still be there with the same
+    /// frame, and no other button-like control, nor any control with a forbidden word,
+    /// may cover the point. Catches layout changes after the snapshot and overlays.
+    private func pointIsSafe(_ point: CGPoint, for target: Target, in app: XCUIApplication) -> Bool {
+        let nodes = snapshotDescendants(of: app)
+        guard nodes.contains(where: { $0.elementType == target.elementType && $0.frame == target.frame }) else { return false }
+        for node in nodes where node.frame.contains(point) {
+            if node.elementType == target.elementType && node.frame == target.frame { continue }
+            // Any other control under the finger, or anything whose identifier names an action.
+            if Self.isButtonLike(node.elementType) || LiveDemoTapPolicy.containsForbiddenWord(node.identifier) {
+                return false
+            }
+        }
         return true
     }
 
@@ -422,7 +440,8 @@ final class LiveMorningDemoTests: XCTestCase {
     }
 
     private static func isButtonLike(_ type: XCUIElement.ElementType) -> Bool {
-        [.button, .link, .toggle, .switch, .menuItem, .menuButton, .segmentedControl, .key].contains(type)
+        [.button, .link, .toggle, .switch, .menuItem, .menuButton, .segmentedControl, .key, .slider, .stepper,
+         .picker, .pickerWheel, .popUpButton, .radioButton, .checkBox, .incrementArrow, .decrementArrow].contains(type)
     }
 
     private func isOnScreen(_ frame: CGRect, in app: XCUIApplication) -> Bool {
