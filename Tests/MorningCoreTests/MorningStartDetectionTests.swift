@@ -66,6 +66,16 @@ struct MorningStartDetectionTests {
         #expect(morning.endReason == .pause)
     }
 
+    @Test func idleBeforeAKnownPickupIsNotCountedTwice() throws {
+        // 41 minutes from a 07:10 pickup means use until at least 07:51; 08:05 is within the pause rule.
+        let uses = PhoneUse.fromScreenTimeSegment(hour: DateInterval(start: at(7), end: at(8)), totalSeconds: 41 * 60,
+                                                  firstPickup: at(7, 10), longestActivity: DateInterval(start: at(7, 10), end: at(7, 30)))
+            + [use(at(8, 5), at(8, 10))]
+        guard case .found(let morning) = detect(uses, now: at(14)) else { Issue.record("no morning"); return }
+        #expect(morning.start == at(7, 10))
+        #expect(morning.end == at(8, 10))
+    }
+
     @Test func longUseIsCappedAndRecentUseIsOngoing() throws {
         guard case .found(let capped) = detect([use(at(6, 0), at(10, 0))]) else { Issue.record("no morning"); return }
         #expect(capped.end == at(9, 0))

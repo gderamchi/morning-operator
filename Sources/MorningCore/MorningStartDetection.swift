@@ -156,10 +156,12 @@ public extension PhoneUse {
         var uses: [PhoneUse] = []
         if totalSeconds > 0, hour.duration - totalSeconds < sessionGap {
             let idle = hour.duration - totalSeconds
-            // The first pickup, when inside the hour, is the exact start of use.
-            let start = firstPickup.flatMap { hour.contains($0) && $0 > hour.start ? $0 : nil }
-                ?? hour.start.addingTimeInterval(idle)
-            let end = max(start, hour.end.addingTimeInterval(-idle))
+            // The first pickup, when inside the hour, is the exact start of use; the idle time
+            // before it is known, so less idle can remain at the end of the hour.
+            let pickup = firstPickup.flatMap { hour.contains($0) && $0 > hour.start ? $0 : nil }
+            let start = pickup ?? hour.start.addingTimeInterval(idle)
+            let trailingIdle = pickup.map { max(0, idle - $0.timeIntervalSince(hour.start)) } ?? idle
+            let end = max(start, hour.end.addingTimeInterval(-trailingIdle))
             uses.append(PhoneUse(DateInterval(start: start, end: end), source: .screenTimeHour))
         }
         if let firstPickup { uses.append(PhoneUse(at: firstPickup, source: .screenTimePickup)) }
