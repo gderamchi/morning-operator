@@ -347,7 +347,10 @@ struct WorkspaceSnapshotRecoveryTests {
         let cases = [#"{"targetMinutes":30,"targetMinutes":45,"feedback":[]}"#,
                      #"{"targetMinutes":30,"feedback":[\#(record)],"feedback":[]}"#,
                      #"{"targetMinutes":30,"acceptedLongerPlan":{"routineVersionID":"40000000-0000-0000-0000-000000000000","targetMinutes":30,"targetMinutes":30,"totalMinutes":40}}"#,
-                     #"{"targetMinutes":30,"feedback":[\#(record),\#(repeated)]}"#]
+                     #"{"targetMinutes":30,"feedback":[\#(record),\#(repeated)]}"#,
+                     // Keys this scan cannot count: a trailing comma, at each level.
+                     #"{"targetMinutes":30,"targetMinutes":45,"feedback":[],}"#,
+                     #"{"targetMinutes":30,"feedback":[{"id":"20000000-0000-0000-0000-000000000002","sessionID":"30000000-0000-0000-0000-000000000002","routineVersionID":"40000000-0000-0000-0000-000000000000","wasUseful":"yes","recordedAt":781000000,}]}"#]
         for text in cases {
             var source = try String(contentsOf: Self.fixture, encoding: .utf8)
             let range = try #require(source.range(of: "\"captures\" : [\n\n    ],"))

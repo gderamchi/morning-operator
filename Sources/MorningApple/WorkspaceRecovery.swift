@@ -194,13 +194,18 @@ struct RecoverableBudgetAndFeedback: Decodable, Sendable {
             setAside = [(.timeBudgetAndFeedback, try raw([]))]
             return
         }
-        // Without the saved bytes (never the case for the workspace file) keys cannot be counted.
+        // True for an object with a repeated key, and for one whose keys cannot be counted (for
+        // example a trailing comma the decoder accepts but this scan does not): either may hide a
+        // value. Without the saved bytes (never the case for the workspace file) keys cannot be counted.
         func repeats(_ path: [any CodingKey]) -> Bool {
-            guard let data, let keys = RawJSONText.keys(in: data, at: decoder.codingPath + path) else { return false }
-            return Set(keys).count != keys.count
+            guard let data else { return false }
+            if let keys = RawJSONText.keys(in: data, at: decoder.codingPath + path) { return Set(keys).count != keys.count }
+            guard let text = RawJSONText.find(in: data, at: decoder.codingPath + path) else { return true }
+            return text.hasPrefix("{")
         }
+        let acceptanceSaved = values.contains(.acceptedLongerPlan) && (try? values.decodeNil(forKey: .acceptedLongerPlan)) == false
         let count = (try? values.nestedUnkeyedContainer(forKey: .feedback))?.count ?? 0
-        if repeats([]) || repeats([CodingKeys.acceptedLongerPlan])
+        if repeats([]) || (acceptanceSaved && repeats([CodingKeys.acceptedLongerPlan]))
             || (0..<count).contains(where: { repeats([CodingKeys.feedback, Index($0)]) }) {
             self.value = RoutineBudgetAndFeedback()
             setAside = [(.timeBudgetAndFeedback, try raw([]))]
