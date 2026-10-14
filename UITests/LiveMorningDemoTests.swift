@@ -495,7 +495,19 @@ final class LiveMorningDemoTests: XCTestCase {
         if tab == nil {
             // Diagnostics: only the bottom tab bar's buttons (identifier, label, frame).
             // No other element, no screenshot, no post text.
-            for (index, button) in tabBarButtons(in: feed, nodes: nodes).enumerated() {
+            let snapshotError: String
+            do { _ = try feed.snapshot(); snapshotError = "none" } catch { snapshotError = "\((error as NSError).code)" }
+            let known = ["clips-tab", "reels-tab", "clips_tab", "reels_tab"].map { id in
+                "\(id)=\(feed.descendants(matching: .any).matching(identifier: id).count)"
+            }
+            emit(LiveDemoReport.line(["tab-probe", "nodes=\(nodes.count)", "snapshot-error=\(snapshotError)",
+                                      "tabbars=\(feed.tabBars.count)"] + known))
+            var bar = tabBarButtons(in: feed, nodes: nodes)
+            if bar.isEmpty, let barSnapshot = try? feed.tabBars.firstMatch.snapshot() {
+                bar = Self.descendants(of: barSnapshot).filter { Self.isButtonLike($0.elementType) }
+                    .sorted { $0.frame.minX < $1.frame.minX }
+            }
+            for (index, button) in bar.enumerated() {
                 let f = button.frame
                 emit(LiveDemoReport.line(["tab", "i=\(index)", "id=\(button.identifier.isEmpty ? "none" : button.identifier)",
                                           "label=\(button.label.isEmpty ? "none" : button.label)",
