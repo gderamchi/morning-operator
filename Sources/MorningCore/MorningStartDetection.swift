@@ -103,6 +103,8 @@ public enum MorningStartDetector {
                 let isNightCheck = hour < policy.nightCheckLatestHour
                     && candidate.session.duration <= policy.nightCheckMaximumLength
                     && position + 1 < candidates.count
+                    // Only when he really went back to sleep: the next use is a sleep gap later.
+                    && sessions[candidate.index + 1].start.timeIntervalSince(candidate.session.end) >= policy.sleepGap
                 if isNightCheck { skipped.append(candidate.session) } else { chosen = candidate; break }
             }
         }
@@ -144,16 +146,21 @@ public extension PhoneUse {
     /// Use evidence from one hourly Screen Time segment. Hourly totals cannot place use
     /// inside the hour, so the first pickup and the longest activity become timed evidence.
     /// One exception is exact: when the hour's use leaves less idle time than `sessionGap`,
-    /// no pause that long fits inside it, so the whole hour counts as continuous use.
+    /// no pause that long fits inside it. Use then began within `idle` of the hour's start
+    /// and lasted until within `idle` of its end, so [start + idle, end − idle] is one
+    /// session. Two busy hours merge only when their idle time adds up to less than a pause.
     /// An hour with use but none of these adds its start as a coarse point.
     static func fromScreenTimeSegment(hour: DateInterval, totalSeconds: TimeInterval,
                                       firstPickup: Date?, longestActivity: DateInterval?,
                                       sessionGap: TimeInterval = MorningDetectionPolicy().sessionGap) -> [PhoneUse] {
         var uses: [PhoneUse] = []
         if totalSeconds > 0, hour.duration - totalSeconds < sessionGap {
-            // Starts at the first pickup when it lies inside the hour: use before it is impossible.
-            let start = firstPickup.map { max(hour.start, min($0, hour.end)) } ?? hour.start
-            uses.append(PhoneUse(DateInterval(start: start, end: hour.end), source: .screenTimeHour))
+            let idle = hour.duration - totalSeconds
+            // The first pickup, when inside the hour, is the exact start of use.
+            let start = firstPickup.flatMap { hour.contains($0) && $0 > hour.start ? $0 : nil }
+                ?? hour.start.addingTimeInterval(idle)
+            let end = max(start, hour.end.addingTimeInterval(-idle))
+            uses.append(PhoneUse(DateInterval(start: start, end: end), source: .screenTimeHour))
         }
         if let firstPickup { uses.append(PhoneUse(at: firstPickup, source: .screenTimePickup)) }
         if let longestActivity, longestActivity.duration > 0 { uses.append(PhoneUse(longestActivity, source: .screenTimeLongestActivity)) }

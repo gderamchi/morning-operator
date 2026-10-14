@@ -83,7 +83,11 @@ public struct ScreenTimeMorningSummary: Equatable, Sendable {
         var byApp: [String: (name: String, bundle: String?, seconds: TimeInterval, pickups: Int, notifications: Int, first: Date)] = [:]
         var outside = false
         for row in unique {
-            guard row.segment.end > window.start, row.segment.start < window.end else { continue }
+            // A zero-length window (a morning seen only as one moment) still owns the hour holding it.
+            let overlaps = window.duration > 0
+                ? row.segment.end > window.start && row.segment.start < window.end
+                : row.segment.start <= window.start && window.start < row.segment.end
+            guard overlaps else { continue }
             if let bundle = row.bundleIdentifier, excluded.contains(bundle) { continue }
             let key = row.bundleIdentifier ?? "name:" + row.appName
             notificationsByApp[key, default: 0] += max(0, row.notifications)

@@ -47,6 +47,25 @@ struct MorningStartDetectionTests {
         #expect(morning.start == at(4, 30))
     }
 
+    @Test func aNightCheckFollowedSoonByMoreUseIsTheMorning() throws {
+        // 04:30 then 05:30: no sleep gap after 04:30, so a later 10:00 session must not win.
+        let result = detect([use(at(23, day: 13), at(23, 30, day: 13)), use(at(4, 30), at(4, 40)),
+                             use(at(5, 30), at(6, 0)), use(at(10, 0), at(10, 30))])
+        guard case .found(let morning) = result else { Issue.record("\(result)"); return }
+        #expect(morning.start == at(4, 30))
+    }
+
+    @Test func twoBusyHoursDoNotHideAPauseAcrossTheirBoundary() throws {
+        // Real use 07:00–07:41 and 08:19–09:00: each hour is busy, but the pause is 38 minutes.
+        let uses = PhoneUse.fromScreenTimeSegment(hour: DateInterval(start: at(7), end: at(8)), totalSeconds: 41 * 60,
+                                                  firstPickup: nil, longestActivity: nil)
+            + PhoneUse.fromScreenTimeSegment(hour: DateInterval(start: at(8), end: at(9)), totalSeconds: 41 * 60,
+                                             firstPickup: nil, longestActivity: nil)
+        guard case .found(let morning) = detect(uses, now: at(14)) else { Issue.record("no morning"); return }
+        #expect(morning.end <= at(7, 41))
+        #expect(morning.endReason == .pause)
+    }
+
     @Test func longUseIsCappedAndRecentUseIsOngoing() throws {
         guard case .found(let capped) = detect([use(at(6, 0), at(10, 0))]) else { Issue.record("no morning"); return }
         #expect(capped.end == at(9, 0))

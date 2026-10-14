@@ -45,6 +45,13 @@ struct ScreenTimeMorningTests {
         #expect(summary.apps.first?.seconds == 300)
     }
 
+    @Test func aMorningSeenAsOneMomentStillCountsItsHour() {
+        let rows = [ScreenTimeUsageRow(segment: hour(7), appName: "Mail", bundleIdentifier: "m", seconds: 600),
+                    ScreenTimeUsageRow(segment: hour(8), appName: "News", bundleIdentifier: "n", seconds: 60)]
+        let summary = ScreenTimeMorningSummary.summarize(rows: rows, window: DateInterval(start: at(7), duration: 0))
+        #expect(summary.apps.map(\.name) == ["Mail"])
+    }
+
     @Test func notificationsAloneNeitherListAnAppNorSetItsFirstHour() {
         let rows = [
             ScreenTimeUsageRow(segment: hour(5), appName: "Mail", bundleIdentifier: "m", seconds: 0, notifications: 2),

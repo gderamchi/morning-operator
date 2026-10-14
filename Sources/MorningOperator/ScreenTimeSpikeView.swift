@@ -85,6 +85,7 @@ final class ScreenTimeSpikeModel {
             var pickups: [Date] = []
             var updated: [Date] = []
             var uses: [PhoneUse] = []
+            var diagnostics: [String] = []
             // With data access, installed apps carry real display names (names in usage rows may be nil).
             let names = await Self.installedAppNames()
             do {
@@ -112,8 +113,8 @@ final class ScreenTimeSpikeModel {
                             }
                         }
                         let hourLine = "hour: \(segment.dateInterval.start) total=\(Int(segmentSeconds)) s firstPickup=\(segment.firstPickup.map { "\($0)" } ?? "-") longest=\(segment.longestActivity.map { "\($0.start)+\(Int($0.duration))s" } ?? "-")"
-                        self?.hourLines.append(hourLine + " pickupsWithoutApp=\(segment.totalPickupsWithoutApplicationActivity) segmentTotal=\(Int(segment.totalActivityDuration)) s")
-                        self?.hourLines += detail
+                        diagnostics.append(hourLine + " pickupsWithoutApp=\(segment.totalPickupsWithoutApplicationActivity) segmentTotal=\(Int(segment.totalActivityDuration)) s")
+                        diagnostics += detail
                         uses += PhoneUse.fromScreenTimeSegment(hour: segment.dateInterval, totalSeconds: segmentSeconds,
                                                                firstPickup: segment.firstPickup, longestActivity: segment.longestActivity,
                                                                sessionGap: MorningDetectionPolicy().sessionGap)
@@ -121,7 +122,7 @@ final class ScreenTimeSpikeModel {
                     // The sequence may stay open for updates; show each result as it arrives.
                     let detected = MorningStartDetector.detect(uses: uses, on: .now, coveredFrom: coveredFrom)
                     guard !Task.isCancelled else { break }
-                    self?.publish(token: token, rows: rows, detection: detected, fallback: fallback, pickups: pickups, updated: updated)
+                    self?.publish(token: token, diagnostics: diagnostics, rows: rows, detection: detected, fallback: fallback, pickups: pickups, updated: updated)
                 }
                 self?.finish(token: token, problem: nil)
             } catch is CancellationError {
@@ -163,9 +164,10 @@ final class ScreenTimeSpikeModel {
         return lines.joined(separator: "\n")
     }
 
-    private func publish(token: Int, rows: [ScreenTimeUsageRow], detection: MorningDetectionResult, fallback: DateInterval?,
+    private func publish(token: Int, diagnostics: [String], rows: [ScreenTimeUsageRow], detection: MorningDetectionResult, fallback: DateInterval?,
                          pickups: [Date], updated: [Date]) {
         guard token == generation else { return }
+        hourLines = diagnostics
         self.detection = detection
         let window: DateInterval
         if case .found(let morning) = detection { window = morning.interval }
