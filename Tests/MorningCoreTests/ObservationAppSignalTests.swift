@@ -120,3 +120,24 @@ struct ObservationAppSignatureRegressionTests {
         #expect(name("Modifier\nMessages\nSynthetic contact") == "Messages")
     }
 }
+
+@Suite("WhatsApp inside a conversation")
+struct ObservationWhatsAppConversationTests {
+    private func name(_ text: String) -> String? { ObservationAppSignatures.app(in: text)?.displayName }
+
+    @Test func readTicksUnderMessagesNameWhatsApp() {
+        #expect(name("12:08 A\nSynthetic Group\nSynthetic message one\n12:00 V\nSynthetic message two\n12:01 //\nAnother reply\n12:06") == "WhatsApp")
+        #expect(name("12:09 A\nSynthetic Group\nhello\n12:06\nsee you\n12:06\nok\n12:08 /") == "WhatsApp")
+    }
+
+    @Test func theUnreadDividerNamesWhatsApp() {
+        #expect(name("12:08 A\nSynthetic Group\n3 messages non lus\nSynthetic Contact") == "WhatsApp")
+    }
+
+    @Test func plainTimesWithoutTicksAreNotAConversation() {
+        // A world clock or a calendar lists times too, but never read ticks.
+        #expect(name("12:08\nParis\n12:08\nNew York\n6:08\nTokyo\n19:08") == nil)
+        // One stray tick-like line is not enough without other message times.
+        #expect(name("12:08\nSynthetic note\n9:30 v") == nil)
+    }
+}
