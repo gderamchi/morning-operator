@@ -107,6 +107,11 @@ extension MorningStore {
         case .apply(let review):
             evidenceRemovalInProgress = true
             defer { evidenceRemovalInProgress = false }
+            guard !busy, !sessionActive, saveEditsOutside(review) else {
+                // The marker stays; nothing was changed and this can be retried.
+                evidenceRemovalStatus = String(localized: "The interrupted removal can't finish yet. Nothing more was removed. Try again from Privacy.")
+                return
+            }
             let outcome = commit(review, now: marker.confirmedAt)
             evidenceRemovalStatus = Self.status(for: outcome)
         case .abandon:
@@ -126,12 +131,8 @@ extension MorningStore {
         guard !busy, !sessionActive else {
             return .notStarted(String(localized: "Finish or stop this morning and wait for current work to end, then try again. Nothing was removed."))
         }
-        // Unsaved edits to another observation reach disk first, as for deleting one.
-        // Edits to an observation being removed go with it.
-        if !(selectedObservationID.map(confirmed.acquisitionIDs.contains) ?? false) {
-            guard saveObservationEdits() else {
-                return .notStarted(String(localized: "Your other changes couldn't be saved first. Nothing was removed."))
-            }
+        guard saveEditsOutside(confirmed) else {
+            return .notStarted(String(localized: "Your other changes couldn't be saved first. Nothing was removed."))
         }
         let now = Date()
         // Checked against the current data before the marker, so a changed plan writes nothing.
@@ -147,6 +148,13 @@ extension MorningStore {
             return .notStarted(String(localized: "Removal couldn't start. Nothing was removed. \(error.localizedDescription)"))
         }
         return commit(confirmed, now: now)
+    }
+
+    /// Unsaved edits to another observation reach disk first, as for deleting one.
+    /// Edits to an observation being removed go with it.
+    private func saveEditsOutside(_ review: EvidenceRemovalReview) -> Bool {
+        if selectedObservationID.map(review.acquisitionIDs.contains) ?? false { return true }
+        return saveObservationEdits()
     }
 
     /// From the marker on. Works the plan out again one last time, saves, then cleans up.
@@ -219,6 +227,8 @@ extension MorningStore {
             return .notStarted(String(localized: "Part of this can't be removed safely here. Nothing was removed."))
         case .segmentedSession:
             return .notStarted(String(localized: "This observation belongs to a recorded session, which can't be removed here yet. Nothing was removed."))
+        case .wordsAlsoKept:
+            return .notStarted(String(localized: "A step quoting this observation also holds words you keep. Edit that step in your routine first. Nothing was removed."))
         case .copyMoved:
             return .notStarted(String(localized: "Your routine changed. Review the list again. Nothing was removed."))
         case nil:

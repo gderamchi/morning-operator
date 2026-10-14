@@ -272,4 +272,33 @@ struct EvidenceRetentionApplicationTests {
         #expect(a.fingerprint != b.fingerprint)
         #expect(a.fingerprint == (try #require(EvidenceRemovalReview.forgetting(source.id, in: try workspace([source], current: draft)))).fingerprint)
     }
+
+    // MARK: - Review findings
+
+    @Test func aStepWhoseWordsAreAlsoKeptForAnotherObservationIsNeverCleared() throws {
+        // Two observations share a whole line; an untouched draft step quotes the first.
+        let first = try morning("Tea by the window.\nThen the news.", age: 40 * day)
+        let second = try morning("Tea by the window.\nThen a walk.", age: 2 * day, observed: 1)
+        let draft = RoutineVersion(sourceLabel: "Your morning", steps: [try savedMoment(first)])
+        let before = try workspace([first, second], current: draft)
+        let review = try #require(EvidenceRemovalReview.forgetting(first.id, in: before))
+        let plan = before.plan(now: now, maximumAge: -1)
+        #expect(plan.dependents(of: second.id).contains { $0.stepID == draft.steps[0].id && $0.disposition == .separatelyRetained })
+        #expect(review.copies.map(\.disposition) == [.removed])
+        #expect(review.removesKeptWords)
+        #expect(throws: EvidenceRemovalError.wordsAlsoKept) { try review.applied(to: before, now: now) }
+    }
+
+    @Test func aCorrectionAfterTheReviewIsAChangedPlan() throws {
+        let source = try morning(age: 40 * day)
+        let before = try workspace([source])
+        let review = try #require(EvidenceRemovalReview.forgetting(source.id, in: before))
+        #expect(review.copies.isEmpty)
+        var corrected = before
+        try corrected.archive.correct(id: source.id, text: "I review my calendar after lunch.")
+        #expect(throws: EvidenceRemovalError.self) { try review.applied(to: corrected, now: now) }
+        let marker = EvidenceRemovalMarker(review: review, confirmedAt: now)
+        #expect(marker.resumption(in: corrected) == .abandon)
+        #expect(marker.resumption(in: before) == .apply(review))
+    }
 }

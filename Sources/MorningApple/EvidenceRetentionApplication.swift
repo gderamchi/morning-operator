@@ -50,6 +50,9 @@ public enum EvidenceRemovalError: Error, Sendable, Equatable {
     case copyMoved
     /// The observation to forget is no longer saved.
     case observationGone
+    /// A quotation to remove sits in a step whose words are also listed as kept for
+    /// another reason. Clearing it would remove what the person keeps; nothing is changed.
+    case wordsAlsoKept
 }
 
 /// One removal as the person reviews and confirms it: the observations that go,
@@ -69,6 +72,16 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
     /// True when the pending suggestion is listed as invalidated, or when a listed
     /// change to the draft it was prepared from leaves it no longer current.
     public let setsAsidePendingSuggestion: Bool
+    /// A digest of each removed observation as saved, in archive order. A correction,
+    /// new date or new screen label after the review makes it a different review.
+    let acquisitionRevisions: [String]
+    /// Steps (by store) that any copy, of any observation, lists as kept. A listed
+    /// removal inside one of them would also remove kept words.
+    let keptSteps: Set<String>
+    /// True when applying would remove words listed as kept: nothing can be applied.
+    public var removesKeptWords: Bool {
+        copies.contains { $0.disposition == .removed && Self.keptKey($0).map(keptSteps.contains) == true }
+    }
 
     /// The choices offered for "Keep raw evidence for…". Off (nil) is the default.
     public static let maximumAgeChoices = [30, 90, 365]
@@ -108,10 +121,18 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
         let wanted = Set(ids)
         let copies = plan.dependentCopies.filter { wanted.contains($0.acquisitionID) }
         self.copies = copies
+        acquisitionRevisions = ids.map { id in
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            let data = workspace.archive.entry(id: id).flatMap { try? encoder.encode($0) } ?? Data()
+            return Self.hex(SHA256.hash(data: data))
+        }
+        let kept = Set(plan.dependentCopies.filter { $0.disposition == .separatelyRetained }.compactMap(Self.keptKey))
+        keptSteps = kept
         if let proposal = workspace.pendingProposal, !ids.isEmpty {
             let listed = copies.contains { $0.store == .pendingProposal && $0.disposition != .separatelyRetained }
             // The suggestion is checked against the workspace this removal would leave.
-            let after = try? Self.change(workspace, ids: ids, copies: copies, dropProposal: false)
+            let after = try? Self.change(workspace, ids: ids, copies: copies, keptSteps: kept, dropProposal: false)
             setsAsidePendingSuggestion = listed || after.map {
                 !proposal.isCurrent(archive: $0.archive, baseRoutine: $0.currentRoutine, preferences: $0.preferences)
             } ?? true
@@ -121,6 +142,10 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
     }
 
     public var isEmpty: Bool { acquisitionIDs.isEmpty }
+
+    private static func keptKey(_ copy: EvidenceDependentCopy) -> String? {
+        copy.stepID.map { "\(copy.store.rawValue) \($0.uuidString)" }
+    }
 
     public func copies(_ disposition: EvidenceDependentDisposition) -> [EvidenceDependentCopy] {
         copies.filter { $0.disposition == disposition }
@@ -136,6 +161,8 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
         }
         lines += acquisitionIDs.map { "remove \($0.uuidString)" }
         lines += unknownAgeAcquisitionIDs.map { "unknown \($0.uuidString)" }
+        lines += acquisitionRevisions.map { "revision \($0)" }
+        lines += keptSteps.sorted().map { "kept \($0)" }
         for copy in copies {
             let quote = copy.quote.map { Self.hex(SHA256.hash(data: Data($0.utf8))) } ?? "-"
             lines.append([copy.acquisitionID.uuidString, copy.store.rawValue, copy.kind.rawValue,
@@ -155,12 +182,18 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
         guard let current = Self.recomputed(scope, in: workspace, now: now) else {
             throw EvidenceRemovalError.observationGone
         }
-        guard current == self else { throw EvidenceRemovalError.planChanged(current) }
-        return try Self.change(workspace, ids: acquisitionIDs, copies: copies, dropProposal: setsAsidePendingSuggestion)
+        // Byte-exact: two spellings of the same letters are two different quotations.
+        guard current == self, current.fingerprint == fingerprint else { throw EvidenceRemovalError.planChanged(current) }
+        return try Self.change(workspace, ids: acquisitionIDs, copies: copies, keptSteps: keptSteps,
+                               dropProposal: setsAsidePendingSuggestion)
     }
 
     private static func change(_ workspace: EvidenceRetentionWorkspace, ids: [UUID], copies: [EvidenceDependentCopy],
-                               dropProposal: Bool) throws -> EvidenceRetentionWorkspace {
+                               keptSteps: Set<String>, dropProposal: Bool) throws -> EvidenceRetentionWorkspace {
+        // Fail closed before anything: a step can hold words of two observations.
+        guard !copies.contains(where: { $0.disposition == .removed && keptKey($0).map(keptSteps.contains) == true }) else {
+            throw EvidenceRemovalError.wordsAlsoKept
+        }
         var next = workspace
         for id in ids {
             guard let entry = next.archive.entry(id: id) else { throw EvidenceRemovalError.copyMoved }
@@ -172,7 +205,9 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
             let mine = changed.filter { $0.store == store }
             guard var routine, !mine.isEmpty else { return routine }
             for copy in mine {
-                guard let stepID = copy.stepID, let index = routine.steps.firstIndex(where: { $0.id == stepID }),
+                // A step identity that appears twice cannot say which step the plan meant.
+                guard let stepID = copy.stepID, routine.steps.filter({ $0.id == stepID }).count == 1,
+                      let index = routine.steps.firstIndex(where: { $0.id == stepID }),
                       let reference = routine.steps[index].observationReference,
                       reference.acquisitionID == copy.acquisitionID,
                       copy.quote.map({ Array($0.utf8) }) == Array(reference.quote.utf8) else {
@@ -211,8 +246,11 @@ public struct EvidenceRemovalReview: Sendable, Equatable {
         if changed.contains(where: { $0.store == .session }), let session = next.session {
             // The saved session pins its own copy. Only a session not yet started, made
             // from this same draft, can follow the draft; anything else is left alone.
-            guard session.status == .ready, session.events.isEmpty, session.routine == next.currentRoutine,
-                  let editedCurrent else {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            guard session.status == .ready, session.events.isEmpty, let editedCurrent,
+                  let pinned = try? encoder.encode(session.routine),
+                  let draft = try? encoder.encode(workspace.currentRoutine), pinned == draft else {
                 throw EvidenceRemovalError.unsupportedCopy(.session)
             }
             let sessionCopies = changed.filter { $0.store == .session }

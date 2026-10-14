@@ -163,6 +163,22 @@ struct EvidenceRemovalSheet: View {
                              invalidated.count + (review.setsAsidePendingSuggestion ? 1 : 0), "retention.count.invalidated")
                     countRow(String(localized: "Copies kept separately"), retained.count, "retention.count.retained")
                 }
+                Section {
+                    ForEach(Array(review.acquisitionIDs.enumerated()), id: \.element) { index, id in
+                        if let entry = store.observationArchive.entry(id: id) {
+                            ObservationHistoryRow(entry: entry)
+                                .accessibilityElement(children: .combine)
+                                .accessibilityIdentifier("retention.observation.\(index)")
+                        }
+                    }
+                } header: { Text("Observations to remove") }
+                if review.removesKeptWords {
+                    Section {
+                        Text("A step quoting one of these observations also holds words you keep, so nothing can be removed yet. Edit that step in your routine first.")
+                            .font(.subheadline)
+                            .accessibilityIdentifier("retention.blocked")
+                    }
+                }
                 if !removed.isEmpty {
                     Section {
                         copyRows(removed, prefix: "retention.removed")
@@ -223,7 +239,7 @@ struct EvidenceRemovalSheet: View {
                         Text(confirmTitle).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent).controlSize(.large)
-                    .disabled(applying || review.isEmpty)
+                    .disabled(applying || review.isEmpty || review.removesKeptWords)
                     .accessibilityIdentifier("retention.confirm")
                 }
                 .padding(20).frame(maxWidth: .infinity).background(.regularMaterial)

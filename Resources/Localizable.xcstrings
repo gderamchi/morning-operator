@@ -2950,6 +2950,26 @@
         }
       }
     },
+    "A step quoting one of these observations also holds words you keep, so nothing can be removed yet. Edit that step in your routine first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une étape qui cite l’une de ces observations contient aussi des mots que vous gardez : rien ne peut encore être supprimé. Modifiez d’abord cette étape dans votre routine."
+          }
+        }
+      }
+    },
+    "A step quoting this observation also holds words you keep. Edit that step in your routine first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une étape qui cite cette observation contient aussi des mots que vous gardez. Modifiez d’abord cette étape dans votre routine. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "A thought, a dream, something for later. Say it in your own words.": {
       "localizations": {
         "fr": {
@@ -10838,6 +10858,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le brouillon importé n’a pas pu être enregistré. Votre routine actuelle n’a pas changé."
+          }
+        }
+      }
+    },
+    "The interrupted removal can't finish yet. Nothing more was removed. Try again from Privacy.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suppression interrompue ne peut pas encore se terminer. Rien de plus n’a été supprimé. Réessayez depuis Confidentialité."
           }
         }
       }
