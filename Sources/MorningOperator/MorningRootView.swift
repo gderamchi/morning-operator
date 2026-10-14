@@ -8,9 +8,6 @@ struct MorningRootView: View {
     @ViewState<Bool> private var showingSettings = false
     @ViewState<Bool> private var showingInvitation = false
     @ViewState<Bool> private var showingLearn = false
-    #if DEBUG && os(iOS)
-    @State private var showingScreenTimeSpike = ScreenTimeSpikeModel.autoRunRequested
-    #endif
     @ViewState<Bool> private var showingRoutineEditor = false
     @ViewState<UUID> private var reviewRootIdentity = UUID()
     @ViewState<Bool> private var resetReviewAfterSettingsDismissal = false
@@ -214,10 +211,12 @@ struct MorningRootView: View {
             // unfinished review sheet intact rather than discarding the draft.
             store.tab = .today
         }
-        .task { await initializeMorning() }
-        #if DEBUG && os(iOS)
-        .sheet(isPresented: $showingScreenTimeSpike) { NavigationStack { ScreenTimeSpikeView() } }
-        #endif
+        .task {
+            await initializeMorning()
+            #if DEBUG
+            if MorningStore.screenTimeAutoLearnRequested, !store.privacyBlocksWork { store.tab = .review; showingLearn = true }
+            #endif
+        }
     }
 
     private func initializeMorning() async {

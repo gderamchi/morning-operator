@@ -3,6 +3,9 @@ import UniformTypeIdentifiers
 import MorningCore
 
 struct LearnView: View {
+    #if DEBUG
+    @MainActor static var autoLearnStarted = false
+    #endif
     @Bindable var store: MorningStore
     @ViewState<Bool> private var importing = false
     @ViewState<UUID?> private var importGeneration = nil
@@ -10,6 +13,7 @@ struct LearnView: View {
     @ViewState<Bool> private var recordingStartsAtOnce = false
     @ViewState<Bool> private var confirmingObservation = false
     @ViewState<Bool> private var showingProposal = false
+    @ViewState<Bool> private var showingScreenTimeProposal = false
     @ViewState<Bool> private var awaitingSuggestion = false
     @ViewState<UUID?> private var proposalBeforeRequest = nil
     @ViewState<Bool> private var closeAfterProposal = false
@@ -22,6 +26,8 @@ struct LearnView: View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeading(eyebrow: String(localized: "Your rhythm"), title: String(localized: "Make your morning yours."),
                 subtitle: String(localized: "Start with what you already do. You'll review every suggestion before it becomes your routine."))
+
+            ScreenTimeLearnCard(store: store) { showingScreenTimeProposal = true }
 
             if let issue = store.observationIssue {
                 Card {
@@ -177,10 +183,26 @@ struct LearnView: View {
         }) {
             RoutineEvidenceProposalView(store: store, onLearn: { showingProposal = false })
         }
+        .sheet(isPresented: $showingScreenTimeProposal, onDismiss: {
+            if closeAfterProposal { dismiss() }
+        }) {
+            ScreenTimeProposalView(store: store)
+        }
+        // A fresh Screen Time suggestion opens for review at once; it still needs approval.
+        .onChange(of: store.pendingScreenTimeProposal?.id) { old, new in
+            if new != nil, new != old, !showingProposal { showingScreenTimeProposal = true }
+        }
+        #if DEBUG
+        .task {
+            guard MorningStore.screenTimeAutoLearnRequested, !LearnView.autoLearnStarted else { return }
+            LearnView.autoLearnStarted = true
+            store.learnFromScreenTime()
+        }
+        #endif
         .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.routine?.id) { _, _ in
-            if showingProposal { closeAfterProposal = true }
+            if showingProposal || showingScreenTimeProposal { closeAfterProposal = true }
             else if !store.busy, !awaitingSuggestion { dismiss() }
         }
         .onChange(of: store.dataGeneration) { _, _ in
@@ -446,11 +468,6 @@ struct SetupView: View {
                         Text(store.modelSummary).font(.footnote).foregroundStyle(MorningStyle.muted)
                         Button("Check again") { store.refreshCapabilities() }.buttonStyle(SecondaryButtonStyle())
                     }
-                    #if DEBUG && os(iOS)
-                    NavigationLink { ScreenTimeSpikeView() } label: {
-                        Label { Text(verbatim: "Screen Time spike (debug)") } icon: { Image(systemName: "hourglass") }
-                    }.accessibilityIdentifier("setup.screenTimeSpike")
-                    #endif
                     Divider()
                     Text("You can capture thoughts and dreams, edit a routine, and use spoken guidance even while the on-device model is unavailable.")
                     Text("Connecting a phone to a Mac doesn't automatically give this app control of the phone. The separate development test runner is needed for the phone-control experiment.")

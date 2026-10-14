@@ -72,6 +72,8 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var observationArchive: ObservationArchive?
     var selectedObservationID: UUID?
     var pendingRoutineProposal: RecoverableRoutineProposal?
+    /// A suggestion from Screen Time minutes (app names and minutes only), pending approval.
+    var pendingScreenTimeProposal: ScreenTimeRoutineProposal?
     var consumedMorningEntryIDs: [UUID]?
     var routinePreferences: RecoverableRoutinePreferences?
     /// Which morning sessions were already greeted (issue #28). Session identifiers only.
@@ -103,6 +105,8 @@ private extension WorkspaceSnapshot {
         observationArchive = try values.decodeIfPresent(ObservationArchive.self, forKey: .observationArchive)
         selectedObservationID = try values.decodeIfPresent(UUID.self, forKey: .selectedObservationID)
         pendingRoutineProposal = try values.decodeIfPresent(RecoverableRoutineProposal.self, forKey: .pendingRoutineProposal)
+        // A damaged suggestion is dropped, never allowed to close the workspace.
+        pendingScreenTimeProposal = (try? values.decodeIfPresent(ScreenTimeRoutineProposal.self, forKey: .pendingScreenTimeProposal)) ?? nil
         consumedMorningEntryIDs = try values.decodeIfPresent([UUID].self, forKey: .consumedMorningEntryIDs)
         // Missing is an older workspace. Present-but-null is damaged saved data;
         // keep it unreadable until the user explicitly resets their choices.
@@ -132,6 +136,12 @@ final class MorningStore {
     private(set) var observationArchive = ObservationArchive()
     private(set) var selectedObservationID: UUID?
     private(set) var pendingRoutineProposal: EvidenceRoutineProposal?
+    /// Built from Screen Time; changes nothing until approved (`approvePendingScreenTimeProposal`).
+    private(set) var pendingScreenTimeProposal: ScreenTimeRoutineProposal?
+    var screenTimeBusy = false
+    var screenTimeMessage: String?
+    var screenTimeAccess: ScreenTimeAccess = .notAsked
+    @ObservationIgnored let screenTimeSource: any ScreenTimeSource = ScreenTimeSources.make()
     private(set) var routinePreferences = RoutinePreferenceJournal()
     private(set) var routinePreferencesIssue: String?
     private var unreadablePreferences: RecoverableRoutinePreferences?
@@ -420,6 +430,9 @@ final class MorningStore {
                     (saved.observationContextClassification?.wasInvalid == true ? [.invalidClassificationRemoved] : []))
                 if !restorationWarnings.isEmpty {
                     notice = restorationWarnings.sorted { $0.rawValue < $1.rawValue }.map(\.message).joined(separator: " ")
+                }
+                if let proposal = saved.pendingScreenTimeProposal, proposal.baseRoutineID == routine?.id {
+                    pendingScreenTimeProposal = proposal
                 }
                 if routinePreferencesIssue == nil, let proposal = saved.pendingRoutineProposal?.value,
                    proposal.isCurrent(archive: observationArchive, baseRoutine: routine, preferences: routinePreferences) {
@@ -1369,6 +1382,70 @@ final class MorningStore {
         return true
     }
 
+    /// Saves a fresh Screen Time suggestion. It replaces an earlier one, never the routine.
+    @discardableResult
+    func savePendingScreenTimeProposal(_ proposal: ScreenTimeRoutineProposal) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, proposal.baseRoutineID == routine?.id else { return false }
+        let previous = pendingScreenTimeProposal
+        pendingScreenTimeProposal = proposal
+        guard persist() else { pendingScreenTimeProposal = previous; return false }
+        return true
+    }
+
+    /// The owner's edits before approval: leave a step out, or change its minutes.
+    func editPendingScreenTimeProposal(_ edit: (inout ScreenTimeRoutineProposal) -> Void) {
+        guard !privacyBlocksWork, !busy, var proposal = pendingScreenTimeProposal else { return }
+        let previous = proposal
+        edit(&proposal)
+        guard proposal != previous else { return }
+        pendingScreenTimeProposal = proposal
+        if !persist() { pendingScreenTimeProposal = previous }
+    }
+
+    /// Installs the included steps as the routine. Only this explicit approval changes it.
+    @discardableResult
+    func approvePendingScreenTimeProposal() -> Bool {
+        guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return false }
+        guard !busy, !sessionActive, !voiceInputBlocksPlayback, storageIsAvailable,
+              let proposal = pendingScreenTimeProposal else { return false }
+        guard proposal.baseRoutineID == routine?.id else {
+            notice = String(localized: "Your routine changed since this suggestion was made. Learn from Screen Time again for a fresh one.")
+            return false
+        }
+        let draft: RoutineVersion
+        do { draft = try proposal.draft(preserving: routine, preferences: routinePreferences) }
+        catch { notice = String(localized: "Keep at least one app to approve this suggestion."); return false }
+        let oldRoutine = routine
+        let oldPrevious = previousRoutine
+        let oldSession = session
+        let oldHistory = history
+        archiveTerminalSession()
+        if let oldRoutine, oldRoutine.isApproved { previousRoutine = oldRoutine }
+        routine = draft.approved()
+        session = routine.map { RoutineSession(routine: $0) }
+        pendingScreenTimeProposal = nil
+        guard persist() else {
+            routine = oldRoutine
+            previousRoutine = oldPrevious
+            session = oldSession
+            history = oldHistory
+            pendingScreenTimeProposal = proposal
+            return false
+        }
+        approvalCount += 1
+        notice = String(localized: "Update approved. Your next morning will use this routine.")
+        return true
+    }
+
+    @discardableResult
+    func discardPendingScreenTimeProposal() -> Bool {
+        guard !privacyBlocksWork, !busy, let proposal = pendingScreenTimeProposal else { return false }
+        pendingScreenTimeProposal = nil
+        guard persist() else { pendingScreenTimeProposal = proposal; return false }
+        notice = String(localized: "Suggestion discarded. Your current morning is unchanged.")
+        return true
+    }
+
     private func syntheticEvidenceProposal(evidence: PreparedLearningEvidence,
                                            preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal) throws -> EvidenceRoutineProposal {
         guard usesSyntheticProposalFixture,
@@ -2097,6 +2174,8 @@ final class MorningStore {
             let validProposal = routinePreferencesIssue == nil ? pendingRoutineProposal.flatMap {
                 $0.isCurrent(archive: observationArchive, baseRoutine: routine, preferences: routinePreferences) ? $0 : nil
             } : nil
+            // A Screen Time suggestion was made against one routine; any other routine makes it stale.
+            let validScreenTimeProposal = pendingScreenTimeProposal.flatMap { $0.baseRoutineID == routine?.id ? $0 : nil }
             try privacyControl.withReadyAccess { _ in
                 try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
@@ -2110,11 +2189,13 @@ final class MorningStore {
                 observationContextClassification: observationContextClassification.map(RecoverableObservationClassification.init),
                 observationArchive: observationArchive, selectedObservationID: selectedObservationID,
                 pendingRoutineProposal: validProposal.map(RecoverableRoutineProposal.init),
+                pendingScreenTimeProposal: validScreenTimeProposal,
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences),
                 greeting: greetingState))
             }
             pendingRoutineProposal = validProposal
+            pendingScreenTimeProposal = validScreenTimeProposal
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
             savedRunEndings = runEndingsInMemory
             observationEditsNeedSave = false
@@ -2261,6 +2342,7 @@ final class MorningStore {
         observationVideoEvidence = nil; observationContextClassification = nil
         observationSaveIssue = nil; observationEditsNeedSave = false; observationIssue = nil
         pendingRoutineProposal = nil
+        pendingScreenTimeProposal = nil; screenTimeBusy = false; screenTimeMessage = nil
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         budgetAndFeedback = RoutineBudgetAndFeedback(); savedRunEndings = []

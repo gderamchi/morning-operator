@@ -1,0 +1,298 @@
+import Foundation
+import Testing
+@testable import MorningCore
+
+@Suite("Learning a routine from hourly Screen Time")
+struct ScreenTimeRoutineLearningTests {
+    private func calendar(_ zone: String = "Europe/Paris") -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: zone)!
+        return calendar
+    }
+
+    private func at(_ hour: Int, _ minute: Int = 0, day: Int = 14, month: Int = 10, zone: String = "Europe/Paris") -> Date {
+        calendar(zone).date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute))!
+    }
+
+    private func app(_ id: String, _ minutes: Double, pickups: Int = 0, category: String? = nil) -> ScreenTimeAppHour {
+        ScreenTimeAppHour(bundleIdentifier: id, seconds: minutes * 60, pickups: pickups, categoryName: category)
+    }
+
+    private func hour(_ start: Date, pickup: Date? = nil, longest: (Date, Date)? = nil, _ apps: [ScreenTimeAppHour]) -> ScreenTimeHour {
+        ScreenTimeHour(interval: DateInterval(start: start, duration: 3600), firstPickup: pickup,
+                       longestActivity: longest.map { DateInterval(start: $0.0, end: $0.1) }, apps: apps)
+    }
+
+    /// An evening, then a morning from 07:12: a busy hour, a busy hour, and a light one.
+    private func ordinaryDay(_ day: Int, startMinute: Int = 12, safari: Double = 40, zone: String = "Europe/Paris",
+                             extra: [ScreenTimeAppHour] = []) -> [ScreenTimeHour] {
+        let at = { (h: Int, m: Int, d: Int) in self.at(h, m, day: d, zone: zone) }
+        return [
+            hour(at(22, 0, day - 1), pickup: at(22, 5, day - 1), [app("com.apple.mobilemail", 10)]),
+            hour(at(7, 0, day), pickup: at(7, startMinute, day), [
+                app("net.whatsapp.WhatsApp", 3, pickups: 2), app("com.apple.mobilesafari", safari, pickups: 1),
+                app("com.gibouu.morningoperator", 5), app("com.apple.LocalAuthenticationUIService", 1)] + extra),
+            hour(at(8, 0, day), pickup: at(8, 0, day), [app("com.google.ios.youtube", 30, category: "Entertainment"), app("com.chess.iphone", 25)]),
+            hour(at(9, 0, day), pickup: at(9, 0, day), longest: (at(9, 0, day), at(9, 4, day)), [app("com.apple.mobilemail", 4)])
+        ]
+    }
+
+    private func learn(_ hours: [ScreenTimeHour], now: Date? = nil, queryStart: Date? = nil, zone: String = "Europe/Paris") -> ScreenTimeLearning {
+        ScreenTimeMorningLearner.learn(hours: hours, queryStart: queryStart ?? at(0, day: 7, zone: zone),
+                                       now: now ?? at(14, zone: zone), calendar: calendar(zone))
+    }
+
+    // MARK: Names and filtering
+
+    @Test func commonAppsHaveNamesAndUnknownOnesGetAReadableFallback() {
+        #expect(ScreenTimeAppCatalog.entry(for: "com.apple.MobileSMS").kind == .messaging)
+        #expect(ScreenTimeAppCatalog.entry(for: "net.whatsapp.WhatsApp").name == "WhatsApp")
+        #expect(ScreenTimeAppCatalog.entry(for: "com.burbn.instagram").kind == .social)
+        #expect(ScreenTimeAppCatalog.entry(for: "com.zhiliaoapp.musically").name == "TikTok")
+        #expect(ScreenTimeAppCatalog.entry(for: "com.chess.iphone").name == "Chess.com")
+        #expect(ScreenTimeAppCatalog.entry(for: "com.hammerandchisel.discord").name == "Discord")
+        #expect(ScreenTimeAppCatalog.entry(for: "ph.telegra.Telegraph").name == "Telegram")
+        #expect(ScreenTimeAppCatalog.fallbackName(for: "com.example.MorningNews") == "Morning News")
+        #expect(ScreenTimeAppCatalog.fallbackName(for: "com.acme.iphone") == "Acme")
+        #expect(ScreenTimeAppCatalog.fallbackName(for: "io.some-tool.app") == "Some Tool")
+        #expect(ScreenTimeAppCatalog.entry(for: "com.example.feed", categoryName: "Réseaux sociaux").kind == .social)
+        #expect(ScreenTimeAppCatalog.entry(for: "com.example.feed", categoryName: nil).kind == .other)
+    }
+
+    @Test func systemHelpersMoreAndTestRunnersAreNoise() {
+        for id in ["com.apple.LocalAuthenticationUIService", "com.apple.ScreenshotServicesService", "com.apple.AuthKitUIService",
+                   "com.apple.ServicesPaymentAngel", "com.apple.springboard", "com.gibouu.morningoperator",
+                   "com.gibouu.morningoperator.screentime", "com.gibouu.morningoperator.uitests.xctrunner",
+                   "com.apple.test.MorningOperatorUITests-Runner", ""] {
+            #expect(ScreenTimeAppCatalog.isNoise(id), "\(id)")
+        }
+        for id in ["com.apple.MobileSMS", "com.apple.mobilesafari", "net.whatsapp.WhatsApp", "com.apple.Preferences", "com.chess.iphone"] {
+            #expect(!ScreenTimeAppCatalog.isNoise(id), "\(id)")
+        }
+        #expect(ScreenTimeAppCatalog.isNoise("org.example.more", ownBundleIdentifiers: ["org.example.more"]))
+    }
+
+    // MARK: One morning
+
+    @Test func aSingleMorningKeepsMeasuredMinutesAndLikelyOrder() throws {
+        let learning = learn(ordinaryDay(14), queryStart: at(18, day: 13))
+        let morning = try #require(learning.mornings.last)
+        #expect(morning.start == at(7, 12))
+        #expect(morning.end == at(9, 4))
+        #expect(morning.apps.map(\.bundleIdentifier) == ["net.whatsapp.WhatsApp", "com.apple.mobilesafari",
+            "com.google.ios.youtube", "com.chess.iphone", "com.apple.mobilemail"])
+        let safari = try #require(morning.apps.first { $0.bundleIdentifier == "com.apple.mobilesafari" })
+        #expect(safari.seconds == 40 * 60)
+        #expect(safari.secondsMeasured)
+        #expect(morning.apps.first?.isFirstPickupApp == true)
+        let mail = try #require(morning.apps.last)
+        #expect(!mail.secondsMeasured, "The last hour runs past the end of the morning.")
+        #expect(mail.firstHourIndex == 2)
+        #expect(!morning.apps.contains { $0.bundleIdentifier.hasPrefix("com.gibouu") || $0.bundleIdentifier.contains("LocalAuthentication") })
+
+        let proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        #expect(proposal.morningsUsed == 1)
+        #expect(proposal.typicalStartMinuteOfDay == 7 * 60 + 12)
+        #expect(proposal.steps.map(\.title) == ["WhatsApp", "Safari", "YouTube", "Chess.com", "Mail"])
+        #expect(proposal.steps.map(\.minutes) == [3, 40, 30, 25, 4])
+        #expect(proposal.steps.first?.orderMeasured == true)
+        #expect(proposal.steps[1].orderMeasured == false)
+        #expect(proposal.steps.last?.minutesMeasured == false)
+        #expect(proposal.steps.first { $0.title == "YouTube" }?.isAttentionSink == true)
+        #expect(proposal.steps.first { $0.title == "Safari" }?.isAttentionSink == false)
+    }
+
+    @Test func anHourPastTheEndOfTheMorningIsSharedOutNotCountedInFull() throws {
+        var hours = ordinaryDay(14)
+        // A light 09:00 hour with 30 min in all, but the morning ends at 09:04.
+        hours[3] = hour(at(9), pickup: at(9), longest: (at(9), at(9, 4)), [app("com.apple.mobilemail", 10), app("com.burbn.instagram", 20)])
+        let morning = try #require(learn(hours, queryStart: at(18, day: 13)).mornings.last)
+        let lastHour = morning.apps.filter { $0.firstHourIndex == 2 }
+        let total = lastHour.reduce(0) { $0 + $1.seconds }
+        #expect(abs(total - 4 * 60) < 0.001, "At most the four minutes the morning spent in that hour.")
+        #expect(lastHour.allSatisfy { !$0.secondsMeasured })
+    }
+
+    @Test func testDrivenUseOfMoreDoesNotBreakTheNight() throws {
+        var hours = ordinaryDay(14)
+        hours.append(hour(at(4), pickup: at(4, 10), longest: (at(4, 10), at(4, 55)),
+                          [app("com.gibouu.morningoperator", 45), app("com.gibouu.morningoperator.uitests.xctrunner", 1)]))
+        let morning = try #require(learn(hours, queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning.start == at(7, 12))
+    }
+
+    @Test func anHourReturnedTwiceCountsOnce() throws {
+        let hours = ordinaryDay(14) + [hour(at(7), pickup: at(7, 12), [app("com.apple.mobilesafari", 40, pickups: 1),
+                                                                         app("net.whatsapp.WhatsApp", 3, pickups: 2)])]
+        let morning = try #require(learn(hours, queryStart: at(18, day: 13)).mornings.last)
+        let safari = try #require(morning.apps.first { $0.bundleIdentifier == "com.apple.mobilesafari" })
+        #expect(safari.seconds == 40 * 60, "\(morning)")
+    }
+
+    // MARK: Empty data, coverage and a morning still running
+
+    @Test func noDataGivesNoMorningAndNoProposal() {
+        let learning = learn([])
+        #expect(learning.mornings.isEmpty)
+        #expect(learning.earliestData == nil)
+        #expect(learning.daysOfData == 0)
+        #expect(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil) == nil)
+    }
+
+    @Test func dataThatStartsMidMorningIsNotTakenForAWakeUp() {
+        // Screen Time returns nothing before 08:00 on the 12th, although 00:00 on the 7th was asked for.
+        let hours = [hour(at(8, day: 12), pickup: at(8, 5, day: 12), [app("com.apple.mobilesafari", 20)])]
+        let learning = learn(hours, now: at(14, day: 12))
+        #expect(learning.mornings.isEmpty)
+        #expect(learning.daysWithoutMorning == 1)
+        #expect(learning.earliestData == at(8, day: 12))
+    }
+
+    @Test func aMorningStillRunningIsLeftOut() {
+        let learning = learn(Array(ordinaryDay(14).prefix(2)), now: at(7, 40), queryStart: at(18, day: 13))
+        #expect(learning.mornings.isEmpty)
+    }
+
+    @Test func daysOfDataCountsFromTheEarliestReturnedHour() {
+        let hours = ordinaryDay(10) + ordinaryDay(12) + ordinaryDay(14)
+        let learning = learn(hours)
+        #expect(learning.earliestData == at(22, day: 9))
+        #expect(learning.daysOfData == 6) // 9th to 14th
+        #expect(learning.mornings.count == 3, "The evenings of the 11th and 13th are not mornings.")
+        #expect(learning.mornings.allSatisfy { calendar().component(.hour, from: $0.start) == 7 })
+    }
+
+    // MARK: Several mornings
+
+    @Test func severalMorningsGiveMedianMinutesStartAndRecurringApps() throws {
+        // Five weekdays, 12–16 October 2026.
+        let starts = [0, 10, 20, 30, 59]
+        let safari: [Double] = [10, 20, 30, 40, 50]
+        var hours: [ScreenTimeHour] = []
+        for (index, day) in (12...16).enumerated() {
+            var extra: [ScreenTimeAppHour] = []
+            if index < 3 { extra.append(app("com.apple.weather", 2)) } // 3 of 5: kept
+            if index < 2 { extra.append(app("com.reddit.Reddit", 5)) } // 2 of 5: dropped
+            hours += ordinaryDay(day, startMinute: starts[index], safari: safari[index], extra: extra)
+        }
+        let learning = learn(hours, now: at(14, day: 16))
+        #expect(learning.mornings.count == 5)
+        let proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 19), baseRoutineID: nil, calendar: calendar()))
+        #expect(proposal.morningsUsed == 5)
+        #expect(proposal.typicalStartMinuteOfDay == 7 * 60 + 20)
+        #expect(proposal.steps.first { $0.title == "Safari" }?.medianMinutes == 30)
+        #expect(proposal.steps.contains { $0.bundleIdentifier == "com.apple.weather" })
+        #expect(!proposal.steps.contains { $0.bundleIdentifier == "com.reddit.Reddit" })
+        #expect(proposal.steps.first { $0.bundleIdentifier == "com.apple.weather" }?.morningsSeen == 3)
+    }
+
+    @Test func weekendMorningsAreComparedWithWeekendMornings() throws {
+        // Thu 15, Fri 16 at 07:12; Sat 17, Sun 18 at 09:30 with TikTok.
+        var hours = ordinaryDay(15) + ordinaryDay(16)
+        for day in [17, 18] {
+            hours += [hour(at(9, day: day), pickup: at(9, 30, day: day), [app("com.zhiliaoapp.musically", 25, pickups: 1)])]
+        }
+        let learning = learn(hours, now: at(14, day: 18))
+        let saturday = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(8, day: 24), baseRoutineID: nil, calendar: calendar()))
+        #expect(saturday.morningsUsed == 2)
+        #expect(saturday.typicalStartMinuteOfDay == 9 * 60 + 30)
+        #expect(saturday.steps.map(\.title) == ["TikTok"])
+        #expect(saturday.steps.first?.isAttentionSink == true)
+        let monday = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(8, day: 19), baseRoutineID: nil, calendar: calendar()))
+        #expect(monday.typicalStartMinuteOfDay == 7 * 60 + 12)
+        #expect(!monday.steps.contains { $0.title == "TikTok" })
+    }
+
+    @Test func theFirstPickupAppLeadsThenHourThenMinutes() throws {
+        // Messages has fewer minutes than Safari in the same hour but was opened from the Lock Screen.
+        let hours = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(7), pickup: at(7, 5), [app("com.apple.mobilesafari", 30), app("com.apple.MobileSMS", 2, pickups: 3),
+                                                    app("com.apple.mobilecal", 10)]),
+                     hour(at(8), pickup: at(8), longest: (at(8), at(8, 10)), [app("com.burbn.instagram", 50)])]
+        let learning = learn(hours, queryStart: at(18, day: 13))
+        let proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        #expect(proposal.steps.map(\.title) == ["Messages", "Safari", "Calendar", "Instagram"])
+    }
+
+    // MARK: Time zones
+
+    @Test func aMorningIsFoundOnItsLocalDayInAnyTimeZone() throws {
+        // 07:12 in Tokyo is 22:12 UTC the day before.
+        let zone = "Asia/Tokyo"
+        let learning = learn(ordinaryDay(14, zone: zone), now: at(14, zone: zone), queryStart: at(18, day: 13, zone: zone), zone: zone)
+        let morning = try #require(learning.mornings.last)
+        #expect(morning.start == at(7, 12, zone: zone))
+        #expect(morning.startMinuteOfDay == 7 * 60 + 12)
+    }
+
+    @Test func theDaylightSavingNightDoesNotShiftTheMorning() throws {
+        // Paris leaves summer time on Sunday 25 October 2026 at 03:00.
+        let hours = [hour(at(22, day: 24), [app("com.apple.mobilemail", 10)]),
+                     hour(at(8, day: 25), pickup: at(8, 15, day: 25), longest: (at(8, 15, day: 25), at(8, 40, day: 25)),
+                          [app("com.apple.mobilesafari", 25, pickups: 1)])]
+        let learning = learn(hours, now: at(14, day: 25), queryStart: at(18, day: 24))
+        let morning = try #require(learning.mornings.last)
+        #expect(morning.startMinuteOfDay == 8 * 60 + 15)
+    }
+
+    @Test func afterTravelEachMorningKeepsItsOwnLocalTime() throws {
+        let paris = ScreenTimeMorning(start: at(7, 0, day: 13), end: at(8, 0, day: 13), endReason: .pause,
+            timeZone: TimeZone(identifier: "Europe/Paris")!,
+            apps: [.init(bundleIdentifier: "com.apple.MobileSMS", seconds: 300, secondsMeasured: true, firstHourIndex: 0, isFirstPickupApp: true, categoryName: nil)])
+        let newYork = ScreenTimeMorning(start: at(7, 0, day: 14, zone: "America/New_York"), end: at(8, 0, day: 14, zone: "America/New_York"),
+            endReason: .pause, timeZone: TimeZone(identifier: "America/New_York")!,
+            apps: [.init(bundleIdentifier: "com.apple.MobileSMS", seconds: 420, secondsMeasured: true, firstHourIndex: 0, isFirstPickupApp: true, categoryName: nil)])
+        let learning = ScreenTimeLearning(mornings: [paris, newYork], earliestData: at(0, day: 12), daysOfData: 3, daysWithoutMorning: 1)
+        let proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        #expect(proposal.typicalStartMinuteOfDay == 7 * 60)
+        #expect(proposal.steps.first?.medianMinutes == 6)
+    }
+
+    // MARK: The draft and the saved suggestion
+
+    @Test func theDraftHasOnlyIncludedStepsWithEditedMinutesAndIsNotApproved() throws {
+        let learning = learn(ordinaryDay(14), queryStart: at(18, day: 13))
+        var proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        let youtube = try #require(proposal.steps.first { $0.title == "YouTube" })
+        let safari = try #require(proposal.steps.first { $0.title == "Safari" })
+        proposal.setIncluded(false, stepID: youtube.id)
+        proposal.setMinutes(15, stepID: safari.id)
+        proposal.setMinutes(10_000, stepID: try #require(proposal.steps.first).id)
+        let base = DemoFixtures.candidateRoutine.approved()
+        let draft = try proposal.draft(preserving: base, preferences: RoutinePreferenceJournal())
+        #expect(!draft.isApproved)
+        #expect(draft.number == base.number + 1)
+        #expect(draft.steps.map(\.title) == ["WhatsApp", "Safari", "Chess.com", "Mail"])
+        #expect(draft.steps[0].durationMinutes == ScreenTimeRoutineProposal.minutesRange.upperBound)
+        #expect(draft.steps[1].durationMinutes == 15)
+        #expect(draft.steps.allSatisfy { $0.automation == nil && !$0.isRequired })
+        #expect(draft.steps[3].detail.contains("Estimated"))
+        #expect(draft.steps[1].detail.contains("Measured"))
+
+        for step in proposal.steps { proposal.setIncluded(false, stepID: step.id) }
+        #expect(throws: ScreenTimeProposalError.nothingIncluded) { try proposal.draft(preserving: nil, preferences: RoutinePreferenceJournal()) }
+    }
+
+    @Test func aSavedSuggestionRoundTripsAndADamagedOneIsRefused() throws {
+        let learning = learn(ordinaryDay(14), queryStart: at(18, day: 13))
+        let proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: UUID(), calendar: calendar()))
+        let data = try JSONEncoder().encode(proposal)
+        #expect(try JSONDecoder().decode(ScreenTimeRoutineProposal.self, from: data) == proposal)
+        var json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var steps = try #require(json["steps"] as? [[String: Any]])
+        steps[0]["minutes"] = 0
+        json["steps"] = steps
+        let damaged = try JSONSerialization.data(withJSONObject: json)
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(ScreenTimeRoutineProposal.self, from: damaged) }
+    }
+
+    @Test func appNamesAndLabelsHaveFrench() throws {
+        let path = try #require(Bundle.module.path(forResource: "fr", ofType: "lproj"))
+        let french = try #require(Bundle(path: path))
+        #expect(french.localizedString(forKey: "Weather", value: nil, table: nil) == "Météo")
+        #expect(french.localizedString(forKey: "Estimated from hourly Screen Time.", value: nil, table: nil)
+            == "Estimé à partir des heures de Temps d’écran.")
+        let format = french.localizedString(forKey: "Usually %lld min, on %lld of %lld mornings.", value: nil, table: nil)
+        #expect(String(format: format, 12, 4, 5) == "En général 12 min, 4 matins sur 5.")
+    }
+}
