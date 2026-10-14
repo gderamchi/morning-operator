@@ -89,7 +89,8 @@ public enum ScreenTimeMorningLearner {
                              latestStartHour: Int = 14,
                              policy: MorningDetectionPolicy = MorningDetectionPolicy()) -> ScreenTimeLearning {
         let hours = cleaned(rawHours, ownBundleIdentifiers: ownBundleIdentifiers, now: now)
-        guard let earliest = hours.first?.interval.start else {
+        // Coverage comes from what the API returned, even hours later filtered as noise.
+        guard !hours.isEmpty, let earliest = rawHours.filter({ $0.interval.start <= now }).map(\.interval.start).min() else {
             return ScreenTimeLearning(mornings: [], earliestData: nil, daysOfData: 0, daysWithoutMorning: 0)
         }
         let coveredFrom = max(queryStart, earliest)
@@ -116,7 +117,7 @@ public enum ScreenTimeMorningLearner {
                 let detected = extended(found, hours: hours, uses: uses, coveredFrom: coveredFrom, policy: policy)
                 // Hourly data for the last hour is not final: a pause seen in it may not be real.
                 guard detected.endReason != .ongoing, now.timeIntervalSince(detected.end) >= 3600 + policy.sessionGap else { break }
-                mornings.append(morning(detected, hours: hours, calendar: calendar))
+                mornings.append(morning(detected, hours: hours, calendar: calendar, measuredUntil: found.end))
             case .noData, .noSleepGapCovered: missing += 1
             }
             guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
@@ -133,14 +134,15 @@ public enum ScreenTimeMorningLearner {
     static func extended(_ detected: DetectedMorning, hours: [ScreenTimeHour], uses: [PhoneUse],
                          coveredFrom: Date, policy: MorningDetectionPolicy) -> DetectedMorning {
         guard detected.endReason == .pause else { return detected }
-        let sessions = MorningStartDetector.sessionsOf(uses.map(\.interval).map { PhoneUse($0, source: .screenTimeHour) },
-                                                      gap: policy.sessionGap, coveredFrom: coveredFrom)
+        let sessions = MorningStartDetector.sessionsOf(uses, gap: policy.sessionGap, coveredFrom: coveredFrom)
+        // Time the evidence itself covers, without the idle gaps merged into a session.
+        let evidence = MorningStartDetector.sessionsOf(uses, gap: 0, coveredFrom: coveredFrom)
         let cap = detected.start.addingTimeInterval(policy.maximumLength)
         var end = detected.end
         var reason = DetectedMorning.EndReason.pause
         while let hour = hours.first(where: { $0.interval.start <= end && end < $0.interval.end }) {
             let used = hour.apps.reduce(0) { $0 + $1.seconds }
-            let placed = sessions.reduce(0) { total, session in
+            let placed = evidence.reduce(0) { total, session in
                 let lower = max(session.start, hour.interval.start), upper = min(session.end, hour.interval.end)
                 return total + max(0, upper.timeIntervalSince(lower))
             }
@@ -183,15 +185,11 @@ public enum ScreenTimeMorningLearner {
                 $0.seconds > 0 && ScreenTimeAppCatalog.isOwnOrTest($0.bundleIdentifier, ownBundleIdentifiers: ownBundleIdentifiers)
             }
             if onlyOwnUse { return nil }
-            // In an hour mostly spent in MORE or a test runner (a test run, not the owner using
-            // MORE in his morning), the first pickup and the longest session may be the test's.
-            // Keep only the owner's minutes, and drop a trace too small to matter.
-            let ownSeconds = hour.apps.filter { $0.seconds > 0 && ScreenTimeAppCatalog.isOwnOrTest($0.bundleIdentifier, ownBundleIdentifiers: ownBundleIdentifiers) }
-                .reduce(0) { $0 + $1.seconds }
-            if ownSeconds > clipped.reduce(0, { $0 + $1.seconds }) {
-                guard clipped.reduce(0, { $0 + $1.seconds }) >= 120 else { return nil }
-                return ScreenTimeHour(interval: hour.interval, firstPickup: nil, longestActivity: nil, apps: clipped)
-            }
+            // An hour of MORE or test-runner use with under two minutes in other apps is taken
+            // as a test run: its pickup and longest session may be the test's. With more real
+            // use, the hour is the owner's (he may well open MORE in his morning).
+            let hasOwnUse = hour.apps.contains { $0.seconds > 0 && ScreenTimeAppCatalog.isOwnOrTest($0.bundleIdentifier, ownBundleIdentifiers: ownBundleIdentifiers) }
+            if hasOwnUse, clipped.reduce(0, { $0 + $1.seconds }) < 120 { return nil }
             guard !clipped.isEmpty || hour.firstPickup != nil || hour.longestActivity != nil else { return nil }
             return ScreenTimeHour(interval: hour.interval, firstPickup: hour.firstPickup, longestActivity: hour.longestActivity, apps: clipped)
         }
@@ -203,7 +201,9 @@ public enum ScreenTimeMorningLearner {
     /// first hour before the start when that hour has a first pickup: nothing came before it.
     /// An hour that runs past the end of the morning is shared out: its apps keep at most
     /// the minutes the morning spent in that hour, in proportion, and are marked estimated.
-    static func morning(_ detected: DetectedMorning, hours: [ScreenTimeHour], calendar: Calendar) -> ScreenTimeMorning {
+    /// - Parameter measuredUntil: minutes after this (an end moved by `extended`) are never measured.
+    static func morning(_ detected: DetectedMorning, hours: [ScreenTimeHour], calendar: Calendar,
+                        measuredUntil: Date? = nil) -> ScreenTimeMorning {
         let start = detected.start, end = detected.end
         let inside = hours.filter { hour in
             end > start ? hour.interval.end > start && hour.interval.start < end
@@ -216,7 +216,7 @@ public enum ScreenTimeMorningLearner {
         var totals: [String: Total] = [:]
         for hour in inside {
             let leadKnown = hour.interval.start >= start || hour.firstPickup != nil
-            let tailKnown = hour.interval.end <= end
+            let tailKnown = hour.interval.end <= min(end, measuredUntil ?? end)
             let overlap = max(0, min(hour.interval.end, end).timeIntervalSince(max(hour.interval.start, start)))
             let sum = hour.apps.reduce(0) { $0 + $1.seconds }
             let whole = leadKnown && tailKnown
@@ -368,6 +368,21 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
             typicalStartMinuteOfDay: Int(median(starts).rounded()) % (24 * 60),
             timeZoneIdentifier: calendar.timeZone.identifier, morningsUsed: mornings.count,
             morningsFound: all.count, daysOfData: learning.daysOfData, steps: Array(steps))
+    }
+
+    /// Applies the owner's saved choices: an app he excluded from suggestions is removed and
+    /// a saved duration becomes the starting minutes. Returns false when nothing is left.
+    /// Unclear matches leave the suggestion as it is: the review still shows everything.
+    public mutating func applyPreferences(_ journal: RoutinePreferenceJournal) -> Bool {
+        let candidates = steps.map { RoutineStep(id: $0.id, title: $0.title, kind: $0.kind.stepKind, durationMinutes: $0.minutes) }
+        guard let result = try? journal.reconcile(steps: candidates) else { return !steps.isEmpty }
+        steps.removeAll { result.excludedStepIDs.contains($0.id) }
+        for index in steps.indices where result.durationOverriddenStepIDs.contains(steps[index].id) {
+            if let minutes = result.steps.first(where: { $0.id == steps[index].id })?.durationMinutes {
+                steps[index].minutes = min(max(minutes, Self.minutesRange.lowerBound), Self.minutesRange.upperBound)
+            }
+        }
+        return !steps.isEmpty
     }
 
     public mutating func setIncluded(_ included: Bool, stepID: UUID) {

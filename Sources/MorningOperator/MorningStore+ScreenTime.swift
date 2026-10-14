@@ -41,8 +41,10 @@ extension MorningStore {
                                                               calendar: calendar, ownBundleIdentifiers: own)
                 let nextMorning = calendar.component(.hour, from: end) < 12 ? end
                     : calendar.date(byAdding: .day, value: 1, to: end) ?? end
-                guard let proposal = ScreenTimeRoutineProposal.make(from: learning, nextMorning: nextMorning,
-                                                                    baseRoutineID: self.routine?.id, calendar: calendar, now: end) else {
+                // Apps the owner excluded from suggestions stay out; saved durations are the starting minutes.
+                guard var proposal = ScreenTimeRoutineProposal.make(from: learning, nextMorning: nextMorning,
+                                                                    baseRoutineID: self.routine?.id, calendar: calendar, now: end),
+                      proposal.applyPreferences(self.routinePreferences) else {
                     self.screenTimeMessage = learning.earliestData == nil
                         ? String(localized: "Screen Time has no app minutes on this iPhone yet. Try again tomorrow morning.")
                         : String(localized: "Screen Time had \(learning.daysOfData) days, but no complete morning with app use was found yet. Try again tomorrow.")

@@ -186,6 +186,46 @@ struct ScreenTimeRoutineLearningTests {
         #expect(morning.start == at(7, 12))
     }
 
+    @Test func idleInsideTheFirstHourDoesNotHideUnplacedUse() throws {
+        // 07:05 pickup, longest 07:18–07:23, 13 min in all; next use at 08:03.
+        let hours = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(7), pickup: at(7, 5), longest: (at(7, 18), at(7, 23)), [app("com.apple.mobilesafari", 13)]),
+                     hour(at(8), pickup: at(8, 3), longest: (at(8, 3), at(8, 8)), [app("com.apple.MobileSMS", 5)])]
+        let morning = try #require(learn(hours, now: at(11), queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning.end == at(8, 8))
+        #expect(morning.apps.allSatisfy { !$0.secondsMeasured }, "Minutes past the rule's own end are estimated.")
+    }
+
+    @Test func theOwnerUsingMoreInHisMorningStillStartsIt() throws {
+        let hours = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                     hour(at(4), pickup: at(4), longest: (at(4), at(4, 10)), [app("com.apple.mobilesafari", 10)]),
+                     hour(at(7), pickup: at(7, 55), longest: (at(7, 55), at(8)),
+                          [app("com.gibouu.morningoperator", 3), app("com.apple.mobilesafari", 2)])]
+        let morning = try #require(learn(hours, now: at(11), queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning.start == at(7, 55))
+    }
+
+    @Test func coverageCountsHoursThatWereFilteredOut() throws {
+        let hours = [hour(at(22, day: 13), pickup: at(22, 5, day: 13), [app("com.gibouu.morningoperator", 20)]),
+                     hour(at(7), pickup: at(7, 12), longest: (at(7, 12), at(7, 40)), [app("com.apple.mobilesafari", 28)])]
+        let learning = learn(hours, now: at(11), queryStart: at(0, day: 7))
+        #expect(learning.mornings.last?.start == at(7, 12))
+    }
+
+    @Test func savedChoicesShapeTheSuggestion() throws {
+        let learning = learn(ordinaryDay(14), queryStart: at(18, day: 13))
+        var proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        var journal = RoutinePreferenceJournal()
+        let exclude = try RoutinePreference(target: RoutineStep(title: "YouTube", kind: .entertainment), presence: .exclude)
+        try journal.upsert(exclude)
+        let timing = try RoutinePreference(target: RoutineStep(title: "Safari", kind: .custom), durationMinutes: 12)
+        try journal.upsert(timing)
+        let kept = proposal.applyPreferences(journal)
+        #expect(kept)
+        #expect(!proposal.steps.contains { $0.title == "YouTube" })
+        #expect(proposal.steps.first { $0.title == "Safari" }?.minutes == 12)
+    }
+
     @Test func useAroundMidnightIsNotADoubleMorning() {
         let hours = [hour(at(20, day: 13), pickup: at(20, 0, day: 13), longest: (at(20, 0, day: 13), at(20, 10, day: 13)), [app("com.apple.mobilesafari", 10)]),
                      hour(at(0, day: 14), pickup: at(0, 0, day: 14), longest: (at(0, 0, day: 14), at(0, 30, day: 14)), [app("com.apple.mobilesafari", 30)]),
