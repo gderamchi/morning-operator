@@ -886,7 +886,8 @@ final class LiveMorningDemoTests: XCTestCase {
             // Another control under the finger is allowed only if it wraps the target or sits
             // inside it (the same control drawn in layers), never beside or over it.
             if Self.isButtonLike(node.elementType),
-               !(node.frame.contains(target.frame) || target.frame.contains(node.frame)) {
+               !(node.frame.contains(target.frame) || target.frame.contains(node.frame)
+                 || Self.mostlyOverlaps(node.frame, target.frame)) {
                 lastTapRefusal = "other-control-under-point"
                 return false
             }
@@ -926,6 +927,15 @@ final class LiveMorningDemoTests: XCTestCase {
             stack.append(contentsOf: node.children.reversed())
         }
         return result
+    }
+
+    /// True when the overlap covers at least 80% of the smaller frame: the same control
+    /// drawn in layers (a tab and its selection pill), not a neighbour.
+    private static func mostlyOverlaps(_ a: CGRect, _ b: CGRect) -> Bool {
+        let overlap = a.intersection(b)
+        guard !overlap.isNull, !overlap.isEmpty else { return false }
+        let smaller = min(a.width * a.height, b.width * b.height)
+        return smaller > 0 && overlap.width * overlap.height >= 0.8 * smaller
     }
 
     private static func isButtonLike(_ type: XCUIElement.ElementType) -> Bool {
