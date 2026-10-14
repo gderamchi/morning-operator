@@ -646,8 +646,12 @@ private final class DemoVoice: @unchecked Sendable {
         let heard = lock.withLock { () -> [String] in
             // The first result arrives up to about a second after the words began, so a segment
             // counts only if even that earlier onset is after `since`.
+            // "Stop" is exempt: stopping can never act on the wrong item, so a fresh stop always
+            // counts. Other commands said right at a reel change may be dropped (say them again).
             let fresh = segments.filter {
-                now.timeIntervalSince($0.endedAt) <= 4 && $0.startedAt.addingTimeInterval(-1.2) >= (since ?? .distantPast)
+                now.timeIntervalSince($0.endedAt) <= 4
+                    && ($0.startedAt.addingTimeInterval(-1.2) >= (since ?? .distantPast)
+                        || LiveDemoVoiceIntent.parse($0.text, requireWakeWord: requireWakeWord) == .stop)
             }
                 .map(\.text)
             segments.removeAll()
