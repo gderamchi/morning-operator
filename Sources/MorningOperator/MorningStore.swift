@@ -73,6 +73,8 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var pendingRoutineProposal: RecoverableRoutineProposal?
     var consumedMorningEntryIDs: [UUID]?
     var routinePreferences: RecoverableRoutinePreferences?
+    /// Which morning sessions were already greeted (issue #28). Session identifiers only.
+    var greeting: MorningGreetingState?
 }
 
 private extension WorkspaceSnapshot {
@@ -104,6 +106,9 @@ private extension WorkspaceSnapshot {
         // keep it unreadable until the user explicitly resets their choices.
         routinePreferences = values.contains(.routinePreferences)
             ? try values.decode(RecoverableRoutinePreferences.self, forKey: .routinePreferences) : nil
+        // Missing is an older workspace. An unreadable value must not close the whole
+        // workspace: at worst a morning in progress is treated as not greeted yet.
+        greeting = (try? values.decodeIfPresent(MorningGreetingState.self, forKey: .greeting)) ?? nil
     }
 }
 
@@ -193,6 +198,11 @@ final class MorningStore {
     let briefing: MorningBriefingController
     let usesSyntheticBriefing: Bool
     private(set) var consumedMorningEntryIDs: [UUID] = []
+    // The opening of a morning (issue #28). The logic is in MorningStore+Opening.swift;
+    // only that file writes these three.
+    var openingPresentation: MorningOpeningPresentation?
+    var greetingState = MorningGreetingState()
+    @ObservationIgnored var openingTask: Task<Void, Never>?
     var storageIsAvailable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
     var voiceCommandPresented = false
     var morningDetailPresented = false
@@ -403,6 +413,7 @@ final class MorningStore {
                 sessionTimingInterrupted = saved.sessionTimingInterrupted ?? false
                 pendingCaptures = saved.pendingCaptures ?? [:]
                 consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
+                greetingState = saved.greeting ?? MorningGreetingState()
                 if !pendingCaptures.isEmpty { notice = String(localized: "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again.") }
                 if session?.status == .running {
                     sessionTimingInterrupted = true
@@ -706,12 +717,21 @@ final class MorningStore {
             }
             notice = nil
             if let entryID { rememberMorningEntry(entryID) }
+            // The greeted mark is saved in the same write as the new session, so a
+            // relaunch cannot greet this morning a second time.
+            let previousGreeting = greetingState
+            let mayGreet = beginsMorning && claimOpeningPlayback()
             guard persist() else {
                 consumedMorningEntryIDs = previousEntryIDs
+                greetingState = previousGreeting
                 pauseAfterSaveFailure()
                 return false
             }
-            if beginsMorning { morningStartCount += 1 }
+            if beginsMorning {
+                morningStartCount += 1
+                beginOpening(mayGreet: mayGreet)
+            }
+            // A new morning waits for the choice at its opening; a resumed one continues.
             runCurrentIfEnabled()
             synchronizeMorningActivity(allowStart: true)
             return true
@@ -740,6 +760,7 @@ final class MorningStore {
     func pause() {
         guard !privacyBlocksWork else { return }
         cancelVoiceCommandTurn()
+        endOpening()
         cancelStepPlayback()
         do { try session?.pause(); speech.stop(); notice = nil; persist() }
         catch { notice = error.localizedDescription }
@@ -760,6 +781,9 @@ final class MorningStore {
     func advance(skipping: Bool = false, commandID: UUID = UUID()) {
         guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
+        // Pause, Next, Stop and Again take over from the opening. A changed listening
+        // choice does not: the first moment still waits for the answer.
+        endOpening()
         cancelStepPlayback()
         do {
             try session?.advance(skipping: skipping, commandID: commandID)
@@ -778,6 +802,7 @@ final class MorningStore {
     func stop() {
         guard !privacyBlocksWork else { return }
         cancelVoiceCommandTurn()
+        endOpening()
         cancelStepPlayback()
         speech.stop()
         do { try session?.stop(); archiveTerminalSession(); notice = nil; persist() }
@@ -789,6 +814,7 @@ final class MorningStore {
     func readCurrent() {
         guard !privacyBlocksWork, !voiceInputBlocksPlayback,
               let session, let step = currentStep else { return }
+        endOpening()
         cancelStepPlayback()
         if step.automation == nil {
             speech.speak("\(step.title). \(step.detail)")
@@ -1988,8 +2014,9 @@ final class MorningStore {
 
     var weekSummary: SevenDaySummary? { try? history.sevenDaySummary(endingOn: Date()) }
 
-    private func runCurrentIfEnabled() {
+    func runCurrentIfEnabled() {
         guard !privacyBlocksWork else { return }
+        guard openingPresentation == nil else { return }
         guard !voiceInputBlocksPlayback else { return }
         guard let session, session.status == .running else { return }
         if automatic {
@@ -2011,6 +2038,7 @@ final class MorningStore {
     }
 
     private func pauseAfterSaveFailure() {
+        endOpening()
         cancelStepPlayback()
         speech.stop()
         if session?.status == .running { try? session?.pause() }
@@ -2058,7 +2086,8 @@ final class MorningStore {
                 observationArchive: observationArchive, selectedObservationID: selectedObservationID,
                 pendingRoutineProposal: validProposal.map(RecoverableRoutineProposal.init),
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
-                routinePreferences: unreadablePreferences ?? .init(routinePreferences)))
+                routinePreferences: unreadablePreferences ?? .init(routinePreferences),
+                greeting: greetingState))
             }
             pendingRoutineProposal = validProposal
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
@@ -2105,6 +2134,7 @@ final class MorningStore {
         oldAnalysis?.cancel()
         briefing.cancelAndClear()
         stepExecutor.clear()
+        endOpening()
         cancelStepPlayback()
         speech.stop()
         cancelVoiceCommandTurn()
@@ -2198,6 +2228,7 @@ final class MorningStore {
     }
 
     private func clearForgottenMemory() {
+        endOpening(); greetingState.reset()
         routine = nil; session = nil; previousRoutine = nil
         notes = ""; notesSourceLabel = String(localized: "Your written observation")
         observationArchive = ObservationArchive(); selectedObservationID = nil
