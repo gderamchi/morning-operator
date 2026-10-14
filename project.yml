@@ -81,6 +81,9 @@ targets:
       # The phone-loop runner decodes the wire types and uses PhoneCommandGate (#7).
       - package: MorningOperatorShared
         product: MorningCore
+      # Pure decisions for the opt-in live-morning demo (LiveMorningDemoTests).
+      - package: MorningOperatorShared
+        product: MorningLiveDemo
   MorningBenchmarkInbox:
     type: application
     platform: iOS
@@ -163,3 +166,22 @@ schemes:
         - name: MorningObservationBenchmarkUITests
           parallelizable: false
           randomExecutionOrder: false
+  # Owner-present live-morning demo on the tethered phone (docs/DEVICE-SETUP.md).
+  # Automatic screenshots are off: the demo opens Messages and Mail, whose screens
+  # must not land in the result bundle.
+  MorningLiveDemo:
+    build:
+      targets:
+        MorningOperator: all
+        MorningOperatorUITests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: false
+      captureScreenshotsAutomatically: false
+      deleteScreenshotsWhenEachTestSucceeds: true
+      targets:
+        - name: MorningOperatorUITests
+          parallelizable: false
+          randomExecutionOrder: false
+          selectedTests:
+            - LiveMorningDemoTests/testLiveMorningDemo

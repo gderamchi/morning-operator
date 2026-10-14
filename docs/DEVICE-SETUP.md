@@ -136,6 +136,40 @@ The driver requires foreground state, a unique exact semantic match, a hittable 
 
 Screenshots can contain account names and personal content even in Settings. `--capture-ui-tree` additionally records the accessibility hierarchy in the local test result and is off by default. Keep `work/`, derived data and `.xcresult` files out of Git and public attachments. Review evidence locally before sharing anything.
 
+## Live morning demo (owner present)
+
+`UITests/LiveMorningDemoTests.swift` lets the phone run a morning by itself while you watch. The shipped app cannot open or drive other apps; only the XCUITest runner on a phone tethered to this Mac can, so the demo is a UI test. It does nothing unless `TEST_RUNNER_MO_LIVE_DEMO=1` is passed, and it always skips on a simulator and in CI.
+
+What it does, saying each step aloud and holding each screen for a few seconds:
+
+1. **Messages.** Opens the conversation list and takes up to the first three *unread* conversations. If none are unread it says so and moves on (add `TEST_RUNNER_MO_LIVE_DEMO_ANY=1` to use read ones instead). For each one it opens the conversation, says who wrote and reads the latest message, then asks "Do you want to reply?" and listens. Say "no" (or nothing) to move on, "yes" and then the words, or "reply ..." / "tell them ..." in one go. A reply is typed into the message field as a **draft** and read back. **It is never sent**: the test has one tap site, and that tap is refused for any send, reply, post, like, follow, share or delete control. Opening a conversation can send a read receipt if you have them on.
+2. **Mail.** Finds the inbox and reads the sender and subject of the first three unread emails. It opens nothing and replies to nothing.
+3. **Weather.** Reads the temperature and condition shown on screen.
+4. **Reels.** Opens Instagram's Reels tab (TikTok's feed if Instagram isn't installed) and swipes up every 8 seconds, 10 times by default (`TEST_RUNNER_MO_LIVE_DEMO_REELS=N`, 0 to 50). A swipe is a drag, never a tap, so nothing is liked. If neither app is installed it says so.
+5. Returns to MORE and says it is done.
+
+Listening is on-device only (`requiresOnDeviceRecognition`); no audio leaves the phone. The runner app (`MorningOperatorUITests-Runner`) already carries the microphone and speech-recognition usage strings in Xcode 27's runner template, so no project change is needed. The first run asks for microphone and speech recognition access while the runner is briefly on screen: tap **Allow** (or allow it later in Settings › Privacy & Security). The microphone stays on, with its indicator, from the start until the reels begin, because iOS does not let a background process *start* recording. If access is refused, no on-device English model is installed, or the input cannot start, the demo says it can't listen and simply pauses after each question.
+
+Stop any other agent using the phone first, unlock it, and keep it awake. Then run:
+
+```sh
+cd ~/code/github/morning-operator
+rm -rf "$TMPDIR/mo-live-demo.xcresult"
+TEST_RUNNER_MO_LIVE_DEMO=1 TEST_RUNNER_MO_LIVE_DEMO_REELS=10 \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+  -project MorningOperator.xcodeproj -scheme MorningLiveDemo \
+  -destination 'id=00008130-001E318020FA8D3A' \
+  -derivedDataPath .build/iphone \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=U6Z87CS4W3 \
+  -only-testing:MorningOperatorUITests/LiveMorningDemoTests \
+  -test-timeouts-enabled YES -maximum-test-execution-time-allowance 1800 \
+  -resultBundlePath "$TMPDIR/mo-live-demo.xcresult" \
+  2>&1 | grep -E "Test Case|Test Suite|error:|\*\* TEST"
+rm -rf "$TMPDIR/mo-live-demo.xcresult" .build/iphone/Logs/Test
+```
+
+Privacy: the `MorningLiveDemo` scheme turns automatic screenshots off and keeps no system attachments, and the test attaches nothing. Message and mail text is spoken, never printed. XCTest's own activity log does record the text of a typed draft, which is why the output is filtered and the result bundle and test logs are deleted right after the run.
+
 ## Real HomePod spike
 
 With one HomePod mini, prove **phone → HomePod** or **Mac → HomePod** audio continuation. Identify the actual audio origin and microphone; two-HomePod room handoff is not possible with this inventory alone.
