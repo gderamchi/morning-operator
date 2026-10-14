@@ -2,7 +2,13 @@ import Foundation
 
 /// Evidence that the phone was in use during an interval (a point is a zero-length interval).
 public struct PhoneUse: Equatable, Sendable {
-    public enum Source: String, Sendable { case screenTimePickup, screenTimeLongestActivity, screenTimeHour, appTransition, recording }
+    public enum Source: String, Sendable {
+        case screenTimePickup, screenTimeLongestActivity, screenTimeHour, appTransition, recording
+        /// The earliest moment an hour's use can have ended (first pickup plus the hour's
+        /// total). It is a bound, not a time of use: it closes gaps after it, but never joins
+        /// the evidence before it into one session.
+        case screenTimeLatestUse
+    }
     public let interval: DateInterval
     public let source: Source
 
@@ -126,13 +132,15 @@ public enum MorningStartDetector {
                                       skippedSessions: skipped, usedSleepHint: usedHint))
     }
 
-    /// Merges uses whose gap is under `gap` into sessions, sorted by start.
+    /// Merges uses whose gap is under `gap` into sessions, sorted by start. A
+    /// `screenTimeLatestUse` bound always starts its own session.
     static func sessionsOf(_ uses: [PhoneUse], gap: TimeInterval, coveredFrom: Date) -> [DateInterval] {
-        let sorted = uses.map(\.interval).sorted { $0.start < $1.start }
+        let sorted = uses.sorted { $0.interval.start < $1.interval.start }
         var sessions: [DateInterval] = []
-        for interval in sorted {
+        for use in sorted {
+            let interval = use.interval
             let clipped = DateInterval(start: max(interval.start, coveredFrom), end: max(interval.end, coveredFrom))
-            if let last = sessions.last, clipped.start.timeIntervalSince(last.end) < gap {
+            if use.source != .screenTimeLatestUse, let last = sessions.last, clipped.start.timeIntervalSince(last.end) < gap {
                 sessions[sessions.count - 1] = DateInterval(start: last.start, end: max(last.end, clipped.end))
             } else {
                 sessions.append(clipped)

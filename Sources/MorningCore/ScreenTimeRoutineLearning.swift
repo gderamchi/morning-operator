@@ -99,13 +99,19 @@ public enum ScreenTimeMorningLearner {
             let seconds = hour.apps.reduce(0) { $0 + $1.seconds }
             uses += PhoneUse.fromScreenTimeSegment(hour: hour.interval, totalSeconds: seconds,
                 firstPickup: hour.firstPickup, longestActivity: hour.longestActivity, sessionGap: policy.sessionGap)
-            // All of an hour's use comes after its first pickup (or its start), so some use goes
-            // on until at least that moment plus the hour's total. Without this point, untimed
-            // minutes would vanish: a 30-minute hour would look like its 10-minute longest
-            // session, inventing a sleep gap after it or a short "night check".
+            // All of an hour's use comes after its first pickup (or its start), so its use ends no
+            // earlier than that moment plus the hour's total. Without this bound, untimed minutes
+            // would vanish: a 30-minute hour would look like its 10-minute longest session,
+            // inventing a sleep gap after it or a short "night check". It is added only when it
+            // lies past the hour's timed evidence, and never joins that evidence (see the source).
             if seconds > 0 {
                 let from = hour.firstPickup.flatMap { hour.interval.contains($0) ? $0 : nil } ?? hour.interval.start
-                uses.append(PhoneUse(at: min(hour.interval.end, from.addingTimeInterval(seconds)), source: .screenTimeHour))
+                let bound = min(hour.interval.end, from.addingTimeInterval(seconds))
+                let hourEvidence = PhoneUse.fromScreenTimeSegment(hour: hour.interval, totalSeconds: seconds,
+                    firstPickup: hour.firstPickup, longestActivity: hour.longestActivity, sessionGap: policy.sessionGap)
+                if let latest = hourEvidence.map(\.interval.end).max(), bound > latest {
+                    uses.append(PhoneUse(at: bound, source: .screenTimeLatestUse))
+                }
             }
         }
         var mornings: [ScreenTimeMorning] = []

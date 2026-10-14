@@ -270,6 +270,20 @@ struct ScreenTimeRoutineLearningTests {
         #expect(learn(nights, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(4))
     }
 
+    @Test func theBoundNeverJoinsEvidenceOrStartsAMorning() throws {
+        // 07:00 pickup, 19 min, longest 07:30–07:45: a 26-minute pause is possible, so the
+        // first hour is not measured.
+        let gap = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                   hour(at(7), pickup: at(7), longest: (at(7, 30), at(7, 45)), [app("com.apple.mobilesafari", 19)]),
+                   hour(at(8), pickup: at(8), longest: (at(8), at(8, 10)), [app("com.apple.MobileSMS", 10)])]
+        let morning = try #require(learn(gap, now: at(12), queryStart: at(18, day: 13)).mornings.last)
+        #expect(morning.apps.first { $0.bundleIdentifier == "com.apple.mobilesafari" }?.secondsMeasured == false)
+        // No pickup, longest 07:45–07:55, 10 min: the morning starts at 07:45, not at a bound.
+        let late = [hour(at(22, day: 13), [app("com.apple.mobilemail", 10)]),
+                    hour(at(7), longest: (at(7, 45), at(7, 55)), [app("com.apple.mobilesafari", 10)])]
+        #expect(learn(late, now: at(12), queryStart: at(18, day: 13)).mornings.last?.start == at(7, 45))
+    }
+
     @Test func useAroundMidnightIsNotADoubleMorning() {
         let hours = [hour(at(20, day: 13), pickup: at(20, 0, day: 13), longest: (at(20, 0, day: 13), at(20, 10, day: 13)), [app("com.apple.mobilesafari", 10)]),
                      hour(at(0, day: 14), pickup: at(0, 0, day: 14), longest: (at(0, 0, day: 14), at(0, 30, day: 14)), [app("com.apple.mobilesafari", 30)]),
