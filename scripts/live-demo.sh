@@ -1,6 +1,6 @@
 #!/bin/bash
 # Owner-present live morning demo on the tethered iPhone (docs/DEVICE-SETUP.md).
-# Usage: scripts/live-demo.sh [--device ID] [--team TEAM] [--reels N] [--any]
+# Usage: scripts/live-demo.sh [--device ID] [--team TEAM] [--reels N] [--any] [--stop-after summary]
 #
 # The demo reads Messages and Mail aloud and may type a spoken draft. XCTest's own
 # activity log records typed text, so this script keeps the result bundle and test
@@ -13,12 +13,14 @@ device="00008130-001E318020FA8D3A"
 team="U6Z87CS4W3"
 reels="10"
 any="0"
+stop_after=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --device) device="$2"; shift 2 ;;
         --team) team="$2"; shift 2 ;;
         --reels) reels="$2"; shift 2 ;;
         --any) any="1"; shift ;;
+        --stop-after) stop_after="$2"; shift 2 ;;
         --help|-h) sed -n '2,8p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
@@ -69,16 +71,20 @@ trap 'on_signal 143' TERM
 cd "$repo_dir"
 set +e
 set -m  # the pipeline gets its own process group, so it can be stopped as a whole
-# Only these lines are printed, each anchored and strict:
+# Only these lines are printed:
 #  - xcodebuild's own status lines (Test Case/Test Suite/** TEST/xcodebuild: error);
-#  - the demo's report, "MO-DEMO" plus [a-z0-9=._-] tokens only;
-#  - the demo's failures, "MO-DEMO-FAIL" plus the same tokens, at the end of XCTest's
-#    "error: ... failed -" line.
-# A draft containing these words mid-line cannot pass.
+#  - from any other line, only a trailing "MO-DEMO ..." or "MO-DEMO-FAIL ..." made of
+#    [a-z0-9=._-] tokens up to the end of the line. Everything before it (a path, a
+#    timestamp, XCTest's "error: ... :" prefix) is cut off, and a line where anything
+#    else follows the tokens prints nothing.
+# Carriage returns and trailing spaces are removed first: xcodebuild's test output can
+# end lines with "\r", which made the earlier anchored filter drop every MO-DEMO line.
+# A typed draft cannot pass: XCTest's "Type '...' into ..." line never ends in tokens.
 (
     TEST_RUNNER_MO_LIVE_DEMO=1 \
     TEST_RUNNER_MO_LIVE_DEMO_REELS="$reels" \
     TEST_RUNNER_MO_LIVE_DEMO_ANY="$any" \
+    TEST_RUNNER_MO_LIVE_DEMO_STOP_AFTER="$stop_after" \
     TEST_RUNNER_CI="${CI:-}" \
     TEST_RUNNER_GITHUB_ACTIONS="${GITHUB_ACTIONS:-}" \
     TEST_RUNNER_CONTINUOUS_INTEGRATION="${CONTINUOUS_INTEGRATION:-}" \
@@ -91,10 +97,10 @@ set -m  # the pipeline gets its own process group, so it can be stopped as a who
         -only-testing:MorningOperatorUITests/LiveMorningDemoTests \
         -test-timeouts-enabled YES -maximum-test-execution-time-allowance 1800 \
         -resultBundlePath "$work/Results.xcresult" \
-        2>&1 | grep -E --line-buffered \
-            -e '^(Test Case |Test Suite |\*\* TEST |xcodebuild: error)' \
-            -e '^MO-DEMO( [a-z0-9=._-]+)+$' \
-            -e '^[^ ]*LiveMorningDemoTests\.swift:[0-9]+: error: -\[MorningOperatorUITests\.LiveMorningDemoTests testLiveMorningDemo\] : failed - MO-DEMO-FAIL( [a-z0-9=._-]+)+$'
+        2>&1 | LC_ALL=C sed -l -n -E \
+            -e 's/[[:space:]]+$//' \
+            -e '/^(Test Case |Test Suite |\*\* TEST |xcodebuild: error)/{p;d;}' \
+            -e 's/^.*(MO-DEMO(-FAIL)?( [a-z0-9=._-]+)+)$/\1/p'
     exit "${PIPESTATUS[0]}"
 ) &
 child=$!

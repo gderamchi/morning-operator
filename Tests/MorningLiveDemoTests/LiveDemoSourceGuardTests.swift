@@ -6,10 +6,10 @@ import Testing
 /// one typing site (a draft), one drag site (the reel swipe), nothing else.
 @Suite("Live morning demo interaction surface")
 struct LiveDemoSourceGuardTests {
-    private func source() throws -> String {
+    private func source(_ path: String = "UITests/LiveMorningDemoTests.swift") throws -> String {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
-        return try String(contentsOf: root.appendingPathComponent("UITests/LiveMorningDemoTests.swift"), encoding: .utf8)
+        return try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
     }
 
     private func count(_ needle: String, in text: String) -> Int {
@@ -49,6 +49,42 @@ struct LiveDemoSourceGuardTests {
         // Every emitted line is built by LiveDemoReport.line or LiveDemoReport.lines.
         for line in lines where line.contains("emit(") && !line.contains("func emit(") {
             #expect(line.contains("emit(LiveDemoReport.line(") || line.contains("emit(line)"))
+        }
+    }
+
+    @Test("MORE's voice host exists only in DEBUG builds and never logs")
+    func voiceHostIsDebugOnly() throws {
+        let host = try source("Sources/MorningOperator/LiveDemoVoiceHost.swift")
+        let lines = host.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        #expect(lines.first == "#if DEBUG")
+        #expect(lines.last == "#endif")
+        // One condition around the whole file: no #else or second #endif could re-expose code.
+        #expect(lines.filter { $0.hasPrefix("#endif") }.count == 1)
+        #expect(!lines.contains { $0.hasPrefix("#else") || $0.hasPrefix("#elseif") })
+        for banned in ["print(", "NSLog(", "os_log", "Logger(", "debugPrint(", "dump(", "FileManager", "UserDefaults",
+                       "write(to", "XCTest"] {
+            #expect(!host.contains(banned), "Unexpected \(banned) in the voice host")
+        }
+        #expect(host.contains("requiredLocalEndpoint = .hostPort(host: \"127.0.0.1\""))
+        #expect(host.contains("LiveDemoWire.isLoopback(host:"))
+        #expect(host.contains("LiveDemoWire.tokensMatch("))
+        #expect(host.contains("requiresOnDeviceRecognition = true"))
+
+        // The only reference from the rest of the app sits inside #if DEBUG.
+        let app = try source("Sources/MorningOperator/MorningOperatorApp.swift").components(separatedBy: "\n")
+        let call = try #require(app.firstIndex { $0.contains("LiveDemoVoiceHost.") })
+        let before = app[..<call].last { $0.trimmingCharacters(in: .whitespaces).hasPrefix("#") }
+        let after = app[(call + 1)...].first { $0.trimmingCharacters(in: .whitespaces).hasPrefix("#") }
+        #expect(before?.trimmingCharacters(in: .whitespaces) == "#if DEBUG")
+        #expect(after?.trimmingCharacters(in: .whitespaces) == "#endif")
+        #expect(app.filter { $0.contains("LiveDemoVoiceHost") }.count == 1)
+    }
+
+    @Test("The runner does no audio of its own: MORE is the voice")
+    func runnerHasNoAudio() throws {
+        let code = try source()
+        for banned in ["import AVFoundation", "import AVFAudio", "import Speech", "AVAudioSession", "AVSpeechSynthesizer"] {
+            #expect(!code.contains(banned), "Unexpected \(banned) in the runner")
         }
     }
 }

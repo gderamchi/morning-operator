@@ -7,7 +7,14 @@ struct MorningOperatorApp: App {
     @UIApplicationDelegateAdaptor(MorningNotificationDelegate.self) private var notificationDelegate
     @ViewState<MorningStore> private var store = MorningStore()
 
-    init() { MorningAppShortcuts.updateAppShortcutParameters() }
+    init() {
+        MorningAppShortcuts.updateAppShortcutParameters()
+        #if DEBUG
+        // Owner-present live demo only (UITests/LiveMorningDemoTests.swift): no-op unless
+        // the UI-test runner launched MORE with --live-demo-voice and a one-time token.
+        LiveDemoVoiceHost.startIfRequested()
+        #endif
+    }
 
     private var testAppearance: ColorScheme? {
         let arguments = ProcessInfo.processInfo.arguments

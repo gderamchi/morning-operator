@@ -95,3 +95,64 @@ struct LiveDemoVoiceAndSummaryTests {
         #expect(LiveDemoYesNo.parse("what is this") == .unclear)
     }
 }
+
+@Suite("Live morning demo wire")
+struct LiveDemoWireTests {
+    @Test("Requests and responses round-trip as one line each, even with newlines in text")
+    func framing() throws {
+        let request = LiveDemoWire.Request(token: LiveDemoWire.makeToken(), id: 7, command: .say, text: "Line one\nline two")
+        let response = LiveDemoWire.Response(id: 7, ok: false, code: "voice-no-playback", detail: ["route=speaker"])
+        var buffer = LiveDemoWire.encode(request) + LiveDemoWire.encode(response)
+        #expect(buffer.filter { $0 == 0x0A }.count == 2)
+        let lines = try LiveDemoWire.takeLines(from: &buffer)
+        #expect(lines.count == 2)
+        #expect(buffer.isEmpty)
+        #expect(LiveDemoWire.decodeRequest(lines[0]) == request)
+        #expect(LiveDemoWire.decodeResponse(lines[1]) == response)
+    }
+
+    @Test("A partial line waits; an oversized line is refused")
+    func partialAndOversized() throws {
+        var buffer = Data("{\"id\":1".utf8)
+        #expect(try LiveDemoWire.takeLines(from: &buffer).isEmpty)
+        #expect(buffer.count == 7)
+        var big = Data(repeating: 0x41, count: LiveDemoWire.maxLineBytes + 1)
+        #expect(throws: LiveDemoWire.FramingError.lineTooLong) { try LiveDemoWire.takeLines(from: &big) }
+        var bigLine = Data(repeating: 0x41, count: LiveDemoWire.maxLineBytes + 1) + Data([0x0A])
+        #expect(throws: LiveDemoWire.FramingError.lineTooLong) { try LiveDemoWire.takeLines(from: &bigLine) }
+        #expect(LiveDemoWire.decodeRequest(Data("not json".utf8)) == nil)
+    }
+
+    @Test("Tokens: random, well formed, compared exactly")
+    func tokens() {
+        let a = LiveDemoWire.makeToken(), b = LiveDemoWire.makeToken()
+        #expect(a != b)
+        #expect(LiveDemoWire.isWellFormedToken(a))
+        #expect(LiveDemoWire.tokensMatch(a, a))
+        #expect(!LiveDemoWire.tokensMatch(a, b))
+        #expect(!LiveDemoWire.tokensMatch(a, String(a.dropLast())))
+        #expect(!LiveDemoWire.tokensMatch("", ""))
+        #expect(!LiveDemoWire.isWellFormedToken("ABCDEF" + String(repeating: "0", count: 26)))
+        #expect(!LiveDemoWire.isWellFormedToken("short"))
+    }
+
+    @Test("Ports stay in the dynamic range; only loopback hosts are accepted")
+    func portsAndHosts() {
+        #expect(LiveDemoWire.portRange.contains(LiveDemoWire.makePort()))
+        #expect(LiveDemoWire.port(from: "50000") == 50_000)
+        #expect(LiveDemoWire.port(from: "80") == nil)
+        #expect(LiveDemoWire.port(from: "x") == nil)
+        #expect(LiveDemoWire.port(from: nil) == nil)
+        for host in ["127.0.0.1", "::1", "::ffff:127.0.0.1", "::1%lo0"] { #expect(LiveDemoWire.isLoopback(host: host)) }
+        for host in ["192.168.1.2", "10.0.0.1", "localhost.evil", "127.0.0.2", ""] { #expect(!LiveDemoWire.isLoopback(host: host)) }
+    }
+
+    @Test("Stop-after and reply timeouts")
+    func options() {
+        #expect(LiveDemoStopAfter.from(environment: ["MO_LIVE_DEMO_STOP_AFTER": "summary"]) == .summary)
+        #expect(LiveDemoStopAfter.from(environment: ["MO_LIVE_DEMO_STOP_AFTER": ""]) == nil)
+        #expect(LiveDemoStopAfter.from(environment: [:]) == nil)
+        #expect(LiveDemoWire.sayTimeout(characters: 0) == 15)
+        #expect(LiveDemoWire.sayTimeout(characters: 100_000) == 120)
+    }
+}

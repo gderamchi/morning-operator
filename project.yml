@@ -44,6 +44,9 @@ targets:
         product: MorningCore
       - package: MorningOperatorShared
         product: MorningApple
+      # Pure wire format and voice choice for the DEBUG-only live-demo voice host.
+      - package: MorningOperatorShared
+        product: MorningLiveDemo
       - target: MorningActivityWidget
         embed: true
         link: false

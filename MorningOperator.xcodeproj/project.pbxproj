@@ -22,6 +22,7 @@
 		2BF8B4CD992FDB769F1779A0 /* MorningVoiceCommandView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47BFFAE94C327E61E732A65 /* MorningVoiceCommandView.swift */; };
 		2E45A2A2B96639338D0E41AF /* MorningCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3B87B9B3E049028B83894AA2 /* MorningCore */; };
 		36E3B9BA3C95D268080E5571 /* AppActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB01EC0C464A9A8C729788A1 /* AppActivityView.swift */; };
+		3BBA2A1278F0B71F4586F3D1 /* LiveDemoVoiceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E429B30505A893512B98524C /* LiveDemoVoiceHost.swift */; };
 		3D25D7E50AB57A74D84B2009 /* QuietMorningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3F3A89763BAB2B46F3EEDC /* QuietMorningTests.swift */; };
 		3DAD6D551A8D23872EB45AEF /* MorningStore+UITestObservation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD6C7D6B53E7A1D66705679 /* MorningStore+UITestObservation.swift */; };
 		3E8251A48B7A61848C80FF10 /* MorningCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BCA4BB59BEA5A48B77C4A6C /* MorningCore */; };
@@ -68,6 +69,7 @@
 		CCF0223A05D9A330EDC17187 /* MorningNotificationDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A679DAEA653A30FEE04B05E /* MorningNotificationDelegate.swift */; };
 		CD3F1E802A61F825BE343107 /* InterfaceTourTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C92D40B6EFA01488AD3742 /* InterfaceTourTests.swift */; };
 		D2924EFEFC17BE0B652F9216 /* RoutineTimeBudgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7473723C675D8D6B48B5EAFC /* RoutineTimeBudgetView.swift */; };
+		D35D9E0A4F718DEBF9D76994 /* MorningLiveDemo in Frameworks */ = {isa = PBXBuildFile; productRef = 86B3ADB070A450C8A2D02302 /* MorningLiveDemo */; };
 		D3E9DB5BEC04C3AE555CACB2 /* MorningStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D556BEEB3AC9A6AC02E433A /* MorningStore.swift */; };
 		D649518285D0541C54F70927 /* ObservationFixtureApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AB59F7870CD63CA5EE2920 /* ObservationFixtureApp.swift */; };
 		D811F98768A06DD40497FCD6 /* MorningLiveActivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8814239D71C55071D657DCCB /* MorningLiveActivityTests.swift */; };
@@ -216,6 +218,7 @@
 		DE7EA194BD74767684257499 /* ObservedMorningOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservedMorningOverviewView.swift; sourceTree = "<group>"; };
 		E1435A178A34F6AADC746A82 /* QuickCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCaptureView.swift; sourceTree = "<group>"; };
 		E2B07E2228630BD1678C3BD3 /* RecordingProvenanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingProvenanceTests.swift; sourceTree = "<group>"; };
+		E429B30505A893512B98524C /* LiveDemoVoiceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDemoVoiceHost.swift; sourceTree = "<group>"; };
 		E606BC30A53C585226160F40 /* ClockObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockObservationTests.swift; sourceTree = "<group>"; };
 		E7A3FB65E6F23F27BCD2036A /* LiveMorningDemoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMorningDemoTests.swift; sourceTree = "<group>"; };
 		F47BFFAE94C327E61E732A65 /* MorningVoiceCommandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningVoiceCommandView.swift; sourceTree = "<group>"; };
@@ -241,6 +244,7 @@
 			files = (
 				3E8251A48B7A61848C80FF10 /* MorningCore in Frameworks */,
 				5680C59276CBE799A48EED85 /* MorningApple in Frameworks */,
+				D35D9E0A4F718DEBF9D76994 /* MorningLiveDemo in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -360,6 +364,7 @@
 				2ED5FFFADBA9C712D53345C8 /* AudioRoutePicker.swift */,
 				F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */,
 				AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */,
+				E429B30505A893512B98524C /* LiveDemoVoiceHost.swift */,
 				4F1A4DDE271AE7DE15330EEF /* MorningActivityDiagnostics.swift */,
 				0814A1DE4C0A82002840418D /* MorningActivitySettingsView.swift */,
 				B96B476C99E00452D515C48B /* MorningBriefingFixture.swift */,
@@ -494,6 +499,7 @@
 			packageProductDependencies = (
 				9BCA4BB59BEA5A48B77C4A6C /* MorningCore */,
 				B7FD4DEE56FB0CA68AC509D1 /* MorningApple */,
+				86B3ADB070A450C8A2D02302 /* MorningLiveDemo */,
 			);
 			productName = MorningOperator;
 			productReference = 823DC3878AEC67AE33FE7B03 /* MorningOperator.app */;
@@ -687,6 +693,7 @@
 				E5A4D70F8E286C13671ABAF1 /* AudioRoutePicker.swift in Sources */,
 				9A8B244DD216406D67AD84A3 /* DesignSystem.swift in Sources */,
 				067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */,
+				3BBA2A1278F0B71F4586F3D1 /* LiveDemoVoiceHost.swift in Sources */,
 				4DE3FED32FD66348C7B86B91 /* MorningActivityDiagnostics.swift in Sources */,
 				68BADEEAA81EAA79C508218C /* MorningActivitySettingsView.swift in Sources */,
 				CCCAA658FA8A44553433276F /* MorningBriefingFixture.swift in Sources */,
@@ -1212,6 +1219,10 @@
 		3B87B9B3E049028B83894AA2 /* MorningCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MorningCore;
+		};
+		86B3ADB070A450C8A2D02302 /* MorningLiveDemo */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MorningLiveDemo;
 		};
 		8D9E1C809C0C91D292B6D0A4 /* MorningLiveDemo */ = {
 			isa = XCSwiftPackageProductDependency;

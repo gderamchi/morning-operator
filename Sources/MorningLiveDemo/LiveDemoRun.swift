@@ -29,6 +29,7 @@ public enum LiveDemoSkip: String, Sendable, Equatable {
     case audioInputFailed = "audio-input-failed"
     case voiceFailed = "voice-failed"
     case notReached = "not-reached"
+    case stoppedEarly = "stopped-early"
 }
 
 /// Why the run fails. Fixed codes only, so a failure message cannot carry content.
@@ -43,6 +44,8 @@ public enum LiveDemoFailure: String, Sendable, Equatable {
     case routeMissing = "route-missing"
     case volumeZero = "volume-zero"
     case allAppStepsSkipped = "all-app-steps-skipped"
+    case voiceChannelFailed = "voice-channel-failed"
+    case moreNotReady = "more-not-ready"
 }
 
 public enum LiveDemoOutcome: Equatable, Sendable {

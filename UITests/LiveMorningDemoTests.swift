@@ -1,6 +1,5 @@
-import AVFoundation
 import MorningLiveDemo
-import Speech
+import Network
 import XCTest
 
 /// Opt-in, owner-present demo of a morning run on a tethered iPhone. The XCUITest runner is
@@ -38,7 +37,7 @@ final class LiveMorningDemoTests: XCTestCase {
     private struct VoiceFailed: Error {}
 
     private var environment: [String: String] { ProcessInfo.processInfo.environment }
-    private var audio: DemoAudio?
+    private var voice: VoiceClient?
     private var listening = false
     private var report = LiveDemoReport()
     private var utteranceCount = 0
@@ -65,44 +64,51 @@ final class LiveMorningDemoTests: XCTestCase {
     }
 
     private func runDemo() throws {
-        // 1. Sound, set up while the runner is still in front: iOS does not let a
-        //    background process start audio, so the session and engine start now and stay
-        //    running until the end.
+        // 1. MORE is the voice and the ears. On iOS 27 this runner is already in the
+        //    background when a test starts, so it can never start audio ('!pla'). MORE has
+        //    the `audio` background mode: it starts its session while in front and keeps it
+        //    while the runner drives other apps. The channel is loopback-only with a
+        //    one-time token. Fixture mode keeps MORE's own data and speech out of the way.
         let runnerState = UIApplication.shared.applicationState
-        switch XCTContext.runActivity(named: "Start audio", block: { _ in DemoAudio.start() }) {
-        case .failed(let failure, let detail):
-            emit(LiveDemoReport.line(["audio", "runner=\(Self.name(runnerState))"] + detail))
+        let token = LiveDemoWire.makeToken()
+        let port = LiveDemoWire.makePort()
+        let more = XCUIApplication()
+        more.launchArguments = ["--ui-testing", "--fixture-mode", LiveDemoWire.launchArgument]
+        more.launchEnvironment = [LiveDemoWire.tokenEnvironmentKey: token, LiveDemoWire.portEnvironmentKey: String(port)]
+        more.launch()
+        guard more.wait(for: .runningForeground, timeout: 15) else {
+            emit(LiveDemoReport.line(["audio", "runner=\(Self.name(runnerState))", "more=not-foreground"]))
             report.record(.soundCheck, .skipped(.voiceFailed))
-            fail(failure, detail)
+            fail(.moreNotReady, [])
             throw VoiceFailed()
-        case .ready(let ready):
-            audio = ready
-            emit(LiveDemoReport.line(["audio", "runner=\(Self.name(runnerState))"] + ready.diagnostics()))
-            emit(LiveDemoReport.line(["voice", "quality=\(ready.voiceQuality.name)"]))
         }
-        try say("Sound check.")
+        let client = VoiceClient(port: port, token: token)
+        voice = client
+        // MORE prepares audio, plays "Sound check." and asks for the microphone and speech
+        // recognition (tap Allow on the phone) before it answers.
+        let hello = XCTContext.runActivity(named: "MORE sound check") { _ in client.call(.hello, timeout: 90) }
+        emit(LiveDemoReport.line(["audio", "runner=\(Self.name(runnerState))", "more=\(hello == nil ? "no-answer" : "answered")"]
+                                 + (hello?.detail ?? [])))
+        guard let hello, hello.ok else {
+            report.record(.soundCheck, .skipped(.voiceFailed))
+            fail(hello?.code.flatMap(LiveDemoFailure.init(rawValue:)) ?? .voiceChannelFailed, hello?.code.map { [$0] } ?? [])
+            throw VoiceFailed()
+        }
         report.record(.soundCheck, .ran)
-        if let audio, LiveDemoVoicePick.needsPremiumHint(audio.chosenVoice) {
+        let detail = hello.detail ?? []
+        if detail.contains("voice=default") {
             try say("For a better voice, download a Premium voice in Settings.")
         }
-
-        // 2. Listening (on-device only).
-        if DemoAudio.permissionStillUndecided {
-            try say("If the phone asks for the microphone or speech recognition, tap Allow.")
-        }
-        let listeningSkip: LiveDemoSkip? = XCTContext.runActivity(named: "Enable on-device listening") { _ in
-            guard let audio else { return .audioInputFailed }
-            return audio.enableListening()
-        }
-        if let skip = listeningSkip {
-            report.record(.listening, .skipped(skip))
+        if let state = detail.first(where: { $0.hasPrefix("listening=") })?.dropFirst("listening=".count),
+           state != "ready" {
+            report.record(.listening, .skipped(LiveDemoSkip(rawValue: String(state)) ?? .audioInputFailed))
             try say("I can't listen today. I'll skip replies.")
         } else {
             listening = true
             report.record(.listening, .ran)
         }
 
-        // 3. Look first, then say a short summary.
+        // 2. Look first, then say a short summary.
         try say("Good morning. One moment. I'm looking at your morning.")
         let unreadConversations = try XCTContext.runActivity(named: "Survey Messages") { _ in try surveyMessages() }
         let unreadEmails = try XCTContext.runActivity(named: "Survey Mail") { _ in try surveyMail() }
@@ -113,8 +119,14 @@ final class LiveMorningDemoTests: XCTestCase {
         }
         report.record(.summary, .ran)
         hold(2)
+        if LiveDemoStopAfter.from(environment: environment) == .summary {
+            // Owner-present check: nothing is opened or read after the summary.
+            for step in [LiveDemoStep.messages, .mail, .reels] { report.record(step, .skipped(.stoppedEarly)) }
+            try say("That's all for this check.")
+            return
+        }
 
-        // 4. Ask, then read.
+        // 3. Ask, then read.
         if let count = unreadConversations {
             if count == 0 && !LiveDemoGate.allowsReadConversations(environment: environment) {
                 report.record(.messages, .ran)
@@ -134,7 +146,6 @@ final class LiveMorningDemoTests: XCTestCase {
         try XCTContext.runActivity(named: "Reels") { _ in try scrollReels() }
 
         try XCTContext.runActivity(named: "Return to MORE") { _ in
-            let more = XCUIApplication()
             more.activate()
             _ = more.wait(for: .runningForeground, timeout: 10)
             hold(2)
@@ -146,18 +157,19 @@ final class LiveMorningDemoTests: XCTestCase {
     private func finish() {
         for line in report.lines() { emit(line) }
         if report.allAppStepsSkipped { fail(.allAppStepsSkipped, []) }
-        audio?.shutDown()
-        audio = nil
+        _ = voice?.call(.stop, timeout: 5)
+        voice?.close()
+        voice = nil
     }
 
     private func askToStartWithMessages() throws -> Bool {
         try say("Shall we start with your messages?")
-        guard listening, let audio else {
+        guard listening else {
             hold(3)
             try say("I'll start with your messages.")
             return true
         }
-        switch LiveDemoYesNo.parse(audio.listen() ?? "") {
+        switch LiveDemoYesNo.parse(listen() ?? "") {
         case .yes:
             try say("OK.")
             return true
@@ -233,15 +245,15 @@ final class LiveMorningDemoTests: XCTestCase {
 
     private func offerReply(in messages: XCUIApplication) throws {
         try say("Do you want to reply?")
-        guard listening, let audio else {
+        guard listening else {
             hold(4)
             try say("No answer. I'll move on.")
             return
         }
-        var intent = LiveDemoReplyIntent.parse(audio.listen() ?? "")
+        var intent = LiveDemoReplyIntent.parse(listen() ?? "")
         if intent == .affirm {
             try say("What should I say?")
-            intent = LiveDemoReplyIntent.parseDictation(audio.listen(maxSeconds: 15) ?? "")
+            intent = LiveDemoReplyIntent.parseDictation(listen(seconds: 15) ?? "")
         }
         switch intent {
         case .draft(let text):
@@ -446,17 +458,29 @@ final class LiveMorningDemoTests: XCTestCase {
 
     // MARK: - Speaking, reporting and holding
 
-    /// Speaks one sentence and waits until the hardware has played it. Any failure fails the
-    /// run with a fixed code and stops the demo: it must never continue silently.
+    /// MORE speaks one sentence and answers only after the hardware played it. Any failure,
+    /// or no answer in time, fails the run with a fixed code and stops the demo.
     private func say(_ text: String) throws {
-        guard let audio else { throw VoiceFailed() }
+        guard let voice else { throw VoiceFailed() }
         utteranceCount += 1
-        let result = XCTContext.runActivity(named: "Speak") { _ in audio.speak(text) }
-        if case .failed(let failure, let detail) = result {
+        let response = XCTContext.runActivity(named: "Speak") { _ in
+            voice.call(.say, text: text, timeout: LiveDemoWire.sayTimeout(characters: text.count))
+        }
+        guard let response, response.ok else {
             report.record(.soundCheck, .skipped(.voiceFailed))
-            fail(failure, detail + ["n=\(utteranceCount)"] + audio.diagnostics())
+            let failure = response?.code.flatMap(LiveDemoFailure.init(rawValue:)) ?? .voiceChannelFailed
+            fail(failure, ["n=\(utteranceCount)"] + (response?.detail ?? []))
             throw VoiceFailed()
         }
+    }
+
+    /// One on-device listening turn in MORE. Nil when MORE could not listen.
+    private func listen(seconds: Double = 10) -> String? {
+        guard let voice else { return nil }
+        let response = XCTContext.runActivity(named: "Listen") { _ in
+            voice.call(.listen, seconds: seconds, timeout: seconds + 15)
+        }
+        return response?.ok == true ? response?.transcript : nil
     }
 
     /// The only failure site. Messages are fixed codes and technical tokens.
@@ -641,348 +665,88 @@ final class LiveMorningDemoTests: XCTestCase {
     }
 }
 
-// MARK: - Audio
+// MARK: - Channel to MORE
 
-/// One audio path for the whole run, owned by the runner:
-///
-/// - Session `.playAndRecord` with `.defaultToSpeaker` (the loudspeaker, not the earpiece)
-///   and `.allowBluetoothA2DP`, plus `.mixWithOthers` so a reels app playing sound does not
-///   interrupt it. This category ignores the Ring/Silent switch. It is activated while the
-///   runner is still in front and never deactivated until `shutDown`.
-/// - Speech is rendered with `AVSpeechSynthesizer.write` and played through our own
-///   `AVAudioEngine` player. The engine keeps running between sentences, so the session
-///   stays in use while other apps are in front. Each sentence counts as spoken only when
-///   the player reports `.dataPlayedBack` (the hardware played it), not on a timer.
-/// - Listening: on-device recognition only (`requiresOnDeviceRecognition = true`); no
-///   audio leaves the phone. Microphone buffers reach the recognizer only during a turn.
-///   Transcripts are returned to the caller and never logged.
-final class DemoAudio: @unchecked Sendable {
-    enum StartResult: Sendable {
-        case ready(DemoAudio)
-        case failed(LiveDemoFailure, [String])
-    }
-
-    enum SpeakResult: Sendable {
-        case spoken
-        case failed(LiveDemoFailure, [String])
-    }
-
+/// The runner's end of the loopback channel. Requests and answers are matched by id; each
+/// call waits a bounded time, pumping the run loop. Text is never logged.
+final class VoiceClient: @unchecked Sendable {
     private let lock = NSLock()
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
-    private let synthesizer = AVSpeechSynthesizer()
-    let voice: AVSpeechSynthesisVoice?
-    let chosenVoice: LiveDemoVoiceCandidate?
-    var voiceQuality: LiveDemoVoiceCandidate.Quality { chosenVoice?.quality ?? .standard }
-    private var speechFormat: AVAudioFormat?
+    private let token: String
+    private let connection: NWConnection
+    private let queue = DispatchQueue(label: "more.live-demo.client")
+    private var buffer = Data()
+    private var responses: [Int: LiveDemoWire.Response] = [:]
+    private var nextID = 1
+    private var ready = false
+    private var broken = false
 
-    private var recognizer: SFSpeechRecognizer?
-    private var hasInputTap = false
-    private var request: SFSpeechAudioBufferRecognitionRequest?
-    private var latest = ""
-    private var lastChange: Date?
-    private var isFinal = false
-    private var recognitionFailed = false
+    init(port: UInt16, token: String) {
+        self.token = token
+        connection = NWConnection(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port) ?? .any, using: .tcp)
+    }
 
-    private init(chosenVoice: LiveDemoVoiceCandidate?) {
-        self.chosenVoice = chosenVoice
-        voice = chosenVoice.flatMap { AVSpeechSynthesisVoice(identifier: $0.identifier) }
-            ?? AVSpeechSynthesisVoice(language: "en-US")
-        synthesizer.usesApplicationAudioSession = true
-        // Any interruption, engine configuration change or route change bumps the
-        // generation; a sentence whose playback overlaps a bump does not count as heard.
-        let center = NotificationCenter.default
-        for name in [AVAudioSession.interruptionNotification, AVAudioSession.routeChangeNotification,
-                     AVAudioSession.mediaServicesWereResetNotification] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in self?.bump() })
-        }
-        observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
-            self?.bump()
+    /// Connects (retrying while MORE's listener starts), sends one request, waits for its
+    /// answer. Nil on timeout or a broken channel.
+    func call(_ command: LiveDemoWire.Command, text: String? = nil, seconds: Double? = nil,
+              timeout: TimeInterval) -> LiveDemoWire.Response? {
+        guard connect(within: 15) else { return nil }
+        let id = lock.withLock { () -> Int in nextID += 1; return nextID }
+        let request = LiveDemoWire.Request(token: token, id: id, command: command, text: text, seconds: seconds)
+        connection.send(content: LiveDemoWire.encode(request), completion: .contentProcessed { [weak self] error in
+            if error != nil { self?.lock.withLock { self?.broken = true } }
         })
-    }
-
-    private var observers: [any NSObjectProtocol] = []
-    private var generation = 0
-
-    private func bump() { lock.withLock { generation += 1 } }
-    private var currentGeneration: Int { lock.withLock { generation } }
-
-    static func start() -> StartResult {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playAndRecord, mode: .default,
-                                    options: [.defaultToSpeaker, .allowBluetoothA2DP, .mixWithOthers])
-            try session.setActive(true)
-        } catch {
-            return .failed(.audioSessionFailed, ["os=\((error as NSError).code)"])
-        }
-        let audio = DemoAudio(chosenVoice: LiveDemoVoicePick.best(from: installedVoices()))
-        // Render one probe sentence to learn the voice's sample format, then wire the
-        // player at that format (as standard float, which the engine requires).
-        guard let probe = audio.render("Sound check."), let first = probe.first else {
-            return .failed(.voiceNoRender, [])
-        }
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: first.format.sampleRate,
-                                         channels: first.format.channelCount) else {
-            return .failed(.voiceFormat, [])
-        }
-        audio.speechFormat = format
-        audio.engine.attach(audio.player)
-        audio.engine.connect(audio.player, to: audio.engine.mainMixerNode, format: format)
-        audio.engine.prepare()
-        do {
-            try audio.engine.start()
-        } catch {
-            return .failed(.audioEngineFailed, ["os=\((error as NSError).code)"])
-        }
-        audio.player.play()
-        return .ready(audio)
-    }
-
-    static func installedVoices() -> [LiveDemoVoiceCandidate] {
-        AVSpeechSynthesisVoice.speechVoices().map { voice in
-            let quality: LiveDemoVoiceCandidate.Quality = switch voice.quality {
-            case .premium: .premium
-            case .enhanced: .enhanced
-            default: .standard
-            }
-            return LiveDemoVoiceCandidate(identifier: voice.identifier, language: voice.language, quality: quality,
-                                          isPersonalVoice: voice.voiceTraits.contains(.isPersonalVoice),
-                                          isNoveltyVoice: voice.voiceTraits.contains(.isNoveltyVoice))
-        }
-    }
-
-    /// Route, volume and engine state as short tokens for the status lines.
-    func diagnostics() -> [String] {
-        let session = AVAudioSession.sharedInstance()
-        let outputs = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: "+")
-        return ["route=\(outputs.isEmpty ? "none" : outputs)",
-                "volume=\(String(format: "%.2f", session.outputVolume))",
-                "engine=\(engine.isRunning ? "running" : "stopped")"]
-    }
-
-    // MARK: Speaking
-
-    func speak(_ text: String) -> SpeakResult {
-        guard let format = speechFormat else { return .failed(.voiceFormat, []) }
-        let session = AVAudioSession.sharedInstance()
-        let outputs = session.currentRoute.outputs.map(\.portType)
-        if outputs.isEmpty { return .failed(.routeMissing, []) }
-        if outputs.contains(.builtInReceiver) { return .failed(.routeEarpiece, []) }
-        if session.outputVolume <= 0 { return .failed(.volumeZero, []) }
-        guard let rendered = render(text), !rendered.isEmpty else { return .failed(.voiceNoRender, []) }
-        var buffers: [AVAudioPCMBuffer] = []
-        for buffer in rendered {
-            guard let converted = convert(buffer, to: format) else { return .failed(.voiceFormat, []) }
-            buffers.append(converted)
-        }
-        if !engine.isRunning {
-            do { try engine.start() } catch { return .failed(.audioEngineFailed, ["os=\((error as NSError).code)"]) }
-        }
-        if !player.isPlaying { player.play() }
-        let startGeneration = currentGeneration
-        let started = Date()
-        let done = Flag()
-        for (index, buffer) in buffers.enumerated() {
-            if index == buffers.count - 1 {
-                player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in done.set() }
-            } else {
-                player.scheduleBuffer(buffer)
-            }
-        }
-        let frames = buffers.reduce(0.0) { $0 + Double($1.frameLength) }
-        let deadline = Date().addingTimeInterval(frames / format.sampleRate + 5)
-        var mutedDuringPlayback = false
-        while Date() < deadline, !done.isSet {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-            if session.outputVolume <= 0 { mutedDuringPlayback = true }
-        }
-        guard done.isSet else {
-            player.stop()
-            player.play()
-            return .failed(.voiceNoPlayback, [])
-        }
-        // The completion also fires when the player is stopped, so check that playback was
-        // not cut short: nothing changed the audio path, the engine and player are still
-        // running, the volume stayed up, and at least most of the sentence's time passed.
-        if currentGeneration != startGeneration || !engine.isRunning || !player.isPlaying {
-            return .failed(.audioInterrupted, ["engine=\(engine.isRunning ? "running" : "stopped")"])
-        }
-        if mutedDuringPlayback || session.outputVolume <= 0 { return .failed(.volumeZero, []) }
-        if Date().timeIntervalSince(started) < 0.8 * frames / format.sampleRate {
-            return .failed(.voiceNoPlayback, ["cut-short"])
-        }
-        if session.currentRoute.outputs.contains(where: { $0.portType == .builtInReceiver }) {
-            return .failed(.routeEarpiece, [])
-        }
-        // A short gap between sentences.
-        let gap = Date().addingTimeInterval(0.25)
-        while Date() < gap { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
-        return .spoken
-    }
-
-    /// Renders a sentence to PCM buffers. Nil if nothing arrives in time.
-    private func render(_ text: String) -> [AVAudioPCMBuffer]? {
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = voice
-        let collected = BufferCollector()
-        synthesizer.write(utterance) { buffer in
-            guard let pcm = buffer as? AVAudioPCMBuffer else { return }
-            if pcm.frameLength == 0 { collected.finish() } else { collected.append(pcm) }
-        }
-        let deadline = Date().addingTimeInterval(LiveDemoSpeechTiming.timeout(forCharacters: text.count))
-        while Date() < deadline, !collected.isFinished {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let response = lock.withLock({ responses.removeValue(forKey: id) }) { return response }
+            if lock.withLock({ broken }) { return nil }
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
-        guard collected.isFinished else {
-            synthesizer.stopSpeaking(at: .immediate)
-            return nil
-        }
-        return collected.buffers
-    }
-
-    private func convert(_ buffer: AVAudioPCMBuffer, to format: AVAudioFormat) -> AVAudioPCMBuffer? {
-        if buffer.format == format { return buffer }
-        guard buffer.format.sampleRate == format.sampleRate,
-              buffer.format.channelCount == format.channelCount,
-              let converter = AVAudioConverter(from: buffer.format, to: format),
-              let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: buffer.frameLength) else { return nil }
-        do { try converter.convert(to: output, from: buffer) } catch { return nil }
-        return output
-    }
-
-    // MARK: Listening
-
-    static var permissionStillUndecided: Bool {
-        SFSpeechRecognizer.authorizationStatus() == .notDetermined
-            || AVAudioApplication.shared.recordPermission == .undetermined
-    }
-
-    /// Nil when listening is ready; otherwise why not. Called while the runner is in front.
-    func enableListening() -> LiveDemoSkip? {
-        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US")),
-              recognizer.supportsOnDeviceRecognition else { return .onDeviceUnavailable }
-        let speechGranted = Box<Bool?>(nil)
-        let micGranted = Box<Bool?>(nil)
-        SFSpeechRecognizer.requestAuthorization { speechGranted.set($0 == .authorized) }
-        AVAudioApplication.requestRecordPermission { micGranted.set($0) }
-        let deadline = Date().addingTimeInterval(45)
-        while Date() < deadline, speechGranted.get() == nil || micGranted.get() == nil {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        guard speechGranted.get() == true, micGranted.get() == true else { return .permissionDenied }
-        guard recognizer.isAvailable else { return .onDeviceUnavailable }
-        // Add the microphone to the running engine: stop, tap, start again.
-        engine.stop()
-        let input = engine.inputNode
-        let format = input.outputFormat(forBus: 0)
-        var started = false
-        if format.channelCount > 0, format.sampleRate > 0 {
-            input.installTap(onBus: 0, bufferSize: 1_024, format: format) { [weak self] buffer, _ in
-                self?.append(buffer)
-            }
-            hasInputTap = true
-            engine.prepare()
-            started = (try? engine.start()) != nil
-        }
-        if !started {
-            // Keep speaking even if the microphone cannot run.
-            if hasInputTap { input.removeTap(onBus: 0); hasInputTap = false }
-            engine.prepare()
-            try? engine.start()
-            player.play()
-            return .audioInputFailed
-        }
-        player.play()
-        self.recognizer = recognizer
-        // Let the route and configuration notifications from adding the microphone arrive
-        // now, before the next sentence starts, so they are not mistaken for an interruption.
-        let settle = Date().addingTimeInterval(1)
-        while Date() < settle { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
         return nil
     }
 
-    private func append(_ buffer: AVAudioPCMBuffer) {
-        lock.withLock { request?.append(buffer) }
-    }
-
-    /// One listening turn: ends 1.8 s after speech stops, after `maxSeconds`, or after 7 s
-    /// of silence. Returns nil if the turn could not run.
-    func listen(maxSeconds: TimeInterval = 10) -> String? {
-        guard let recognizer, hasInputTap, engine.isRunning else { return nil }
-        // Let the last spoken word fade so the demo does not hear itself.
-        let settle = Date().addingTimeInterval(0.5)
-        while Date() < settle { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
-        let turn = SFSpeechAudioBufferRecognitionRequest()
-        turn.requiresOnDeviceRecognition = true
-        turn.shouldReportPartialResults = true
-        turn.addsPunctuation = true
-        turn.taskHint = .dictation
-        lock.withLock { latest = ""; lastChange = nil; isFinal = false; recognitionFailed = false; request = turn }
-        let task = recognizer.recognitionTask(with: turn) { [weak self] result, error in
-            self?.receive(result.map { ($0.bestTranscription.formattedString, $0.isFinal) }, failed: error != nil)
-        }
-        let started = Date()
-        let hardStop = started.addingTimeInterval(min(maxSeconds, 20))
-        while Date() < hardStop {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-            let state = lock.withLock { (lastChange, isFinal, recognitionFailed) }
-            if state.1 || state.2 { break }
-            if let change = state.0, Date().timeIntervalSince(change) > 1.8 { break }
-            if state.0 == nil, Date().timeIntervalSince(started) > 7 { break }
-        }
-        lock.withLock { request = nil }
-        turn.endAudio()
-        let finalDeadline = Date().addingTimeInterval(2.5)
-        while Date() < finalDeadline, !lock.withLock({ isFinal || recognitionFailed }) {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        task.cancel()
-        return lock.withLock { latest }
-    }
-
-    private func receive(_ hypothesis: (String, Bool)?, failed didFail: Bool) {
-        lock.withLock {
-            if let (text, final) = hypothesis {
-                if text != latest { latest = text; lastChange = Date() }
-                if final { isFinal = true }
+    private func connect(within seconds: TimeInterval) -> Bool {
+        if lock.withLock({ ready }) { return true }
+        if connection.state == .setup {
+            connection.stateUpdateHandler = { [weak self] state in
+                guard let self else { return }
+                switch state {
+                case .ready: self.lock.withLock { self.ready = true }
+                case .failed, .cancelled: self.lock.withLock { self.broken = true }
+                case .waiting:
+                    // The listener may not be up yet: retry shortly.
+                    self.queue.asyncAfter(deadline: .now() + 0.3) { self.connection.restart() }
+                default: break
+                }
             }
-            if didFail { recognitionFailed = true }
+            connection.start(queue: queue)
+            receive()
+        }
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline, !lock.withLock({ ready || broken }) {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return lock.withLock { ready && !broken }
+    }
+
+    private func receive() {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { [weak self] data, _, isComplete, error in
+            guard let self else { return }
+            self.lock.withLock {
+                if let data { self.buffer.append(data) }
+                if let lines = try? LiveDemoWire.takeLines(from: &self.buffer) {
+                    for line in lines {
+                        if let response = LiveDemoWire.decodeResponse(line) { self.responses[response.id] = response }
+                    }
+                } else {
+                    self.broken = true
+                }
+                if isComplete || error != nil { self.broken = true }
+            }
+            if !self.lock.withLock({ self.broken }) { self.receive() }
         }
     }
 
-    func shutDown() {
-        for observer in observers { NotificationCenter.default.removeObserver(observer) }
-        observers.removeAll()
-        lock.withLock { request = nil }
-        player.stop()
-        if engine.isRunning { engine.stop() }
-        if hasInputTap { engine.inputNode.removeTap(onBus: 0); hasInputTap = false }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    func close() {
+        connection.cancel()
     }
-}
-
-private final class BufferCollector: @unchecked Sendable {
-    private let lock = NSLock()
-    private var collected: [AVAudioPCMBuffer] = []
-    private var finished = false
-    var isFinished: Bool { lock.withLock { finished } }
-    var buffers: [AVAudioPCMBuffer] { lock.withLock { collected } }
-    func append(_ buffer: AVAudioPCMBuffer) { lock.withLock { collected.append(buffer) } }
-    func finish() { lock.withLock { finished = true } }
-}
-
-private final class Flag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value = false
-    var isSet: Bool { lock.withLock { value } }
-    func set() { lock.withLock { value = true } }
-}
-
-private final class Box<Value: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: Value
-    init(_ value: Value) { self.value = value }
-    func get() -> Value { lock.withLock { value } }
-    func set(_ newValue: Value) { lock.withLock { value = newValue } }
 }
