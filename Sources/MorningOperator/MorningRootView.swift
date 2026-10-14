@@ -548,11 +548,8 @@ struct TodayView: View {
                 if store.sessionActive { nowPlaying(compact: compact) }
                 if store.session?.status == .completed { closingMoment }
                 compactTimeline(routine, compact: compact)
-                if routine.isSynthetic {
-                    Text("Sample morning").font(.caption2).foregroundStyle(MorningStyle.muted)
-                        .padding(.horizontal, 4).accessibilityIdentifier("routine.source")
-                        .accessibilityLabel("Sample morning, not your observed activity")
-                }
+                // While a morning runs, the Now card carries this label (issue #67).
+                if routine.isSynthetic, !store.sessionActive { sampleLabel.padding(.horizontal, 4) }
                 Spacer(minLength: 4)
                 if store.sessionActive { actionArea(routine) }
             } else {
@@ -614,21 +611,35 @@ struct TodayView: View {
         }
     }
 
-    private func routineHeading(_ routine: RoutineVersion, compact: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(isFrench ? "bonjour" : "good morning").font(.title3.weight(.semibold))
-                .accessibilityIdentifier("morning.heading")
-                .accessibilityValue(store.session?.status == .stopped ? "stopped" : "")
-            morningInvitationButton
-            if !routine.isApproved {
-                Text("Draft").font(.caption2).foregroundStyle(MorningStyle.muted)
-                    .accessibilityIdentifier("morning.draft")
-                    .accessibilityLabel("Draft, review before starting")
-            }
-            Spacer(minLength: 8)
-            Text("\(routine.totalDurationMinutes) min").font(.caption.monospacedDigit()).foregroundStyle(MorningStyle.muted)
-                .accessibilityLabel("\(routine.totalDurationMinutes) minutes planned")
-        }.padding(.bottom, 2)
+    @ViewBuilder private func routineHeading(_ routine: RoutineVersion, compact: Bool) -> some View {
+        let heading = Text(isFrench ? "bonjour" : "good morning").font(.title3.weight(.semibold))
+            .accessibilityIdentifier("morning.heading")
+            .accessibilityValue(store.session?.status == .stopped ? "stopped" : "")
+        if dynamicType.isAccessibilitySize {
+            // At accessibility sizes the greeting takes its own full-width line, so it
+            // wraps between words instead of breaking inside one (issue #89).
+            VStack(alignment: .leading, spacing: 0) {
+                heading.fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline) { routineHeadingDetails(routine) }
+            }.padding(.bottom, 2)
+        } else {
+            HStack(alignment: .firstTextBaseline) {
+                heading
+                routineHeadingDetails(routine)
+            }.padding(.bottom, 2)
+        }
+    }
+
+    @ViewBuilder private func routineHeadingDetails(_ routine: RoutineVersion) -> some View {
+        morningInvitationButton
+        if !routine.isApproved {
+            Text("Draft").font(.caption2).foregroundStyle(MorningStyle.muted)
+                .accessibilityIdentifier("morning.draft")
+                .accessibilityLabel("Draft, review before starting")
+        }
+        Spacer(minLength: 8)
+        Text("\(routine.totalDurationMinutes) min").font(.caption.monospacedDigit()).foregroundStyle(MorningStyle.muted)
+            .accessibilityLabel("\(routine.totalDurationMinutes) minutes planned")
     }
 
     private var morningInvitationButton: some View {
@@ -762,16 +773,30 @@ struct TodayView: View {
         let complete = store.session?.completedStepIDs.contains(step.id) == true
         let skipped = store.session?.skippedStepIDs.contains(step.id) == true
         let current = store.sessionActive && store.currentStep?.id == step.id
+        let symbol = Image(systemName: complete ? "checkmark" : skipped ? "forward.end" : MorningStyle.symbol(for: step.kind))
+            .scaledFont(16, relativeTo: .body, weight: .regular)
+            .foregroundStyle(.primary.opacity(complete || skipped ? 0.4 : 0.72))
+        let title = Text(step.title).font(.subheadline.weight(.medium))
+        let duration = Text("\(step.durationMinutes) min")
+            .font(.caption.monospacedDigit()).foregroundStyle(MorningStyle.muted)
         return Button { viewingStep = step } label: {
-            HStack(spacing: 13) {
-                Image(systemName: complete ? "checkmark" : skipped ? "forward.end" : MorningStyle.symbol(for: step.kind))
-                    .scaledFont(16, relativeTo: .body, weight: .regular)
-                    .foregroundStyle(.primary.opacity(complete || skipped ? 0.4 : 0.72)).frame(width: 25)
-                Text(step.title).font(.subheadline.weight(.medium))
-                    .lineLimit(dynamicType.isAccessibilitySize ? nil : 1)
-                Spacer(minLength: 4)
-                Text("\(step.durationMinutes) min")
-                    .font(.caption.monospacedDigit()).foregroundStyle(MorningStyle.muted)
+            Group {
+                if dynamicType.isAccessibilitySize {
+                    // At accessibility sizes the title gets the tile's full width under its
+                    // symbol, so it wraps between words and nothing overlaps it (issue #89).
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline) { symbol; Spacer(minLength: 4); duration }
+                        title.fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    HStack(spacing: 13) {
+                        symbol.frame(width: 25)
+                        // A long title, as in French, wraps to a second line instead of being cut (issue #89).
+                        title.lineLimit(2)
+                        Spacer(minLength: 4)
+                        duration
+                    }
+                }
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 16).padding(.vertical, 12)
@@ -800,6 +825,12 @@ struct TodayView: View {
         }
     }
 
+    private var sampleLabel: some View {
+        Text("Sample morning").font(.caption2).foregroundStyle(MorningStyle.muted)
+            .accessibilityIdentifier("routine.source")
+            .accessibilityLabel("Sample morning, not your observed activity")
+    }
+
     private func nowPlaying(compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -810,6 +841,9 @@ struct TodayView: View {
                         .accessibilityIdentifier("run.state").accessibilityValue(store.stateLabel)
                 }.font(.caption.weight(.medium)).foregroundStyle(MorningStyle.accent)
                 Spacer()
+                // In the card's own header row, so a running sample morning stays
+                // labelled without a line of its own: ten moments fit (issue #67).
+                if store.routine?.isSynthetic == true { sampleLabel }
             }
             Text(store.currentStep?.title ?? String(localized: "Your morning"))
                 .font(.headline).accessibilityIdentifier("run.step")
@@ -1108,15 +1142,16 @@ private struct MorningLightBackdrop: View {
     }
 }
 
-/// Light haptics mark the moments that matter: a morning starts, a morning finishes,
-/// a routine is approved. The system skips them when haptics are off.
+/// Haptics mark the moments that matter: a light tap when a morning starts, and the
+/// system's success feedback when a morning finishes or a routine is approved. Each
+/// follows a store counter that rises only after a successful save (issue #80). The
+/// system skips them when haptics are off.
 private struct MorningHaptics: ViewModifier {
     let store: MorningStore
     func body(content: Content) -> some View {
-        let completed: Bool = store.session?.status == .completed
-        return content
-            .sensoryFeedback(.impact, trigger: store.morningStartCount)
-            .sensoryFeedback(.success, trigger: completed) { (old: Bool, new: Bool) -> Bool in !old && new }
+        content
+            .sensoryFeedback(.impact(weight: .light), trigger: store.morningStartCount)
+            .sensoryFeedback(.success, trigger: store.morningCompletionCount)
             .sensoryFeedback(.success, trigger: store.approvalCount)
     }
 }

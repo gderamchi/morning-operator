@@ -286,15 +286,8 @@ final class QuietMorningTests: XCTestCase {
         let item = app.buttons["morning.step.9"]
         XCTAssertTrue(item.isHittable)
         attach("more-ten-active-moments-one-screen", app)
-        // Quarantined, issue #67: the running page is a few points too tall, so
-        // the controls row is clipped and the page scrolls. The check is kept
-        // as written; this turns red again as soon as the page fits.
-        // Only the comparison itself is expected to fail, not a failure to read the screen.
-        let onlyTheCount = XCTExpectedFailure.Options()
-        onlyTheCount.issueMatcher = { $0.compactDescription.contains("XCTAssertEqual failed") }
-        XCTExpectFailure("Ten running moments no longer fit on one screen (issue #67).", options: onlyTheCount) {
-            XCTAssertEqual(app.scrollViews.count, 0)
-        }
+        // Issue #67: at the standard text size the running page fits without scrolling.
+        XCTAssertEqual(app.scrollViews.count, 0, app.debugDescription)
     }
 
     func testVoiceEntryPausesBeforeListeningAndKeepsTouchFallback() {

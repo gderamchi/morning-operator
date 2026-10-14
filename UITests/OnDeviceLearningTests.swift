@@ -70,9 +70,11 @@ final class OnDeviceLearningTests: XCTestCase {
         // One exception, on a simulator only: a simulator without the model's
         // files still reports the model as available, then refuses the request
         // with model-manager error 1019. That is a missing capability, not a
-        // result. Any other model-manager error (an invalid schema, say) fails.
-        let refusal = app.staticTexts.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@",
-                                                            "app.notice", "ModelManagerError error 1019")).firstMatch
+        // result. The app shows it as the "not ready" sentence, never the code
+        // (issue #89). Any other model failure (an invalid schema, say) fails.
+        let notReady = "Apple's local model is not ready on this device yet. Your routine is unchanged. Try again later, or write your routine yourself."
+        let refusal = app.staticTexts.matching(NSPredicate(format: "identifier == %@ AND label == %@",
+                                                            "app.notice", notReady)).firstMatch
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in proposal.exists || refusal.exists },
                                                 object: nil)
         _ = XCTWaiter.wait(for: [settled], timeout: 120)

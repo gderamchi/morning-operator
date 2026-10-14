@@ -58,6 +58,15 @@ final class InterfaceTourTests: XCTestCase {
         attach("\(prefix)-routine", app)
         app.terminate()
 
+        // Observed mornings, from the synthetic review fixture in its own workspace:
+        // its heading wraps in full (issue #89).
+        app = launch(arguments + ["--ui-testing-observation-review"], workspace: UUID())
+        MorningUITestNavigation.selectTab("Review", in: app)
+        tapAfterScrolling(app.buttons["review.recordedPatterns"], in: app)
+        XCTAssertTrue(app.staticTexts["review.recordedPatterns.heading"].waitForExistence(timeout: 10), app.debugDescription)
+        attach("\(prefix)-observed-mornings", app)
+        app.terminate()
+
         // Last, because it starts a morning in this workspace: the opening (issue #28).
         app = launch(arguments, workspace: workspace)
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
