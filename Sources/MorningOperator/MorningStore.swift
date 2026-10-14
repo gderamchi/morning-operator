@@ -62,6 +62,7 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var readAloud: Bool?
     var showMorningOnLockScreen: Bool?
     var sessionTimingInterrupted: Bool?
+    var budgetAndFeedback: RoutineBudgetAndFeedback?
     var pendingCaptures: [String: String]?
     var voiceIdentifier: String?
     var observationNotes: String?
@@ -92,6 +93,7 @@ private extension WorkspaceSnapshot {
         readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
         showMorningOnLockScreen = try values.decodeIfPresent(Bool.self, forKey: .showMorningOnLockScreen)
         sessionTimingInterrupted = try values.decodeIfPresent(Bool.self, forKey: .sessionTimingInterrupted)
+        budgetAndFeedback = try values.decodeIfPresent(RoutineBudgetAndFeedback.self, forKey: .budgetAndFeedback)
         pendingCaptures = try values.decodeIfPresent([String: String].self, forKey: .pendingCaptures)
         voiceIdentifier = try values.decodeIfPresent(String.self, forKey: .voiceIdentifier)
         observationNotes = try values.decodeIfPresent(String.self, forKey: .observationNotes)
@@ -178,6 +180,11 @@ final class MorningStore {
     private(set) var captures: [QuickCapture] = []
     private(set) var receipts: [String: String] = [:]
     private(set) var pendingCaptures: [String: String] = [:]
+    // Time budget, recap and feedback (#10). Change these through MorningStore+Budget.swift.
+    var budgetAndFeedback = RoutineBudgetAndFeedback()
+    /// The ending event of each ended run that the last successful save wrote to disk.
+    private(set) var savedRunEndings: Set<UUID> = []
+    func saveBudgetAndFeedback() -> Bool { persist() }
     private var sessionTimingInterrupted = false
     private var sessionTimeZone = TimeZone.current.identifier
     let reminders = ReminderService()
@@ -338,6 +345,11 @@ final class MorningStore {
             if let archive = ObservationReviewUITestFixture.archive(directory: directory) {
                 observationArchive = archive
             }
+            // A sample run stopped after its first moment and saved, for the recap screenshots (#10).
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-stopped-run"), let approved = routine?.approved() {
+                routine = approved; session = RoutineSession(routine: approved)
+                try? session?.start(); try? session?.advance(); try? session?.stop(); archiveTerminalSession(); persist()
+            }
             #endif
         } else if FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             do {
@@ -372,6 +384,8 @@ final class MorningStore {
                     }
                 }
                 history = saved.history ?? MorningHistory()
+                budgetAndFeedback = (saved.budgetAndFeedback ?? RoutineBudgetAndFeedback()).droppingAcceptance(unlessFor: routine)
+                savedRunEndings = runEndingsInMemory
                 captures = saved.captures ?? []
                 receipts = saved.receipts ?? [:]
                 sessionTimeZone = saved.sessionTimeZone ?? TimeZone.current.identifier
@@ -2066,6 +2080,9 @@ final class MorningStore {
             return false
         }
         do {
+            // An accepted longer plan ends with any change of routine, whether or not this write succeeds.
+            let currentBudget = budgetAndFeedback.droppingAcceptance(unlessFor: routine)
+            if currentBudget != budgetAndFeedback { budgetAndFeedback = currentBudget }
             try synchronizeObservationEdits()
             // A proposal is derived from both sources and a full routine revision.
             // Drop stale derived state in the same write as any edit or deletion.
@@ -2078,6 +2095,7 @@ final class MorningStore {
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
                 automatic: automatic, readAloud: readAloud, showMorningOnLockScreen: showMorningOnLockScreen,
                 sessionTimingInterrupted: sessionTimingInterrupted,
+                budgetAndFeedback: budgetAndFeedback,
                 pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
                 observationNotes: notes.isEmpty ? nil : notes,
                 observationSource: notes.isEmpty && observationVideoEvidence == nil ? nil : notesSourceLabel,
@@ -2091,6 +2109,7 @@ final class MorningStore {
             }
             pendingRoutineProposal = validProposal
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
+            savedRunEndings = runEndingsInMemory
             observationEditsNeedSave = false
             projectObservation(selectedObservationID)
             if let observationSaveIssue, notice == observationSaveIssue { notice = nil }
@@ -2237,6 +2256,7 @@ final class MorningStore {
         pendingRoutineProposal = nil
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
+        budgetAndFeedback = RoutineBudgetAndFeedback(); savedRunEndings = []
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
         pendingRecordingInterruption = nil; pendingRecordingContext = nil
         captureBusy = false; capturePresented = false; capturePrefill = ""; captureSource = .typed
