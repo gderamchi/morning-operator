@@ -21,6 +21,7 @@ extension MorningStore {
             endStepTimer(); return false
         }
         do {
+            try target.validateIntegration()
             var timer = activeStepTimer ?? StepTimer(sessionID: session.id, stepID: step.id,
                 minutes: step.durationMinutes, at: Date())
             timer.resume(at: Date())
@@ -44,12 +45,29 @@ extension MorningStore {
                         }
                     }
                 case let .inAppWeb(site): pendingWebTarget = site
+                case let .shortcut(name, input):
+                    let url = try nativeConnections.launchShortcut(name: name, input: input)
+                    let requestID = nativeConnections.pendingShortcut?.id
+                    if let requestID { nativeStepContext = (requestID, session.id, step.id) }
+                    UIApplication.shared.open(url) { [weak self] opened in
+                        guard !opened else { return }
+                        Task { @MainActor in
+                            guard let self, let requestID,
+                                  self.nativeStepContext?.requestID == requestID,
+                                  self.session?.id == session.id, self.currentStep?.id == step.id else { return }
+                            self.nativeConnections.shortcutCouldNotOpen(requestID: requestID)
+                            self.notice = String(localized: "Shortcuts couldn't open. Check the installed shortcut before trying again.")
+                        }
+                    }
+                case let .connectedAPI(service, connectionID, tool, arguments):
+                    runConnectedAction(service: service, connectionID: connectionID, tool: tool,
+                        argumentsJSON: arguments, sessionID: session.id, stepID: step.id)
                 }
             }
             synchronizeMorningActivity()
             return true
         } catch {
-            notice = String(localized: "The step timer couldn't be saved. Try again before leaving MORE.")
+            notice = String(localized: "This moment couldn't start: \(error.localizedDescription)")
             pause()
             return true
         }
@@ -101,6 +119,10 @@ extension MorningStore {
     }
 
     func pauseStepTimer() {
+        if connectedAPITask != nil {
+            connectedAPITask?.cancel(); connectedAPITask = nil
+            connectedActionStatus = String(localized: "Waiting stopped. If the action had started, check the account before doing it again.")
+        }
         stepTimerTask?.cancel(); stepTimerTask = nil
         if let timer = activeStepTimer {
             _ = StepTimerFile.update(sessionID: timer.sessionID, stepID: timer.stepID) { $0.pause(at: Date()) }
@@ -110,6 +132,10 @@ extension MorningStore {
 
     @discardableResult
     func endStepTimer() -> Bool {
+        connectedAPITask?.cancel(); connectedAPITask = nil
+        connectedActionStatus = nil
+        nativeStepContext = nil
+        nativeConnections.cancelPendingWork()
         stepTimerTask?.cancel(); stepTimerTask = nil
         let retired = StepTimerFile.clear()
         StepTimerAlert.cancel()

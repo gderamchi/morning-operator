@@ -145,6 +145,8 @@ public enum StepAppDetailKind: Sendable { case none, phoneNumber, messageID, use
 public enum RoutineStepTarget: Codable, Hashable, Sendable {
     case externalApp(StepApp, detail: String?)
     case inAppWeb(site: URL)
+    case shortcut(name: String, input: String)
+    case connectedAPI(service: String, connectionID: String, tool: String, argumentsJSON: String)
 
     /// The URL to open for an external app; nil for a page inside MORE or a Safari step
     /// without a valid address.
@@ -161,11 +163,13 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
             let host = (site.host ?? "").lowercased()
             let bare = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
             return .inMORE(StepApp.allCases.first { $0.webHosts.contains(bare) })
+        case .shortcut: return .nativeAction
+        case .connectedAPI: return .connectedService
         }
     }
 
-    private enum CodingKeys: String, CodingKey { case kind, app, detail, site }
-    private enum Kind: String, Codable { case externalApp, inAppWeb }
+    private enum CodingKeys: String, CodingKey { case kind, app, detail, site, name, input, service, connectionID, tool, argumentsJSON }
+    private enum Kind: String, Codable { case externalApp, inAppWeb, shortcut, connectedAPI }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -182,10 +186,19 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
                 throw DecodingError.dataCorruptedError(forKey: .site, in: values, debugDescription: "A page in MORE needs an http(s) address.")
             }
             self = .inAppWeb(site: url)
+        case .shortcut:
+            self = .shortcut(name: try values.decode(String.self, forKey: .name), input: try values.decode(String.self, forKey: .input))
+        case .connectedAPI:
+            self = .connectedAPI(service: try values.decode(String.self, forKey: .service),
+                connectionID: try values.decode(String.self, forKey: .connectionID),
+                tool: try values.decode(String.self, forKey: .tool),
+                argumentsJSON: try values.decode(String.self, forKey: .argumentsJSON))
         }
+        try validateIntegration()
     }
 
     public func encode(to encoder: any Encoder) throws {
+        try validateIntegration()
         var values = encoder.container(keyedBy: CodingKeys.self)
         switch self {
         case let .externalApp(app, detail):
@@ -195,6 +208,16 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
         case let .inAppWeb(site):
             try values.encode(Kind.inAppWeb, forKey: .kind)
             try values.encode(site.absoluteString, forKey: .site)
+        case let .shortcut(name, input):
+            try values.encode(Kind.shortcut, forKey: .kind)
+            try values.encode(name, forKey: .name)
+            try values.encode(input, forKey: .input)
+        case let .connectedAPI(service, connectionID, tool, argumentsJSON):
+            try values.encode(Kind.connectedAPI, forKey: .kind)
+            try values.encode(service, forKey: .service)
+            try values.encode(connectionID, forKey: .connectionID)
+            try values.encode(tool, forKey: .tool)
+            try values.encode(argumentsJSON, forKey: .argumentsJSON)
         }
     }
 }
@@ -205,12 +228,15 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
 public enum StepDestination: Codable, Hashable, Sendable {
     case app(StepApp)
     case inMORE(StepApp?)
+    case nativeAction, connectedService
 
     public var displayName: String {
         switch self {
         case let .app(app): app.displayName
         case let .inMORE(app?): String(localized: "\(app.displayName) in MORE", bundle: .module)
         case .inMORE(nil): String(localized: "A page in MORE", bundle: .module)
+        case .nativeAction: String(localized: "iOS action", bundle: .module)
+        case .connectedService: String(localized: "Connected service", bundle: .module)
         }
     }
 }

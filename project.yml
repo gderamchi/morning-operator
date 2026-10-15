@@ -20,6 +20,7 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     CURRENT_PROJECT_VERSION: "1"
+    MORNING_API_BASE_URL: ""
 targets:
   MorningOperator:
     type: application

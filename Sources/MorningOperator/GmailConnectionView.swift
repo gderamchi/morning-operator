@@ -16,7 +16,7 @@ struct GmailConnectionView: View {
             } else {
                 connectionOverview
             }
-            if let error = controller.errorMessage {
+            if let error = controller.errorMessage, error != controller.configurationError {
                 Text(error).font(.footnote).foregroundStyle(MorningStyle.muted)
                     .accessibilityIdentifier("gmail.error")
             }

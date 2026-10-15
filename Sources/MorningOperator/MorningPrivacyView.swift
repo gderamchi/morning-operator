@@ -50,6 +50,10 @@ struct MorningPrivacyView: View {
                 Text("Calendar events and prepared recaps stay in memory. MORE saves only the calendars you select, your chosen weather city and temperature unit.")
                 Text("City searches go to Apple Maps. Weather requests send the selected city’s coordinates to Apple Weather. Screen content and learning aren't sent with these requests.")
             }.font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+            Section("Connected accounts") {
+                Text("Requests to connected accounts and their results pass through our connection service and Composio. Screen recordings and local learning stay on this iPhone.")
+                Text("Adding an account action to your routine saves its details. Forgetting local data removes access from this iPhone; service permissions and server receipts are managed separately. To disconnect an account, open its page in Apps & accounts.")
+            }.font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             Section("Outside MORE") {
                 Text("Originals in Photos or Files, exported copies, and items already saved in Calendar or Reminders stay where they are.")
                 Text("Apple permissions, installed voices, Shortcuts and device backups are managed separately. Removing local data doesn't change them or erase copies outside this app.")

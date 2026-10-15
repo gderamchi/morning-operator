@@ -70,7 +70,7 @@ public struct EventKitWriteReceipt: Sendable, Equatable, Identifiable {
 public enum ReminderServiceError: LocalizedError, Sendable, Equatable {
     case remindersNotAuthorized, calendarNotAuthorized, missingUsageDescription(String)
     case noWritableReminderList, noWritableCalendar, invalidTitle, notesTooLong, invalidDate
-    case invalidTimeZone, alarmNeedsDate, invalidQuery, fetchFailed
+    case invalidTimeZone, alarmNeedsDate, invalidQuery, fetchFailed, reminderChanged, reminderNotWritable
 
     public var errorDescription: String? {
         switch self {
@@ -86,6 +86,8 @@ public enum ReminderServiceError: LocalizedError, Sendable, Equatable {
         case .alarmNeedsDate: String(localized: "A reminder alert needs a due date and time.", bundle: .module)
         case .invalidQuery: String(localized: "Choose a reminder date range of at most 90 days and a result limit from 1 to 200.", bundle: .module)
         case .fetchFailed: String(localized: "Reminders could not be read. Access may have changed. Try again after checking permission.", bundle: .module)
+        case .reminderChanged: String(localized: "This reminder changed or is no longer available. Read your reminders again before marking it complete.", bundle: .module)
+        case .reminderNotWritable: String(localized: "This Reminders list doesn't allow changes.", bundle: .module)
         }
     }
 }
@@ -194,6 +196,23 @@ public final class ReminderService {
         }
         try store.save(reminder, commit: true)
         return EventKitWriteReceipt(id: reminder.calendarItemIdentifier, title: reminder.title, destination: .reminder)
+    }
+
+    /// Re-read the exact reviewed item before applying an idempotent completion.
+    public func completeReminder(_ expected: ReminderSummary) throws {
+        guard hasReminderAccess else { throw ReminderServiceError.remindersNotAuthorized }
+        guard let reminder = store.calendarItem(withIdentifier: expected.id) as? EKReminder else {
+            throw ReminderServiceError.reminderChanged
+        }
+        if reminder.isCompleted { return }
+        guard reminder.title == expected.title, (reminder.notes ?? "") == expected.notes,
+              reminder.calendar.title == expected.listTitle,
+              reminder.dueDateComponents.flatMap(EventKitDraftValidation.reminderDueDate) == expected.dueDate else {
+            throw ReminderServiceError.reminderChanged
+        }
+        guard reminder.calendar.allowsContentModifications else { throw ReminderServiceError.reminderNotWritable }
+        reminder.isCompleted = true
+        try store.save(reminder, commit: true)
     }
 
     @discardableResult

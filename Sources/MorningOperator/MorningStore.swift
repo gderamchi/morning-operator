@@ -218,6 +218,11 @@ final class MorningStore {
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
     let briefing: MorningBriefingController
+    let composio = ComposioService()
+    let nativeConnections = NativeConnectionsService()
+    @ObservationIgnored var connectedAPITask: Task<Void, Never>?
+    @ObservationIgnored var nativeStepContext: (requestID: UUID, sessionID: UUID, stepID: UUID)?
+    var connectedActionStatus: String?
     let usesSyntheticBriefing: Bool
     private(set) var consumedMorningEntryIDs: [UUID] = []
     // The opening of a morning (issue #28). The logic is in MorningStore+Opening.swift;
@@ -574,6 +579,8 @@ final class MorningStore {
     func approve() -> Bool {
         guard !privacyBlocksWork else { return false }
         guard let routine, !busy, !sessionActive else { return false }
+        do { for step in routine.steps { try step.target?.validateIntegration() } }
+        catch { notice = error.localizedDescription; return false }
         guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return false }
         guard !routine.steps.isEmpty else { notice = String(localized: "Add at least one step before approving."); return false }
         let savedPrevious = previousRoutine
@@ -596,6 +603,19 @@ final class MorningStore {
     func updateSteps(_ steps: [RoutineStep]) -> Bool {
         guard !privacyBlocksWork else { return false }
         return saveRoutineEdit(steps: steps, preferences: routinePreferences)
+    }
+
+    @discardableResult
+    func addConnectedStep(_ step: RoutineStep) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !sessionActive, !busy else { return false }
+        guard (routine?.steps.count ?? 0) < 10 else {
+            notice = String(localized: "Keep your routine within ten moments before adding another action.")
+            return false
+        }
+        if let routine { return updateSteps(routine.steps + [step]) }
+        self.routine = RoutineVersion(sourceLabel: String(localized: "Your connected routine"), steps: [step])
+        guard persist() else { self.routine = nil; return false }
+        return true
     }
 
     /// Commit one completed drag using the identities captured at drag start.
@@ -2292,6 +2312,10 @@ final class MorningStore {
         oldAnalysis?.cancel()
         cancelScreenTimeRead()
         briefing.cancelAndClear()
+        connectedAPITask?.cancel(); connectedAPITask = nil
+        connectedActionStatus = nil
+        composio.cancelPendingOperations()
+        nativeConnections.cancelPendingWork()
         stepExecutor.clear()
         endOpening()
         cancelStepPlayback()
@@ -2328,6 +2352,9 @@ final class MorningStore {
             try ScreenRecordingFiles.removeAllOwnedRecordings()
             #endif
             try await invitation.forget()
+            await nativeConnections.quiesce()
+            try nativeConnections.clearForPrivacy()
+            try composio.clearLocalCredentials()
             endStepTimer()
             try MorningAlarmService.shared.forget()
             await WebMorningController.clearAllSignIns()

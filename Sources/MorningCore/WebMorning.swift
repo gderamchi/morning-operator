@@ -3,10 +3,10 @@ import CoreFoundation
 
 /// A website a routine step can open inside MORE's own browser.
 /// The person signs in themselves, sees the page the whole time and starts every action.
-/// MORE only reads a number or headlines and scrolls to the next video. It never clicks,
-/// types, posts, likes, follows or sends, and blocks known sign-in URLs before running a script.
+/// Calibrated sites offer a number, headlines or one scroll; other sites support manual browsing.
+/// MORE never clicks, types, posts, likes, follows or sends, and blocks known sign-in URLs before a script.
 public enum WebMorningSite: String, Codable, CaseIterable, Sendable, Identifiable {
-    case instagram, youtube, news, whatsapp, gmail
+    case instagram, youtube, news, whatsapp, gmail, tiktok, twitter, reddit, facebook, threads
     public var id: String { rawValue }
     public var displayName: String {
         switch self {
@@ -15,9 +15,14 @@ public enum WebMorningSite: String, Codable, CaseIterable, Sendable, Identifiabl
         case .news: "Le Monde"
         case .whatsapp: "WhatsApp"
         case .gmail: "Gmail"
+        case .tiktok: "TikTok"
+        case .twitter: "X"
+        case .reddit: "Reddit"
+        case .facebook: "Facebook"
+        case .threads: "Threads"
         }
     }
-    /// Only explicit supported HTTPS hosts map to script-capable sites.
+    /// Only explicit supported HTTPS hosts map to known browser destinations.
     public init?(url: URL) {
         guard url.scheme?.lowercased() == "https", url.user == nil, url.password == nil,
               url.port == nil || url.port == 443,
@@ -116,6 +121,27 @@ public struct WebMorningSiteTable: Sendable, Equatable {
                 usesDesktopUserAgent: false,
                 readyRoot: [], count: nil,
                 headlines: nil, video: nil)
+        // These destinations offer manual browsing; no page reader or video scroll is calibrated yet.
+        case .tiktok:
+            WebMorningSiteTable(site: site, startURL: URL(string: "https://www.tiktok.com/")!,
+                feedURL: nil, allowedHosts: ["www.tiktok.com", "tiktok.com"], feedPaths: [],
+                usesDesktopUserAgent: false, readyRoot: [], count: nil, headlines: nil, video: nil)
+        case .twitter:
+            WebMorningSiteTable(site: site, startURL: URL(string: "https://x.com/home")!,
+                feedURL: nil, allowedHosts: ["x.com", "www.x.com", "twitter.com", "www.twitter.com"], feedPaths: [],
+                usesDesktopUserAgent: true, readyRoot: [], count: nil, headlines: nil, video: nil)
+        case .reddit:
+            WebMorningSiteTable(site: site, startURL: URL(string: "https://www.reddit.com/")!,
+                feedURL: nil, allowedHosts: ["reddit.com", "www.reddit.com"], feedPaths: [],
+                usesDesktopUserAgent: false, readyRoot: [], count: nil, headlines: nil, video: nil)
+        case .facebook:
+            WebMorningSiteTable(site: site, startURL: URL(string: "https://www.facebook.com/")!,
+                feedURL: nil, allowedHosts: ["facebook.com", "www.facebook.com", "m.facebook.com"], feedPaths: [],
+                usesDesktopUserAgent: false, readyRoot: [], count: nil, headlines: nil, video: nil)
+        case .threads:
+            WebMorningSiteTable(site: site, startURL: URL(string: "https://www.threads.com/")!,
+                feedURL: nil, allowedHosts: ["threads.com", "www.threads.com", "threads.net", "www.threads.net"], feedPaths: [],
+                usesDesktopUserAgent: false, readyRoot: [], count: nil, headlines: nil, video: nil)
         }
     }
     // swiftlint:enable force_unwrapping
@@ -130,10 +156,11 @@ public enum WebMorningPolicy {
     /// Path fragments that mark sign-in, consent, verification and recovery pages.
     static let signInPathFragments = [
         "login", "signin", "sign-in", "sign_in", "signup", "auth", "oauth", "challenge", "two_factor",
-        "2fa", "checkpoint", "verify", "password", "recover", "consent", "connexion", "/accounts/"
+        "2fa", "checkpoint", "verify", "password", "recover", "consent", "connexion", "/accounts/",
+        "passport", "onboarding", "register", "/i/flow/", "/i/jf/"
     ]
     static let signInHosts = ["accounts.google.com", "accounts.youtube.com", "login.lemonde.fr",
-                              "secure.lemonde.fr", "www.facebook.com", "m.facebook.com", "consent.youtube.com",
+                              "secure.lemonde.fr", "consent.youtube.com",
                               "consent.google.com"]
 
     public static func isSignInPage(_ url: URL?) -> Bool {

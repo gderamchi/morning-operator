@@ -15322,6 +15322,416 @@
           }
         }
       }
+    },
+    "API action · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action API · %@"
+          }
+        }
+      }
+    },
+    "API connections": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexions API"
+          }
+        }
+      }
+    },
+    "API requests and results pass through our connection service and Composio. Screen recordings and local model inference aren't sent there.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les requêtes et résultats API transitent par notre service de connexion et Composio. Les enregistrements d’écran et l’inférence locale n’y sont pas envoyés."
+          }
+        }
+      }
+    },
+    "Action added to your draft. Review and approve the routine before starting.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action ajoutée au brouillon. Vérifiez et approuvez la routine avant de démarrer."
+          }
+        }
+      }
+    },
+    "Add API actions from Connections → API. Browser activities such as stories and scrolling stay on their visible pages.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez les actions API depuis Connexions → API. Les stories et le défilement restent dans leurs pages visibles."
+          }
+        }
+      }
+    },
+    "Add and authorize the shortcut in Shortcuts first. Its name alone does not verify a connection.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez et autorisez d’abord le raccourci dans Raccourcis. Son nom seul ne vérifie pas une connexion."
+          }
+        }
+      }
+    },
+    "Adding an API action to a routine saves its parameters. Local forgetting removes the connection token and saved shortcut names; remote grants and server receipt metadata remain separately managed. Disconnect accounts in Connections → API to request revocation.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une action API à une routine enregistre ses paramètres. L’oubli local supprime le jeton de connexion et les noms des raccourcis ; les autorisations distantes et les métadonnées du serveur restent gérées séparément. Déconnectez les comptes dans Connexions → API pour demander leur révocation."
+          }
+        }
+      }
+    },
+    "Browser": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigateur"
+          }
+        }
+      }
+    },
+    "Input (optional)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrée (facultative)"
+          }
+        }
+      }
+    },
+    "Installed shortcut name": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom du raccourci installé"
+          }
+        }
+      }
+    },
+    "Keep your routine within ten moments before adding another action.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limitez votre routine à dix moments avant d’ajouter une action."
+          }
+        }
+      }
+    },
+    "Requesting the connected service…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requête au service connecté…"
+          }
+        }
+      }
+    },
+    "Run an installed Shortcut": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer un raccourci installé"
+          }
+        }
+      }
+    },
+    "Saved action details": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détails de l’action enregistrée"
+          }
+        }
+      }
+    },
+    "Saved service action": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action de service enregistrée"
+          }
+        }
+      }
+    },
+    "Shortcut returned. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retour du raccourci reçu. %@"
+          }
+        }
+      }
+    },
+    "The service did not confirm this action. Check its result before trying again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service n’a pas confirmé cette action. Vérifiez son résultat avant de réessayer."
+          }
+        }
+      }
+    },
+    "The service returned successfully.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service a répondu avec succès."
+          }
+        }
+      }
+    },
+    "The shortcut did not finish. Check its outcome before running it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le raccourci n’a pas terminé. Vérifiez son résultat avant de le relancer."
+          }
+        }
+      }
+    },
+    "This account needs reconnecting. Open Connections → API.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnectez ce compte depuis Connexions → API."
+          }
+        }
+      }
+    },
+    "This moment couldn't start: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette étape n’a pas pu démarrer : %@"
+          }
+        }
+      }
+    },
+    "This moment couldn’t start: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette étape n’a pas pu démarrer : %@"
+          }
+        }
+      }
+    },
+    "Waiting stopped. If the action had started, check the account before doing it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attente arrêtée. Si l’action avait démarré, vérifiez le compte avant de la refaire."
+          }
+        }
+      }
+    },
+    "Your connected routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine connectée"
+          }
+        }
+      }
+    },
+    "Your connections": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos connexions"
+          }
+        }
+      }
+    },
+    "iOS native": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS natif"
+          }
+        }
+      }
+    },
+    "iOS, browser and API connections": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS, navigateur et connexions API"
+          }
+        }
+      }
+    },
+    "Apps & accounts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps et comptes"
+          }
+        }
+      }
+    },
+    "3 · Connect your apps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 · Connectez vos apps"
+          }
+        }
+      }
+    },
+    "Connect the apps you use": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez les apps que vous utilisez"
+          }
+        }
+      }
+    },
+    "Connected accounts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptes connectés"
+          }
+        }
+      }
+    },
+    "On this iPhone": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur cet iPhone"
+          }
+        }
+      }
+    },
+    "From your accounts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depuis vos comptes"
+          }
+        }
+      }
+    },
+    "Choose an action from Apps & accounts, then add it to your routine.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une action dans Apps et comptes, puis ajoutez-la à votre routine."
+          }
+        }
+      }
+    },
+    "Reconnect this account in Apps & accounts.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnectez ce compte dans Apps et comptes."
+          }
+        }
+      }
+    },
+    "Action · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action · %@"
+          }
+        }
+      }
+    },
+    "Requests to connected accounts and their results pass through our connection service and Composio. Screen recordings and local learning stay on this iPhone.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les demandes à vos comptes connectés et leurs résultats passent par notre service de connexion et Composio. Les enregistrements d’écran et l’apprentissage local restent sur cet iPhone."
+          }
+        }
+      }
+    },
+    "Adding an account action to your routine saves its details. Forgetting local data removes access from this iPhone; service permissions and server receipts are managed separately. To disconnect an account, open its page in Apps & accounts.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une action d’un compte à votre routine enregistre ses détails. L’oubli des données locales retire l’accès depuis cet iPhone ; les autorisations des services et les reçus du serveur se gèrent séparément. Pour déconnecter un compte, ouvrez sa page dans Apps et comptes."
+          }
+        }
+      }
+    },
+    "Choose what you want to bring into your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez ce qui vous accompagne le matin."
+          }
+        }
+      }
+    },
+    "Your apps, together.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos apps, au même endroit."
+          }
+        }
+      }
+    },
+    "Your apps, in one place.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos apps, au même endroit."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

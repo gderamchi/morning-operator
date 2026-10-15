@@ -84,6 +84,8 @@ An unknown-sender percentage is a separate optional metric. Define its denominat
 
 ### Apple access matrix checked 10 October 2026
 
+**15 October research update:** the [normal-iPhone integration matrix](NATIVE-INTEGRATIONS.md) supplements this older direct-API inventory. In particular, iOS 26/27 Shortcuts exposes native Mail/Messages searches and further actions, plus notification automations. No generic inbox SDK does not imply no user-installed Shortcut route. The product target needs no Mac or Developer Mode; those bridges still require implementation and ordinary-user validation.
+
 “Possible” below identifies a documented route to investigate. It does not mean the current app is provisioned, connected or tested for it. Personal development can use documented development capabilities, but actual OS, entitlement, default-app and account requirements still apply.
 
 | Desired input or action | Current implementation | Documented route and limit |

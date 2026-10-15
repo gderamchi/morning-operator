@@ -1,5 +1,7 @@
 # Your local data
 
+**15 October connection update:** API authorizations and tool requests/results pass through the configured connection service and Composio. Returned data stays transient on the phone; adding an API action to a routine saves its exact parameters in the routine and any retained run snapshot. The server keeps content-free request fingerprints and receipt metadata, not provider results. The installation token and unresolved local execution hashes/UUIDs use scoped Keychain items; named shortcut settings are workspace-scoped. Full local forgetting clears those local items and invalidates late callbacks. It does not revoke remote Composio/provider grants or erase server metadata; use Connections → API → Disconnect for a revocation request, or manage access at the provider. [Connection scope](CONNECTIONS.md).
+
 Full local forgetting first shipped in source `640370c`; source `f783658` also removes briefing settings and transient day recaps. The cancel/preserve/forget/relaunch journey and isolated workspace inspection passed again with a synthetic briefing payload. Earlier privacy tests retain their dated results in [PHASE-ONE](PHASE-ONE.md). This does not establish physical recording shutdown or deletion from external Apple apps.
 
 ## Use the Privacy screen
@@ -51,7 +53,7 @@ Deleting just one observation has a narrower scope: it removes that acquisition 
 - System permissions, installed Apple voices, Shortcuts definitions and their separately managed history, and device/account backups.
 - Developer recordings, screenshots, logs and Xcode result bundles under ignored `work/` or `.build/` locations. Clean them deliberately on the development Mac; app controls cannot remove them.
 
-This is logical removal of app-controlled copies, not secure erasure or a promise to remove filesystem snapshots, backups, provider caches or OS-managed records. Most workspace data is not explicitly excluded from device backups. No backend, telemetry upload, automatic model-training dataset or research-contribution pipeline is implemented.
+This is logical removal of app-controlled copies, not secure erasure or a promise to remove filesystem snapshots, backups, provider caches or OS-managed records. Most workspace data is not explicitly excluded from device backups. The optional connection backend is separate from local forgetting; no telemetry upload, automatic model-training dataset or research-contribution pipeline is implemented.
 
 ## Reset ordering and late work
 

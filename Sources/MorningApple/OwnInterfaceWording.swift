@@ -297,13 +297,18 @@ enum OwnInterfaceWording {
             shown("Minutes measured", fr: "Minutes mesurées"),
             shown("Minutes estimated", fr: "Minutes estimées")
         ]),
-        Screen(name: "Website setup", copy: [
-            shown("A little setup. Then you're home.", fr: "Un instant de préparation. Puis à vous de jouer."),
-            shown("Connect Gmail below, or sign in to the websites your morning uses.", fr: "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."),
+        Screen(name: "Apps and accounts", copy: [
+            shown("Your apps, in one place.", fr: "Vos apps, au même endroit."),
+            shown("Choose what you want to bring into your morning.", fr: "Choisissez ce qui vous accompagne le matin."),
+            earlier("A little setup. Then you're home.", "Un instant de préparation. Puis à vous de jouer."),
+            earlier("Connect Gmail below, or sign in to the websites your morning uses.", "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."),
             earlier("Sign in once, here. Your morning uses these same pages.", "Connectez-vous ici une fois. Votre matin utilisera ces mêmes pages.")
         ], controls: [
-            shown("Your websites", fr: "Vos sites"),
-            shown("Connect my websites", fr: "Connecter mes sites")
+            shown("Apps & accounts", fr: "Apps et comptes"),
+            shown("Calendar & weather", fr: "Calendrier et météo"),
+            shown("Your day", fr: "Votre journée"),
+            earlier("Your websites", "Vos sites"),
+            earlier("Connect my websites", "Connecter mes sites")
         ]),
         Screen(name: "Gmail connection", copy: [
             shown("Connect once to read Gmail and prepare replies. Google asks for read-only access.", fr: "Connectez-vous une fois pour lire Gmail et préparer des réponses. Google demande un accès en lecture seule."),
