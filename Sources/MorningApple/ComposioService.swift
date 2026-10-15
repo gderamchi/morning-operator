@@ -259,6 +259,19 @@ public final class ComposioService {
         return result
     }
 
+    /// Only the two fixed, bounded Calendar reads. Read retries get a new request
+    /// ID and never inspect, release or bypass any local effect reservation.
+    public func readGoogleCalendar(tool: String, arguments: [String: ComposioJSONValue], connectionID: String) async throws -> ComposioExecutionResult {
+        guard Self.validIdentifier(connectionID), GoogleCalendarReadContract.validRead(tool, arguments) else { throw ComposioServiceError.invalidArguments }
+        try Task.checkCancellation()
+        let id = UUID()
+        let result: ComposioExecutionResult = try await request("POST", path: "execute", body: .object([
+            "tool": .string(tool), "arguments": .object(arguments), "connectionID": .string(connectionID), "requestID": .string(id.uuidString)]))
+        try Task.checkCancellation()
+        guard result.requestID == id, result.successful || result.error != nil else { throw ComposioServiceError.invalidResponse }
+        return result
+    }
+
     /// The dedicated route verifies the current provider subject and account metadata.
     /// Its revision is a preflight check, not a conditional Composio credential lease.
     /// An old server is unavailable, never a reason to fall back to a generic send.

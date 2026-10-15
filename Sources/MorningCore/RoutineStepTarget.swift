@@ -147,6 +147,7 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
     case inAppWeb(site: URL)
     case shortcut(name: String, input: String)
     case connectedAPI(service: String, connectionID: String, tool: String, argumentsJSON: String)
+    case googleCalendarDay(GoogleCalendarDayTarget)
 
     /// The URL to open for an external app; nil for a page inside MORE or a Safari step
     /// without a valid address.
@@ -164,12 +165,12 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
             let bare = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
             return .inMORE(StepApp.allCases.first { $0.webHosts.contains(bare) })
         case .shortcut: return .nativeAction
-        case .connectedAPI: return .connectedService
+        case .connectedAPI, .googleCalendarDay: return .connectedService
         }
     }
 
-    private enum CodingKeys: String, CodingKey { case kind, app, detail, site, name, input, service, connectionID, tool, argumentsJSON }
-    private enum Kind: String, Codable { case externalApp, inAppWeb, shortcut, connectedAPI }
+    private enum CodingKeys: String, CodingKey { case kind, app, detail, site, name, input, service, connectionID, tool, argumentsJSON, calendar }
+    private enum Kind: String, Codable { case externalApp, inAppWeb, shortcut, connectedAPI, googleCalendarDay }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -193,6 +194,8 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
                 connectionID: try values.decode(String.self, forKey: .connectionID),
                 tool: try values.decode(String.self, forKey: .tool),
                 argumentsJSON: try values.decode(String.self, forKey: .argumentsJSON))
+        case .googleCalendarDay:
+            self = .googleCalendarDay(try values.decode(GoogleCalendarDayTarget.self, forKey: .calendar))
         }
         try validateIntegration()
     }
@@ -218,6 +221,9 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
             try values.encode(connectionID, forKey: .connectionID)
             try values.encode(tool, forKey: .tool)
             try values.encode(argumentsJSON, forKey: .argumentsJSON)
+        case let .googleCalendarDay(calendar):
+            try values.encode(Kind.googleCalendarDay, forKey: .kind)
+            try values.encode(calendar, forKey: .calendar)
         }
     }
 }
