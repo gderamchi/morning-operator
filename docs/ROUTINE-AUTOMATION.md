@@ -14,6 +14,14 @@ MORE observes the page, performs the reviewed operation, checks the result and c
 
 Personal timed moments let a person get ready while MORE keeps the allotted time and moves on automatically. Spoken calendar/briefing/saved-note operations continue on their actual completion. A manual app handoff is described as manual; opening another iOS app cannot certify work inside it.
 
+## Prepare listening before starting
+
+Setup → **Prepare listening** shows the actual Speech, Microphone and local-recognition status for the selected language. Its explicit preparation button requests the missing system permissions. This preparation records no sample, starts no audio engine and does not certify that the microphone or acoustic interruption works. Denied access points to iPhone Settings; unavailable local recognition is explained without a remote fallback.
+
+When Hands free is enabled and listening is not ready, Start opens this preparation before starting the morning. **Prepare, then begin** waits for the grants and the app to be active. **Begin without listening** releases any earlier microphone owner, then starts with the existing automatic and read-aloud settings. This choice suppresses listening for that exact session, including after restoration; it does not silently change the person’s global preferences. The buttons remain available for control. Closing preparation, changing the routine, backgrounding or privacy cleanup invalidates the pending start, so a late permission callback cannot start an old morning.
+
+Reading aloud, continuing the routine and preparing listening remain distinct choices. Hands-free listening uses the microphone only during the foreground session after access is ready. Permission preparation is not evidence of continuous recognition, echo cancellation or real voice control; those require their own ordinary-iPhone checks.
+
 ## Voice and mail
 
 An active hands-free morning owns continuous on-device recognition and duplex speech. Local speech recognition, echo cancellation, context at speech onset and cancellation guard the current moment. Pause keeps listening for Resume. Next, Stop, Repeat and +2 minutes share the session and timer. Broader questions use Apple's local model with current source context. Unsupported hardware/model/language is surfaced; no cloud fallback is enabled.
@@ -33,6 +41,8 @@ Sending claims a durable operation before POST, with a stable generated Message-
 Connected account actions use local argument proposals and an explicit human-readable review before execution. Their results are composed from provider data for display/speech; JSON is not the routine's output. The provider adapter, scope, permissions and account capabilities still determine actual coverage.
 
 The [Slack slice](SLACK-REPLIES.md) replaces technical setup with a named account/channel picker for its latest-three-message moment. Replies use only a selected, recent message from that approved read. The local model writes body text; full account/channel/source/body review and a separate Send precede the dedicated server effect. The account subject and grant revision are checked at the write boundary. Unknown posts remain blocked, and their durable count is separate from successful reading. Shared contracts and the deployed no-write refusal path pass; the native interface and real Slack provider journey retain their own acceptance gates.
+
+The [Google Calendar day slice](GOOGLE-CALENDAR-DAY.md) offers a named calendar picker and an unapproved draft moment. It calculates the current day in the phone’s time zone on each run, reads at most twenty-five events and discloses a partial result. Repeat uses retained content; an explicit refresh requests a new reading. This path does not create or change events.
 
 ## Contextual Apple actions
 
