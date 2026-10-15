@@ -87,7 +87,6 @@ struct MorningRootView: View {
                 }
                 // Light status bar text over the night sky.
                 .toolbarColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.5 ? .dark : .light, for: .navigationBar)
-                .preferredColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.5 ? .dark : nil)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeRoute.self) { route in
                     switch route {
@@ -119,6 +118,9 @@ struct MorningRootView: View {
                     }
                 }
         }
+        // On the stack, not its first screen, so the status bar clock follows the sky
+        // on pushed screens too and turns light at night.
+        .preferredColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.5 ? .dark : nil)
         .background(MorningPaper(progress: routineProgress))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { dockWidth = $0 }
         .background {
@@ -205,6 +207,9 @@ struct MorningRootView: View {
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
                 showingActions = false
+                // Reopening starts the greeting again.
+                sunKicks = 0
+                sunKick = nil
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
                 #endif
