@@ -200,3 +200,10 @@ The owner was asked to say **“send” once** near the foreground iPhone. The o
 
 
 The observation-only window at **01:49:27 Paris** ended after **55.084 seconds** with **one skip, zero failures**: no explicit Gmail receipt was observed. This is not a successful send test. The owner has not yet reported speaking the command, and no Send/retry was performed. A separately gated final-two-moment helper compiled successfully; it refuses Mail, never reopens composition and is reserved until the original send outcome is resolved. It can establish tactile pause/resume and arrival at the existing routine recap, not automatic execution of the seven user-led activities.
+
+
+### Localization handoff and latest read-only backend snapshot
+
+The owner did not report a spoken Send. Instead, they observed mixed French/English and a voice reading French with an English accent, and explicitly requested a separate chat to localize the whole app in both languages, add one persistent language selector, and align the voice. That implementation chat is now running. Acoustic send acceptance is suspended for this correction; no mail, restart or final-two-moment traversal has been triggered. The existing phone draft/session remain preserved.
+
+At **01:50:30 Paris on 16 October / 23:50:30 UTC on 15 October**, a fresh metadata-only backend check confirmed health HTTP 200, all **16 service catalogues HTTP 200**, **1,152/1,152 schemas** valid under the normalized contract, and **14 existing read-plan argument schemas** valid. The complete project account list still has **one Gmail ACTIVE and zero accounts for the other 15 configured services**, with no unmatched/extra configuration. The separate local QA installation token lists zero accounts; it is not the iPhone token and establishes nothing new about phone ownership. These GET checks executed no business tool and created no account or OAuth grant.
