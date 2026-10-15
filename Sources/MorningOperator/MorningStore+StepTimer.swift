@@ -52,6 +52,9 @@ extension MorningStore {
             if !shouldOpen, case let .googleCalendarDay(target) = step.target {
                 runGoogleCalendarDay(target, sessionID: session.id, stepID: step.id)
             }
+            if !shouldOpen, case let .calendlyDay(target) = step.target {
+                runCalendlyDay(target, sessionID: session.id, stepID: step.id)
+            }
             if shouldOpen {
                 switch step.target {
                 case let .externalApp(app, detail):
@@ -86,6 +89,8 @@ extension MorningStore {
                         argumentsJSON: arguments, sessionID: session.id, stepID: step.id)
                 case let .googleCalendarDay(target):
                     runGoogleCalendarDay(target, sessionID: session.id, stepID: step.id)
+                case let .calendlyDay(target):
+                    runCalendlyDay(target, sessionID: session.id, stepID: step.id)
                 case nil:
                     if step.automation != .gmailInbox, readAloud { speech.speak("\(step.title). \(step.detail)") }
                 }
@@ -189,7 +194,7 @@ extension MorningStore {
         stepTimerTask?.cancel(); stepTimerTask = nil
         let retired = StepTimerFile.clear()
         if retired {
-            connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment(); clearSlackReply(); clearGoogleCalendarDay()
+            connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment(); clearSlackReply(); clearGoogleCalendarDay(); clearCalendlyDay()
             mailBudgetWork = [:]; mailBudgetDeadlinePaused = nil
         }
         StepTimerAlert.cancel()

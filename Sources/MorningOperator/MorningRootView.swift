@@ -86,6 +86,7 @@ struct MorningRootView: View {
                            nativeMoment: store.sessionActive && store.pendingWebTarget == nil ? AnyView(NativeMomentReviewView(store: store)) : nil,
                            slackMoment: store.currentSlackContext != nil ? AnyView(SlackMomentReplyView(store: store)) : nil,
                            googleCalendarDayMoment: store.currentGoogleCalendarDayContext != nil ? AnyView(GoogleCalendarDayMomentView(store: store)) : nil,
+                           calendlyDayMoment: store.currentCalendlyDayContext != nil ? AnyView(CalendlyDayMomentView(store: store)) : nil,
                            voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
                            executionSummary: store.executionSummary,
                            timer: store.activeStepTimer,
@@ -237,6 +238,7 @@ struct MorningRootView: View {
                 store.clearNativeMoment()
                 store.clearSlackReply()
                 store.clearGoogleCalendarDay()
+                store.clearCalendlyDay()
                 store.routineWebMoment.discardSourceContext()
                 store.webExecutionEvent = nil
                 store.preserveMailExecutionBeforeInterruption()
@@ -602,6 +604,9 @@ struct TodayView: View {
                         }
                         if store.currentStep?.id == step.id, store.currentGoogleCalendarDayContext != nil {
                             GoogleCalendarDayMomentView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.currentCalendlyDayContext != nil {
+                            CalendlyDayMomentView(store: store)
                         }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
@@ -1270,6 +1275,7 @@ private struct MorningSunHome: View {
     var nativeMoment: AnyView? = nil
     var slackMoment: AnyView? = nil
     var googleCalendarDayMoment: AnyView? = nil
+    var calendlyDayMoment: AnyView? = nil
     var voiceStatus: String? = nil
     var executionSummary: String? = nil
     var timer: StepTimer? = nil
@@ -1311,6 +1317,17 @@ private struct MorningSunHome: View {
         return reduceTransparency || contrast == .increased
     }
 
+    private var sessionAccessibilityStatus: String {
+        switch session?.status {
+        case .ready: isFrench ? "Matin prêt" : "Morning ready"
+        case .running: isFrench ? "Matin en cours" : "Morning running"
+        case .paused: isFrench ? "Matin en pause" : "Morning paused"
+        case .completed: isFrench ? "Matin terminé" : "Morning complete"
+        case .stopped: isFrench ? "Matin arrêté" : "Morning stopped"
+        case nil: isFrench ? "Matin non commencé" : "Morning not started"
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let clock = MorningThemeClock.shared
@@ -1333,7 +1350,7 @@ private struct MorningSunHome: View {
                 .accessibilityLabel(actionsShown
                     ? (isFrench ? "Masquer les commandes" : "Hide controls")
                     : (isFrench ? "Afficher les commandes" : "Show controls"))
-                .accessibilityValue(clock.skyAccessibilityDescription)
+                .accessibilityValue("\(sessionAccessibilityStatus). \(clock.skyAccessibilityDescription)")
                 .accessibilityHint(isFrench ? "Le paysage suit l’heure de votre iPhone." : "The landscape follows your iPhone’s time.")
 
                 if actionsShown {
@@ -1418,6 +1435,7 @@ private struct MorningSunHome: View {
                 if let nativeMoment { nativeMoment }
                 if let slackMoment { slackMoment }
                 if let googleCalendarDayMoment { googleCalendarDayMoment }
+                if let calendlyDayMoment { calendlyDayMoment }
                 HStack(spacing: 16) {
                     Button(action: session?.status == .paused ? resume : pause) {
                         Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",

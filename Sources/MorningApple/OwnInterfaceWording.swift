@@ -203,6 +203,9 @@ enum OwnInterfaceWording {
 
     /// Screens without a heading of their own: both pieces must be present.
     static let pairs: [[Phrase]] = [
+        [shown("Your Calendly appointments, each morning", fr: "Vos rendez-vous Calendly, chaque matin"),
+         shown("Choose an account. MORE reads appointments starting today in this iPhone’s time zone.",
+               fr: "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone.")],
         [shown("Your calendar, each morning", fr: "Votre calendrier, chaque matin"),
          shown("Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning.",
                fr: "Choisissez un calendrier. MORE lit le jour courant dans le fuseau de cet iPhone à chaque matin.")],

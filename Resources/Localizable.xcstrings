@@ -1,6 +1,38 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Your Calendly appointments, each morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Calendly appointments, each morning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos rendez-vous Calendly, chaque matin"
+          }
+        }
+      }
+    },
+    "Choose an account. MORE reads appointments starting today in this iPhone’s time zone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an account. MORE reads appointments starting today in this iPhone’s time zone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone."
+          }
+        }
+      }
+    },
     "Local recognition availability will be checked after your permission. Listening has not started.": {
       "localizations": {
         "en": {

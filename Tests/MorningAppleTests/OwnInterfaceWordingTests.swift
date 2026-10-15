@@ -709,6 +709,7 @@ struct OwnInterfaceWordingTests {
     func calendarAndListeningSetupExcludeTheirQuotedContent(language: String) throws {
         let catalogs = try ShippedCatalogs.load()
         let screens = [
+            ["Your Calendly appointments, each morning", "Choose an account. MORE reads appointments starting today in this iPhone’s time zone."],
             ["Your calendar, each morning", "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning."],
             ["Prepare listening", "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices."],
             ["Prepare listening", "Local recognition availability will be checked after your permission. Listening has not started."]

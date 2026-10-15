@@ -223,7 +223,7 @@ final class MorningStore {
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
     let briefing: MorningBriefingController
-    let composio = GoogleCalendarDayUITestFixture.serviceIfRequested() ?? SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
+    let composio = CalendlyDayUITestFixture.serviceIfRequested() ?? GoogleCalendarDayUITestFixture.serviceIfRequested() ?? SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
     let nativeConnections = NativeConnectionsService()
     var selectedSlackMessageTS: String?
     @ObservationIgnored var slackReplyTask: Task<Void, Never>?
@@ -270,6 +270,10 @@ final class MorningStore {
     var googleCalendarDayContext: MorningExecutionID?
     var googleCalendarDayPrivacyGeneration: UUID?
     @ObservationIgnored var googleCalendarDayFreshnessTask: Task<Void, Never>?
+    var calendlyDayDocument: CalendlyDayDocument?
+    var calendlyDayContext: MorningExecutionID?
+    var calendlyDayPrivacyGeneration: UUID?
+    @ObservationIgnored var calendlyDayFreshnessTask: Task<Void, Never>?
     @ObservationIgnored let routineWebMoment = RoutineWebMomentRetainer()
     @ObservationIgnored var mailBudgetWork: [UUID: MorningExecutionID] = [:]
     @ObservationIgnored var mailBudgetDeadlinePaused: MorningExecutionID?
@@ -453,6 +457,14 @@ final class MorningStore {
                let target = try? GoogleCalendarDayTarget(connectionID: "ca_synthetic_google_calendar", calendarID: "synthetic-primary@calendar.invalid", calendarName: "SYNTHETIC calendrier personnel de préparation du matin avec un nom volontairement très long") {
                 routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic Google Calendar day", steps: [
                     RoutineStep(title: target.calendarName, detail: "SYNTHETIC read-only day, recalculated for this iPhone’s current date and time zone.", kind: .calendar, durationMinutes: 3, target: .googleCalendarDay(target)),
+                    RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-calendly-runtime"), CalendlyDayUITestFixture.isRequested,
+               let target = try? CalendlyDayTarget(connectionID: "ca_synthetic_calendly", userURI: "https://api.calendly.com/users/synthetic-local-owner",
+                    userName: "SYNTHETIC Camille, compte de préparation du matin avec un nom volontairement très long") {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic Calendly day", steps: [
+                    RoutineStep(title: target.userName, detail: "SYNTHETIC read-only bookings starting today in this iPhone’s current time zone.", kind: .calendar, durationMinutes: 3, target: .calendlyDay(target)),
                     RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
                 ])
             }
@@ -1068,6 +1080,7 @@ final class MorningStore {
         endOpening()
         cancelStepPlayback()
         if repeatGoogleCalendarDay() { return }
+        if repeatCalendlyDay() { return }
         if repeatConnectedMoment() { return }
         if step.webBehavior != nil {
             if let event = webExecutionEvent, event.sessionID == session.id, event.stepID == step.id,
@@ -2581,6 +2594,7 @@ final class MorningStore {
         clearNativeMoment(forPrivacy: true)
         clearSlackReply()
         clearGoogleCalendarDay()
+        clearCalendlyDay()
         connectedMoment.clear()
         routineWebMoment.clear()
         composio.cancelPendingOperations()
@@ -2717,6 +2731,7 @@ final class MorningStore {
         clearNativeMoment(forPrivacy: true)
         clearSlackReply()
         clearGoogleCalendarDay()
+        clearCalendlyDay()
         connectedMoment.clear()
         routineWebMoment.clear()
         stopHandsFreeVoice(); mailMorning.clear()

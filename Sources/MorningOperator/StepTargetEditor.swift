@@ -16,7 +16,7 @@ struct StepTargetEditor: View {
         case let .externalApp(app, _): "app.\(app.rawValue)"
         case let .inAppWeb(url): WebMorningSite(url: url).map { "web.\($0.rawValue)" } ?? "web.saved"
         case .shortcut: "shortcut"
-        case .connectedAPI, .googleCalendarDay: "api.saved"
+        case .connectedAPI, .googleCalendarDay, .calendlyDay: "api.saved"
         case nil: "none"
         }
     }
@@ -87,6 +87,16 @@ struct StepTargetEditor: View {
                      : "To choose another calendar, add a moment from Apps & accounts.")
                     .font(.footnote).foregroundStyle(MorningStyle.muted)
             }
+            if case let .calendlyDay(account) = target {
+                Text("Calendly").font(.subheadline)
+                Text(account.userName).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                if let target, let details = RoutineConnectedReview.summary(for: target) {
+                    Text(details).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                }
+                Text(AppLanguage.isFrench ? "Pour choisir un autre compte, ajoutez un moment depuis Apps et comptes."
+                     : "To choose another account, add a moment from Apps & accounts.")
+                    .font(.footnote).foregroundStyle(MorningStyle.muted)
+            }
             Text("Choose an action from Apps & accounts, then add it to your routine.")
                 .font(.footnote).foregroundStyle(MorningStyle.muted)
         } header: { Text("During this moment") } footer: {
@@ -114,6 +124,11 @@ enum RoutineConnectedReview {
             return AppLanguage.isFrench
                 ? "Google Calendar : lire « \(calendar.calendarName) » pour le jour courant, dans le fuseau de cet iPhone. Les dates sont recalculées à chaque matin et à chaque actualisation. Au plus 25 événements ; toute lecture partielle est annoncée. Aucune modification du calendrier."
                 : "Google Calendar: read “\(calendar.calendarName)” for today in this iPhone’s time zone. Dates are recalculated each morning and on refresh. Up to 25 events; a partial reading is disclosed. No calendar changes."
+        }
+        if case let .calendlyDay(account) = target {
+            return AppLanguage.isFrench
+                ? "Calendly : lire les rendez-vous de « \(account.userName) » qui commencent le jour courant, dans le fuseau de cet iPhone. Les dates sont recalculées à chaque matin et à chaque actualisation. Au plus 25 rendez-vous ; toute lecture partielle est annoncée. Aucun rendez-vous n’est créé ou annulé."
+                : "Calendly: read bookings for “\(account.userName)” starting today in this iPhone’s time zone. Dates are recalculated each morning and on refresh. Up to 25 bookings; a partial reading is disclosed. No booking is created or cancelled."
         }
         guard case let .connectedAPI(service, _, tool, json) = target else { return nil }
         if service == "slack", tool == "SLACK_FETCH_CONVERSATION_HISTORY",

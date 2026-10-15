@@ -3,6 +3,108 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    func testFrenchLargestCalendlySetupShowsNamedIdentityAndAddsAnUnapprovedDraft() {
+        let app = launch(["--ui-testing-calendly-day", "--ui-testing-empty-workspace",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        openCalendlySetup(app)
+        let identity = app.staticTexts["calendly.setup.identity"]
+        XCTAssertTrue(identity.waitForExistence(timeout: 10))
+        XCTAssertEqual(identity.label, "SYNTHETIC Camille, compte de préparation du matin avec un nom volontairement très long")
+        _ = visibleButton("calendly.setup.account.0", in: app)
+        assertNoCalendlyTechnicalDetails(app)
+        attach("automation-calendly-french-largest-named-identity", app)
+        enabledVisibleButton("calendly.setup.add", in: app).tap()
+        let added = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "ajoutés au brouillon"), object: app.staticTexts["calendly.setup.status"])
+        XCTAssertEqual(XCTWaiter.wait(for: [added], timeout: 8), .completed)
+        XCTAssertFalse(app.buttons["calendly.setup.add"].isEnabled)
+        assertNoCalendlyTechnicalDetails(app)
+        attach("automation-calendly-french-largest-added", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        tapVisible("setup.routine", in: app)
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.approve"].isEnabled)
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("SYNTHETIC Camille"))
+        assertNoCalendlyTechnicalDetails(app)
+        attach("automation-calendly-unapproved-draft", app)
+    }
+
+    func testFrenchLargestCalendlyEmptyAccountHasHumanRecovery() {
+        let app = launch(["--ui-testing-calendly-day", "--ui-testing-calendly-empty-account", "--ui-testing-empty-workspace",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        openCalendlySetup(app)
+        let empty = app.staticTexts["calendly.setup.emptyAccount"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 10))
+        XCTAssertTrue(empty.label.contains("Connectez un compte Calendly"))
+        XCTAssertFalse(app.staticTexts["calendly.setup.identity"].exists)
+        XCTAssertFalse(app.buttons["calendly.setup.add"].exists)
+        _ = visibleButton("calendly.setup.manage", in: app)
+        assertNoCalendlyTechnicalDetails(app)
+        attach("automation-calendly-french-largest-empty-account", app)
+    }
+
+    func testCalendlyRuntimeRepeatsSameReadingAndRefreshesOnlyWhenRequested() {
+        let app = launchCalendlyRuntime()
+        defer { app.terminate() }
+        let summary = app.staticTexts["calendlyDay.summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 15))
+        XCTAssertTrue(summary.label.contains("3 appointments were read"))
+        for name in ["SYNTHETIC début de journée", "SYNTHETIC préparer les priorités du matin", "SYNTHETIC échange de fin de journée"] {
+            XCTAssertTrue(summary.label.contains(name), summary.label)
+        }
+        XCTAssertTrue(summary.label.contains("00:00"))
+        XCTAssertTrue(summary.label.contains("phone call"))
+        let original = summary.label
+        XCTAssertEqual(app.staticTexts["calendlyDay.synthetic"].value as? String, "HTTP event reads: 1")
+        enabledVisibleButton("calendlyDay.repeat", in: app).tap()
+        XCTAssertEqual(summary.label, original)
+        XCTAssertEqual(app.staticTexts["calendlyDay.synthetic"].value as? String, "HTTP event reads: 1")
+        enabledVisibleButton("calendlyDay.refresh", in: app).tap()
+        let refreshed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "HTTP event reads: 2"), object: app.staticTexts["calendlyDay.synthetic"])
+        let result = XCTWaiter.wait(for: [refreshed], timeout: 12)
+        if result != .completed { captureFailure("calendly-explicit-refresh-failed", app) }
+        XCTAssertEqual(result, .completed)
+        XCTAssertTrue(summary.label.contains("3 appointments were read"))
+        assertNoCalendlyTechnicalDetails(app)
+        attach("automation-calendly-refreshed-explicitly-synthetic", app)
+    }
+
+    func testCalendlyRuntimeDistinguishesCompleteEmptyPartialAndPartialEmpty() {
+        let cases: [([String], String, String)] = [
+            (["--ui-testing-calendly-empty-day"], "No Calendly appointments start today", "complete-empty"),
+            (["--ui-testing-calendly-partial"], "This reading is partial", "partial"),
+            (["--ui-testing-calendly-partial", "--ui-testing-calendly-empty-day"], "This part contains no appointments for today", "partial-empty")]
+        for (flags, expected, name) in cases {
+            let app = launchCalendlyRuntime(flags)
+            defer { app.terminate() }
+            let summary = app.staticTexts["calendlyDay.summary"]
+            XCTAssertTrue(summary.waitForExistence(timeout: 15))
+            XCTAssertTrue(summary.label.contains(expected), summary.label)
+            if name != "complete-empty" { XCTAssertFalse(summary.label.contains("No Calendly appointments start today")) }
+            XCTAssertFalse(app.staticTexts["calendlyDay.unavailable"].exists)
+            attach("automation-calendly-\(name)-synthetic", app)
+        }
+    }
+
+    func testCalendlyUnavailablePausesAndNextKeepsAnHonestRecap() {
+        let app = launchCalendlyRuntime(["--ui-testing-calendly-unavailable", "--ui-testing-short-budgets"])
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["calendlyDay.unavailable"].waitForExistence(timeout: 15))
+        let status = app.staticTexts["moment.connectedResult"]
+        let paused = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Your morning is paused"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [paused], timeout: 8), .completed)
+        XCTAssertTrue(status.label.contains("refresh my bookings"))
+        XCTAssertFalse(app.staticTexts["calendlyDay.summary"].exists)
+        XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
+        attach("automation-calendly-unavailable-recovery-synthetic", app)
+        tapVisible("morning.next", in: app)
+        XCTAssertTrue(app.staticTexts["morning.complete"].waitForExistence(timeout: 35))
+        XCTAssertTrue(app.staticTexts["morning.executionSummary"].label.contains("Unavailable: 1"))
+        attach("automation-calendly-unavailable-honest-recap", app)
+    }
+
     func testFrenchLargestGoogleCalendarSetupLoadsNamedPagesAndAddsAnUnapprovedDraft() {
         let app = launch(["--ui-testing-google-calendar-day", "--ui-testing-empty-workspace",
                           "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
@@ -55,21 +157,53 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         defer { app.terminate() }
         let summary = app.staticTexts["googleCalendarDay.summary"]
         XCTAssertTrue(summary.waitForExistence(timeout: 15))
-        XCTAssertTrue(summary.label.contains("3 event(s) read"))
+        XCTAssertTrue(summary.label.contains("3 events read"))
         XCTAssertTrue(summary.label.contains("All day"))
         XCTAssertTrue(summary.label.contains("SYNTHETIC préparer les priorités du matin"))
         XCTAssertTrue(summary.label.contains("SYNTHETIC échange de préparation de la journée"))
         let original = summary.label
         XCTAssertEqual(app.staticTexts["googleCalendarDay.synthetic"].value as? String, "HTTP event reads: 1")
-        tapVisible("googleCalendarDay.repeat", in: app)
+        enabledVisibleButton("googleCalendarDay.repeat", in: app).tap()
         XCTAssertEqual(summary.label, original)
         XCTAssertEqual(app.staticTexts["googleCalendarDay.synthetic"].value as? String, "HTTP event reads: 1")
-        tapVisible("googleCalendarDay.refresh", in: app)
+        enabledVisibleButton("googleCalendarDay.refresh", in: app).tap()
         let refreshed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "HTTP event reads: 2"), object: app.staticTexts["googleCalendarDay.synthetic"])
-        XCTAssertEqual(XCTWaiter.wait(for: [refreshed], timeout: 12), .completed)
+        let result = XCTWaiter.wait(for: [refreshed], timeout: 12)
+        if result != .completed { captureFailure("google-calendar-explicit-refresh-failed", app) }
+        XCTAssertEqual(result, .completed)
         XCTAssertTrue(summary.exists)
-        XCTAssertTrue(summary.label.contains("3 event(s) read"))
+        XCTAssertTrue(summary.label.contains("3 events read"))
         attach("automation-google-calendar-refreshed-explicitly-synthetic", app)
+    }
+
+    /// Uses real wall time. No clock, provider age or production lifetime is replaced.
+    func testGoogleCalendarFreshnessExpiresWithControlsClosedWithoutRefetch() async throws {
+        let app = launchGoogleCalendarRuntime()
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["googleCalendarDay.summary"].waitForExistence(timeout: 15))
+        _ = enabledVisibleButton("googleCalendarDay.refresh", in: app)
+        tapVisible("morning.extend", in: app)
+        tapVisible("morning.extend", in: app)
+        XCTAssertGreaterThan(remainingSeconds(app.staticTexts["morning.remaining"].label), 390)
+        app.buttons["morning.actions"].tap()
+        XCTAssertFalse(app.staticTexts["googleCalendarDay.summary"].isHittable)
+        attach("automation-google-calendar-running-with-controls-closed", app)
+        try await Task.sleep(for: .seconds(320))
+        // Inspect the always-visible control before recreating the reading view.
+        XCTAssertTrue((app.buttons["morning.actions"].value as? String)?.hasPrefix("Morning paused") == true)
+        attach("automation-google-calendar-expired-with-controls-closed", app)
+        reveal(app)
+        XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
+        XCTAssertTrue(app.staticTexts["moment.connectedResult"].label.contains("expired"))
+        XCTAssertFalse(app.staticTexts["googleCalendarDay.summary"].exists)
+        XCTAssertEqual(app.staticTexts["googleCalendarDay.synthetic"].value as? String, "HTTP event reads: 1")
+        enabledVisibleButton("googleCalendarDay.refresh", in: app).tap()
+        let refreshed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "HTTP event reads: 2"), object: app.staticTexts["googleCalendarDay.synthetic"])
+        let result = await XCTWaiter.fulfillment(of: [refreshed], timeout: 12)
+        if result != .completed { captureFailure("google-calendar-expiration-refresh-failed", app) }
+        XCTAssertEqual(result, .completed)
+        XCTAssertTrue(app.staticTexts["googleCalendarDay.summary"].exists)
+        attach("automation-google-calendar-expiration-explicit-refresh", app)
     }
 
     func testGoogleCalendarRuntimeDistinguishesCompleteEmptyPartialAndPartialEmpty() {
@@ -622,6 +756,14 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         scrollTo(button, identifier: identifier, in: app)
         return button
     }
+    private func enabledVisibleButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let button = visibleButton(identifier, in: app)
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: button)
+        let result = XCTWaiter.wait(for: [enabled], timeout: 8)
+        if result != .completed { captureFailure("disabled-\(identifier)", app) }
+        XCTAssertEqual(result, .completed, "The control must be ready before it is selected: \(identifier)")
+        return button
+    }
     private func scrollTo(_ element: XCUIElement, identifier: String, in app: XCUIApplication) {
         for _ in 0..<24 where !element.exists || !element.isHittable {
             let scrolls = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex + app.scrollViews.allElementsBoundByIndex
@@ -643,6 +785,23 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         tapVisible("morning.settings", in: app)
         tapVisible("setup.connections", in: app)
         tapVisible("connections.account.slack", in: app)
+    }
+    private func openCalendlySetup(_ app: XCUIApplication) {
+        reveal(app)
+        tapVisible("morning.settings", in: app)
+        tapVisible("setup.connections", in: app)
+        tapVisible("connections.account.calendly", in: app)
+    }
+    private func launchCalendlyRuntime(_ extra: [String] = []) -> XCUIApplication {
+        let app = launch(["--ui-testing-calendly-day", "--ui-testing-calendly-runtime", "--ui-testing-approved", "--ui-testing-hands-free"] + extra)
+        reveal(app); app.buttons["morning.begin"].tap()
+        return app
+    }
+    private func assertNoCalendlyTechnicalDetails(_ app: XCUIApplication) {
+        let labels = (app.staticTexts.allElementsBoundByIndex + app.buttons.allElementsBoundByIndex).map(\.label).joined(separator: " ")
+        for forbidden in ["CALENDLY_", "ca_synthetic_calendly", "api.calendly.com", "synthetic-local-owner", "scheduled_events/", "opaque-synthetic", "{\"", "JSON"] {
+            XCTAssertFalse(labels.contains(forbidden), "Technical value exposed: \(forbidden)")
+        }
     }
     private func openGoogleCalendarSetup(_ app: XCUIApplication) {
         reveal(app)
