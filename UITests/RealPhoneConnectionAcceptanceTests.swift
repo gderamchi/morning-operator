@@ -572,16 +572,15 @@ extension RealPhoneConnectionAcceptanceTests {
         }
         XCTAssertTrue(selfNoteWait(current, predicate: NSPredicate(format: "exists == true AND label == %@", "Mail"), timeout: 15),
                       "Five Next actions did not reach the reviewed Mail moment.")
-        guard !app.textFields["mail.selfSubject"].exists else {
-            throw XCTSkip("A self-note already exists. It was not replaced or resent.")
+        if !app.textFields["mail.selfSubject"].exists {
+            let compose = app.buttons["mail.composeSelf"]
+            guard selfNoteWait(compose, predicate: NSPredicate(format: "exists == true AND enabled == true"), timeout: 45) else {
+                try refusePermissionOrFixtureScreens()
+                throw XCTSkip("The existing Gmail session did not offer self-note preparation. Session left in place.")
+            }
+            try revealRoutineControl(compose)
+            compose.tap()
         }
-        let compose = app.buttons["mail.composeSelf"]
-        guard selfNoteWait(compose, predicate: NSPredicate(format: "exists == true AND enabled == true"), timeout: 45) else {
-            try refusePermissionOrFixtureScreens()
-            throw XCTSkip("The existing Gmail session did not offer self-note preparation. Session left in place.")
-        }
-        try revealRoutineControl(compose)
-        compose.tap()
         let recipient = app.staticTexts["mail.selfRecipient"]
         XCTAssertTrue(recipient.waitForExistence(timeout: 20), "The own-profile recipient did not load.")
         let fixedRecipient = recipient.label
@@ -594,11 +593,24 @@ extension RealPhoneConnectionAcceptanceTests {
         let exactSubject = "Test MORE"
         let exactBody = "Test d’automatisation MORE, vous pouvez ignorer ce message"
         XCTAssertTrue(selfNoteWait(subject, predicate: NSPredicate(format: "exists == true AND enabled == true"), timeout: 20), "Self-note fields did not become editable.")
-        XCTAssertTrue(send.exists && !send.isEnabled, "Send was enabled before a reviewed draft existed.")
-        try revealRoutineControl(subject)
-        subject.tap(); subject.typeText(exactSubject)
+        let priorSubject = subject.value as? String ?? ""
+        let priorBody = body.value as? String ?? ""
+        guard ["", "Subject", "Objet", exactSubject].contains(priorSubject),
+              ["", exactBody].contains(priorBody), send.exists && !send.isEnabled else {
+            throw XCTSkip("The existing draft is edited, reviewed or ambiguous. It was not overwritten or sent.")
+        }
+        try revealRoutineControl(subject, towardTopWhenMissing: true)
+        subject.tap()
+        if priorSubject != exactSubject { subject.typeText(exactSubject) }
+        // Submit this single-line field normally so the keyboard cannot pin the
+        // parent's viewport to it while revealing the separate TextEditor.
+        subject.typeText("\n")
+        XCTAssertTrue(subject.value as? String == exactSubject, "Submitting Subject changed its exact text.")
         try revealRoutineControl(body)
-        body.tap(); body.typeText(exactBody)
+        body.tap()
+        if priorBody.isEmpty { body.typeText(exactBody) }
+        // A downward gesture in this panel dismisses its interactive keyboard.
+        routineScrollSurface.swipeDown()
         XCTAssertTrue(subject.value as? String == exactSubject && body.value as? String == exactBody,
                       "The exact authorized subject and body were not entered. Nothing was sent.")
         XCTAssertTrue(recipient.label == fixedRecipient && !send.isEnabled, "The recipient changed or Send enabled before review.")
@@ -695,6 +707,39 @@ final class RealPhoneDisposableReminderEffectTests: XCTestCase {
             qaTitle, "a été ajouté dans Rappels Apple", "was added to Apple Reminders"),
             failure: "Addition was pressed once but its receipt is unconfirmed. Check only this QA item manually; do not retry.")
 
+        try completeCreatedQAReminder()
+        #endif
+    }
+
+    func testCompleteOnlyPreviouslyCreatedQAAfterFreshReading() throws {
+        continueAfterFailure = false
+        let e = ProcessInfo.processInfo.environment
+        guard e["MO_REAL_PHONE_CONNECTIONS"] == "1", e["MO_REAL_PHONE_COMPLETE_EXISTING_QA_REMINDER"] == "1",
+              let bundle = e["MO_REAL_PHONE_BUNDLE_ID"], bundle.hasPrefix("com.gibouu.morningoperator."),
+              !bundle.lowercased().contains(".qa"), !bundle.lowercased().contains("fixture") else {
+            throw XCTSkip("Explicit physical-phone and existing-QA-only completion opt-ins required.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Requires the existing ordinary physical phone.")
+        #else
+        app = XCUIApplication(bundleIdentifier: bundle)
+        app.activate()
+        try require(app.wait(for: .runningForeground, timeout: 10), "Ordinary MORE did not become foreground.")
+        try guardOrdinaryState()
+        let moment = app.staticTexts["morning.currentStep"]
+        try require(moment.exists && moment.label == "Mail", "The original Mail moment is no longer current.")
+        currentMoment = moment.label
+        let status = native("nativeMoment.status")
+        try require(status.exists && status.label.contains(qaTitle) &&
+            (status.label.contains("was added to Apple Reminders") || status.label.contains("a été ajouté dans Rappels Apple")),
+            "The original QA creation receipt is absent. No creation or completion was repeated.")
+        // The existing receipt identifies the one QA item created by the prior run.
+        additionTapped = true
+        try completeCreatedQAReminder()
+        #endif
+    }
+
+    private func completeCreatedQAReminder() throws {
         try readReminders()
         let qa = qaReminderButtons
         try require(qa.count == 1,
@@ -717,9 +762,13 @@ final class RealPhoneDisposableReminderEffectTests: XCTestCase {
         try readReminders()
         try require(qaReminderButtons.count == 0, "The freshly read QA item is still incomplete. Do not retry completion.")
         try guardOrdinaryState()
-        // Leave the same morning paused, with its fresh native reading. There is
-        // no cleanup loop, additional creation, deletion, routine edit, or resume.
-        #endif
+        // Close only the request created by this test; keep the same morning
+        // paused so its existing mail draft can be reviewed again separately.
+        let close = app.buttons["nativeMoment.cancel"]
+        try revealInNativePanel(close)
+        try require(close.exists && close.isHittable, "The completed QA request cannot close normally.")
+        close.tap()
+        try require(native("nativeMoment.status").waitForNonExistence(timeout: 10), "The owned QA request did not close.")
     }
 
     private func native(_ identifier: String) -> XCUIElement {
@@ -814,13 +863,15 @@ final class RealPhoneDisposableReminderEffectTests: XCTestCase {
     /// Scroll only an ancestor of this native panel, never the app or an
     /// unrelated first scroll view. No swipe can activate a write control.
     private func revealInNativePanel(_ element: XCUIElement) throws {
-        for _ in 0..<8 {
+        for _ in 0..<18 {
             if element.exists && element.isHittable { return }
             let candidates = app.scrollViews.containing(.any, identifier: "nativeMoment.open").allElementsBoundByIndex
             guard let panel = candidates.filter({ $0.exists && $0.frame.width > 0 && $0.frame.height > 0 })
                 .min(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else { break }
-            if element.exists && element.frame.midY < panel.frame.midY { panel.swipeDown() }
-            else { panel.swipeUp() }
+            let towardTop = element.exists && element.frame.midY < panel.frame.midY
+            let start = panel.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: towardTop ? 0.35 : 0.65))
+            let end = panel.coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: towardTop ? 0.65 : 0.35))
+            start.press(forDuration: 0.01, thenDragTo: end)
         }
         try require(element.exists && element.isHittable, "The current native-panel control is not reachable; no global navigation was attempted.")
     }
