@@ -429,6 +429,48 @@ struct ScreenTimeRoutineLearningTests {
 
     // MARK: The draft and the saved suggestion
 
+    @Test("Learned social moments retain browser destinations through review without rewriting an approved routine")
+    func socialBrowserTargetsSurviveReviewWithoutRewritingApprovedRoutine() throws {
+        let destinations: [(String, WebMorningSite)] = [
+            ("com.zhiliaoapp.musically", .tiktok), ("com.atebits.Tweetie2", .twitter),
+            ("com.reddit.Reddit", .reddit), ("com.facebook.Facebook", .facebook),
+            ("com.burbn.barcelona", .threads)
+        ]
+        let unknownID = "com.example.UnlistedSocial"
+        for (bundleID, site) in destinations {
+            let learning = learn(ordinaryDay(14, extra: [app(bundleID, 5), app(unknownID, 3)]),
+                                 queryStart: at(18, day: 13))
+            let oldRoute = RoutineStepTarget.inAppWeb(site: URL(string: "https://x.com/example")!)
+            let approved = RoutineVersion(number: 4, sourceLabel: "From Screen Time", steps: [
+                RoutineStep(title: site.displayName, kind: .entertainment, durationMinutes: 5),
+                RoutineStep(title: "Saved page", kind: .entertainment, durationMinutes: 3, target: oldRoute)
+            ]).approved()
+            let savedApproved = try JSONEncoder().encode(approved)
+            var proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15),
+                baseRoutineID: approved.id, calendar: calendar()))
+            let index = try #require(proposal.steps.firstIndex { $0.bundleIdentifier == bundleID })
+            #expect(proposal.steps[index].suggestedTarget == .inAppWeb(site: site.table.startURL))
+            proposal.setMinutes(7, stepID: proposal.steps[index].id)
+            let restoredProposal = try JSONDecoder().decode(ScreenTimeRoutineProposal.self,
+                from: JSONEncoder().encode(proposal))
+            let draft = try restoredProposal.draft(preserving: approved)
+            #expect(draft.steps[index].target == .inAppWeb(site: site.table.startURL))
+            #expect(draft.steps[index].target?.externalURL == nil)
+            #expect(draft.steps[index].durationMinutes == 7)
+            #expect(draft.steps[index].automation == nil)
+            let unknownIndex = try #require(restoredProposal.steps.firstIndex { $0.bundleIdentifier == unknownID })
+            #expect(draft.steps[unknownIndex].target == nil)
+            #expect(ScreenTimeAppCatalog.routineTarget(for: bundleID + ".fake") == nil)
+            #expect(!draft.isApproved)
+            #expect(draft.number == approved.number + 1)
+            let restoredApproved = try JSONDecoder().decode(RoutineVersion.self, from: savedApproved)
+            #expect(restoredApproved == approved)
+            #expect(restoredApproved.isApproved)
+            #expect(restoredApproved.steps[0].target == nil)
+            #expect(restoredApproved.steps[1].target == oldRoute)
+        }
+    }
+
     @Test("A learned Gmail moment retains its native reader through review and saved proposal construction")
     func gmailReaderSurvivesLearningReviewAndDraftWithoutChangingApprovedRoutine() throws {
         let unknownID = "com.example.UnlistedMail"

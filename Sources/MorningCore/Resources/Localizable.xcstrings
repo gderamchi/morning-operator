@@ -1376,6 +1376,76 @@
           }
         }
       }
+    },
+    "iOS native": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS natif"
+          }
+        }
+      }
+    },
+    "Browser": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigateur"
+          }
+        }
+      }
+    },
+    "API connections": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexions API"
+          }
+        }
+      }
+    },
+    "iOS action": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action iOS"
+          }
+        }
+      }
+    },
+    "Connected service": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service connecté"
+          }
+        }
+      }
+    },
+    "Connected accounts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptes connectés"
+          }
+        }
+      }
+    },
+    "On this iPhone": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur cet iPhone"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

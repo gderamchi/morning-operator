@@ -66,6 +66,7 @@ struct MorningRootView: View {
             MorningSunHome(routine: store.routine, night: MorningThemeClock.shared.celestial.moon.opacity,
                            step: sunKicks, openSettings: { showingSettings = true },
                            session: store.session, currentStep: store.currentStep,
+                           connectedActionStatus: store.connectedActionStatus,
                            begin: {
                                guard !store.sessionActive else { return }
                                // No routine yet: begin by learning the morning.
@@ -249,6 +250,7 @@ struct MorningRootView: View {
         .onChange(of: observationReviewCanPresent) { _, ready in if ready { processPendingEntries() } }
         .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
         .onOpenURL { url in
+            if store.handleNativeConnectionURL(url) { return }
             let scheme = Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "more"
             if let next = StepNavigation.parseNext(url, scheme: scheme) {
                 store.tab = .today
@@ -522,12 +524,16 @@ struct TodayView: View {
                                     .accessibilityIdentifier("run.detail")
                             }.font(.raleway(.subheadline)).tint(MorningStyle.accent)
                         }
-                        if step.automation == nil {
+                        if step.automation == nil, step.target?.isConnectedAction != true {
                             Label { Text(step.kind == .messages ? (isFrench ? "Non connecté" : "Not connected") : (isFrench ? "À votre rythme" : "At your pace")) } icon: {
                                 MorningDottedIcon(systemName: step.kind == .messages ? "arrow.up.forward.app" : "hand.tap").frame(width: 18, height: 18)
                             }
                                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 .accessibilityIdentifier("moment.manual")
+                        }
+                        if store.currentStep?.id == step.id, let status = store.connectedActionStatus {
+                            Text(status).font(.raleway(.subheadline)).textSelection(.enabled)
+                                .accessibilityIdentifier("moment.connectedResult")
                         }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
@@ -1190,6 +1196,7 @@ private struct MorningSunHome: View {
     var openSettings: () -> Void
     var session: RoutineSession?
     var currentStep: RoutineStep?
+    var connectedActionStatus: String? = nil
     /// Plays the saved routine, or opens the onboarding when there is none yet.
     var begin: () -> Void
     var pause: () -> Void
@@ -1233,6 +1240,14 @@ private struct MorningSunHome: View {
                     .font(.custom("DM Serif Display", size: 40, relativeTo: .largeTitle))
                     .accessibilityIdentifier("morning.currentStep")
                 Text("\(step.durationMinutes) min").font(.raleway(.subheadline)).opacity(0.7)
+                if let connectedActionStatus {
+                    ScrollView {
+                        Text(connectedActionStatus).font(.raleway(.subheadline)).textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 120)
+                    .accessibilityIdentifier("moment.connectedResult")
+                }
                 HStack(spacing: 12) {
                     Button(action: session?.status == .paused ? resume : pause) {
                         Image(systemName: session?.status == .paused ? "play.fill" : "pause.fill")

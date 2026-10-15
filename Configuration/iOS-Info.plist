@@ -11,6 +11,8 @@
 	<string>more</string>
 	<key>MOREGoogleClientID</key>
 	<string>$(MORE_GOOGLE_CLIENT_ID)</string>
+	<key>MorningAPIBaseURL</key>
+	<string>$(MORNING_API_BASE_URL)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key>

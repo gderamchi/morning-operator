@@ -1,0 +1,70 @@
+# Composio service catalog
+
+Public Composio catalog verified on **15 October 2026**. The dated versions below are available pins for MORE's server configuration; they have not all been tested against a provider. Upgrade a pin deliberately after checking the affected schemas and actions.
+
+These integrations use service APIs through MORE's backend and Composio. They do not grant control over the corresponding iOS app interface. The iPhone app must never contain the Composio project API key or provider credentials.
+
+TikTok/X browsing now uses MORE's embedded browser. Their custom API prerequisites below are optional future information; no developer-portal setup is needed to scroll the personal websites.
+
+| Service / exact toolkit slug | Published version | Managed OAuth | Useful coverage and limits |
+|---|---|---|---|
+| [Gmail — `gmail`](https://docs.composio.dev/toolkits/gmail) | `20261010_00` | Yes | Mail search, reading, drafts, sending and labels, according to the granted scopes. Includes contact-reading tools described below. |
+| [Outlook — `outlook`](https://docs.composio.dev/toolkits/outlook) | `20261014_00` | Yes | Microsoft mail, calendars and contacts. Work or school tenants may require administrator consent. |
+| [Google Calendar — `googlecalendar`](https://docs.composio.dev/toolkits/googlecalendar) | `20261010_00` | Yes | Calendar/event reading and changes, availability and attendees, subject to calendar rights and OAuth scopes. |
+| [Google Contacts — `googlecontacts`](https://docs.composio.dev/toolkits/googlecontacts) | `20260721_00` | **No** | Dedicated People API contact and group management. Requires a customer-owned Google OAuth app and auth configuration. |
+| [Instagram — `instagram`](https://docs.composio.dev/toolkits/instagram) | `20261008_00` | Yes | **Business/Creator accounts only.** Supported professional-account content and messaging actions; consumer account/feed control is unavailable. |
+| [WhatsApp — `whatsapp`](https://docs.composio.dev/toolkits/whatsapp) | `20260915_00` | Yes | **WhatsApp Business Account (WABA) / Cloud API only.** A personal account or the Business phone app alone does not establish API eligibility. |
+| [Notion — `notion`](https://docs.composio.dev/toolkits/notion) | `20261008_00` | Yes | Pages, databases, blocks and comments accessible to the integration. Workspace and page grants constrain access. |
+| [Slack — `slack`](https://docs.composio.dev/toolkits/slack) | `20261014_00` | Yes | Messages, search, channels and account actions according to user/bot scopes, workspace policy and plan. |
+| [Discord — `discord`](https://docs.composio.dev/toolkits/discord) | `20260826_00` | Yes | User identity, guild membership and OAuth connection metadata. This user OAuth toolkit's current catalog does **not** expose general message history or sending. |
+| [LinkedIn — `linkedin`](https://docs.composio.dev/toolkits/linkedin) | `20260924_00` | Yes | Profile, posts, comments, media and permitted organization statistics. This catalog has **no direct messages or connection invitations**. |
+| [Calendly — `calendly`](https://docs.composio.dev/toolkits/calendly) | `20260929_00` | Yes | Scheduling links, availability, event types, events, invitees and cancellations, according to account rights and endpoint eligibility. |
+| [Facebook — `facebook`](https://docs.composio.dev/toolkits/facebook) | `20261014_00` | Yes | **Facebook Pages only**, including supported page content and management actions. Does not connect a personal profile's full activity. |
+| [Google Drive — `googledrive`](https://docs.composio.dev/toolkits/googledrive) | `20261001_00` | Yes | Files, folders, search, sharing and export within the scopes and files the user authorizes. |
+| [Google Docs — `googledocs`](https://docs.composio.dev/toolkits/googledocs) | `20261008_00` | Yes | Reading, creating and editing authorized documents. |
+| [Google Sheets — `googlesheets`](https://docs.composio.dev/toolkits/googlesheets) | `20261001_00` | Yes | Reading, creating and editing authorized spreadsheets and ranges. |
+| [YouTube — `youtube`](https://docs.composio.dev/toolkits/youtube) | `20261014_00` | Yes | Channel/video metadata, search, playlists, subscriptions, comments and supported analytics/live-chat actions. The current pinned catalog exposes 59 nondeprecated tools. Binary video upload from the iPhone is not implemented by this JSON-only proxy. |
+| [Reddit — `reddit`](https://docs.composio.dev/toolkits/reddit) | `20261014_00` | Yes | Posts, comments, community metadata, votes and supported moderation actions, subject to account permissions. The current pinned catalog exposes 33 nondeprecated tools; it does not establish full personal DM support. |
+| [X — `twitter`](https://docs.composio.dev/toolkits/twitter) | `20261007_00` | **No** | 81 tools, including posts, timelines and supported DM actions. Requires a customer-owned X developer app; not configured in MORE. Endpoint permissions and API credit costs apply. |
+| [TikTok — `tiktok`](https://docs.composio.dev/toolkits/tiktok) | `20260917_00` | **No** | 9 tools for authorized profile/video metadata and supported content publishing. Requires a customer-owned TikTok developer app and provider approval; not configured in MORE. No general feed, private inbox or UI control. TikTok Ads is a separate toolkit and is not a substitute. |
+
+## Social activation status
+
+On 15 October 2026, MORE's project contains **16 enabled managed OAuth configurations**, including the newly added `youtube` and `reddit`. Their public catalog snapshots are deployed on the existing Worker and D1; the authenticated registry and both new catalogs returned HTTP 200 with 92 validated schemas. Config creation, toolkit discovery and public schema validation do **not** mean that a YouTube, Reddit or other provider account has been connected or an action verified.
+
+The same project's paginated auth-config list contains no reusable X or TikTok configuration. Two live reads of their toolkit metadata report `composio_managed_auth_schemes: []`, with OAuth2 as the available method. These are supported through Composio once MORE supplies its own provider app; installing the Composio plugin does not supply those developer credentials. [Managed authentication](https://docs.composio.dev/toolkits/managed-auth)
+
+| Requested service | Exact setup or current blocker |
+|---|---|
+| X / `twitter` | Create a provider developer app, then a **custom** Composio auth config. Live schema requires `client_id`, `client_secret` and `generic_id` (Application Bearer Token). The bearer must belong to the same X app; it is used by app-only actions. Set the exact callback shown by Composio and the reviewed scopes. Composio removed managed X credentials in February 2026. X currently uses paid API credits; no credit purchase, card registration or billing change was performed. [Composio guide](https://docs.composio.dev/kb/guide/toolkits-twitter), [X API pricing](https://docs.x.com/x-api/getting-started/pricing) |
+| TikTok / `tiktok` | Create a provider developer app and a **custom** Composio auth config. Live schema requires `client_id` (TikTok Client key) and `client_secret`; callback/scopes must match the approved app. Production app review and additional content-publishing audit requirements constrain available actions. [TikTok app setup](https://developers.tiktok.com/doc/getting-started-create-an-app), [review guidelines](https://developers.tiktok.com/doc/app-review-guidelines), [content sharing requirements](https://developers.tiktok.com/doc/content-sharing-guidelines) |
+| Messenger | No separate `messenger`/`facebook_messenger` toolkit was found in the live catalog. Existing `facebook` exposes Page conversations/messages and send/seen/typing tools. These are **Page** messaging APIs, not access to a personal Messenger inbox. [Facebook toolkit](https://docs.composio.dev/toolkits/facebook) |
+| Threads | No `threads` toolkit was found in the live catalog. No auth config was invented. |
+| Telegram / `telegram` | Current toolkit uses an API key, requiring a **bot token**. It is not a consumer Telegram account connection and was not configured as a replacement. [Toolkit](https://docs.composio.dev/toolkits/telegram), [Telegram bot access](https://core.telegram.org/bots/faq) |
+
+X and TikTok need no new mobile or backend protocol. `COMPOSIO_TOOLKITS_JSON` already activates any valid toolkit only when an owner adds its real same-project `authConfigID`, display name and dated version. Until then they remain absent from `/v1/services`; no connection button should claim otherwise. Once a real custom auth config exists, add the appropriate `twitter`/`tiktok` entry to the ignored local and Worker maps, prepare/apply its public catalog snapshot, then deploy the existing Worker. Keep client secrets and Application Bearer Tokens inside Composio's auth configuration; never put them in the mobile app, the map, public docs or Git. The server cannot verify that an arbitrary configured ID exists at startup: the owner must verify the actual project config before enabling it.
+
+For new custom configs, register `https://backend.composio.dev/api/v3/toolkits/auth/callback` with the provider and set the same value explicitly as `oauth_redirect_uri` in Composio. Its [current programmatic guide](https://docs.composio.dev/docs/authentication/programmatic-auth-configs) confirms that some toolkit defaults still use the supported v1 endpoint; an omitted override must match that default instead. MORE's prepared X/TikTok setup uses explicit v3 values, not the legacy default observed in the TikTok dashboard form. The app's `more://composio/callback` is the separate final mobile return after Composio and is not a replacement for the provider-to-Composio redirect. See [prepared provider fields](PROVIDER-APP-SETUP.md).
+
+## Setup details that affect coverage
+
+- **Google Contacts alternative:** the `gmail` catalog includes `GMAIL_GET_CONTACTS`, `GMAIL_GET_PEOPLE` and `GMAIL_SEARCH_PEOPLE`. They can cover contact lookup without introducing the dedicated Contacts toolkit, provided the actual Gmail grant includes the required People/Contacts permissions. This is a reading alternative, not the dedicated toolkit's full contact-management coverage. Verify the exact tool and scopes before claiming support.
+- **Instagram:** supported messaging uses professional accounts and Meta's qualifying inbound-message window. For ordinary replies, the documented window is 24 hours; a follow, like or comment does not itself open it. [Instagram guide](https://docs.composio.dev/kb/guide/toolkits-instagram)
+- **WhatsApp:** OAuth initiation needs the WABA ID (`generic_id`); hosted authentication can collect required fields. Keeping an existing Business app number alongside Cloud API requires Meta's supported coexistence onboarding. Incoming replies may require triggers/webhooks. [WhatsApp guide](https://docs.composio.dev/kb/guide/toolkits-whatsapp)
+- **Slack:** user-token permissions belong in `user_scopes`; bot `scopes` are separate. Administrative and AI-search actions can require additional workspace plans and permissions. [Slack guide](https://docs.composio.dev/kb/guide/toolkits-slack)
+- **Notion:** access is governed by integration capabilities and granted workspace pages/databases, rather than ordinary OAuth scope selection. [Notion guide](https://docs.composio.dev/kb/guide/toolkits-notion)
+- **LinkedIn:** personal/profile authorization does not imply organization/page privileges. Organization actions need the concrete permissions requested and granted by the selected OAuth configuration. [LinkedIn guide](https://docs.composio.dev/kb/guide/toolkits-linkedin)
+- **Outlook:** tenant administrator approval may be necessary. After approval or scope changes, the intended user needs a fresh authorization flow. [Outlook guide](https://docs.composio.dev/kb/guide/toolkits-outlook)
+- **YouTube:** published catalog tools and OAuth availability do not prove video upload support. Composio's SDK guide handles local video files separately; MORE currently accepts JSON arguments up to 256 KiB and has no equivalent iPhone file-transfer bridge. Provider channel rights, scopes and quotas still apply. [YouTube guide](https://docs.composio.dev/kb/guide/toolkits-youtube)
+- **Reddit:** managed OAuth is available, but individual scopes, account rights and Reddit API policies still constrain actions. No user grant or provider action was performed while configuring this integration. [Reddit guide](https://docs.composio.dev/kb/guide/toolkits-reddit)
+
+## What counts as connected
+
+Keep these four states separate in product copy and verification:
+
+1. **Catalog available:** Composio publishes the toolkit, its version and supported authentication methods. [Managed OAuth catalog](https://docs.composio.dev/toolkits/managed-auth)
+2. **Project configured:** MORE's backend project has an enabled auth configuration and an allowlisted, pinned toolkit. Dashboard configs belong to a specific project. [Configuration guide](https://docs.composio.dev/kb/guide/dashboard-auth-configs-navigation)
+3. **User authorized:** the intended MORE installation/user has completed OAuth and the backend freshly verifies its account as active. Connections made in the chat plugin or another Platform context do not automatically carry over. [Connection isolation](https://docs.composio.dev/kb/guide/toolkits-googledocs)
+4. **Action verified:** a bounded, appropriately authorized tool call has succeeded against that account and its result has been checked. An `ACTIVE` Google connection can still have only a subset of the requested scopes. [Granted-scope limitation](https://docs.composio.dev/kb/guide/toolkits-googlesuper)
+
+Managed OAuth removes the need to supply provider client credentials for supported methods; users still grant their own accounts. It does not bypass provider eligibility, organizational policy, plan limits or scope requirements. Keep project keys, local configuration, account IDs and auth-config IDs outside shared documentation.

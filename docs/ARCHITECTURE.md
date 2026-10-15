@@ -1,6 +1,6 @@
 # System architecture
 
-MORE is an iPhone app for observing a deliberately shared part of a morning, proposing a routine and helping the person run supported steps. The current implementation is local and has no backend or third-party runtime packages. The Mac is a development/test host and optional tethered controller; there is no separate Mac product target.
+MORE is an iPhone app for observing a deliberately shared part of a morning, proposing a routine and helping the person run supported steps. Learning/inference remains local. The optional [Composio connection service](CONNECTIONS.md) now provides authenticated provider operations with a server-held project key; it is not a remote-model backend. The Mac is a development/test host; there is no separate Mac product target or Mac requirement for the connection routes at runtime.
 
 This guide describes source architecture and its limits. [PHASE-ONE](PHASE-ONE.md) is the authority for actual test results; [the roadmap](ROADMAP.md) separates upcoming work. MORE (MOrning REcap) is the V2 display name; the bundle, repository and Xcode target retain Morning Operator identities.
 
