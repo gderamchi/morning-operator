@@ -4,6 +4,9 @@ import MorningCore
 
 struct LearnView: View {
     @Bindable var store: MorningStore
+    var allowsManualRoutineCreation = true
+    /// A persistent destination supplies its own return path after explicit approval.
+    var onRoutineSaved: (() -> Void)? = nil
     @ViewState<Bool> private var importing = false
     @ViewState<UUID?> private var importGeneration = nil
     @ViewState<Bool> private var recording = false
@@ -125,7 +128,7 @@ struct LearnView: View {
                 DisclosureGroup("About on-device learning") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.modelSummary)
-                        Text("Each observation is saved on this device, with its original text and your corrections kept separately. Find earlier observations in Review. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it.")
+                        Text("Each observation is saved on this device, with its original text and your corrections kept separately. Review the current observation here before asking for a suggestion. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it.")
                         Text("A recording is sampled at up to 24 moments, so short clips work best and quick actions may be missed. Visible text helps suggest a routine; it doesn't reveal every tap or intention.")
                         Text("Analysis uses Apple's on-device model when available. It doesn't run other apps or approve a routine for you.")
                         Button("Check availability again") { store.refreshCapabilities() }
@@ -172,7 +175,7 @@ struct LearnView: View {
             }
         }
         .sheet(isPresented: $showingProposal, onDismiss: {
-            if closeAfterProposal { dismiss() }
+            if closeAfterProposal { finishLearning() }
         }) {
             RoutineEvidenceProposalView(store: store, onLearn: { showingProposal = false })
         }
@@ -180,7 +183,7 @@ struct LearnView: View {
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.routine?.id) { _, _ in
             if showingProposal { closeAfterProposal = true }
-            else if !store.busy, !awaitingSuggestion { dismiss() }
+            else if !store.busy, !awaitingSuggestion { finishLearning() }
         }
         .onChange(of: store.dataGeneration) { _, _ in
             importGeneration = nil
@@ -226,7 +229,9 @@ struct LearnView: View {
                 .accessibilityIdentifier("learn.reviewProposal")
         }
         if !store.canSuggestSavedObservations {
-            Label(store.routinePreferencesIssue ?? String(localized: "On-device suggestions aren't ready here yet. You can build and edit your routine yourself."), systemImage: "info.circle")
+            Label(store.routinePreferencesIssue ?? (allowsManualRoutineCreation
+                  ? String(localized: "On-device suggestions aren't ready here yet. You can build and edit your routine yourself.")
+                  : String(localized: "On-device suggestions aren't ready here yet. Your observations stay saved for later.")), systemImage: "info.circle")
                 .font(.footnote).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -259,9 +264,16 @@ struct LearnView: View {
             .disabled(store.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.busy || store.sessionActive ||
                       !store.storageIsAvailable || (!store.currentObservationNeedsProvenance && !store.canSuggestSavedObservations))
             .accessibilityIdentifier("learn.analyze")
-        Button("Build it myself") { store.useManualRoutine() }
-            .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
-            .disabled(store.busy || store.sessionActive)
+        if allowsManualRoutineCreation {
+            Button("Build it myself") { store.useManualRoutine() }
+                .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
+                .disabled(store.busy || store.sessionActive)
+        }
+    }
+
+    private func finishLearning() {
+        if let onRoutineSaved { onRoutineSaved() }
+        else { dismiss() }
     }
 
     private func openObservationDetails() {
@@ -327,12 +339,20 @@ struct LearnView: View {
 
 struct SetupView: View {
     @Bindable var store: MorningStore
+    var onInteractionChanged: (Bool) -> Void = { _ in }
+    @ViewState<Bool> private var routineDataBusy = false
+    @ViewState<Bool> private var isVisible = false
     @ViewState<Bool> private var choosingAlarm = false
     @ViewState<Bool> private var choosingVoice = false
     @ViewState<Bool> private var choosingInvitation = false
     @ViewState<Bool> private var showingPrivacy = false
     @ViewState<Bool> private var choosingBriefing = false
     @ViewState<Bool> private var choosingActivity = false
+
+    private var isInteracting: Bool {
+        choosingAlarm || choosingVoice || choosingInvitation || showingPrivacy ||
+        choosingBriefing || choosingActivity || routineDataBusy
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -349,6 +369,24 @@ struct SetupView: View {
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("setup.connections")
+            NavigationLink {
+                MorningRoutineDataView(store: store, onInteractionChanged: { routineDataBusy = $0 })
+            } label: {
+                LinkRow(title: String(localized: "Routine files"),
+                        detail: String(localized: "Import or export your saved routine"), symbol: "doc")
+                    .padding(MorningTheme.Space.card)
+                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+            }.buttonStyle(.plain).accessibilityIdentifier("setup.routineFiles")
+            if !store.routinePreferences.entries.isEmpty || store.routinePreferencesIssue != nil {
+                NavigationLink {
+                    RoutinePreferencesView(store: store)
+                } label: {
+                    LinkRow(title: String(localized: "Saved choices"), detail: "", symbol: "heart.text.clipboard")
+                        .padding(MorningTheme.Space.card)
+                        .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+                }.buttonStyle(.plain).disabled(store.privacyBlocksWork)
+                    .accessibilityIdentifier("setup.savedChoices")
+            }
             CardButton { choosingAlarm = true } content: {
                 LinkRow(title: String(localized: "Morning alarm"), detail: "", symbol: "alarm")
             }.accessibilityIdentifier("setup.alarm")
@@ -478,6 +516,19 @@ struct SetupView: View {
         .fullScreenCover(isPresented: $choosingAlarm) { MorningAlarmView() }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
+        .onAppear {
+            isVisible = true
+            onInteractionChanged(isInteracting)
+        }
+        .onChange(of: isVisible && isInteracting) { _, value in onInteractionChanged(value) }
+        .onChange(of: store.dataGeneration) { _, _ in
+            choosingAlarm = false; choosingVoice = false; choosingInvitation = false
+            choosingBriefing = false; choosingActivity = false; routineDataBusy = false
+        }
+        .onDisappear {
+            isVisible = false
+            onInteractionChanged(false)
+        }
     }
 
     @ViewBuilder private var voiceControls: some View {
@@ -517,7 +568,7 @@ struct StepEditor: View {
                         .accessibilityLabel("Step name")
                     if step.automation == .savedObservation {
                         Text(step.detail).textSelection(.enabled)
-                        Text("Choose a different excerpt from its observation in Review. Switching to Read this text aloud makes it an ordinary note.")
+                        Text("This step keeps its saved excerpt. To use different words, switch to Read this text aloud and edit the note.")
                             .font(.caption).foregroundStyle(MorningStyle.muted)
                     } else {
                         TextField("What would you like to do?", text: $step.detail, axis: .vertical)
@@ -551,7 +602,7 @@ struct StepEditor: View {
                     Toggle("Keep this duration", isOn: $keepDuration)
                         .accessibilityIdentifier("step.keepDuration")
                 } header: { Text("Future mornings") } footer: {
-                    Text("Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices later in Review.")
+                    Text("Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices in Settings → Saved choices.")
                 }
                 Section {
                     Picker("Action", selection: $step.automation) {

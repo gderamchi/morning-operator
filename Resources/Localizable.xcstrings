@@ -14332,6 +14332,516 @@
           }
         }
       }
+    },
+    "Gmail connection cancelled.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion Gmail annulée."
+          }
+        }
+      }
+    },
+    "Gmail is unavailable. Try connecting again from this screen.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail est indisponible. Réessayez de vous connecter depuis cet écran."
+          }
+        }
+      }
+    },
+    "The scheduled alarm couldn't be checked. Try saving again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’alarme programmée n’a pas pu être vérifiée. Réenregistrez-la."
+          }
+        }
+      }
+    },
+    "Your morning alarm is missing. Save again to schedule it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre alarme du matin est absente. Enregistrez-la à nouveau pour la programmer."
+          }
+        }
+      }
+    },
+    "Connect Gmail below, or sign in to the websites your morning uses.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."
+          }
+        }
+      }
+    },
+    "Read the number of unread messages in your Gmail inbox. Google asks for read-only metadata access; MORE does not read message bodies.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consultez le nombre de messages non lus dans votre boîte Gmail. Google demande l’accès aux métadonnées en lecture seule ; MORE ne lit pas le contenu des messages."
+          }
+        }
+      }
+    },
+    "This session and its count clear when you leave this screen or background MORE. Manage the Google account grant in your Google Account.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La session et son résultat sont effacés en quittant cet écran ou en passant MORE en arrière-plan. Gérez l’autorisation Google dans votre compte Google."
+          }
+        }
+      }
+    },
+    "Connect Gmail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecter Gmail"
+          }
+        }
+      }
+    },
+    "Refresh Gmail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser Gmail"
+          }
+        }
+      }
+    },
+    "This day could not be displayed in the current time zone.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce jour ne peut pas être affiché dans le fuseau horaire actuel."
+          }
+        }
+      }
+    },
+    "Hides the day strip.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masque les jours."
+          }
+        }
+      }
+    },
+    "Shows the day strip here on Home.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche les jours ici, sur l’accueil."
+          }
+        }
+      }
+    },
+    "Previous day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jour précédent"
+          }
+        }
+      }
+    },
+    "Next day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jour suivant"
+          }
+        }
+      }
+    },
+    "Shows saved evidence. Does not start the routine.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche les éléments enregistrés. Ne lance pas la routine."
+          }
+        }
+      }
+    },
+    "No saved personal activity": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune activité personnelle enregistrée"
+          }
+        }
+      }
+    },
+    "Saved on this day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistré ce jour-là"
+          }
+        }
+      }
+    },
+    "No personal run or confirmed observation is saved for this day.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune session personnelle ni observation confirmée n’est enregistrée pour ce jour."
+          }
+        }
+      }
+    },
+    "Samples and unconfirmed sources are not included.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les exemples et les sources non confirmées sont exclus."
+          }
+        }
+      }
+    },
+    "Routine finished": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routine terminée"
+          }
+        }
+      }
+    },
+    "Routine stopped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routine arrêtée"
+          }
+        }
+      }
+    },
+    "%lld of %lld moments completed · %lld skipped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld moments terminés sur %lld · %lld passés"
+          }
+        }
+      }
+    },
+    "%lld saved observations": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld observations enregistrées"
+          }
+        }
+      }
+    },
+    "%lld app observations": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld observations d’apps"
+          }
+        }
+      }
+    },
+    "Saved local day · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jour local enregistré · %@"
+          }
+        }
+      }
+    },
+    "%lld observations have no saved day and are not shown here.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld observations n’ont pas de jour enregistré et ne sont pas affichées ici."
+          }
+        }
+      }
+    },
+    "Edit this moment": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier ce moment"
+          }
+        }
+      }
+    },
+    "Your moments": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos moments"
+          }
+        }
+      }
+    },
+    "Tap a moment to edit. Drag to change the order. Changes save as a draft and need your approval.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez un moment pour le modifier. Faites-le glisser pour changer l’ordre. Les modifications sont enregistrées en brouillon et doivent être approuvées."
+          }
+        }
+      }
+    },
+    "Your daily routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine de chaque jour"
+          }
+        }
+      }
+    },
+    "%lld moments · %lld min planned": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld moments · %lld min prévues"
+          }
+        }
+      }
+    },
+    "Draft · review before approval": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brouillon · à relire avant approbation"
+          }
+        }
+      }
+    },
+    "Finish or end this morning before editing your routine.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminez ou arrêtez cette matinée avant de modifier votre routine."
+          }
+        }
+      }
+    },
+    "Routine files": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichiers de routine"
+          }
+        }
+      }
+    },
+    "Open a saved MORE plan and review it before making any changes. Import saves a draft; approval stays separate.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez un plan MORE enregistré et relisez-le avant toute modification. L’import enregistre un brouillon ; l’approbation reste distincte."
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aujourd’hui"
+          }
+        }
+      }
+    },
+    "Your change couldn't be saved right now. Finish the current activity and check local storage before trying again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre modification ne peut pas être enregistrée maintenant. Terminez l’activité en cours et vérifiez le stockage local avant de réessayer."
+          }
+        }
+      }
+    },
+    "Your routine changed while this moment was open. Cancel and reopen the moment to edit the current version.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine a changé pendant que ce moment était ouvert. Annulez et rouvrez le moment pour modifier la version actuelle."
+          }
+        }
+      }
+    },
+    "Saved days are unavailable. Try again later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les jours enregistrés sont indisponibles. Réessayez plus tard."
+          }
+        }
+      }
+    },
+    "Past days show saved activity. Return to Today to continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les jours passés montrent l’activité enregistrée. Revenez à Aujourd’hui pour poursuivre votre matinée."
+          }
+        }
+      }
+    },
+    "Import or export your saved routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importer ou exporter votre routine enregistrée"
+          }
+        }
+      }
+    },
+    "Each observation is saved on this device, with its original text and your corrections kept separately. Review the current observation here before asking for a suggestion. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque observation est enregistrée sur cet appareil, son texte d’origine et vos corrections étant conservés séparément. Relisez ici l’observation actuelle avant de demander une suggestion. « Effacer cette observation » supprime l’original, les corrections, le texte échantillonné et l’interprétation de l’écran. Les éléments déjà liés à une routine enregistrée restent avec elle."
+          }
+        }
+      }
+    },
+    "This step keeps its saved excerpt. To use different words, switch to Read this text aloud and edit the note.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette étape garde son extrait enregistré. Pour utiliser d’autres mots, passez à « Lire ce texte à voix haute » et modifiez la note."
+          }
+        }
+      }
+    },
+    "Done saves this suggestion for later. After approval, edit your plan in Routine.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Terminé » garde cette suggestion pour plus tard. Après approbation, modifiez votre plan dans Routine."
+          }
+        }
+      }
+    },
+    "Adding this excerpt needs room in your routine. Remove a moment in Routine first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il faut faire de la place dans votre routine pour ajouter cet extrait. Retirez d’abord un moment dans Routine."
+          }
+        }
+      }
+    },
+    "This period could not be displayed. Your saved observations have not been changed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette période ne peut pas être affichée. Vos observations enregistrées n’ont pas été modifiées."
+          }
+        }
+      }
+    },
+    "Try opening two connected apps and returning to the first, then return to the app activity card. Counts appear after those automations actually run. This setup does not start screen recording or read messages.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essayez d’ouvrir deux apps connectées et de revenir à la première, puis revenez à la fiche d’activité des apps. Les comptes apparaissent après l’exécution réelle de ces automatisations. Cette configuration ne lance pas d’enregistrement d’écran et ne lit pas les messages."
+          }
+        }
+      }
+    },
+    "Home": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accueil"
+          }
+        }
+      }
+    },
+    "Play morning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer la matinée"
+          }
+        }
+      }
+    },
+    "Your saved choices couldn't be read. Your routine and observations are intact. Reset them in Settings → Saved choices before making new suggestions.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos choix enregistrés n’ont pas pu être lus. Votre routine et vos observations sont intactes. Réinitialisez-les dans Réglages → Choix enregistrés avant de demander de nouvelles suggestions."
+          }
+        }
+      }
+    },
+    "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices in Settings → Saved choices.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder un moment conserve son texte, sa durée et son action. N’enregistrer que sa durée laisse varier les autres détails. Les minutes sont prévues, pas mesurées. Effacez ces choix dans Réglages → Choix enregistrés."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
