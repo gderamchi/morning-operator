@@ -74,7 +74,11 @@ struct MorningRootView: View {
                                    showingLearn = true
                                }
                            },
-                           pause: { store.pause() }, resume: { store.resume() }, next: { store.advance() })
+                           pause: { store.pause() }, resume: { store.resume() }, next: { store.advance() },
+                           offersReflection: store.shouldOfferCompletionReflection,
+                           voiceBlocked: store.voiceInputBlocksPlayback,
+                           speak: { store.openCompletionCapture() }, write: { store.openCapture() },
+                           notNow: { store.discardCompletionReflection() })
                 // The sky, then the touch layer, both under the text and buttons so those
                 // keep their own taps.
                 .background {
@@ -1188,9 +1192,30 @@ private struct MorningSunHome: View {
     var pause: () -> Void
     var resume: () -> Void
     var next: () -> Void
+    /// After a saved, finished run: offer to keep a thought about it.
+    var offersReflection = false
+    var voiceBlocked = false
+    var speak: () -> Void = {}
+    var write: () -> Void = {}
+    var notNow: () -> Void = {}
     private var running: Bool { session?.status == .running || session?.status == .paused }
+    /// Today's run reached its last moment. Yesterday's finished run gives way to a new greeting.
+    private var finishedToday: Bool {
+        guard let done = session?.completedAt else { return false }
+        return Calendar.current.isDateInToday(done)
+    }
+    /// The sun is not an accessibility element, so VoiceOver and UI tests reach the
+    /// question without touching it.
+    private var questionShown: Bool {
+        if step >= 2 || voiceOverEnabled { return true }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing") { return true }
+        #endif
+        return false
+    }
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
     private var ink: Color { night > 0.5 ? Color(red: 0.93, green: 0.92, blue: 0.97) : MorningStyle.ink }
 
@@ -1212,6 +1237,7 @@ private struct MorningSunHome: View {
                     }
                     .buttonStyle(.glass).buttonBorderShape(.circle)
                     .accessibilityLabel(session?.status == .paused ? "Continue" : "Pause")
+                    .accessibilityIdentifier("morning.playback")
                     Button(action: next) {
                         Text(isFrench ? "suivant" : "next")
                             .font(.raleway(.body, .semibold))
@@ -1223,6 +1249,9 @@ private struct MorningSunHome: View {
                 .padding(.top, 8)
             }
             .transition(.opacity)
+        } else if finishedToday, let session {
+            finished(session)
+                .transition(.opacity)
         } else {
         // Each line keeps its place, one under the other, but only the latest shows:
         // the greeting, then the date below it, then the question below that.
@@ -1249,18 +1278,20 @@ private struct MorningSunHome: View {
                 .accessibilityIdentifier("morning.begin")
             }
             .padding(.top, 10)
-            .opacity(step >= 2 ? 1 : 0)
-            .allowsHitTesting(step >= 2)
-            .accessibilityHidden(step < 2)
+            .opacity(questionShown ? 1 : 0)
+            .allowsHitTesting(questionShown)
+            .accessibilityHidden(!questionShown)
         }
         }
         }
         .animation(.easeOut(duration: 0.4), value: running)
+        .animation(.easeOut(duration: 0.4), value: finishedToday)
         // Clear of the Settings button.
         .padding(.trailing, 56)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: step)
         .foregroundStyle(ink)
-        .accessibilityElement(children: .combine)
+        // Contain, not combine: the buttons inside stay separate, reachable controls.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("morning.heading")
         .padding(.horizontal, 24).padding(.top, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -1273,6 +1304,43 @@ private struct MorningSunHome: View {
             .contentShape(Rectangle().inset(by: -8))
             .accessibilityLabel("Settings").accessibilityIdentifier("morning.settings")
             .padding(.trailing, 20).padding(.top, 14)
+        }
+    }
+
+    /// The morning is done: a closing word, what was done and how long it really took.
+    private func finished(_ session: RoutineSession) -> some View {
+        let moments = session.completedStepIDs.count
+        let minutes = max(1, Int(((session.activeDuration(until: session.completedAt ?? .now) ?? 0) / 60).rounded()))
+        let summary = "\(moments) moment\(moments == 1 ? "" : "s") · \(minutes) min"
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(isFrench ? "bonne matinée" : "have a good day")
+                .font(.custom("DM Serif Display", size: 46, relativeTo: .largeTitle))
+                .accessibilityIdentifier("morning.complete")
+            Text(summary).font(.raleway(.subheadline)).opacity(0.7)
+                .accessibilityLabel(isFrench ? "\(moments) moments faits en \(minutes) minutes"
+                                             : "\(moments) moments done in \(minutes) minutes")
+                .accessibilityIdentifier("morning.completeSummary")
+            if offersReflection {
+                HStack(spacing: 12) {
+                    Button(action: speak) {
+                        Image(systemName: "mic").font(.system(size: 18)).frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.glass).buttonBorderShape(.circle).disabled(voiceBlocked)
+                    .accessibilityLabel(isFrench ? "Dire une pensée" : "Speak a thought")
+                    .accessibilityIdentifier("morning.speakReflection")
+                    Button(action: write) {
+                        Text(isFrench ? "noter une pensée" : "note a thought")
+                            .font(.raleway(.body, .semibold))
+                            .padding(.horizontal, 18).padding(.vertical, 6)
+                    }
+                    .buttonStyle(.glass)
+                    .accessibilityIdentifier("morning.reflect")
+                    Button(isFrench ? "plus tard" : "not now", action: notNow)
+                        .font(.raleway(.subheadline)).opacity(0.7).frame(minHeight: 44)
+                        .accessibilityIdentifier("morning.dismissReflection")
+                }
+                .padding(.top, 8)
+            }
         }
     }
 

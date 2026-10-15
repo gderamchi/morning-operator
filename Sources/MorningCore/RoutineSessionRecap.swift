@@ -235,3 +235,35 @@ public struct HabitReductionGoal: Codable, Sendable, Equatable, Identifiable {
         try validate()
     }
 }
+
+extension RoutineSession {
+    /// When the run finished all its moments, or nil if it has not.
+    public var completedAt: Date? {
+        guard status == .completed else { return nil }
+        return events.last { $0.kind == .completed }?.occurredAt
+    }
+
+    /// Time the run actually spent running, from its recorded events: pauses are left out.
+    /// A run still going counts up to `now`. Nil if it never started. Clock changes that
+    /// put an event before the previous one count as zero, never as negative time.
+    public func activeDuration(until now: Date = Date()) -> TimeInterval? {
+        var total: TimeInterval = 0
+        var runningSince: Date?
+        var started = false
+        for event in events {
+            switch event.kind {
+            case .started, .resumed:
+                started = true
+                runningSince = event.occurredAt
+            case .paused, .completed, .stopped:
+                if let since = runningSince { total += max(0, event.occurredAt.timeIntervalSince(since)) }
+                runningSince = nil
+            case .stepCompleted, .stepSkipped:
+                break
+            }
+        }
+        guard started else { return nil }
+        if let since = runningSince { total += max(0, now.timeIntervalSince(since)) }
+        return total
+    }
+}
