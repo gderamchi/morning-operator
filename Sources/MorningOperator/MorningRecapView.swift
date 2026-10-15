@@ -15,7 +15,7 @@ struct MorningRecapView: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Recap").font(MorningTheme.Typography.heading).accessibilityAddTraits(.isHeader)
-                Text(endingText(recap.ending)).font(.subheadline)
+                Text(endingText(recap.ending)).font(.raleway(.subheadline))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("recap.ending")
                 if let title = stoppedAtTitle(recap) {
@@ -59,11 +59,11 @@ struct MorningRecapView: View {
 
     private func group(_ count: LocalizedStringKey, _ steps: [RoutineStep], id: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(count).font(.subheadline.weight(.medium))
+            Text(count).font(.raleway(.subheadline, .medium))
                 .fixedSize(horizontal: false, vertical: true)
             if showsMomentNames {
                 ForEach(steps) { step in
-                    Text(step.title).font(.footnote).foregroundStyle(MorningStyle.muted)
+                    Text(step.title).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -89,7 +89,7 @@ struct MorningRecapView: View {
     }
 
     private func line(_ text: LocalizedStringKey) -> some View {
-        Text(text).font(.footnote).foregroundStyle(MorningStyle.muted)
+        Text(text).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -124,7 +124,7 @@ private struct MorningRecapFeedback: View {
         let saved = store.feedback(for: session)
         VStack(alignment: .leading, spacing: 12) {
             Text("Two optional questions. Answer one, both or neither.")
-                .font(.footnote).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true)
             question("Was it useful?", id: "recap.useful", selected: saved?.wasUseful) { answer in
                 store.answerFeedback(for: session, wasUseful: answer, wasEnjoyable: saved?.wasEnjoyable)
@@ -134,7 +134,7 @@ private struct MorningRecapFeedback: View {
             }
             if saved != nil {
                 Text("Your answer is saved with this morning. It changes nothing else.")
-                    .font(.footnote).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("recap.feedbackSaved")
             }
@@ -144,7 +144,7 @@ private struct MorningRecapFeedback: View {
     private func question(_ title: LocalizedStringKey, id: String, selected: RoutineFeedbackAnswer?,
                           answer: @escaping (RoutineFeedbackAnswer?) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.subheadline.weight(.medium))
+            Text(title).font(.raleway(.subheadline, .medium))
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             // Side by side when the three fit; one under the other at large text sizes.

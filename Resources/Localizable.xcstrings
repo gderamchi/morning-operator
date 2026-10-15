@@ -222,6 +222,16 @@
         }
       }
     },
+    "%lld app observations": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld observations d’apps"
+          }
+        }
+      }
+    },
     "%lld days with labeled samples · %lld days with observations": {
       "localizations": {
         "en": {
@@ -418,6 +428,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld messages could not be loaded. Try refreshing.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld messages n’ont pas pu être chargés. Essayez d’actualiser."
           }
         }
       }
@@ -762,6 +782,16 @@
         }
       }
     },
+    "%lld moments · %lld min planned": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld moments · %lld min prévues"
+          }
+        }
+      }
+    },
     "%lld moments · approved": {
       "localizations": {
         "en": {
@@ -1038,6 +1068,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld observations have no saved day and are not shown here.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld observations n’ont pas de jour enregistré et ne sont pas affichées ici."
           }
         }
       }
@@ -1478,6 +1518,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld of %lld moments completed · %lld skipped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld moments terminés sur %lld · %lld passés"
           }
         }
       }
@@ -2162,6 +2212,16 @@
         }
       }
     },
+    "%lld saved observations": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld observations enregistrées"
+          }
+        }
+      }
+    },
     "%lld saved runs have no complete timing. They stay out of the average.": {
       "localizations": {
         "en": {
@@ -2620,6 +2680,46 @@
         }
       }
     },
+    "1 · See your rhythm": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 · Découvrez votre rythme"
+          }
+        }
+      }
+    },
+    "2 · Make yourself at home": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 · Installez-vous"
+          }
+        }
+      }
+    },
+    "2 · Show your morning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 · Montrez votre matin"
+          }
+        }
+      }
+    },
+    "3 · Make yourself at home": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 · Installez-vous"
+          }
+        }
+      }
+    },
     "A draft for you to review": {
       "localizations": {
         "fr": {
@@ -2716,6 +2816,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un peu de votre routine, capturé."
+          }
+        }
+      }
+    },
+    "A little setup. Then you're home.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un instant de préparation. Puis à vous de jouer."
           }
         }
       }
@@ -2826,6 +2936,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un enregistrement est échantillonné sur 24 moments au maximum : les clips courts fonctionnent mieux et les actions rapides peuvent être manquées. Le texte visible aide à suggérer une routine ; il ne révèle pas chaque toucher ni chaque intention."
+          }
+        }
+      }
+    },
+    "A reply could not be prepared. You can write one below.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de préparer une réponse. Vous pouvez en écrire une ci-dessous."
           }
         }
       }
@@ -2972,6 +3092,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "À propos de cette suggestion"
+          }
+        }
+      }
+    },
+    "Access depends on your iPhone and Apple Account region. Only one app can hold this access at a time.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès dépend de votre iPhone et de la région de votre compte Apple. Une seule app peut avoir cet accès à la fois."
           }
         }
       }
@@ -3276,6 +3407,16 @@
         }
       }
     },
+    "Adding this excerpt needs room in your routine. Remove a moment in Routine first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il faut faire de la place dans votre routine pour ajouter cet extrait. Retirez d’abord un moment dans Routine."
+          }
+        }
+      }
+    },
     "Again": {
       "localizations": {
         "fr": {
@@ -3456,6 +3597,17 @@
         }
       }
     },
+    "App minutes and pickup counts. It does not show taps, messages or scrolling speed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La durée dans les apps et les prises en main. Ni les appuis, ni les messages, ni la vitesse de défilement."
+          }
+        }
+      }
+    },
     "App names and transition times stay on this device until you clear them. Disable the corresponding automations in Shortcuts to stop adding new entries.": {
       "localizations": {
         "fr": {
@@ -3512,6 +3664,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Logo Météo Apple indisponible"
+          }
+        }
+      }
+    },
+    "Apple asks once (Continue, then Face ID). Only one app on this iPhone can hold this access. Nothing changes until you approve.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple demande une seule fois (Continuer, puis Face ID). Une seule app de cet iPhone peut avoir cet accès. Rien ne change avant votre accord."
           }
         }
       }
@@ -3916,6 +4078,16 @@
         }
       }
     },
+    "Back to Inbox": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retour à la boîte de réception"
+          }
+        }
+      }
+    },
     "Back to morning": {
       "localizations": {
         "fr": {
@@ -4290,6 +4462,17 @@
         }
       }
     },
+    "Choose an app or page in your routine.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une app ou une page dans votre routine."
+          }
+        }
+      }
+    },
     "Choose an excerpt": {
       "localizations": {
         "fr": {
@@ -4356,6 +4539,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choisissez-la de nouveau pour effacer votre réponse."
+          }
+        }
+      }
+    },
+    "Choose message reading or an unread count only.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez de lire vos messages ou de consulter seulement leur nombre."
           }
         }
       }
@@ -4750,6 +4943,36 @@
         }
       }
     },
+    "Connect Gmail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecter Gmail"
+          }
+        }
+      }
+    },
+    "Connect Gmail below, or sign in to the websites your morning uses.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."
+          }
+        }
+      }
+    },
+    "Connect Gmail · count only": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecter Gmail · nombre uniquement"
+          }
+        }
+      }
+    },
     "Connect Instagram, TikTok or Snapchat once with Apple's Shortcuts app. Only app names and times are saved locally.": {
       "localizations": {
         "fr": {
@@ -4760,12 +4983,65 @@
         }
       }
     },
+    "Connect Screen Time": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecter Temps d’écran"
+          }
+        }
+      }
+    },
+    "Connect Screen Time to read the app-use data available on this iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez Temps d’écran pour lire les données d’usage disponibles sur cet iPhone."
+          }
+        }
+      }
+    },
+    "Connect Screen Time, then show MORE a moment of your morning.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez Temps d’écran, puis montrez un moment de votre matinée à MORE."
+          }
+        }
+      }
+    },
     "Connect app activity": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Connecter l’activité des apps"
+          }
+        }
+      }
+    },
+    "Connect my websites": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecter mes sites"
+          }
+        }
+      }
+    },
+    "Connect once to read Gmail and prepare replies. Google asks for read-only access.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous une fois pour lire Gmail et préparer des réponses. Google demande un accès en lecture seule."
           }
         }
       }
@@ -4790,12 +5066,52 @@
         }
       }
     },
+    "Connection details": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détails de la connexion"
+          }
+        }
+      }
+    },
+    "Connection saved securely on this iPhone.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion enregistrée en sécurité sur cet iPhone."
+          }
+        }
+      }
+    },
     "Continue": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Reprendre"
+          }
+        }
+      }
+    },
+    "Copied.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copié."
+          }
+        }
+      }
+    },
+    "Copy reply": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier la réponse"
           }
         }
       }
@@ -5070,6 +5386,26 @@
         }
       }
     },
+    "Disconnect Gmail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déconnecter Gmail"
+          }
+        }
+      }
+    },
+    "Disconnect removes this iPhone’s saved login. Manage Google access in your Google Account.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déconnecter efface la connexion enregistrée sur cet iPhone. Gérez l’accès Google dans votre compte Google."
+          }
+        }
+      }
+    },
     "Dismiss": {
       "localizations": {
         "fr": {
@@ -5120,6 +5456,16 @@
         }
       }
     },
+    "Done saves this suggestion for later. After approval, edit your plan in Routine.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Terminé » garde cette suggestion pour plus tard. Après approbation, modifiez votre plan dans Routine."
+          }
+        }
+      }
+    },
     "Done saves this suggestion for later. You can edit your current routine under Review → Your routine.": {
       "localizations": {
         "fr": {
@@ -5136,6 +5482,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Brouillon"
+          }
+        }
+      }
+    },
+    "Draft · review before approval": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brouillon · à relire avant approbation"
           }
         }
       }
@@ -5200,12 +5556,33 @@
         }
       }
     },
+    "Each observation is saved on this device, with its original text and your corrections kept separately. Review the current observation here before asking for a suggestion. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque observation est enregistrée sur cet appareil, son texte d’origine et vos corrections étant conservés séparément. Relisez ici l’observation actuelle avant de demander une suggestion. « Effacer cette observation » supprime l’original, les corrections, le texte échantillonné et l’interprétation de l’écran. Les éléments déjà liés à une routine enregistrée restent avec elle."
+          }
+        }
+      }
+    },
     "Each recording is separate. Activity between samples and time spent in apps remain unknown.": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Chaque enregistrement est distinct. L’activité entre les échantillons et le temps passé dans les apps restent inconnus."
+          }
+        }
+      }
+    },
+    "Earlier days": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jours précédents"
           }
         }
       }
@@ -5230,6 +5607,16 @@
         }
       }
     },
+    "Edit this moment": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier ce moment"
+          }
+        }
+      }
+    },
     "Edit what we found. Your original stays saved.": {
       "localizations": {
         "fr": {
@@ -5246,6 +5633,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Modifier votre libellé"
+          }
+        }
+      }
+    },
+    "Editable reply": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réponse modifiable"
           }
         }
       }
@@ -5476,6 +5873,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Terminez une matinée pour commencer votre historique. Les jours sans session enregistrée restent vides."
+          }
+        }
+      }
+    },
+    "Finish or end this morning before editing your routine.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminez ou arrêtez cette matinée avant de modifier votre routine."
           }
         }
       }
@@ -5730,6 +6137,33 @@
         }
       }
     },
+    "From %lld comparable mornings. Order is estimated.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "D’après %lld matins comparables. L’ordre est estimé."
+          }
+        }
+      }
+    },
+    "From %lld comparable mornings. Screen Time had %lld days.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "D’après %1$lld matins comparables. Temps d’écran avait %2$lld jours."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "From %1$lld comparable mornings. Screen Time had %2$lld days."
+          }
+        }
+      }
+    },
     "From your observations": {
       "localizations": {
         "fr": {
@@ -5796,6 +6230,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Donnez un nom à cette étape"
+          }
+        }
+      }
+    },
+    "Gmail connection cancelled.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion Gmail annulée."
+          }
+        }
+      }
+    },
+    "Gmail is unavailable. Try again from this screen.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail est indisponible. Réessayez depuis cet écran."
+          }
+        }
+      }
+    },
+    "Gmail is unavailable. Try connecting again from this screen.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail est indisponible. Réessayez de vous connecter depuis cet écran."
           }
         }
       }
@@ -5890,12 +6354,32 @@
         }
       }
     },
+    "Hides the day strip.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masque les jours."
+          }
+        }
+      }
+    },
     "History": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Historique"
+          }
+        }
+      }
+    },
+    "Home": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accueil"
           }
         }
       }
@@ -5936,6 +6420,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Date d’import inconnue"
+          }
+        }
+      }
+    },
+    "Import or export your saved routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importer ou exporter votre routine enregistrée"
           }
         }
       }
@@ -6104,6 +6598,16 @@
         }
       }
     },
+    "Keep at least one app to approve this suggestion.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gardez au moins une app pour approuver cette suggestion."
+          }
+        }
+      }
+    },
     "Keep current": {
       "localizations": {
         "fr": {
@@ -6164,6 +6668,16 @@
         }
       }
     },
+    "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices in Settings → Saved choices.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder un moment conserve son texte, sa durée et son action. N’enregistrer que sa durée laisse varier les autres détails. Les minutes sont prévues, pas mesurées. Effacez ces choix dans Réglages → Choix enregistrés."
+          }
+        }
+      }
+    },
     "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices later in Review.": {
       "localizations": {
         "fr": {
@@ -6214,6 +6728,26 @@
         }
       }
     },
+    "Learn again": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apprendre à nouveau"
+          }
+        }
+      }
+    },
+    "Learn from Screen Time": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apprendre avec Temps d’écran"
+          }
+        }
+      }
+    },
     "Learn from a morning": {
       "localizations": {
         "fr": {
@@ -6244,6 +6778,26 @@
         }
       }
     },
+    "Learning from Screen Time needs iOS 26.4 or later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apprendre avec Temps d’écran demande iOS 26.4 ou plus récent."
+          }
+        }
+      }
+    },
+    "Learning your scroll and tap rhythm": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apprentissage du rythme de vos gestes"
+          }
+        }
+      }
+    },
     "Leave out of future suggestions": {
       "localizations": {
         "fr": {
@@ -6270,6 +6824,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "D’anciens choix obligatoires doivent être réparés explicitement."
+          }
+        }
+      }
+    },
+    "Less than 1 min": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moins d’une minute"
           }
         }
       }
@@ -6404,12 +6969,53 @@
         }
       }
     },
+    "Long app use does not prove scrolling. Choose the budget you want.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une longue utilisation ne prouve pas un défilement. Choisissez la durée qui vous convient."
+          }
+        }
+      }
+    },
+    "Long scroll: you could keep this one shorter": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Long défilement : vous pourriez l’écourter"
+          }
+        }
+      }
+    },
+    "MORE guides native app steps. Inside MORE’s browser, you can ask it to read supported pages or move to the next video.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE vous guide dans les apps. Dans son navigateur, vous pouvez lui demander de lire les pages prises en charge ou de passer à la vidéo suivante."
+          }
+        }
+      }
+    },
     "MORE keeps its learning on this device. You choose when to connect Apple apps and what to keep.": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "MORE garde son apprentissage sur cet appareil. Vous choisissez quand connecter les apps Apple et ce que vous gardez."
+          }
+        }
+      }
+    },
+    "MORE looks at the minutes you spent in each app over the last week and finds your mornings. Only app names and minutes are kept, on this iPhone. No messages, no screens, no websites.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE regarde les minutes passées dans chaque app la semaine dernière et retrouve vos matins. Seuls les noms d’apps et les minutes sont gardés, sur cet iPhone. Aucun message, aucun écran, aucun site web."
           }
         }
       }
@@ -6504,6 +7110,37 @@
         }
       }
     },
+    "Measured minutes come from complete hourly segments inside the detected morning. Other minutes are estimated from a partial hour.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les minutes mesurées viennent d’heures entières dans la matinée détectée. Les autres sont estimées à partir d’une heure partielle."
+          }
+        }
+      }
+    },
+    "Measured or estimated?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesuré ou estimé ?"
+          }
+        }
+      }
+    },
+    "Measured: Screen Time counted these minutes inside your morning. Estimated: an hour ran past the end of your morning, so its minutes were shared out.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesuré : Temps d’écran a compté ces minutes pendant votre matin. Estimé : une heure dépassait la fin de votre matin, ses minutes ont donc été réparties."
+          }
+        }
+      }
+    },
     "Messages and email aren't connected here yet. Automatic room detection and continuous voice commands also need further work.": {
       "localizations": {
         "fr": {
@@ -6530,6 +7167,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les minutes sont prévues. Modifier crée un nouveau brouillon ; vos matinées enregistrées gardent leur routine d’origine."
+          }
+        }
+      }
+    },
+    "Minutes estimated": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes estimées"
+          }
+        }
+      }
+    },
+    "Minutes measured": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes mesurées"
           }
         }
       }
@@ -6744,6 +7401,16 @@
         }
       }
     },
+    "Next day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jour suivant"
+          }
+        }
+      }
+    },
     "Next moment": {
       "localizations": {
         "fr": {
@@ -6890,6 +7557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucun texte d’origine n’a été conservé."
+          }
+        }
+      }
+    },
+    "No personal run or confirmed observation is saved for this day.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune session personnelle ni observation confirmée n’est enregistrée pour ce jour."
           }
         }
       }
@@ -7054,6 +7731,16 @@
         }
       }
     },
+    "No saved personal activity": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune activité personnelle enregistrée"
+          }
+        }
+      }
+    },
     "No screen labels are available yet.": {
       "localizations": {
         "fr": {
@@ -7080,6 +7767,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucun extrait court et complet n’est disponible pour appuyer un libellé. Vous pouvez quand même laisser cet écran inconnu."
+          }
+        }
+      }
+    },
+    "No subject": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sans objet"
+          }
+        }
+      }
+    },
+    "No unread messages in Inbox.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun message non lu dans la boîte de réception."
           }
         }
       }
@@ -7484,6 +8191,16 @@
         }
       }
     },
+    "One guided sign-in pass": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une seule préparation pour vos connexions"
+          }
+        }
+      }
+    },
     "One time · %@": {
       "localizations": {
         "fr": {
@@ -7524,6 +8241,26 @@
         }
       }
     },
+    "Only part of this message is available. You can write a reply below.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seule une partie de ce message est disponible. Vous pouvez écrire une réponse ci-dessous."
+          }
+        }
+      }
+    },
+    "Only this page. This estimate does not replay your gestures.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette page seulement. Cette estimation ne reproduit pas vos gestes."
+          }
+        }
+      }
+    },
     "Open": {
       "localizations": {
         "fr": {
@@ -7560,6 +8297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ouvrez un plan MORE enregistré et relisez-le avant toute modification."
+          }
+        }
+      }
+    },
+    "Open a saved MORE plan and review it before making any changes. Import saves a draft; approval stays separate.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez un plan MORE enregistré et relisez-le avant toute modification. L’import enregistre un brouillon ; l’approbation reste distincte."
           }
         }
       }
@@ -7654,6 +8401,17 @@
         }
       }
     },
+    "Opens %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre %@"
+          }
+        }
+      }
+    },
     "Opens details": {
       "localizations": {
         "fr": {
@@ -7690,6 +8448,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ouvre la lecture, l’apprentissage, l’historique et les réglages"
+          }
+        }
+      }
+    },
+    "Optional": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facultatif"
           }
         }
       }
@@ -7844,6 +8612,16 @@
         }
       }
     },
+    "Past days show saved activity. Return to Today to continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les jours passés montrent l’activité enregistrée. Revenez à Aujourd’hui pour poursuivre votre matinée."
+          }
+        }
+      }
+    },
     "Pattern updated": {
       "localizations": {
         "fr": {
@@ -7984,12 +8762,42 @@
         }
       }
     },
+    "Play morning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer la matinée"
+          }
+        }
+      }
+    },
+    "Prepare reply": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparer une réponse"
+          }
+        }
+      }
+    },
     "Prepared %@": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Préparé %@"
+          }
+        }
+      }
+    },
+    "Prepared on this iPhone. Review before copying.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparé sur cet iPhone. Relisez avant de copier."
           }
         }
       }
@@ -8030,6 +8838,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Écouter la voix choisie"
+          }
+        }
+      }
+    },
+    "Previous day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jour précédent"
           }
         }
       }
@@ -8134,12 +8952,42 @@
         }
       }
     },
+    "Read full message": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire le message entier"
+          }
+        }
+      }
+    },
+    "Read messages": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire les messages"
+          }
+        }
+      }
+    },
     "Read saved excerpt": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Lire l’extrait enregistré"
+          }
+        }
+      }
+    },
+    "Read the number of unread messages in your Gmail inbox. Google asks for read-only metadata access; MORE does not read message bodies.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consultez le nombre de messages non lus dans votre boîte Gmail. Google demande l’accès aux métadonnées en lecture seule ; MORE ne lit pas le contenu des messages."
           }
         }
       }
@@ -8180,6 +9028,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lire l’agenda du jour"
+          }
+        }
+      }
+    },
+    "Reading Gmail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture de Gmail"
+          }
+        }
+      }
+    },
+    "Reading message…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture du message…"
+          }
+        }
+      }
+    },
+    "Reading your last mornings…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture de vos derniers matins…"
           }
         }
       }
@@ -8522,6 +9400,27 @@
         }
       }
     },
+    "Refresh Gmail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser Gmail"
+          }
+        }
+      }
+    },
+    "Refresh app use": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser l’usage des apps"
+          }
+        }
+      }
+    },
     "Refresh installed voices": {
       "localizations": {
         "fr": {
@@ -8538,6 +9437,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Actualiser le récap"
+          }
+        }
+      }
+    },
+    "Refresh unread count": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser le nombre de messages non lus"
+          }
+        }
+      }
+    },
+    "Refresh unread messages": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser les messages non lus"
           }
         }
       }
@@ -8902,6 +9821,16 @@
         }
       }
     },
+    "Retry Gmail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer Gmail"
+          }
+        }
+      }
+    },
     "Retry or discard your saved recording before adding another one.": {
       "localizations": {
         "fr": {
@@ -8962,6 +9891,17 @@
         }
       }
     },
+    "Returned app use. Missing days stay unknown.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usage renvoyé par Temps d’écran. Les jours absents restent inconnus."
+          }
+        }
+      }
+    },
     "Review": {
       "localizations": {
         "fr": {
@@ -8978,6 +9918,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Relisez et approuvez votre matinée mise à jour avant de la lancer."
+          }
+        }
+      }
+    },
+    "Review and edit before copying. Nothing is sent or saved to Gmail.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relisez et modifiez avant de copier. Rien n’est envoyé ni enregistré dans Gmail."
           }
         }
       }
@@ -9002,12 +9952,32 @@
         }
       }
     },
+    "Review suggestion": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir la suggestion"
+          }
+        }
+      }
+    },
     "Review text": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Relire le texte"
+          }
+        }
+      }
+    },
+    "Review the apps, then approve when ready.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez les apps, puis approuvez quand vous êtes prêt."
           }
         }
       }
@@ -9172,6 +10142,26 @@
         }
       }
     },
+    "Routine files": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichiers de routine"
+          }
+        }
+      }
+    },
+    "Routine finished": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routine terminée"
+          }
+        }
+      }
+    },
     "Routine run %lld · completed": {
       "localizations": {
         "fr": {
@@ -9198,6 +10188,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sessions de routine"
+          }
+        }
+      }
+    },
+    "Routine stopped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routine arrêtée"
           }
         }
       }
@@ -9402,6 +10402,16 @@
         }
       }
     },
+    "Samples and unconfirmed sources are not included.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les exemples et les sources non confirmées sont exclus."
+          }
+        }
+      }
+    },
     "Samples not used (%lld)": {
       "localizations": {
         "fr": {
@@ -9488,6 +10498,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Garder la pensée"
+          }
+        }
+      }
+    },
+    "Save to Learn": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder pour apprendre"
           }
         }
       }
@@ -9582,6 +10602,16 @@
         }
       }
     },
+    "Saved days are unavailable. Try again later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les jours enregistrés sont indisponibles. Réessayez plus tard."
+          }
+        }
+      }
+    },
     "Saved details": {
       "localizations": {
         "fr": {
@@ -9632,6 +10662,16 @@
         }
       }
     },
+    "Saved local day · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jour local enregistré · %@"
+          }
+        }
+      }
+    },
     "Saved mornings": {
       "localizations": {
         "fr": {
@@ -9648,6 +10688,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Observations enregistrées"
+          }
+        }
+      }
+    },
+    "Saved on this day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistré ce jour-là"
           }
         }
       }
@@ -9764,6 +10814,109 @@
           "stringUnit": {
             "state": "translated",
             "value": "Programmé chaque jour"
+          }
+        }
+      }
+    },
+    "Screen Time": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran"
+          }
+        }
+      }
+    },
+    "Screen Time access wasn't given. You can allow it in Settings → Screen Time, then try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès à Temps d’écran n’a pas été donné. Vous pouvez l’autoriser dans Réglages → Temps d’écran, puis réessayer."
+          }
+        }
+      }
+    },
+    "Screen Time didn't answer this time. Try again in a moment.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran n’a pas répondu cette fois. Réessayez dans un instant."
+          }
+        }
+      }
+    },
+    "Screen Time gives minutes per hour, not the order inside an hour. So the order is estimated: the app you open most often from the Lock Screen comes first, then the others by hour, then by minutes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran donne des minutes par heure, pas l’ordre dans l’heure. L’ordre est donc estimé : l’app que vous ouvrez le plus souvent depuis l’écran verrouillé vient d’abord, puis les autres par heure, puis par minutes."
+          }
+        }
+      }
+    },
+    "Screen Time had %lld days, but no complete morning with app use was found yet. Try again tomorrow.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran avait %lld jours, mais aucun matin complet avec des apps n’a encore été trouvé. Réessayez demain."
+          }
+        }
+      }
+    },
+    "Screen Time has no app minutes on this iPhone yet. Try again tomorrow morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran n’a encore aucune minute d’app sur cet iPhone. Réessayez demain matin."
+          }
+        }
+      }
+    },
+    "Screen Time is connected.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran est connecté."
+          }
+        }
+      }
+    },
+    "Screen Time is still stopping. Try removal again in a moment.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran s’arrête encore. Réessayez la suppression dans un instant."
+          }
+        }
+      }
+    },
+    "Screen Time returned app use, but no complete morning could be identified yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran a renvoyé des données d’usage, mais aucune matinée complète n’a encore pu être identifiée."
+          }
+        }
+      }
+    },
+    "Screen Time was approved without app-use data. Check this build’s capabilities and your device’s eligibility.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran a été autorisé sans accès aux données d’usage. Vérifiez les capacités de cette version et l’éligibilité de votre appareil."
           }
         }
       }
@@ -10348,6 +11501,16 @@
         }
       }
     },
+    "Show less": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher moins"
+          }
+        }
+      }
+    },
     "Show on Lock Screen": {
       "localizations": {
         "fr": {
@@ -10414,12 +11577,62 @@
         }
       }
     },
+    "Showing up to five unread messages.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affichage de cinq messages non lus au maximum."
+          }
+        }
+      }
+    },
     "Shows original text and quoted evidence": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Affiche le texte d’origine et les citations"
+          }
+        }
+      }
+    },
+    "Shows saved evidence. Does not start the routine.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche les éléments enregistrés. Ne lance pas la routine."
+          }
+        }
+      }
+    },
+    "Shows the day strip here on Home.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche les jours ici, sur l’accueil."
+          }
+        }
+      }
+    },
+    "Sign in once, here. Your morning uses these same pages.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous ici une fois. Votre matin utilisera ces mêmes pages."
+          }
+        }
+      }
+    },
+    "Sign in to your websites, together": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez vos sites en une seule fois"
           }
         }
       }
@@ -10698,6 +11911,27 @@
         }
       }
     },
+    "Start with your app use": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commencez par votre usage des apps"
+          }
+        }
+      }
+    },
+    "Start with your real Screen Time": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commencez avec votre vrai Temps d’écran"
+          }
+        }
+      }
+    },
     "Started": {
       "localizations": {
         "fr": {
@@ -10784,6 +12018,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Arrêter automatiquement après"
+          }
+        }
+      }
+    },
+    "Stop learning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêter l’apprentissage"
           }
         }
       }
@@ -10918,6 +12162,22 @@
         }
       }
     },
+    "Suggestion ready: %lld apps from %lld mornings.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestion prête : %1$lld apps tirées de %2$lld matins."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Suggestion ready: %1$lld apps from %2$lld mornings."
+          }
+        }
+      }
+    },
     "Suivant · pause · reprends · passe cette étape · répète · arrête": {
       "localizations": {
         "fr": {
@@ -10980,6 +12240,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prenez ce moment à votre rythme, puis touchez Suivant quand vous le souhaitez."
+          }
+        }
+      }
+    },
+    "Tap a moment to edit. Drag to change the order. Changes save as a draft and need your approval.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez un moment pour le modifier. Faites-le glisser pour changer l’ordre. Les modifications sont enregistrées en brouillon et doivent être approuvées."
           }
         }
       }
@@ -11494,6 +12764,16 @@
         }
       }
     },
+    "The scheduled alarm couldn't be checked. Try saving again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’alarme programmée n’a pas pu être vérifiée. Réenregistrez-la."
+          }
+        }
+      }
+    },
     "The selected file changed during analysis. Your previous observation is unchanged. Choose the file again.": {
       "localizations": {
         "fr": {
@@ -11530,6 +12810,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le minuteur n’a pas pu être enregistré. Réessayez avant de quitter MORE."
+          }
+        }
+      }
+    },
+    "The suggestion couldn't be saved. Your routine is unchanged.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suggestion n’a pas pu être enregistrée. Votre routine n’a pas changé."
+          }
+        }
+      }
+    },
+    "The timer couldn't be stopped safely. Try again before leaving this moment.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le minuteur n’a pas pu être arrêté en sécurité. Réessayez avant de quitter ce moment."
           }
         }
       }
@@ -11624,6 +12924,16 @@
         }
       }
     },
+    "This Gmail session, messages and local replies clear when you leave this screen or background MORE. Manage Google access in your Google Account.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La session Gmail, les messages et les réponses locales sont effacés lorsque vous quittez cet écran ou passez MORE en arrière-plan. Gérez l’accès Google dans votre compte Google."
+          }
+        }
+      }
+    },
     "This also includes observation text and corrections, retained quotations, suggestions, recording recovery copies, app activity, invitation settings, your chosen calendars and weather city, and local Apple-app save receipts.": {
       "localizations": {
         "fr": {
@@ -11650,6 +12960,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ceci devient votre brouillon actuel. Une routine approuvée peut être restaurée pendant votre relecture. Approuvez le brouillon avant de commencer une matinée."
+          }
+        }
+      }
+    },
+    "This day could not be displayed in the current time zone.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce jour ne peut pas être affiché dans le fuseau horaire actuel."
           }
         }
       }
@@ -11700,6 +13020,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce fichier n’ajoute ni enregistrements, ni historique d’observations, ni choix enregistrés. Vos choix existants restent séparés."
+          }
+        }
+      }
+    },
+    "This list needs a refresh.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette liste doit être actualisée."
+          }
+        }
+      }
+    },
+    "This message could not be read. Choose another message or refresh the Inbox.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire ce message. Choisissez-en un autre ou actualisez la boîte de réception."
+          }
+        }
+      }
+    },
+    "This message has no readable plain-text body here. You can write a reply below.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le contenu de ce message ne peut pas être lu ici. Vous pouvez écrire une réponse ci-dessous."
           }
         }
       }
@@ -11790,6 +13140,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cette période n’a pas pu être affichée. Les observations enregistrées restent dans Historique."
+          }
+        }
+      }
+    },
+    "This period could not be displayed. Your saved observations have not been changed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette période ne peut pas être affichée. Vos observations enregistrées n’ont pas été modifiées."
           }
         }
       }
@@ -11934,6 +13294,16 @@
         }
       }
     },
+    "This session and its count clear when you leave this screen or background MORE. Manage the Google account grant in your Google Account.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La session et son résultat sont effacés en quittant cet écran ou en passant MORE en arrière-plan. Gérez l’autorisation Google dans votre compte Google."
+          }
+        }
+      }
+    },
     "This setting couldn't be saved. %@": {
       "localizations": {
         "fr": {
@@ -11960,6 +13330,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cette étape a atteint sa limite de prolongation."
+          }
+        }
+      }
+    },
+    "This step keeps its saved excerpt. To use different words, switch to Read this text aloud and edit the note.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette étape garde son extrait enregistré. Pour utiliser d’autres mots, passez à « Lire ce texte à voix haute » et modifiez la note."
           }
         }
       }
@@ -12098,6 +13478,26 @@
         }
       }
     },
+    "To read messages, Google will ask for read-only access to message text.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour lire les messages, Google vous demandera un accès en lecture seule à leur contenu."
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aujourd’hui"
+          }
+        }
+      }
+    },
     "Today · %lld recorded entries": {
       "localizations": {
         "en": {
@@ -12224,6 +13624,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ouvrez deux apps connectées puis revenez à la première, puis ouvrez Historique. Les compteurs apparaissent une fois ces automatisations exécutées. Cette configuration ne lance pas l’enregistrement de l’écran et ne lit pas les messages."
+          }
+        }
+      }
+    },
+    "Try opening two connected apps and returning to the first, then return to the app activity card. Counts appear after those automations actually run. This setup does not start screen recording or read messages.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essayez d’ouvrir deux apps connectées et de revenir à la première, puis revenez à la fiche d’activité des apps. Les comptes apparaissent après l’exécution réelle de ces automatisations. Cette configuration ne lance pas d’enregistrement d’écran et ne lit pas les messages."
           }
         }
       }
@@ -12380,6 +13790,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les écrans inconnus restent visibles dans votre relecture et sont exclus des nouvelles suggestions d’activités."
+          }
+        }
+      }
+    },
+    "Unread Inbox": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages non lus"
           }
         }
       }
@@ -12584,6 +14004,22 @@
         }
       }
     },
+    "Usually %lld min, on %lld of %lld mornings": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En général %1$lld min, %2$lld matins sur %3$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Usually %1$lld min, on %2$lld of %3$lld mornings"
+          }
+        }
+      }
+    },
     "View sampled screens": {
       "localizations": {
         "fr": {
@@ -12680,6 +14116,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce que fait Morning Operator"
+          }
+        }
+      }
+    },
+    "What Screen Time can show": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce que montre Temps d’écran"
           }
         }
       }
@@ -13056,6 +14503,16 @@
         }
       }
     },
+    "Your change couldn't be saved right now. Finish the current activity and check local storage before trying again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre modification ne peut pas être enregistrée maintenant. Terminez l’activité en cours et vérifiez le stockage local avant de réessayer."
+          }
+        }
+      }
+    },
     "Your change couldn't be saved. Try again.": {
       "localizations": {
         "fr": {
@@ -13086,6 +14543,16 @@
         }
       }
     },
+    "Your connection stays saved. Messages and local replies clear when you leave this screen or background MORE.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre connexion reste enregistrée. Les messages et les réponses locales sont effacés lorsque vous quittez cet écran ou passez MORE en arrière-plan."
+          }
+        }
+      }
+    },
     "Your current routine stays in place until you approve the update.": {
       "localizations": {
         "fr": {
@@ -13102,6 +14569,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre routine actuelle reste prête jusqu’à votre approbation."
+          }
+        }
+      }
+    },
+    "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici."
+          }
+        }
+      }
+    },
+    "Your daily routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine de chaque jour"
           }
         }
       }
@@ -13186,12 +14673,32 @@
         }
       }
     },
+    "Your moments": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos moments"
+          }
+        }
+      }
+    },
     "Your morning": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Votre matinée"
+          }
+        }
+      }
+    },
+    "Your morning alarm is missing. Save again to schedule it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre alarme du matin est absente. Enregistrez-la à nouveau pour la programmer."
           }
         }
       }
@@ -13276,12 +14783,32 @@
         }
       }
     },
+    "Your morning, from Screen Time": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre matin, d’après Temps d’écran"
+          }
+        }
+      }
+    },
     "Your mornings stay close.": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Vos matinées restent à portée de main."
+          }
+        }
+      }
+    },
+    "Your mornings usually start around %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos matins commencent en général vers %@."
           }
         }
       }
@@ -13446,6 +14973,26 @@
         }
       }
     },
+    "Your reply": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre réponse"
+          }
+        }
+      }
+    },
+    "Your reply, in a few words": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre réponse en quelques mots"
+          }
+        }
+      }
+    },
     "Your rhythm": {
       "localizations": {
         "fr": {
@@ -13466,12 +15013,42 @@
         }
       }
     },
+    "Your routine changed since this suggestion was made. Learn from Screen Time again for a fresh one.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine a changé depuis cette suggestion. Apprenez à nouveau avec Temps d’écran pour en avoir une à jour."
+          }
+        }
+      }
+    },
     "Your routine changed while this file was open. Cancel and open the file again to review it.": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Votre routine a changé pendant que ce fichier était ouvert. Annulez et rouvrez le fichier pour le relire."
+          }
+        }
+      }
+    },
+    "Your routine changed while this moment was open. Cancel and reopen the moment to edit the current version.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine a changé pendant que ce moment était ouvert. Annulez et rouvrez le moment pour modifier la version actuelle."
+          }
+        }
+      }
+    },
+    "Your routine may have changed. Learn from Screen Time again for a fresh suggestion.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine a peut-être changé. Apprenez à nouveau avec Temps d’écran pour une suggestion à jour."
           }
         }
       }
@@ -13512,6 +15089,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos choix enregistrés n’ont pas pu être lus. Votre routine et vos observations sont intactes. Réinitialisez les choix enregistrés dans Historique avant de demander de nouvelles suggestions."
+          }
+        }
+      }
+    },
+    "Your saved choices couldn't be read. Your routine and observations are intact. Reset them in Settings → Saved choices before making new suggestions.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos choix enregistrés n’ont pas pu être lus. Votre routine et vos observations sont intactes. Réinitialisez-les dans Réglages → Choix enregistrés avant de demander de nouvelles suggestions."
           }
         }
       }
@@ -13572,6 +15159,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre minuteur continue en dehors de MORE."
+          }
+        }
+      }
+    },
+    "Your websites": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos sites"
           }
         }
       }
@@ -13642,1593 +15239,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "« %@ »"
-          }
-        }
-      }
-    },
-    "Apple asks once (Continue, then Face ID). Only one app on this iPhone can hold this access. Nothing changes until you approve.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple demande une seule fois (Continuer, puis Face ID). Une seule app de cet iPhone peut avoir cet accès. Rien ne change avant votre accord."
-          }
-        }
-      }
-    },
-    "From %lld comparable mornings. Screen Time had %lld days.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "D’après %1$lld matins comparables. Temps d’écran avait %2$lld jours."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "From %1$lld comparable mornings. Screen Time had %2$lld days."
-          }
-        }
-      }
-    },
-    "Keep at least one app to approve this suggestion.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gardez au moins une app pour approuver cette suggestion."
-          }
-        }
-      }
-    },
-    "Learn again": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apprendre à nouveau"
-          }
-        }
-      }
-    },
-    "Learn from Screen Time": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apprendre avec Temps d’écran"
-          }
-        }
-      }
-    },
-    "Long scroll: you could keep this one shorter": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Long défilement : vous pourriez l’écourter"
-          }
-        }
-      }
-    },
-    "MORE looks at the minutes you spent in each app over the last week and finds your mornings. Only app names and minutes are kept, on this iPhone. No messages, no screens, no websites.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MORE regarde les minutes passées dans chaque app la semaine dernière et retrouve vos matins. Seuls les noms d’apps et les minutes sont gardés, sur cet iPhone. Aucun message, aucun écran, aucun site web."
-          }
-        }
-      }
-    },
-    "Measured or estimated?": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mesuré ou estimé ?"
-          }
-        }
-      }
-    },
-    "Measured: Screen Time counted these minutes inside your morning. Estimated: an hour ran past the end of your morning, so its minutes were shared out.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mesuré : Temps d’écran a compté ces minutes pendant votre matin. Estimé : une heure dépassait la fin de votre matin, ses minutes ont donc été réparties."
-          }
-        }
-      }
-    },
-    "Minutes estimated": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minutes estimées"
-          }
-        }
-      }
-    },
-    "Minutes measured": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minutes mesurées"
-          }
-        }
-      }
-    },
-    "Reading your last mornings…": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lecture de vos derniers matins…"
-          }
-        }
-      }
-    },
-    "Review suggestion": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voir la suggestion"
-          }
-        }
-      }
-    },
-    "Review the apps, then approve when ready.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vérifiez les apps, puis approuvez quand vous êtes prêt."
-          }
-        }
-      }
-    },
-    "Screen Time access wasn't given. You can allow it in Settings → Screen Time, then try again.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’accès à Temps d’écran n’a pas été donné. Vous pouvez l’autoriser dans Réglages → Temps d’écran, puis réessayer."
-          }
-        }
-      }
-    },
-    "Screen Time didn't answer this time. Try again in a moment.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran n’a pas répondu cette fois. Réessayez dans un instant."
-          }
-        }
-      }
-    },
-    "Screen Time had %lld days, but no complete morning with app use was found yet. Try again tomorrow.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran avait %lld jours, mais aucun matin complet avec des apps n’a encore été trouvé. Réessayez demain."
-          }
-        }
-      }
-    },
-    "Screen Time has no app minutes on this iPhone yet. Try again tomorrow morning.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran n’a encore aucune minute d’app sur cet iPhone. Réessayez demain matin."
-          }
-        }
-      }
-    },
-    "Suggestion ready: %lld apps from %lld mornings.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suggestion prête : %1$lld apps tirées de %2$lld matins."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Suggestion ready: %1$lld apps from %2$lld mornings."
-          }
-        }
-      }
-    },
-    "The suggestion couldn't be saved. Your routine is unchanged.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La suggestion n’a pas pu être enregistrée. Votre routine n’a pas changé."
-          }
-        }
-      }
-    },
-    "Usually %lld min, on %lld of %lld mornings": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En général %1$lld min, %2$lld matins sur %3$lld"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Usually %1$lld min, on %2$lld of %3$lld mornings"
-          }
-        }
-      }
-    },
-    "Your morning, from Screen Time": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre matin, d’après Temps d’écran"
-          }
-        }
-      }
-    },
-    "Your mornings usually start around %@.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos matins commencent en général vers %@."
-          }
-        }
-      }
-    },
-    "Your routine changed since this suggestion was made. Learn from Screen Time again for a fresh one.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine a changé depuis cette suggestion. Apprenez à nouveau avec Temps d’écran pour en avoir une à jour."
-          }
-        }
-      }
-    },
-    "Your routine may have changed. Learn from Screen Time again for a fresh suggestion.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine a peut-être changé. Apprenez à nouveau avec Temps d’écran pour une suggestion à jour."
-          }
-        }
-      }
-    },
-    "Screen Time gives minutes per hour, not the order inside an hour. So the order is estimated: the app you open most often from the Lock Screen comes first, then the others by hour, then by minutes.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran donne des minutes par heure, pas l’ordre dans l’heure. L’ordre est donc estimé : l’app que vous ouvrez le plus souvent depuis l’écran verrouillé vient d’abord, puis les autres par heure, puis par minutes."
-          }
-        }
-      }
-    },
-    "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici."
-          }
-        }
-      }
-    },
-    "Learning from Screen Time needs iOS 26.4 or later.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apprendre avec Temps d’écran demande iOS 26.4 ou plus récent."
-          }
-        }
-      }
-    },
-    "Start with your app use": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Commencez par votre usage des apps"
-          }
-        }
-      }
-    },
-    "Connect Screen Time, then show MORE a moment of your morning.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connectez Temps d’écran, puis montrez un moment de votre matinée à MORE."
-          }
-        }
-      }
-    },
-    "Earlier days": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jours précédents"
-          }
-        }
-      }
-    },
-    "Refresh app use": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actualiser l’usage des apps"
-          }
-        }
-      }
-    },
-    "Connect Screen Time": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecter Temps d’écran"
-          }
-        }
-      }
-    },
-    "What Screen Time can show": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce que montre Temps d’écran"
-          }
-        }
-      }
-    },
-    "App minutes and pickup counts. It does not show taps, messages or scrolling speed.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La durée dans les apps et les prises en main. Ni les appuis, ni les messages, ni la vitesse de défilement."
-          }
-        }
-      }
-    },
-    "Access depends on your iPhone and Apple Account region. Only one app can hold this access at a time.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’accès dépend de votre iPhone et de la région de votre compte Apple. Une seule app peut avoir cet accès à la fois."
-          }
-        }
-      }
-    },
-    "Returned app use. Missing days stay unknown.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usage renvoyé par Temps d’écran. Les jours absents restent inconnus."
-          }
-        }
-      }
-    },
-    "From %lld comparable mornings. Order is estimated.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "D’après %lld matins comparables. L’ordre est estimé."
-          }
-        }
-      }
-    },
-    "Measured minutes come from complete hourly segments inside the detected morning. Other minutes are estimated from a partial hour.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les minutes mesurées viennent d’heures entières dans la matinée détectée. Les autres sont estimées à partir d’une heure partielle."
-          }
-        }
-      }
-    },
-    "Long app use does not prove scrolling. Choose the budget you want.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Une longue utilisation ne prouve pas un défilement. Choisissez la durée qui vous convient."
-          }
-        }
-      }
-    },
-    "Opens %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvre %@"
-          }
-        }
-      }
-    },
-    "Choose an app or page in your routine.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez une app ou une page dans votre routine."
-          }
-        }
-      }
-    },
-    "Screen Time is connected.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran est connecté."
-          }
-        }
-      }
-    },
-    "Screen Time was approved without app-use data. Check this build’s capabilities and your device’s eligibility.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran a été autorisé sans accès aux données d’usage. Vérifiez les capacités de cette version et l’éligibilité de votre appareil."
-          }
-        }
-      }
-    },
-    "Connect Screen Time to read the app-use data available on this iPhone.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connectez Temps d’écran pour lire les données d’usage disponibles sur cet iPhone."
-          }
-        }
-      }
-    },
-    "Screen Time returned app use, but no complete morning could be identified yet.": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran a renvoyé des données d’usage, mais aucune matinée complète n’a encore pu être identifiée."
-          }
-        }
-      }
-    },
-    "Less than 1 min": {
-      "extractionState": "manual",
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Moins d’une minute"
-          }
-        }
-      }
-    },
-    "Your websites": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos sites"
-          }
-        }
-      }
-    },
-    "One guided sign-in pass": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Une seule préparation pour vos connexions"
-          }
-        }
-      }
-    },
-    "1 · See your rhythm": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1 · Découvrez votre rythme"
-          }
-        }
-      }
-    },
-    "Start with your real Screen Time": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Commencez avec votre vrai Temps d’écran"
-          }
-        }
-      }
-    },
-    "2 · Show your morning": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "2 · Montrez votre matin"
-          }
-        }
-      }
-    },
-    "3 · Make yourself at home": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3 · Installez-vous"
-          }
-        }
-      }
-    },
-    "Sign in to your websites, together": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connectez vos sites en une seule fois"
-          }
-        }
-      }
-    },
-    "Screen Time": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran"
-          }
-        }
-      }
-    },
-    "MORE guides native app steps. Inside MORE’s browser, you can ask it to read supported pages or move to the next video.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MORE vous guide dans les apps. Dans son navigateur, vous pouvez lui demander de lire les pages prises en charge ou de passer à la vidéo suivante."
-          }
-        }
-      }
-    },
-    "A little setup. Then you're home.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un instant de préparation. Puis à vous de jouer."
-          }
-        }
-      }
-    },
-    "Connect my websites": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecter mes sites"
-          }
-        }
-      }
-    },
-    "Learning your scroll and tap rhythm": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apprentissage du rythme de vos gestes"
-          }
-        }
-      }
-    },
-    "Only this page. This estimate does not replay your gestures.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette page seulement. Cette estimation ne reproduit pas vos gestes."
-          }
-        }
-      }
-    },
-    "Stop learning": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrêter l’apprentissage"
-          }
-        }
-      }
-    },
-    "Save to Learn": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garder pour apprendre"
-          }
-        }
-      }
-    },
-    "Sign in once, here. Your morning uses these same pages.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connectez-vous ici une fois. Votre matin utilisera ces mêmes pages."
-          }
-        }
-      }
-    },
-    "Screen Time is still stopping. Try removal again in a moment.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran s’arrête encore. Réessayez la suppression dans un instant."
-          }
-        }
-      }
-    },
-    "The timer couldn't be stopped safely. Try again before leaving this moment.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le minuteur n’a pas pu être arrêté en sécurité. Réessayez avant de quitter ce moment."
-          }
-        }
-      }
-    },
-    "Gmail connection cancelled.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connexion Gmail annulée."
-          }
-        }
-      }
-    },
-    "Gmail is unavailable. Try connecting again from this screen.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gmail est indisponible. Réessayez de vous connecter depuis cet écran."
-          }
-        }
-      }
-    },
-    "The scheduled alarm couldn't be checked. Try saving again.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’alarme programmée n’a pas pu être vérifiée. Réenregistrez-la."
-          }
-        }
-      }
-    },
-    "Your morning alarm is missing. Save again to schedule it.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre alarme du matin est absente. Enregistrez-la à nouveau pour la programmer."
-          }
-        }
-      }
-    },
-    "Connect Gmail below, or sign in to the websites your morning uses.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."
-          }
-        }
-      }
-    },
-    "Read the number of unread messages in your Gmail inbox. Google asks for read-only metadata access; MORE does not read message bodies.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Consultez le nombre de messages non lus dans votre boîte Gmail. Google demande l’accès aux métadonnées en lecture seule ; MORE ne lit pas le contenu des messages."
-          }
-        }
-      }
-    },
-    "This session and its count clear when you leave this screen or background MORE. Manage the Google account grant in your Google Account.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La session et son résultat sont effacés en quittant cet écran ou en passant MORE en arrière-plan. Gérez l’autorisation Google dans votre compte Google."
-          }
-        }
-      }
-    },
-    "Connect Gmail": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecter Gmail"
-          }
-        }
-      }
-    },
-    "Refresh Gmail": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actualiser Gmail"
-          }
-        }
-      }
-    },
-    "This day could not be displayed in the current time zone.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce jour ne peut pas être affiché dans le fuseau horaire actuel."
-          }
-        }
-      }
-    },
-    "Hides the day strip.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Masque les jours."
-          }
-        }
-      }
-    },
-    "Shows the day strip here on Home.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Affiche les jours ici, sur l’accueil."
-          }
-        }
-      }
-    },
-    "Previous day": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jour précédent"
-          }
-        }
-      }
-    },
-    "Next day": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jour suivant"
-          }
-        }
-      }
-    },
-    "Shows saved evidence. Does not start the routine.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Affiche les éléments enregistrés. Ne lance pas la routine."
-          }
-        }
-      }
-    },
-    "No saved personal activity": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune activité personnelle enregistrée"
-          }
-        }
-      }
-    },
-    "Saved on this day": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enregistré ce jour-là"
-          }
-        }
-      }
-    },
-    "No personal run or confirmed observation is saved for this day.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune session personnelle ni observation confirmée n’est enregistrée pour ce jour."
-          }
-        }
-      }
-    },
-    "Samples and unconfirmed sources are not included.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les exemples et les sources non confirmées sont exclus."
-          }
-        }
-      }
-    },
-    "Routine finished": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Routine terminée"
-          }
-        }
-      }
-    },
-    "Routine stopped": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Routine arrêtée"
-          }
-        }
-      }
-    },
-    "%lld of %lld moments completed · %lld skipped": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld moments terminés sur %lld · %lld passés"
-          }
-        }
-      }
-    },
-    "%lld saved observations": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld observations enregistrées"
-          }
-        }
-      }
-    },
-    "%lld app observations": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld observations d’apps"
-          }
-        }
-      }
-    },
-    "Saved local day · %@": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jour local enregistré · %@"
-          }
-        }
-      }
-    },
-    "%lld observations have no saved day and are not shown here.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld observations n’ont pas de jour enregistré et ne sont pas affichées ici."
-          }
-        }
-      }
-    },
-    "Edit this moment": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifier ce moment"
-          }
-        }
-      }
-    },
-    "Your moments": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos moments"
-          }
-        }
-      }
-    },
-    "Tap a moment to edit. Drag to change the order. Changes save as a draft and need your approval.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Touchez un moment pour le modifier. Faites-le glisser pour changer l’ordre. Les modifications sont enregistrées en brouillon et doivent être approuvées."
-          }
-        }
-      }
-    },
-    "Your daily routine": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine de chaque jour"
-          }
-        }
-      }
-    },
-    "%lld moments · %lld min planned": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld moments · %lld min prévues"
-          }
-        }
-      }
-    },
-    "Draft · review before approval": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Brouillon · à relire avant approbation"
-          }
-        }
-      }
-    },
-    "Finish or end this morning before editing your routine.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Terminez ou arrêtez cette matinée avant de modifier votre routine."
-          }
-        }
-      }
-    },
-    "Routine files": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fichiers de routine"
-          }
-        }
-      }
-    },
-    "Open a saved MORE plan and review it before making any changes. Import saves a draft; approval stays separate.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvrez un plan MORE enregistré et relisez-le avant toute modification. L’import enregistre un brouillon ; l’approbation reste distincte."
-          }
-        }
-      }
-    },
-    "Today": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aujourd’hui"
-          }
-        }
-      }
-    },
-    "Your change couldn't be saved right now. Finish the current activity and check local storage before trying again.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre modification ne peut pas être enregistrée maintenant. Terminez l’activité en cours et vérifiez le stockage local avant de réessayer."
-          }
-        }
-      }
-    },
-    "Your routine changed while this moment was open. Cancel and reopen the moment to edit the current version.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine a changé pendant que ce moment était ouvert. Annulez et rouvrez le moment pour modifier la version actuelle."
-          }
-        }
-      }
-    },
-    "Saved days are unavailable. Try again later.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les jours enregistrés sont indisponibles. Réessayez plus tard."
-          }
-        }
-      }
-    },
-    "Past days show saved activity. Return to Today to continue your morning.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les jours passés montrent l’activité enregistrée. Revenez à Aujourd’hui pour poursuivre votre matinée."
-          }
-        }
-      }
-    },
-    "Import or export your saved routine": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importer ou exporter votre routine enregistrée"
-          }
-        }
-      }
-    },
-    "Each observation is saved on this device, with its original text and your corrections kept separately. Review the current observation here before asking for a suggestion. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chaque observation est enregistrée sur cet appareil, son texte d’origine et vos corrections étant conservés séparément. Relisez ici l’observation actuelle avant de demander une suggestion. « Effacer cette observation » supprime l’original, les corrections, le texte échantillonné et l’interprétation de l’écran. Les éléments déjà liés à une routine enregistrée restent avec elle."
-          }
-        }
-      }
-    },
-    "This step keeps its saved excerpt. To use different words, switch to Read this text aloud and edit the note.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette étape garde son extrait enregistré. Pour utiliser d’autres mots, passez à « Lire ce texte à voix haute » et modifiez la note."
-          }
-        }
-      }
-    },
-    "Done saves this suggestion for later. After approval, edit your plan in Routine.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "« Terminé » garde cette suggestion pour plus tard. Après approbation, modifiez votre plan dans Routine."
-          }
-        }
-      }
-    },
-    "Adding this excerpt needs room in your routine. Remove a moment in Routine first.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Il faut faire de la place dans votre routine pour ajouter cet extrait. Retirez d’abord un moment dans Routine."
-          }
-        }
-      }
-    },
-    "This period could not be displayed. Your saved observations have not been changed.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette période ne peut pas être affichée. Vos observations enregistrées n’ont pas été modifiées."
-          }
-        }
-      }
-    },
-    "Try opening two connected apps and returning to the first, then return to the app activity card. Counts appear after those automations actually run. This setup does not start screen recording or read messages.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Essayez d’ouvrir deux apps connectées et de revenir à la première, puis revenez à la fiche d’activité des apps. Les comptes apparaissent après l’exécution réelle de ces automatisations. Cette configuration ne lance pas d’enregistrement d’écran et ne lit pas les messages."
-          }
-        }
-      }
-    },
-    "Home": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accueil"
-          }
-        }
-      }
-    },
-    "Play morning": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lancer la matinée"
-          }
-        }
-      }
-    },
-    "Your saved choices couldn't be read. Your routine and observations are intact. Reset them in Settings → Saved choices before making new suggestions.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos choix enregistrés n’ont pas pu être lus. Votre routine et vos observations sont intactes. Réinitialisez-les dans Réglages → Choix enregistrés avant de demander de nouvelles suggestions."
-          }
-        }
-      }
-    },
-    "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices in Settings → Saved choices.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garder un moment conserve son texte, sa durée et son action. N’enregistrer que sa durée laisse varier les autres détails. Les minutes sont prévues, pas mesurées. Effacez ces choix dans Réglages → Choix enregistrés."
-          }
-        }
-      }
-    },
-    "This Gmail session, messages and local replies clear when you leave this screen or background MORE. Manage Google access in your Google Account.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La session Gmail, les messages et les réponses locales sont effacés lorsque vous quittez cet écran ou passez MORE en arrière-plan. Gérez l’accès Google dans votre compte Google."
-          }
-        }
-      }
-    },
-    "Choose message reading or an unread count only.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez de lire vos messages ou de consulter seulement leur nombre."
-          }
-        }
-      }
-    },
-    "To read messages, Google will ask for read-only access to message text.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pour lire les messages, Google vous demandera un accès en lecture seule à leur contenu."
-          }
-        }
-      }
-    },
-    "Refresh unread messages": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actualiser les messages non lus"
-          }
-        }
-      }
-    },
-    "Read messages": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lire les messages"
-          }
-        }
-      }
-    },
-    "Refresh unread count": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actualiser le nombre de messages non lus"
-          }
-        }
-      }
-    },
-    "Connect Gmail · count only": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecter Gmail · nombre uniquement"
-          }
-        }
-      }
-    },
-    "Reading Gmail": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lecture de Gmail"
-          }
-        }
-      }
-    },
-    "Unread Inbox": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Messages non lus"
-          }
-        }
-      }
-    },
-    "No unread messages in Inbox.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun message non lu dans la boîte de réception."
-          }
-        }
-      }
-    },
-    "No subject": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sans objet"
-          }
-        }
-      }
-    },
-    "%lld messages could not be loaded. Try refreshing.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld messages n’ont pas pu être chargés. Essayez d’actualiser."
-          }
-        }
-      }
-    },
-    "Showing up to five unread messages.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Affichage de cinq messages non lus au maximum."
-          }
-        }
-      }
-    },
-    "This list needs a refresh.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette liste doit être actualisée."
-          }
-        }
-      }
-    },
-    "Back to Inbox": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retour à la boîte de réception"
-          }
-        }
-      }
-    },
-    "This message has no readable plain-text body here. You can write a reply below.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le contenu de ce message ne peut pas être lu ici. Vous pouvez écrire une réponse ci-dessous."
-          }
-        }
-      }
-    },
-    "Reading message…": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lecture du message…"
-          }
-        }
-      }
-    },
-    "Your reply": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre réponse"
-          }
-        }
-      }
-    },
-    "Your reply, in a few words": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre réponse en quelques mots"
-          }
-        }
-      }
-    },
-    "Optional": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Facultatif"
-          }
-        }
-      }
-    },
-    "Prepare reply": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Préparer une réponse"
-          }
-        }
-      }
-    },
-    "Editable reply": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Réponse modifiable"
-          }
-        }
-      }
-    },
-    "Copy reply": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copier la réponse"
-          }
-        }
-      }
-    },
-    "Review and edit before copying. Nothing is sent or saved to Gmail.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relisez et modifiez avant de copier. Rien n’est envoyé ni enregistré dans Gmail."
-          }
-        }
-      }
-    },
-    "Prepared on this iPhone. Review before copying.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Préparé sur cet iPhone. Relisez avant de copier."
-          }
-        }
-      }
-    },
-    "A reply could not be prepared. You can write one below.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de préparer une réponse. Vous pouvez en écrire une ci-dessous."
-          }
-        }
-      }
-    },
-    "Copied.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copié."
-          }
-        }
-      }
-    },
-    "Only part of this message is available. You can write a reply below.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seule une partie de ce message est disponible. Vous pouvez écrire une réponse ci-dessous."
-          }
-        }
-      }
-    },
-    "This message could not be read. Choose another message or refresh the Inbox.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de lire ce message. Choisissez-en un autre ou actualisez la boîte de réception."
-          }
-        }
-      }
-    },
-    "Your connection stays saved. Messages and local replies clear when you leave this screen or background MORE.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre connexion reste enregistrée. Les messages et les réponses locales sont effacés lorsque vous quittez cet écran ou passez MORE en arrière-plan."
-          }
-        }
-      }
-    },
-    "Connection saved securely on this iPhone.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connexion enregistrée en sécurité sur cet iPhone."
-          }
-        }
-      }
-    },
-    "Connect once to read Gmail and prepare replies. Google asks for read-only access.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connectez-vous une fois pour lire Gmail et préparer des réponses. Google demande un accès en lecture seule."
-          }
-        }
-      }
-    },
-    "Retry Gmail": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Réessayer Gmail"
-          }
-        }
-      }
-    },
-    "Disconnect Gmail": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Déconnecter Gmail"
-          }
-        }
-      }
-    },
-    "Read full message": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lire le message entier"
-          }
-        }
-      }
-    },
-    "Show less": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Afficher moins"
-          }
-        }
-      }
-    },
-    "Gmail is unavailable. Try again from this screen.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gmail est indisponible. Réessayez depuis cet écran."
-          }
-        }
-      }
-    },
-    "Connection details": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Détails de la connexion"
-          }
-        }
-      }
-    },
-    "Disconnect removes this iPhone’s saved login. Manage Google access in your Google Account.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Déconnecter efface la connexion enregistrée sur cet iPhone. Gérez l’accès Google dans votre compte Google."
           }
         }
       }

@@ -26,7 +26,7 @@ struct RecordMorningView: View {
                 MorningDottedIcon(systemName: "record.circle")
                     .frame(width: 42, height: 42).foregroundStyle(MorningStyle.accent)
                 Text("Bring a recording you've made")
-                    .font(.title2.weight(.semibold))
+                    .font(.serif(.title2, .semibold))
                 Text("Recording from inside Morning Operator needs an iPhone or iPad with iOS 27 or later. You can still choose an existing screen recording, screenshot or text file from Learn.")
                     .foregroundStyle(MorningStyle.muted)
                 Button("Done") { dismiss() }.buttonStyle(PrimaryButtonStyle())
@@ -57,7 +57,7 @@ private struct RecordMorningContent: View {
                         .foregroundStyle(recording.state == .recording ? Color.red : MorningStyle.accent)
                     Text(title).font(MorningTheme.Typography.display)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(recording.message).font(.body).foregroundStyle(MorningStyle.muted)
+                    Text(recording.message).font(.raleway(.body)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if recording.state == .recording {
@@ -99,7 +99,7 @@ private struct RecordMorningContent: View {
                             .buttonStyle(SecondaryButtonStyle())
                     } else {
                         Text("Confirm Apple's picker, then go through your morning. This screen closes when recording begins. We stop at your chosen limit and save the visible text for you to review when you return.")
-                            .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                         Picker("Stop automatically after", selection: $duration) {
                             ForEach(ScreenRecordingDuration.allCases) { option in
                                 Text(option.displayName).tag(option)
@@ -112,18 +112,18 @@ private struct RecordMorningContent: View {
                         .disabled(!canStartRecording)
                         if !canStartRecording {
                             Text("Finish the current activity, or retry or discard the saved recording, before starting another.")
-                                .font(.caption).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         }
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
                         Label("You're in control", systemImage: "hand.raised")
-                            .font(.subheadline.weight(.semibold)).foregroundStyle(MorningStyle.green)
+                            .font(.raleway(.subheadline, .semibold)).foregroundStyle(MorningStyle.green)
                         Text("This records visible screen content without sound or camera video. Keep the part you want to teach short; other personal content on screen may also appear.")
                         Text("Recording stops at your chosen time limit or its file-size limit. This is a time limit, not a guess that you stopped using your phone. You can stop earlier using the app or the system controls.")
                         Text("When recording finishes, visible text is extracted and saved locally. Review the text, then choose whether to ask Apple Intelligence for a routine suggestion. Your routine changes only after you approve. The video stays on this device until its extracted text is saved, or until you discard it.")
                     }
-                    .font(.footnote).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(20).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 20))
                 }

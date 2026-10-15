@@ -24,8 +24,8 @@ struct CapturesView: View {
                             subtitle: String(localized: "A dream. An idea. Something for later. Give it a place to land."))
                 Button { store.openCapture() } label: {
                     HStack {
-                        Image(systemName: "plus").font(.title3)
-                        Text("What's on your mind?").font(.headline)
+                        Image(systemName: "plus").font(.serif(.title3))
+                        Text("What's on your mind?").font(.serif(.headline))
                         Spacer()
                         Image(systemName: "square.and.pencil")
                     }.padding(24).foregroundStyle(.primary)
@@ -46,28 +46,28 @@ struct CapturesView: View {
                         Card {
                             VStack(alignment: .leading, spacing: 14) {
                                 HStack {
-                                    Label(capture.kind.shortTitle, systemImage: capture.kind.symbol).font(.caption.weight(.semibold))
+                                    Label(capture.kind.shortTitle, systemImage: capture.kind.symbol).font(.raleway(.caption, .semibold))
                                         .foregroundStyle(MorningStyle.accent)
                                     Spacer()
-                                    Text(capture.createdAt.formatted(.dateTime.month(.abbreviated).day())).font(.caption).foregroundStyle(MorningStyle.muted)
+                                    Text(capture.createdAt.formatted(.dateTime.month(.abbreviated).day())).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 }
-                                Text(capture.text).font(.body).textSelection(.enabled)
+                                Text(capture.text).font(.raleway(.body)).textSelection(.enabled)
                                 if capture.source == .voice {
                                     Label("Spoken with MORE", systemImage: "waveform")
-                                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                         .accessibilityIdentifier("capture.spokenSource")
                                 }
                                 if let date = capture.requestedDate {
                                     Label(date.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
-                                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 }
                                 if store.receipts[capture.id.uuidString] != nil {
                                     Label(capture.kind == .reminder ? "Added to Apple Reminders" : "Added to Apple Calendar", systemImage: "checkmark.circle")
-                                        .font(.caption).foregroundStyle(MorningStyle.green)
+                                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.green)
                                 } else if store.pendingCaptures[capture.id.uuidString] != nil {
-                                    Text("Save unconfirmed · check the Apple app before retrying").font(.caption).foregroundStyle(.orange)
+                                    Text("Save unconfirmed · check the Apple app before retrying").font(.raleway(.caption)).foregroundStyle(.orange)
                                 } else if capture.kind == .reminder || capture.kind == .calendarIdea {
-                                    Text("Saved as a note · no system item scheduled").font(.caption).foregroundStyle(MorningStyle.muted)
+                                    Text("Saved as a note · no system item scheduled").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 }
                             }
                         }
@@ -79,7 +79,7 @@ struct CapturesView: View {
     }
     private func filterChip(_ kind: QuickCaptureKind?) -> some View {
         Button { filter = kind } label: {
-            Text(kind?.shortTitle ?? String(localized: "All")).font(.subheadline.weight(.medium))
+            Text(kind?.shortTitle ?? String(localized: "All")).font(.raleway(.subheadline, .medium))
                 .padding(.horizontal, 16).padding(.vertical, 11)
                 .background(filter == kind ? MorningStyle.selected : MorningStyle.surface, in: Capsule())
         }.buttonStyle(.plain).accessibilityIdentifier("capture.filter.\(kind?.rawValue ?? "all")").accessibilityAddTraits(filter == kind ? .isSelected : [])
@@ -110,26 +110,26 @@ struct QuickCaptureView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Catch the thought.").font(.system(.largeTitle, design: .default, weight: .medium))
+                    Text("Catch the thought.").font(.serif(.largeTitle, .medium))
                     HStack(spacing: 6) {
                         ForEach(QuickCaptureKind.allCases, id: \.self) { option in
                             Button { kind = option } label: {
                                 VStack(spacing: 8) {
-                                    Image(systemName: option.symbol).font(.title3)
-                                    Text(option.shortTitle).font(.caption)
+                                    Image(systemName: option.symbol).font(.serif(.title3))
+                                    Text(option.shortTitle).font(.raleway(.caption))
                                 }.frame(maxWidth: .infinity).padding(.vertical, 15)
                                     .background(kind == option ? MorningStyle.selected : MorningStyle.surface, in: RoundedRectangle(cornerRadius: 20))
                             }.buttonStyle(.plain).accessibilityIdentifier("capture.kind.\(option.rawValue)").accessibilityAddTraits(kind == option ? .isSelected : [])
                         }
                     }
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("What's on your mind?").font(.subheadline.weight(.medium))
-                        TextEditor(text: $text).font(.body).scrollContentBackground(.hidden)
+                        Text("What's on your mind?").font(.raleway(.subheadline, .medium))
+                        TextEditor(text: $text).font(.raleway(.body)).scrollContentBackground(.hidden)
                             .frame(minHeight: 160).padding(14)
                             .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 22))
                             .accessibilityLabel("Capture text").accessibilityIdentifier("capture.text").focused($textFocused)
                         Button { interpret() } label: { Label("Find a reminder or time", systemImage: "sparkles") }
-                            .font(.subheadline).buttonStyle(.borderless).disabled(text.isEmpty)
+                            .font(.raleway(.subheadline)).buttonStyle(.borderless).disabled(text.isEmpty)
                     }
                     if isSchedule {
                         VStack(alignment: .leading, spacing: 18) {
@@ -138,16 +138,16 @@ struct QuickCaptureView: View {
                             if hasDate || kind == .calendarIdea {
                                 DatePicker(kind == .reminder ? "Remind me" : "Starts", selection: $date)
                                     .datePickerStyle(.compact)
-                                Text(TimeZone.current.identifier).font(.caption).foregroundStyle(MorningStyle.muted)
+                                Text(TimeZone.current.identifier).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             }
                             if kind == .calendarIdea {
                                 Stepper("\(duration) minutes", value: $duration, in: 5...240, step: 5)
                             }
-                            if let explanation { Text(explanation).font(.caption).foregroundStyle(MorningStyle.muted) }
-                        }.font(.subheadline).padding(20).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 22))
+                            if let explanation { Text(explanation).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
+                        }.font(.raleway(.subheadline)).padding(20).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 22))
                     }
                     Text(!(isSchedule && saveToSystem) ? "Saved privately in Morning Operator on this device." : kind == .reminder ? "Review the text and time. Saving adds one item to your default Apple Reminders list. Your Apple account may sync it to other devices." : "Review the text and time. Saving adds one item to your default Apple calendar. Your Apple account may sync it to other devices.")
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     if let notice = store.notice { NoticeView(text: notice, dismiss: { store.notice = nil }) }
                 }.padding(24).frame(maxWidth: 620).frame(maxWidth: .infinity)
             }.background(MorningStyle.background)

@@ -19,7 +19,7 @@ struct MorningCaptureVoiceView: View {
                         .scaledFont(36, relativeTo: .largeTitle, weight: .light).foregroundStyle(MorningStyle.accent)
                         .accessibilityHidden(true)
                     Text("What's on your mind?")
-                        .font(.system(.largeTitle, design: .default, weight: .medium))
+                        .font(.serif(.largeTitle, .medium))
                     Text("A thought, a dream, something for later. Say it in your own words.")
                         .foregroundStyle(MorningStyle.muted)
                     Picker("Spoken language", selection: $language) {
@@ -29,9 +29,9 @@ struct MorningCaptureVoiceView: View {
                     Text(store.completionCaptureFeedback ?? (store.completionCapturePreparing
                         ? (store.voiceCommands.isBusy ? store.voiceCommands.message : String(localized: "Getting ready to listen…"))
                         : String(localized: "Speak when you're ready.")))
-                        .font(.subheadline).accessibilityIdentifier("captureVoice.status")
+                        .font(.raleway(.subheadline)).accessibilityIdentifier("captureVoice.status")
                     if store.voiceCommands.isBusy, !store.voiceCommands.transcript.isEmpty {
-                        Text(store.voiceCommands.transcript).font(.title3)
+                        Text(store.voiceCommands.transcript).font(.serif(.title3))
                             .accessibilityIdentifier("captureVoice.transcript")
                     }
                     if store.voiceCommands.state == .listening {
@@ -50,10 +50,10 @@ struct MorningCaptureVoiceView: View {
                             .accessibilityIdentifier("captureVoice.retry")
                     }
                     Text("Up to 30 seconds, understood on this device. Review the words before saving anything. No audio recording is kept.")
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     if store.usesSyntheticCompletionCapture {
                         Text("Sample speech input · microphone not used")
-                            .font(.caption).foregroundStyle(MorningStyle.muted).accessibilityIdentifier("captureVoice.sample")
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted).accessibilityIdentifier("captureVoice.sample")
                     }
                 }.padding(24).frame(maxWidth: 600).frame(maxWidth: .infinity, alignment: .leading)
             }

@@ -22,7 +22,7 @@ struct ObservedMorningOverviewView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Your observed mornings")
-                    .font(.system(.title2, design: .default, weight: .medium))
+                    .font(.serif(.title2, .medium))
                     .accessibilityIdentifier("review.observedOverview")
             }
             VStack(alignment: .leading, spacing: 18) {
@@ -31,11 +31,11 @@ struct ObservedMorningOverviewView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(ObservedMorningPresentation.originTitle(partition.origin, sourceLabels: clips.map(\.sourceLabel)))
-                                .font(.subheadline.weight(.semibold))
+                                .font(.raleway(.subheadline, .semibold))
                                 .accessibilityIdentifier("review.observed.group.\(partition.id)")
-                            Text(partition.timeZoneIdentifier).font(.caption).foregroundStyle(MorningStyle.muted)
+                            Text(partition.timeZoneIdentifier).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             Text("\(partition.recognizedDayCount) days with labeled samples · \(partition.observedDayCount) days with observations")
-                                .font(.caption).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 .accessibilityIdentifier("review.observed.coverage.\(partition.id)")
                         }
                         let contexts = partition.recurrence.sorted {
@@ -43,32 +43,32 @@ struct ObservedMorningOverviewView: View {
                         }
                         if contexts.isEmpty {
                             Text("No screen labels yet. Your saved sources remain available.")
-                                .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                         }
                         ForEach(Array(contexts.prefix(3))) { context in
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(context.context.displayName).font(.subheadline.weight(.medium)).lineLimit(2)
+                                    Text(context.context.displayName).font(.raleway(.subheadline, .medium)).lineLimit(2)
                                     if context.citations.contains(where: { $0.provenance == .userReviewed }) {
-                                        Text("Your label").font(.caption2).foregroundStyle(MorningStyle.muted)
+                                        Text("Your label").font(.raleway(.caption2)).foregroundStyle(MorningStyle.muted)
                                     }
                                 }
                                 Spacer(minLength: 6)
                                 Text("\(context.seenDayCount) of \(partition.recognizedDayCount) labeled days")
-                                    .font(.caption).foregroundStyle(MorningStyle.muted).multilineTextAlignment(.trailing)
+                                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted).multilineTextAlignment(.trailing)
                             }
                             .accessibilityElement(children: .combine)
                             .accessibilityIdentifier("review.observed.context.\(partition.id).\(context.context.key)")
                         }
                         if contexts.count > 3 {
                             Text("Showing 3 of \(contexts.count) labels. All labels and quotations are below.")
-                                .font(.caption).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         }
                         Text("\(partition.unclassifiedDayKeys.count) observed days without labels · \(partition.missingDayKeys.count) dates without observations")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         if !partition.daysWithUnknownMoments.isEmpty {
                             Text("Unresolved samples remain on \(partition.daysWithUnknownMoments.count) observed days.")
-                                .font(.caption).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -78,10 +78,10 @@ struct ObservedMorningOverviewView: View {
             .padding(18).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 22))
             if partitions.count > 3 {
                 Text("Showing 3 of \(partitions.count) separate time-zone and origin groups. Open all observations below.")
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
             Text("A recorded glimpse, not time spent. These samples don't establish app opens, reads or scrolls.")
-                .font(.caption).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             ObservationPeriodReviewLink(store: store, endingOn: endingOn, onLearn: onLearn)
         }
     }
@@ -149,8 +149,8 @@ private struct ObservedMorningClipPreview: View {
                 ObservationHistoryDetail(store: store, observationID: acquisition.id, onLearn: onLearn)
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(acquisition.sourceLabel).font(.subheadline.weight(.medium)).lineLimit(2)
-                    Text("Open full observation").font(.caption).foregroundStyle(MorningStyle.muted)
+                    Text(acquisition.sourceLabel).font(.raleway(.subheadline, .medium)).lineLimit(2)
+                    Text("Open full observation").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }
             }
             .accessibilityIdentifier("observation.row.\(acquisition.id.uuidString)")
@@ -158,22 +158,22 @@ private struct ObservedMorningClipPreview: View {
                 VStack(alignment: .leading, spacing: 12) {
                     if clip.timelineOrderIsValid {
                         Text(clip.rows.prefix(6).map(ObservedMorningPresentation.momentLabel).joined(separator: " → "))
-                            .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                            .font(.raleway(.subheadline)).fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("\(prefix).sequence.\(acquisition.id.uuidString)")
                     } else {
                         Text("Chronology unresolved. Original samples stay in extraction order.")
-                            .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("\(prefix).sequence.\(acquisition.id.uuidString)")
                     }
                     Text("\(clip.recognizedMomentCount) labeled moments · \(clip.unknownMomentCount) unresolved")
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     if clip.rows.count > 6 {
                         Text("First 6 of \(clip.rows.count) sampled moments. Open the full observation for every sample.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     if clip.hasCorrection {
                         Text("Notes were corrected; earlier screen labels were cleared.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                 }
                 DisclosureGroup(isExpanded: $showingSamples) {
@@ -183,22 +183,22 @@ private struct ObservedMorningClipPreview: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(ObservedMorningPresentation.momentLabel(moment))
-                                    .font(.subheadline).lineLimit(2)
+                                    .font(.raleway(.subheadline)).lineLimit(2)
                                 Text(ObservedMorningPresentation.momentCaption(moment))
-                                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             }.padding(.vertical, 4).frame(minHeight: 44, alignment: .leading)
                         }
                         .accessibilityIdentifier("\(prefix).sample.\(acquisition.id.uuidString).\(moment.id.uuidString)")
                     }
                 } label: {
                     Text(clip.rows.count > 6 ? "Inspect these 6 moments" : "Inspect sampled moments")
-                        .font(.subheadline)
+                        .font(.raleway(.subheadline))
                         .accessibilityIdentifier("\(prefix).samples.\(acquisition.id.uuidString)")
                 }
                 .tint(MorningStyle.accent)
             } else {
                 Text(acquisition.videoEvidence == nil ? "Written observation · no sampled screens" : "Sample interpretation unavailable. Open the original evidence.")
-                    .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             }
         }.padding(.vertical, 8)
     }

@@ -40,7 +40,7 @@ struct ObservationScreenReviewView: View {
                         .disabled(frame?.canSupportIdentity != true)
                         .accessibilityIdentifier("sampleLabel.text")
                     if let message {
-                        Text(message).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(message).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("sampleLabel.message")
                     }
                 } header: { Text("Your label") } footer: {
@@ -64,7 +64,7 @@ struct ObservationScreenReviewView: View {
                 Section {
                     if quotes.isEmpty {
                         Text("No short, complete excerpt is available to anchor a label. You can still keep this screen unknown.")
-                            .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     }
                     ForEach(Array(quotes.enumerated()), id: \.offset) { index, text in
                         Button { quote = text; labelFocused = false } label: {
@@ -81,7 +81,7 @@ struct ObservationScreenReviewView: View {
                     Text("Choose the saved words that help you recognize this screen. Your label is your interpretation; it doesn't prove an app was opened or a message was read.")
                 }
             }
-            .scrollContentBackground(.hidden).background(MorningStyle.background)
+            .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
             .navigationTitle("Screen label").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -53,9 +53,9 @@ struct RoutineExportView: View {
             MorningList {
                 Section {
                     Text(includeNotes ? "Your plan and its notes" : "Your plan only")
-                        .font(.headline)
+                        .font(.serif(.headline))
                     Text("Review the names and text below before saving a file. Names can contain personal information.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     Toggle("Include notes", isOn: $includeNotes)
                         .disabled(showingFileExporter)
                         .accessibilityIdentifier("export.includeNotes")
@@ -71,25 +71,25 @@ struct RoutineExportView: View {
                 case .failure(let error):
                     Section {
                         Label("This routine couldn't be prepared for export", systemImage: "exclamationmark.circle")
-                            .font(.headline)
-                        Text(error.localizedDescription).font(.subheadline).foregroundStyle(MorningStyle.muted)
+                            .font(.serif(.headline))
+                        Text(error.localizedDescription).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     }.accessibilityIdentifier("export.validationError")
                 }
 
                 Section {
                     Text("Recordings, observation history, saved choices and app operations aren't included.")
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }
                 if let statusMessage {
                     Section {
                         Label(statusMessage, systemImage: statusIsError ? "exclamationmark.circle" : "checkmark.circle")
-                            .font(.subheadline)
+                            .font(.raleway(.subheadline))
                             .accessibilityIdentifier("export.status")
                     }
                 }
             }
             .accessibilityIdentifier("export.preview")
-            .scrollContentBackground(.hidden).background(MorningStyle.background)
+            .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
             .navigationTitle("Export routine")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -181,31 +181,31 @@ struct RoutineImportView: View {
             MorningList {
                 Section {
                     Text("Review this plan before using it")
-                        .font(.headline)
+                        .font(.serif(.headline))
                     Text("This becomes your current draft. An approved routine can be restored while you review. Approve the draft before starting a morning.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     Text("Every imported moment is user-led. No app operation is enabled.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                 }
                 RoutineTransferPreview(document: documentSnapshot, prefix: "import")
                 Section {
                     Text("This file doesn't add recordings, observation history or saved choices. Your existing saved choices stay separate.")
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     if documentSnapshot.detail == .planOnly {
                         Text("This plan-only file has no notes or source label.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                 }
                 if let failureMessage {
                     Section {
                         Label(failureMessage, systemImage: "exclamationmark.circle")
-                            .font(.subheadline)
+                            .font(.raleway(.subheadline))
                             .accessibilityIdentifier("import.error")
                     }
                 }
             }
             .accessibilityIdentifier("import.preview")
-            .scrollContentBackground(.hidden).background(MorningStyle.background)
+            .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
             .navigationTitle("Import routine")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -245,12 +245,12 @@ private struct RoutineTransferPreview: View {
             LabeledContent("Planned time", value: String(localized: "\(document.steps.reduce(0) { $0 + $1.durationMinutes }) minutes"))
             if document.sourceIsSynthetic {
                 Label("Sample or test plan", systemImage: "sparkles")
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     .accessibilityIdentifier("\(prefix).synthetic")
             }
             if let source = document.sourceLabel {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Source label").font(.caption).foregroundStyle(MorningStyle.muted)
+                    Text("Source label").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     Text(verbatim: source).textSelection(.enabled)
                         .accessibilityIdentifier("\(prefix).source")
                 }
@@ -262,23 +262,23 @@ private struct RoutineTransferPreview: View {
         }
         ForEach(Array(document.steps.enumerated()), id: \.element.id) { index, step in
             Section {
-                Text(verbatim: step.title).font(.headline).textSelection(.enabled)
+                Text(verbatim: step.title).font(.serif(.headline)).textSelection(.enabled)
                     .accessibilityIdentifier("\(prefix).step.\(index).title")
                 LabeledContent(step.kind.displayName, value: String(localized: "\(step.durationMinutes) minutes planned"))
-                    .font(.subheadline)
+                    .font(.raleway(.subheadline))
                     .accessibilityIdentifier("\(prefix).step.\(index).minutes")
                 if step.isRequired {
                     Label("Marked to keep in this plan", systemImage: "heart")
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         .accessibilityIdentifier("\(prefix).step.\(index).required")
                 }
                 if let notes = step.detail {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Notes").font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text("Notes").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         if notes.isEmpty {
-                            Text("Empty").font(.caption).foregroundStyle(MorningStyle.muted)
+                            Text("Empty").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         } else {
-                            Text(verbatim: notes).font(.subheadline).textSelection(.enabled)
+                            Text(verbatim: notes).font(.raleway(.subheadline)).textSelection(.enabled)
                                 .accessibilityIdentifier("\(prefix).step.\(index).notes")
                         }
                     }
@@ -297,7 +297,7 @@ private struct RoutineTransferPreview: View {
                     LabeledContent("Moment \(index + 1) ID", value: step.id.uuidString)
                 }
             }
-            .font(.caption).textSelection(.enabled)
+            .font(.raleway(.caption)).textSelection(.enabled)
             .accessibilityIdentifier("\(prefix).fileInformation")
         }
     }

@@ -36,6 +36,32 @@ struct RoutineSessionRecapTests {
         #expect(try coded(recap.ending) == .completed)
     }
 
+    @Test("Active time leaves pauses out and ends at completion")
+    func activeDurationExcludesPauses() throws {
+        var session = RoutineSession(routine: routine)
+        #expect(session.activeDuration(until: start) == nil)
+        try session.start(at: start)
+        try session.advance(at: start.addingTimeInterval(120))
+        try session.pause(at: start.addingTimeInterval(180))
+        try session.resume(at: start.addingTimeInterval(900))
+        #expect(session.activeDuration(until: start.addingTimeInterval(960)) == 240)
+        #expect(session.completedAt == nil)
+        try session.advance(at: start.addingTimeInterval(1_000))
+        try session.advance(at: start.addingTimeInterval(1_500))
+        #expect(session.completedAt == start.addingTimeInterval(1_500))
+        // 180 s before the pause, 600 s after it; later time does not count.
+        #expect(session.activeDuration(until: start.addingTimeInterval(9_000)) == 780)
+    }
+
+    @Test("A stopped run has no completion time")
+    func stoppedRunHasNoCompletion() throws {
+        var session = RoutineSession(routine: routine)
+        try session.start(at: start)
+        try session.stop(at: start.addingTimeInterval(60))
+        #expect(session.completedAt == nil)
+        #expect(session.activeDuration(until: start.addingTimeInterval(600)) == 60)
+    }
+
     @Test("Skipping a required ritual today leaves the routine and the preference journal as they were")
     func skipTodayDoesNotAlterStandingPreference() throws {
         var journal = RoutinePreferenceJournal()

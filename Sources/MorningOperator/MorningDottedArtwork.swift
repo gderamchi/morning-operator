@@ -74,28 +74,345 @@ struct MorningDottedDisc: Shape {
 /// It is decorative: cards and controls remain opaque reading surfaces above it.
 struct MorningCelestialArtwork: View {
     let scene: MorningCelestialScene
+    /// When the person last touched the sun: its lines ripple, then settle.
+    var kick: Date? = nil
+    var kicks: Int = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geometry in
             let diameter = min(geometry.size.width * 0.72, 300)
             ZStack {
+                let sunX = geometry.size.width * scene.sun.centerX
+                let sunY = geometry.size.height * scene.sun.centerY
+                // The sun's darker lower half spreads into the page: densest and darkest
+                // against the disc, thinning out to the sides and down.
+                // The page colour follows the same fade: deepest rust against the sun's
+                // lower half, lightening outwards, wider than tall and further down than up.
+                // The sun's own cloud bands carry on across the sky at its height.
+                MorningCloudBands(sun: CGPoint(x: sunX, y: sunY), diameter: diameter, kick: kick, kicks: kicks)
+                    .opacity(scene.sun.opacity)
                 MorningSolarArtwork(opacity: scene.sun.opacity)
                     .frame(width: diameter, height: diameter)
-                    .position(x: geometry.size.width * scene.sun.centerX,
-                              y: geometry.size.height * scene.sun.centerY)
-                MorningDottedDisc(kind: .moon)
-                    .fill(MorningTheme.current.ink)
-                    .frame(width: diameter * 0.78, height: diameter * 0.78)
-                    .position(x: geometry.size.width * scene.moon.centerX,
-                              y: geometry.size.height * scene.moon.centerY)
-                    .opacity(scene.moon.opacity * 0.34)
+
+                    // A feathered rim rather than a hard outline.
+                    .mask(RadialGradient(stops: [.init(color: .black, location: 0.78), .init(color: .clear, location: 1)],
+                                         center: .center, startRadius: 0, endRadius: diameter / 2))
+                    .position(x: sunX, y: sunY)
+
+                let moonX = geometry.size.width * scene.moon.centerX
+                let moonY = geometry.size.height * scene.moon.centerY
+                let moonDiameter = diameter * 0.82
+                // Stars above the horizon, faint and fixed.
+                MorningStarField(horizon: moonY + moonDiameter * 0.9)
+                    .opacity(scene.moon.opacity)
+                MorningLunarArtwork()
+                    .frame(width: moonDiameter, height: moonDiameter)
+
+                    .opacity(scene.moon.opacity)
+                    .position(x: moonX, y: moonY)
+
             }
             .animation(reduceMotion ? nil : .linear(duration: 60), value: scene)
         }
         .clipped()
         .accessibilityHidden(true)
         .allowsHitTesting(false)
+    }
+}
+
+/// A small, fixed sequence of pseudo-random numbers, so the artwork is the same on
+/// every launch and every device.
+struct MorningSeededRandom {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed &+ 0x9E3779B97F4A7C15 }
+    mutating func next() -> CGFloat {
+        state = state &+ 0x9E3779B97F4A7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+        z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+        z = z ^ (z >> 31)
+        return CGFloat(z % 1_000_000) / 1_000_000
+    }
+    mutating func range(_ low: CGFloat, _ high: CGFloat) -> CGFloat { low + (high - low) * next() }
+}
+
+/// Long, soft streaks in the sun's own band colours: cream near its top, orange through
+/// its middle, rust at its lower edge. They run past the disc so its clouds continue
+/// into the sky instead of stopping at the rim.
+struct MorningCloudBands: View {
+    var sun: CGPoint
+    var diameter: CGFloat
+    var kick: Date? = nil
+    /// How many times the sun was touched: each touch slides the whole sky one step right.
+    var kicks: Int = 0
+
+    var body: some View {
+        let settling = kick.map { Date().timeIntervalSince($0) < 1.6 } ?? false
+        TimelineView(.animation(paused: !settling)) { timeline in
+            let t = kick.map { timeline.date.timeIntervalSince($0) } ?? 99
+            Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+                var random = MorningSeededRandom(seed: 7)
+                context.addFilter(.blur(radius: 2.6))
+                // Each touch glides the sky one step to the right, easing to a stop; nearer
+                // (lower) lines travel a little further, as if the whole page drifted.
+                let progress = 1 - pow(1 - min(1, t / 1.4), 3)
+                let shift = 90 * (CGFloat(max(0, kicks - 1)) + (kicks > 0 ? progress : 0))
+                for index in 0..<64 {
+                    // Spread from the top of the screen to the bottom; colour follows the
+                    // sun's bands: pale above it, orange at its middle, rust at and below its edge.
+                    let y0 = random.range(-0.02, 1.02) * size.height
+                    let band = (y0 - (sun.y - diameter / 2)) / diameter
+                    let length = size.width * random.range(0.35, 0.95)
+                    let start = random.range(-0.2, 1.0) * (size.width - length * 0.6)
+                    let thickness = random.range(2.0, 6.5)
+                    // Fainter towards the very top of the screen.
+                    let alpha = random.range(0.35, 0.7) * (0.35 + 0.65 * min(1, max(0, y0 / (size.height * 0.35))))
+                    let speed = 0.6 + 0.8 * min(1, max(0, y0 / size.height)) + random.range(-0.1, 0.1)
+                    let span = size.width + length
+                    var x = (start + length + shift * speed).truncatingRemainder(dividingBy: span)
+                    if x < 0 { x += span }
+                    x -= length
+                    let y = y0
+                    let colour: Color
+                    if band < 0.3 { colour = Color(red: 0.97, green: 0.78, blue: 0.66) }
+                    else if band < 0.65 { colour = Color(red: 0.95, green: 0.60, blue: 0.40) }
+                    else { colour = Color(red: 0.82, green: 0.38, blue: 0.26) }
+                    let rect = CGRect(x: x, y: y, width: length, height: thickness)
+                    context.fill(Path(roundedRect: rect, cornerRadius: thickness / 2),
+                                 with: .linearGradient(Gradient(stops: [.init(color: colour.opacity(0), location: 0),
+                                                                        .init(color: colour.opacity(alpha), location: 0.3),
+                                                                        .init(color: colour.opacity(alpha), location: 0.7),
+                                                                        .init(color: colour.opacity(0), location: 1)]),
+                                                   startPoint: CGPoint(x: rect.minX, y: y), endPoint: CGPoint(x: rect.maxX, y: y)))
+                }
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// The sun's reflection on water: rows of short bright glints under the disc. Rows get
+/// further apart and wider, glints thinner and fainter, the lower they are, as a sea
+/// seen in perspective. With motion allowed, each glint breathes on its own slow beat.
+struct MorningWaterGlints: View {
+    var sun: CGPoint
+    var diameter: CGFloat
+    var glint: Color
+    var animated: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 24, paused: !animated)) { timeline in
+            let time = animated ? timeline.date.timeIntervalSinceReferenceDate : 0
+            Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+                var random = MorningSeededRandom(seed: 21)
+                let top = sun.y + diameter * 0.42
+                // The path of light: a soft golden column, narrow at the sun, wider below.
+                var pillar = context
+                pillar.addFilter(.blur(radius: 18))
+                var column = Path()
+                column.move(to: CGPoint(x: sun.x - diameter * 0.22, y: top))
+                column.addLine(to: CGPoint(x: sun.x + diameter * 0.22, y: top))
+                column.addLine(to: CGPoint(x: sun.x + diameter * 0.55, y: size.height + 20))
+                column.addLine(to: CGPoint(x: sun.x - diameter * 0.55, y: size.height + 20))
+                column.closeSubpath()
+                pillar.fill(column, with: .linearGradient(Gradient(colors: [glint.opacity(0.55), glint.opacity(0.18), glint.opacity(0.05)]),
+                                                           startPoint: CGPoint(x: sun.x, y: top),
+                                                           endPoint: CGPoint(x: sun.x, y: size.height)))
+                context.addFilter(.blur(radius: 0.9))
+                var y = top
+                var row = 0
+                while y < size.height + 10 {
+                    let depth = min(1, max(0, (y - top) / max(1, size.height - top)))
+                    let spread = diameter * (0.30 + 0.75 * depth)
+                    let count = 3 + Int(random.range(0, 4))
+                    for index in 0..<count {
+                        // Gathered towards the middle of the path, a few strays outside it.
+                        let offset = (random.next() + random.next() + random.next()) / 1.5 - 1
+                        let x = sun.x + offset * spread
+                        let length = random.range(14, 58) * (1 - 0.25 * depth)
+                        let thickness = 1.6 + 2.2 * depth
+                        let phase = Double(random.next()) * 6.28 + Double(row) * 0.7 + Double(index)
+                        let shimmer = 0.55 + 0.45 * sin(time * 1.4 + phase)
+                        let alpha = (0.85 - 0.6 * depth) * (1 - 0.7 * abs(offset)) * shimmer
+                        let drift = animated ? CGFloat(sin(time * 0.6 + phase)) * 3 : 0
+                        let rect = CGRect(x: x - length / 2 + drift, y: y, width: length, height: thickness)
+                        context.fill(Path(roundedRect: rect, cornerRadius: thickness / 2), with: .color(glint.opacity(alpha)))
+                    }
+                    y += 4 + 12 * depth
+                    row += 1
+                }
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// A few hundred faint stars, fixed in place and thinning towards the horizon.
+struct MorningStarField: View {
+    var horizon: CGFloat
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            var random = MorningSeededRandom(seed: 3)
+            let bottom = min(size.height, horizon)
+            for _ in 0..<220 {
+                let x = random.next() * size.width, y = random.next() * bottom
+                let height = 1 - y / max(1, bottom)
+                let r = random.range(0.4, 1.3)
+                let alpha = random.range(0.25, 0.9) * (0.3 + 0.7 * height)
+                context.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
+                             with: .color(.white.opacity(alpha)))
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// A radial fade with many stops on an eased curve, so the colour thins out without
+/// the visible rings a two- or three-stop gradient draws on a phone screen.
+enum MorningSmoothGlow {
+    static func gradient(color: Color, strength: Double, radius: CGFloat) -> RadialGradient {
+        let steps = 24
+        let stops: [Gradient.Stop] = (0...steps).map { index in
+            let t = Double(index) / Double(steps)
+            // Smootherstep fall-off: flat at the centre, flat as it reaches the page.
+            let eased = 1 - (t * t * t * (t * (t * 6 - 15) + 10))
+            return .init(color: color.opacity(strength * eased), location: t)
+        }
+        return RadialGradient(stops: stops, center: .center, startRadius: 0, endRadius: radius)
+    }
+}
+
+/// A fixed, very fine grain over the page. It breaks up the colour steps a smooth
+/// gradient would otherwise show, and reads as paper rather than as a pattern.
+struct MorningGrain: View {
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            var light = Path(), dark = Path()
+            var seed: UInt64 = 0x9E3779B97F4A7C15
+            func next() -> CGFloat {
+                seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17
+                return CGFloat(seed % 10_000) / 10_000
+            }
+            let count = Int(size.width * size.height / 9)
+            for index in 0..<count {
+                let rect = CGRect(x: next() * size.width, y: next() * size.height, width: 1, height: 1)
+                if index % 2 == 0 { light.addRect(rect) } else { dark.addRect(rect) }
+            }
+            context.fill(light, with: .color(.white.opacity(0.10)))
+            context.fill(dark, with: .color(.black.opacity(0.06)))
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// A soft shadow made of dots around a point: near it the dots are large and close to
+/// full strength, and they shrink and fade the further they are, so a body melts into
+/// the page. Drawn once per size in one Canvas, grouped into a few strength levels.
+struct MorningRadiantDots: View {
+    var anchor: CGPoint
+    var reach: CGFloat
+    var color: Color
+
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            let cell: CGFloat = 3.6
+            let levels = 6
+            var paths = Array(repeating: Path(), count: levels)
+            var y: CGFloat = cell / 2
+            var row = 0
+            while y < size.height + cell {
+                var x: CGFloat = row % 2 == 0 ? cell / 2 : cell
+                while x < size.width + cell {
+                    let dx = x - anchor.x
+                    // Spread wider than tall, and further downwards than upwards.
+                    let dy = (y - anchor.y) * (y < anchor.y ? 3.0 : 0.85)
+                    let distance = (dx * dx + dy * dy).squareRoot() / reach
+                    // Close to the body, and also everywhere lower on the page: the dots
+                    // cover the whole screen, finest at the top and fullest at the bottom.
+                    let strength = exp(-distance * distance * 1.3)
+                    if strength > 0.02 {
+                        let radius = 0.3 + 1.15 * strength
+                        let level = min(levels - 1, Int(strength * CGFloat(levels)))
+                        paths[level].addEllipse(in: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2))
+                    }
+                    x += cell
+                }
+                y += cell * 0.866
+                row += 1
+            }
+            for level in 0..<levels {
+                context.fill(paths[level], with: .color(color.opacity(0.06 + 0.62 * Double(level + 1) / Double(levels))))
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Fine dots in a body's colours, densest under its rim and fading outwards.
+struct MorningDotHalo: View {
+    var colors: [Color]
+    var diameter: CGFloat
+    var body: some View {
+        LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+            .mask(MorningHalftone(color: .black, opacity: 1, cell: 4.5, radius: 1.05))
+            .mask(RadialGradient(stops: [.init(color: .clear, location: 0.38),
+                                         .init(color: .black, location: 0.50),
+                                         .init(color: .clear, location: 1)],
+                                 center: .center, startRadius: 0, endRadius: diameter * 0.95))
+            .frame(width: diameter * 1.9, height: diameter * 1.9)
+    }
+}
+
+/// A column of fine dots falling from a body to the bottom of the page, strongest in
+/// the middle and fading to the sides and towards the bottom.
+struct MorningDotTrail: View {
+    var colors: [Color]
+    var width: CGFloat
+    var height: CGFloat
+    var body: some View {
+        LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+            .mask(MorningHalftone(color: .black, opacity: 1, cell: 4.5, radius: 1.05))
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black.opacity(0.75), location: 0.5),
+                                         .init(color: .black.opacity(0.35), location: 1)],
+                                 startPoint: .top, endPoint: .bottom))
+            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.5),
+                                         .init(color: .clear, location: 1)],
+                                 startPoint: .leading, endPoint: .trailing))
+            .frame(width: width, height: height)
+    }
+}
+
+/// The moon in the sun's manner: a softly lit disc of silver grain with a few faint
+/// seas, a feathered rim and fine dots over it. Drawn, not a photograph.
+struct MorningLunarArtwork: View {
+    var body: some View {
+        GeometryReader { geometry in
+            let d = min(geometry.size.width, geometry.size.height)
+            ZStack {
+                Circle().fill(RadialGradient(colors: [Color(red: 0.97, green: 0.96, blue: 0.92),
+                                                      Color(red: 0.80, green: 0.82, blue: 0.88),
+                                                      Color(red: 0.50, green: 0.53, blue: 0.66)],
+                                             center: UnitPoint(x: 0.36, y: 0.32), startRadius: 0, endRadius: d * 0.72))
+                Group {
+                    Circle().frame(width: d * 0.30, height: d * 0.24).offset(x: -d * 0.12, y: -d * 0.08)
+                    Circle().frame(width: d * 0.20, height: d * 0.18).offset(x: d * 0.16, y: d * 0.10)
+                    Circle().frame(width: d * 0.13, height: d * 0.12).offset(x: -d * 0.04, y: d * 0.22)
+                    Circle().frame(width: d * 0.09, height: d * 0.09).offset(x: d * 0.20, y: -d * 0.20)
+                }
+                .foregroundStyle(Color(red: 0.45, green: 0.48, blue: 0.62).opacity(0.28))
+                .blur(radius: d * 0.025)
+            }
+            .frame(width: d, height: d)
+            .mask(RadialGradient(stops: [.init(color: .black, location: 0.88), .init(color: .clear, location: 1)],
+                                 center: .center, startRadius: 0, endRadius: d / 2))
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -107,6 +424,11 @@ struct MorningDottedFrame: Shape {
     var dotRadius: CGFloat = 0.85
 
     func path(in rect: CGRect) -> Path {
+        // Card edges are drawn by the cards themselves now; no dotted outline.
+        return Path()
+    }
+
+    private func dottedPath(in rect: CGRect) -> Path {
         let inset = max(1, dotRadius)
         let bounds = rect.insetBy(dx: inset, dy: inset)
         guard bounds.width > 0, bounds.height > 0 else { return Path() }

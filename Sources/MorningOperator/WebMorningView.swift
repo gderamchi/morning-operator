@@ -94,18 +94,18 @@ struct WebMorningView: View {
                 MorningDottedIcon(systemName: "xmark").frame(width: 23, height: 23).frame(width: 44, height: 44)
             }.accessibilityLabel(text("Close", "Fermer")).accessibilityIdentifier("web.close")
             Text(site == .gmail || controller.displayedHost.isEmpty ? site.displayName : controller.displayedHost)
-                .font(.caption).foregroundStyle(MorningStyle.muted).lineLimit(1)
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted).lineLimit(1)
                 .accessibilityIdentifier("web.host")
             Spacer(minLength: 4)
             if onSignInReady == nil && !learningOnly { TimelineView(.periodic(from: .now, by: 1)) { context in
                 let left = max(0, (stepEndsAt ?? clock.endsAt).timeIntervalSince(timerPausedAt ?? context.date))
                 Text(Duration.seconds(left.rounded(.up)), format: .time(pattern: .minuteSecond))
-                    .font(.subheadline.monospacedDigit())
+                    .font(.raleway(.subheadline).monospacedDigit())
                     .foregroundStyle(left == 0 ? MorningStyle.accent : MorningStyle.ink)
                     .accessibilityIdentifier("web.remaining")
             } } else {
                 Text(learningOnly ? text("Learning", "Apprentissage") : text("Sign in", "Connexion"))
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
         }
         .buttonStyle(.plain).padding(.horizontal, 12).padding(.vertical, 4)
@@ -117,19 +117,19 @@ struct WebMorningView: View {
                 HStack(spacing: 8) {
                     MorningDottedIcon(systemName: "record.circle.fill").frame(width: 18, height: 18)
                     Text(text("Learning your scroll and tap rhythm", "Apprentissage du rythme de vos gestes"))
-                        .font(.caption)
+                        .font(.raleway(.caption))
                 }.foregroundStyle(MorningStyle.accent)
                 Button(text("Stop learning", "Arrêter l’apprentissage")) { controller.stopLearning() }
                     .buttonStyle(PrimaryButtonStyle()).accessibilityIdentifier("web.learningStop")
             } else if let summary = controller.learningSummary {
                 Text(text("\(summary.totals.scrollBursts) scrolls · \(summary.totals.clicks) taps",
                           "\(summary.totals.scrollBursts) séquences de défilement · \(summary.totals.clicks) appuis"))
-                    .font(.subheadline)
+                    .font(.raleway(.subheadline))
                 if let speed = summary.averageMovingSpeed {
                     Text(speed > 800 ? text("A quick scrolling rhythm", "Un défilement rapide")
                          : speed > 250 ? text("A steady scrolling rhythm", "Un défilement régulier")
                          : text("A gentle scrolling rhythm", "Un défilement tranquille"))
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }
                 HStack(spacing: 12) {
                     if let onSaveRhythm {
@@ -143,22 +143,22 @@ struct WebMorningView: View {
                 }
                 Text(text("Only this page. This estimate does not replay your gestures.",
                           "Cette page seulement. Cette estimation ne reproduit pas vos gestes."))
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 if rhythmSaveFailed {
                     Text(text("Couldn't save yet. Try Save again.", "Enregistrement impossible. Réessayez."))
-                        .font(.caption).foregroundStyle(MorningStyle.accent)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.accent)
                 }
             } else {
                 Text(text("Browse as you normally do. MORE counts gestures here, without saving page text or form entries.",
                           "Naviguez à votre rythme. MORE compte ici les gestes, sans garder le texte ni les champs saisis."))
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 Button(text("Learn my pace", "Apprendre mon rythme")) {
                     Task { _ = await controller.startLearning() }
                 }.buttonStyle(PrimaryButtonStyle()).disabled(!controller.canLearn)
                     .accessibilityIdentifier("web.learningStart")
                 if !controller.canLearn {
                     Text(text("Finish signing in and wait for the page to load.", "Terminez la connexion et attendez le chargement."))
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -168,10 +168,10 @@ struct WebMorningView: View {
         VStack(alignment: .leading, spacing: 6) {
             if let line = resultLine {
                 if case .headlines = controller.outcome {
-                    ScrollView { Text(line).font(.footnote).foregroundStyle(MorningStyle.muted).frame(maxWidth: .infinity, alignment: .leading) }
+                    ScrollView { Text(line).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).frame(maxWidth: .infinity, alignment: .leading) }
                         .frame(maxHeight: 110).accessibilityIdentifier("web.result")
                 } else {
-                    Text(line).font(.footnote).foregroundStyle(MorningStyle.muted)
+                    Text(line).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         .frame(maxWidth: .infinity, alignment: .leading).accessibilityIdentifier("web.result")
                 }
             }
@@ -195,7 +195,7 @@ struct WebMorningView: View {
                 Spacer(minLength: 0)
                 Button {
                     if let onExtend { onExtend() } else { clock.extend(at: Date()) }
-                } label: { Text("+2").font(.subheadline.monospacedDigit()).frame(width: 44, height: 44) }
+                } label: { Text("+2").font(.raleway(.subheadline).monospacedDigit()).frame(width: 44, height: 44) }
                     .accessibilityLabel(text("Add two minutes", "Ajouter deux minutes"))
                     .disabled(!isStepActive).accessibilityIdentifier("web.extend")
                 if let onNext {
@@ -252,8 +252,8 @@ struct WebMorningView: View {
                     DisclosureGroup(text("Privacy & website controls", "Confidentialité et commandes du site")) {
                         Text(text("MORE’s scripts never read password fields or send messages. The site keeps its sign-in in this browser. Its own controls still work.",
                                   "Les scripts de MORE ne lisent jamais les mots de passe et n’envoient pas de message. Le site garde sa session dans ce navigateur. Ses propres boutons restent actifs."))
-                            .font(.footnote).foregroundStyle(MorningStyle.muted).padding(.top, 8)
-                    }.font(.subheadline)
+                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).padding(.top, 8)
+                    }.font(.raleway(.subheadline))
                     Button(text("Clear all website sign-ins", "Effacer toutes les connexions aux sites"), role: .destructive) {
                         Task { await controller.forgetSignIns() }
                     }.buttonStyle(QuietButtonStyle()).accessibilityIdentifier("web.forget")

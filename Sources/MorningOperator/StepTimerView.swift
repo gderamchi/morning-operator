@@ -8,7 +8,7 @@ struct StepTimerView: View {
         if let timer = store.activeStepTimer {
             HStack {
                 Text(store.currentStep?.target?.destination.displayName ?? "MORE")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.raleway(.subheadline, .semibold))
                 if case let .inAppWeb(url) = store.currentStep?.target {
                     Button { if canOperate() { store.pendingWebTarget = url } } label: {
                         MorningDottedIcon(systemName: "globe").frame(width: 23, height: 23).frame(width: 44, height: 44)
@@ -28,11 +28,11 @@ struct StepTimerView: View {
                     guard canOperate() else { return }
                     await store.extendStepTimer(expectedTimer: timer)
                 } } label: {
-                    Text("+2").font(.subheadline.monospacedDigit()).frame(width: 44, height: 44)
+                    Text("+2").font(.raleway(.subheadline).monospacedDigit()).frame(width: 44, height: 44)
                 }.accessibilityLabel("Add two minutes").accessibilityIdentifier("stepTimer.extend")
                     .disabled(!canOperate())
             }
-            .font(.subheadline).buttonStyle(.plain).foregroundStyle(MorningStyle.ink).padding(.vertical, 4)
+            .font(.raleway(.subheadline)).buttonStyle(.plain).foregroundStyle(MorningStyle.ink).padding(.vertical, 4)
         }
     }
 }

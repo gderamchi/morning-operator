@@ -18,7 +18,12 @@ enum MorningStyle {
     static var onControl: Color { MorningTheme.current.onInk }
     static var green: Color { MorningTheme.current.positive }
     static var line: Color { MorningTheme.current.line }
-    static var background: Color { MorningTheme.current.paper }
+    /// Home's cream page; a warm dark brown in Dark Mode.
+    static var background: Color {
+        Color(uiColor: UIColor { $0.userInterfaceStyle == .dark
+            ? UIColor(red: 0.16, green: 0.11, blue: 0.09, alpha: 1)
+            : UIColor(red: 1.0, green: 0.97, blue: 0.90, alpha: 1) })
+    }
     static var surface: Color { MorningTheme.current.surface }
     /// A tinted surface for a selected chip.
     static var selected: Color { MorningTheme.current.selected }
@@ -93,7 +98,7 @@ struct LinkRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(MorningTheme.Typography.heading)
                 if !detail.isEmpty {
-                    Text(detail).font(.caption).foregroundStyle(MorningStyle.muted)
+                    Text(detail).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

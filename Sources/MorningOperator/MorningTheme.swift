@@ -114,15 +114,16 @@ struct MorningTheme {
 
     /// One native sans-serif family for titles, reading, dates and controls.
     /// Semantic styles keep the hierarchy and follow Dynamic Type.
+    /// Two typefaces, as on Home: DM Serif Display for titles, Raleway for everything else.
     enum Typography {
-        static let display = Font.system(.largeTitle, design: .default, weight: .semibold)
-        static let title = Font.system(.title, design: .default, weight: .semibold)
-        static let heading = Font.system(.headline, design: .default, weight: .semibold)
-        static let body = Font.system(.body, design: .default)
-        static let note = Font.system(.subheadline, design: .default)
-        static let label = Font.system(.caption, design: .default, weight: .medium)
-        static let number = Font.system(.caption, design: .default).monospacedDigit()
-        static let control = Font.system(.body, design: .default, weight: .semibold)
+        static let display = Font.serif(.largeTitle)
+        static let title = Font.serif(.title)
+        static let heading = Font.serif(.headline)
+        static let body = Font.raleway(.body)
+        static let note = Font.raleway(.subheadline)
+        static let label = Font.raleway(.caption, .medium)
+        static let number = Font.raleway(.caption).monospacedDigit()
+        static let control = Font.raleway(.body, .semibold)
     }
 
     // MARK: Space
@@ -153,7 +154,7 @@ struct MorningPaper: View {
 
     var body: some View {
         ZStack {
-            MorningPaperSurface()
+            MorningStyle.background
             if showsSun && !reduceTransparency {
                 MorningCelestialArtwork(scene: MorningThemeClock.shared.celestial)
             }
@@ -284,5 +285,66 @@ struct DestructiveButtonStyle: ButtonStyle {
             .background(Color(red: 0.59, green: 0.15, blue: 0.12), in: Capsule())
             .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.4)
             .contentShape(Capsule())
+    }
+}
+
+extension Font {
+    /// The system's default point size for each text style, so custom faces scale with
+    /// Dynamic Type from the same starting point as San Francisco.
+    fileprivate static func basePointSize(_ style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: 34
+        case .title: 28
+        case .title2: 22
+        case .title3: 20
+        case .headline: 17
+        case .body: 17
+        case .callout: 16
+        case .subheadline: 15
+        case .footnote: 13
+        case .caption: 12
+        case .caption2: 11
+        default: 17
+        }
+    }
+
+    /// Raleway at a text style's size, following Dynamic Type.
+    static func raleway(_ style: Font.TextStyle, _ weight: Font.Weight = .regular) -> Font {
+        .custom("Raleway", size: basePointSize(style), relativeTo: style).weight(weight)
+    }
+
+    /// DM Serif Display for titles. It has one weight; a requested weight is ignored.
+    static func serif(_ style: Font.TextStyle, _ weight: Font.Weight = .regular) -> Font {
+        .custom("DM Serif Display", size: basePointSize(style) + 2, relativeTo: style)
+    }
+}
+
+/// Home's sun-coloured horizontal lines over a whole page, fainter so text stays easy
+/// to read: pale at the top, warmer lower down.
+struct MorningQuietLines: View {
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            var random = MorningSeededRandom(seed: 11)
+            context.addFilter(.blur(radius: 2.6))
+            for _ in 0..<40 {
+                let depth = random.next()
+                let y = depth * size.height
+                let length = size.width * random.range(0.35, 0.95)
+                let x = random.range(-0.2, 1.0) * (size.width - length * 0.6)
+                let thickness = random.range(2.0, 5.5)
+                let colour: Color = depth < 0.35 ? Color(red: 0.97, green: 0.78, blue: 0.66)
+                    : depth < 0.7 ? Color(red: 0.95, green: 0.60, blue: 0.40) : Color(red: 0.82, green: 0.38, blue: 0.26)
+                let alpha = random.range(0.18, 0.38) * (0.4 + 0.6 * depth)
+                let rect = CGRect(x: x, y: y, width: length, height: thickness)
+                context.fill(Path(roundedRect: rect, cornerRadius: thickness / 2),
+                             with: .linearGradient(Gradient(stops: [.init(color: colour.opacity(0), location: 0),
+                                                                    .init(color: colour.opacity(alpha), location: 0.3),
+                                                                    .init(color: colour.opacity(alpha), location: 0.7),
+                                                                    .init(color: colour.opacity(0), location: 1)]),
+                                               startPoint: CGPoint(x: rect.minX, y: y), endPoint: CGPoint(x: rect.maxX, y: y)))
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
     }
 }

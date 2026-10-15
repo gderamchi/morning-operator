@@ -33,7 +33,7 @@ struct MorningOperatorApp: App {
                 if ProcessInfo.processInfo.arguments.contains("--qa-system-checks"),
                    ["com.gibouu.morningoperator.qa", "com.gibouu.morningoperator.systemqa"].contains(Bundle.main.bundleIdentifier ?? "") {
                     Text(verbatim: "QA")
-                        .font(.caption2).padding(4)
+                        .font(.raleway(.caption2)).padding(4)
                         .accessibilityIdentifier("system.qaIdentity")
                         .accessibilityLabel(Text(verbatim: "\(Bundle.main.bundleIdentifier ?? "missing")|\(Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "missing")"))
                         .allowsHitTesting(false)

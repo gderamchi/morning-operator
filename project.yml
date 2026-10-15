@@ -31,6 +31,9 @@ targets:
       - path: Resources/Localizable.xcstrings
       - path: Resources/InfoPlist.xcstrings
       - path: Resources/AppShortcuts.xcstrings
+      # DM Serif Display (Home greeting) and Raleway (Home text), both under the SIL Open Font License.
+      - path: Resources/Fonts/DMSerifDisplay.ttf
+      - path: Resources/Fonts/Raleway.ttf
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator

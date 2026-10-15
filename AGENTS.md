@@ -12,6 +12,7 @@ Personal Apple development prototype. Shared setup, priorities and verified resu
 - Use Swift Package Manager tests for shared logic. Xcode/device checks are separate; do not claim they passed when only package tests ran.
 - Preserve user edits and distinguish retained semantic learning from expiring raw media.
 - Do not modify the parent project's read-only `sources/` directory.
+- Commit and push work in progress to a named remote branch after each meaningful step, even unfinished (`WIP:` commits are fine). Never end a session, or hit a usage limit, with work only on one machine. Record remaining work as GitHub issues, not only in a chat handoff.
 
 # Project Context
 

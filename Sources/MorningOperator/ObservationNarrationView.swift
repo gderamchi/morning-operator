@@ -31,18 +31,18 @@ struct ObservationNarrationView: View {
             MorningList {
                 Section {
                     Text("Keep a thought from a morning you've saved. Choose the words you want to hear again.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
-                    if let entry { Text(entry.sourceLabel).font(.caption).foregroundStyle(MorningStyle.muted) }
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                    if let entry { Text(entry.sourceLabel).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
                 }
                 if prepared == nil, let message {
                     Section {
-                        Text(message).font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        Text(message).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("narration.requestUnavailable")
                     }
                 }
                 if let prepared {
                     Section {
-                        Text(prepared.sourceDateLabel).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(prepared.sourceDateLabel).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         Text(prepared.spokenText).textSelection(.enabled)
                             .accessibilityIdentifier("narration.text")
                         HStack {
@@ -60,7 +60,7 @@ struct ObservationNarrationView: View {
                             }
                         }.buttonStyle(.borderless)
                         Text(playing ? store.speech.statusText : (store.speech.lastError ?? String(localized: "Ready when you are")))
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("narration.playback")
                             .accessibilityValue(playing ? store.speech.state.rawValue : "idle")
                         Button(added ? "Added to your draft" : "Add to my morning") {
@@ -70,7 +70,7 @@ struct ObservationNarrationView: View {
                         }.disabled(blocked || added)
                             .accessibilityIdentifier("narration.add")
                         if let message {
-                            Text(message).font(.caption).foregroundStyle(MorningStyle.muted)
+                            Text(message).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 .accessibilityIdentifier("narration.message")
                         }
                     } header: { Text("What you'll hear") } footer: {
@@ -101,7 +101,7 @@ struct ObservationNarrationView: View {
                     Text("Up to 24 short, complete lines from the saved text. Check extracted words against the recording; screen recognition can make mistakes.")
                 }
             }
-            .scrollContentBackground(.hidden).background(MorningStyle.background)
+            .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
             .navigationTitle("A saved moment").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) {
                 Button("Done") { dismiss() }.accessibilityIdentifier("narration.done")

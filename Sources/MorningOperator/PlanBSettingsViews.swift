@@ -52,7 +52,7 @@ struct ShortcutTemplatesView: View {
                         } catch { alertStatus = String(localized: "Notification permission couldn't be checked.") }
                     }
                 }
-                if !alertStatus.isEmpty { Text(alertStatus).font(.footnote) }
+                if !alertStatus.isEmpty { Text(alertStatus).font(.raleway(.footnote)) }
                 Text("Your timer keeps time outside MORE.").font(MorningTheme.Typography.note)
             }
             Section("Shortcuts") {

@@ -19,9 +19,9 @@ struct ObservationEvidenceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("A glimpse of this recording", systemImage: "film.stack")
-                .font(.subheadline.weight(.semibold))
+                .font(.raleway(.subheadline, .semibold))
             Text("\(Int(evidence.durationSeconds.rounded())) seconds · \(evidence.frames.count) samples · \(readableCount) with complete text")
-                .font(.caption).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 .accessibilityIdentifier("learn.videoEvidence")
             DisclosureGroup("See sampled screens") {
                 VStack(alignment: .leading, spacing: 14) {
@@ -55,9 +55,9 @@ struct ObservationEvidenceView: View {
                         Text(warning)
                     }
                     Text("Uses Apple Intelligence on this device. Editing the observation removes its attached frame evidence and screen interpretation.")
-                }.font(.caption).foregroundStyle(MorningStyle.muted)
+                }.font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true).padding(.top, 12)
-            }.font(.subheadline).tint(MorningStyle.accent)
+            }.font(.raleway(.subheadline)).tint(MorningStyle.accent)
         }
     }
 

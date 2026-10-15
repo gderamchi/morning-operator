@@ -26,7 +26,7 @@ private struct RoutineWebStepPresenter: ViewModifier {
                 VStack(spacing: 24) {
                     MorningDottedIcon(systemName: "globe").frame(width: 48, height: 48)
                         .accessibilityHidden(true)
-                    Text("Page unavailable").font(.subheadline).foregroundStyle(MorningStyle.muted)
+                    Text("Page unavailable").font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     Button { store.pendingWebTarget = nil } label: {
                         MorningDottedIcon(systemName: "xmark").frame(width: 24, height: 24).frame(width: 44, height: 44)
                     }.accessibilityLabel("Close").buttonStyle(.plain)

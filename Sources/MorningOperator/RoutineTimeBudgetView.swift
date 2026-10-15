@@ -72,7 +72,7 @@ struct RoutineTimeBudgetSection: View {
 
     private func reportBlock(_ report: RoutineTimeBudget) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Planned: \(report.totalMinutes) minutes").font(.subheadline.weight(.medium))
+            Text("Planned: \(report.totalMinutes) minutes").font(.raleway(.subheadline, .medium))
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("budget.total")
             switch report.fit {
@@ -110,7 +110,7 @@ struct RoutineTimeBudgetSection: View {
     }
 
     private func note(_ text: LocalizedStringKey) -> some View {
-        Text(text).font(.footnote).foregroundStyle(MorningStyle.muted)
+        Text(text).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

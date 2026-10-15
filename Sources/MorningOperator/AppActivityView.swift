@@ -13,27 +13,27 @@ struct AppActivityView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Label("Coming back to the same apps", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.headline)
+                        .font(.serif(.headline))
                     Spacer()
                     Button { showingSetup = true } label: { Image(systemName: "plus.circle") }
                         .accessibilityLabel("Set up app activity")
                 }
                 if let summary, summary.hasEvents {
                     Text("Today · \(summary.foregroundEntryCount) recorded entries")
-                        .font(.subheadline.weight(.medium))
+                        .font(.raleway(.subheadline, .medium))
                     ForEach(summary.entryCounts.filter { $0.count > 0 }) { count in
                         HStack { Text(count.app.displayName); Spacer(); Text("\(count.count)").monospacedDigit() }
-                            .font(.subheadline)
+                            .font(.raleway(.subheadline))
                     }
                     if let returns = summary.observedReturnCount {
                         Text("\(returns) returns after another tracked app")
-                            .font(.subheadline).foregroundStyle(MorningStyle.accent)
+                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.accent)
                     }
                     Text("Today's configured app automations only. These entries are separate from phone pickups; gaps and other apps may be missing.")
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 } else {
                     Text(errorMessage ?? String(localized: "Connect the apps you want to understand. Their entries and repeated returns will appear here."))
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     Button("Connect app activity") { showingSetup = true }
                         .buttonStyle(SecondaryButtonStyle())
                 }
@@ -73,7 +73,7 @@ private struct AppActivitySetupView: View {
                     instruction("2", String(localized: "Add Morning Operator"), String(localized: "Add the action Log an app transition. Choose that same app and Opened or switched to. Leave Event ID empty for ordinary use."))
                     instruction("3", String(localized: "Track when you leave"), String(localized: "Create a separate Is Closed automation for the same app. Choose Closed or switched from in our action. Repeat for any other supported apps you want to include."))
                     Text("Try opening two connected apps and returning to the first, then return to the app activity card. Counts appear after those automations actually run. This setup does not start screen recording or read messages.")
-                        .font(.footnote).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     #if os(iOS)
                     Link(destination: URL(string: "shortcuts://")!) {
                         Label("Open Shortcuts", systemImage: "arrow.up.right")
@@ -82,15 +82,15 @@ private struct AppActivitySetupView: View {
 
                     Divider()
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Your saved app activity").font(.headline)
+                        Text("Your saved app activity").font(.serif(.headline))
                         Text("App names and transition times stay on this device until you clear them. Disable the corresponding automations in Shortcuts to stop adding new entries.")
-                            .font(.footnote).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         Button("Clear recorded app activity", role: .destructive) { confirmingClear = true }
                             .disabled(clearing)
                             .accessibilityIdentifier("activity.clear")
                         if clearing { ProgressView("Clearing saved activity…") }
                         if let clearMessage {
-                            Text(clearMessage).font(.footnote).foregroundStyle(MorningStyle.muted)
+                            Text(clearMessage).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                                 .accessibilityIdentifier("activity.clearResult")
                         }
                     }
@@ -124,11 +124,11 @@ private struct AppActivitySetupView: View {
 
     private func instruction(_ number: String, _ title: String, _ detail: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
-            Text(number).font(.headline).frame(width: 34, height: 34)
+            Text(number).font(.serif(.headline)).frame(width: 34, height: 34)
                 .background(MorningStyle.selected, in: Circle())
             VStack(alignment: .leading, spacing: 7) {
-                Text(title).font(.headline)
-                Text(detail).font(.subheadline).foregroundStyle(MorningStyle.muted)
+                Text(title).font(.serif(.headline))
+                Text(detail).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             }
         }
     }
