@@ -846,3 +846,87 @@ private struct ReminderEffectStopped: LocalizedError {
     let message: String
     var errorDescription: String? { message }
 }
+
+// Observation only: no tap, typing, screenshot, provider call, explicit launch or termination.
+extension RealPhoneConnectionAcceptanceTests {
+    func testObserveOwnerSelfSendWithoutInteracting() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["MO_REAL_PHONE_OBSERVE_SELF_SEND"] == "1",
+              environment["MO_REAL_PHONE_CONNECTIONS"] == "1" else {
+            throw XCTSkip("Explicit ordinary-phone/self-send observation opt-ins are required.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Physical ordinary iPhone only.")
+        #else
+        guard let bundle = environment["MO_REAL_PHONE_BUNDLE_ID"],
+              bundle.hasPrefix("com.gibouu.morningoperator."),
+              !bundle.lowercased().contains("fixture"), !bundle.lowercased().contains(".qa") else {
+            throw XCTSkip("The explicit ordinary installed bundle is required.")
+        }
+        leaveGmailSignInPresented = true // Existing no-navigation teardown handoff guard.
+        let deadline = ProcessInfo.processInfo.systemUptime + 55
+        app = XCUIApplication(bundleIdentifier: bundle)
+        app.activate()
+        guard app.wait(for: .runningForeground, timeout: 10) else {
+            throw XCTSkip("The existing ordinary app did not become foreground.")
+        }
+        guard !app.descendants(matching: .any)["qa.testWorkspace"].exists,
+              !app.staticTexts["briefing.synthetic"].exists else {
+            throw XCTSkip("A synthetic workspace cannot establish owner-send evidence.")
+        }
+
+        let current = app.staticTexts["morning.currentStep"]
+        let subject = app.textFields["mail.selfSubject"]
+        let body = app.textViews["mail.selfBody"]
+        let draftExact = current.exists && current.label == "Mail" && subject.exists && body.exists
+            && subject.value as? String == "Test MORE"
+            && body.value as? String == "Test d’automatisation MORE, vous pouvez ignorer ce message"
+        let fixedRecipientControl = app.staticTexts["mail.selfRecipient"].exists
+            && !app.textFields["mail.selfRecipient"].exists
+        let receipt = app.staticTexts.matching(NSPredicate(format:
+            "identifier == %@ AND label BEGINSWITH %@", "moment.connectedResult", "Gmail confirme l’envoi de votre mail à ")).firstMatch
+        let unresolved = app.staticTexts.matching(NSPredicate(format:
+            "identifier == %@ AND (label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@)",
+            "moment.connectedResult", "L’envoi n’est pas confirmé", "Gmail a refusé l’envoi", "Une autre réponse a déjà été tentée")).firstMatch
+        var providerReceiptObserved = false
+        var uncertainOrRefusedObserved = false
+        var advancedAwayFromMail = current.exists && current.label != "Mail"
+        var alertObserved = app.alerts.count > 0 || XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.count > 0
+        var voiceStatus = "not_sampled"
+        // A completed/skipped moment or an aggregate recap cannot establish a provider send.
+        while draftExact && fixedRecipientControl && ProcessInfo.processInfo.systemUptime < deadline {
+            alertObserved = app.alerts.count > 0 || XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.count > 0
+            if alertObserved { break } // Never capture or accept the alert.
+            if receipt.exists { providerReceiptObserved = true; break }
+            uncertainOrRefusedObserved = unresolved.exists
+            let voice = app.staticTexts["morning.voiceStatus"]
+            if voice.exists {
+                let status = voice.label.lowercased() // Classified in memory; raw text is never retained.
+                if status.contains("autorisation") || status.contains("permission") { voiceStatus = "permission_status" }
+                else if status.contains("écoute") || status.contains("listening") { voiceStatus = "listening_status" }
+                else { voiceStatus = "other_status" }
+            }
+            advancedAwayFromMail = current.exists && current.label != "Mail"
+            if uncertainOrRefusedObserved || advancedAwayFromMail { break }
+            let remaining = deadline - ProcessInfo.processInfo.systemUptime
+            if remaining > 0 { RunLoop.current.run(until: Date(timeIntervalSinceNow: min(1, remaining))) }
+        }
+        let evidence = XCTAttachment(string: [
+            "Exact authorized self-note observed: \(draftExact)",
+            "Fixed read-only recipient control observed: \(fixedRecipientControl)",
+            "Explicit Gmail provider receipt observed: \(providerReceiptObserved)",
+            "Uncertain/refused state observed: \(uncertainOrRefusedObserved)",
+            "Already advanced or advanced away from Mail: \(advancedAwayFromMail)",
+            "Alert observed: \(alertObserved)",
+            "Public voice-status classification: \(voiceStatus)",
+            "No tap, typing, Send, retry, advance, new session or receipt-text retention."
+        ].joined(separator: "\n"))
+        evidence.name = "real-phone-acoustic-self-send-observation-booleans-only"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+        guard providerReceiptObserved else {
+            throw XCTSkip("No explicit Gmail provider receipt was observed for the verified draft. UI sending remains unproven; inspect the existing receipt journal separately without retrying.")
+        }
+        #endif
+    }
+}

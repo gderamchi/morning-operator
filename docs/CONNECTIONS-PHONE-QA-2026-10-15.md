@@ -154,3 +154,11 @@ An ordinary launch of unchanged **1532** succeeded at **01:08:39 Paris on 16 Oct
 Exact candidate source `8f4fe7a` requests and checks the speech/microphone grants before reaching `startInput()`. Reaching its real audio tap is consistent with the grants being effective; it does not establish successful transcription. The tap closure was created inside the MainActor coordinator without an explicit Sendable boundary. An independent read-only review identified the same pattern in the manual voice listener. The integrated workstream owns the minimal fix and next signed candidate; the phone remains reserved for root's replay.
 
 No routine moment was advanced, self-note prepared or email sent during this resumed attempt. Native writes, acoustic recognition and the complete routine remain unverified. No owner data, preference, routine or grant was reset to avoid the crash.
+
+### Native send evidence prepared without an effect
+
+Before any self-note action, the exact source-traced journal path was checked using a **non-recursive, filename-filtered** listing of the ordinary app's `Library/Application Support/MorningOperator` directory. The listing succeeded and returned **zero matching `gmail-send-journal.json` files**, establishing an absent/empty baseline. A prior direct-copy error alone was not treated as absence. No other container file, Keychain entry, workspace content or mailbox data was copied.
+
+The native journal schema is a version-1 atomic JSON envelope containing only hashed operation keys/fingerprints, stable RFC Message-IDs and pending/sent/rejected states. A controlled new `.sent` entry, with pre-existing entries unchanged, establishes Gmail accepted the operation or confirmed its exact Message-ID in Sent; it does not establish Inbox delivery. Any pending/ambiguous operation must be reconciled under its original identity.
+
+An additional observation-only physical helper compiled in the signed UI-test runner. It makes no Send tap, typed command, retry or session navigation, and records only booleans/public voice-state classification. It passes only if the explicit Gmail receipt is observed for the exact authorized draft; an unobserved or transient receipt remains unproven. This helper has not run and no send has occurred.
