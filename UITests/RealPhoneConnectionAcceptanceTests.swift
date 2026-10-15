@@ -140,6 +140,86 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
     }
 
     func testInspectExistingRoutineWithoutEditing() throws {
+        try openExistingRoutine()
+        let inventory = try inspectRoutineRows(name: "real-phone-existing-routine", capturePages: true)
+        XCTAssertFalse(inventory.labels.isEmpty, "The existing plan appeared, but no visible routine row could be inventoried.")
+    }
+
+    func testConfigureExistingGmailMomentWithoutApproving() throws {
+        guard ProcessInfo.processInfo.environment["MO_REAL_PHONE_CONFIGURE_EXISTING_GMAIL_MOMENT"] == "1" else {
+            throw XCTSkip("Requires the separate existing-Gmail-moment configuration opt-in; no app was activated.")
+        }
+        try openExistingRoutine()
+        let before = try inspectRoutineRows(name: "real-phone-routine-before-gmail-configuration")
+        let expectedIndices = Set(0..<8)
+        let gmailDescriptions = [
+            "Gmail · Lire vos mails non lus, préparer et corriger une réponse. Envoyer seulement à votre demande.",
+            "Gmail · Read unread mail, prepare and edit a reply. Send only when you ask."
+        ]
+        let manualDescriptions = [
+            "Moment personnel. Dites « suivant » lorsque vous avez terminé.",
+            "Your own moment. Say “next” when you finish."
+        ]
+        let mail = before.labels[5] ?? ""
+        let expectedMail = mail.range(of: #"^Mail[\s,]+7\s+min(?:\s|[·,])"#, options: .regularExpression) != nil
+        guard before.reachedEnd, Set(before.labels.keys) == expectedIndices, expectedMail else {
+            throw XCTSkip("The exact eight-moment plan with Mail at index 5 for seven minutes was not verified. Nothing was edited.")
+        }
+        if gmailDescriptions.contains(where: mail.contains) { return }
+        guard before.draft, manualDescriptions.contains(where: mail.contains) else {
+            throw XCTSkip("The Mail moment is not the expected user-led draft. Nothing was edited.")
+        }
+
+        let row = app.buttons["routine.step.5"]
+        try revealRoutineControl(row, towardTopWhenMissing: true)
+        row.tap()
+        let name = app.textFields.matching(NSPredicate(format: "label IN %@", [
+            "Step name", "Nom de l’étape", "Nom de l'étape"
+        ])).firstMatch
+        let duration = app.steppers["step.duration"]
+        try revealRoutineControl(name, towardTopWhenMissing: true)
+        let existingName = name.value as? String
+        try revealRoutineControl(duration)
+        guard existingName == "Mail", duration.value as? String == "7" else {
+            throw XCTSkip("The moment editor's name or duration differs. Save was not pressed.")
+        }
+        let action = app.buttons["step.automation"]
+        try revealRoutineControl(action)
+        action.tap()
+        let gmail = button(labels: ["Read my mail and help me reply", "Lire mes mails et m’aider à répondre"])
+        guard gmail.waitForExistence(timeout: 5), gmail.isHittable else {
+            throw XCTSkip("The exact Gmail action was not offered. Nothing was selected or saved.")
+        }
+        gmail.tap()
+        try refusePermissionOrFixtureScreens()
+        try revealRoutineControl(name, towardTopWhenMissing: true)
+        let reviewedName = name.value as? String
+        try revealRoutineControl(duration)
+        XCTAssertTrue(reviewedName == "Mail" && duration.value as? String == "7",
+                      "The moment's title or duration changed before saving.")
+        let save = app.buttons["step.save"]
+        XCTAssertTrue(save.exists && save.isEnabled && save.isHittable, "The reviewed moment is not ready to save.")
+        save.tap()
+        XCTAssertTrue(save.waitForNonExistence(timeout: 10), "The moment edit was not confirmed saved.")
+        XCTAssertFalse(app.staticTexts["step.saveError"].exists, "The moment edit reported a save failure.")
+
+        let after: (labels: [Int: String], draft: Bool, reachedEnd: Bool)
+        do { after = try inspectRoutineRows(name: "real-phone-routine-after-gmail-configuration") }
+        catch { XCTFail("The edit was saved, but its required post-save inventory could not be verified."); return }
+        XCTAssertTrue(after.reachedEnd && Set(after.labels.keys) == expectedIndices,
+                      "The original eight-moment structure was not preserved.")
+        for index in expectedIndices where index != 5 {
+            XCTAssertTrue(after.labels[index] == before.labels[index], "An unrelated moment's title, duration or action changed at index \(index).")
+        }
+        let updated = after.labels[5] ?? ""
+        XCTAssertTrue(updated.range(of: #"^Mail[\s,]+7\s+min(?:\s|[·,])"#, options: .regularExpression) != nil,
+                      "The Mail title or seven-minute duration was not preserved.")
+        XCTAssertTrue(gmailDescriptions.contains(where: updated.contains), "The Mail moment does not expose the Gmail Inbox action.")
+        XCTAssertTrue(after.draft, "The routine must remain a draft; no approval or run was requested.")
+        // Only this existing moment's operation is saved. Never approve, start, or send mail.
+    }
+
+    private func openExistingRoutine() throws {
         try activateOrdinaryApp()
         let routine = app.buttons["setup.routine"]
         if !routine.exists || !routine.isHittable {
@@ -162,40 +242,63 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         try refusePermissionOrFixtureScreens()
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "routine.step."))
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10), "No existing routine moment was rendered.")
+    }
 
+    private func inspectRoutineRows(name: String, capturePages: Bool = false) throws -> (labels: [Int: String], draft: Bool, reachedEnd: Bool) {
+        try revealRoutineControl(app.buttons["routine.step.0"], towardTopWhenMissing: true)
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "routine.step."))
         var labels: [Int: String] = [:]
         var draftApprovalVisible = false
+        var reachedEnd = false
         for page in 0..<5 {
             try refusePermissionOrFixtureScreens()
             draftApprovalVisible = draftApprovalVisible || app.buttons["routine.approve"].exists
             for row in rows.allElementsBoundByIndex.prefix(32) where row.exists && row.isHittable {
                 guard let index = Int(row.identifier.dropFirst("routine.step.".count)),
                       (0..<32).contains(index) else { continue }
-                labels[index] = String(row.label.prefix(4_096))
+                labels[index] = String(row.label.prefix(4_096)).split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
             }
-            capture("real-phone-existing-routine-page-\(page + 1)")
-            if labels.count >= 8 || page == 4 { break }
-            let scroll: XCUIElement
-            if app.collectionViews.firstMatch.exists { scroll = app.collectionViews.firstMatch }
-            else if app.tables.firstMatch.exists { scroll = app.tables.firstMatch }
-            else { scroll = app.scrollViews.firstMatch }
+            reachedEnd = app.buttons["routine.add"].exists && app.buttons["routine.add"].isHittable
+            if capturePages || page == 0 { capture("\(name)-page-\(page + 1)") }
+            if reachedEnd || page == 4 { break }
+            let scroll = routineScrollSurface
             guard scroll.exists else { break }
             scroll.swipeUp()
         }
-        XCTAssertFalse(labels.isEmpty, "The existing plan appeared, but no visible routine row could be inventoried.")
         let inventory = ([
-            "Local routine inventory; no moment opened or action executed.",
+            "Local routine row inventory; no provider action executed.",
             "Runner locale: \(Locale.current.identifier)",
             "Preferred languages: \(Locale.preferredLanguages.prefix(3).joined(separator: ", "))",
             "Draft approval control present: \(draftApprovalVisible)",
+            "End of moment list observed: \(reachedEnd)",
             "Observed row count: \(labels.count)"
         ] + labels.keys.sorted().map { "routine.step.\($0): \(labels[$0] ?? "")" }).joined(separator: "\n")
         let attachment = XCTAttachment(string: inventory)
-        attachment.name = "real-phone-existing-routine-inventory-local-only"
+        attachment.name = "\(name)-inventory-local-only"
         attachment.lifetime = .keepAlways
         add(attachment)
         // The five-page bound is an inventory limit, not proof that every moment was visible.
         // Never open a row, approve, save, import, change a budget, delete, or begin a run.
+        return (labels, draftApprovalVisible, reachedEnd)
+    }
+
+    private var routineScrollSurface: XCUIElement {
+        if app.collectionViews.firstMatch.exists { return app.collectionViews.firstMatch }
+        if app.tables.firstMatch.exists { return app.tables.firstMatch }
+        return app.scrollViews.firstMatch
+    }
+
+    private func revealRoutineControl(_ element: XCUIElement, towardTopWhenMissing: Bool = false) throws {
+        for _ in 0..<6 {
+            if element.exists && element.isHittable { return }
+            let scroll = routineScrollSurface
+            guard scroll.exists else { break }
+            if (!element.exists && towardTopWhenMissing) || (element.exists && element.frame.midY < scroll.frame.midY) { scroll.swipeDown() }
+            else { scroll.swipeUp() }
+        }
+        guard element.exists && element.isHittable else {
+            throw XCTSkip("A required routine control is not reachable. No replacement plan or fallback action was used.")
+        }
     }
 
     func testPresentNativeGmailReadAndSendSignInForOwner() throws {
