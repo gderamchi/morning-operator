@@ -1,5 +1,7 @@
 # Morning Operator
 
+Read `MORE.md` at the repository root before product, UX or architecture work. It is the product reference: learn from Screen Time, user-supplied videos and in-app browser usage; UI validation delegates the routine; execute it hands-free with an interruptible interactive voice and a browser agent. Older demo scopes describe implementation checkpoints, not the limit of MORE's value.
+
 Personal Apple development prototype. Shared setup, priorities and verified results are in `docs/ONBOARDING.md`, `docs/ROADMAP.md` and `docs/PHASE-ONE.md`. An optional owner-only product brief may exist at `docs/PROJECT-BRIEF.md`; it is ignored by Git and is not required for a fresh clone. Do not upload or copy it into shared documentation.
 
 - Build real, inspectable behavior; label fixtures and unavailable capabilities.

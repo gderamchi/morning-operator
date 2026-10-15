@@ -1,6 +1,8 @@
 # MORE
 
-**Less phone handling. More of the morning you enjoy.** MORE is a native iPhone prototype: learn from explicitly shared evidence, review one daily routine, approve it, then follow it with useful facts and chosen activities.
+**Less phone handling. More of the morning you enjoy.** MORE learns your morning from Screen Time, user-supplied recordings and in-app browser usage. Review and optionally reshape the proposed routine, then approve it for MORE to carry out hands-free with an interruptible interactive voice.
+
+**Product reference: [MORE.md](MORE.md).** Read it first for the lasting product direction, the browser agent, supported-service scope and end-to-end acceptance. The implementation and historical demo checkpoints below do not establish that the full target experience is already available.
 
 **Build from `main`.** The [demo requirements](docs/DEMO-REQUIREMENTS.md), [iOS team guide](docs/IOS-TEAM-GUIDE.md) and [normal iPhone acceptance plan](docs/DEMO-TEST-PLAN.md) define the current scope. Older feature documents retain useful implementation history; their navigation and capability assumptions do not override these guides.
 
