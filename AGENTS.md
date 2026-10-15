@@ -4,7 +4,7 @@ Personal Apple development prototype. Shared setup, priorities and verified resu
 
 - Build real, inspectable behavior; label fixtures and unavailable capabilities.
 - Keep XCTest phone control in the UI-test target, never in the ordinary app target.
-- Keep Apple inference and screen content local. No silent remote-model fallback.
+- Keep inference and raw screen recordings local by default. A future Apple Private Cloud Compute route needs explicit selected-input consent, supported public APIs, a granted entitlement and the gates in `docs/APPLE-MODEL-PLAN.md`. No silent remote-model fallback; no cloud upload is enabled by this plan.
 - Do not commit recordings, screenshots, inbox content, tokens, pairing secrets or signing credentials.
 - The first useful slice is teach → review/edit → approve → run with local speech.
 - Model output proposes actions; validated application policy decides execution.
@@ -13,3 +13,10 @@ Personal Apple development prototype. Shared setup, priorities and verified resu
 - Preserve user edits and distinguish retained semantic learning from expiring raw media.
 - Do not modify the parent project's read-only `sources/` directory.
 - Commit and push work in progress to a named remote branch after each meaningful step, even unfinished (`WIP:` commits are fine). Never end a session, or hit a usage limit, with work only on one machine. Record remaining work as GitHub issues, not only in a chat handoff.
+
+# Project Context
+
+- Google configuration: `~/.config/google-cli/accounts.ini`, section `[morning-operator]`.
+- Public configuration keys: `account`, `project_id`, `ios_client_id`, `callback_scheme`, `bundle_id`.
+- Local Xcode overrides: `MORE_GOOGLE_CLIENT_ID` and `MORE_GOOGLE_CALLBACK_SCHEME`.
+- Native iOS OAuth needs no client secret. Keep actual configuration values outside this repository.

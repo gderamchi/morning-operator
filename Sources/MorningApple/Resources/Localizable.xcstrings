@@ -3087,6 +3087,276 @@
           }
         }
       }
+    },
+    "This build needs a Google iOS OAuth client before Gmail can connect.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette version nécessite un client OAuth Google pour iOS avant de pouvoir connecter Gmail."
+          }
+        }
+      }
+    },
+    "This build's Google OAuth client and callback scheme need checking.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le client OAuth Google et le schéma de retour de cette version doivent être vérifiés."
+          }
+        }
+      }
+    },
+    "Google could not authorize Gmail access. Check the app's Google setup and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google n’a pas pu autoriser l’accès à Gmail. Vérifiez la configuration Google de l’app et réessayez."
+          }
+        }
+      }
+    },
+    "The Google sign-in response could not be verified. Connect again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La réponse de connexion Google n’a pas pu être vérifiée. Reconnectez-vous."
+          }
+        }
+      }
+    },
+    "Gmail access was not granted. Check Google consent and account policy.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès à Gmail n’a pas été autorisé. Vérifiez le consentement Google et les règles du compte."
+          }
+        }
+      }
+    },
+    "This Gmail session has expired. Connect again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette session Gmail a expiré. Reconnectez-vous."
+          }
+        }
+      }
+    },
+    "Gmail could not connect. Try again when a connection is available.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La connexion à Gmail a échoué. Réessayez lorsqu’une connexion est disponible."
+          }
+        }
+      }
+    },
+    "Gmail is limiting requests. Wait before refreshing.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail limite les demandes. Patientez avant d’actualiser."
+          }
+        }
+      }
+    },
+    "Gmail is unavailable right now. Your morning can continue without it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail est indisponible pour le moment. Votre matin peut continuer sans ce service."
+          }
+        }
+      }
+    },
+    "Gmail returned an incomplete response. No inbox count is available.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail a renvoyé une réponse incomplète. Aucun nombre de messages n’est disponible."
+          }
+        }
+      }
+    },
+    "Gmail returned an unexpected redirect. No inbox count is available.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail a renvoyé une redirection inattendue. Aucun nombre de messages n’est disponible."
+          }
+        }
+      }
+    },
+    "Calendar changed while it was being read. Refresh the briefing to use the current schedule.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le calendrier a changé pendant sa lecture. Actualisez le récapitulatif pour utiliser le planning actuel."
+          }
+        }
+      }
+    },
+    "This saved excerpt has changed or was removed. Tap Next, or use Routine to change the moment’s action.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet extrait enregistré a changé ou a été supprimé. Touchez Suivant ou utilisez Routine pour changer l’action du moment."
+          }
+        }
+      }
+    },
+    "Each selected observation needs usable activity evidence. Review the current notes in Learn or add new evidence.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque observation sélectionnée doit contenir des éléments d’activité utilisables. Relisez les notes actuelles dans Apprendre ou ajoutez de nouveaux éléments."
+          }
+        }
+      }
+    },
+    "You chose to keep this moment. Its quotation stays with that choice until you clear it in Settings → Saved choices.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez choisi de garder ce moment. Sa citation reste liée à ce choix jusqu’à ce que vous l’effaciez dans Réglages → Choix enregistrés."
+          }
+        }
+      }
+    },
+    "Choose Read messages and grant Gmail read-only access first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez Lire les messages et autorisez d’abord l’accès à Gmail en lecture seule."
+          }
+        }
+      }
+    },
+    "This Gmail message is no longer available.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce message Gmail n’est plus disponible."
+          }
+        }
+      }
+    },
+    "This Gmail message exceeds the supported reading limits.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce message Gmail dépasse les limites de lecture prises en charge."
+          }
+        }
+      }
+    },
+    "This message has no readable text to reply to.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce message ne contient aucun texte lisible auquel répondre."
+          }
+        }
+      }
+    },
+    "This message is too long for a local reply. You can write your reply below.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce message est trop long pour préparer une réponse locale. Vous pouvez écrire votre réponse ci-dessous."
+          }
+        }
+      }
+    },
+    "A reply could not be prepared. You can write your reply below.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de préparer une réponse. Vous pouvez écrire votre réponse ci-dessous."
+          }
+        }
+      }
+    },
+    "Apple's local model is unavailable. You can write your reply below.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle local d’Apple est indisponible. Vous pouvez écrire votre réponse ci-dessous."
+          }
+        }
+      }
+    },
+    "A reply is already being prepared.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une réponse est déjà en préparation."
+          }
+        }
+      }
+    },
+    "Enable Apple Intelligence in system settings to prepare a local reply.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activez Apple Intelligence dans les réglages système pour préparer une réponse locale."
+          }
+        }
+      }
+    },
+    "Saved Gmail access is unavailable on this device. Unlock it and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès Gmail enregistré est indisponible sur cet appareil. Déverrouillez-le et réessayez."
+          }
+        }
+      }
+    },
+    "This saved Gmail connection needs to be connected again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette connexion Gmail enregistrée doit être rétablie."
+          }
+        }
+      }
+    },
+    "The Gmail connection changed. Open Gmail again to continue.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La connexion Gmail a changé. Ouvrez Gmail de nouveau pour continuer."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

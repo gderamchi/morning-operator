@@ -553,7 +553,7 @@ private struct RoutineImportPreview: Identifiable {
     let generation: UUID
 }
 
-private struct RoutinePreferencesView: View {
+struct RoutinePreferencesView: View {
     @Bindable var store: MorningStore
     @ViewState<Bool> private var confirmingReset = false
 

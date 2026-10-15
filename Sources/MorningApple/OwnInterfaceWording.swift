@@ -136,7 +136,7 @@ enum OwnInterfaceWording {
 
     /// Titles and controls distinctive enough that one complete line identifies the screen.
     static let distinctiveLines: [Phrase] = [
-        shown("Learn my morning", fr: "Apprendre ma matinée"),
+        earlier("Learn my morning", "Apprendre ma matinée"),
         shown("Show your morning", fr: "Montrez votre matinée"),
         shown("Make your morning yours.", fr: "Faites de votre matinée la vôtre."),
         earlier("Your routine stays in your hands", "Votre routine reste entre vos mains"),
@@ -215,6 +215,16 @@ enum OwnInterfaceWording {
     /// bars that stay while the text scrolls or around the text itself. Every piece of a group
     /// must begin or end a line.
     static let labelGroups: [[Phrase]] = [
+        // The inline Home browser may show only saved rows. The date-page heading
+        // must accompany a run/observation label; a generic status alone is not MORE.
+        [shown("Saved on this day", fr: "Enregistré ce jour-là"), shown("Routine finished", fr: "Routine terminée")],
+        [shown("Saved on this day", fr: "Enregistré ce jour-là"), shown("Routine stopped", fr: "Routine arrêtée")],
+        [shown("Saved on this day", fr: "Enregistré ce jour-là"), shown("Saved observations", fr: "Observations enregistrées")],
+        [shown("Saved on this day", fr: "Enregistré ce jour-là"), shown("App observations", fr: "Observations d’apps")],
+        // A scrolled routine can contain the person's own labels. These fixed bars
+        // identify the editor without using any of that saved routine as evidence.
+        [shown("Routine", fr: "Routine"), shown("Add a moment", fr: "Ajouter un moment")],
+        [shown("Your moments", fr: "Vos moments"), shown("Approve this routine", fr: "Approuver cette routine")],
         // Compact Settings keeps its explanations folded away. Four fixed destination
         // labels together identify it; an ordinary alarm/calendar label alone does not.
         [shown("Morning alarm", fr: "Réveil du matin"), shown("Shortcuts & timers", fr: "Raccourcis et minuteurs"),
@@ -241,6 +251,40 @@ enum OwnInterfaceWording {
     /// follow the live catalogs; `earlier` keeps saved observations readable after a redesign.
     /// Shorter current labels remain controls and cannot identify a screen by themselves.
     static let screens: [Screen] = [
+        Screen(name: "Inline day browser", copy: [
+            shown("Saved days are unavailable. Try again later.",
+                  fr: "Les jours enregistrés sont indisponibles. Réessayez plus tard."),
+            part("Past days show saved activity", fr: "Les jours passés montrent l’activité enregistrée",
+                 of: "Past days show saved activity. Return to Today to continue your morning."),
+            part("Return to Today to continue your morning", fr: "Revenez à Aujourd’hui pour poursuivre votre matinée",
+                 of: "Past days show saved activity. Return to Today to continue your morning."),
+            shown("No personal run or confirmed observation is saved for this day.",
+                  fr: "Aucune session personnelle ni observation confirmée n’est enregistrée pour ce jour."),
+            shown("Samples and unconfirmed sources are not included.",
+                  fr: "Les exemples et les sources non confirmées sont exclus."),
+            shown("This day could not be displayed in the current time zone.",
+                  fr: "Ce jour ne peut pas être affiché dans le fuseau horaire actuel."),
+            shown("Shows saved evidence. Does not start the routine.",
+                  fr: "Affiche les éléments enregistrés. Ne lance pas la routine.")
+        ], controls: [
+            shown("Today", fr: "Aujourd’hui"),
+            shown("Previous day", fr: "Jour précédent"),
+            shown("Next day", fr: "Jour suivant"),
+            shown("No saved personal activity", fr: "Aucune activité personnelle enregistrée"),
+            shown("Saved on this day", fr: "Enregistré ce jour-là")
+        ]),
+        Screen(name: "Routine files", copy: [
+            part("Open a saved MORE plan and review it before making any changes",
+                 fr: "Ouvrez un plan MORE enregistré et relisez-le avant toute modification",
+                 of: "Open a saved MORE plan and review it before making any changes. Import saves a draft; approval stays separate."),
+            part("Import saves a draft; approval stays separate",
+                 fr: "L’import enregistre un brouillon ; l’approbation reste distincte",
+                 of: "Open a saved MORE plan and review it before making any changes. Import saves a draft; approval stays separate.")
+        ], controls: [
+            shown("Routine files", fr: "Fichiers de routine"),
+            shown("Export routine", fr: "Exporter la routine"),
+            shown("Import routine", fr: "Importer une routine")
+        ]),
         Screen(name: "Screen Time", copy: [
             shown("Start with your app use", fr: "Commencez par votre usage des apps"),
             shown("Connect Screen Time, then show MORE a moment of your morning.", fr: "Connectez Temps d’écran, puis montrez un moment de votre matinée à MORE.")
@@ -259,10 +303,31 @@ enum OwnInterfaceWording {
         ]),
         Screen(name: "Website setup", copy: [
             shown("A little setup. Then you're home.", fr: "Un instant de préparation. Puis à vous de jouer."),
-            shown("Sign in once, here. Your morning uses these same pages.", fr: "Connectez-vous ici une fois. Votre matin utilisera ces mêmes pages.")
+            shown("Connect Gmail below, or sign in to the websites your morning uses.", fr: "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."),
+            earlier("Sign in once, here. Your morning uses these same pages.", "Connectez-vous ici une fois. Votre matin utilisera ces mêmes pages.")
         ], controls: [
             shown("Your websites", fr: "Vos sites"),
             shown("Connect my websites", fr: "Connecter mes sites")
+        ]),
+        Screen(name: "Gmail connection", copy: [
+            shown("Connect once to read Gmail and prepare replies. Google asks for read-only access.", fr: "Connectez-vous une fois pour lire Gmail et préparer des réponses. Google demande un accès en lecture seule."),
+            shown("Connection saved securely on this iPhone.", fr: "Connexion enregistrée en sécurité sur cet iPhone."),
+            shown("Your connection stays saved. Messages and local replies clear when you leave this screen or background MORE.", fr: "Votre connexion reste enregistrée. Les messages et les réponses locales sont effacés lorsque vous quittez cet écran ou passez MORE en arrière-plan."),
+            earlier("Choose message reading or an unread count only.", "Choisissez de lire vos messages ou de consulter seulement leur nombre."),
+            earlier("This Gmail session, messages and local replies clear when you leave this screen or background MORE. Manage Google access in your Google Account.", "La session Gmail, les messages et les réponses locales sont effacés lorsque vous quittez cet écran ou passez MORE en arrière-plan. Gérez l’accès Google dans votre compte Google."),
+            earlier("Read the number of unread messages in your Gmail inbox. Google asks for read-only metadata access; MORE does not read message bodies.", "Consultez le nombre de messages non lus dans votre boîte Gmail. Google demande l’accès aux métadonnées en lecture seule ; MORE ne lit pas le contenu des messages."),
+            earlier("This session and its count clear when you leave this screen or background MORE. Manage the Google account grant in your Google Account.", "La session et son résultat sont effacés en quittant cet écran ou en passant MORE en arrière-plan. Gérez l’autorisation Google dans votre compte Google.")
+        ], controls: [
+            shown("Connect Gmail", fr: "Connecter Gmail"),
+            shown("Disconnect Gmail", fr: "Déconnecter Gmail"),
+            earlier("Read messages", "Lire les messages", "Connect Gmail · count only", "Connecter Gmail · nombre uniquement", "Refresh Gmail", "Actualiser Gmail")
+        ]),
+        Screen(name: "Gmail local reply", copy: [
+            shown("Your reply, in a few words", fr: "Votre réponse en quelques mots"),
+            shown("Review and edit before copying. Nothing is sent or saved to Gmail.", fr: "Relisez et modifiez avant de copier. Rien n’est envoyé ni enregistré dans Gmail.")
+        ], controls: [
+            shown("Prepare reply", fr: "Préparer une réponse"),
+            shown("Copy reply", fr: "Copier la réponse")
         ]),
         Screen(name: "Browser learning", copy: [
             shown("Learning your scroll and tap rhythm", fr: "Apprentissage du rythme de vos gestes"),
@@ -287,11 +352,15 @@ enum OwnInterfaceWording {
             earlier("Your routine stays in your hands", "Votre routine reste entre vos mains"),
             earlier("Your current routine stays ready while you review a suggestion", "Votre routine actuelle reste prête pendant que vous relisez une suggestion"),
             shown("About on-device learning", fr: "À propos de l’apprentissage sur l’appareil"),
+            earlier("Find earlier observations in Review", "Retrouvez les observations précédentes dans Historique"),
+            part("Review the current observation here before asking for a suggestion",
+                 fr: "Relisez ici l’observation actuelle avant de demander une suggestion",
+                 of: "Each observation is saved on this device, with its original text and your corrections kept separately. Review the current observation here before asking for a suggestion. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it."),
             part("Each observation is saved on this device", fr: "Chaque observation est enregistrée sur cet appareil",
-                 of: "Each observation is saved on this device, with its original text and your corrections kept separately. Find earlier observations in Review. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it."),
+                 of: "Each observation is saved on this device, with its original text and your corrections kept separately. Review the current observation here before asking for a suggestion. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it."),
             part("Evidence already attached to a saved routine remains with it",
                  fr: "Les éléments déjà liés à une routine enregistrée restent avec elle",
-                 of: "Each observation is saved on this device, with its original text and your corrections kept separately. Find earlier observations in Review. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it."),
+                 of: "Each observation is saved on this device, with its original text and your corrections kept separately. Review the current observation here before asking for a suggestion. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it."),
             part("A recording is sampled at up to 24 moments", fr: "Un enregistrement est échantillonné sur 24 moments au maximum",
                  of: "A recording is sampled at up to 24 moments, so short clips work best and quick actions may be missed. Visible text helps suggest a routine; it doesn't reveal every tap or intention."),
             part("it doesn't reveal every tap or intention", fr: "il ne révèle pas chaque toucher ni chaque intention",
@@ -372,6 +441,7 @@ enum OwnInterfaceWording {
             shown("Settings & connections", fr: "Réglages et connexions")
         ]),
         Screen(name: "Settings", copy: [
+            shown("Import or export your saved routine", fr: "Importer ou exporter votre routine enregistrée"),
             shown("Choose a speaker or HomePod.", fr: "Choisissez une enceinte ou un HomePod."),
             earlier("A few things, your way.", "Quelques réglages, à votre façon."),
             earlier("Choose what to connect and how you'd like your morning to sound.", "Choisissez ce que vous connectez et comment votre matinée doit sonner."),
@@ -393,6 +463,7 @@ enum OwnInterfaceWording {
             earlier("Automatic room detection and continuous voice commands also need further work", "La détection automatique de pièce et les commandes vocales continues demandent aussi du travail")
         ], controls: [
             shown("Check again", fr: "Vérifier à nouveau"),
+            shown("Routine files", fr: "Fichiers de routine"),
             earlier("Make yourself at home", "Faites comme chez vous"),
             shown("Calendar & weather", fr: "Calendrier et météo"),
             shown("Your next morning", fr: "Votre prochaine matinée"),
@@ -408,12 +479,22 @@ enum OwnInterfaceWording {
         Screen(name: "Routine", copy: [
             part("min planned · Your own pace", fr: "min prévues · À votre rythme", of: "%lld min planned · Your own pace"),
             part("min planned · Spoken guidance", fr: "min prévues · Guidage vocal", of: "%lld min planned · Spoken guidance"),
-            part("Editing creates a new draft; your saved mornings keep their original routine",
-                 fr: "Modifier crée un nouveau brouillon ; vos matinées enregistrées gardent leur routine d’origine",
-                 of: "Minutes are planned. Editing creates a new draft; your saved mornings keep their original routine."),
-            shown("Restoring a routine leaves your saved choices for future suggestions unchanged.",
-                  fr: "Restaurer une routine ne modifie pas vos choix enregistrés pour les futures suggestions.")
+            part("Tap a moment to edit", fr: "Touchez un moment pour le modifier",
+                 of: "Tap a moment to edit. Drag to change the order. Changes save as a draft and need your approval."),
+            part("Changes save as a draft and need your approval",
+                 fr: "Les modifications sont enregistrées en brouillon et doivent être approuvées",
+                 of: "Tap a moment to edit. Drag to change the order. Changes save as a draft and need your approval."),
+            shown("Finish or end this morning before editing your routine.",
+                  fr: "Terminez ou arrêtez cette matinée avant de modifier votre routine."),
+            earlier("Editing creates a new draft; your saved mornings keep their original routine",
+                    "Modifier crée un nouveau brouillon ; vos matinées enregistrées gardent leur routine d’origine"),
+            earlier("Restoring a routine leaves your saved choices for future suggestions unchanged.",
+                    "Restaurer une routine ne modifie pas vos choix enregistrés pour les futures suggestions.")
         ], controls: [
+            shown("Routine", fr: "Routine"),
+            shown("Your daily routine", fr: "Votre routine de chaque jour"),
+            shown("Your moments", fr: "Vos moments"),
+            shown("Approve this routine", fr: "Approuver cette routine"),
             shown("Your routine", fr: "Votre routine"),
             earlier("Your approved routine", "Votre routine approuvée"),
             earlier("A draft for you to review", "Un brouillon à relire"),
@@ -738,9 +819,11 @@ enum OwnInterfaceWording {
             part("Visible words don't prove an action or a repeated habit",
                  fr: "Des mots visibles ne prouvent ni une action ni une habitude répétée",
                  of: "Minutes are planned, not measured averages. Visible words don't prove an action or a repeated habit."),
-            part("You can edit your current routine under Review → Your routine",
-                 fr: "Vous pouvez modifier votre routine actuelle dans Historique → Votre routine",
-                 of: "Done saves this suggestion for later. You can edit your current routine under Review → Your routine."),
+            part("After approval, edit your plan in Routine",
+                 fr: "Après approbation, modifiez votre plan dans Routine",
+                 of: "Done saves this suggestion for later. After approval, edit your plan in Routine."),
+            earlier("You can edit your current routine under Review → Your routine",
+                    "Vous pouvez modifier votre routine actuelle dans Historique → Votre routine"),
             shown("Sample observations stay separate from your personal habit history.",
                   fr: "Les observations d’exemple restent séparées de votre historique personnel."),
             shown("Finish or end your current morning before approving an update.",
@@ -763,6 +846,16 @@ enum OwnInterfaceWording {
         ]),
         // The step editor shows a step's own saved wording.
         Screen(name: "Step", copy: [
+            part("This step keeps its saved excerpt", fr: "Cette étape garde son extrait enregistré",
+                 of: "This step keeps its saved excerpt. To use different words, switch to Read this text aloud and edit the note."),
+            part("To use different words, switch to Read this text aloud and edit the note",
+                 fr: "Pour utiliser d’autres mots, passez à « Lire ce texte à voix haute » et modifiez la note",
+                 of: "This step keeps its saved excerpt. To use different words, switch to Read this text aloud and edit the note."),
+            earlier("Choose a different excerpt from its observation in Review. Switching to Read this text aloud makes it an ordinary note.",
+                    "Choisissez un autre extrait de son observation dans Historique. Passer à « Lire ce texte à voix haute » en fait une note ordinaire."),
+            earlier("Clear these choices later in Review", "Vous pourrez effacer ces choix plus tard dans Historique"),
+            part("Clear these choices in Settings → Saved choices", fr: "Effacez ces choix dans Réglages → Choix enregistrés",
+                 of: "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices in Settings → Saved choices."),
             part("You can change the order of your steps back in your routine",
                  fr: "Vous pourrez changer l’ordre des étapes dans votre routine",
                  of: "Keep it simple. You can change the order of your steps back in your routine."),
@@ -771,10 +864,10 @@ enum OwnInterfaceWording {
                  of: "The category organizes your routine. Choose an action below to decide what Morning Operator does."),
             part("Keeping a moment preserves its wording, time and action",
                  fr: "Garder un moment conserve son texte, sa durée et son action",
-                 of: "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices later in Review."),
+                 of: "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices in Settings → Saved choices."),
             part("Saving only its duration lets the other details vary",
                  fr: "N’enregistrer que sa durée laisse varier les autres détails",
-                 of: "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices later in Review.")
+                 of: "Keeping a moment preserves its wording, time and action. Saving only its duration lets the other details vary. Minutes are planned, not measured. Clear these choices in Settings → Saved choices.")
         ], controls: [
             shown("Keep in future suggestions", fr: "Garder dans les futures suggestions"),
             shown("What Morning Operator does", fr: "Ce que fait Morning Operator"),
