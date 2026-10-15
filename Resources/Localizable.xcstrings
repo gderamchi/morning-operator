@@ -1,6 +1,86 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Local recognition availability will be checked after your permission. Listening has not started.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local recognition availability will be checked after your permission. Listening has not started."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La disponibilité de la reconnaissance locale sera vérifiée après votre autorisation. Aucune écoute n’a commencé."
+          }
+        }
+      }
+    },
+    "Your calendar, each morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your calendar, each morning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre calendrier, chaque matin"
+          }
+        }
+      }
+    },
+    "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un calendrier. MORE lit le jour courant dans le fuseau de cet iPhone à chaque matin."
+          }
+        }
+      }
+    },
+    "Prepare listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare listening"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparer l’écoute"
+          }
+        }
+      }
+    },
+    "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette préparation n’enregistre aucun son et ne teste pas le microphone. La lecture à voix haute et l’enchaînement de votre routine restent des choix distincts."
+          }
+        }
+      }
+    },
     "Slack in your morning": {
       "localizations": {
         "en": {

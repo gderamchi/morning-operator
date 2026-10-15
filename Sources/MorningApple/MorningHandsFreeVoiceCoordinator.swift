@@ -88,13 +88,12 @@ public final class MorningHandsFreeVoiceCoordinator {
             do {
                 try await precedingCleanup?.value
                 try checkCurrent(id)
+                try requirePreparedPermissions(language: language)
                 // The microphone owner holds one shared duplex session while TTS
                 // starts, pauses and finishes; TTS must not deactivate it mid-turn.
                 speech.handsFreeAudioSessionIsOwned = true
                 needsAudioRelease = true
                 guard try await audioSession.prepare(for: id).value else { throw CancellationError() }
-                try checkCurrent(id)
-                try await requestPermissions(language: language, id: id)
                 try checkCurrent(id)
                 try startInput()
                 observeInterruptions(id: id)
@@ -168,24 +167,9 @@ public final class MorningHandsFreeVoiceCoordinator {
         guard runID == id, UIApplication.shared.applicationState != .background else { throw CancellationError() }
     }
 
-    private func requestPermissions(language: MorningVoiceCommandLanguage, id: UUID) async throws {
-        var authorization = SFSpeechRecognizer.authorizationStatus()
-        if authorization == .notDetermined {
-            let raw = await withCheckedContinuation { continuation in
-                SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0.rawValue) }
-            }
-            authorization = SFSpeechRecognizerAuthorizationStatus(rawValue: raw) ?? .denied
-        }
-        try checkCurrent(id)
-        guard authorization == .authorized else { throw MorningVoiceListeningError.speechDenied }
-        var permitted = AVAudioApplication.shared.recordPermission == .granted
-        if AVAudioApplication.shared.recordPermission == .undetermined {
-            permitted = await withCheckedContinuation { continuation in
-                AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) }
-            }
-        }
-        try checkCurrent(id)
-        guard permitted else { throw MorningVoiceListeningError.microphoneDenied }
+    private func requirePreparedPermissions(language: MorningVoiceCommandLanguage) throws {
+        guard SFSpeechRecognizer.authorizationStatus() == .authorized else { throw MorningVoiceListeningError.speechDenied }
+        guard AVAudioApplication.shared.recordPermission == .granted else { throw MorningVoiceListeningError.microphoneDenied }
         guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language.localeIdentifier)), recognizer.isAvailable,
               recognizer.supportsOnDeviceRecognition else { throw MorningVoiceListeningError.onDeviceUnavailable }
         self.recognizer = recognizer

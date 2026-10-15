@@ -85,6 +85,7 @@ struct MorningRootView: View {
                                ? AnyView(MorningMailMomentView(store: store)) : nil,
                            nativeMoment: store.sessionActive && store.pendingWebTarget == nil ? AnyView(NativeMomentReviewView(store: store)) : nil,
                            slackMoment: store.currentSlackContext != nil ? AnyView(SlackMomentReplyView(store: store)) : nil,
+                           googleCalendarDayMoment: store.currentGoogleCalendarDayContext != nil ? AnyView(GoogleCalendarDayMomentView(store: store)) : nil,
                            voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
                            executionSummary: store.executionSummary,
                            timer: store.activeStepTimer,
@@ -222,6 +223,7 @@ struct MorningRootView: View {
         workspaceContent
         .modifier(MorningHaptics(store: store))
         .routineWebStep(store: store)
+        .modifier(MorningVoicePreparationPresenter(store: store))
         .onChange(of: store.speech.state) { store.handleSpeechInterruption() }
         .onChange(of: store.automation.status) { store.synchronizeMorningActivity() }
         .onChange(of: store.automation.status) { _, status in
@@ -234,13 +236,14 @@ struct MorningRootView: View {
                 store.suspendHandsFreeVoice()
                 store.clearNativeMoment()
                 store.clearSlackReply()
+                store.clearGoogleCalendarDay()
                 store.routineWebMoment.discardSourceContext()
                 store.webExecutionEvent = nil
                 store.preserveMailExecutionBeforeInterruption()
                 store.mailMorning.clear()
                 store.connectedMoment.discardContent()
                 let clearsConnectedResult: Bool = {
-                    if case .connectedAPI = store.currentStep?.target { return true }
+                    if store.currentStep?.target?.integrationRoute == .api { return true }
                     return store.currentStep?.target == nil
                 }()
                 if clearsConnectedResult {
@@ -596,6 +599,9 @@ struct TodayView: View {
                         }
                         if store.currentStep?.id == step.id, store.currentSlackContext != nil {
                             SlackMomentReplyView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.currentGoogleCalendarDayContext != nil {
+                            GoogleCalendarDayMomentView(store: store)
                         }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
@@ -1263,6 +1269,7 @@ private struct MorningSunHome: View {
     var mailMoment: AnyView? = nil
     var nativeMoment: AnyView? = nil
     var slackMoment: AnyView? = nil
+    var googleCalendarDayMoment: AnyView? = nil
     var voiceStatus: String? = nil
     var executionSummary: String? = nil
     var timer: StepTimer? = nil
@@ -1410,6 +1417,7 @@ private struct MorningSunHome: View {
                 if let mailMoment { mailMoment }
                 if let nativeMoment { nativeMoment }
                 if let slackMoment { slackMoment }
+                if let googleCalendarDayMoment { googleCalendarDayMoment }
                 HStack(spacing: 16) {
                     Button(action: session?.status == .paused ? resume : pause) {
                         Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",

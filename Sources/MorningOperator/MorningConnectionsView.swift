@@ -230,6 +230,8 @@ struct MorningConnectionsView: View {
         return NavigationLink {
             if id == "slack" {
                 SlackRoutineSetupView(store: store)
+            } else if id == "googlecalendar" {
+                GoogleCalendarDaySetupView(store: store)
             } else {
                 APIConnectionsView(service: store.composio, serviceID: id, privacyBlocked: store.privacyBlocksWork,
                     privacyGeneration: store.dataGeneration, onAddToRoutine: { connection, tool, arguments in

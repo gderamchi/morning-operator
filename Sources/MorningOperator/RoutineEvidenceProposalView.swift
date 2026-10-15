@@ -71,7 +71,7 @@ struct RoutineEvidenceProposalView: View {
                                 Text("\(step.durationMinutes) minutes planned")
                                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 Text(step.executionDescription).font(.raleway(.subheadline))
-                                if case .connectedAPI = step.target, let target = step.target {
+                                if let target = step.target, target.integrationRoute == .api {
                                     Text(RoutineConnectedReview.summary(for: target) ?? "Review unavailable")
                                         .font(.footnote).fixedSize(horizontal: false, vertical: true)
                                 }

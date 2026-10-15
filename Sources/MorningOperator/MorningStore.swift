@@ -62,6 +62,7 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var sessionTimeZone: String?
     var automatic: Bool?
     var readAloud: Bool?
+    var handsFreeListeningSuppressedSessionID: UUID?
     var showMorningOnLockScreen: Bool?
     var sessionTimingInterrupted: Bool?
     var budgetAndFeedback: RoutineBudgetAndFeedback?
@@ -96,6 +97,7 @@ private extension WorkspaceSnapshot {
         sessionTimeZone = try values.decodeIfPresent(String.self, forKey: .sessionTimeZone)
         automatic = try values.decodeIfPresent(Bool.self, forKey: .automatic)
         readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
+        handsFreeListeningSuppressedSessionID = try values.decodeIfPresent(UUID.self, forKey: .handsFreeListeningSuppressedSessionID)
         showMorningOnLockScreen = try values.decodeIfPresent(Bool.self, forKey: .showMorningOnLockScreen)
         sessionTimingInterrupted = try values.decodeIfPresent(Bool.self, forKey: .sessionTimingInterrupted)
         budgetAndFeedback = try values.decodeIfPresent(RoutineBudgetAndFeedback.self, forKey: .budgetAndFeedback)
@@ -221,7 +223,7 @@ final class MorningStore {
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
     let briefing: MorningBriefingController
-    let composio = SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
+    let composio = GoogleCalendarDayUITestFixture.serviceIfRequested() ?? SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
     let nativeConnections = NativeConnectionsService()
     var selectedSlackMessageTS: String?
     @ObservationIgnored var slackReplyTask: Task<Void, Never>?
@@ -264,6 +266,10 @@ final class MorningStore {
         })
     }()
     @ObservationIgnored let connectedMoment = ConnectedMomentState()
+    var googleCalendarDayDocument: GoogleCalendarDayDocument?
+    var googleCalendarDayContext: MorningExecutionID?
+    var googleCalendarDayPrivacyGeneration: UUID?
+    @ObservationIgnored var googleCalendarDayFreshnessTask: Task<Void, Never>?
     @ObservationIgnored let routineWebMoment = RoutineWebMomentRetainer()
     @ObservationIgnored var mailBudgetWork: [UUID: MorningExecutionID] = [:]
     @ObservationIgnored var mailBudgetDeadlinePaused: MorningExecutionID?
@@ -274,6 +280,10 @@ final class MorningStore {
     var webExecutionEvent: WebMorningExecutionEvent?
     @ObservationIgnored var executionSpeechTask: Task<Void, Never>?
     let handsFreeVoice = MorningHandsFreeVoiceCoordinator()
+    let voiceAccess = MorningVoiceAccess()
+    var voiceStartRequest: MorningVoiceStartRequest?
+    var voiceStartDecision: MorningVoiceStartDecision?
+    var handsFreeListeningSuppressedSessionID: UUID?
     @ObservationIgnored var handsFreePauseRevision = UUID()
     @ObservationIgnored var handsFreeUtteranceHandler: (@MainActor (String) async -> Bool)?
     @ObservationIgnored lazy var mailMorning = GmailMorningConversation(speak: { [weak self] text in
@@ -439,6 +449,13 @@ final class MorningStore {
                     RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
                 ])
             }
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-google-calendar-runtime"), GoogleCalendarDayUITestFixture.isRequested,
+               let target = try? GoogleCalendarDayTarget(connectionID: "ca_synthetic_google_calendar", calendarID: "synthetic-primary@calendar.invalid", calendarName: "SYNTHETIC calendrier personnel de préparation du matin avec un nom volontairement très long") {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic Google Calendar day", steps: [
+                    RoutineStep(title: target.calendarName, detail: "SYNTHETIC read-only day, recalculated for this iPhone’s current date and time zone.", kind: .calendar, durationMinutes: 3, target: .googleCalendarDay(target)),
+                    RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
             #endif
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-ten-moments") {
                 let titles = ["Your morning", "The weather", "Today's calendar", "Your reminders", "People and messages",
@@ -518,6 +535,8 @@ final class MorningStore {
                 sessionTimeZone = saved.sessionTimeZone ?? TimeZone.current.identifier
                 automatic = saved.automatic ?? true
                 readAloud = saved.readAloud ?? true
+                handsFreeListeningSuppressedSessionID = saved.session?.id == saved.handsFreeListeningSuppressedSessionID
+                    ? saved.handsFreeListeningSuppressedSessionID : nil
                 showMorningOnLockScreen = saved.showMorningOnLockScreen ?? true
                 speech.voiceIdentifier = saved.voiceIdentifier
                 if let archive = saved.observationArchive {
@@ -872,8 +891,31 @@ final class MorningStore {
         if let entryID, consumedMorningEntryIDs.contains(entryID) { return false }
         // Revealing an already running morning must not dispatch its speech again.
         if session?.status == .running { return true }
+        let suppressed = sessionActive && session?.id == handsFreeListeningSuppressedSessionID
+        let decision = voiceStartDecision
+        if let decision {
+            guard decision.request.routineVersionID == routine.id, decision.request.generation == dataGeneration,
+                  decision.request.originalSessionID == session?.id, decision.request.originalSessionStatus == session?.status,
+                  decision.request.entryID == entryID else { return false }
+            if !decision.listen {
+                guard !handsFreeVoice.isActive, !handsFreeVoice.needsAudioRelease,
+                      !speech.handsFreeAudioSessionIsOwned else { return false }
+            }
+        }
+        if automatic, !suppressed, !bypassesVoicePreparationForUITests,
+           (!voiceAccess.refresh(language: voicePreparationLanguage).isReady && decision?.listen != false) ||
+            (forcesVoicePreparationReviewForUITests && decision == nil) {
+            if voiceStartRequest?.routineVersionID != routine.id || voiceStartRequest?.generation != dataGeneration ||
+               voiceStartRequest?.originalSessionID != session?.id || voiceStartRequest?.originalSessionStatus != session?.status ||
+                voiceStartRequest?.entryID != entryID || voiceStartRequest == nil {
+                voiceStartRequest = MorningVoiceStartRequest(routineVersionID: routine.id, generation: dataGeneration,
+                    originalSessionID: session?.id, originalSessionStatus: session?.status, entryID: entryID)
+            }
+            return false
+        }
         discardCompletionReflection()
         let previousEntryIDs = consumedMorningEntryIDs
+        let previousListeningSuppression = handsFreeListeningSuppressedSessionID
         let beginsMorning = session?.status != .paused
         do {
             if session?.status == .paused { try session?.resume() }
@@ -884,6 +926,7 @@ final class MorningStore {
                 session = RoutineSession(routine: routine)
                 try session?.start()
             }
+            if decision?.listen == false { handsFreeListeningSuppressedSessionID = session?.id }
             notice = nil
             if let entryID { rememberMorningEntry(entryID) }
             // The greeted mark is saved in the same write as the new session, so a
@@ -892,6 +935,7 @@ final class MorningStore {
             let mayGreet = beginsMorning && claimOpeningPlayback()
             guard persist() else {
                 consumedMorningEntryIDs = previousEntryIDs
+                handsFreeListeningSuppressedSessionID = previousListeningSuppression
                 greetingState = previousGreeting
                 pauseAfterSaveFailure()
                 return false
@@ -907,7 +951,10 @@ final class MorningStore {
             synchronizeMorningActivity(allowStart: true)
             startHandsFreeVoice()
             return true
-        } catch { notice = error.localizedDescription; return false }
+        } catch {
+            handsFreeListeningSuppressedSessionID = previousListeningSuppression
+            notice = error.localizedDescription; return false
+        }
     }
 
     /// This receipt and a starting/resuming transition share workspace.json. A
@@ -1020,6 +1067,7 @@ final class MorningStore {
               let session, let step = currentStep else { return }
         endOpening()
         cancelStepPlayback()
+        if repeatGoogleCalendarDay() { return }
         if repeatConnectedMoment() { return }
         if step.webBehavior != nil {
             if let event = webExecutionEvent, event.sessionID == session.id, event.stepID == step.id,
@@ -2464,7 +2512,8 @@ final class MorningStore {
             try privacyControl.withReadyAccess { _ in
                 try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
-                automatic: automatic, readAloud: readAloud, showMorningOnLockScreen: showMorningOnLockScreen,
+                automatic: automatic, readAloud: readAloud, handsFreeListeningSuppressedSessionID: handsFreeListeningSuppressedSessionID,
+                showMorningOnLockScreen: showMorningOnLockScreen,
                 sessionTimingInterrupted: sessionTimingInterrupted,
                 budgetAndFeedback: budgetAndFeedback,
                 pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
@@ -2531,6 +2580,7 @@ final class MorningStore {
         connectedActionStatus = nil
         clearNativeMoment(forPrivacy: true)
         clearSlackReply()
+        clearGoogleCalendarDay()
         connectedMoment.clear()
         routineWebMoment.clear()
         composio.cancelPendingOperations()
@@ -2606,7 +2656,7 @@ final class MorningStore {
                 // An explicit empty archive/choice journal prevents legacy
                 // migration and isolated demo seeding from restoring content.
                 try snapshot.save(WorkspaceSnapshot(history: MorningHistory(), captures: [], receipts: [:],
-                    automatic: true, readAloud: true, pendingCaptures: [:],
+                    automatic: true, readAloud: true, handsFreeListeningSuppressedSessionID: nil, pendingCaptures: [:],
                     observationArchive: ObservationArchive(), consumedMorningEntryIDs: [],
                     routinePreferences: .init(RoutinePreferenceJournal())))
             }
@@ -2666,9 +2716,11 @@ final class MorningStore {
         executionRecords = []; webExecutionEvent = nil
         clearNativeMoment(forPrivacy: true)
         clearSlackReply()
+        clearGoogleCalendarDay()
         connectedMoment.clear()
         routineWebMoment.clear()
         stopHandsFreeVoice(); mailMorning.clear()
+        cancelVoicePreparation(); handsFreeListeningSuppressedSessionID = nil
         mailBudgetWork = [:]; mailBudgetDeadlinePaused = nil
         budgetAndFeedback = RoutineBudgetAndFeedback(); savedRunEndings = []
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false

@@ -15,7 +15,7 @@ extension MorningStore {
     /// narration keeps its existing pause-on-background behavior.
     var keepsTimerInBackground: Bool {
         if currentStep?.webBehavior != nil || currentStep?.automation == .gmailInbox { return false }
-        if case .connectedAPI = currentStep?.target { return false }
+        if currentStep?.target?.integrationRoute == .api { return false }
         return session?.status == .running && activeStepTimer?.pausedAt == nil && activeStepTimer != nil
     }
 
@@ -49,6 +49,9 @@ extension MorningStore {
                 runConnectedAction(service: service, connectionID: connectionID, tool: tool,
                     argumentsJSON: arguments, sessionID: session.id, stepID: step.id)
             }
+            if !shouldOpen, case let .googleCalendarDay(target) = step.target {
+                runGoogleCalendarDay(target, sessionID: session.id, stepID: step.id)
+            }
             if shouldOpen {
                 switch step.target {
                 case let .externalApp(app, detail):
@@ -81,6 +84,8 @@ extension MorningStore {
                 case let .connectedAPI(service, connectionID, tool, arguments):
                     runConnectedAction(service: service, connectionID: connectionID, tool: tool,
                         argumentsJSON: arguments, sessionID: session.id, stepID: step.id)
+                case let .googleCalendarDay(target):
+                    runGoogleCalendarDay(target, sessionID: session.id, stepID: step.id)
                 case nil:
                     if step.automation != .gmailInbox, readAloud { speech.speak("\(step.title). \(step.detail)") }
                 }
@@ -184,7 +189,7 @@ extension MorningStore {
         stepTimerTask?.cancel(); stepTimerTask = nil
         let retired = StepTimerFile.clear()
         if retired {
-            connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment(); clearSlackReply()
+            connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment(); clearSlackReply(); clearGoogleCalendarDay()
             mailBudgetWork = [:]; mailBudgetDeadlinePaused = nil
         }
         StepTimerAlert.cancel()

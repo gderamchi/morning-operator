@@ -359,6 +359,7 @@ struct SetupView: View {
     var openRoutine: (() -> Void)? = nil
     @ViewState<Bool> private var choosingAlarm = false
     @ViewState<Bool> private var choosingVoice = false
+    @ViewState<Bool> private var preparingVoiceAccess = false
     @ViewState<Bool> private var choosingInvitation = false
     @ViewState<Bool> private var showingPrivacy = false
     @ViewState<Bool> private var choosingBriefing = false
@@ -426,13 +427,24 @@ struct SetupView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("Hands free").font(.raleway(.subheadline, .medium))
                             Text(AppLanguage.isFrench
-                                ? "MORE enchaîne votre routine et écoute vos demandes tant que l’app reste ouverte. La voix demande votre autorisation au démarrage."
-                                : "MORE continues your routine and listens while the app stays open. Voice permission is requested when you start.")
+                                ? "MORE enchaîne votre routine. Préparez l’écoute ci-dessous pour l’interrompre à la voix pendant que l’app reste ouverte."
+                                : "MORE continues your routine. Prepare listening below to interrupt it by voice while the app stays open.")
                                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     .tint(MorningStyle.accent).accessibilityIdentifier("setup.handsFree")
+                    Button {
+                        store.voiceAccess.refresh(language: store.voicePreparationLanguage)
+                        preparingVoiceAccess = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(AppLanguage.isFrench ? "Préparer l’écoute" : "Prepare listening")
+                                .font(.raleway(.subheadline, .medium))
+                            MorningVoiceAccessStatusView(access: store.voiceAccess)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }.buttonStyle(.plain).disabled(store.sessionActive || store.privacyBlocksWork)
+                        .accessibilityIdentifier("setup.voiceAccess")
                     Toggle(isOn: $store.readAloud) {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("Read each step aloud").font(.raleway(.subheadline, .medium))
@@ -504,6 +516,8 @@ struct SetupView: View {
         .fullScreenCover(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
         .fullScreenCover(isPresented: $choosingAlarm) { MorningAlarmView() }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
+        .sheet(isPresented: $preparingVoiceAccess) { MorningVoicePreparationView(store: store) }
+        .onAppear { store.voiceAccess.refresh(language: store.voicePreparationLanguage) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
     }
 
@@ -542,7 +556,7 @@ struct StepEditor: View {
                 Section {
                     TextField("Give this step a name", text: $step.title)
                         .accessibilityLabel("Step name")
-                    if case .connectedAPI = step.target {
+                    if step.target?.integrationRoute == .api {
                         Text(step.detail).textSelection(.enabled)
                     } else if step.automation == .savedObservation {
                         Text(step.detail).textSelection(.enabled)
@@ -584,7 +598,9 @@ struct StepEditor: View {
                 }
                 Section {
                     Picker("Action", selection: $step.automation) {
-                        Text("User-led moment").tag(Optional<RoutineStepAutomation>.none)
+                        Text(step.target == nil ? String(localized: "User-led moment")
+                             : (AppLanguage.isFrench ? "Action choisie ci-dessous" : "Action chosen below"))
+                            .tag(Optional<RoutineStepAutomation>.none)
                         Text("Read this text aloud").tag(Optional(RoutineStepAutomation.spokenNote))
                         Text("Read today's calendar").tag(Optional(RoutineStepAutomation.todayCalendar))
                         Text("Read today's briefing").tag(Optional(RoutineStepAutomation.morningBriefing))
@@ -688,7 +704,8 @@ struct StepEditor: View {
     }
 
     private var automationExplanation: String {
-        switch step.automation {
+        if step.target != nil { return step.executionDescription }
+        return switch step.automation {
         case .none:
             String(localized: "Take this moment at your own pace, then tap Next when you're ready.")
         case .spokenNote:

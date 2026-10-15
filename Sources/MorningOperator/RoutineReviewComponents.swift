@@ -38,7 +38,7 @@ struct RoutineMomentRow: View {
                 Text(step.title).font(.subheadline.weight(.medium))
                 Text("\(step.durationMinutes) min · \(step.executionDescription)")
                     .font(.caption).foregroundStyle(MorningStyle.muted)
-                if case .connectedAPI = step.target, let target = step.target {
+                if let target = step.target, target.integrationRoute == .api {
                     Text(step.detail).font(.footnote).foregroundStyle(MorningStyle.muted)
                     Text(RoutineConnectedReview.summary(for: target) ?? "Review unavailable")
                         .font(.footnote).fixedSize(horizontal: false, vertical: true)

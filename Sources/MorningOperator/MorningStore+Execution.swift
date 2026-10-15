@@ -179,7 +179,7 @@ extension MorningStore {
             advance(commandID: step.id)
             return true
         }
-        if case .connectedAPI = step.target {
+        if step.target?.integrationRoute == .api {
             // A deadline cannot certify a remote effect. Wait for an active receipt
             // or presentation to settle, then preserve its actual recorded result.
             if connectedMoment.isInFlight { return true }

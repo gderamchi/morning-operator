@@ -705,6 +705,28 @@ struct OwnInterfaceWordingTests {
         }
     }
 
+    @Test("Daily calendar setup and listening preparation are MORE screens, not new activity evidence", arguments: ["en", "fr"])
+    func calendarAndListeningSetupExcludeTheirQuotedContent(language: String) throws {
+        let catalogs = try ShippedCatalogs.load()
+        let screens = [
+            ["Your calendar, each morning", "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning."],
+            ["Prepare listening", "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices."],
+            ["Prepare listening", "Local recognition availability will be checked after your permission. Listening has not started."]
+        ]
+        for keys in screens {
+            let lines = try OwnScreenFixtures.lines(keys, language, from: catalogs, width: 26)
+            let screen = (lines + ["09:00 Team planning meeting", "Personal calendar"]).joined(separator: "\n")
+            #expect(isOwnInterface(screen))
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+            }
+            let heading = try catalogs.text(keys[0], language)
+            #expect(!isOwnInterface(heading + "\n09:00 Team planning meeting\nPersonal calendar"))
+            let explanation = try catalogs.text(keys[1], language)
+            #expect(!isOwnInterface("Messages\n" + explanation + "\n09:00 Team planning meeting"))
+        }
+    }
+
     @Test("Sentences are specific enough to count; short labels are kept as controls")
     func copyIsLongEnoughToBeDistinctive() {
         for screen in OwnInterfaceWording.screens {

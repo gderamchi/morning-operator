@@ -134,6 +134,12 @@
 		A175E049ED4B4D4AB08B0103 /* SlackMomentReplyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0104 /* SlackMomentReplyView.swift */; };
 		A175E049ED4B4D4AB08B0105 /* SlackRoutineSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0106 /* SlackRoutineSetupView.swift */; };
 		A175E049ED4B4D4AB08B0107 /* SlackSetupUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0108 /* SlackSetupUITestFixture.swift */; };
+		A175E049ED4B4D4AB08B0201 /* MorningStore+GoogleCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0202 /* MorningStore+GoogleCalendar.swift */; };
+		A175E049ED4B4D4AB08B0203 /* GoogleCalendarDayMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0204 /* GoogleCalendarDayMomentView.swift */; };
+		A175E049ED4B4D4AB08B0205 /* GoogleCalendarDaySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0206 /* GoogleCalendarDaySetupView.swift */; };
+		A175E049ED4B4D4AB08B0207 /* GoogleCalendarDayUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0208 /* GoogleCalendarDayUITestFixture.swift */; };
+		A175E049ED4B4D4AB08B0209 /* MorningVoicePreparationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B020A /* MorningVoicePreparationView.swift */; };
+		A175E049ED4B4D4AB08B020B /* MorningVoicePreparationPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B020C /* MorningVoicePreparationPresenter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -308,6 +314,12 @@
 		A175E049ED4B4D4AB08B0104 /* SlackMomentReplyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SlackMomentReplyView.swift"; sourceTree = "<group>"; };
 		A175E049ED4B4D4AB08B0106 /* SlackRoutineSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SlackRoutineSetupView.swift"; sourceTree = "<group>"; };
 		A175E049ED4B4D4AB08B0108 /* SlackSetupUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SlackSetupUITestFixture.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0202 /* MorningStore+GoogleCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+GoogleCalendar.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0204 /* GoogleCalendarDayMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GoogleCalendarDayMomentView.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0206 /* GoogleCalendarDaySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GoogleCalendarDaySetupView.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0208 /* GoogleCalendarDayUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GoogleCalendarDayUITestFixture.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B020A /* MorningVoicePreparationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningVoicePreparationView.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B020C /* MorningVoicePreparationPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningVoicePreparationPresenter.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -458,6 +470,12 @@
 				A175E049ED4B4D4AB08B0104 /* SlackMomentReplyView.swift */,
 				A175E049ED4B4D4AB08B0106 /* SlackRoutineSetupView.swift */,
 				A175E049ED4B4D4AB08B0108 /* SlackSetupUITestFixture.swift */,
+				A175E049ED4B4D4AB08B0202 /* MorningStore+GoogleCalendar.swift */,
+				A175E049ED4B4D4AB08B0204 /* GoogleCalendarDayMomentView.swift */,
+				A175E049ED4B4D4AB08B0206 /* GoogleCalendarDaySetupView.swift */,
+				A175E049ED4B4D4AB08B0208 /* GoogleCalendarDayUITestFixture.swift */,
+				A175E049ED4B4D4AB08B020A /* MorningVoicePreparationView.swift */,
+				A175E049ED4B4D4AB08B020C /* MorningVoicePreparationPresenter.swift */,
 				9B941431C39046FC7CB3738A /* MorningStore+Mail.swift */,
 				9C53618048F8500BEF3E78F3 /* MorningStore+HandsFree.swift */,
 				98B22AFAFCA9A8E608BECF6E /* MorningStore+Execution.swift */,
@@ -879,6 +897,12 @@
 				A175E049ED4B4D4AB08B0103 /* SlackMomentReplyView.swift in Sources */,
 				A175E049ED4B4D4AB08B0105 /* SlackRoutineSetupView.swift in Sources */,
 				A175E049ED4B4D4AB08B0107 /* SlackSetupUITestFixture.swift in Sources */,
+				A175E049ED4B4D4AB08B0201 /* MorningStore+GoogleCalendar.swift in Sources */,
+				A175E049ED4B4D4AB08B0203 /* GoogleCalendarDayMomentView.swift in Sources */,
+				A175E049ED4B4D4AB08B0205 /* GoogleCalendarDaySetupView.swift in Sources */,
+				A175E049ED4B4D4AB08B0207 /* GoogleCalendarDayUITestFixture.swift in Sources */,
+				A175E049ED4B4D4AB08B0209 /* MorningVoicePreparationView.swift in Sources */,
+				A175E049ED4B4D4AB08B020B /* MorningVoicePreparationPresenter.swift in Sources */,
 				E3544375F7026826D8A40DD9 /* MorningStore+Mail.swift in Sources */,
 				A36795BA2F1BAF85B6980FD2 /* MorningStore+HandsFree.swift in Sources */,
 				C8CC7BD199C9289C66D2EDA7 /* MorningStore+Execution.swift in Sources */,
