@@ -44,6 +44,74 @@ struct WebMorningTests {
         #expect(WebMorningSite(url: url("https://www.instagram.com:8443/")) == nil)
     }
 
+    @Test("Social browser routes accept exact HTTPS hosts and keep saved destinations")
+    func socialBrowserRoutes() throws {
+        let routes: [(WebMorningSite, String)] = [
+            (.tiktok, "https://www.tiktok.com/@example/video/123"),
+            (.twitter, "https://x.com/home"),
+            (.twitter, "https://twitter.com/example/status/123"),
+            (.reddit, "https://www.reddit.com/r/example/"),
+            (.facebook, "https://m.facebook.com/"),
+            (.threads, "https://www.threads.com/@example"),
+            (.threads, "https://www.threads.net/@example")
+        ]
+        for (site, address) in routes {
+            let page = url(address)
+            #expect(WebMorningSite(url: page) == site)
+            let saved = RoutineStepTarget.inAppWeb(site: page)
+            let restored = try JSONDecoder().decode(RoutineStepTarget.self, from: JSONEncoder().encode(saved))
+            #expect(restored == saved)
+            if case let .inAppWeb(restoredURL) = restored { #expect(WebMorningSite(url: restoredURL) == site) }
+            let host = try #require(page.host)
+            for rejected in ["http://\(host)/", "https://\(host).evil.example/", "https://user:secret@\(host)/",
+                             "https://\(host):8443/"] {
+                #expect(WebMorningSite(url: url(rejected)) == nil)
+            }
+        }
+        for rawID in ["instagram", "youtube", "news", "whatsapp", "gmail", "twitter", "tiktok"] {
+            let encoded = Data("\"\(rawID)\"".utf8)
+            #expect(try JSONDecoder().decode(WebMorningSite.self, from: encoded).rawValue == rawID)
+        }
+    }
+
+    @Test("New social destinations offer manual browsing without invented readers or scroll actions")
+    func uncalibratedSitesOfferNoScripts() {
+        for site in [WebMorningSite.tiktok, .twitter, .reddit, .facebook, .threads] {
+            #expect(WebMorningSite(url: site.table.startURL) == site)
+            #expect(site.table.tasks.isEmpty)
+            #expect(site.table.feedURL == nil)
+            for task in WebMorningTask.allCases {
+                #expect(WebMorningPolicy.script(for: task, on: site) == nil)
+                #expect(WebMorningPolicy.refusal(for: task, on: site, at: site.table.startURL) == .notOffered)
+            }
+        }
+    }
+
+    @Test("Provider sign-in and onboarding routes block every task, including passive rhythm collection")
+    func socialSignInRoutes() {
+        let routes: [(WebMorningSite, String)] = [
+            (.twitter, "https://x.com/i/flow"), (.twitter, "https://x.com/i/flow/login"),
+            (.twitter, "https://x.com/i/jf"), (.twitter, "https://twitter.com/i/jf/entrance"),
+            (.twitter, "https://x.com/onboarding"),
+            (.tiktok, "https://www.tiktok.com/passport/web/"),
+            (.tiktok, "https://www.tiktok.com/login/phone-or-email/email"),
+            (.tiktok, "https://www.tiktok.com/signup"),
+            (.reddit, "https://www.reddit.com/login"), (.reddit, "https://www.reddit.com/register/"),
+            (.facebook, "https://m.facebook.com/login.php"),
+            (.facebook, "https://www.facebook.com/checkpoint/123/"),
+            (.threads, "https://www.threads.com/login"),
+            (.threads, "https://www.threads.net/accounts/login/")
+        ]
+        for (site, address) in routes {
+            let page = url(address)
+            #expect(WebMorningPolicy.isSignInPage(page))
+            #expect(!BrowserRhythmPolicy.permits(site: site, url: page))
+            for task in WebMorningTask.allCases {
+                #expect(WebMorningPolicy.refusal(for: task, on: site, at: page) == .signInPage)
+            }
+        }
+    }
+
     @Test func tasksRunOnlyWhereTheTableOffersThem() {
         #expect(WebMorningSite.gmail.table.tasks.isEmpty)
         #expect(WebMorningPolicy.refusal(for: .unreadCount, on: .gmail, at: url("https://mail.google.com/mail/u/0/")) == .notOffered)

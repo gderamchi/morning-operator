@@ -72,7 +72,7 @@ struct LearnView: View {
 
             NavigationLink { MorningConnectionsView(store: store) } label: {
                 LinkRow(title: String(localized: "2 · Make yourself at home"),
-                        detail: String(localized: "Sign in to your websites, together"), symbol: "globe")
+                        detail: String(localized: "Connect the apps you use"), symbol: "link")
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("learn.connections")
@@ -367,7 +367,7 @@ struct SetupView: View {
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("setup.screenTime")
             NavigationLink { MorningConnectionsView(store: store) } label: {
-                LinkRow(title: String(localized: "Your websites"), detail: String(localized: "One guided sign-in pass"), symbol: "globe")
+                LinkRow(title: String(localized: "Apps & accounts"), detail: String(localized: "Connect the apps you use"), symbol: "link")
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("setup.connections")
@@ -590,6 +590,8 @@ struct StepEditor: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         var edited = step
+                        do { try edited.target?.validateIntegration() }
+                        catch { saveError = error.localizedDescription; return }
                         edited.title = edited.title.trimmingCharacters(in: .whitespacesAndNewlines)
                         if edited.automation != .savedObservation { edited.observationReference = nil }
                         if onSave(edited, keepInSuggestions, keepDuration) { dismiss() }

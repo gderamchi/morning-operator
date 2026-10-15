@@ -152,5 +152,41 @@ struct BrowserRhythmScriptTests {
             #expect(context.exception == nil)
         }
     }
+
+    @Test("New social sign-in routes stop the real collector before any credential form inspection")
+    func socialSignInRoutesStopCollector() throws {
+        let routes: [(WebMorningSite, String, String)] = [
+            (.twitter, "x.com", "/i/flow/login"), (.twitter, "twitter.com", "/i/jf"),
+            (.twitter, "x.com", "/onboarding"),
+            (.tiktok, "www.tiktok.com", "/passport/web/"), (.tiktok, "www.tiktok.com", "/login"),
+            (.reddit, "www.reddit.com", "/register"),
+            (.facebook, "www.facebook.com", "/login.php"),
+            (.threads, "www.threads.com", "/accounts/login/")
+        ]
+        for (site, host, path) in routes {
+            let context = try page()
+            context.evaluateScript("location.hostname='\(host)';location.pathname='\(path)';var formChecks=0;document.querySelector=()=>{formChecks++;throw Error('Credential DOM inspected');};")
+            #expect(context.evaluateScript(BrowserRhythmPolicy.script(site: site, nonce: nonce))?.toBool() == false)
+            #expect(context.evaluateScript("formChecks")?.toInt32() == 0)
+            #expect(context.evaluateScript("Object.keys(hooks).length")?.toInt32() == 0)
+            #expect(context.evaluateScript("messages.length")?.toInt32() == 0)
+            #expect(context.exception == nil)
+        }
+    }
+
+    @Test("Manual scroll learning on new social sites emits the same numeric-only contract")
+    func socialSitesKeepNumericOnlyLearning() throws {
+        for site in [WebMorningSite.tiktok, .twitter, .reddit, .facebook, .threads] {
+            let host = try #require(site.table.startURL.host)
+            #expect(BrowserRhythmPolicy.permits(site: site, url: site.table.startURL))
+            let context = try page()
+            context.evaluateScript("location.hostname='\(host)';location.pathname='/';")
+            #expect(context.evaluateScript(BrowserRhythmPolicy.script(site: site, nonce: nonce))?.toBool() == true)
+            context.evaluateScript("event('pointerdown',nested);clock=100;nested.scrollTop=120;event('scroll',nested);flush();")
+            #expect(context.evaluateScript("messages[0].distance")?.toDouble() == 120)
+            #expect(context.evaluateScript("Object.keys(messages[0]).sort().join(',')")?.toString() == "clicks,distance,movingSeconds,nonce,scrollBursts")
+            #expect(context.exception == nil)
+        }
+    }
 }
 #endif

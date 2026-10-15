@@ -120,6 +120,9 @@
 		FCEB5801874646D787D3ED15 /* ObservationArchiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31A115980B5BD98DC6D7FA73 /* ObservationArchiveTests.swift */; };
 		FE568D140D396486190C7678 /* MorningRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6747EA739E37D1BC16D620F8 /* MorningRootView.swift */; };
 		FEE385A1EC3B443808EB198E /* MorningCore in Frameworks */ = {isa = PBXBuildFile; productRef = EBD538559CBDD64241C49056 /* MorningCore */; };
+		D8828881F8CA7B667856A7D0 /* APIConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8E406DEBAC799B0015BC35C /* APIConnectionsView.swift */; };
+		58DC21485994337726327064 /* NativeConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 348559DC533B336DEDC137DC /* NativeConnectionsView.swift */; };
+		05E8B0B6875F2E92B53A6C61 /* MorningStore+Connections.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2A21BF38FA95E0091671AFA /* MorningStore+Connections.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -280,6 +283,9 @@
 		F941677DE9F9C2E0BDA7D0AF /* ObservationNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationNarrationTests.swift; sourceTree = "<group>"; };
 		FAE1F21130C564BAC195962C /* MorningDockGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningDockGlyph.swift; sourceTree = "<group>"; };
 		FC47A69EEDB044D3AB6C6C0B /* WeeklyReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyReviewView.swift; sourceTree = "<group>"; };
+		F8E406DEBAC799B0015BC35C /* APIConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APIConnectionsView.swift"; sourceTree = "<group>"; };
+		348559DC533B336DEDC137DC /* NativeConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NativeConnectionsView.swift"; sourceTree = "<group>"; };
+		A2A21BF38FA95E0091671AFA /* MorningStore+Connections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Connections.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -438,6 +444,9 @@
 				7665B33053A581FA603175F0 /* MorningBriefingView.swift */,
 				ACCF08D94353F15FAFA50B03 /* MorningCaptureVoiceView.swift */,
 				1AA25AB737ED71ABB62FF647 /* MorningConnectionsView.swift */,
+				A2A21BF38FA95E0091671AFA /* MorningStore+Connections.swift */,
+				348559DC533B336DEDC137DC /* NativeConnectionsView.swift */,
+				F8E406DEBAC799B0015BC35C /* APIConnectionsView.swift */,
 				FAE1F21130C564BAC195962C /* MorningDockGlyph.swift */,
 				4F1FCFC06E0928B165AEA8ED /* MorningDottedArtwork.swift */,
 				DF2A1E48120A6B3AB7369321 /* MorningInlineDayStrip.swift */,
@@ -804,6 +813,9 @@
 				F65D3743724B35A6BB033D95 /* MorningBriefingView.swift in Sources */,
 				9FA98FC2D731D183E8C9200C /* MorningCaptureVoiceView.swift in Sources */,
 				3065D892F81F98569B7B5EAC /* MorningConnectionsView.swift in Sources */,
+				05E8B0B6875F2E92B53A6C61 /* MorningStore+Connections.swift in Sources */,
+				58DC21485994337726327064 /* NativeConnectionsView.swift in Sources */,
+				D8828881F8CA7B667856A7D0 /* APIConnectionsView.swift in Sources */,
 				6158EC91F25FB59F4C380817 /* MorningDockGlyph.swift in Sources */,
 				5A96EBE9FCC942921C823C14 /* MorningDottedArtwork.swift in Sources */,
 				F7CCEEA9F10ADE5E0F9D9829 /* MorningInlineDayStrip.swift in Sources */,
@@ -926,6 +938,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				MORNING_API_BASE_URL = "";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1124,6 +1137,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				MORNING_API_BASE_URL = "";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

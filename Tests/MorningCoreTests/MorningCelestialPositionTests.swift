@@ -4,56 +4,53 @@ import Testing
 
 @Suite("Celestial artwork follows local time")
 struct MorningCelestialPositionTests {
-    @Test func theSunStartsAtTheBottomCentreAndClimbsToMidday() {
-        let dawn = MorningCelestialClock.scene(atMinute: 6 * 60 + 45)
+    @Test func theSunMovesFromLeftToRightOverTheDaylightArc() {
+        let rise = MorningCelestialClock.scene(atMinute: 7 * 60)
         let morning = MorningCelestialClock.scene(atMinute: 9 * 60)
         let noon = MorningCelestialClock.scene(atMinute: 13 * 60)
-        #expect(dawn.sun.centerX == 0.5)
-        #expect(dawn.sun.centerY > 0.9)
-        #expect(dawn.sun.centerY > morning.sun.centerY)
+        let set = MorningCelestialClock.scene(atMinute: 19 * 60)
+        #expect(rise.sun.centerX == 0.12 && rise.sun.centerY == 0.76)
+        #expect(rise.sun.centerX < morning.sun.centerX && morning.sun.centerX < noon.sun.centerX)
         #expect(morning.sun.centerY > noon.sun.centerY)
-        #expect(abs(noon.sun.centerY - 0.2) < 0.001)
+        #expect(abs(noon.sun.centerX - 0.5) < 0.001 && abs(noon.sun.centerY - 0.18) < 0.001)
+        #expect(abs(set.sun.centerX - 0.88) < 0.001 && abs(set.sun.centerY - 0.76) < 0.001)
         #expect(noon.sun.opacity == 1 && noon.moon.opacity == 0)
     }
 
-    @Test func eveningLowersTheSunAndNightReplacesItWithTheMoon() {
-        let day = MorningCelestialClock.scene(for: .day)
-        let evening = MorningCelestialClock.scene(for: .evening)
-        let night = MorningCelestialClock.scene(for: .night)
-        #expect(evening.sun.centerY > day.sun.centerY)
-        #expect(night.sun.opacity == 0)
-        #expect(night.moon.opacity == 1)
-        #expect(night.moon.centerX == 0.5 && night.moon.centerY < 0.5)
+    @Test func theDecorativeMoonFollowsTheNightArcAcrossMidnight() {
+        let evening = MorningCelestialClock.scene(atMinute: 19 * 60)
+        let late = MorningCelestialClock.scene(atMinute: 22 * 60)
+        let middle = MorningCelestialClock.scene(atMinute: 60)
+        let dawn = MorningCelestialClock.scene(atMinute: 7 * 60)
+        #expect(evening.moon.centerX == 0.12 && evening.moon.centerY == 0.76)
+        #expect(evening.moon.centerX < late.moon.centerX && late.moon.centerX < middle.moon.centerX)
+        #expect(evening.moon.centerY > late.moon.centerY && late.moon.centerY > middle.moon.centerY)
+        #expect(abs(middle.moon.centerY - 0.18) < 0.001)
+        #expect(abs(dawn.moon.centerX - 0.88) < 0.001)
+        #expect(middle.sun.opacity == 0 && middle.moon.opacity == 1)
     }
 
-    @Test func theMoonRisesFromTheEveningHorizonAndLowersBeforeDawn() {
-        let horizon = MorningCelestialClock.scene(atMinute: 19 * 60)
-        let lateEvening = MorningCelestialClock.scene(atMinute: 22 * 60)
-        let middleNight = MorningCelestialClock.scene(atMinute: 60)
-        let beforeDawn = MorningCelestialClock.scene(atMinute: 5 * 60)
-        #expect(horizon.moon.centerX == 0.5 && horizon.moon.centerY == 0.94)
-        #expect(horizon.moon.centerY > lateEvening.moon.centerY)
-        #expect(lateEvening.moon.centerY > middleNight.moon.centerY)
-        #expect(abs(middleNight.moon.centerY - 0.24) < 0.001)
-        #expect(beforeDawn.moon.centerY > middleNight.moon.centerY)
-    }
-
-    @Test func everyMinuteIsFiniteBoundedAndContinuousIncludingMidnight() {
-        var prior = MorningCelestialClock.scene(atMinute: 0)
-        for minute in 1...1440 {
-            let next = MorningCelestialClock.scene(atMinute: Double(minute))
-            for body in [next.sun, next.moon] {
-                #expect(body.centerX.isFinite && body.centerY.isFinite && body.opacity.isFinite)
-                #expect((0...1).contains(body.opacity))
-                #expect((0.2...1.05).contains(body.centerY))
+    @Test func everyVisibleMinuteIsFiniteBoundedAndContinuousIncludingMidnight() {
+        for solar in [MorningSolarDay.fixed, .init(sunriseMinute: -400, sunsetMinute: 500),
+                      .init(sunriseMinute: 60, sunsetMinute: 1400)] {
+            var prior = MorningCelestialClock.scene(atMinute: 0, solar: solar)
+            for minute in 1...1440 {
+                let next = MorningCelestialClock.scene(atMinute: Double(minute), solar: solar)
+                for (before, body) in [(prior.sun, next.sun), (prior.moon, next.moon)] {
+                    #expect(body.centerX.isFinite && body.centerY.isFinite && body.opacity.isFinite)
+                    #expect((0...1).contains(body.opacity))
+                    #expect((0.12...0.88).contains(body.centerX) && (0.179...0.761).contains(body.centerY))
+                    // Invisible bodies reset behind the landscape for the following arc.
+                    if before.opacity > 0 || body.opacity > 0 {
+                        #expect(abs(body.centerX - before.centerX) < 0.012)
+                        #expect(abs(body.centerY - before.centerY) < 0.025)
+                    }
+                    #expect(abs(body.opacity - before.opacity) < 0.076)
+                }
+                prior = next
             }
-            #expect(abs(next.sun.centerY - prior.sun.centerY) < 0.01)
-            #expect(abs(next.moon.centerY - prior.moon.centerY) < 0.01)
-            #expect(abs(next.sun.opacity - prior.sun.opacity) < 0.026)
-            #expect(abs(next.moon.opacity - prior.moon.opacity) < 0.026)
-            prior = next
+            #expect(prior == MorningCelestialClock.scene(atMinute: 0, solar: solar))
         }
-        #expect(prior == MorningCelestialClock.scene(atMinute: 0))
     }
 
     @Test func datesUseTheProvidedLocalCalendarAndOutOfRangeMinutesWrap() throws {
@@ -67,13 +64,22 @@ struct MorningCelestialPositionTests {
 
     @Test func solarShiftAndInvalidSourcesCannotBreakTheJourney() {
         let winter = MorningSolarDay(sunriseMinute: 600, sunsetMinute: 840)
-        let winterDawn = MorningCelestialClock.scene(atMinute: 600, solar: winter)
-        #expect(winterDawn.sun.centerY == 0.94)
-        #expect(MorningCelestialClock.scene(atMinute: 720, solar: winter).sun.centerY < 0.21)
+        #expect(MorningCelestialClock.scene(atMinute: 600, solar: winter).sun.centerY == 0.76)
+        #expect(MorningCelestialClock.scene(atMinute: 720, solar: winter).sun.centerY < 0.19)
         for solar in [MorningSolarDay(sunriseMinute: .nan, sunsetMinute: .infinity),
-                      MorningSolarDay(sunriseMinute: 900, sunsetMinute: 300)] {
+                      MorningSolarDay(sunriseMinute: 900, sunsetMinute: 900)] {
             #expect(MorningCelestialClock.scene(atMinute: 540, solar: solar) == MorningCelestialClock.scene(atMinute: 540))
         }
         #expect(MorningCelestialClock.scene(atMinute: .nan).sun.centerY.isFinite)
+    }
+
+    @Test func polarDaysHoldTheirBodyWithoutAnInventedMidnightSunset() {
+        for condition in [MorningSolarDay.Condition.allDay, .allNight] {
+            let solar = MorningSolarDay(sunriseMinute: 0, sunsetMinute: 0, condition: condition)
+            let scene = MorningCelestialClock.scene(atMinute: 0, solar: solar)
+            #expect(scene == MorningCelestialClock.scene(atMinute: 12 * 60, solar: solar))
+            #expect(scene.sun.opacity == (condition == .allDay ? 1 : 0))
+            #expect(scene.moon.opacity == (condition == .allNight ? 1 : 0))
+        }
     }
 }

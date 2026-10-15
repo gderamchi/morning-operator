@@ -1,157 +1,275 @@
+import MorningApple
 import MorningCore
 import SwiftUI
 
-/// One visible sign-in queue, using the same WebKit store as the morning. Readiness
-/// is the person's confirmation, never a claim inferred from a cookie or URL.
+/// People choose an app; its supported connection route stays behind that choice.
 struct MorningConnectionsView: View {
     @Bindable var store: MorningStore
-    @State private var selected: Set<WebMorningSite> = []
-    @State private var ready: Set<WebMorningSite> = []
-    @State private var queue: [WebMorningSite] = []
-    @State private var currentSite: WebMorningSite?
-    @State private var learningSite: WebMorningSite?
-    @State private var hasLoadedSelection = false
+    @State private var services: [ComposioAvailableService] = []
+    @State private var connections: [ComposioConnection] = []
+    @State private var website: WebMorningSite?
+    @State private var learningWebsite = false
+    @State private var readySites: Set<WebMorningSite> = []
+    @State private var loading = false
+    @State private var loadFailed = false
+    @State private var whatsAppUnavailable = false
     @Environment(\.locale) private var locale
+    @Environment(\.openURL) private var openURL
 
-    private var routineSites: [WebMorningSite] {
-        var seen = Set<WebMorningSite>()
-        return (store.routine?.steps ?? []).compactMap { step in
-            let site: WebMorningSite?
-            switch step.target {
-            case let .inAppWeb(url): site = WebMorningSite(url: url)
-            case .externalApp(.instagram, _): site = .instagram
-            case .externalApp(.whatsapp, _): site = .whatsapp
-            default: site = nil
-            }
-            guard let site, site != .gmail, seen.insert(site).inserted else { return nil }
-            return site
-        }
-    }
-    private var nativeApps: [StepApp] {
-        var seen = Set<StepApp>()
-        return (store.routine?.steps ?? []).compactMap { step in
-            guard case let .externalApp(app, _) = step.target, seen.insert(app).inserted else { return nil }
-            return app
-        }
-    }
-    private var selectedSites: [WebMorningSite] {
-        WebMorningSite.allCases.filter { $0 != .gmail && selected.contains($0) }
-    }
+    private let everydayServices = ["outlook", "googlecalendar", "googledrive", "googledocs", "googlesheets", "notion", "slack", "calendly", "linkedin", "discord", "youtube", "reddit"]
+    private let professionalServices = ["instagram", "whatsapp", "facebook"]
 
     var body: some View {
-        Group {
-            if let site = learningSite {
-                WebMorningView(site: site, minutes: 1, isStepActive: false, learningOnly: true,
-                    onSaveRhythm: { store.saveBrowserRhythmObservation($0) },
-                    onClose: { learningSite = nil })
-                    .id("learn.\(site.rawValue)")
-            } else if let site = currentSite {
-                VStack(spacing: 0) {
-                    Text(text("\(ready.intersection(selected).count + 1) of \(selected.count)",
-                              "\(ready.intersection(selected).count + 1) sur \(selected.count)"))
-                        .font(.raleway(.caption).monospacedDigit()).foregroundStyle(MorningStyle.muted)
-                        .padding(.top, 8)
-                    WebMorningView(site: site, minutes: 1, isStepActive: false,
-                                   onSignInReady: { markReady(site) }, onClose: { currentSite = nil; queue = [] })
-                        .id(site)
-                }
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        PageHeading(eyebrow: text("Before your first morning", "Avant le premier matin"),
-                                    title: text("A little setup. Then you're home.", "Un instant de préparation. Puis à vous de jouer."),
-                                    subtitle: text("Connect Gmail below, or sign in to the websites your morning uses.",
-                                                   "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."))
-                        GmailConnectionView().id(store.dataGeneration)
-                            .disabled(store.privacyBlocksWork)
-                        VStack(spacing: 0) {
-                            ForEach(WebMorningSite.allCases.filter { $0 != .gmail }) { site in siteRow(site) }
-                        }
-                        Button {
-                            queue = selectedSites.filter { !ready.contains($0) }
-                            currentSite = queue.first
-                        } label: {
-                            Text(ready.isSuperset(of: selected) && !selected.isEmpty
-                                 ? text("All set for now", "Tout est prêt")
-                                 : text("Connect my websites", "Connecter mes sites"))
-                        }.buttonStyle(PrimaryButtonStyle())
-                            .disabled(selected.isEmpty || ready.isSuperset(of: selected) || store.privacyBlocksWork)
-                            .accessibilityIdentifier("connections.begin")
-                        if !ready.isEmpty {
-                            Text(text("Marked ready by you. Sites may ask you to sign in again.",
-                                      "Vous les avez indiqués prêts. Un site peut redemander une connexion."))
-                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                            ForEach(WebMorningSite.allCases.filter { $0 != .gmail && ready.contains($0) }) { site in
-                                Button {
-                                    learningSite = site
-                                } label: {
-                                    Label { Text(text("Learn my pace in \(site.displayName)", "Apprendre mon rythme sur \(site.displayName)")) } icon: {
-                                        MorningDottedIcon(systemName: "record.circle").frame(width: 20, height: 20)
-                                    }
-                                }.buttonStyle(SecondaryButtonStyle()).disabled(store.sessionActive || store.privacyBlocksWork)
-                            }
-                        }
-                        if !nativeApps.isEmpty {
-                            DisclosureGroup(text("Your other apps", "Vos autres apps")) {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    Text(nativeApps.map(\.displayName).joined(separator: ", "))
-                                    Text(text("Sign in inside each app. Their sign-ins are separate from MORE’s browser.",
-                                              "Connectez-vous dans chaque app. Leurs connexions restent distinctes du navigateur de MORE."))
-                                }.font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).padding(.top, 10)
-                            }.tint(MorningStyle.accent)
-                        }
-                        Text(text("MORE never reads your password. Choose “I'm ready” after signing in, or close a page to leave it for later.",
-                                  "MORE ne lit jamais votre mot de passe. Après connexion, choisissez « C’est prêt », ou fermez la page pour plus tard."))
-                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
-                    }.padding(24).frame(maxWidth: 600).frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .foregroundStyle(MorningStyle.ink)
-        .background(MorningPaper(showsSun: false))
-        .navigationTitle(text("Your websites", "Vos sites"))
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            guard !hasLoadedSelection else { return }
-            hasLoadedSelection = true
-            selected = Set(routineSites)
-        }
-        .onChange(of: store.dataGeneration) { _, _ in
-            currentSite = nil; learningSite = nil; queue = []; selected = []; ready = []
-        }
-    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                PageHeading(eyebrow: text("Make yourself at home", "À votre image"),
+                    title: text("Your apps, in one place.", "Vos apps, au même endroit."),
+                    subtitle: text("Choose what you want to bring into your morning.", "Choisissez ce qui vous accompagne le matin."))
 
-    private func siteRow(_ site: WebMorningSite) -> some View {
-        Button {
-            if selected.contains(site) { selected.remove(site) }
-            else { selected.insert(site) }
-        } label: {
-            HStack(spacing: 16) {
-                MorningDottedIcon(systemName: ready.contains(site) ? "checkmark" : selected.contains(site) ? "circle.fill" : "circle")
-                    .frame(width: 25, height: 25)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(site.displayName).font(MorningTheme.Typography.heading)
-                    if routineSites.contains(site) {
-                        Text(text("In your routine", "Dans votre routine")).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                connectionSection(text("Messages & your feed", "Messages et fil d’actualité")) {
+                    websiteButton(.instagram, detail: text("Your messages, stories and feed, in MORE.", "Vos messages, vos stories et votre fil, dans MORE."), symbol: "camera")
+                    websiteButton(.tiktok, detail: text("Watch and scroll through TikTok in MORE.", "Retrouvez TikTok et faites défiler ses vidéos dans MORE."), symbol: "play.rectangle")
+                    websiteButton(.twitter, detail: text("Read and scroll through X in MORE.", "Retrouvez X et faites défiler votre fil dans MORE."), symbol: "text.bubble")
+                    websiteButton(.whatsapp, detail: text("Link WhatsApp Web to find your personal conversations in MORE.", "Associez WhatsApp Web pour retrouver vos conversations personnelles dans MORE."), symbol: "bubble.left.and.bubble.right")
+                    whatsAppHelp
+                    DisclosureGroup(text("More places to explore", "D’autres réseaux à retrouver")) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            websiteButton(.reddit, detail: text("Browse your communities on Reddit’s website.", "Parcourez vos communautés sur le site de Reddit."), symbol: "bubble.left.and.bubble.right")
+                            websiteButton(.facebook, detail: text("Your personal Facebook feed, in MORE.", "Votre fil Facebook personnel, dans MORE."), symbol: "person.2")
+                            websiteButton(.threads, detail: text("Follow conversations on Threads, in MORE.", "Retrouvez les conversations Threads dans MORE."), symbol: "at")
+                        }.padding(.top, 12)
+                    }.tint(MorningStyle.ink).accessibilityIdentifier("connections.moreWebsites")
+                }
+
+                connectionSection(text("Your day", "Votre journée")) {
+                    NavigationLink { MorningBriefingView(store: store) } label: {
+                        connectionRow(title: text("Calendar & weather", "Calendrier et météo"),
+                            detail: text("Your schedule and the weather where you are going.", "Votre agenda et la météo de la ville de votre choix."),
+                            symbol: "sun.max", action: text("Choose", "Choisir"))
+                    }
+                    NavigationLink {
+                        NativeConnectionsView(store: store, service: store.nativeConnections, focus: .reminders)
+                    } label: {
+                        connectionRow(title: text("Reminders", "Rappels"),
+                            detail: text("Find your upcoming reminders and mark them done.", "Retrouvez vos prochains rappels et cochez ceux qui sont terminés."),
+                            symbol: "checklist", action: store.nativeConnections.hasReminderAccess ? text("Open", "Ouvrir") : text("Allow access", "Autoriser l’accès"))
                     }
                 }
-                Spacer()
-                if ready.contains(site) { Text(text("Ready", "Prêt")).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
-            }.padding(.vertical, 16).contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityAddTraits(selected.contains(site) ? .isSelected : [])
-            .accessibilityIdentifier("connections.\(site.rawValue)")
-            .overlay(alignment: .bottom) {
-                MorningDottedFrame(cornerRadius: 0, spacing: 9).fill(MorningStyle.line).frame(height: 3)
+
+                connectionSection(text("Your accounts", "Vos comptes")) {
+                    NavigationLink {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 24) {
+                                PageHeading(eyebrow: text("Your email", "Vos e-mails"), title: text("Read Gmail in MORE", "Lire Gmail dans MORE"),
+                                    subtitle: text("Read unread messages and prepare an editable reply.", "Lisez vos messages non lus et préparez une réponse à modifier."))
+                                GmailConnectionView(allowsReading: !store.privacyBlocksWork).id(store.dataGeneration)
+                            }.padding(24).frame(maxWidth: 640).frame(maxWidth: .infinity)
+                        }.background(MorningPaper(showsSun: false))
+                            .navigationTitle("Gmail").navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        connectionRow(title: text("Read Gmail in MORE", "Lire Gmail dans MORE"),
+                            detail: text("The same saved connection as your Gmail routine moments.", "La même connexion enregistrée que pour les moments Gmail de votre routine."),
+                            symbol: "envelope", action: text("Open reader", "Ouvrir le lecteur"))
+                    }.accessibilityIdentifier("connections.gmailReader")
+                    if isAvailable("gmail") {
+                        DisclosureGroup(text("More Gmail actions", "D’autres actions avec Gmail")) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(text("These account actions use a separate connection through Composio. They do not connect the reader above.",
+                                    "Ces actions utilisent une connexion distincte via Composio. Elles ne connectent pas le lecteur ci-dessus."))
+                                    .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
+                                providerRow("gmail")
+                            }.padding(.top, 12)
+                        }.tint(MorningStyle.ink).accessibilityIdentifier("connections.gmailActions")
+                    }
+                    if loading { ProgressView(text("Loading your accounts…", "Chargement de vos comptes…")).padding(.vertical, 8) }
+                    if !store.composio.isConfigured {
+                        Text(text("Account connections are not available in this version yet.", "La connexion à ces comptes n’est pas encore disponible dans cette version."))
+                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                    } else if loadFailed {
+                        Text(text("Your accounts could not be loaded. Please try again in a moment.", "Impossible de charger vos comptes. Réessayez dans un instant."))
+                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                        Button(text("Try again", "Réessayer")) { Task { await refresh() } }
+                            .buttonStyle(SecondaryButtonStyle()).disabled(loading)
+                    }
+                    ForEach(everydayServices.filter(isAvailable), id: \.self) { providerRow($0) }
+                    if !loading && !loadFailed && services.isEmpty && store.composio.isConfigured {
+                        Text(text("More account connections will appear here when they are available.", "Les comptes disponibles à connecter apparaîtront ici."))
+                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                    }
+                }
+
+                connectionSection(text("A little more", "Pour aller plus loin")) {
+                    NavigationLink {
+                        NativeConnectionsView(store: store, service: store.nativeConnections, focus: .shortcuts)
+                    } label: {
+                        connectionRow(title: text("Messages, Notes & other iPhone apps", "Messages, Notes et autres apps iPhone"),
+                            detail: text("Use a shortcut you have prepared on your iPhone.", "Utilisez un raccourci que vous avez préparé sur votre iPhone."),
+                            symbol: "square.stack.3d.up", action: text("Set up", "Configurer"))
+                    }
+                    websiteButton(.youtube, detail: text("Watch a few videos at your own pace.", "Quelques vidéos, à votre rythme."), symbol: "play.rectangle")
+                    websiteButton(.news, detail: text("Keep a moment for the news.", "Gardez un moment pour l’actualité."), symbol: "newspaper")
+                    if professionalServices.contains(where: isAvailable) {
+                        DisclosureGroup(text("Professional accounts", "Comptes professionnels")) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(text("For publishing and professional tools. Instagram requires a professional account; WhatsApp requires a Business Cloud account; Facebook uses your Pages.",
+                                    "Pour les publications et outils professionnels. Instagram demande un compte professionnel, WhatsApp un compte Business Cloud et Facebook une Page."))
+                                    .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
+                                ForEach(professionalServices.filter(isAvailable), id: \.self) { providerRow($0) }
+                            }.padding(.top, 12)
+                        }.tint(MorningStyle.ink).accessibilityIdentifier("connections.professional")
+                    }
+                }
+
+                DisclosureGroup(text("How connections work", "Comment fonctionnent les connexions")) {
+                    Text(text("You choose what to authorize on each service’s sign-in page. Website sign-ins stay in MORE’s browser. Connected accounts use our connection service and Composio. You can disconnect an account from its page in MORE; website sessions can be cleared in Settings.",
+                        "Vous choisissez les accès sur la page de connexion de chaque service. Les sessions des sites restent dans le navigateur de MORE. Les comptes connectés passent par notre service de connexion et Composio. Vous pouvez déconnecter un compte depuis sa page dans MORE et effacer les sessions des sites dans Réglages."))
+                        .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).padding(.top, 8)
+                }.tint(MorningStyle.ink)
             }
+            .padding(MorningTheme.Space.gutter).frame(maxWidth: 640).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(MorningStyle.ink)
+        .background(MorningPaper(showsSun: false))
+        .navigationTitle(text("Apps & accounts", "Apps et comptes"))
+        .navigationBarTitleDisplayMode(.inline)
+        .disabled(store.privacyBlocksWork)
+        .navigationDestination(item: $website) { site in
+            WebMorningView(site: site, minutes: 1, isStepActive: false,
+                onSignInReady: learningWebsite ? nil : {
+                    guard !store.privacyBlocksWork, website == site else { return }
+                    readySites.insert(site); website = nil
+                }, learningOnly: learningWebsite,
+                onSaveRhythm: { store.saveBrowserRhythmObservation($0) },
+                onClose: { website = nil })
+                .id("\(site.rawValue).\(learningWebsite)")
+        }
+        .task(id: store.dataGeneration) { await refresh() }
+        .onChange(of: store.dataGeneration) { _, _ in
+            website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false
+        }
+        .onChange(of: store.privacyBlocksWork) { _, blocked in
+            if blocked { website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false }
+        }
     }
 
-    private func markReady(_ site: WebMorningSite) {
-        guard !store.privacyBlocksWork, currentSite == site else { return }
-        ready.insert(site)
-        queue.removeAll { $0 == site }
-        currentSite = queue.first
+    private func connectionSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title).font(MorningTheme.Typography.heading)
+            content()
+        }
     }
-    private func text(_ english: String, _ french: String) -> String {
-        locale.language.languageCode?.identifier == "fr" ? french : english
+
+    private func connectionRow(title: String, detail: String, symbol: String, action: String) -> some View {
+        Card {
+            HStack(alignment: .top, spacing: 14) {
+                MorningDottedIcon(systemName: symbol).frame(width: 28, height: 28).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title).font(MorningTheme.Typography.heading)
+                    Text(detail).font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted)
+                    Text(action).font(MorningTheme.Typography.label).foregroundStyle(MorningTheme.current.accentText)
+                }.fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).padding(.top, 6).accessibilityHidden(true)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }.contentShape(Rectangle())
     }
+
+    private func websiteButton(_ site: WebMorningSite, detail: String, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { learningWebsite = false; website = site } label: {
+                connectionRow(title: readySites.contains(site) ? site.displayName : text("Connect \(site.displayName)", "Connecter \(site.displayName)"),
+                    detail: detail, symbol: symbol,
+                    action: readySites.contains(site) ? text("Ready, as confirmed by you · Open", "Prêt, confirmé par vous · Ouvrir") : text("Sign in", "Se connecter"))
+            }.accessibilityIdentifier("connections.\(site.rawValue)")
+            if readySites.contains(site) {
+                Button(text("Learn my pace in \(site.displayName)", "Apprendre mon rythme sur \(site.displayName)")) {
+                    learningWebsite = true; website = site
+                }.buttonStyle(SecondaryButtonStyle()).disabled(store.sessionActive || store.busy)
+            }
+        }
+    }
+
+    private var whatsAppHelp: some View {
+        DisclosureGroup(text("Already using WhatsApp on this iPhone?", "WhatsApp est déjà installé sur cet iPhone ?")) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(text("To keep your conversations inside MORE, link WhatsApp Web as an additional device. Being signed in to the WhatsApp app does not share its conversations with MORE.",
+                    "Pour retrouver vos conversations dans MORE, associez WhatsApp Web comme appareil supplémentaire. La connexion à l’app WhatsApp ne partage pas ses conversations avec MORE."))
+                Text(text("On WhatsApp Web, choose phone-number linking if offered. In WhatsApp, open Settings → Linked devices and enter the code shown. QR linking needs another screen. Availability depends on WhatsApp; this iPhone browser may not be supported.",
+                    "Sur WhatsApp Web, choisissez l’association par numéro si elle est proposée. Dans WhatsApp, ouvrez Réglages → Appareils connectés et saisissez le code affiché. L’association par QR code nécessite un autre écran. WhatsApp peut limiter l’accès à ce navigateur iPhone."))
+                Button(text("Open the WhatsApp app", "Ouvrir l’app WhatsApp")) {
+                    let generation = store.dataGeneration
+                    openURL(URL(string: "whatsapp://")!) { accepted in
+                        guard generation == store.dataGeneration, !store.privacyBlocksWork else { return }
+                        whatsAppUnavailable = !accepted
+                    }
+                }.buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("connections.openWhatsApp")
+                if whatsAppUnavailable {
+                    Text(text("WhatsApp could not be opened. Check that it is installed on this iPhone.", "Impossible d’ouvrir WhatsApp. Vérifiez que l’app est installée sur cet iPhone."))
+                }
+                Text(text("Composio connects WhatsApp Business Platform accounts for professional actions. A personal WhatsApp account uses the website or the WhatsApp app.",
+                    "Composio connecte les comptes WhatsApp Business Platform pour leurs actions professionnelles. Pour un compte personnel, utilisez le site ou l’app WhatsApp."))
+                if isAvailable("whatsapp") { providerRow("whatsapp") }
+            }.font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted).padding(.top, 12)
+        }.tint(MorningStyle.ink).accessibilityIdentifier("connections.whatsappHelp")
+    }
+
+    private func isAvailable(_ id: String) -> Bool { services.contains { $0.id == id } }
+
+    private func providerRow(_ id: String) -> some View {
+        let info = providerInfo(id)
+        let connected = connections.contains { $0.service == id && $0.isActive }
+        return NavigationLink {
+            APIConnectionsView(service: store.composio, serviceID: id, privacyBlocked: store.privacyBlocksWork,
+                privacyGeneration: store.dataGeneration, onAddToRoutine: { connection, tool, arguments in
+                    store.addAPIAction(connection: connection, tool: tool, argumentsJSON: arguments)
+                })
+        } label: {
+            connectionRow(title: connected ? info.name : text("Connect \(info.name)", "Connecter \(info.name)"),
+                detail: info.detail, symbol: info.symbol,
+                action: connected ? text("Connected · Manage", "Connecté · Gérer") : text("Sign in", "Se connecter"))
+        }.accessibilityIdentifier("connections.account.\(id)")
+    }
+
+    private func providerInfo(_ id: String) -> (name: String, detail: String, symbol: String) {
+        switch id {
+        case "gmail": ("Gmail", text("Your email and the actions you choose.", "Vos e-mails et les actions que vous choisissez."), "envelope")
+        case "outlook": ("Outlook", text("Your Microsoft email and calendar.", "Vos e-mails et votre calendrier Microsoft."), "envelope.badge")
+        case "googlecalendar": ("Google Calendar", text("Your events, connected to your morning.", "Vos événements, au fil de votre matin."), "calendar")
+        case "googledrive": ("Google Drive", text("Find the files you need.", "Retrouvez les fichiers dont vous avez besoin."), "folder")
+        case "googledocs": ("Google Docs", text("Your documents, close at hand.", "Vos documents, à portée de main."), "doc.text")
+        case "googlesheets": ("Google Sheets", text("Find and use your spreadsheets.", "Retrouvez et utilisez vos feuilles de calcul."), "tablecells")
+        case "notion": ("Notion", text("Your pages, notes and plans.", "Vos pages, vos notes et vos projets."), "note.text")
+        case "slack": ("Slack", text("Your workspace conversations.", "Les conversations de votre espace de travail."), "number")
+        case "calendly": ("Calendly", text("Keep track of your bookings.", "Gardez un œil sur vos rendez-vous."), "calendar.badge.clock")
+        case "linkedin": ("LinkedIn", text("Your profile and publications.", "Votre profil et vos publications."), "person.crop.square")
+        case "discord": ("Discord", text("Your profile and communities.", "Votre profil et vos communautés."), "person.2")
+        case "youtube": ("YouTube", text("Your channel, playlists and available account actions.", "Votre chaîne, vos playlists et les actions disponibles pour votre compte."), "play.rectangle")
+        case "reddit": ("Reddit", text("Your communities, posts and available account actions.", "Vos communautés, vos publications et les actions disponibles pour votre compte."), "bubble.left.and.bubble.right")
+        case "twitter": ("X (Twitter)", text("Your posts and the account actions you authorize.", "Vos publications et les actions que vous autorisez sur votre compte."), "text.bubble")
+        case "tiktok": ("TikTok", text("Your profile, videos and available account actions.", "Votre profil, vos vidéos et les actions disponibles pour votre compte."), "play.rectangle")
+        case "instagram": (text("Instagram professional", "Instagram professionnel"), text("Publishing and professional account tools.", "Publications et outils de compte professionnel."), "camera")
+        case "whatsapp": ("WhatsApp Business Cloud", text("Messaging for your business account.", "Les messages de votre compte professionnel."), "bubble.left.and.bubble.right")
+        case "facebook": ("Facebook Pages", text("Your Pages and their professional conversations.", "Vos Pages et leurs conversations professionnelles."), "flag")
+        default: (services.first { $0.id == id }?.name ?? id, "", "link")
+        }
+    }
+
+    @MainActor private func refresh() async {
+        guard store.composio.isConfigured, !store.privacyBlocksWork else { return }
+        let generation = store.dataGeneration
+        loading = true; loadFailed = false
+        defer { if store.dataGeneration == generation { loading = false } }
+        do {
+            let freshServices = try await store.composio.services()
+            let freshConnections = try await store.composio.connections()
+            try Task.checkCancellation()
+            guard store.dataGeneration == generation, !store.privacyBlocksWork else { return }
+            services = freshServices; connections = freshConnections
+        } catch is CancellationError { }
+        catch {
+            guard store.dataGeneration == generation, !store.privacyBlocksWork else { return }
+            loadFailed = true
+        }
+    }
+    private func text(_ english: String, _ french: String) -> String { locale.language.languageCode?.identifier == "fr" ? french : english }
 }

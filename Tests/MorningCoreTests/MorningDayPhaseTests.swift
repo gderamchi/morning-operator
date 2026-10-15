@@ -72,7 +72,9 @@ struct MorningDayPhaseTests {
 
     @Test func shortAndLongSolarDaysStayOrderedAndInvalidDaysUseTheFixedClock() {
         for solar in [MorningSolarDay(sunriseMinute: 600, sunsetMinute: 840),
-                      MorningSolarDay(sunriseMinute: 240, sunsetMinute: 1320)] {
+                      MorningSolarDay(sunriseMinute: 240, sunsetMinute: 1320),
+                      MorningSolarDay(sunriseMinute: 5, sunsetMinute: 1435),
+                      MorningSolarDay(sunriseMinute: -400, sunsetMinute: 500)] {
             let frames = MorningDayClock.keyframes(for: solar)
             #expect(zip(frames, frames.dropFirst()).allSatisfy { $0.minute < $1.minute })
             for minute in stride(from: 0.0, through: 1440, by: 1) {
