@@ -6,12 +6,15 @@ import MorningCore
 struct NativeMomentReviewView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Bindable var store: MorningStore
+    var initiallyExpanded = false
     @ViewState<String> private var request = ""
     @ViewState<String> private var title = ""
     @ViewState<Date> private var date = Date().addingTimeInterval(3_600)
     @ViewState<Bool> private var hasDate = false
     @ViewState<Int> private var duration = 30
     @ViewState<Bool> private var expanded = false
+    @FocusState private var focusedInput: Input?
+    private enum Input: Hashable { case request, title }
     private var native: NativeMomentConversation { store.nativeMoment }
     private var french: Bool { AppLanguage.isFrench }
 
@@ -28,8 +31,9 @@ struct NativeMomentReviewView: View {
                 Text(french ? "Dites « rappelle-moi de… », « ajoute un événement… » ou « lis mes rappels ». Vous pouvez aussi préparer la demande ici." : "Say “remind me to…”, “add an event…” or “read my reminders”. You can also prepare the request here.")
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted).fixedSize(horizontal: false, vertical: true)
                 TextField(french ? "Votre demande" : "Your request", text: $request, axis: .vertical)
-                    .textFieldStyle(.roundedBorder).accessibilityIdentifier("nativeMoment.request")
+                    .textFieldStyle(.roundedBorder).focused($focusedInput, equals: .request).accessibilityIdentifier("nativeMoment.request")
                 Button(french ? "Préparer la demande" : "Prepare request") {
+                    focusedInput = nil
                     let text = request; request = ""
                     store.performNativeMoment { _, _ in _ = await store.handleNativeMomentUtterance(text) }
                 }.buttonStyle(SecondaryButtonStyle()).disabled(request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || native.phase == .writing)
@@ -44,7 +48,7 @@ struct NativeMomentReviewView: View {
                 }
                 if native.draftKind != nil {
                         TextField(french ? "Titre" : "Title", text: Binding(get: { title }, set: { title = $0; stageEdits() }), axis: .vertical)
-                            .textFieldStyle(.roundedBorder).accessibilityIdentifier("nativeMoment.title")
+                            .textFieldStyle(.roundedBorder).focused($focusedInput, equals: .title).accessibilityIdentifier("nativeMoment.title")
                         Toggle(french ? "Date et heure" : "Date and time", isOn: Binding(get: { hasDate }, set: { hasDate = $0; stageEdits() }))
                         if hasDate { DatePicker(french ? "Quand" : "When", selection: Binding(get: { date }, set: { date = $0; stageEdits() })).accessibilityIdentifier("nativeMoment.date") }
                         if native.draftKind == .calendar {
@@ -52,16 +56,18 @@ struct NativeMomentReviewView: View {
                                 .accessibilityIdentifier("nativeMoment.duration")
                         }
                         Button(french ? "Relire ces modifications" : "Review these changes") {
+                            focusedInput = nil
                             let editedTitle = title, editedDate = hasDate ? date : nil, editedDuration = duration
                             store.performNativeMoment { native, context in await native.edit(title: editedTitle, date: editedDate, durationMinutes: editedDuration, context: context) }
                         }.buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("nativeMoment.editReview")
                 }
                 if let action = native.action {
                     if native.phase == .reviewing {
-                        Button(french ? "J’ai lu ces détails" : "I reviewed these details") { native.acknowledgeScreenReview(); store.speech.stop() }
+                        Button(french ? "J’ai lu ces détails" : "I reviewed these details") { focusedInput = nil; native.acknowledgeScreenReview(); store.speech.stop() }
                             .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("nativeMoment.reviewed")
                     }
                     Button(action.isCompletion ? (french ? "Confirmer : marquer terminé" : "Confirm: mark complete") : (french ? "Confirmer l’ajout" : "Confirm addition")) {
+                        focusedInput = nil
                         store.performNativeMoment { native, context in _ = await native.respond(action.isCompletion ? "mark complete" : "add it", context: context) }
                     }.buttonStyle(PrimaryButtonStyle()).disabled(!native.canConfirm || hasUnreviewedEdits(action))
                         .accessibilityIdentifier("nativeMoment.confirm")
@@ -80,8 +86,8 @@ struct NativeMomentReviewView: View {
             }.padding(.top, 12)
         } label: {
             Label(french ? "Rappels et calendrier" : "Reminders and Calendar", systemImage: "calendar.badge.plus")
-                .font(.raleway(.subheadline))
-        }.tint(MorningStyle.accent).accessibilityIdentifier("nativeMoment.open")
+                .font(.raleway(.subheadline)).accessibilityIdentifier("nativeMoment.open")
+        }.tint(MorningStyle.accent)
             .onChange(of: native.reviewID) { _, _ in loadDraft(); expanded = true }
             .onChange(of: native.phase) { _, phase in
                 if phase == .idle { resetInputs() } else { expanded = true; loadDraft() }
@@ -90,13 +96,13 @@ struct NativeMomentReviewView: View {
             .onChange(of: scenePhase) { _, phase in if phase != .active { resetInputs() } }
             .onChange(of: store.dataGeneration) { _, _ in resetInputs() }
             .onChange(of: store.currentStep?.id) { _, _ in resetInputs() }
-            .onAppear { loadDraft(); expanded = native.context != nil }
+            .onAppear { loadDraft(); expanded = initiallyExpanded || native.context != nil }
             .onDisappear { resetInputs() }
     }
 
     private func resetInputs() {
         request = ""; title = ""; date = Date().addingTimeInterval(3_600)
-        hasDate = false; duration = 30; expanded = false
+        hasDate = false; duration = 30; expanded = false; focusedInput = nil
     }
     private func loadDraft() {
         guard let selectedTitle = native.draftTitle else { return }

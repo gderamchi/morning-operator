@@ -761,6 +761,80 @@ struct GmailMorningTests {
         #expect(mail.state == .uncertain && mail.lastSendOutcome == .uncertain && posts == 1)
     }
 
+    @Test func expiredBudgetKeepsReviewedDraftAndExtensionNeverRefetchesOrSends() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var inboxFetches = 0, posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" { posts += 1; return response(request, ["id": "sent123"]) }
+            if request.url?.path.hasSuffix("/messages") == true {
+                inboxFetches += 1; return response(request, ["messages": [["id": "a1"]]])
+            }
+            return response(request, object("a1", subject: "Invented", body: "Invented request"))
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let mail = GmailMorningConversation(service: service,
+            drafts: GmailReplyDraftService(generator: { _ in "Exact retained draft." }), privacy: context.privacy, speak: { _ in })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await mail.begin(context: id, generation: nil)
+        await mail.respond("oui", context: id)
+        await mail.respond("Invented intention", context: id)
+        let draft = mail.draftText, recipient = mail.recipient, summary = mail.summary
+        #expect(mail.hasUnfinishedIntention && mail.state == .reviewingReply)
+        #expect(GmailMomentBudgetPolicy.decision(state: mail.state, readOutcome: mail.readOutcome,
+            hasUnfinishedIntention: mail.hasUnfinishedIntention, hasUncertainRecord: false,
+            workInFlight: false) == .pauseKeepingDialogue)
+        var timer = StepTimer(sessionID: id.sessionID, stepID: id.stepID, minutes: 1, at: instant)
+        timer.markOpened(at: instant)
+        let end = instant.addingTimeInterval(60)
+        let claimed = timer.claimAlert(at: end)
+        #expect(claimed)
+        timer.pause(at: end)
+        // The same pause boundary used by the Store does not clear the mail dialogue.
+        mail.cancel()
+        try StepTimerFile.save(timer, directory: context.directory)
+        let extended = try #require(StepTimerFile.update(sessionID: id.sessionID, stepID: id.stepID,
+            directory: context.directory, { $0.extend(expectedEnd: end, at: end.addingTimeInterval(600)) }))
+        var resumed = extended.0
+        resumed.resume(at: end.addingTimeInterval(600))
+        try StepTimerFile.save(resumed, directory: context.directory)
+        #expect(resumed.remaining(at: end.addingTimeInterval(600)) == 120)
+        #expect(mail.context == id && mail.draftText == draft && mail.recipient == recipient && mail.summary == summary)
+        #expect(mail.state == .reviewingReply && inboxFetches == 1 && posts == 0)
+        await mail.respond("envoie", context: id)
+        #expect(posts == 1 && inboxFetches == 1 && mail.lastSendOutcome == .sent)
+    }
+
+    @Test func unavailableRereadCannotResolveTheEarlierUncertainEffectAtDeadline() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var readFails = false, posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" { posts += 1; throw URLError(.timedOut) }
+            if readFails { throw URLError(.notConnectedToInternet) }
+            return response(request, ["resultSizeEstimate": 0])
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let mail = GmailMorningConversation(service: service, privacy: context.privacy, speak: { _ in })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await mail.begin(context: id, generation: nil)
+        await mail.beginSelfMessage(intention: "objet «Test MORE» texte «Exact body»", context: id)
+        await mail.respond("envoie", context: id)
+        let persistedOutcome = try #require(mail.interruptedExecutionOutcome)
+        #expect(persistedOutcome == .uncertain && posts == 1)
+        readFails = true
+        // Restoring source text is a new read, never evidence about the older POST.
+        await mail.begin(context: id, generation: nil)
+        #expect(mail.state == .unavailable && mail.lastSendOutcome == nil)
+        #expect(GmailMomentBudgetPolicy.decision(state: mail.state, readOutcome: mail.readOutcome,
+            hasUnfinishedIntention: mail.hasUnfinishedIntention, hasUncertainRecord: persistedOutcome == .uncertain,
+            workInFlight: false) == .pauseKeepingDialogue)
+        mail.cancel()
+        #expect(posts == 1)
+    }
+
     @MainActor private final class MailHandoffNativeProvider: NativeMomentProviding {
         func destination(for kind: CaptureDestination) throws -> NativeMomentDestination {
             .init(id: "synthetic-list", sourceID: "synthetic-account", title: "Synthetic list", sourceTitle: "Synthetic account", kind: kind)

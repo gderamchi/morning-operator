@@ -6,7 +6,7 @@ import UIKit
 extension MorningStore {
     var activeStepTimer: StepTimer? {
         _ = stepTimerRevision
-        guard sessionActive, let session, let step = currentStep, step.target != nil || step.automation == .timedMoment,
+        guard sessionActive, let session, let step = currentStep, step.target != nil || step.automation == .timedMoment || step.automation == .gmailInbox,
               let timer = StepTimerFile.load(), timer.belongs(to: session.id, stepID: step.id) else { return nil }
         return timer
     }
@@ -14,7 +14,7 @@ extension MorningStore {
     /// A target's budget keeps running while its app is in front. Ordinary MORE
     /// narration keeps its existing pause-on-background behavior.
     var keepsTimerInBackground: Bool {
-        if currentStep?.webBehavior != nil { return false }
+        if currentStep?.webBehavior != nil || currentStep?.automation == .gmailInbox { return false }
         if case .connectedAPI = currentStep?.target { return false }
         return session?.status == .running && activeStepTimer?.pausedAt == nil && activeStepTimer != nil
     }
@@ -22,7 +22,7 @@ extension MorningStore {
     @discardableResult
     func beginTargetStep() -> Bool {
         guard let session, session.status == .running, let step = currentStep,
-              step.target != nil || step.automation == .timedMoment else {
+              step.target != nil || step.automation == .timedMoment || step.automation == .gmailInbox else {
             endStepTimer(); return false
         }
         do {
@@ -82,7 +82,7 @@ extension MorningStore {
                     runConnectedAction(service: service, connectionID: connectionID, tool: tool,
                         argumentsJSON: arguments, sessionID: session.id, stepID: step.id)
                 case nil:
-                    if readAloud { speech.speak("\(step.title). \(step.detail)") }
+                    if step.automation != .gmailInbox, readAloud { speech.speak("\(step.title). \(step.detail)") }
                 }
             }
             synchronizeMorningActivity()
@@ -134,9 +134,25 @@ extension MorningStore {
     func extendStepTimer(expectedTimer: StepTimer? = nil) async {
         guard !privacyBlocksWork, let timer = activeStepTimer else { return }
         if let expectedTimer, !expectedTimer.belongs(to: timer.sessionID, stepID: timer.stepID) { return }
-        _ = await StepTimerExtension.addTwoMinutes(sessionID: timer.sessionID, stepID: timer.stepID,
+        let generation = dataGeneration
+        let pauseRevision = handsFreePauseRevision
+        let context = session.flatMap { session in currentStep.map {
+            MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: $0.id)
+        } }
+        let resumesMail = currentStep?.automation == .gmailInbox && session?.status == .paused &&
+            (mailBudgetDeadlinePaused == context || (timer.hasAlertedCurrentEnd && timer.isExpired(at: Date()))) &&
+            mailMorning.context == context && !nativeMoment.isActive
+        let result = await StepTimerExtension.addTwoMinutes(sessionID: timer.sessionID, stepID: timer.stepID,
             expectedEnd: expectedTimer?.endsAt ?? timer.endsAt)
+        guard dataGeneration == generation, !privacyBlocksWork,
+              session?.id == timer.sessionID, currentStep?.id == timer.stepID else { return }
         stepTimerRevision += 1
+        if resumesMail, handsFreePauseRevision == pauseRevision, case .extended? = result, let context {
+            resumeForNext()
+            guard resumeMailBudget(context: context) else { return }
+            mailBudgetDeadlinePaused = nil
+            connectedActionStatus = mailMorning.message
+        }
         armStepTimer()
     }
 
@@ -167,7 +183,10 @@ extension MorningStore {
         nativeConnections.cancelPendingWork()
         stepTimerTask?.cancel(); stepTimerTask = nil
         let retired = StepTimerFile.clear()
-        if retired { connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment() }
+        if retired {
+            connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment()
+            mailBudgetWork = [:]; mailBudgetDeadlinePaused = nil
+        }
         StepTimerAlert.cancel()
         pendingWebTarget = nil
         stepTimerRevision += 1

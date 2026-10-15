@@ -83,6 +83,19 @@ extension MorningStore {
                 nextTargetStep(sessionID: utterance.context.sessionID, stepID: utterance.context.stepID, skipping: skipping)
             case .session(.repeatStep): readCurrent()
             case .session(.stop): stop()
+            case .refreshBriefing:
+                guard currentStep?.automation == .todayCalendar || currentStep?.automation == .morningBriefing else {
+                    speakHandsFree(french: "Ce moment n’est pas un briefing à actualiser. Dites répète, reprends ou suivant.",
+                        english: "This moment is not a briefing to refresh. Say repeat, resume, or next.")
+                    return
+                }
+                guard !nativeMoment.isActive else {
+                    speakHandsFree(french: "Une action attend votre choix. Terminez-la ou dites annule avant d’actualiser le briefing.",
+                        english: "An action is waiting for your choice. Finish it or say cancel before refreshing the briefing.")
+                    return
+                }
+                if session?.status == .running { pause() }
+                updateCurrentBriefing()
             case .extend:
                 guard activeStepTimer != nil else {
                     speakHandsFree(french: "Ce moment n'a pas de durée en cours. Dites reprends ou suivant.",

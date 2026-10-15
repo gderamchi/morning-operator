@@ -19,6 +19,7 @@ struct WebMorningView: View {
     var executionCanAdvance: (() -> Bool)?
     var onPause: (() -> Void)?
     var onResume: (() -> Void)?
+    var onNativeRequest: (() -> Void)?
     /// A sign-in pass is normal browsing, without routine timers or page readers.
     var onSignInReady: (() -> Void)?
     var learningOnly: Bool
@@ -42,6 +43,7 @@ struct WebMorningView: View {
          onExecutionEvent: ((WebMorningExecutionEvent) -> Void)? = nil,
          executionIsAuthorized: (() -> Bool)? = nil, executionCanAdvance: (() -> Bool)? = nil,
          onPause: (() -> Void)? = nil, onResume: (() -> Void)? = nil,
+         onNativeRequest: (() -> Void)? = nil,
          retainedController: WebMorningController? = nil,
          onClose: @escaping () -> Void) {
         self.site = site; self.isStepActive = isStepActive; self.stepEndsAt = stepEndsAt; self.timerPausedAt = timerPausedAt
@@ -50,6 +52,7 @@ struct WebMorningView: View {
         self.learningOnly = learningOnly; self.onSaveRhythm = onSaveRhythm
         self.executionPlan = executionPlan; self.onExecutionEvent = onExecutionEvent
         self.onPause = onPause; self.onResume = onResume
+        self.onNativeRequest = onNativeRequest
         self.executionIsAuthorized = executionIsAuthorized; self.executionCanAdvance = executionCanAdvance
         retainsRoutineController = retainedController != nil
         _controller = State(initialValue: retainedController ?? WebMorningController(site: site, initialURL: initialURL))
@@ -224,6 +227,12 @@ struct WebMorningView: View {
                     .accessibilityIdentifier("web.\(task.rawValue)")
                 } }
                 if executionPlan != nil {
+                    if let onNativeRequest {
+                        Button(action: onNativeRequest) {
+                            MorningDottedIcon(systemName: "calendar.badge.plus").frame(width: 23, height: 23).frame(width: 44, height: 44)
+                        }.accessibilityLabel(text("Reminders and Calendar", "Rappels et calendrier"))
+                            .accessibilityIdentifier("web.nativeRequest")
+                    }
                     if isStepActive, let onPause {
                         Button(action: onPause) {
                             MorningDottedIcon(systemName: "pause.fill").frame(width: 23, height: 23).frame(width: 44, height: 44)

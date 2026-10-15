@@ -4,6 +4,7 @@ import MorningCore
 public enum MorningHandsFreeControl: Sendable, Equatable {
     case session(MorningVoiceCommand)
     case extend
+    case refreshBriefing
 }
 
 /// Only whole, final user utterances authorize controls. Conversation text never
@@ -28,6 +29,8 @@ public enum MorningHandsFreeVoicePolicy {
         var words = normalized(text)
         if words.hasPrefix("more ") { words.removeFirst(5) }
         switch words {
+        case "actualise ce briefing", "actualise le briefing", "actualise ce recapitulatif", "mets a jour ce briefing",
+             "refresh this briefing", "update this briefing", "refresh this recap", "update this recap": return .refreshBriefing
         case "extend", "more time", "two more minutes", "add two minutes", "add 2 minutes",
              "prolonge", "prolonger", "encore deux minutes", "encore 2 minutes",
              "ajoute deux minutes", "ajoute 2 minutes": return .extend

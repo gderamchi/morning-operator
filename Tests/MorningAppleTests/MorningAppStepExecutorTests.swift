@@ -130,6 +130,32 @@ struct MorningAppStepExecutorTests {
                 "Blocked facts stay reviewable; playback must not silently replace them.")
     }
 
+    @Test(arguments: [RoutineStepAutomation.todayCalendar, .morningBriefing])
+    func explicitUpdateReplacesExpiredPinAndRepeatKeepsTheNewSource(operation: RoutineStepAutomation) async throws {
+        let original = try document(title: "Original synthetic facts")
+        let updatedAt = now.addingTimeInterval(301)
+        let fresh = try document(title: "Explicitly updated synthetic facts", preparedAt: updatedAt)
+        var clock = now, latest = original, preparations = 0
+        var utterances: [String] = []
+        let executor = MorningAppStepExecutor(prepare: { preparations += 1; return latest },
+            speak: { utterances.append($0) }, stop: {}, now: { clock }, timeZone: { "UTC" })
+        let step = RoutineStep(title: "Current day", automation: operation), context = context(step)
+        #expect(try await executor.execute(step: step, context: context) == .completed)
+        clock = updatedAt; latest = fresh
+        executor.cancelPlayback() // The ordinary Pause/Resume/Repeat keeps its source.
+        let expired = try await executor.execute(step: step, context: context)
+        guard case .unavailable = expired else { Issue.record("An expired pin must require explicit refresh."); return }
+        #expect(preparations == 1 && executor.pinnedBriefing?.id == original.id)
+        executor.clear() // The explicit updateCurrentBriefing path revokes that pin.
+        #expect(try await executor.execute(step: step, context: context) == .completed)
+        latest = original // An unrelated preview cannot undo the new reviewed source.
+        #expect(try await executor.execute(step: step, context: context) == .completed)
+        #expect(preparations == 2 && executor.pinnedBriefing?.id == fresh.id)
+        #expect(utterances == [MorningAppStepExecutor.text(for: operation, in: original),
+                               MorningAppStepExecutor.text(for: operation, in: fresh),
+                               MorningAppStepExecutor.text(for: operation, in: fresh)])
+    }
+
     @Test func configurationChangeDuringPreparationPreventsInitialSpeechAndPinning() async throws {
         let gate = ExecutorPreparationGate()
         let prepared = try document(title: "Late synthetic facts from an old selection")
@@ -169,7 +195,8 @@ struct MorningAppStepExecutorTests {
         .init(executionID: .init(sessionID: UUID(), routineVersionID: UUID(), stepID: step.id))
     }
 
-    private func document(title: String?, weather includeWeather: Bool = false) throws -> PreparedMorningBriefing {
+    private func document(title: String?, weather includeWeather: Bool = false, preparedAt: Date? = nil) throws -> PreparedMorningBriefing {
+        let now = preparedAt ?? self.now
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!
         let bounds = calendar.dateInterval(of: .day, for: now)!

@@ -13,6 +13,7 @@ struct MorningConnectionsView: View {
     @State private var loading = false
     @State private var loadFailed = false
     @State private var whatsAppUnavailable = false
+    @State private var choosingBriefing = false
     @Environment(\.locale) private var locale
     @Environment(\.openURL) private var openURL
 
@@ -42,11 +43,11 @@ struct MorningConnectionsView: View {
                 }
 
                 connectionSection(text("Your day", "Votre journée")) {
-                    NavigationLink { MorningBriefingView(store: store) } label: {
+                    Button { choosingBriefing = true } label: {
                         connectionRow(title: text("Calendar & weather", "Calendrier et météo"),
                             detail: text("Your schedule and the weather where you are going.", "Votre agenda et la météo de la ville de votre choix."),
                             symbol: "sun.max", action: text("Choose", "Choisir"))
-                    }
+                    }.accessibilityIdentifier("connections.calendar")
                     NavigationLink {
                         NativeConnectionsView(store: store, service: store.nativeConnections, focus: .reminders)
                     } label: {
@@ -134,6 +135,7 @@ struct MorningConnectionsView: View {
         .navigationTitle(text("Apps & accounts", "Apps et comptes"))
         .navigationBarTitleDisplayMode(.inline)
         .disabled(store.privacyBlocksWork)
+        .sheet(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
         .navigationDestination(item: $website) { site in
             WebMorningView(site: site, minutes: 1, isStepActive: false,
                 onSignInReady: learningWebsite ? nil : {
@@ -153,10 +155,10 @@ struct MorningConnectionsView: View {
             store.webExecutionEvent = nil
         }
         .onChange(of: store.dataGeneration) { _, _ in
-            website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false
+            website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false; choosingBriefing = false
         }
         .onChange(of: store.privacyBlocksWork) { _, blocked in
-            if blocked { website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false }
+            if blocked { website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false; choosingBriefing = false }
         }
     }
 

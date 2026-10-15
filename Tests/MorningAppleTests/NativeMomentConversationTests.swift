@@ -322,6 +322,29 @@ struct NativeMomentConversationTests {
         #expect(provider.writes.isEmpty)
     }
 
+    @Test func confirmedCompletionRetiresWholeReadingAndCannotBeCountedAgain() async throws {
+        let provider = NativeMomentFakeProvider(), context = context(), path = directory()
+        defer { try? FileManager.default.removeItem(at: path) }
+        let first = NativeMomentFakeProvider.item("first"), second = NativeMomentFakeProvider.item("second")
+        provider.items = [first, second]
+        let conversation = NativeMomentConversation(provider: provider, directory: path, speak: { _ in })
+        _ = await conversation.respond("read my reminders", context: context)
+        _ = await conversation.respond("complete the first reminder", context: context)
+        _ = await conversation.respond("mark complete", context: context)
+        #expect(provider.writes == [.complete(first)]); #expect(conversation.observedReminders.isEmpty)
+        let journal = NativeMomentJournal(control: LocalDataControl(directory: path))
+        #expect(try journal.confirmedCount(contexts: [context], generation: nil) == 1)
+        _ = await conversation.respond("complete the first reminder", context: context)
+        _ = await conversation.respond("mark complete", context: context)
+        #expect(provider.writes == [.complete(first)]); #expect(conversation.action == nil)
+        #expect(try journal.confirmedCount(contexts: [context], generation: nil) == 1)
+        provider.items = [second]
+        _ = await conversation.respond("read my reminders", context: context)
+        _ = await conversation.respond("complete the first reminder", context: context)
+        #expect(conversation.action == .complete(second))
+        #expect(provider.writes.count == 1)
+    }
+
     @Test func privacyGenerationChangeBeforeConfirmPreventsWrite() async throws {
         let provider = NativeMomentFakeProvider(), context = context(), path = directory()
         defer { try? FileManager.default.removeItem(at: path) }

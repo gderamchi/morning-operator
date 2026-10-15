@@ -10,9 +10,16 @@ extension MorningStore {
                 routineVersionID: session.routine.id, stepID: step.id) else { return }
         guard recordExecution(.unavailable) else { pause(); return }
         if session.status == .running { pause() }
-        let recovery = AppLanguage.isFrench
-            ? "Votre matin est en pause. Dites reprends pour réessayer, suivant pour continuer ou arrête."
-            : "Your morning is paused. Say resume to retry, next to continue, or stop."
+        let recovery: String
+        if step.automation == .todayCalendar || step.automation == .morningBriefing {
+            recovery = AppLanguage.isFrench
+                ? "Votre matin est en pause. Vérifiez vos sources dans les réglages si besoin, puis dites actualise ce briefing pour une nouvelle lecture, suivant pour continuer ou arrête."
+                : "Your morning is paused. Check your sources in Settings if needed, then say refresh this briefing for a new reading, next to continue, or stop."
+        } else {
+            recovery = AppLanguage.isFrench
+                ? "Votre matin est en pause. Dites reprends pour réessayer, suivant pour continuer ou arrête."
+                : "Your morning is paused. Say resume to retry, next to continue, or stop."
+        }
         let message = reason + " " + recovery
         connectedActionStatus = message
         notice = nil
@@ -163,8 +170,10 @@ extension MorningStore {
 
     /// Time ends a budget. Only observed work may be recorded as performed.
     func finishAutomatedBudget(_ timer: StepTimer) -> Bool {
-        guard automatic, session?.status == .running, currentStep?.id == timer.stepID,
+        guard session?.status == .running, currentStep?.id == timer.stepID,
               session?.id == timer.sessionID, let step = currentStep else { return false }
+        if step.automation == .gmailInbox { return finishMailBudget(timer) }
+        guard automatic else { return false }
         if step.automation == .timedMoment {
             guard recordExecution(.budgetFinished) else { pause(); return true }
             advance(commandID: step.id)

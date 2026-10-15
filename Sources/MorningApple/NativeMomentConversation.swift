@@ -311,6 +311,10 @@ public enum NativeMomentError: LocalizedError, Sendable {
             // No await between durable reservation, effect, and durable receipt.
             let receipt = try provider.perform(action)
             try journal.confirm(id: operationID, fingerprint: fingerprint, receipt: receipt, generation: generation)
+            if action.isCompletion {
+                // Retiring the entire reading preserves the ordinal meanings the owner heard.
+                observedReminders = []; observedAt = nil
+            }
             phase = .completed
             message = confirmedText(action)
             self.action = nil; pendingInput = nil; reviewedID = nil; await say()

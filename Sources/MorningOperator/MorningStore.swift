@@ -247,6 +247,8 @@ final class MorningStore {
     }()
     @ObservationIgnored let connectedMoment = ConnectedMomentState()
     @ObservationIgnored let routineWebMoment = RoutineWebMomentRetainer()
+    @ObservationIgnored var mailBudgetWork: [UUID: MorningExecutionID] = [:]
+    @ObservationIgnored var mailBudgetDeadlinePaused: MorningExecutionID?
     @ObservationIgnored var connectedAPITask: Task<Void, Never>?
     @ObservationIgnored var nativeStepContext: (requestID: UUID, sessionID: UUID, stepID: UUID)?
     var connectedActionStatus: String?
@@ -1041,12 +1043,13 @@ final class MorningStore {
     }
 
     func updateCurrentBriefing() {
-        guard !privacyBlocksWork, !voiceInputBlocksPlayback, session?.status == .paused,
+        guard !privacyBlocksWork, !voiceInputBlocksPlayback, !nativeMoment.isActive, session?.status == .paused,
               let operation = currentStep?.automation,
               operation == .todayCalendar || operation == .morningBriefing else { return }
         cancelStepPlayback()
         stepExecutor.clear()
         briefing.cancelAndClear()
+        connectedActionStatus = nil; notice = nil
         readCurrent()
     }
 
@@ -2361,7 +2364,10 @@ final class MorningStore {
         guard openingPresentation == nil else { return }
         guard !voiceInputBlocksPlayback else { return }
         guard let session, session.status == .running else { return }
-        if currentStep?.automation == .gmailInbox { beginMailMorning(); return }
+        if currentStep?.automation == .gmailInbox {
+            guard beginTargetStep(), self.session?.status == .running, activeStepTimer != nil else { return }
+            beginMailMorning(); return
+        }
         if beginTargetStep() { return }
         recordExecution(.running)
         if automatic {
@@ -2504,6 +2510,7 @@ final class MorningStore {
         cancelVoiceCommandTurn()
         stopHandsFreeVoice()
         mailMorning.clear()
+        mailBudgetWork = [:]; mailBudgetDeadlinePaused = nil
         executionSpeechTask?.cancel(); executionSpeechTask = nil
         cancelCompletionCapture()
         releaseVoiceInput()
@@ -2554,7 +2561,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "browser-action-journal.json", "gmail-send-journal.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json"] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2629,6 +2636,7 @@ final class MorningStore {
         connectedMoment.clear()
         routineWebMoment.clear()
         stopHandsFreeVoice(); mailMorning.clear()
+        mailBudgetWork = [:]; mailBudgetDeadlinePaused = nil
         budgetAndFeedback = RoutineBudgetAndFeedback(); savedRunEndings = []
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
         pendingRecordingInterruption = nil; pendingRecordingContext = nil

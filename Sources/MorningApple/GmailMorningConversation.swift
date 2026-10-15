@@ -28,6 +28,10 @@ public final class GmailMorningConversation {
     public var canSendSelfMessage: Bool { isComposingSelfMessage && state == .reviewingSelfMessage && selfMessageDraft != nil && !sendReviewRevoked }
     public private(set) var context: MorningExecutionID?
     public var isCompleted: Bool { state == .completed }
+    public var hasUnfinishedIntention: Bool {
+        lastSendOutcome == nil && (isComposingSelfMessage || !draftText.isEmpty || !pendingIntention.isEmpty ||
+            [.askingForIntention, .preparingReply].contains(state))
+    }
     public var completedExecutionOutcome: RoutineExecutionRecord.Outcome? {
         guard isCompleted else { return nil }
         switch lastSendOutcome {

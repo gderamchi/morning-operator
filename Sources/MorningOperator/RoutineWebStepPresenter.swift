@@ -6,6 +6,7 @@ import MorningApple
 /// moment. Reopening its page never starts a second budget.
 private struct RoutineWebStepPresenter: ViewModifier {
     @Bindable var store: MorningStore
+    @State private var showingNativeRequest = false
 
     func body(content: Content) -> some View {
         content.fullScreenCover(isPresented: Binding(
@@ -36,9 +37,26 @@ private struct RoutineWebStepPresenter: ViewModifier {
                         return !store.speech.isSpeaking && !store.voiceInputBlocksPlayback
                     },
                     onPause: { store.pause() }, onResume: { store.resume() },
+                    onNativeRequest: {
+                        if store.session?.status == .running { store.pause() }
+                        showingNativeRequest = true
+                    },
                     retainedController: controller,
                     onClose: closePage)
                     .id(step.id)
+                    .sheet(isPresented: nativeRequestBinding(for: executionID)) { nativeRequestSheet }
+                    .onChange(of: store.nativeMoment.context) { _, context in
+                        if context == nil { showingNativeRequest = false }
+                    }
+                    .onChange(of: store.nativeMoment.message) { _, message in
+                        if !message.isEmpty, store.nativeMoment.context == executionID,
+                           store.session?.status == .paused { showingNativeRequest = true }
+                    }
+                    .onChange(of: store.session?.status) { _, status in
+                        if status != .paused { showingNativeRequest = false }
+                    }
+                    .onChange(of: store.dataGeneration) { _, _ in showingNativeRequest = false }
+                    .onChange(of: step.id) { _, _ in showingNativeRequest = false }
             } else {
                 VStack(spacing: 24) {
                     MorningDottedIcon(systemName: "globe").frame(width: 48, height: 48)
@@ -49,6 +67,41 @@ private struct RoutineWebStepPresenter: ViewModifier {
                     }.accessibilityLabel("Close").buttonStyle(.plain)
                 }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(MorningPaper(showsSun: false)).foregroundStyle(MorningStyle.ink)
+            }
+        }
+    }
+    private func nativeRequestBinding(for executionID: MorningExecutionID) -> Binding<Bool> {
+        Binding(get: {
+            !store.privacyBlocksWork && store.session?.status == .paused &&
+                showingNativeRequest &&
+                (store.nativeMoment.context == nil || store.nativeMoment.context == executionID)
+        }, set: { presented in
+            guard !presented else { return }
+            showingNativeRequest = false
+            if store.session?.status == .paused { store.clearNativeMoment() }
+        })
+    }
+    private var nativeRequestSheet: some View {
+        NavigationStack {
+            ScrollView {
+                NativeMomentReviewView(store: store, initiallyExpanded: true)
+                    .padding(24).frame(maxWidth: 640).frame(maxWidth: .infinity)
+                if !store.nativeMoment.isActive, store.session?.status == .paused {
+                    Button(AppLanguage.isFrench ? "Reprendre mon matin" : "Resume my morning") {
+                        showingNativeRequest = false
+                        store.resume()
+                    }.buttonStyle(PrimaryButtonStyle()).padding(.horizontal, 24)
+                        .accessibilityIdentifier("web.nativeResume")
+                }
+            }
+            .background(MorningPaper(showsSun: false))
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(AppLanguage.isFrench ? "Fermer la demande" : "Close request") {
+                        showingNativeRequest = false
+                        store.clearNativeMoment()
+                    }.accessibilityIdentifier("web.nativeClose")
+                }
             }
         }
     }

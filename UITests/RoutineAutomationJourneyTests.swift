@@ -3,6 +3,47 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    func testNativeCorrectionIsReachableInsideLiveBrowserWithoutLosingTheMoment() {
+        let app = launch(["--ui-testing-public-feed", "--ui-testing-native-actions", "--ui-testing-approved", "--ui-testing-hands-free"])
+        defer { app.terminate() }
+        reveal(app); app.buttons["morning.begin"].tap()
+        XCTAssertTrue(app.buttons["web.pause"].waitForExistence(timeout: 20))
+        let status = app.staticTexts["web.result"]
+        let observed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label MATCHES %@", ".*· ([2-9]|[1-9][0-9]+) contents viewed.*"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [observed], timeout: 40), .completed)
+        app.buttons["web.extend"].tap()
+        app.buttons["web.pause"].tap()
+        XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 5))
+        let count = observedContents(status.label)
+        let viewport = browserDiagnostic(status, key: "viewportY")
+        let source = browserDiagnostic(status, key: "sourceIdentity")
+        let remaining = app.staticTexts["web.remaining"].label
+        app.buttons["web.nativeRequest"].tap()
+        let request = app.descendants(matching: .any).matching(identifier: "nativeMoment.request").firstMatch
+        XCTAssertTrue(request.waitForExistence(timeout: 8))
+        request.tap(); request.typeText("Calendar: synthetic coffee Friday at ten")
+        tapVisible("nativeMoment.prepare", in: app)
+        XCTAssertTrue(app.staticTexts["nativeMoment.synthetic"].exists)
+        let title = app.descendants(matching: .any).matching(identifier: "nativeMoment.title").firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 8))
+        for _ in 0..<6 where !title.isHittable { app.swipeUp() }
+        XCTAssertTrue(title.isHittable)
+        title.tap(); title.typeText(" corrected")
+        XCTAssertTrue(app.buttons["nativeMoment.editReview"].exists)
+        XCTAssertFalse(app.buttons["nativeMoment.confirm"].exists, "An unsupported date must require details; it cannot prepare an Apple write.")
+        attach("automation-native-date-correction-inside-live-browser", app)
+        app.buttons["web.nativeClose"].tap()
+        XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 8))
+        XCTAssertEqual(app.staticTexts["web.host"].label, "www.reddit.com")
+        XCTAssertEqual(observedContents(status.label), count)
+        XCTAssertLessThanOrEqual(abs(browserDiagnostic(status, key: "viewportY") - viewport), 2)
+        XCTAssertEqual(browserDiagnostic(status, key: "sourceIdentity"), source)
+        XCTAssertEqual(app.staticTexts["web.remaining"].label, remaining)
+        attach("automation-native-correction-closed-same-browser-moment", app)
+        app.buttons["web.resume"].tap()
+        XCTAssertTrue(app.buttons["web.pause"].waitForExistence(timeout: 5))
+    }
+
     func testNativeRequestReviewAndBackgroundPrivacyUseExplicitSyntheticProvider() {
         let app = launch(["--ui-testing-native-actions", "--ui-testing-approved", "--ui-testing-hands-free"])
         defer { app.terminate() }
@@ -108,7 +149,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(status.waitForExistence(timeout: 20))
         XCTAssertTrue(status.label.contains("Your day is not ready"), status.label)
         XCTAssertTrue(status.label.contains("Your morning is paused"), status.label)
-        XCTAssertTrue(status.label.contains("Say resume to retry, next to continue"), status.label)
+        XCTAssertTrue(status.label.contains("say refresh this briefing for a new reading, next to continue"), status.label)
         XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
         XCTAssertTrue(app.staticTexts["morning.currentStep"].label.contains("Calendar unavailable"))
         attach("automation-unavailable-calendar-recovery", app)
@@ -133,17 +174,20 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["observations.choose"].waitForExistence(timeout: 8))
         app.buttons["observations.choose"].tap()
         tapVisible("observation.select.11111111-1111-4111-8111-111111111111", in: app)
+        attach("automation-french-largest-saved-source-selected", app)
         tapVisible("observations.suggestUpdate", in: app)
         XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 15))
-        let keep = visibleButton("proposal.keepCurrent", in: app)
+        let keep = fullyVisibleProposalButton("proposal.keepCurrent", in: app)
         XCTAssertTrue(keep.isHittable)
-        let edit = visibleButton("proposal.edit", in: app)
+        attach("automation-french-largest-keep-current", app)
+        let edit = fullyVisibleProposalButton("proposal.edit", in: app)
         attach("automation-french-largest-learned-proposal-actions", app)
         XCTAssertTrue(edit.isHittable)
         XCTAssertTrue(app.buttons["proposal.approve"].isHittable)
         edit.tap()
         XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["routine.approve"].isHittable)
+        attach("automation-french-largest-learned-draft-editor", app)
     }
 
     func testFrenchLargestTextKeepsDelegationAndApprovalReachable() {
@@ -314,6 +358,30 @@ final class RoutineAutomationJourneyTests: XCTestCase {
     }
     private func tapVisible(_ identifier: String, in app: XCUIApplication) {
         visibleButton(identifier, in: app).tap()
+    }
+    private func fullyVisibleProposalButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let button = app.buttons[identifier]
+        let viewportTop = app.buttons["proposal.close"].frame.maxY + 8
+        let viewportBottom = app.buttons["proposal.approve"].frame.minY - 8
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let startY = (viewportTop + viewportBottom) / 2
+        let start = origin.withOffset(CGVector(dx: app.frame.midX, dy: startY))
+        for _ in 0..<12 {
+            if button.exists, button.isHittable, button.frame.minY >= viewportTop, button.frame.maxY <= viewportBottom { break }
+            let requiredShift: CGFloat
+            if button.exists, button.frame.height > 0, button.frame.minY < viewportTop {
+                requiredShift = viewportTop + 8 - button.frame.minY
+            } else if button.exists, button.frame.height > 0 {
+                requiredShift = viewportBottom - 8 - button.frame.maxY
+            } else { requiredShift = -140 }
+            let shift = max(-140, min(140, requiredShift))
+            let end = origin.withOffset(CGVector(dx: app.frame.midX, dy: startY + shift))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        XCTAssertTrue(button.isHittable, "Unreachable proposal control: \(identifier)")
+        XCTAssertGreaterThanOrEqual(button.frame.minY, viewportTop, "The full control must clear the navigation bar.")
+        XCTAssertLessThanOrEqual(button.frame.maxY, viewportBottom, "The full control must clear the pinned delegation button.")
+        return button
     }
     private func visibleButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         let button = app.buttons[identifier]

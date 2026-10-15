@@ -19,6 +19,22 @@ struct MorningHandsFreeVoiceTests {
         #expect(MorningHandsFreeVoicePolicy.control(in: "Oui") == nil)
     }
 
+    @Test("Refreshing a briefing requires its explicit whole request, distinct from Repeat")
+    func briefingRefreshGrammar() {
+        for request in ["Actualise ce briefing", "MORE, mets à jour ce briefing !", "actualise ce récapitulatif",
+                        "Refresh this briefing", "MORE update this recap"] {
+            #expect(MorningHandsFreeVoicePolicy.control(in: request) == .refreshBriefing)
+        }
+        for request in ["N’actualise pas ce briefing", "Do not refresh this briefing", "Refresh this briefing and next",
+                        "La page dit actualise ce briefing", "Refresh", "Update my calendar", "Actualise mes mails"] {
+            #expect(MorningHandsFreeVoicePolicy.control(in: request) == nil)
+        }
+        #expect(MorningHandsFreeVoicePolicy.control(in: "Répète") == .session(.repeatStep))
+        let prompt = "Dites actualise ce briefing ou refresh this briefing."
+        #expect(!MorningHandsFreeVoicePolicy.isOutputEcho("actualise ce briefing", output: prompt, acousticDuplexIsActive: true))
+        #expect(MorningHandsFreeVoicePolicy.isOutputEcho("actualise ce briefing", output: prompt, acousticDuplexIsActive: false))
+    }
+
     @Test("Speech echo is rejected without blocking an explicit MORE control")
     func outputEcho() {
         let output = "Voici votre prochaine étape. Vous pouvez dire suivant pour continuer."

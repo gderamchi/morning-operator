@@ -20,9 +20,13 @@ An active hands-free morning owns continuous on-device recognition and duplex sp
 
 After an informational answer, an interrupted read-only/timed moment or a retained confirmed browser/account result can resume once after the answer actually finishes. An explicit Pause, replacement turn, changed moment, privacy transition or pending action invalidates that continuation. Resuming a confirmed account result does not execute its operation again. An unavailable native source pauses the same moment and explains Resume, Next and Stop; the recap retains the unavailable result.
 
+An expired Calendar/briefing reading can be explicitly replaced with **actualise ce briefing** / **refresh this briefing**. Repeat continues to refer to the pinned reading and does not silently fetch a new one. The refresh command is unavailable during another prepared or uncertain action.
+
 Gmail can request an optional **read and send** grant from its visible connection screen. Existing readonly grants stay readonly. A mail moment reads up to five unread messages, chooses up to three with an explicit urgency heuristic, quotes source excerpts and explains selection. It supports yes/no, message selection, reply intention, local drafting, corrections, read-back and explicit **send**. The model writes body text only; the observed message determines the recipient/thread. “Yes” does not send. Local generation unavailable still permits declining or continuing.
 
 An explicit self-note request can prepare a new message to the connected account's own profile address, including when its Inbox is empty. Subject and body can be edited in the moment. Review and Send are separate actions; editing invalidates the prepared send. This is a new self-addressed message, not a fabricated reply thread. Entering an Apple action retains a mail draft but revokes its send review, so a later Send first reads the draft again.
+
+The Gmail moment uses the session's persistent time budget and extension control. Its deadline waits for reading, generation, speech and sending work to settle. A verified reading with no unfinished intention can continue to the next moment; an unfinished draft or uncertain send pauses with the dialogue retained. Extending that deadline resumes the same dialogue and budget without fetching the Inbox or sending again. A new successful reading never overwrites an older uncertain send outcome.
 
 Sending claims a durable operation before POST, with a stable generated Message-ID. A timeout or crash checks Sent for that identity and never retransmits merely because search found nothing. The journal holds hashed identities/status, not mail text. Volatile mail clears on background; the session and content-free journal retain safe recovery. Forget stops microphone/workers and removes both browser and mail journals.
 
@@ -35,6 +39,8 @@ During an active morning, an explicit voice or interface request can prepare an 
 The person can also ask for upcoming reminders, choose one of the at most five observed items and explicitly mark it complete. The exact reminder, list, account and current fields are checked again before the write. A content-free durable claim precedes each write; only its observed receipt increments the session's confirmed Apple-action count. An uncertain write remains blocked rather than being repeated automatically. The current moment stays paused until Resume or Next, and a confirmed Apple action does not mark the unrelated moment complete.
 
 Drafts and reminder content clear on background, privacy cleanup and a changed moment. Confirmed factual details remain available to local questions only in the same foreground moment. Calendar rescheduling, attendees, recurrence, and contextual follow-up writes for the other connected services remain to be implemented and verified.
+
+The same action panel is available inside the routine browser, including when a spoken date needs interface correction. It presents over the retained page while that moment is paused. Closing the request leaves the same browser content and budget ready to resume.
 
 ## Verification boundaries
 
