@@ -306,7 +306,9 @@ final class SunriseDockTests: XCTestCase {
     }
 
     private func attach(_ name: String, _ app: XCUIApplication) {
-        attach(name, app.screenshot())
+        // On this simulator SDK app.screenshot() crops landscape frames into a
+        // portrait bitmap. The screen capture preserves the real rendered view.
+        attach(name, app.frame.width > app.frame.height ? XCUIScreen.main.screenshot() : app.screenshot())
     }
 
     private func skyPixels(_ screenshot: XCUIScreenshot) -> Data? {
