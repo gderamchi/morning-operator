@@ -572,7 +572,27 @@ extension RealPhoneConnectionAcceptanceTests {
         }
         XCTAssertTrue(selfNoteWait(current, predicate: NSPredicate(format: "exists == true AND label == %@", "Mail"), timeout: 15),
                       "Five Next actions did not reach the reviewed Mail moment.")
+        guard !app.buttons["nativeMoment.cancel"].exists else {
+            throw XCTSkip("A native request is still active. The mail dialogue was not changed.")
+        }
+        let unresolved = app.staticTexts.matching(NSPredicate(format:
+            "identifier == %@ AND (label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@)",
+            "moment.connectedResult", "L’envoi n’est pas confirmé", "Gmail a refusé l’envoi", "Une autre réponse a déjà été tentée")).firstMatch
+        guard !unresolved.exists else { throw XCTSkip("An existing send requires reconciliation; no draft or retry was prepared.") }
         if !app.textFields["mail.selfSubject"].exists {
+            // Foreground restoration preserves the paused moment while clearing
+            // private mail text. Continue resumes that same moment, never Start.
+            let remaining = app.staticTexts["morning.remaining"]
+            if remaining.exists && remaining.label.range(of: #"^0+:00$"#, options: .regularExpression) != nil {
+                let extend = app.buttons["morning.extend"]
+                try revealRoutineControl(extend)
+                extend.tap() // One ordinary +2 minute extension for this acceptance window.
+            }
+            let playback = app.buttons["morning.playback"]
+            if playback.exists && (playback.label.contains("Continue") || playback.label.contains("Continuer")) {
+                try revealRoutineControl(playback)
+                playback.tap()
+            }
             let compose = app.buttons["mail.composeSelf"]
             guard selfNoteWait(compose, predicate: NSPredicate(format: "exists == true AND enabled == true"), timeout: 45) else {
                 try refusePermissionOrFixtureScreens()
@@ -596,28 +616,37 @@ extension RealPhoneConnectionAcceptanceTests {
         let priorSubject = subject.value as? String ?? ""
         let priorBody = body.value as? String ?? ""
         guard ["", "Subject", "Objet", exactSubject].contains(priorSubject),
-              ["", exactBody].contains(priorBody), send.exists && !send.isEnabled else {
-            throw XCTSkip("The existing draft is edited, reviewed or ambiguous. It was not overwritten or sent.")
+              ["", exactBody].contains(priorBody), send.exists else {
+            throw XCTSkip("The existing draft is edited or ambiguous. It was not overwritten or sent.")
         }
-        try revealRoutineControl(subject, towardTopWhenMissing: true)
-        subject.tap()
-        if priorSubject != exactSubject { subject.typeText(exactSubject) }
-        // Submit this single-line field normally so the keyboard cannot pin the
-        // parent's viewport to it while revealing the separate TextEditor.
-        subject.typeText("\n")
-        XCTAssertTrue(subject.value as? String == exactSubject, "Submitting Subject changed its exact text.")
-        try revealRoutineControl(body)
-        body.tap()
-        if priorBody.isEmpty { body.typeText(exactBody) }
-        // A downward gesture in this panel dismisses its interactive keyboard.
-        routineScrollSurface.swipeDown()
+        if priorSubject == exactSubject && priorBody == exactBody && send.isEnabled {
+            let ready = XCTAttachment(string: "Exact own-profile draft retained; completed review remains enabled. No edit or Send pressed.")
+            ready.name = "real-phone-reviewed-self-note-retained-without-editing"
+            ready.lifetime = .keepAlways; add(ready)
+            return
+        }
+        guard !send.isEnabled else { throw XCTSkip("A different reviewed draft was not edited or sent.") }
+        if priorSubject != exactSubject || priorBody != exactBody {
+            try revealRoutineControl(subject, towardTopWhenMissing: true)
+            subject.tap()
+            if priorSubject != exactSubject { subject.typeText(exactSubject) }
+            subject.typeText("\n")
+            XCTAssertTrue(subject.value as? String == exactSubject, "Submitting Subject changed its exact text.")
+            try revealRoutineControl(body)
+            body.tap()
+            if priorBody.isEmpty { body.typeText(exactBody) }
+            routineScrollSurface.swipeDown()
+        }
         XCTAssertTrue(subject.value as? String == exactSubject && body.value as? String == exactBody,
                       "The exact authorized subject and body were not entered. Nothing was sent.")
         XCTAssertTrue(recipient.label == fixedRecipient && !send.isEnabled, "The recipient changed or Send enabled before review.")
         let review = app.buttons["mail.selfReview"]
         try revealRoutineControl(review)
         review.tap()
-        let ready = selfNoteWait(send, predicate: NSPredicate(format: "exists == true AND enabled == true"), timeout: 45)
+        let ready = waitForReviewedSelfNote(send)
+        guard ready else {
+            throw XCTSkip("Reviewed-send readiness was not confirmed; the app/session was preserved and no Send was pressed.")
+        }
         try refusePermissionOrFixtureScreens()
         XCTAssertTrue(recipient.label == fixedRecipient && subject.value as? String == exactSubject && body.value as? String == exactBody,
                       "The recipient or exact draft changed during review. Nothing was sent.")
@@ -629,6 +658,22 @@ extension RealPhoneConnectionAcceptanceTests {
         guard ready else { throw XCTSkip("The exact draft is prepared, but completed review was not confirmed. Session left in place for the owner.") }
         // STOP HERE. Do not tap Send, type a send command, advance, pause, stop or relaunch.
         // The owner separately says “send” once for acoustic acceptance.
+    }
+
+    private func waitForReviewedSelfNote(_ send: XCUIElement) -> Bool {
+        let deadline = ProcessInfo.processInfo.systemUptime + 45
+        var reopenedHomePanel = false
+        while ProcessInfo.processInfo.systemUptime < deadline {
+            guard app.state == .runningForeground else { return false }
+            if send.exists && send.isEnabled { return true }
+            let controls = app.buttons["morning.actions"]
+            if !reopenedHomePanel, controls.exists, controls.isHittable,
+               ["Show controls", "Afficher les commandes"].contains(controls.label) {
+                controls.tap(); reopenedHomePanel = true
+            }
+            RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
+        }
+        return false
     }
 
     private func selfNoteWait(_ element: XCUIElement, predicate: NSPredicate, timeout: TimeInterval) -> Bool {
