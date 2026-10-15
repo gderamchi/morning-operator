@@ -148,6 +148,19 @@ public struct GmailAccessSession: Sendable, CustomStringConvertible, CustomDebug
     public var debugDescription: String { description }
 }
 
+/// In-memory owner-reviewed new message. Only the service can bind a recipient
+/// to the currently authorized native profile; no model can construct this value.
+public struct GmailPreparedSelfMessage: Sendable, Equatable, CustomStringConvertible, CustomDebugStringConvertible {
+    public let recipient: String
+    public let subject: String
+    public let body: String
+    fileprivate let credentialID: UUID?
+    fileprivate let clientID: String
+    fileprivate let generation: UUID?
+    public var description: String { "GmailPreparedSelfMessage(redacted)" }
+    public var debugDescription: String { description }
+}
+
 public struct GmailInboxSnapshot: Sendable, Equatable {
     public let unreadMessageCount: Int
     public let retrievedAt: Date
@@ -506,8 +519,58 @@ public final class GmailConnectionService {
         }
         let account = try await accountAddress(session: session)
         try requireReading(session)
-        let journal = GmailSendJournal(control: privacyControl)
         let fingerprint = try GmailSendJournal.payloadFingerprint(message: message, recipient: address, body: body)
+        let subject = message.subject.lowercased().hasPrefix("re:") ? message.subject : "Re: " + message.subject
+        return try await dispatchMessage(account: account, recipient: address, subject: subject, body: body,
+            internetMessageID: message.internetMessageID, threadID: message.threadID,
+            fingerprint: fingerprint, operationID: operationID, session: session, generation: generation)
+    }
+
+    /// No draft or send is written to Gmail. The profile is read under the exact
+    /// current saved grant; a self-recipient is never guessed from Inbox content.
+    public func selfMessageRecipient(session: GmailAccessSession) async throws -> String {
+        try requireSelfMessageAccess(session)
+        let address = try await accountAddress(session: session)
+        try requireSelfMessageAccess(session)
+        return address
+    }
+
+    public func prepareSelfMessage(subject: String, body: String, session: GmailAccessSession,
+        generation: UUID?) async throws -> GmailPreparedSelfMessage {
+        let content = try GmailSelfMessageContent(subject: subject, body: body)
+        let address = try await selfMessageRecipient(session: session)
+        guard session.savedGeneration == generation else { throw GmailConnectionError.connectionChanged }
+        return .init(recipient: address, subject: content.subject, body: content.body,
+            credentialID: session.savedCredentialID, clientID: session.authorizationClientID, generation: generation)
+    }
+
+    public func sendSelfMessage(_ draft: GmailPreparedSelfMessage, operationID: String,
+        session: GmailAccessSession, generation: UUID?) async throws -> GmailSendOutcome {
+        try requireSelfMessageAccess(session)
+        guard draft.credentialID == session.savedCredentialID, draft.clientID == session.authorizationClientID,
+              draft.generation == generation, session.savedGeneration == generation else {
+            throw GmailConnectionError.connectionChanged
+        }
+        let account = try await selfMessageRecipient(session: session)
+        guard account == draft.recipient else { throw GmailConnectionError.connectionChanged }
+        _ = try GmailSelfMessageContent(subject: draft.subject, body: draft.body)
+        let fingerprint = try GmailSendJournal.selfMessageFingerprint(recipient: account, subject: draft.subject, body: draft.body)
+        return try await dispatchMessage(account: account, recipient: account, subject: draft.subject, body: draft.body,
+            internetMessageID: nil, threadID: nil, fingerprint: fingerprint,
+            operationID: operationID, session: session, generation: generation)
+    }
+
+    private func requireSelfMessageAccess(_ session: GmailAccessSession) throws {
+        try requireReading(session)
+        guard session.canSendMessages else { throw GmailConnectionError.sendAccessRequired }
+        guard session.savedCredentialID != nil || allowsUnsavedSends else { throw GmailConnectionError.connectionChanged }
+    }
+
+    private func dispatchMessage(account: String, recipient: String, subject: String, body: String,
+        internetMessageID: String?, threadID: String?, fingerprint: String, operationID: String,
+        session: GmailAccessSession, generation: UUID?) async throws -> GmailSendOutcome {
+        guard !operationID.isEmpty, operationID.utf8.count <= 512 else { throw GmailConnectionError.invalidResponse }
+        let journal = GmailSendJournal(control: privacyControl)
         let (entry, isNew) = try journal.claim(operationID: operationID, account: account,
             payloadFingerprint: fingerprint, generation: generation)
         guard entry.payloadFingerprint == fingerprint else { return .draftMismatch }
@@ -521,15 +584,14 @@ public final class GmailConnectionService {
             // that an earlier ambiguous POST failed, so it never authorizes a retry.
             return entry.status == .rejected ? .notSent : .uncertain
         }
-        let subject = message.subject.lowercased().hasPrefix("re:") ? message.subject : "Re: " + message.subject
         let encodedSubject = Self.encodedSubject(subject)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
-        var headers = ["From: \(account)", "To: \(address)", "Subject: \(encodedSubject)",
+        var headers = ["From: \(account)", "To: \(recipient)", "Subject: \(encodedSubject)",
                        "Message-ID: \(entry.messageID)", "Date: \(formatter.string(from: now()))", "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8",
                        "Content-Transfer-Encoding: base64"]
-        if let internetID = message.internetMessageID, GmailReplyAddress.messageID(internetID) == internetID {
+        if let internetID = internetMessageID, GmailReplyAddress.messageID(internetID) == internetID {
             headers.append("In-Reply-To: \(internetID)"); headers.append("References: \(internetID)")
         }
         let encodedBody = Data(body.utf8).base64EncodedString(options: [.lineLength76Characters, .endLineWithCarriageReturn, .endLineWithLineFeed])
@@ -537,7 +599,7 @@ public final class GmailConnectionService {
         let raw = mime.base64EncodedString().replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
         var payload = ["raw": raw]
-        if let threadID = message.threadID, message.internetMessageID != nil, GmailMessageDecoder.validID(threadID) { payload["threadId"] = threadID }
+        if let threadID, internetMessageID != nil, GmailMessageDecoder.validID(threadID) { payload["threadId"] = threadID }
         var request = try messageRequest(path: "messages/send", query: [], session: session)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

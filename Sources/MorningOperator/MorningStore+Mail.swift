@@ -59,6 +59,61 @@ extension MorningStore {
         return true
     }
 
+    /// Touch fallback uses the same profile-bound draft and explicit-send dialogue
+    /// as speech. It is available only in this active Gmail moment.
+    func beginSelfMail() {
+        performMailReviewAction { mail, context in await mail.beginSelfMessage(context: context) }
+    }
+
+    func reviewSelfMail() {
+        let subject = mailMorning.selfMessageSubject, body = mailMorning.draftText
+        performMailReviewAction { mail, context in
+            await mail.reviewSelfMessage(subject: subject, body: body, context: context)
+        }
+    }
+
+    func sendReviewedSelfMail() {
+        guard mailMorning.canSendSelfMessage else { return }
+        performMailReviewAction { mail, context in await mail.respond("envoie", context: context) }
+    }
+
+    func editSelfMail(subject: String, body: String) {
+        guard let context = currentMailContext, !privacyBlocksWork else { return }
+        connectedAPITask?.cancel(); connectedAPITask = nil
+        speech.stop()
+        mailMorning.editSelfMessage(subject: subject, body: body, context: context)
+        connectedActionStatus = mailMorning.message
+    }
+
+    func continueMailMorning() {
+        performMailReviewAction { mail, context in await mail.respond("continuer", context: context) }
+    }
+
+    private var currentMailContext: MorningExecutionID? {
+        guard !privacyBlocksWork, sessionActive, let session, let step = currentStep,
+              step.automation == .gmailInbox else { return nil }
+        let context = MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
+        return mailMorning.context == context ? context : nil
+    }
+
+    private func performMailReviewAction(_ action: @escaping @MainActor (GmailMorningConversation, MorningExecutionID) async -> Void) {
+        guard let context = currentMailContext else { return }
+        if session?.status == .running { pause() }
+        guard session?.status == .paused else { return }
+        resumeForNext()
+        guard session?.status == .running else { return }
+        let generation = dataGeneration
+        connectedAPITask?.cancel()
+        connectedAPITask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await action(mailMorning, context)
+            guard !Task.isCancelled, dataGeneration == generation, !privacyBlocksWork,
+                  currentMailContext == context else { return }
+            connectedAPITask = nil
+            updateMailMorning(context: context)
+        }
+    }
+
     private func updateMailMorning(context: MorningExecutionID) {
         connectedActionStatus = mailMorning.message
         switch mailMorning.state {

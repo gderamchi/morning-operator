@@ -7,11 +7,13 @@ struct ObservationHistoryView: View {
     @Bindable var store: MorningStore
     var onlyUndated = false
     var onLearn: () -> Void
+    var onEdit: (() -> Void)? = nil
     @ViewState<Bool> private var confirmingClear = false
     @ViewState<Bool> private var choosingMornings = false
     @ViewState<Set<UUID>> private var selectedIDs = []
     @ViewState<Bool> private var showingProposal = false
     @ViewState<Bool> private var learnAfterProposalDismissal = false
+    @ViewState<Bool> private var editAfterProposalDismissal = false
     @ViewState<Bool> private var awaitingSuggestion = false
     @ViewState<UUID?> private var proposalBeforeRequest = nil
 
@@ -22,7 +24,7 @@ struct ObservationHistoryView: View {
     }
 
     private var selectedEntries: [ObservationAcquisition] { entries.filter { selectedIDs.contains($0.id) } }
-    private var holdsEntry: Bool { choosingMornings || confirmingClear || learnAfterProposalDismissal }
+    private var holdsEntry: Bool { choosingMornings || confirmingClear || learnAfterProposalDismissal || editAfterProposalDismissal }
     private var selectionIssue: String? {
         guard !selectedIDs.isEmpty else { return String(localized: "Choose one to five observations.") }
         guard selectedIDs.count <= 5 else { return String(localized: "Choose at most five observations for one update.") }
@@ -124,13 +126,20 @@ struct ObservationHistoryView: View {
         .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
         .sheet(isPresented: $showingProposal, onDismiss: {
-            if learnAfterProposalDismissal {
+            if editAfterProposalDismissal {
+                editAfterProposalDismissal = false
+                choosingMornings = false
+                if let onEdit { onEdit() } else { store.tab = .routine }
+            } else if learnAfterProposalDismissal {
                 onLearn()
                 learnAfterProposalDismissal = false
             }
         }) {
             RoutineEvidenceProposalView(store: store, onLearn: {
                 learnAfterProposalDismissal = true
+                showingProposal = false
+            }, onEdit: {
+                editAfterProposalDismissal = true
                 showingProposal = false
             })
         }

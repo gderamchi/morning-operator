@@ -79,4 +79,11 @@ struct GmailSendJournal {
             internetMessageID: message.internetMessageID, threadID: message.threadID, subject: message.subject, body: body))
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
+
+    static func selfMessageFingerprint(recipient: String, subject: String, body: String) throws -> String {
+        struct Payload: Encodable { let kind = "new-self-message-v1"; let recipient: String; let subject: String; let body: String }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        return SHA256.hash(data: try encoder.encode(Payload(recipient: recipient, subject: subject, body: body)))
+            .map { String(format: "%02x", $0) }.joined()
+    }
 }

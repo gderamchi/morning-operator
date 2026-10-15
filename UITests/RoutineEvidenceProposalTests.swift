@@ -383,6 +383,8 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         openPendingProposal(in: app)
         XCTAssertFalse(app.buttons["proposal.approve"].isEnabled,
                        "A paused session is still active and pins its approved version.")
+        XCTAssertFalse(app.buttons["proposal.edit"].isEnabled,
+                       "Editing a suggestion must not replace a paused session's pinned routine.")
         attach("synthetic-proposal-approval-blocked-by-paused-session", app)
         closeProposal(in: app)
         MorningUITestNavigation.selectTab("Morning", in: app)

@@ -41,6 +41,7 @@ public enum MorningHandsFreeVoicePolicy {
         return ["oui", "oui merci", "yes", "yes please", "non", "non merci", "no", "no thanks",
                 "envoie", "envoyer", "envoie la reponse", "send", "send it", "send reply",
                 "reponds lui", "repondre", "reply", "relis", "read it", "first", "first message",
+                "note a moi meme", "une note a moi meme", "send me an email", "email myself",
                 "second", "second message", "third", "third message", "le premier", "premier",
                 "le deuxieme", "deuxieme", "le troisieme", "troisieme", "1", "2", "3"].contains(candidate)
     }

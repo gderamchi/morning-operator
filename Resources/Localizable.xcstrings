@@ -1,6 +1,198 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Bring your saved mornings together": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bring your saved mornings together"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réunir les matinées que vous avez enregistrées"
+          }
+        }
+      }
+    },
+    "This saved excerpt has changed or was removed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This saved excerpt has changed or was removed."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet extrait enregistré a changé ou a été supprimé."
+          }
+        }
+      }
+    },
+    "Your day is not ready. Check Calendar & weather in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your day is not ready. Check Calendar & weather in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre journée n’est pas prête. Vérifiez Calendrier et météo dans Réglages."
+          }
+        }
+      }
+    },
+    "Your selected calendars are not ready. Check Calendar & weather in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your selected calendars are not ready. Check Calendar & weather in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les calendriers choisis ne sont pas prêts. Vérifiez Calendrier et météo dans Réglages."
+          }
+        }
+      }
+    },
+    "This recap needs an update before it can be read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This recap needs an update before it can be read."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce bilan doit être actualisé avant sa lecture."
+          }
+        }
+      }
+    },
+    "Your sources changed. This recap needs an update.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your sources changed. This recap needs an update."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos sources ont changé. Ce bilan doit être actualisé."
+          }
+        }
+      }
+    },
+    "There is no current briefing to read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no current briefing to read."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun bilan à jour n’est disponible pour le moment."
+          }
+        }
+      }
+    },
+    "This moment could not finish. You can retry or continue your morning.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This moment could not finish. You can retry or continue your morning."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce moment n’a pas pu se terminer. Vous pouvez réessayer ou continuer votre matin."
+          }
+        }
+      }
+    },
+    "Your morning is paused. Say resume to retry, next to continue, or stop.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your morning is paused. Say resume to retry, next to continue, or stop."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre matin est en pause. Dites reprends pour réessayer, suivant pour continuer ou arrête."
+          }
+        }
+      }
+    },
+    "Adjust this suggestion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust this suggestion"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajuster cette proposition"
+          }
+        }
+      }
+    },
+    "Adjust this suggestion before delegating it. Your saved source observations stay unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust this suggestion before delegating it. Your saved source observations stay unchanged."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustez cette proposition avant de la confier à MORE. Vos observations sources restent inchangées."
+          }
+        }
+      }
+    },
+    "Suggestion saved as a draft. Adjust it, then delegate it to MORE when ready.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestion saved as a draft. Adjust it, then delegate it to MORE when ready."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proposition enregistrée comme brouillon. Ajustez-la, puis confiez-la à MORE quand elle vous convient."
+          }
+        }
+      }
+    },
     "": {},
     "%02d:%02d in this recording": {
       "localizations": {

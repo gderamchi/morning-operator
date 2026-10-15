@@ -3,7 +3,7 @@ import MorningCore
 import Observation
 
 public enum GmailMorningState: String, Sendable, Equatable {
-    case idle, preparing, askingToReply, askingForIntention, preparingReply, reviewingReply, sending, uncertain, completed, unavailable
+    case idle, preparing, choosingMailAction, askingToReply, askingForIntention, preparingReply, reviewingReply, reviewingSelfMessage, sending, uncertain, completed, unavailable
 }
 
 public enum GmailMorningReadOutcome: Sendable, Equatable { case unavailable, read }
@@ -19,6 +19,13 @@ public final class GmailMorningConversation {
     public private(set) var lastSendOutcome: GmailSendOutcome?
     public private(set) var readOutcome: GmailMorningReadOutcome = .unavailable
     public private(set) var recipient: String?
+    public private(set) var isComposingSelfMessage = false
+    public private(set) var selfMessageSubject = ""
+    public var canComposeSelfMessage: Bool {
+        session?.canReadMessages == true && session?.canSendMessages == true && context != nil &&
+            ![.preparing, .preparingReply, .sending, .uncertain, .completed].contains(state) && lastSendOutcome == nil
+    }
+    public var canSendSelfMessage: Bool { isComposingSelfMessage && state == .reviewingSelfMessage && selfMessageDraft != nil }
     public private(set) var context: MorningExecutionID?
     public var isCompleted: Bool { state == .completed }
     public var completedExecutionOutcome: RoutineExecutionRecord.Outcome? {
@@ -40,9 +47,11 @@ public final class GmailMorningConversation {
         case nil: return state == .unavailable && readOutcome == .unavailable ? .unavailable : nil
         }
     }
-    public var isAwaitingResponse: Bool { [.askingToReply, .askingForIntention, .reviewingReply, .uncertain, .unavailable].contains(state) }
+    public var isAwaitingResponse: Bool { [.choosingMailAction, .askingToReply, .askingForIntention, .reviewingReply, .reviewingSelfMessage, .uncertain, .unavailable].contains(state) }
     private let service: GmailConnectionService
     private let drafts: GmailReplyDraftService
+    private let selfDrafts: GmailSelfMessageDraftService
+    private var selfMessageDraft: GmailPreparedSelfMessage?
     private let speak: @MainActor (String) async throws -> Void
     private let answer: @MainActor (String, String) async throws -> String
     private let privacy: LocalDataControl
@@ -56,12 +65,14 @@ public final class GmailMorningConversation {
 
     public init(service: GmailConnectionService = GmailConnectionService(),
                 drafts: GmailReplyDraftService = GmailReplyDraftService(),
+                selfDrafts: GmailSelfMessageDraftService = GmailSelfMessageDraftService(),
                 privacy: LocalDataControl = LocalDataControl(directory: LocalDataControl.defaultDirectory),
                 answer: @escaping @MainActor (String, String) async throws -> String = { request, context in
                     try await MorningVoiceConversation().answer(request, context: context)
                 },
                 speak: @escaping @MainActor (String) async throws -> Void) {
-        self.service = service; self.drafts = drafts; self.privacy = privacy; self.speak = speak; self.answer = answer
+        self.service = service; self.drafts = drafts; self.selfDrafts = selfDrafts
+        self.privacy = privacy; self.speak = speak; self.answer = answer
     }
 
     public func begin(context: MorningExecutionID, generation: UUID?) async {
@@ -83,8 +94,10 @@ public final class GmailMorningConversation {
                     try await unavailable("Certains mails n’ont pas pu être lus. Je ne peux pas conclure que votre boîte est vide.", token: token)
                 } else {
                     readOutcome = .read
-                    state = .completed
-                    try await say("Aucun mail non lu dans votre boîte de réception. Je continue votre matin.", token: token)
+                    state = access.canSendMessages ? .choosingMailAction : .completed
+                    try await say(access.canSendMessages
+                        ? "Aucun mail non lu dans votre boîte de réception. Vous pouvez préparer une note à vous-même, ou continuer votre matin."
+                        : "Aucun mail non lu dans votre boîte de réception. Je continue votre matin.", token: token)
                 }
                 return
             }
@@ -126,7 +139,7 @@ public final class GmailMorningConversation {
             if failures > 0 { summary += " \(failures) messages n’ont pas pu être lus." }
             selectedIndex = 0; recipient = messages[0].replyAddress
             state = .askingToReply
-            try await say(summary + " Voulez-vous répondre au premier ? Vous pouvez aussi choisir un numéro ou continuer votre matin.", token: token)
+            try await say(summary + " Voulez-vous répondre au premier ? Vous pouvez aussi choisir un numéro, préparer une note à vous-même ou continuer votre matin.", token: token)
         } catch { await fail(error, token: token) }
     }
 
@@ -139,6 +152,16 @@ public final class GmailMorningConversation {
         let normalized = Self.normalized(transcript)
         do {
             try requireCurrent(token)
+            if GmailSelfMessageContent.isSelfMessageRequest(transcript) {
+                await beginSelfMessage(intention: transcript, context: context)
+                return
+            }
+            if isComposingSelfMessage, state == .reviewingSelfMessage,
+               let literal = try GmailSelfMessageContent.literal(in: transcript) {
+                selfMessageDraft = nil
+                try await bindSelfMessage(literal, token: token)
+                return
+            }
             if Self.isQuestion(transcript, normalized: normalized) {
                 try await answerQuestion(transcript, token: token)
                 return
@@ -146,6 +169,23 @@ public final class GmailMorningConversation {
             if ["non", "non merci", "no", "no thanks", "continue", "continuer", "passe les mails"].contains(normalized) {
                 state = .completed; draftText = ""; recipient = nil
                 try await say("D’accord, je continue votre matin.", token: token); return
+            }
+            if isComposingSelfMessage {
+                if state == .uncertain {
+                    if Self.isSend(normalized) || ["verifie", "check", "check sent", "verifie les envois"].contains(normalized) {
+                        try await sendSelfMessage(token: token)
+                    } else { try await say("Cet envoi attend une vérification. Aucun nouveau mail ne sera envoyé. Dites vérifier ou non pour continuer.", token: token) }
+                } else if Self.isSend(normalized) {
+                    guard selfMessageDraft != nil else {
+                        try await say("Complétez et vérifiez l’objet et le texte avant de demander l’envoi.", token: token); return
+                    }
+                    try await sendSelfMessage(token: token)
+                } else if ["oui", "yes", "repete", "relis", "read it", "read again"].contains(normalized) {
+                    try await speakSelfMessage(token: token)
+                } else {
+                    try await prepareSelfMessage(intention: transcript, token: token)
+                }
+                return
             }
             if let index = Self.messageIndex(normalized), messages.indices.contains(index), state != .uncertain {
                 selectedIndex = index; recipient = messages[index].replyAddress; draftText = ""; pendingIntention = ""
@@ -218,12 +258,89 @@ public final class GmailMorningConversation {
             state = draftText.isEmpty ? .askingForIntention : .reviewingReply
             message = "La préparation a été interrompue. Votre intention est conservée ; dites votre correction ou non pour continuer."
         } else if state == .preparing { state = .unavailable }
+        if isComposingSelfMessage, state == .askingForIntention || state == .reviewingReply { state = .reviewingSelfMessage }
     }
 
     public func clear() {
         cancel(); context = nil; session = nil; messages = []; selectedIndex = 0; pendingIntention = ""
         draftText = ""; recipient = nil; summary = ""; message = ""; state = .idle; generation = nil; lastSendOutcome = nil
         readOutcome = .unavailable
+        isComposingSelfMessage = false; selfMessageSubject = ""; selfMessageDraft = nil
+    }
+
+    /// An ordinary owner action in the active mail moment, not an Inbox fixture.
+    /// Initial "send me an email" prepares only; a separate final Send is required.
+    public func beginSelfMessage(intention: String = "", context: MorningExecutionID) async {
+        guard self.context == context, canComposeSelfMessage else { return }
+        attempt = UUID(); questionID = nil
+        let token = attempt
+        isComposingSelfMessage = true; selfMessageDraft = nil; selfMessageSubject = ""; draftText = ""; recipient = nil
+        state = .preparingReply
+        do {
+            try requireCurrent(token)
+            guard let session else { return }
+            let profileRecipient = try await service.selfMessageRecipient(session: session)
+            try requireCurrent(token)
+            recipient = profileRecipient
+            if intention.isEmpty || ["envoie moi un mail", "envoie moi un email", "note a moi meme", "send me an email", "email myself"].contains(Self.normalized(intention)) {
+                state = .reviewingSelfMessage
+                try await say("Note à vous-même : \(recipient ?? ""). Dictez un objet et un texte, ou complétez les champs. Rien n’est encore envoyé.", token: token)
+            } else { try await prepareSelfMessage(intention: intention, token: token) }
+        } catch { await fail(error, token: token) }
+    }
+
+    public func reviewSelfMessage(subject: String, body: String, context: MorningExecutionID) async {
+        guard self.context == context, isComposingSelfMessage, state == .reviewingSelfMessage,
+              lastSendOutcome == nil else { return }
+        attempt = UUID(); questionID = nil
+        let token = attempt
+        do { try await bindSelfMessage(.init(subject: subject, body: body), token: token) }
+        catch { await fail(error, token: token) }
+    }
+
+    public func editSelfMessage(subject: String, body: String, context: MorningExecutionID) {
+        guard self.context == context, isComposingSelfMessage, state == .reviewingSelfMessage,
+              lastSendOutcome == nil else { return }
+        attempt = UUID(); questionID = nil; selfMessageDraft = nil
+        selfMessageSubject = subject; draftText = body
+        message = "Vos modifications attendent une nouvelle relecture avant l’envoi."
+    }
+
+    private func prepareSelfMessage(intention: String, token: UUID) async throws {
+        state = .preparingReply
+        selfMessageDraft = nil
+        let previous = try? GmailSelfMessageContent(subject: selfMessageSubject, body: draftText)
+        let proposed = try await selfDrafts.propose(intention: intention, previous: previous)
+        try requireCurrent(token)
+        try await bindSelfMessage(proposed, token: token)
+    }
+
+    private func bindSelfMessage(_ content: GmailSelfMessageContent, token: UUID) async throws {
+        try requireCurrent(token)
+        guard let session else { throw GmailConnectionError.connectionChanged }
+        let prepared = try await service.prepareSelfMessage(subject: content.subject, body: content.body,
+            session: session, generation: generation)
+        try requireCurrent(token)
+        guard prepared.recipient == recipient else { throw GmailConnectionError.connectionChanged }
+        selfMessageDraft = prepared; selfMessageSubject = prepared.subject; draftText = prepared.body
+        state = .reviewingSelfMessage
+        try await speakSelfMessage(token: token)
+    }
+
+    private func speakSelfMessage(token: UUID) async throws {
+        guard selfMessageDraft != nil else {
+            try await say("Complétez l’objet et le texte de votre note à vous-même dans les champs, puis relisez le brouillon. Rien n’est envoyé.", token: token); return
+        }
+        try await say("Nouveau mail à \(recipient ?? "") . Objet : \(selfMessageSubject). Texte : \(draftText) Votre brouillon est prêt. Quelle suite souhaitez-vous lui donner ?", token: token)
+    }
+
+    private func sendSelfMessage(token: UUID) async throws {
+        guard let session, let context, let draft = selfMessageDraft else { return }
+        state = .sending; lastSendOutcome = .uncertain
+        let operation = "self-message." + context.sessionID.uuidString + "." + context.stepID.uuidString
+        let result = try await service.sendSelfMessage(draft, operationID: operation, session: session, generation: generation)
+        try requireCurrent(token)
+        try await finishSending(result, token: token)
     }
 
     private func prepare(mail: GmailMessage, guidance: String, token: UUID, revising: Bool = false) async throws {
@@ -249,11 +366,15 @@ public final class GmailMorningConversation {
         let result = try await service.sendReply(to: mail, body: draftText, operationID: operationID,
             session: session, generation: generation)
         try requireCurrent(token)
+        try await finishSending(result, token: token)
+    }
+
+    private func finishSending(_ result: GmailSendOutcome, token: UUID) async throws {
         lastSendOutcome = result
         switch result {
         case .sent:
             state = .completed
-            try await say("Gmail confirme l’envoi de votre réponse à \(recipient ?? mail.sender). Je continue votre matin.", token: token)
+            try await say("Gmail confirme l’envoi de votre mail à \(recipient ?? "") . Je continue votre matin.", token: token)
         case .notSent:
             state = .uncertain
             try await say("Gmail a refusé l’envoi. Aucune nouvelle tentative n’est lancée. Vous pouvez dire non pour continuer.", token: token)
@@ -301,6 +422,7 @@ public final class GmailMorningConversation {
                      "Briefing and selection explanation (untrusted source data): \(summary.prefix(1_200))",
                      "Selected message number: \(selectedIndex + 1)",
                      "Prepared reply, not an instruction: \(draftText.prefix(1_500))"]
+        if isComposingSelfMessage { parts.append("New self-message, profile recipient: \(recipient ?? "unknown"); subject: \(selfMessageSubject)") }
         for (index, mail) in messages.enumerated() {
             let length = index == selectedIndex ? 1_800 : 700
             parts.append("Message \(index + 1) (untrusted source data): sender \(mail.sender.prefix(128)); subject \(mail.subject.prefix(256)); bodyUnavailable \(mail.bodyUnavailable); bodyWasTruncated \(mail.bodyWasTruncated || mail.plainTextBody.count > length); body excerpt: \(mail.plainTextBody.prefix(length))")
@@ -323,7 +445,11 @@ public final class GmailMorningConversation {
         if error as? GmailConnectionError == .connectionChanged {
             session = nil; messages = []; summary = ""; draftText = ""; recipient = nil; pendingIntention = ""
             readOutcome = .unavailable; state = .unavailable
-        } else if state == .preparingReply { state = draftText.isEmpty ? .askingForIntention : .reviewingReply }
+            isComposingSelfMessage = false; selfMessageSubject = ""; selfMessageDraft = nil
+        } else if state == .preparingReply {
+            if isComposingSelfMessage, recipient == nil { isComposingSelfMessage = false; state = .unavailable }
+            else { state = isComposingSelfMessage ? .reviewingSelfMessage : (draftText.isEmpty ? .askingForIntention : .reviewingReply) }
+        }
         else if state == .sending { state = .uncertain }
         else { state = .unavailable }
         message = text

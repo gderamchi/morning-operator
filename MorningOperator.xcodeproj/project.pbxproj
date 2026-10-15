@@ -127,6 +127,7 @@
 		A36795BA2F1BAF85B6980FD2 /* MorningStore+HandsFree.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C53618048F8500BEF3E78F3 /* MorningStore+HandsFree.swift */; };
 		B1DF2F619CD89B91CAD0E0CA /* RoutineAutomationJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B4013B2301F4C70849A6C0 /* RoutineAutomationJourneyTests.swift */; };
 		E3544375F7026826D8A40DD9 /* MorningStore+Mail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B941431C39046FC7CB3738A /* MorningStore+Mail.swift */; };
+		A171E049ED4B4D4AB08B0D01 /* MorningMailMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171E049ED4B4D4AB08B0D02 /* MorningMailMomentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -294,6 +295,7 @@
 		9C53618048F8500BEF3E78F3 /* MorningStore+HandsFree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+HandsFree.swift"; sourceTree = "<group>"; };
 		83B4013B2301F4C70849A6C0 /* RoutineAutomationJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RoutineAutomationJourneyTests.swift"; sourceTree = "<group>"; };
 		9B941431C39046FC7CB3738A /* MorningStore+Mail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Mail.swift"; sourceTree = "<group>"; };
+		A171E049ED4B4D4AB08B0D02 /* MorningMailMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningMailMomentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -447,6 +449,7 @@
 				F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */,
 				E3A4E32627DA271ED0E49A94 /* GmailConnectionController.swift */,
 				C5087BDE08DBD2E7273AECA0 /* GmailConnectionView.swift */,
+				A171E049ED4B4D4AB08B0D02 /* MorningMailMomentView.swift */,
 				C0A810C8149FA0ADB203403E /* GmailMessageView.swift */,
 				AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */,
 				4F1A4DDE271AE7DE15330EEF /* MorningActivityDiagnostics.swift */,
@@ -817,6 +820,7 @@
 				9A8B244DD216406D67AD84A3 /* DesignSystem.swift in Sources */,
 				BC03B0A17545825849E082F4 /* GmailConnectionController.swift in Sources */,
 				8CD682C5DF97F2CF8EC3D2CE /* GmailConnectionView.swift in Sources */,
+				A171E049ED4B4D4AB08B0D01 /* MorningMailMomentView.swift in Sources */,
 				08F2920020CE53509B8178D1 /* GmailMessageView.swift in Sources */,
 				067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */,
 				4DE3FED32FD66348C7B86B91 /* MorningActivityDiagnostics.swift in Sources */,

@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import MorningCore
 import MorningApple
+import UIKit
 
 struct MorningRootView: View {
     @Bindable var store: MorningStore
@@ -80,6 +81,8 @@ struct MorningRootView: View {
                            needsSolarCity: store.briefing.settings.weatherLocation == nil, notice: store.notice,
                            session: store.session, currentStep: store.currentStep,
                            connectedActionStatus: store.connectedActionStatus,
+                           mailMoment: store.currentStep?.automation == .gmailInbox && store.sessionActive
+                               ? AnyView(MorningMailMomentView(store: store)) : nil,
                            voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
                            executionSummary: store.executionSummary,
                            timer: store.activeStepTimer,
@@ -92,7 +95,9 @@ struct MorningRootView: View {
                                // with a routine back to Learn.
                                _ = store.start()
                            },
-                           pause: { store.pause() }, resume: { store.resume() }, next: { store.advance() },
+                           pause: { store.pause() }, resume: { store.resume() }, next: {
+                               store.nextTargetStep(sessionID: store.session?.id, stepID: store.currentStep?.id)
+                           },
                            stop: { store.stop() }, extend: { Task { await store.extendStepTimer() } },
                            offersReflection: store.shouldOfferCompletionReflection,
                            voiceBlocked: store.voiceInputBlocksPlayback,
@@ -206,7 +211,9 @@ struct MorningRootView: View {
         }
         .onChange(of: store.speech.voiceIdentifier) { store.saveVoicePreference() }
         .onChange(of: store.readAloud) { store.executionPreferencesChanged() }
-        .onChange(of: store.automatic) { store.executionPreferencesChanged() }
+        .onChange(of: store.automatic) { store.executionPreferencesChanged(); updateScreenAwake() }
+        .onChange(of: store.session?.status, initial: true) { _, _ in updateScreenAwake() }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
     }
 
     var body: some View {
@@ -219,6 +226,7 @@ struct MorningRootView: View {
             if status == .unavailable || status == .failed { store.recordExecution(.unavailable) }
         }
         .onChange(of: scenePhase) { _, phase in
+            updateScreenAwake()
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
                 store.suspendHandsFreeVoice()
@@ -229,7 +237,7 @@ struct MorningRootView: View {
                 store.connectedMoment.discardContent()
                 let clearsConnectedResult: Bool = {
                     if case .connectedAPI = store.currentStep?.target { return true }
-                    return store.currentStep?.automation == .gmailInbox
+                    return store.currentStep?.target == nil
                 }()
                 if clearsConnectedResult {
                     store.connectedAPITask?.cancel(); store.connectedAPITask = nil
@@ -286,6 +294,7 @@ struct MorningRootView: View {
             synchronizeHomeWeather()
         }
         .onChange(of: store.privacyBlocksWork) { _, blocked in
+            updateScreenAwake()
             synchronizeHomeWeather()
         }
         .onChange(of: store.briefing.prepared) { _, _ in synchronizeHomeWeather() }
@@ -299,6 +308,11 @@ struct MorningRootView: View {
                 try? await Task.sleep(for: .seconds(60))
             }
         }
+    }
+
+    private func updateScreenAwake() {
+        UIApplication.shared.isIdleTimerDisabled = store.automatic && store.sessionActive
+            && scenePhase == .active && !store.privacyBlocksWork
     }
 
     private func synchronizeHomeWeather() {
@@ -569,6 +583,9 @@ struct TodayView: View {
                         if store.currentStep?.id == step.id, let status = store.connectedActionStatus {
                             Text(status).font(.raleway(.subheadline)).textSelection(.enabled)
                                 .accessibilityIdentifier("moment.connectedResult")
+                        }
+                        if store.currentStep?.id == step.id, step.automation == .gmailInbox, store.sessionActive {
+                            MorningMailMomentView(store: store)
                         }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
@@ -1233,6 +1250,7 @@ private struct MorningSunHome: View {
     var session: RoutineSession?
     var currentStep: RoutineStep?
     var connectedActionStatus: String? = nil
+    var mailMoment: AnyView? = nil
     var voiceStatus: String? = nil
     var executionSummary: String? = nil
     var timer: StepTimer? = nil
@@ -1376,6 +1394,7 @@ private struct MorningSunHome: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("moment.connectedResult")
                 }
+                if let mailMoment { mailMoment }
                 HStack(spacing: 16) {
                     Button(action: session?.status == .paused ? resume : pause) {
                         Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",

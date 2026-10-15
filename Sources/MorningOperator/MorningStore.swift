@@ -368,6 +368,12 @@ final class MorningStore {
                     RoutineStep(title: "Get ready", detail: "Your next moment.", durationMinutes: 1, automation: .timedMoment)
                 ])
             }
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-native-unavailable") {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — unavailable native calendar", steps: [
+                    RoutineStep(title: "Calendar unavailable", kind: .calendar, durationMinutes: 1, automation: .todayCalendar),
+                    RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-live-news") {
                 routine = RoutineVersion(sourceLabel: "Demo fixture — public news navigation test", steps: [
                     RoutineStep(title: "Le Monde", kind: .briefing, durationMinutes: 1,
@@ -985,11 +991,12 @@ final class MorningStore {
                 guard repeatAttempt == attempt, !Task.isCancelled, !privacyBlocksWork else { return }
                 switch outcome {
                 case .completed: break
-                case .needsUser(let reason), .unavailable(let reason): notice = reason
+                case .needsUser(let reason): notice = reason
+                case .unavailable(let reason): presentNativeStepFailure(context: context, reason: reason)
                 }
             } catch {
                 guard repeatAttempt == attempt, !Task.isCancelled, !privacyBlocksWork else { return }
-                notice = error.localizedDescription
+                presentNativeStepFailure(context: context, reason: String(localized: "This moment could not finish. You can retry or continue your morning."))
             }
         }
     }
@@ -1490,6 +1497,42 @@ final class MorningStore {
                 } catch { finishAnalysis(error: error, attempt: attempt) }
             }
         } catch { notice = error.localizedDescription }
+    }
+
+    @discardableResult
+    func editPendingRoutineProposal() -> Bool {
+        guard !privacyBlocksWork, routinePreferencesIssue == nil, !busy, !sessionActive,
+              !voiceInputBlocksPlayback, storageIsAvailable,
+              saveObservationEdits(), let proposal = pendingRoutineProposal else { return false }
+        let draft: RoutineVersion
+        do {
+            draft = try proposal.draftForEditing(archive: observationArchive, baseRoutine: routine,
+                preferences: routinePreferences, session: session)
+        } catch {
+            notice = String(localized: "This suggestion no longer matches the saved observations or routine. Choose mornings to prepare a fresh one.")
+            return false
+        }
+        let oldRoutine = routine
+        let oldPrevious = previousRoutine
+        let oldSession = session
+        let oldHistory = history
+        let oldBudget = budgetAndFeedback
+        archiveTerminalSession()
+        if let oldRoutine, oldRoutine.isApproved { previousRoutine = oldRoutine }
+        // Assembly already applies standing keeps, exclusions and timing choices.
+        // Copy its exact source-backed wording; editing grants no execution authority.
+        routine = draft
+        session = nil
+        pendingRoutineProposal = nil
+        guard persist() else {
+            routine = oldRoutine; previousRoutine = oldPrevious; session = oldSession
+            history = oldHistory; budgetAndFeedback = oldBudget; pendingRoutineProposal = proposal
+            return false
+        }
+        notice = AppLanguage.isFrench
+            ? "Proposition enregistrée comme brouillon. Ajustez-la, puis confiez-la à MORE quand elle vous convient."
+            : "Suggestion saved as a draft. Adjust it, then delegate it to MORE when ready."
+        return true
     }
 
     @discardableResult
@@ -2298,7 +2341,9 @@ final class MorningStore {
         recordExecution(.running)
         if automatic {
             stepExecutor.spokenEnabled = readAloud
-            automation.runCurrentStep(in: session) { [weak self] context in
+            automation.runCurrentStep(in: session, onFailure: { [weak self] context, reason in
+                self?.presentNativeStepFailure(context: context, reason: reason)
+            }) { [weak self] context in
                 guard let self, self.session?.id == context.executionID.sessionID,
                       self.session?.currentStep?.id == context.executionID.stepID,
                       self.session?.status == .running else { return }

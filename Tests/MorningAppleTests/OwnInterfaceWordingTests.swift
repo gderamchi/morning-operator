@@ -451,7 +451,7 @@ private enum OwnScreenFixtures {
     /// its first and last lines nothing identifies it but the title above and the buttons below.
     static let suggestedUpdate = ContentScreen(
         name: "Suggested update", top: [.shown("Suggested update"), .shown("Done")],
-        bottom: [.shown("Keep current"), .shown("Let MORE take care of this morning")], body: [
+        bottom: [.shown("Adjust this suggestion"), .shown("Keep current"), .shown("Let MORE take care of this morning")], body: [
             .shown("Your next morning"), .other("Selected: 2 observations across 2 dated days", "Sélection : 2 observations sur 2 jours datés"),
             .shown("Your current routine stays ready until you approve."), .shown("Compare with current routine")
         ] + suggestedStep(("Review today’s calendar", "Consulter le calendrier du jour"),

@@ -57,7 +57,7 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
             // Never turn deleted or changed evidence into an ordinary static note.
             guard step.observationReference != nil, let text = resolveObservation(step),
                   !text.isEmpty, text.utf8.elementsEqual(step.detail.utf8) else {
-                return .unavailable(String(localized: "This saved excerpt has changed or was removed. Tap Next, or use Routine to change the moment’s action.", bundle: .module))
+                return .unavailable(String(localized: "This saved excerpt has changed or was removed.", bundle: .module))
             }
             try checkAttempt(token)
             try await speak(text)
@@ -68,10 +68,10 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
                 try checkAttempt(token)
                 guard configurationID() == configuration else { throw CancellationError() }
                 guard let document, document.isCurrent(at: now(), timeZoneIdentifier: timeZone()) else {
-                    return .unavailable(String(localized: "Your day isn't ready. Check Your day in Settings, or tap Next to continue.", bundle: .module))
+                    return .unavailable(String(localized: "Your day is not ready. Check Calendar & weather in Settings.", bundle: .module))
                 }
                 if step.automation == .todayCalendar && document.calendar.status != .fresh {
-                    return .unavailable(String(localized: "Your selected calendars aren't ready. Check Your day in Settings, or tap Next.", bundle: .module))
+                    return .unavailable(String(localized: "Your selected calendars are not ready. Check Calendar & weather in Settings.", bundle: .module))
                 }
                 pinnedBriefing = document
                 pinnedExecutionID = context.executionID
@@ -79,16 +79,16 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
             }
             guard let document = pinnedBriefing else { throw CancellationError() }
             guard document.isCurrent(at: now(), timeZoneIdentifier: timeZone()) else {
-                return .unavailable(String(localized: "This recap needs an update. Open this moment to prepare it again, or tap Next.", bundle: .module))
+                return .unavailable(String(localized: "This recap needs an update before it can be read.", bundle: .module))
             }
             guard pinnedConfigurationID == configurationID(), permitsPlayback(document) else {
-                return .unavailable(String(localized: "Your sources have changed. Update this recap before playing it again.", bundle: .module))
+                return .unavailable(String(localized: "Your sources changed. This recap needs an update.", bundle: .module))
             }
             if step.automation == .todayCalendar && document.calendar.status != .fresh {
-                return .unavailable(String(localized: "Your selected calendars aren't ready. Check Your day in Settings, or tap Next.", bundle: .module))
+                return .unavailable(String(localized: "Your selected calendars are not ready. Check Calendar & weather in Settings.", bundle: .module))
             }
             let text = Self.text(for: step.automation, in: document)
-            guard !text.isEmpty else { return .unavailable(String(localized: "There's no current briefing to read yet.", bundle: .module)) }
+            guard !text.isEmpty else { return .unavailable(String(localized: "There is no current briefing to read.", bundle: .module)) }
             try checkAttempt(token)
             try await speak(text)
         case nil:

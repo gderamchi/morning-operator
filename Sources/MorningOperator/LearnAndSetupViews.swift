@@ -14,6 +14,7 @@ struct LearnView: View {
     @ViewState<Bool> private var awaitingSuggestion = false
     @ViewState<UUID?> private var proposalBeforeRequest = nil
     @ViewState<Bool> private var closeAfterProposal = false
+    @ViewState<Bool> private var showingSavedObservations = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var notesFocused: Bool
@@ -76,6 +77,13 @@ struct LearnView: View {
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("learn.connections")
+
+            Button { showingSavedObservations = true } label: {
+                LinkRow(title: String(localized: "Saved observations"),
+                        detail: AppLanguage.isFrench ? "Réunir les matinées que vous avez enregistrées" : "Bring your saved mornings together", symbol: "doc.text.image")
+                    .padding(MorningTheme.Space.card)
+                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+            }.buttonStyle(.plain).accessibilityIdentifier("learn.savedObservations")
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
@@ -155,6 +163,9 @@ struct LearnView: View {
             else { finishSuggestionIfReady() }
         }
         .onDisappear { store.saveObservationEdits() }
+        .navigationDestination(isPresented: $showingSavedObservations) {
+            ObservationHistoryView(store: store, onLearn: { showingSavedObservations = false }, onEdit: { close() })
+        }
         .sheet(isPresented: $recording) {
             RecordMorningView(canStartRecording: store.canStartRecording) { url in
                 store.importObservation(url)
@@ -168,13 +179,16 @@ struct LearnView: View {
         .sheet(isPresented: $showingProposal, onDismiss: {
             if closeAfterProposal { close() }
         }) {
-            RoutineEvidenceProposalView(store: store, onLearn: { showingProposal = false })
+            RoutineEvidenceProposalView(store: store, onLearn: { showingProposal = false }, onEdit: {
+                closeAfterProposal = true
+                showingProposal = false
+            })
         }
         .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.routine?.id) { _, _ in
             if showingProposal { closeAfterProposal = true }
-            else if !store.busy, !awaitingSuggestion { close() }
+            else if !showingSavedObservations, !store.busy, !awaitingSuggestion { close() }
         }
         .onChange(of: store.dataGeneration) { _, _ in
             importGeneration = nil
@@ -408,6 +422,17 @@ struct SetupView: View {
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(store.sessionActive)
                         .accessibilityIdentifier("setup.voice")
+                    Toggle(isOn: $store.automatic) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Hands free").font(.raleway(.subheadline, .medium))
+                            Text(AppLanguage.isFrench
+                                ? "MORE enchaîne votre routine et écoute vos demandes tant que l’app reste ouverte. La voix demande votre autorisation au démarrage."
+                                : "MORE continues your routine and listens while the app stays open. Voice permission is requested when you start.")
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .tint(MorningStyle.accent).accessibilityIdentifier("setup.handsFree")
                     Toggle(isOn: $store.readAloud) {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("Read each step aloud").font(.raleway(.subheadline, .medium))

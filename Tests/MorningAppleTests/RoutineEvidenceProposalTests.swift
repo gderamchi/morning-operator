@@ -11,6 +11,67 @@ struct RoutineEvidenceProposalTests {
     private let instant = Date(timeIntervalSince1970: 1_760_000_000)
     private let words = "I review my calendar after breakfast."
 
+    @Test("Editing a learned proposal retains exact evidence and standing exclusions without approving it")
+    func editableDraftRetainsEvidenceAndPreferences() throws {
+        let entry = try source()
+        let archive = try ObservationArchive(entries: [entry])
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let excluded = RoutineStep(title: "Old habit", kind: .entertainment, durationMinutes: 8)
+        let base = RoutineVersion(sourceLabel: "User-approved routine", steps: [excluded], isApproved: true)
+        var preferences = RoutinePreferenceJournal()
+        try preferences.upsert(RoutinePreference(target: excluded, presence: .exclude))
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(try #require(evidence.units.first))], preserving: base, preferences: preferences, at: instant)
+        let originalSources = proposal.sourceSnapshots
+        let originalSupport = proposal.support
+        let originalPreferences = preferences
+        let draft = try proposal.draftForEditing(archive: archive, baseRoutine: base, preferences: preferences)
+        #expect(!draft.isApproved)
+        #expect(draft == proposal.routine)
+        #expect(draft.steps[0].detail.contains(words))
+        #expect(!draft.steps.contains { $0.id == excluded.id })
+        #expect(proposal.sourceSnapshots == originalSources)
+        #expect(proposal.support == originalSupport)
+        #expect(archive.entry(id: entry.id) == entry)
+        #expect(preferences == originalPreferences)
+        var unapprovedSession = RoutineSession(routine: draft)
+        #expect(throws: SessionError.routineNeedsApproval) { try unapprovedSession.start(at: instant) }
+    }
+
+    @Test("An edit handoff refuses changed sources, preferences and pinned running or paused sessions")
+    func editableDraftRequiresCurrentSourcesAndNoActiveSession() throws {
+        let entry = try source()
+        let archive = try ObservationArchive(entries: [entry])
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [entry])
+        let base = RoutineVersion(sourceLabel: "Approved", steps: [RoutineStep(title: "Kept morning", durationMinutes: 1)], isApproved: true)
+        let preferences = RoutinePreferenceJournal()
+        let proposal = try LearningEvidencePreparation.assemble(evidence: evidence,
+            steps: [step(try #require(evidence.units.first))], preserving: base, preferences: preferences, at: instant)
+        var changedArchive = archive
+        try changedArchive.correct(id: entry.id, text: "A different observed morning.")
+        #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+            try proposal.draftForEditing(archive: changedArchive, baseRoutine: base, preferences: preferences)
+        }
+        var changedPreferences = preferences
+        try changedPreferences.upsert(RoutinePreference(target: base.steps[0], presence: .exclude))
+        #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+            try proposal.draftForEditing(archive: archive, baseRoutine: base, preferences: changedPreferences)
+        }
+        var running = RoutineSession(routine: base)
+        try running.start(at: instant)
+        let pinned = running
+        #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+            try proposal.draftForEditing(archive: archive, baseRoutine: base, preferences: preferences, session: running)
+        }
+        #expect(running == pinned)
+        try running.pause(at: instant.addingTimeInterval(1))
+        let paused = running
+        #expect(throws: RoutineEvidenceProposalError.invalidProposal) {
+            try proposal.draftForEditing(archive: archive, baseRoutine: base, preferences: preferences, session: running)
+        }
+        #expect(running == paused)
+    }
+
     private func source(id: UUID = UUID(), day: Int = 0, text: String? = nil,
                         correction: String? = nil, origin: ObservationAcquisitionOrigin = .human,
                         zone: String = "Europe/Paris", dated: Bool = true,

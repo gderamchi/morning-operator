@@ -33,8 +33,8 @@ struct MorningHandsFreeVoiceTests {
 
     @Test("A live acoustic duplex path does not ban short replies quoted in a prompt")
     func shortBargeInDoesNotDependOnPromptWords() {
-        let output = "Le mail dit oui. Vous pouvez dire envoie, suivant ou pause."
-        for command in ["oui", "envoie", "suivant", "pause"] {
+        let output = "Le mail dit oui. Vous pouvez dire envoie, suivant ou pause. Une note à moi-même est possible."
+        for command in ["oui", "envoie", "suivant", "pause", "note à moi-même"] {
             #expect(!MorningHandsFreeVoicePolicy.isOutputEcho(command, output: output, acousticDuplexIsActive: true))
             #expect(MorningHandsFreeVoicePolicy.isOutputEcho(command, output: output, acousticDuplexIsActive: false))
         }

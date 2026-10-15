@@ -6,6 +6,51 @@ import Testing
 @Suite("App-owned morning execution")
 @MainActor
 struct MorningAutomationCoordinatorTests {
+    @Test("Unavailable source recovery pauses the pinned step once and never completes it")
+    func unavailableCallbackPreservesPinnedStep() async throws {
+        let executor = ControlledMorningExecutor()
+        let coordinator = MorningAutomationCoordinator(executor: executor)
+        var session = try runningSession(kind: .calendar)
+        let step = session.currentStep
+        var failures: [MorningStepContext] = []
+        coordinator.runCurrentStep(in: session, onFailure: { context, reason in
+            failures.append(context)
+            #expect(reason == "Selected calendar is unavailable.")
+            try? session.pause()
+            coordinator.cancel()
+        }) { _ in Issue.record("Unavailable source completed") }
+        await waitFor { executor.invocations.count == 1 }
+        executor.resolve(0, with: .success(.unavailable("Selected calendar is unavailable.")))
+        await waitFor { failures.count == 1 }
+        #expect(session.status == .paused)
+        #expect(session.currentStep == step)
+        #expect(session.events.filter { $0.kind == .paused }.count == 1)
+        #expect(session.completedStepIDs.isEmpty)
+        #expect(failures[0].executionID.routineVersionID == session.routine.id)
+    }
+
+    @Test("Late unavailable and thrown-error callbacks cannot interrupt a replacement moment")
+    func staleFailuresCannotPauseReplacement() async throws {
+        let executor = ControlledMorningExecutor()
+        let coordinator = MorningAutomationCoordinator(executor: executor)
+        var session = try runningSession()
+        var failures: [String] = []
+        coordinator.runCurrentStep(in: session, onFailure: { _, reason in failures.append(reason) }) { _ in }
+        await waitFor { executor.invocations.count == 1 }
+        try session.advance()
+        coordinator.runCurrentStep(in: session, onFailure: { _, reason in failures.append(reason) }) { _ in }
+        await waitFor { executor.invocations.count == 2 }
+        executor.resolve(0, with: .success(.unavailable("Obsolete unavailable source")))
+        await settle()
+        #expect(failures.isEmpty)
+        #expect(session.status == .running)
+        #expect(coordinator.context?.executionID.stepID == session.currentStep?.id)
+        coordinator.cancel()
+        executor.resolve(1, with: .failure(ExecutionFailure.failed))
+        await settle()
+        #expect(failures.isEmpty)
+    }
+
     @Test("Only confirmed adapter completion advances once with a stable command ID")
     func completionIsGatedAndDeduplicated() async throws {
         let executor = ControlledMorningExecutor()

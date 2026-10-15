@@ -3,6 +3,83 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    func testLearnedSuggestionCanBeEditedBeforeDelegationAndRestoresPreviousRoutine() {
+        let app = launch(["--ui-testing-approved", "--ui-testing-observation-archive", "--ui-testing-evidence-proposals"])
+        defer { app.terminate() }
+        reveal(app)
+        app.buttons["morning.review"].tap()
+        tapVisible("learn.refine", in: app)
+        XCTAssertTrue(app.textViews["learn.notes"].waitForExistence(timeout: 8))
+        tapVisible("learn.savedObservations", in: app)
+        XCTAssertTrue(app.buttons["observations.choose"].waitForExistence(timeout: 8))
+        app.buttons["observations.choose"].tap()
+        tapVisible("observation.select.11111111-1111-4111-8111-111111111111", in: app)
+        tapVisible("observation.select.22222222-2222-4222-8222-222222222222", in: app)
+        tapVisible("observations.suggestUpdate", in: app)
+        XCTAssertTrue(app.buttons["proposal.edit"].waitForExistence(timeout: 15))
+        let reason = app.buttons["Why this suggestion?"]
+        for _ in 0..<8 where !reason.exists || !reason.isHittable { app.swipeUp() }
+        reason.tap()
+        let source = "Edited sample A: calendar, water, chess and tea."
+        let quote = app.staticTexts["“\(source)”"]
+        for _ in 0..<8 where !quote.exists || !quote.isHittable { app.swipeUp() }
+        XCTAssertTrue(quote.exists)
+        XCTAssertTrue(app.staticTexts["proposal.sources"].label.contains("2 observations"))
+        attach("automation-learned-suggestion-before-edit", app)
+        app.buttons["proposal.edit"].tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["proposal.approve"].exists)
+        XCTAssertTrue(app.buttons["routine.restore"].exists)
+        app.buttons["routine.step.0"].tap()
+        XCTAssertTrue(app.buttons["step.save"].waitForExistence(timeout: 8))
+        let details = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Step details")).firstMatch
+        XCTAssertTrue((details.value as? String ?? "").contains(source), "Adopting an editable draft must retain the exact source quotation.")
+        let duration = app.steppers["step.duration"]
+        let increment = duration.buttons["step.duration-Increment"]
+        for _ in 0..<8 where !increment.exists || !increment.isHittable { app.swipeUp() }
+        increment.tap()
+        XCTAssertEqual(duration.value as? String, "4")
+        app.buttons["step.save"].tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("4 min"))
+        attach("automation-learned-edited-draft-awaiting-delegation", app)
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-testing-approved" || $0 == "--ui-testing-observation-archive" }
+        app.launch()
+        reveal(app)
+        app.buttons["morning.begin"].tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8), "Editing must persist a draft without silently delegating it.")
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("4 min"))
+        tapVisible("routine.restore", in: app)
+        XCTAssertFalse(app.buttons["routine.approve"].exists)
+        XCTAssertTrue(app.buttons["routine.step.3"].exists, "The previous approved routine must remain recoverable.")
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("Your morning"))
+        attach("automation-learned-draft-previous-approved-restored", app)
+    }
+
+    func testUnavailableCalendarPausesWithVisibleRecoveryAndNextPreservesTruth() {
+        let app = launch(["--ui-testing-native-unavailable", "--ui-testing-approved", "--ui-testing-hands-free", "--ui-testing-read-aloud", "--ui-testing-short-budgets"])
+        defer { app.terminate() }
+        reveal(app)
+        app.buttons["morning.begin"].tap()
+        let status = app.staticTexts["moment.connectedResult"]
+        XCTAssertTrue(status.waitForExistence(timeout: 20))
+        XCTAssertTrue(status.label.contains("Your selected calendars are not ready"), status.label)
+        XCTAssertTrue(status.label.contains("Your morning is paused"), status.label)
+        XCTAssertTrue(status.label.contains("Say resume to retry, next to continue"), status.label)
+        XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
+        XCTAssertTrue(app.staticTexts["morning.currentStep"].label.contains("Calendar unavailable"))
+        attach("automation-unavailable-calendar-recovery", app)
+        tapVisible("morning.next", in: app)
+        XCTAssertTrue(app.staticTexts["morning.complete"].waitForExistence(timeout: 35))
+        let recap = app.staticTexts["morning.executionSummary"].label
+        XCTAssertTrue(recap.contains("Unavailable: 1"), recap)
+        XCTAssertTrue(recap.contains("Timed moments finished: 1"), recap)
+        XCTAssertFalse(recap.contains("Verified operations: 2"), recap)
+        XCTAssertFalse(status.exists)
+        attach("automation-unavailable-calendar-honest-recap", app)
+    }
+
     func testFrenchLargestTextKeepsDelegationAndApprovalReachable() {
         let app = launch(["--ui-testing-automation", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
         defer { app.terminate() }
@@ -168,6 +245,13 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             let actions = app.buttons["morning.actions"]
             XCTAssertTrue(actions.waitForExistence(timeout: 10)); actions.tap()
         }
+    }
+    private func tapVisible(_ identifier: String, in app: XCUIApplication) {
+        let button = app.buttons[identifier]
+        for _ in 0..<10 where !button.exists || !button.isHittable { app.swipeUp() }
+        XCTAssertTrue(button.exists, "Missing control: \(identifier)")
+        XCTAssertTrue(button.isHittable, "Unreachable control: \(identifier)")
+        button.tap()
     }
     private func attach(_ name: String, _ app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: app.screenshot())

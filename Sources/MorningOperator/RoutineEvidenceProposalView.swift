@@ -7,6 +7,7 @@ struct RoutineEvidenceProposalView: View {
     @Bindable var store: MorningStore
     /// The presenting view dismisses this sheet before opening the existing Learn sheet.
     var onLearn: () -> Void
+    var onEdit: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -114,7 +115,9 @@ struct RoutineEvidenceProposalView: View {
                         DisclosureGroup("About this suggestion") {
                             Text("Minutes are planned, not measured averages. Visible words don't prove an action or a repeated habit.")
                                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                            Text("Done saves this suggestion for later. You can edit your current routine under Review → Your routine.")
+                            Text(AppLanguage.isFrench
+                                ? "Ajustez cette proposition avant de la confier à MORE. Vos observations sources restent inchangées."
+                                : "Adjust this suggestion before delegating it. Your saved source observations stay unchanged.")
                                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             if proposal.sourceSnapshots.first?.origin == .synthetic {
                                 Text("Sample observations stay separate from your personal habit history.")
@@ -147,6 +150,18 @@ struct RoutineEvidenceProposalView: View {
                             Text("Finish or end your current morning before approving an update.")
                                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         }
+                        Button {
+                            if store.editPendingRoutineProposal() {
+                                onEdit()
+                                dismiss()
+                            }
+                        } label: {
+                            Label(AppLanguage.isFrench ? "Ajuster cette proposition" : "Adjust this suggestion", systemImage: "slider.horizontal.3")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil)
+                        .accessibilityIdentifier("proposal.edit")
                         HStack(spacing: 12) {
                             Button(store.routine == nil ? "Discard" : "Keep current") {
                                 if store.discardPendingRoutineProposal() { dismiss() }

@@ -124,6 +124,19 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
         try validateStructure()
     }
 
+    /// Adopting a suggestion is an explicit edit, never delegation. Revalidate
+    /// the exact saved evidence and choices before handing it to the draft editor.
+    public func draftForEditing(archive: ObservationArchive, baseRoutine: RoutineVersion?,
+                                preferences: RoutinePreferenceJournal, session: RoutineSession? = nil) throws -> RoutineVersion {
+        guard session?.status != .running, session?.status != .paused,
+              isCurrent(archive: archive, baseRoutine: baseRoutine, preferences: preferences) else {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
+        var draft = routine
+        draft.isApproved = false
+        return draft
+    }
+
     /// Checks source bytes/metadata, every base field, and the complete preference journal.
     /// Nil means legacy required-step retention; an explicit empty journal is authoritative.
     /// Store must also invalidate immediately on unsaved edits and cancellation; this method

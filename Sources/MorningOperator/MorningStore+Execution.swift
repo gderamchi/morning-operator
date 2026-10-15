@@ -3,6 +3,22 @@ import MorningCore
 import MorningApple
 
 extension MorningStore {
+    func presentNativeStepFailure(context: MorningStepContext, reason: String) {
+        guard !privacyBlocksWork, let session, sessionActive, let step = currentStep,
+              step.target == nil, step.automation != nil, step.automation != .gmailInbox,
+              context.executionID == MorningExecutionID(sessionID: session.id,
+                routineVersionID: session.routine.id, stepID: step.id) else { return }
+        guard recordExecution(.unavailable) else { pause(); return }
+        if session.status == .running { pause() }
+        let recovery = AppLanguage.isFrench
+            ? "Votre matin est en pause. Dites reprends pour réessayer, suivant pour continuer ou arrête."
+            : "Your morning is paused. Say resume to retry, next to continue, or stop."
+        let message = reason + " " + recovery
+        connectedActionStatus = message
+        notice = nil
+        if readAloud { speech.speak(message) }
+    }
+
     var executionSummary: String? {
         guard let session else { return nil }
         return executionSummary(for: session)

@@ -831,6 +831,10 @@ enum OwnInterfaceWording {
             earlier("After approval, edit your plan in Routine", "Après approbation, modifiez votre plan dans Routine"),
             earlier("You can edit your current routine under Review → Your routine",
                     "Vous pouvez modifier votre routine actuelle dans Historique → Votre routine"),
+            part("Adjust this suggestion before delegating it", fr: "Ajustez cette proposition avant de la confier à MORE",
+                 of: "Adjust this suggestion before delegating it. Your saved source observations stay unchanged."),
+            part("Your saved source observations stay unchanged", fr: "Vos observations sources restent inchangées",
+                 of: "Adjust this suggestion before delegating it. Your saved source observations stay unchanged."),
             shown("Sample observations stay separate from your personal habit history.",
                   fr: "Les observations d’exemple restent séparées de votre historique personnel."),
             shown("Finish or end your current morning before approving an update.",
@@ -839,6 +843,7 @@ enum OwnInterfaceWording {
                  of: "The observations or your routine may have changed. Choose the mornings again to make a fresh suggestion.")
         ], controls: [
             shown("Suggested update", fr: "Mise à jour suggérée"),
+            shown("Adjust this suggestion", fr: "Ajuster cette proposition"),
             shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour"),
             shown("Keep current", fr: "Garder l’actuelle"),
             shown("Why this suggestion?", fr: "Pourquoi cette suggestion ?"),
