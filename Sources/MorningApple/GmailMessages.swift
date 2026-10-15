@@ -295,7 +295,7 @@ enum GmailMessageDecoder {
 /// Deliberately small text extractor, not a browser or HTML interpreter. All tag
 /// attributes disappear, script/style/embedded document content is suppressed,
 /// and decoded entities are returned only as inert text.
-private enum GmailHTMLText {
+enum GmailHTMLText {
     static func extract(_ html: String) -> (value: String, isIncomplete: Bool) {
         var output = ""
         var isIncomplete = false

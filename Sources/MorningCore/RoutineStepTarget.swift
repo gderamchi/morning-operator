@@ -149,6 +149,7 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
     case connectedAPI(service: String, connectionID: String, tool: String, argumentsJSON: String)
     case googleCalendarDay(GoogleCalendarDayTarget)
     case calendlyDay(CalendlyDayTarget)
+    case outlookInbox(OutlookInboxTarget)
 
     /// The URL to open for an external app; nil for a page inside MORE or a Safari step
     /// without a valid address.
@@ -166,12 +167,12 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
             let bare = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
             return .inMORE(StepApp.allCases.first { $0.webHosts.contains(bare) })
         case .shortcut: return .nativeAction
-        case .connectedAPI, .googleCalendarDay, .calendlyDay: return .connectedService
+        case .connectedAPI, .googleCalendarDay, .calendlyDay, .outlookInbox: return .connectedService
         }
     }
 
     private enum CodingKeys: String, CodingKey { case kind, app, detail, site, name, input, service, connectionID, tool, argumentsJSON, calendar, account }
-    private enum Kind: String, Codable { case externalApp, inAppWeb, shortcut, connectedAPI, googleCalendarDay, calendlyDay }
+    private enum Kind: String, Codable { case externalApp, inAppWeb, shortcut, connectedAPI, googleCalendarDay, calendlyDay, outlookInbox }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -199,6 +200,8 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
             self = .googleCalendarDay(try values.decode(GoogleCalendarDayTarget.self, forKey: .calendar))
         case .calendlyDay:
             self = .calendlyDay(try values.decode(CalendlyDayTarget.self, forKey: .account))
+        case .outlookInbox:
+            self = .outlookInbox(try values.decode(OutlookInboxTarget.self, forKey: .account))
         }
         try validateIntegration()
     }
@@ -229,6 +232,9 @@ public enum RoutineStepTarget: Codable, Hashable, Sendable {
             try values.encode(calendar, forKey: .calendar)
         case let .calendlyDay(account):
             try values.encode(Kind.calendlyDay, forKey: .kind)
+            try values.encode(account, forKey: .account)
+        case let .outlookInbox(account):
+            try values.encode(Kind.outlookInbox, forKey: .kind)
             try values.encode(account, forKey: .account)
         }
     }

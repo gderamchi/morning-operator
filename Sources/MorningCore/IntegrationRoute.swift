@@ -28,7 +28,7 @@ public enum IntegrationTargetError: Error, LocalizedError, Equatable {
 extension RoutineStepTarget {
     public var isConnectedAction: Bool {
         switch self {
-        case .shortcut, .connectedAPI, .googleCalendarDay, .calendlyDay: true
+        case .shortcut, .connectedAPI, .googleCalendarDay, .calendlyDay, .outlookInbox: true
         case .externalApp, .inAppWeb: false
         }
     }
@@ -36,7 +36,7 @@ extension RoutineStepTarget {
     public var integrationRoute: IntegrationRoute? {
         switch self {
         case .shortcut: .nativeIOS
-        case .connectedAPI, .googleCalendarDay, .calendlyDay: .api
+        case .connectedAPI, .googleCalendarDay, .calendlyDay, .outlookInbox: .api
         case .inAppWeb: .browser
         case .externalApp(let app, _):
             switch app {
@@ -67,6 +67,7 @@ extension RoutineStepTarget {
                   object is [String: Any] else { throw IntegrationTargetError.invalidArguments }
         case .googleCalendarDay(let target): try target.validate()
         case .calendlyDay(let target): try target.validate()
+        case .outlookInbox(let target): try target.validate()
         case .externalApp, .inAppWeb: break
         }
     }

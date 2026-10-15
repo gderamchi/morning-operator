@@ -285,6 +285,19 @@ public final class ComposioService {
         return result
     }
 
+    /// Only current Outlook identity, three unread Inbox previews, and a selected
+    /// message read. These reads never consume or release a write reservation.
+    public func readOutlook(tool: String, arguments: [String: ComposioJSONValue], connectionID: String) async throws -> ComposioExecutionResult {
+        guard Self.validIdentifier(connectionID), OutlookInboxReadContract.validRead(tool, arguments) else { throw ComposioServiceError.invalidArguments }
+        try Task.checkCancellation()
+        let id = UUID()
+        let result: ComposioExecutionResult = try await request("POST", path: "execute", body: .object([
+            "tool": .string(tool), "arguments": .object(arguments), "connectionID": .string(connectionID), "requestID": .string(id.uuidString)]))
+        try Task.checkCancellation()
+        guard result.requestID == id, result.successful || result.error != nil else { throw ComposioServiceError.invalidResponse }
+        return result
+    }
+
     /// The dedicated route verifies the current provider subject and account metadata.
     /// Its revision is a preflight check, not a conditional Composio credential lease.
     /// An old server is unavailable, never a reason to fall back to a generic send.
