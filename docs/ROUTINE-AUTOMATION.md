@@ -58,7 +58,7 @@ The same action panel is available inside the routine browser, including when a 
 
 Package tests establish deterministic policy, encoding, stale-result/cancellation and injected-provider behavior. Simulator tests establish visible navigation, explicit delegation, clock/session transitions, recap persistence and actual public-page behavior where observed. Synthetic command injection is never microphone recognition. A loaded web page is never successful browsing.
 
-Reviewed video context and structured browser sequences feed the common proposal while preserving citations and personal choices. Screen Time currently has a separate saved suggestion path; joining its actual coverage to that common review remains implementation work. The final MORE acceptance still needs real multi-morning source coverage, connected accounts and an ordinary iPhone: acoustic barge-in, local-model latency, social stories/video/likes, all provider operations and actual voice-directed mail sending. These gates remain open until individually observed.
+Reviewed video context, structured browser sequences and explicitly selected dated Screen Time aggregates feed the common proposal while preserving source revisions, citations and personal choices. Missing Screen Time coverage stays unknown; its app totals do not establish gestures or redistribute observed browser budgets. The legacy direct Screen Time suggestion remains compatible. The final MORE acceptance still needs real multi-morning source coverage, connected accounts and an ordinary iPhone: acoustic barge-in, local-model latency, social stories/video/likes, all provider operations and actual voice-directed mail sending. These gates remain open until individually observed.
 
 ## Acceptance tracking
 
