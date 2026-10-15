@@ -10,7 +10,6 @@ struct MorningBriefingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ViewState<String> private var cityQuery = ""
     @ViewState<Bool> private var confirmingReset = false
-    @ViewState<String?> private var savedMessage = nil
     @ViewState<UUID?> private var previewAttempt = nil
     @ViewState<PreparedMorningBriefing?> private var playingPreview = nil
     @FocusState private var cityFocused: Bool
@@ -21,9 +20,9 @@ struct MorningBriefingView: View {
           ScrollViewReader { proxy in
             MorningForm {
                 Section {
-                    Text("Before you begin.").font(MorningTheme.Typography.title)
+                    Text("Before you begin.").font(.raleway(.subheadline, .semibold))
                     Text("Choose what you'd like to hear before the rest of your morning.")
-                        .foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }
                 if store.usesSyntheticBriefing {
                     Section { Text("Synthetic test sources · not your calendar or weather")
@@ -38,8 +37,6 @@ struct MorningBriefingView: View {
                 } else {
                     calendarSection.disabled(store.sessionActive)
                     weatherSection.disabled(store.sessionActive)
-                    previewSection
-                    routineSection
                 }
                 if let error = controller.errorMessage {
                     Section { Text(error).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
@@ -48,7 +45,7 @@ struct MorningBriefingView: View {
                 Section {
                     Text("MORE prepares this recap when you open the app and checks it again before speaking. Overnight preparation isn't guaranteed.")
                     Text("This recap uses your selected calendar and current weather. It doesn't change your events.")
-                }.font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                }.font(.raleway(.caption2)).foregroundStyle(MorningStyle.muted)
             }
             .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
             // Keep the city field and its suggestions above the keyboard.
@@ -121,6 +118,7 @@ struct MorningBriefingView: View {
             }
         } header: { Text("Your calendar") } footer: {
             Text("Apple requires full calendar access to read events. MORE reads only the calendars you select; this recap doesn't change them.")
+                .font(.raleway(.caption2))
         }
     }
 
@@ -177,46 +175,7 @@ struct MorningBriefingView: View {
             }
         } header: { Text("Weather · optional") } footer: {
             Text("Searches go to Apple Maps; the city you choose is sent to Apple Weather. MORE doesn't request your device location.")
-        }
-    }
-
-    private var previewSection: some View {
-        Section {
-            if controller.isPreparing { ProgressView("Preparing your day…").accessibilityIdentifier("briefing.preparing") }
-            if let document = playingPreview ?? controller.prepared {
-                MorningBriefingDocumentView(document: document, synthetic: store.usesSyntheticBriefing)
-                if document.hasUsableFacts {
-                    Button("Hear this recap", action: hearPreview)
-                        .disabled(store.sessionActive || store.voiceInputBlocksPlayback || controller.isPreparing || previewAttempt != nil || store.speech.state != .idle)
-                        .accessibilityIdentifier("briefing.hear")
-                    if previewAttempt != nil || store.speech.state == .speaking {
-                        Button("Stop") { previewAttempt = nil; playingPreview = nil; store.speech.stop() }
-                            .disabled(store.sessionActive).accessibilityIdentifier("briefing.stop")
-                    }
-                }
-            } else if !controller.isPreparing {
-                Text("Choose a calendar or city to prepare your first recap.").foregroundStyle(MorningStyle.muted)
-            }
-            Button("Refresh recap") { Task { _ = await controller.refresh(force: true) } }
-                .disabled(!controller.hasConfiguredSources || controller.isPreparing)
-                .accessibilityIdentifier("briefing.refresh")
-        } header: { Text("Your recap") } footer: {
-            Text("Refreshing this preview doesn't move your routine forward or change a recap already being spoken.")
-        }
-    }
-
-    private var routineSection: some View {
-        Section {
-            if store.routine != nil {
-                let exists = store.routine?.steps.contains { $0.automation == .morningBriefing } == true
-                Button(exists ? "Already in your morning" : "Add to my morning") {
-                    savedMessage = store.addBriefingToRoutine() ? String(localized: "Added as a draft. Review and approve your morning when you're ready.") : store.notice
-                }.disabled(exists || store.sessionActive || !controller.hasConfiguredSources)
-                    .accessibilityIdentifier("briefing.addToRoutine")
-            } else {
-                Text("Once you have a routine, add Your day as its opening moment.").foregroundStyle(MorningStyle.muted)
-            }
-            if let savedMessage { Text(savedMessage).font(.raleway(.caption)).accessibilityIdentifier("briefing.saved") }
+                .font(.raleway(.caption2))
         }
     }
 
@@ -255,25 +214,6 @@ struct MorningBriefingView: View {
         if !store.sessionActive { store.speech.stop() }
         do { try controller.updateSettings(settings); Task { await store.prepareDayIfConfigured() } }
         catch { /* The controller publishes its safe, actionable error. */ }
-    }
-
-    private func hearPreview() {
-        guard scenePhase == .active, !store.sessionActive, !store.voiceInputBlocksPlayback, !store.privacyBlocksWork else { return }
-        let attempt = UUID(), generation = store.dataGeneration
-        previewAttempt = attempt
-        Task {
-            defer {
-                if previewAttempt == attempt && playingPreview == nil { previewAttempt = nil }
-            }
-            guard let document = await controller.refresh(), scenePhase == .active, previewAttempt == attempt,
-                  store.dataGeneration == generation, !store.privacyBlocksWork,
-                  !store.sessionActive, !store.voiceInputBlocksPlayback,
-                  document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier),
-                  controller.permitsPlayback(of: document) else { return }
-            // This exact document remains visible until a deliberate refresh.
-            playingPreview = document
-            store.speech.speak(document.spokenText)
-        }
     }
 
     private func stopPreview() {

@@ -372,11 +372,6 @@ struct SetupView: View {
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("setup.connections")
-            NavigationLink { ShortcutTemplatesView() } label: {
-                LinkRow(title: String(localized: "Shortcuts & timers"), detail: "", symbol: "timer")
-                    .padding(MorningTheme.Space.card)
-                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
-            }.buttonStyle(.plain)
             CardButton { choosingInvitation = true } content: {
                 HStack(spacing: 14) {
                     MorningDottedIcon(systemName: "sun.horizon").frame(width: 28, height: 28)
