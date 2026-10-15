@@ -34,8 +34,10 @@ extension MorningSolarDay {
             let event = midnightUTC.addingTimeInterval(utcMinute * 60)
             let days = local.dateComponents([.day], from: start, to: local.startOfDay(for: event)).day ?? 0
             let time = local.dateComponents([.hour, .minute, .second], from: event)
-            return Double(days * 1440 + (time.hour ?? 0) * 60 + (time.minute ?? 0))
-                + Double(time.second ?? 0) / 60
+            let hours = Double(time.hour ?? 0)
+            let minutes = Double(time.minute ?? 0)
+            let seconds = Double(time.second ?? 0)
+            return Double(days) * 1440 + hours * 60 + minutes + seconds / 60
         }
         return .init(sunriseMinute: wallMinute(720 - 4 * (longitude + angle) - equation),
                      sunsetMinute: wallMinute(720 - 4 * (longitude - angle) - equation))

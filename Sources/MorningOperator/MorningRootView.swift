@@ -84,7 +84,7 @@ struct MorningRootView: View {
                            speak: { store.openCompletionCapture() }, write: { store.openCapture() },
                            notNow: { store.discardCompletionReflection() })
                 // Light status bar text over the night sky.
-                .toolbarColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.5 ? .dark : .light, for: .navigationBar)
+                .toolbarColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.57 ? .dark : .light, for: .navigationBar)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeRoute.self) { route in
                     switch route {
@@ -118,7 +118,7 @@ struct MorningRootView: View {
         }
         // On the stack, not its first screen, so the status bar clock follows the sky
         // on pushed screens too and turns light at night.
-        .preferredColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.5 ? .dark : nil)
+        .preferredColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.57 ? .dark : .light)
         .background(MorningPaper(showsSun: false))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { dockWidth = $0 }
         .background {
@@ -250,7 +250,10 @@ struct MorningRootView: View {
             store.tab = .today
         }
         .onChange(of: store.briefing.settings.weatherLocation, initial: true) { _, location in
-            MorningThemeClock.shared.setLocation(location)
+            MorningThemeClock.shared.setLocation(store.privacyBlocksWork ? nil : location)
+        }
+        .onChange(of: store.privacyBlocksWork) { _, blocked in
+            MorningThemeClock.shared.setLocation(blocked ? nil : store.briefing.settings.weatherLocation)
         }
         .task { await initializeMorning() }
         .task {
@@ -1215,9 +1218,11 @@ private struct MorningSunHome: View {
                             controls
                                 .padding(22)
                                 .frame(maxWidth: 360)
+                                .background(night > 0.5 ? Color(red: 0.086, green: 0.114, blue: 0.204) : MorningStyle.surface,
+                                            in: RoundedRectangle(cornerRadius: 14))
                                 .frame(maxWidth: .infinity)
                         }
-                        .defaultScrollAnchor(.bottom)
+                        .defaultScrollAnchor(.bottom, for: .alignment)
                         .scrollBounceBehavior(.basedOnSize)
                         .transition(still ? .opacity : .opacity.combined(with: .offset(y: 12)))
                     } else {
@@ -1253,7 +1258,7 @@ private struct MorningSunHome: View {
                 Button {
                     withAnimation(still ? .easeOut(duration: 0.12) : .easeOut(duration: 0.18)) { actionsShown = false }
                 } label: {
-                    Image(systemName: "xmark").font(.system(size: 16)).frame(width: 44, height: 44)
+                    Image(systemName: "xmark").font(.system(size: 16)).frame(width: 44, height: 44).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isFrench ? "Fermer" : "Close")
@@ -1267,12 +1272,12 @@ private struct MorningSunHome: View {
                     Button(action: session?.status == .paused ? resume : pause) {
                         Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",
                               systemImage: session?.status == .paused ? "play.fill" : "pause.fill")
-                            .frame(minHeight: 44)
+                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                     }
                     .accessibilityIdentifier("morning.playback")
                     Spacer(minLength: 0)
                     Button(action: next) {
-                        Text(isFrench ? "Suivant" : "Next").frame(minHeight: 44)
+                        Text(isFrench ? "Suivant" : "Next").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                     }
                     .accessibilityIdentifier("morning.next")
                 }
@@ -1294,13 +1299,13 @@ private struct MorningSunHome: View {
             HStack(spacing: 20) {
                 Button(action: openSettings) {
                     Label(isFrench ? "Réglages" : "Settings", systemImage: "gearshape")
-                        .frame(minHeight: 48)
+                        .frame(minHeight: 48).contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("morning.settings")
                 Spacer(minLength: 0)
                 Button(action: openRoutine) {
                     Label(isFrench ? "Ma routine" : "My routine", systemImage: "list.bullet")
-                        .frame(minHeight: 48)
+                        .frame(minHeight: 48).contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("morning.review")
             }
@@ -1311,7 +1316,7 @@ private struct MorningSunHome: View {
                     Text(isFrench ? "Choisissez votre ville dans Votre journée pour suivre le lever et le coucher du soleil."
                                   : "Choose your city in Your day to follow sunrise and sunset.")
                         .font(.raleway(.caption)).multilineTextAlignment(.leading).opacity(0.75)
-                        .frame(minHeight: 44, alignment: .leading)
+                        .frame(minHeight: 44, alignment: .leading).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("morning.solarCity")
@@ -1331,12 +1336,12 @@ private struct MorningSunHome: View {
                 .font(.raleway(.subheadline)).opacity(0.7)
                 .accessibilityIdentifier("morning.completeSummary")
             if offersReflection {
-                Button(action: speak) { Label(isFrench ? "Dire une pensée" : "Speak a thought", systemImage: "mic").frame(minHeight: 44) }
+                Button(action: speak) { Label(isFrench ? "Dire une pensée" : "Speak a thought", systemImage: "mic").frame(minHeight: 44).contentShape(Rectangle()) }
                     .disabled(voiceBlocked).accessibilityIdentifier("morning.speakReflection")
-                Button(isFrench ? "Noter une pensée" : "Note a thought", action: write)
-                    .frame(minHeight: 44).accessibilityIdentifier("morning.reflect")
-                Button(isFrench ? "Plus tard" : "Not now", action: notNow)
-                    .frame(minHeight: 44).accessibilityIdentifier("morning.dismissReflection")
+                Button(action: write) { Text(isFrench ? "Noter une pensée" : "Note a thought").frame(minHeight: 44).contentShape(Rectangle()) }
+                    .accessibilityIdentifier("morning.reflect")
+                Button(action: notNow) { Text(isFrench ? "Plus tard" : "Not now").frame(minHeight: 44).contentShape(Rectangle()) }
+                    .accessibilityIdentifier("morning.dismissReflection")
             }
         }
         .buttonStyle(.plain)

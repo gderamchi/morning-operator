@@ -50,7 +50,7 @@ final class SunriseDockTests: XCTestCase {
             reveal(in: app)
             assertReachable(identifier, in: app)
             app.buttons[identifier].tap()
-            XCTAssertTrue(app.buttons["learn.import"].waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(app.buttons["learn.screenTime"].waitForExistence(timeout: 5), app.debugDescription)
             XCTAssertFalse(app.buttons["morning.playback"].exists)
             XCTAssertEqual(app.alerts.count, 0)
             app.terminate()
@@ -108,6 +108,24 @@ final class SunriseDockTests: XCTestCase {
         attach("quiet-solar-night-fr-largest-controls", app)
     }
 
+    func testNightTwinklesAndReducedMotionLeavesTheLandscapeStill() {
+        for still in [false, true] {
+            let app = launch(phase: "night", extra: still ? ["--ui-testing-reduce-motion"] : [])
+            assertQuietArrival(in: app)
+            let landscape = app.buttons["morning.actions"]
+            let before = landscape.screenshot()
+            let elapsed = expectation(description: "Observe a second of the night sky")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { elapsed.fulfill() }
+            wait(for: [elapsed], timeout: 3)
+            let after = landscape.screenshot()
+            if still { XCTAssertEqual(before.pngRepresentation, after.pngRepresentation, "Reduce Motion must leave the landscape still.") }
+            else { XCTAssertNotEqual(before.pngRepresentation, after.pngRepresentation, "The night stars should gently change brightness.") }
+            attach("quiet-solar-night-\(still ? "still" : "twinkle")-before", before)
+            attach("quiet-solar-night-\(still ? "still" : "twinkle")-after", after)
+            app.terminate()
+        }
+    }
+
     private func launch(phase: String = "day", empty: Bool = false, extra: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -154,11 +172,14 @@ final class SunriseDockTests: XCTestCase {
         let button = app.buttons[identifier]
         XCTAssertTrue(button.waitForExistence(timeout: 5), app.debugDescription, file: file, line: line)
         let controls = app.scrollViews.firstMatch
-        for _ in 0..<6 where !button.isHittable && controls.exists {
+        func fullyVisible() -> Bool {
+            button.isHittable && (!controls.exists || controls.frame.insetBy(dx: -1, dy: -1).contains(button.frame))
+        }
+        for _ in 0..<6 where !fullyVisible() && controls.exists {
             if button.frame.midY < controls.frame.midY { controls.swipeDown() }
             else { controls.swipeUp() }
         }
-        XCTAssertTrue(button.isHittable, app.debugDescription, file: file, line: line)
+        XCTAssertTrue(fullyVisible(), app.debugDescription, file: file, line: line)
         XCTAssertGreaterThanOrEqual(button.frame.width, 44, identifier, file: file, line: line)
         XCTAssertGreaterThanOrEqual(button.frame.height, 44, identifier, file: file, line: line)
         XCTAssertGreaterThanOrEqual(button.frame.minX, 0, identifier, file: file, line: line)
@@ -167,7 +188,10 @@ final class SunriseDockTests: XCTestCase {
     }
 
     private func attach(_ name: String, _ app: XCUIApplication) {
-        let screenshot = app.screenshot()
+        attach(name, app.screenshot())
+    }
+
+    private func attach(_ name: String, _ screenshot: XCUIScreenshot) {
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways

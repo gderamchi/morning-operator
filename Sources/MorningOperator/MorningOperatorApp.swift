@@ -25,9 +25,8 @@ struct MorningOperatorApp: App {
             MorningRootView(store: store)
             #endif
             }
-            // MORE's local-time palette owns the day-to-night journey. System
-            // appearance must not replace its paper, controls or website chrome.
-            .preferredColorScheme(.light)
+            // Match system status text to the sky; MORE still owns its paper palette.
+            .preferredColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.57 ? .dark : .light)
             #if DEBUG
             .overlay(alignment: .topLeading) {
                 if ProcessInfo.processInfo.arguments.contains("--qa-system-checks"),

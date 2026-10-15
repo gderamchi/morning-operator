@@ -537,8 +537,8 @@ struct MorningQuietLandscape: View {
                     if column.isMultiple(of: 3) { dot(x + 1, horizon + 9 + sin(Double(column)) * 3, 0.45) }
                     if column.isMultiple(of: 5) { dot(x - 2, horizon + 19 + cos(Double(column)) * 4, 0.35) }
                 }
-                // Two slightly different trees, entirely made of round impressions.
-                for (fraction, scale) in [(0.13, 1.0), (0.87, 0.82)] {
+                // A pair of trees on either side, entirely made of round impressions.
+                for (fraction, scale) in [(0.09, 0.72), (0.18, 1.0), (0.82, 0.88), (0.91, 0.63)] {
                     let x = canvas.width * fraction
                     let base = horizon - 1
                     for row in 0...10 { dot(x, base - Double(row) * 3.2 * scale, 0.8 * scale) }
@@ -553,7 +553,7 @@ struct MorningQuietLandscape: View {
                         }
                     }
                     for side in [-1.0, 1.0] {
-                        for step in 0...4 { dot(x + side * Double(step) * 2, base - 19 - Double(step) * 1.8, 0.7 * scale) }
+                        for step in 0...4 { dot(x + side * Double(step) * 2, base - (19 + Double(step) * 1.8) * scale, 0.7 * scale) }
                     }
                 }
                 // A few blades of grass give the ground a scale without filling the page.
