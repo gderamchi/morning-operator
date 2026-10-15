@@ -22,13 +22,28 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         let save = app.buttons["step.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 8))
         XCTAssertTrue(save.isHittable)
-        let duration = app.descendants(matching: .any).matching(identifier: "step.duration").firstMatch
+        let duration = app.steppers["step.duration"]
+        // The Stepper is a composite accessibility element; its native +/-
+        // buttons are the touch targets, even while the parent is nonhittable.
+        let increment = duration.buttons["step.duration-Increment"]
         for _ in 0..<8 {
-            if duration.exists && duration.isHittable { break }
+            if increment.exists && increment.isHittable { break }
             app.swipeUp()
         }
-        XCTAssertTrue(duration.isHittable)
         attach("automation-french-largest-edit", app)
+        guard increment.exists && increment.isHittable else {
+            XCTFail("The native duration increment must remain reachable at the largest text size.")
+            return
+        }
+        increment.tap()
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "2"), object: duration)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+        XCTAssertTrue(save.isHittable)
+        save.tap()
+        XCTAssertTrue(approve.waitForExistence(timeout: 8))
+        XCTAssertTrue(approve.isHittable)
+        XCTAssertTrue(step.label.contains("2 min"), "The edited duration must be saved in the reviewed routine.")
+        attach("automation-french-largest-saved", app)
     }
     func testDraftRequiresExplicitDelegationBeforeStart() {
         let app = launch(["--ui-testing-automation"], french: true)
@@ -106,6 +121,10 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 5))
         let countBeforeClosing = observedContents(status.label)
         XCTAssertGreaterThanOrEqual(countBeforeClosing, 2)
+        let positionBeforeClosing = browserDiagnostic(status, key: "viewportY")
+        let sourceBeforeClosing = browserDiagnostic(status, key: "sourceIdentity")
+        XCTAssertGreaterThan(positionBeforeClosing, 0)
+        XCTAssertGreaterThan(browserDiagnostic(status, key: "sourceItems"), 0)
         attach("automation-real-public-feed-before-close", app)
         app.buttons["web.close"].tap()
         reveal(app)
@@ -114,6 +133,14 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["web.pause"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.staticTexts["web.host"].label, "www.reddit.com")
         XCTAssertEqual(observedContents(app.staticTexts["web.result"].label), countBeforeClosing)
+        // Freeze this exact restored viewport before the next legitimate dwell/
+        // advance, so accessibility-query latency cannot race the next content.
+        app.buttons["web.pause"].tap()
+        XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 5))
+        XCTAssertEqual(observedContents(status.label), countBeforeClosing)
+        XCTAssertLessThanOrEqual(abs(browserDiagnostic(status, key: "viewportY") - positionBeforeClosing), 2)
+        XCTAssertEqual(browserDiagnostic(status, key: "sourceIdentity"), sourceBeforeClosing)
+        XCTAssertGreaterThan(browserDiagnostic(status, key: "sourceItems"), 0)
         attach("automation-real-public-feed-reopened", app)
     }
 
@@ -156,5 +183,14 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             .split(separator: " ").first.flatMap { Int($0) }
         guard let count else { XCTFail("Missing observed-content count: \(label)"); return 0 }
         return count
+    }
+    private func browserDiagnostic(_ status: XCUIElement, key: String) -> Int {
+        let value = status.value as? String ?? ""
+        let raw = value.split(separator: " ").first { $0.hasPrefix(key + "=") }
+            .flatMap { $0.split(separator: "=", maxSplits: 1).last }
+        guard let raw, let number = Int(raw) else {
+            XCTFail("Missing browser diagnostic \(key): \(value)"); return 0
+        }
+        return number
     }
 }

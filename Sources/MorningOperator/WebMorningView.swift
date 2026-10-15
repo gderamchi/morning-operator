@@ -270,7 +270,8 @@ struct WebMorningView: View {
                 return text("MORE is taking care of this · \(event.observedContentCount) contents viewed",
                             "MORE s’en occupe · \(event.observedContentCount) contenus parcourus")
             case .performingAction: return text("Checking this like…", "Vérification de ce j’aime…")
-            case .paused: return text("Your morning is paused. Resume when you're ready.", "Votre matin est en pause. Reprenez quand vous le souhaitez.")
+            case .paused: return text("Paused · \(event.observedContentCount) contents viewed. Resume when you're ready.",
+                                      "En pause · \(event.observedContentCount) contenus parcourus. Reprenez quand vous le souhaitez.")
             case .needsSignIn: return text("Sign in on the page. MORE will resume here.", "Connectez-vous sur la page. MORE reprendra ici.")
             case .needsChoice: return text("This site needs a privacy choice, subscription or sign-in. Choose on the page, then resume, or skip this moment.", "Ce site demande un choix de confidentialité, un abonnement ou une connexion. Faites votre choix sur la page, puis reprenez, ou passez ce moment.")
             case .unavailable: return text("MORE couldn't continue on this page. Reload or skip this moment.", "MORE ne peut pas continuer sur cette page. Rechargez ou passez ce moment.")
@@ -296,7 +297,10 @@ struct WebMorningView: View {
 
     private var resultDiagnostic: String {
         #if DEBUG
-        return ProcessInfo.processInfo.arguments.contains("--ui-testing") ? controller.executionDiagnostic : ""
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return "" }
+        let source = controller.executionEvent?.contextText ?? []
+        let position = Int(controller.webView.scrollView.contentOffset.y.rounded())
+        return "\(controller.executionDiagnostic) viewportY=\(position) sourceItems=\(source.count) sourceIdentity=\(source.hashValue)"
         #else
         return ""
         #endif

@@ -438,9 +438,16 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         guard WebMorningBehavior.availableBehaviors(for: site).contains(plan.behavior) else {
             publishExecution(.unavailable); return
         }
-        var unavailableAttempts = 0, unchangedAdvances = 0
+        // Navigation and DOM readiness have different bounds. Slow initial or
+        // consent navigation must not consume the subsequent content's retries.
+        var navigationAttempts = 0, failedObservations = 0, unreadyAttempts = 0, unchangedAdvances = 0
+        var readinessGeneration = pageGeneration
         let journal = WebMorningLikeJournal(directory: LocalDataControl.defaultDirectory)
         while executionIsCurrent(nonce) {
+            if readinessGeneration != pageGeneration {
+                readinessGeneration = pageGeneration
+                navigationAttempts = 0; failedObservations = 0; unreadyAttempts = 0
+            }
             let hasUnresolved: Bool
             do { hasUnresolved = try !journal.unresolvedKeys(sessionID: plan.sessionID, stepID: plan.stepID).isEmpty }
             catch { publishExecution(.uncertainAction); return }
@@ -452,10 +459,14 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             if loadFailed { publishExecution(.unavailable); return }
             if webView.isLoading || webView.url == nil {
                 publishExecution(.waitingForPage)
-                unavailableAttempts += 1
-                if unavailableAttempts > 30 { publishExecution(.unavailable); return }
+                navigationAttempts += 1
+                if navigationAttempts > 30 {
+                    executionDiagnostic += " stop=navigation attempts=\(navigationAttempts)"
+                    publishExecution(.unavailable); return
+                }
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             }
+            navigationAttempts = 0
             if WebMorningPolicy.isSignInPage(webView.url) || WebMorningSite(url: webView.url ?? startURL) != site {
                 clearSourceText()
                 publishExecution(.needsSignIn)
@@ -463,16 +474,22 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             }
             guard let observation = await executionObserve(plan, nonce: nonce) else {
                 guard executionIsCurrent(nonce) else { return }
-                unavailableAttempts += 1
-                if unavailableAttempts >= 5 { clearSourceText(); publishExecution(.unavailable); return }
+                failedObservations += 1
+                if failedObservations >= 5 {
+                    executionDiagnostic += " stop=observation attempts=\(failedObservations)"
+                    clearSourceText(); publishExecution(.unavailable); return
+                }
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             }
+            failedObservations = 0
             switch observation.status {
             case .signin:
+                unreadyAttempts = 0
                 clearSourceText()
                 publishExecution(.needsSignIn)
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             case .choice:
+                unreadyAttempts = 0
                 clearSourceText()
                 publishExecution(.needsChoice)
                 guard await executionWait(1, nonce: nonce) else { return }; continue
@@ -481,14 +498,17 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
                 if observation.consentCanDismiss == true {
                     _ = await executionCommand("rejectConsent", observation: observation, plan: plan, nonce: nonce)
                 }
-                unavailableAttempts += 1
+                unreadyAttempts += 1
                 publishExecution(.waitingForPage)
-                if unavailableAttempts >= 8 { publishExecution(.unavailable); return }
+                if unreadyAttempts >= 8 {
+                    executionDiagnostic += " stop=contentReadiness attempts=\(unreadyAttempts)"
+                    publishExecution(.unavailable); return
+                }
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             case .unavailable: clearSourceText(); publishExecution(.unavailable); return
             case .ready: break
             }
-            unavailableAttempts = 0
+            unreadyAttempts = 0
             if let route = observation.storyRoute {
                 guard route.hasPrefix("/stories/"), let page = webView.url,
                       let next = URL(string: route, relativeTo: page)?.absoluteURL,
