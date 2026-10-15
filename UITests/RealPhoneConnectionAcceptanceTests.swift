@@ -39,8 +39,8 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
 
         guard ProcessInfo.processInfo.environment["MO_REAL_PHONE_EXPECT_GMAIL_ACCOUNT"] == "1" else { return }
         reveal(gmailActions)
-        if !app.buttons["connections.account.gmail"].exists { gmailActions.tap() }
-        let gmail = app.buttons["connections.account.gmail"]
+        if !gmailAPIConnection.exists { gmailActions.tap() }
+        let gmail = gmailAPIConnection
         reveal(gmail)
         gmail.tap()
         defer { returnToConnections() }
@@ -58,7 +58,8 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
 
     func testExistingCalendarAccessWithoutChangingSelection() throws {
         try openConnections()
-        let calendar = button(containing: ["Calendar & weather", "Calendrier et météo"])
+        let calendar = button(containing: ["Your schedule and the weather where you are going.",
+                                           "Votre agenda et la météo de la ville de votre choix."])
         reveal(calendar)
         calendar.tap()
         defer { returnToConnections(calendar: true) }
@@ -77,9 +78,58 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         // Inventory only: no calendar toggle, event mutation, or speech preview is used.
     }
 
+    func testReadNativeGmailUsingExistingSavedConnection() throws {
+        try openConnections()
+        let reader = app.buttons["connections.gmailReader"]
+        reveal(reader)
+        reader.tap()
+        defer { returnToConnections() }
+        try refusePermissionOrFixtureScreens()
+
+        // Opening this reader restores the existing grant and performs one fresh
+        // bounded unread load. Refresh would issue a second load, so never tap it.
+        let messages = app.descendants(matching: .any)["gmail.messages"]
+        let loaded = messages.waitForExistence(timeout: 45)
+        try refusePermissionOrFixtureScreens()
+        if !loaded {
+            if app.staticTexts["gmail.configuration"].exists {
+                capture(app.staticTexts["gmail.error"].exists
+                    ? "real-phone-native-gmail-configuration-error-present"
+                    : "real-phone-native-gmail-configuration-no-error")
+                throw XCTSkip("Native Gmail is not configured in this installed app. No consent was started.")
+            }
+            if app.buttons["gmail.connect"].exists && !app.buttons["gmail.refresh"].exists {
+                capture(app.staticTexts["gmail.error"].exists
+                    ? "real-phone-native-gmail-no-saved-connection-error-present"
+                    : "real-phone-native-gmail-no-saved-connection-no-error")
+                throw XCTSkip("No saved native Gmail connection is available. Connect was not pressed.")
+            }
+        }
+        XCTAssertTrue(loaded, "The saved native Gmail connection did not finish its unread load. No mailbox read success is claimed.")
+        XCTAssertTrue(app.staticTexts["gmail.unread"].exists, "The native Gmail INBOX count did not load.")
+        XCTAssertTrue(app.buttons["gmail.refresh"].isEnabled, "The native Gmail read has not finished.")
+        XCTAssertFalse(app.staticTexts["gmail.error"].exists, "The native Gmail read reported a problem.")
+        XCTAssertFalse(app.staticTexts["gmail.messages.partial"].exists, "Some unread headers failed to load; this is not an empty Inbox.")
+        let stale = app.staticTexts.matching(NSPredicate(format: "label IN %@", [
+            "This list needs a refresh.", "Cette liste doit être actualisée.",
+            "This count needs a refresh."
+        ])).firstMatch
+        XCTAssertFalse(stale.exists, "The native Gmail result is no longer fresh.")
+        let rowCount = app.buttons.matching(identifier: "gmail.message.open").count
+        let empty = app.staticTexts.matching(NSPredicate(format: "label IN %@", [
+            "No unread messages in Inbox.", "Aucun message non lu dans la boîte de réception."
+        ])).firstMatch.exists
+        XCTAssertTrue(rowCount <= 5, "The native unread list exceeded its five-message bound.")
+        XCTAssertTrue(rowCount > 0 || empty, "A missing list is not evidence of an empty unread Inbox.")
+        XCTAssertFalse(rowCount > 0 && empty, "The native unread list and its empty-state indicator disagree.")
+        // No successful mailbox content is explicitly captured or opened.
+        // Never inspect or print message labels, subjects, senders, or counts.
+    }
+
     func testReadRemindersOnlyWithPreviouslyGrantedAccess() throws {
         try openConnections()
-        let reminders = button(containing: ["Reminders", "Rappels"])
+        let reminders = button(containing: ["Find your upcoming reminders and mark them done.",
+                                            "Retrouvez vos prochains rappels et cochez ceux qui sont terminés."])
         reveal(reminders)
         reminders.tap()
         defer { returnToConnections() }
@@ -108,10 +158,15 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         try activateOrdinaryApp()
         try refusePermissionOrFixtureScreens()
         if isConnectionsPage { return }
+        if connectionsNavigation.isHittable && app.buttons["connections.gmailReader"].exists {
+            reveal(app.buttons["connections.gmailReader"])
+            XCTAssertTrue(isConnectionsPage, "The visible Apps & accounts page could not be confirmed.")
+            return
+        }
         let connections = app.buttons["setup.connections"]
-        if !connections.exists {
+        if !connections.isHittable {
             let settings = app.buttons["morning.settings"]
-            if !settings.exists {
+            if !settings.isHittable {
                 let controls = app.buttons["morning.actions"]
                 guard controls.waitForExistence(timeout: 10), controls.isHittable,
                       ["Show controls", "Afficher les commandes"].contains(controls.label) else {
@@ -126,6 +181,7 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         reveal(connections)
         connections.tap()
         XCTAssertTrue(connectionsNavigation.waitForExistence(timeout: 10), "Apps & accounts did not open.")
+        XCTAssertTrue(connectionsNavigation.isHittable, "Apps & accounts is present only in the background navigation stack.")
         try refusePermissionOrFixtureScreens()
     }
 
@@ -135,7 +191,15 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
     }
 
     private var isConnectionsPage: Bool {
-        connectionsNavigation.exists && app.buttons["connections.gmailReader"].exists
+        connectionsNavigation.isHittable && app.buttons["connections.gmailReader"].isHittable
+    }
+
+    private var gmailAPIConnection: XCUIElement {
+        let identified = app.buttons["connections.account.gmail"]
+        if identified.exists { return identified }
+        // DisclosureGroup may propagate its identifier over the child link.
+        return button(containing: ["Your email and the actions you choose.",
+                                   "Vos e-mails et les actions que vous choisissez."])
     }
 
     private func returnToConnections(calendar: Bool = false) {
