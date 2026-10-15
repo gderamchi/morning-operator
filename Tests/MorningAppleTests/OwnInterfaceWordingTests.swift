@@ -728,6 +728,37 @@ struct OwnInterfaceWordingTests {
         }
     }
 
+    @Test("Outlook setup and reading require their paired live copy, never mail content alone", arguments: ["en", "fr"])
+    func outlookScreensExcludeTheirQuotedMailWithoutExcludingOrdinaryOutlookContent(language: String) throws {
+        let sources = try ShippedCatalogs.appSources(), index = language == "fr" ? 1 : 0
+        let mail = language == "fr" ? "Merci de vérifier le devis avant la réunion de demain." : "Please check the quote before tomorrow’s planning meeting."
+        for pair in OwnInterfaceWording.outlookPairs {
+            #expect(pair.count == 2)
+            for phrase in pair {
+                // These app-owned views select literals directly; both live
+                // translations must stay aligned even without catalog entries.
+                #expect(phrase.wordings.count == 2)
+                for wording in phrase.wordings { #expect(sources.contains("\"\(wording)\""), "Outlook view no longer shows this literal: \(wording)") }
+            }
+            let wording = pair.map { $0.wordings[index] }
+            for width in [18, 26, 38] {
+                let screen = (wording.flatMap { OwnScreenFixtures.wrapped($0, width: width) } + [mail]).joined(separator: "\n")
+                #expect(isOwnInterface(screen))
+                #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                    try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+                }
+            }
+            for lonePhrase in wording {
+                let external = "Outlook\n\(lonePhrase)\n\(mail)"
+                #expect(!isOwnInterface(external))
+                #expect(try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + external, as: .recording).count == 1)
+            }
+        }
+        let ordinary = "Outlook\nInbox\nUnread messages\nRead this again\n\(mail)"
+        #expect(!isOwnInterface(ordinary))
+        #expect(try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + ordinary, as: .recording).count == 1)
+    }
+
     @Test("Sentences are specific enough to count; short labels are kept as controls")
     func copyIsLongEnoughToBeDistinctive() {
         for screen in OwnInterfaceWording.screens {

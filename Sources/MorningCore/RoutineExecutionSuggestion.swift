@@ -21,6 +21,12 @@ public enum RoutineExecutionSuggestion {
 
     /// These exact labels are human-reviewed visible context, not installed app IDs.
     public static func applyingReviewedLabel(to step: RoutineStep, label: String) -> RoutineStep {
+        applying(to: step, bundleIdentifier: bundleIdentifier(forReviewedLabel: label))
+    }
+
+    /// Only this fixed identity table can join a reviewed context with an exact
+    /// Screen Time identifier. Display-name similarity grants no identity.
+    public static func bundleIdentifier(forReviewedLabel label: String) -> String? {
         let bundleIdentifier: String?
         switch label {
         case "Instagram": bundleIdentifier = "com.burbn.instagram"
@@ -36,7 +42,7 @@ public enum RoutineExecutionSuggestion {
         case "Apple Calendar", "Calendrier Apple": bundleIdentifier = "com.apple.mobilecal"
         default: bundleIdentifier = nil
         }
-        return applying(to: step, bundleIdentifier: bundleIdentifier)
+        return bundleIdentifier
     }
 
     /// Structural decoding gate. Archive-backed callers must separately recompute

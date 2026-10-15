@@ -162,7 +162,7 @@ public enum ObservationNarrationComposer {
             case .image: layer = .imageText
             case .text: layer = .text
             case .manual: layer = .note
-            case .unknown: throw ObservationNarrationError.unsupportedSource
+            case .screenTime, .unknown: throw ObservationNarrationError.unsupportedSource
             }
         }
         let synthetic = acquisition.origin == .synthetic

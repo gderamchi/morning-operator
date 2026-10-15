@@ -132,6 +132,12 @@ enum OwnInterfaceWording {
         Phrase(catalogKey: nil, isPart: false, wordings)
     }
 
+    /// These views choose FR/EN literals directly. Their exact live source text is
+    /// checked by tests rather than by a String Catalog entry that they do not use.
+    private static func sourceLiteral(_ en: String, fr: String) -> Phrase {
+        Phrase(catalogKey: nil, isPart: false, [en, fr])
+    }
+
     // MARK: - Wording
 
     /// Titles and controls distinctive enough that one complete line identifies the screen.
@@ -201,8 +207,19 @@ enum OwnInterfaceWording {
     static let playbackPaused = shown("Paused", fr: "En pause")
     static let playbackContinue = shown("Continue", fr: "Reprendre")
 
+    /// An Outlook title or an ordinary email mentioning Outlook is insufficient.
+    /// The matching explanation must also be present in that same visible frame.
+    static let outlookPairs: [[Phrase]] = [
+        [sourceLiteral("Your Outlook Inbox, each morning", fr: "Votre boîte Outlook, chaque matin"),
+         sourceLiteral("Choose an account and review its identity. MORE reads up to three previews of unread Inbox messages, including older unread messages.",
+               fr: "Choisissez un compte et vérifiez son identité. MORE lit au plus trois aperçus de messages non lus de la boîte de réception, même anciens.")],
+        [sourceLiteral("Your Outlook messages", fr: "Vos messages Outlook"),
+         sourceLiteral("Up to three unread previews, including older messages. No importance ranking. Choose a message to read its body; attachments and remote resources are not opened.",
+               fr: "Au plus trois aperçus de non lus, même anciens. Aucun classement d’importance. Choisissez un message pour lire son corps ; aucune pièce jointe ni ressource distante ne sera ouverte.")]
+    ]
+
     /// Screens without a heading of their own: both pieces must be present.
-    static let pairs: [[Phrase]] = [
+    static let pairs: [[Phrase]] = outlookPairs + [
         [shown("Your Calendly appointments, each morning", fr: "Vos rendez-vous Calendly, chaque matin"),
          shown("Choose an account. MORE reads appointments starting today in this iPhone’s time zone.",
                fr: "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone.")],

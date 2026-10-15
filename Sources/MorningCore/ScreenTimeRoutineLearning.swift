@@ -74,6 +74,151 @@ public struct ScreenTimeLearning: Equatable, Sendable {
     public let daysWithoutMorning: Int
 }
 
+/// A saved day of system-returned hourly aggregates. A missing detected window
+/// keeps the day unknown; it does not turn all-day use into a morning routine.
+public struct ScreenTimeObservationEvidence: Codable, Equatable, Sendable {
+    public struct App: Codable, Equatable, Sendable {
+        public let bundleIdentifier: String
+        /// Presentation only, retained in the source's language. Identity always
+        /// comes from the exact bundle identifier, never from this name.
+        public let displayName: String
+        public let seconds: TimeInterval
+        public let secondsMeasured: Bool
+        public let firstHourIndex: Int
+        public init(bundleIdentifier: String, displayName: String? = nil, seconds: TimeInterval, secondsMeasured: Bool, firstHourIndex: Int) {
+            self.bundleIdentifier = bundleIdentifier; self.seconds = seconds
+            self.displayName = displayName ?? ScreenTimeAppCatalog.entry(for: bundleIdentifier).name
+            self.secondsMeasured = secondsMeasured; self.firstHourIndex = firstHourIndex
+        }
+    }
+    public let day: Date
+    public let timeZoneIdentifier: String
+    public let requestedWindow: DateInterval
+    public let retrievedAt: Date
+    public let returnedIntervals: [DateInterval]
+    public let morningWindow: DateInterval?
+    public let apps: [App]
+    public var sourceKey: String { "this-iPhone|\(timeZoneIdentifier)|\(day.timeIntervalSince1970)" }
+    public var hasMorningEvidence: Bool { morningWindow != nil && !apps.isEmpty }
+
+    public init(day: Date, timeZoneIdentifier: String, requestedWindow: DateInterval, retrievedAt: Date,
+                returnedIntervals: [DateInterval], morningWindow: DateInterval?, apps: [App]) throws {
+        self.day = day; self.timeZoneIdentifier = timeZoneIdentifier; self.requestedWindow = requestedWindow
+        self.retrievedAt = retrievedAt; self.returnedIntervals = returnedIntervals
+        self.morningWindow = morningWindow; self.apps = apps
+        try validate()
+    }
+
+    public func validate() throws {
+        guard let zone = TimeZone(identifier: timeZoneIdentifier), day.timeIntervalSince1970.isFinite,
+              retrievedAt.timeIntervalSince1970.isFinite, requestedWindow.start.timeIntervalSince1970.isFinite,
+              requestedWindow.duration > 0, requestedWindow.duration <= 9 * 86_400,
+              requestedWindow.end <= retrievedAt, (1...26).contains(returnedIntervals.count), apps.count <= 128,
+              Set(apps.map(\.bundleIdentifier)).count == apps.count else { throw ScreenTimeObservationError.invalidEvidence }
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
+        guard let localDay = calendar.dateInterval(of: .day, for: day), localDay.start == day,
+              localDay.end > requestedWindow.start, localDay.start < requestedWindow.end,
+              returnedIntervals.allSatisfy({ interval in
+                  interval.start.timeIntervalSince1970.isFinite && interval.duration > 0 && interval.duration <= 3_600 &&
+                  interval.start >= max(localDay.start, requestedWindow.start) && interval.end <= min(localDay.end, requestedWindow.end)
+              }) else { throw ScreenTimeObservationError.invalidEvidence }
+        guard zip(returnedIntervals, returnedIntervals.dropFirst()).allSatisfy({ $0.end <= $1.start }) else {
+            throw ScreenTimeObservationError.invalidEvidence
+        }
+        if let morningWindow {
+            guard !returnedIntervals.isEmpty, morningWindow.duration > 0, morningWindow.start >= max(localDay.start, requestedWindow.start),
+                  morningWindow.end <= min(localDay.end, requestedWindow.end),
+                  apps.allSatisfy({ app in
+                      !app.bundleIdentifier.isEmpty && app.bundleIdentifier.count <= 255 &&
+                      !app.displayName.isEmpty && app.displayName.count <= 60 && !app.displayName.contains(where: \.isNewline) &&
+                      app.bundleIdentifier.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || ".-_".contains($0)) }) &&
+                      app.seconds.isFinite && app.seconds > 0 && app.seconds <= morningWindow.duration &&
+                      (0...25).contains(app.firstHourIndex)
+                  }) else { throw ScreenTimeObservationError.invalidEvidence }
+        } else if !apps.isEmpty { throw ScreenTimeObservationError.invalidEvidence }
+    }
+
+    public static func make(hours: [ScreenTimeHour], queryStart: Date, now: Date, calendar: Calendar,
+                            ownBundleIdentifiers: Set<String> = []) throws -> [Self] {
+        guard hours.count <= 208, queryStart.timeIntervalSince1970.isFinite, now.timeIntervalSince1970.isFinite,
+              queryStart < now, now.timeIntervalSince(queryStart) <= 9 * 86_400,
+              hours.allSatisfy({ hour in
+                  hour.interval.start.timeIntervalSince1970.isFinite && hour.interval.duration > 0 &&
+                  hour.interval.duration <= 3_600 && hour.apps.count <= 128 && hour.apps.allSatisfy {
+                      $0.seconds.isFinite && $0.seconds >= 0 && $0.seconds <= hour.interval.duration && $0.pickups >= 0
+                  }
+              }) else {
+            throw ScreenTimeObservationError.invalidEvidence
+        }
+        let relevant = hours.filter { $0.interval.end > queryStart && $0.interval.start < now }
+        let learning = ScreenTimeMorningLearner.learn(hours: relevant, queryStart: queryStart, now: now,
+            calendar: calendar, ownBundleIdentifiers: ownBundleIdentifiers)
+        // Only dates with an actually returned interval become saved sources.
+        // Requested but unanswered days are unknown, not new observations.
+        var days = Set<Date>()
+        for hour in relevant {
+            var day = calendar.startOfDay(for: max(queryStart, hour.interval.start))
+            let stop = min(now, hour.interval.end)
+            while day < stop {
+                days.insert(day)
+                guard let following = calendar.date(byAdding: .day, value: 1, to: day), following > day else {
+                    throw ScreenTimeObservationError.invalidEvidence
+                }
+                day = following
+            }
+        }
+        return try days.sorted().map { day in
+            let end = calendar.date(byAdding: .day, value: 1, to: day)!
+            let intervals = relevant.compactMap { hour -> DateInterval? in
+                    let start = max(day, queryStart, hour.interval.start), stop = min(end, now, hour.interval.end)
+                    return stop > start ? DateInterval(start: start, end: stop) : nil
+                }
+                .reduce(into: [DateInterval]()) { if !$0.contains($1) { $0.append($1) } }
+                .sorted { $0.start < $1.start }
+            let morning = learning.mornings.first { calendar.isDate($0.start, inSameDayAs: day) }
+            let window = morning.flatMap { value -> DateInterval? in
+                guard value.end > value.start, value.start >= queryStart, value.end <= now,
+                      value.end <= end else { return nil }
+                return DateInterval(start: value.start, end: value.end)
+            }
+            let apps = window == nil ? [] : (morning?.apps ?? []).map {
+                App(bundleIdentifier: $0.bundleIdentifier, seconds: $0.seconds,
+                    secondsMeasured: $0.secondsMeasured, firstHourIndex: $0.firstHourIndex)
+            }
+            return try Self(day: day, timeZoneIdentifier: calendar.timeZone.identifier,
+                requestedWindow: DateInterval(start: queryStart, end: now), retrievedAt: now,
+                returnedIntervals: intervals, morningWindow: window, apps: apps)
+        }
+    }
+
+    public func appText(at index: Int, french: Bool = AppLanguage.isFrench) -> String {
+        let app = apps[index], name = app.displayName
+        let measure = app.secondsMeasured ? (french ? "mesurées" : "measured") : (french ? "estimées sur heures partielles" : "estimated from partial hours")
+        return french ? "\(name) : \(Int(app.seconds.rounded())) s \(measure) dans la fenêtre matinale retenue. Ordre estimé ; aucun geste ni contenu établi."
+            : "\(name): \(Int(app.seconds.rounded())) s \(measure) in the retained morning window. Estimated order; no gesture or content established."
+    }
+    public func renderedText(french: Bool = AppLanguage.isFrench) -> String {
+        let interval = morningWindow.map { "\($0.start.ISO8601Format()) – \($0.end.ISO8601Format())" }
+        let header = french
+            ? "Screen Time — agrégats horaires renvoyés pour \(day.ISO8601Format()), \(timeZoneIdentifier). \(returnedIntervals.count) intervalles renvoyés ; aucune couverture continue n’est établie. Fenêtre du matin : \(interval ?? "inconnue"). Les périodes absentes restent inconnues."
+            : "Screen Time — returned hourly aggregates for \(day.ISO8601Format()), \(timeZoneIdentifier). \(returnedIntervals.count) returned intervals; continuous coverage is not established. Morning window: \(interval ?? "unknown"). Missing periods remain unknown."
+        return ([header] + apps.indices.map { appText(at: $0, french: french) }).joined(separator: "\n")
+    }
+    private enum CodingKeys: String, CodingKey { case day, timeZoneIdentifier, requestedWindow, retrievedAt, returnedIntervals, morningWindow, apps }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(day: c.decode(Date.self, forKey: .day), timeZoneIdentifier: c.decode(String.self, forKey: .timeZoneIdentifier),
+            requestedWindow: c.decode(DateInterval.self, forKey: .requestedWindow), retrievedAt: c.decode(Date.self, forKey: .retrievedAt),
+            returnedIntervals: c.decode([DateInterval].self, forKey: .returnedIntervals), morningWindow: c.decodeIfPresent(DateInterval.self, forKey: .morningWindow),
+            apps: c.decode([App].self, forKey: .apps))
+    }
+}
+
+public enum ScreenTimeObservationError: Error, LocalizedError {
+    case invalidEvidence
+    public var errorDescription: String? { AppLanguage.isFrench ? "Les agrégats Screen Time ne peuvent pas être conservés avec une couverture vérifiable." : "The Screen Time aggregates could not be saved with verifiable coverage." }
+}
+
 public enum ScreenTimeMorningLearner {
     /// Splits hourly data into local days and finds each day's morning with the owner's rule
     /// (`MorningStartDetector`). Rows from MORE itself, test runners and system sheets are

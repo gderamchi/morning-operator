@@ -4,6 +4,7 @@ import MorningCore
 enum LearningEvidenceKind: String, Equatable, Sendable {
     case userReportedActivity
     case visibleTaskContent
+    case aggregateAppUsage
 }
 
 /// What a text is, stated by whoever holds it: a person's own words, the recognized text of
@@ -69,6 +70,10 @@ enum LearningEvidencePolicy {
             return isEligibleWrittenContext(context)
         case .visibleTaskContent:
             return isEligibleVisualContext(context) && containsTaskContent(quote)
+        case .aggregateAppUsage:
+            // Only typed native preparation creates these units; they are never
+            // submitted to a model or interpreted as completed actions.
+            return quote == source
         }
     }
 
