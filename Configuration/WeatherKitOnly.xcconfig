@@ -1,0 +1,5 @@
+// Optional command-line override; the normal project configuration stays unchanged.
+// Undefined target names resolve to empty: no app entitlement reaches the widget or resource bundles.
+MORE_WEATHERKIT_ENTITLEMENTS_MorningOperator = $(SRCROOT)/Configuration/WeatherKitOnly.entitlements
+CODE_SIGN_ENTITLEMENTS = $(MORE_WEATHERKIT_ENTITLEMENTS_$(TARGET_NAME))
+CODE_SIGN_STYLE = Automatic

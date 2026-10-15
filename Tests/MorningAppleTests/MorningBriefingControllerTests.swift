@@ -136,6 +136,53 @@ struct MorningBriefingControllerTests {
         #expect(result.weatherAttribution == nil)
     }
 
+    @Test func homeReusesBriefingWeatherAndClearsItWhenTheCityChanges() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let location = try syntheticLocation()
+        let observation = try syntheticWeather(location: location)
+        let calls = BriefingCallCounter()
+        let controller = makeController(directory: directory, calendar: BriefingCalendarFixture(), weather: { _ in
+            calls.count += 1
+            return observation
+        })
+        try controller.updateSettings(.init(weatherLocation: location))
+        _ = await controller.refresh()
+        #expect(controller.currentWeatherSnapshot == observation)
+        await controller.refreshForHome(at: referenceDate.addingTimeInterval(1_799))
+        #expect(calls.count == 1, "Home reuses the still-current briefing observation.")
+        try controller.updateSettings(.init(weatherLocation: try WeatherLocation(latitude: 45, longitude: 5,
+            displayName: "Another synthetic town")))
+        #expect(controller.currentWeatherSnapshot == nil)
+        let wrongCity = try #require(await controller.refresh())
+        #expect(wrongCity.weather.status == .unavailable)
+        #expect(controller.currentWeatherSnapshot == nil, "A provider result for another city cannot paint Home or enter speech.")
+        controller.cancelAndClear()
+        #expect(controller.currentWeatherSnapshot == nil)
+    }
+
+    @Test func homeRetriesUnavailableWeatherAtMostEveryFiveMinutesAndNeverWithoutACity() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let calls = BriefingCallCounter()
+        let controller = makeController(directory: directory, calendar: BriefingCalendarFixture(), weather: { _ in
+            calls.count += 1
+            throw WeatherObservationError.serviceUnavailable
+        })
+        await controller.refreshForHome()
+        #expect(calls.count == 0)
+        try controller.updateSettings(.init(weatherLocation: try syntheticLocation()))
+        _ = await controller.refresh()
+        await controller.refreshForHome(at: referenceDate.addingTimeInterval(299))
+        #expect(calls.count == 1, "The first Home tick must not repeat a failed briefing request.")
+        await controller.refreshForHome(at: referenceDate.addingTimeInterval(300))
+        #expect(calls.count == 2)
+        #expect(controller.currentWeatherSnapshot == nil)
+        try controller.updateSettings(.init())
+        await controller.refreshForHome(at: referenceDate.addingTimeInterval(600))
+        #expect(calls.count == 2)
+    }
+
     @Test func knownCalendarChangeInvalidatesPinnedTextAndBypassesTheFreshCache() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

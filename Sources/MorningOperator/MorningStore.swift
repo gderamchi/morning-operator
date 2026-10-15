@@ -1024,6 +1024,11 @@ final class MorningStore {
         _ = await briefing.refresh()
     }
 
+    func refreshHomeWeatherIfNeeded() async {
+        guard !privacyBlocksWork else { return }
+        await briefing.refreshForHome()
+    }
+
     @discardableResult
     func addBriefingToRoutine() -> Bool {
         guard let routine, !sessionActive, !privacyBlocksWork else { return false }

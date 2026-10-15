@@ -1,11 +1,51 @@
 import Foundation
 import Testing
 import WeatherKit
+import MorningCore
 @testable import MorningApple
 
 @Suite("Weather observation adapter — offline providers only")
 @MainActor
 struct WeatherObservationServiceTests {
+    @Test func everySDKConditionMapsExplicitlyWithoutDescriptionsOrSymbols() {
+        let expected: [(WeatherCondition, MorningWeatherCondition)] = [
+            (.blizzard, .blizzard), (.blowingDust, .blowingDust), (.blowingSnow, .blowingSnow),
+            (.breezy, .breezy), (.clear, .clear), (.cloudy, .cloudy), (.drizzle, .drizzle),
+            (.flurries, .flurries), (.foggy, .foggy), (.freezingDrizzle, .freezingDrizzle),
+            (.freezingRain, .freezingRain), (.frigid, .frigid), (.hail, .hail), (.haze, .haze),
+            (.heavyRain, .heavyRain), (.heavySnow, .heavySnow), (.hot, .hot), (.hurricane, .hurricane),
+            (.isolatedThunderstorms, .isolatedThunderstorms), (.mostlyClear, .mostlyClear),
+            (.mostlyCloudy, .mostlyCloudy), (.partlyCloudy, .partlyCloudy), (.rain, .rain),
+            (.scatteredThunderstorms, .scatteredThunderstorms), (.sleet, .sleet), (.smoky, .smoky),
+            (.snow, .snow), (.strongStorms, .strongStorms), (.sunFlurries, .sunFlurries),
+            (.sunShowers, .sunShowers), (.thunderstorms, .thunderstorms),
+            (.tropicalStorm, .tropicalStorm), (.windy, .windy), (.wintryMix, .wintryMix)
+        ]
+        #expect(Set(expected.map { $0.0 }) == Set(WeatherCondition.allCases), "Update the mapping when the SDK adds conditions.")
+        for (native, condition) in expected {
+            #expect(MorningWeatherCondition(weatherKit: native) == condition)
+        }
+    }
+
+    @Test func typedConditionIsIndependentOfLocalizedCopyAndCloudFractionIsValidated() throws {
+        let location = try place()
+        let attribution = try attribution()
+        let snapshot = try WeatherObservationSnapshot(location: location, retrievedAt: .now, observationAt: .now,
+            temperatureCelsius: 12, conditionDescription: "Synthetic localized text", symbolName: "unrelated.symbol",
+            attribution: attribution, condition: .heavyRain, cloudCover: 0.93)
+        #expect(snapshot.condition == .heavyRain && snapshot.cloudCover == 0.93)
+        let legacy = try self.snapshot(location: location)
+        #expect(legacy.condition == .unknown && legacy.cloudCover == nil,
+                "Older or synthetic providers must not invent typed weather from their icon or label.")
+        for invalid in [Double.nan, .infinity, -.infinity, -0.01, 1.01] {
+            #expect(throws: WeatherObservationError.invalidResponse) {
+                try WeatherObservationSnapshot(location: location, retrievedAt: .now, observationAt: .now,
+                    temperatureCelsius: 12, conditionDescription: "Synthetic", symbolName: "cloud",
+                    attribution: attribution, condition: .cloudy, cloudCover: invalid)
+            }
+        }
+    }
+
     @Test func constructionDoesNotRequestWeatherOrCitySearch() async throws {
         var weatherCalls = 0
         var searchCalls = 0
