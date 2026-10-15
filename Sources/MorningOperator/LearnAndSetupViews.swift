@@ -348,7 +348,6 @@ struct SetupView: View {
     @ViewState<Bool> private var choosingInvitation = false
     @ViewState<Bool> private var showingPrivacy = false
     @ViewState<Bool> private var choosingBriefing = false
-    @ViewState<Bool> private var choosingActivity = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -394,17 +393,6 @@ struct SetupView: View {
                     MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
                 }
             }.accessibilityIdentifier("setup.briefing")
-
-            CardButton { choosingActivity = true } content: {
-                HStack(spacing: 14) {
-                    MorningDottedIcon(systemName: "platter.filled.top.iphone").frame(width: 28, height: 28)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Lock Screen").font(MorningTheme.Typography.heading)
-                    }
-                    Spacer()
-                    MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
-                }
-            }.accessibilityIdentifier("setup.activity")
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
@@ -489,7 +477,6 @@ struct SetupView: View {
         .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
         .task { if store.privacyNeedsCleanup { showingPrivacy = true } }
         .fullScreenCover(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
-        .fullScreenCover(isPresented: $choosingActivity) { MorningActivitySettingsView(store: store) }
         .fullScreenCover(isPresented: $choosingAlarm) { MorningAlarmView() }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }

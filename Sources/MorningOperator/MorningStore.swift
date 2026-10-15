@@ -166,7 +166,9 @@ final class MorningStore {
     var calendarBusy: Bool { briefing.isConnectingCalendar }
     var readAloud = true
     var automatic = true
-    private(set) var showMorningOnLockScreen = false
+    /// On unless the person turned it off earlier: there is no in-app switch any more,
+    /// so iOS's own Live Activities permission decides whether it appears.
+    private(set) var showMorningOnLockScreen = true
     private(set) var morningActivityIssue: String?
     private var morningActivityIsForeground = false
     private var morningActivitySaveBlocked = false
@@ -410,7 +412,7 @@ final class MorningStore {
                 sessionTimeZone = saved.sessionTimeZone ?? TimeZone.current.identifier
                 automatic = saved.automatic ?? true
                 readAloud = saved.readAloud ?? true
-                showMorningOnLockScreen = saved.showMorningOnLockScreen ?? false
+                showMorningOnLockScreen = saved.showMorningOnLockScreen ?? true
                 speech.voiceIdentifier = saved.voiceIdentifier
                 if let archive = saved.observationArchive {
                     observationArchive = archive
