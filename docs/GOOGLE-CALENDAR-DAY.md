@@ -8,7 +8,9 @@ Open **Apps & accounts → Google Calendar**, choose an active account, then cho
 
 The screen explains the scope before **Add this calendar moment**: read the current day in this iPhone’s time zone, at most twenty-five events, announce a partial reading, and make no event changes. Adding creates an unapproved draft. The ordinary routine editor, approval and Start controls remain the delegation path; adding a source cannot approve or start it.
 
-The selected calendar is checked again before adding, using its originating page and a choice less than five minutes old. The approved moment retains its connection, exact calendar identifier and name. Each run verifies that this named calendar is still readable. A missing or renamed calendar requires a new selection; MORE does not silently substitute the primary calendar.
+The selected calendar is checked again before adding, using its originating page and a choice less than five minutes old. Its verified primary-calendar label follows it into the reviewed routine and summary. Non-primary selection waits until all bounded pages are loaded, so a later homonym cannot silently change the meaning of the choice. Indistinguishable visible names are unavailable for delegation with a rename-and-refresh explanation. A newly discovered duplicate clears the old selection.
+
+The approved moment retains its connection, exact calendar identifier, name and the reviewed primary status. Each run verifies that this named calendar is still readable and its saved primary status still matches. A missing, renamed or changed source requires a new selection; MORE does not silently substitute the primary calendar. Older saved routines without primary status remain compatible and do not gain that label implicitly.
 
 ## Read and interact
 

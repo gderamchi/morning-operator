@@ -2,6 +2,8 @@
 
 Status: planned physical tests; no microphone, audibility, model-quality or real-send result is claimed by this script. Do not run an external send until the owner has authorized the exact self-recipient and the reviewed body. A single authorization permits one effect, including reconciliation of that same effect; it never permits a resend after uncertainty.
 
+Physical checkpoint, 16 October 2026: the owner confirms Speech and microphone access. The ordinary build1532 then crashes when its audio tap starts, before any draft or send. The crash report identifies a Swift actor-isolation assertion on the framework's realtime audio queue. Explicitly sendable framework callbacks are being compiled and prepared for a separate signed candidate; neither that compilation nor a simulator run establishes a successful physical microphone replay. The one authorized self-mail remains unsent.
+
 ## Record once
 
 Installed commit/build; iPhone and iOS; interface/recognizer language; selected speech voice; actual microphone/output route; local model availability; whether Speech/microphone permissions are granted. Use the normal app, with no `--ui-testing` or fixture flags. Keep any recording and account details private and out of Git. Record actual outcomes and latency, never credentials or personal inbox text.

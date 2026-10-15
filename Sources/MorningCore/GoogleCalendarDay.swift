@@ -6,10 +6,17 @@ public struct GoogleCalendarDayTarget: Codable, Hashable, Sendable {
     public let connectionID: String
     public let calendarID: String
     public let calendarName: String
+    /// Nil preserves an older reviewed selection that did not include this label.
+    public let isPrimary: Bool?
 
-    public init(connectionID: String, calendarID: String, calendarName: String) throws {
+    public init(connectionID: String, calendarID: String, calendarName: String, isPrimary: Bool? = nil) throws {
         self.connectionID = connectionID; self.calendarID = calendarID; self.calendarName = calendarName
+        self.isPrimary = isPrimary
         try validate()
+    }
+
+    public func sourceLabel(french: Bool = AppLanguage.isFrench) -> String {
+        calendarName + (isPrimary == true ? (french ? " (calendrier principal)" : " (primary calendar)") : "")
     }
 
     public func validate() throws {
@@ -26,11 +33,12 @@ public struct GoogleCalendarDayTarget: Codable, Hashable, Sendable {
         !value.unicodeScalars.contains(where: { CharacterSet.whitespacesAndNewlines.contains($0) || CharacterSet.controlCharacters.contains($0) })
     }
 
-    private enum CodingKeys: String, CodingKey { case connectionID, calendarID, calendarName }
+    private enum CodingKeys: String, CodingKey { case connectionID, calendarID, calendarName, isPrimary }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         try self.init(connectionID: c.decode(String.self, forKey: .connectionID),
-                      calendarID: c.decode(String.self, forKey: .calendarID), calendarName: c.decode(String.self, forKey: .calendarName))
+                      calendarID: c.decode(String.self, forKey: .calendarID), calendarName: c.decode(String.self, forKey: .calendarName),
+                      isPrimary: c.decodeIfPresent(Bool.self, forKey: .isPrimary))
     }
 }
 
@@ -140,7 +148,7 @@ public struct GoogleCalendarDayDocument: Equatable, Sendable {
     }
 
     public func summary(french: Bool = AppLanguage.isFrench) -> String {
-        var lines = [french ? "\(target.calendarName), aujourd’hui." : "\(target.calendarName), today."]
+        var lines = [french ? "\(target.sourceLabel(french: french)), aujourd’hui." : "\(target.sourceLabel(french: french)), today."]
         if events.isEmpty {
             lines.append(isPartial
                 ? (french ? "Aucun événement dans cette partie de la lecture. La journée peut contenir d’autres événements." : "No events in this part of the reading. There may be more events today.")

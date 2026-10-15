@@ -54,7 +54,7 @@ extension MorningStore {
     func refreshCalendlyDay() {
         guard let context = currentCalendlyDayContext, case let .calendlyDay(target) = currentStep?.target else { return }
         guard !nativeMoment.isActive, !slackReply.isActive else {
-            speech.speak(AppLanguage.isFrench ? "Terminez la demande en cours ou dites annule avant d’actualiser vos rendez-vous."
+            speech.speak(AppLanguage.isFrench ? "Terminez ou annulez la demande en cours avant d’actualiser vos rendez-vous."
                 : "Finish or cancel the current request before refreshing your bookings.")
             return
         }
@@ -146,9 +146,8 @@ extension MorningStore {
                 clearCalendlyDay()
                 pause()
                 let reason = (error as? CalendlyDayError)?.localizedDescription ?? CalendlyDayError.unavailable.localizedDescription
-                connectedActionStatus = reason + (AppLanguage.isFrench
-                    ? " Votre matin est en pause. Dites actualise mes rendez-vous, suivant ou arrête."
-                    : " Your morning is paused. Say refresh my bookings, next, or stop.")
+                connectedActionStatus = reason + (AppLanguage.isFrench ? " Votre matin est en pause. " : " Your morning is paused. ")
+                    + calendlyDayRefreshInstruction
                 recordExecution(.unavailable)
                 if readAloud, let connectedActionStatus { speech.speak(connectedActionStatus) }
             }
@@ -187,9 +186,14 @@ extension MorningStore {
                   connectedMoment.matches(attempt, executionID: context) else { return }
             connectedMoment.finishPresentation(attempt, executionID: context)
             if session?.status == .running { pause() }
-            connectedActionStatus = AppLanguage.isFrench
-                ? "Les rendez-vous ont été lus, mais leur lecture vocale n’a pas pu finir. Votre matin est en pause. Dites répète pour relire ces mêmes informations, ou suivant."
-                : "The bookings were read, but their spoken presentation could not finish. Your morning is paused. Say repeat to read the same information, or next."
+            connectedActionStatus = (AppLanguage.isFrench
+                ? "Les rendez-vous ont été lus, mais leur lecture vocale n’a pas pu finir. Votre matin est en pause. "
+                : "The bookings were read, but their spoken presentation could not finish. Your morning is paused. ")
+                + (canHearHandsFreeCommands
+                    ? (AppLanguage.isFrench ? "Dites répète pour relire ces mêmes informations, ou suivant."
+                       : "Say repeat to read the same information, or next.")
+                    : (AppLanguage.isFrench ? "Utilisez Relire ces rendez-vous pour retrouver ces informations, ou Suivant."
+                       : "Use Read these bookings again for the same information, or Next."))
             return
         }
         guard !Task.isCancelled, calendlyDayIsCurrent(context, generation: generation, privacyGeneration: privacyGeneration),
@@ -205,8 +209,17 @@ extension MorningStore {
     private func pauseCalendlyDayForRefresh() {
         if session?.status == .running { pause() }
         connectedActionStatus = AppLanguage.isFrench
-            ? "La lecture de vos rendez-vous a expiré ou n’est plus disponible. Votre matin est en pause. Dites actualise mes rendez-vous pour une nouvelle lecture, ou suivant."
-            : "This booking reading has expired or is no longer available. Your morning is paused. Say refresh my bookings for a new reading, or next."
+            ? "La lecture de vos rendez-vous a expiré ou n’est plus disponible. Votre matin est en pause. " + calendlyDayRefreshInstruction
+            : "This booking reading has expired or is no longer available. Your morning is paused. " + calendlyDayRefreshInstruction
         if readAloud, let connectedActionStatus { speech.speak(connectedActionStatus) }
+    }
+
+    private var calendlyDayRefreshInstruction: String {
+        if canHearHandsFreeCommands {
+            return AppLanguage.isFrench ? "Dites actualise mes rendez-vous, suivant ou arrête."
+                : "Say refresh my bookings, next, or stop."
+        }
+        return AppLanguage.isFrench ? "Utilisez les boutons Actualiser mes rendez-vous, Suivant ou Arrêter."
+            : "Use the buttons Refresh my bookings, Next or Stop."
     }
 }

@@ -33,7 +33,7 @@ public extension RoutineStep {
         case let .externalApp(app, _): service = app.displayName
         case let .shortcut(name, _): service = "Shortcuts · \(name)"
         case let .connectedAPI(name, _, _, _): service = name.replacingOccurrences(of: "_", with: " ").capitalized
-        case .googleCalendarDay(let calendar): service = "Google Calendar · \(calendar.calendarName)"
+        case .googleCalendarDay(let calendar): service = "Google Calendar · \(calendar.sourceLabel())"
         case .calendlyDay(let account): service = "Calendly · \(account.userName)"
         case nil: service = automation == .gmailInbox ? "Gmail" : nil
         }

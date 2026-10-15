@@ -32,6 +32,9 @@ import MorningCore
         func isCurrent(at date: Date) -> Bool { (0..<300).contains(date.timeIntervalSince(receivedAt)) }
     }
     private var selected: Option? { options.first { $0.id == selectedID } }
+    private var french: Bool { locale.language.languageCode?.identifier == "fr" }
+    private var choices: [GoogleCalendarChoice] { options.map(\.choice) }
+    private func isAmbiguous(_ choice: GoogleCalendarChoice) -> Bool { choice.isAmbiguous(in: choices, french: french) }
 
     var body: some View {
         ScrollView {
@@ -72,10 +75,16 @@ import MorningCore
                             .font(MorningTheme.Typography.heading).fixedSize(horizontal: false, vertical: true)
                         ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
                             Button { selectedID = option.id; added = false; message = nil } label: {
-                                Label(option.choice.name, systemImage: selectedID == option.id ? "checkmark.circle.fill" : "calendar")
+                                Label(option.choice.sourceLabel(french: french), systemImage: selectedID == option.id ? "checkmark.circle.fill" : "calendar")
                                     .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-                            }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
+                            }.buttonStyle(SecondaryButtonStyle()).disabled(busy || isAmbiguous(option.choice))
                                 .accessibilityIdentifier("googleCalendar.setup.calendar.\(index)")
+                        }
+                        if choices.contains(where: { isAmbiguous($0) }) {
+                            Text(text("Some calendars have the same name and cannot be distinguished. Rename them in Google Calendar, then refresh this list before choosing.",
+                                "Certains calendriers portent le même nom et ne peuvent pas être distingués. Renommez-les dans Google Calendar, puis actualisez cette liste avant de choisir."))
+                                .font(MorningTheme.Typography.note).fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("googleCalendar.setup.ambiguous")
                         }
                         if pageLoaded && options.isEmpty {
                             Text(nextCursor == nil
@@ -88,18 +97,25 @@ import MorningCore
                             Button(text("Load more calendars", "Charger d’autres calendriers")) { loadMore() }
                                 .buttonStyle(SecondaryButtonStyle()).disabled(busy).accessibilityIdentifier("googleCalendar.setup.more")
                         } else if nextCursor != nil {
-                            Text(text("This list is limited to the first 500 calendars. Choose a calendar from this reading.",
-                                "Cette liste se limite aux 500 premiers calendriers. Choisissez un calendrier de cette lecture."))
+                            Text(text("Only the first 500 calendars were checked. MORE cannot verify that other calendar names are distinct.",
+                                "Seuls les 500 premiers calendriers ont été vérifiés. MORE ne peut pas vérifier que les autres noms de calendriers sont distincts."))
                                 .font(MorningTheme.Typography.note).fixedSize(horizontal: false, vertical: true)
                         }
                         if let selected {
-                            Text(text("Read today from “\(selected.choice.name)”, using this iPhone’s time zone when the moment runs.",
-                                "Lire le jour courant dans « \(selected.choice.name) », au fuseau de cet iPhone lorsque ce moment démarre."))
+                            Text(text("Read today from “\(selected.choice.sourceLabel(french: false))”, using this iPhone’s time zone when the moment runs.",
+                                "Lire le jour courant dans « \(selected.choice.sourceLabel(french: true)) », au fuseau de cet iPhone lorsque ce moment démarre."))
                                 .font(MorningTheme.Typography.note).fixedSize(horizontal: false, vertical: true)
+                            if !selected.choice.isPrimary && nextCursor != nil {
+                                Text(text("Load the remaining calendars before adding this choice, so MORE can check that its name is distinct. If the list cannot be completed, choose an identifiable primary calendar or review the calendar list in Google Calendar.",
+                                    "Chargez les autres calendriers avant d’ajouter ce choix pour que MORE vérifie que son nom est distinct. Si la liste ne peut pas être complétée, choisissez un calendrier principal identifiable ou revoyez la liste dans Google Calendar."))
+                                    .font(MorningTheme.Typography.note).fixedSize(horizontal: false, vertical: true)
+                                    .accessibilityIdentifier("googleCalendar.setup.incompleteNames")
+                            }
                             TimelineView(.periodic(from: .now, by: 1)) { context in
                                 Button(added ? text("Added to your routine", "Ajouté à votre routine") : text("Add this calendar moment", "Ajouter ce moment calendrier")) { addSelected() }
                                     .buttonStyle(PrimaryButtonStyle())
-                                    .disabled(busy || added || !selected.isCurrent(at: context.date) || store.sessionActive || store.busy)
+                                    .disabled(busy || added || !selected.isCurrent(at: context.date) || store.sessionActive || store.busy ||
+                                        isAmbiguous(selected.choice) || (!selected.choice.isPrimary && nextCursor != nil))
                                     .accessibilityIdentifier("googleCalendar.setup.add")
                                 if !selected.isCurrent(at: context.date) {
                                     Text(text("This choice has expired. Refresh your calendars before adding it.", "Ce choix a expiré. Actualisez vos calendriers avant de l’ajouter."))
@@ -172,9 +188,11 @@ import MorningCore
         }
         if let cursor { consumedCursors.insert(cursor) }
         options = combined; nextCursor = page.nextCursor; pageLoaded = true
+        if let selected, isAmbiguous(selected.choice) { selectedID = nil; added = false }
     }
     private func addSelected() {
-        guard let connection = selectedConnection, let selected, selected.isCurrent(at: Date()), !store.sessionActive else { return }
+        guard let connection = selectedConnection, let selected, selected.isCurrent(at: Date()), !store.sessionActive,
+              !isAmbiguous(selected.choice), selected.choice.isPrimary || nextCursor == nil else { return }
         launch { token, generation in
             let fresh = try await store.composio.connections()
             try check(token, generation)
@@ -182,7 +200,9 @@ import MorningCore
             guard matching.count == 1 else { throw GoogleCalendarDayError.selectionChanged }
             let page = try await GoogleCalendarDayService(service: store.composio).calendars(connectionID: connection.id, cursor: selected.pageCursor)
             try check(token, generation)
-            guard self.selected == selected, selected.isCurrent(at: Date()),
+            guard self.selected == selected, selected.isCurrent(at: Date()), !isAmbiguous(selected.choice),
+                  selected.choice.isPrimary || nextCursor == nil,
+                  !selected.choice.isAmbiguous(in: page.choices, french: french),
                   page.choices.first(where: { $0.id == selected.id }) == selected.choice else { throw GoogleCalendarDayError.selectionChanged }
             if store.addGoogleCalendarDay(connection: matching[0], choice: selected.choice) {
                 added = true
@@ -219,5 +239,5 @@ import MorningCore
         revision = UUID(); operation?.cancel(); operation = nil; busy = false
         connections = []; selectedConnection = nil; loaded = false; message = nil; clearChoices()
     }
-    private func text(_ english: String, _ french: String) -> String { locale.language.languageCode?.identifier == "fr" ? french : english }
+    private func text(_ english: String, _ french: String) -> String { self.french ? french : english }
 }

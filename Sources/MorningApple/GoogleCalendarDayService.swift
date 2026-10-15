@@ -12,7 +12,13 @@ public struct GoogleCalendarChoice: Equatable, Sendable, Identifiable {
         self.id = id; self.name = name; self.timeZoneIdentifier = timeZoneIdentifier; self.isPrimary = isPrimary
     }
     public func target(connectionID: String) throws -> GoogleCalendarDayTarget {
-        try .init(connectionID: connectionID, calendarID: id, calendarName: name)
+        try .init(connectionID: connectionID, calendarID: id, calendarName: name, isPrimary: isPrimary)
+    }
+    public func sourceLabel(french: Bool = AppLanguage.isFrench) -> String {
+        name + (isPrimary ? (french ? " (calendrier principal)" : " (primary calendar)") : "")
+    }
+    public func isAmbiguous(in choices: [Self], french: Bool = AppLanguage.isFrench) -> Bool {
+        choices.contains { $0.id != id && $0.sourceLabel(french: french) == sourceLabel(french: french) }
     }
 }
 
@@ -98,7 +104,8 @@ public struct GoogleCalendarChoicesPage: Equatable, Sendable {
         for _ in 0..<10 {
             let page = try await calendars(connectionID: target.connectionID, cursor: cursor)
             if let choice = page.choices.first(where: { $0.id == target.calendarID }) {
-                guard choice.name == target.calendarName else { throw GoogleCalendarDayError.selectionChanged }
+                guard choice.name == target.calendarName,
+                      target.isPrimary == nil || target.isPrimary == choice.isPrimary else { throw GoogleCalendarDayError.selectionChanged }
                 selected = choice; break
             }
             guard let next = page.nextCursor else { break }

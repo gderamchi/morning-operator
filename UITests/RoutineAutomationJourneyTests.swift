@@ -95,7 +95,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         let status = app.staticTexts["moment.connectedResult"]
         let paused = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Your morning is paused"), object: status)
         XCTAssertEqual(XCTWaiter.wait(for: [paused], timeout: 8), .completed)
-        XCTAssertTrue(status.label.contains("refresh my bookings"))
+        XCTAssertTrue(status.label.lowercased().contains("refresh my bookings"))
         XCTAssertFalse(app.staticTexts["calendlyDay.summary"].exists)
         XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
         attach("automation-calendly-unavailable-recovery-synthetic", app)
@@ -103,6 +103,43 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["morning.complete"].waitForExistence(timeout: 35))
         XCTAssertTrue(app.staticTexts["morning.executionSummary"].label.contains("Unavailable: 1"))
         attach("automation-calendly-unavailable-honest-recap", app)
+    }
+
+    func testGoogleCalendarHomonymsRequireCompleteNamesAndKeepThePrimaryDistinct() {
+        let app = launch(["--ui-testing-google-calendar-day", "--ui-testing-google-calendar-homonyms", "--ui-testing-empty-workspace"], french: true)
+        defer { app.terminate() }
+        openGoogleCalendarSetup(app)
+        let primary = visibleButton("googleCalendar.setup.calendar.0", in: app)
+        XCTAssertTrue(primary.label.contains("SYNTHETIC calendrier partagé du matin"))
+        XCTAssertTrue(primary.label.contains("calendrier principal"))
+        let secondary = enabledVisibleButton("googleCalendar.setup.calendar.1", in: app)
+        XCTAssertFalse(secondary.label.contains("calendrier principal"))
+        secondary.tap()
+        _ = visibleButton("googleCalendar.setup.add", in: app)
+        XCTAssertFalse(app.buttons["googleCalendar.setup.add"].isEnabled)
+        XCTAssertTrue(app.staticTexts["googleCalendar.setup.incompleteNames"].exists)
+        tapVisible("googleCalendar.setup.more", in: app)
+        let ambiguous = app.staticTexts["googleCalendar.setup.ambiguous"]
+        XCTAssertTrue(ambiguous.waitForExistence(timeout: 8))
+        XCTAssertTrue(ambiguous.label.contains("Renommez-les"))
+        XCTAssertTrue(app.buttons["googleCalendar.setup.calendar.2"].exists)
+        XCTAssertFalse(app.buttons["googleCalendar.setup.calendar.1"].isEnabled)
+        XCTAssertFalse(app.buttons["googleCalendar.setup.calendar.2"].isEnabled)
+        XCTAssertFalse(app.buttons["googleCalendar.setup.add"].exists && app.buttons["googleCalendar.setup.add"].isEnabled)
+        assertNoGoogleTechnicalDetails(app)
+        attach("automation-google-calendar-ambiguous-secondary-choices-blocked", app)
+        enabledVisibleButton("googleCalendar.setup.calendar.0", in: app).tap()
+        enabledVisibleButton("googleCalendar.setup.add", in: app).tap()
+        let added = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Ajouté au brouillon"), object: app.staticTexts["googleCalendar.setup.status"])
+        XCTAssertEqual(XCTWaiter.wait(for: [added], timeout: 8), .completed)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        tapVisible("setup.routine", in: app)
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.approve"].isEnabled)
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("calendrier principal"))
+        assertNoGoogleTechnicalDetails(app)
+        attach("automation-google-calendar-primary-disambiguated-unapproved-draft", app)
     }
 
     func testFrenchLargestGoogleCalendarSetupLoadsNamedPagesAndAddsAnUnapprovedDraft() {
@@ -185,6 +222,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         tapVisible("morning.extend", in: app)
         tapVisible("morning.extend", in: app)
         XCTAssertGreaterThan(remainingSeconds(app.staticTexts["morning.remaining"].label), 390)
+        XCTAssertTrue((app.buttons["morning.actions"].value as? String)?.hasPrefix("Morning running") == true)
         app.buttons["morning.actions"].tap()
         XCTAssertFalse(app.staticTexts["googleCalendarDay.summary"].isHittable)
         attach("automation-google-calendar-running-with-controls-closed", app)
@@ -204,6 +242,43 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertEqual(result, .completed)
         XCTAssertTrue(app.staticTexts["googleCalendarDay.summary"].exists)
         attach("automation-google-calendar-expiration-explicit-refresh", app)
+    }
+
+    func testGoogleCalendarWithoutListeningShowsButtonHelpAndCanRepeatTheReading() {
+        let app = launchGoogleCalendarRuntime(["--ui-testing-voice-preparation"])
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["voice.access.status"].waitForExistence(timeout: 8))
+        tapVisible("voice.access.withoutListening", in: app)
+        reveal(app)
+        let summary = app.staticTexts["googleCalendarDay.summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 15))
+        let original = summary.label
+        let hint = app.staticTexts["googleCalendarDay.controlsHint"]
+        XCTAssertTrue(hint.label.contains("Use the buttons"))
+        XCTAssertFalse(hint.label.lowercased().contains("say "))
+        XCTAssertFalse(hint.label.contains("Ask a question"))
+        XCTAssertTrue(app.staticTexts["morning.voiceStatus"].label.contains("Listening is off for this morning"))
+        enabledVisibleButton("googleCalendarDay.repeat", in: app).tap()
+        XCTAssertEqual(summary.label, original)
+        XCTAssertEqual(app.staticTexts["googleCalendarDay.synthetic"].value as? String, "HTTP event reads: 1")
+        attach("automation-google-calendar-without-listening-button-help", app)
+    }
+
+    func testGoogleCalendarUnavailableWithoutListeningOffersButtonRecovery() {
+        let app = launchGoogleCalendarRuntime(["--ui-testing-voice-preparation", "--ui-testing-google-calendar-unavailable"])
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["voice.access.status"].waitForExistence(timeout: 8))
+        tapVisible("voice.access.withoutListening", in: app)
+        reveal(app)
+        XCTAssertTrue(app.staticTexts["googleCalendarDay.unavailable"].waitForExistence(timeout: 15))
+        let status = app.staticTexts["moment.connectedResult"]
+        XCTAssertTrue(status.label.contains("Your morning is paused"))
+        XCTAssertTrue(status.label.lowercased().contains("refresh"))
+        XCTAssertFalse(status.label.lowercased().contains("say "))
+        XCTAssertFalse(app.staticTexts["googleCalendarDay.unavailable"].label.lowercased().contains("say "))
+        XCTAssertTrue(app.staticTexts["morning.voiceStatus"].label.contains("Listening is off for this morning"))
+        _ = enabledVisibleButton("googleCalendarDay.refresh", in: app)
+        attach("automation-google-calendar-without-listening-button-recovery", app)
     }
 
     func testGoogleCalendarRuntimeDistinguishesCompleteEmptyPartialAndPartialEmpty() {
@@ -231,7 +306,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         let status = app.staticTexts["moment.connectedResult"]
         let paused = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Your morning is paused"), object: status)
         XCTAssertEqual(XCTWaiter.wait(for: [paused], timeout: 8), .completed)
-        XCTAssertTrue(status.label.contains("refresh this calendar"))
+        XCTAssertTrue(status.label.lowercased().contains("refresh this calendar"))
         XCTAssertFalse(app.staticTexts["googleCalendarDay.summary"].exists)
         XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
         attach("automation-google-calendar-unavailable-recovery-synthetic", app)

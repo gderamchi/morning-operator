@@ -8,10 +8,11 @@ extension MorningStore {
         guard !privacyBlocksWork, !sessionActive, !busy, connection.isActive, connection.service == "googlecalendar" else { return false }
         do {
             let target = try choice.target(connectionID: connection.id)
+            let label = target.sourceLabel()
             let detail = AppLanguage.isFrench
-                ? "Lire la journée dans « \(choice.name) ». Les dates seront recalculées chaque matin dans le fuseau de cet iPhone. MORE lit au plus 25 événements et indique si la lecture est partielle. Aucun événement n’est créé ou modifié."
-                : "Read today in “\(choice.name)”. Dates are recalculated each morning in this iPhone’s time zone. MORE reads up to 25 events and discloses a partial reading. No event is created or changed."
-            guard addConnectedStep(.init(title: choice.name, detail: detail, kind: .calendar, durationMinutes: 3,
+                ? "Lire la journée dans « \(label) ». Les dates seront recalculées chaque matin dans le fuseau de cet iPhone. MORE lit au plus 25 événements et indique si la lecture est partielle. Aucun événement n’est créé ou modifié."
+                : "Read today in “\(label)”. Dates are recalculated each morning in this iPhone’s time zone. MORE reads up to 25 events and discloses a partial reading. No event is created or changed."
+            guard addConnectedStep(.init(title: label, detail: detail, kind: .calendar, durationMinutes: 3,
                                         target: .googleCalendarDay(target))) else { return false }
             notice = AppLanguage.isFrench ? "Calendrier ajouté au brouillon. Relisez et validez votre routine."
                 : "Calendar added to your draft. Review and approve your routine."
@@ -52,7 +53,7 @@ extension MorningStore {
     func refreshGoogleCalendarDay() {
         guard let context = currentGoogleCalendarDayContext, case let .googleCalendarDay(target) = currentStep?.target else { return }
         guard !nativeMoment.isActive, !slackReply.isActive else {
-            speech.speak(AppLanguage.isFrench ? "Terminez la demande en cours ou dites annule avant d’actualiser le calendrier."
+            speech.speak(AppLanguage.isFrench ? "Terminez ou annulez la demande en cours avant d’actualiser le calendrier."
                 : "Finish or cancel the current request before refreshing the calendar.")
             return
         }
@@ -113,8 +114,8 @@ extension MorningStore {
     private func loadGoogleCalendarDay(_ target: GoogleCalendarDayTarget, context: MorningExecutionID, attempt: UUID) {
         let generation = dataGeneration, privacyGeneration = localPrivacyGeneration
         connectedAPITask?.cancel()
-        connectedActionStatus = AppLanguage.isFrench ? "Lecture de votre journée dans \(target.calendarName)…"
-            : "Reading today in \(target.calendarName)…"
+        connectedActionStatus = AppLanguage.isFrench ? "Lecture de votre journée dans \(target.sourceLabel())…"
+            : "Reading today in \(target.sourceLabel())…"
         connectedAPITask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer { if connectedMoment.matches(attempt, executionID: context) { connectedAPITask = nil } }
@@ -127,7 +128,7 @@ extension MorningStore {
                     connectedMoment.fail(attempt, executionID: context)
                     recordExecution(.unavailable); pauseGoogleCalendarDayForRefresh(); return
                 }
-                let source: ComposioJSONValue = .object(["calendar": .string(document.target.calendarName),
+                let source: ComposioJSONValue = .object(["calendar": .string(document.target.sourceLabel()),
                     "source": .string(document.contextText()), "partial": .bool(document.isPartial)])
                 guard connectedMoment.markDispatched(attempt, executionID: context),
                       connectedMoment.receive(attempt, executionID: context, service: "googlecalendar", result: source) == .sourceAvailable else {
@@ -144,9 +145,8 @@ extension MorningStore {
                 clearGoogleCalendarDay()
                 pause()
                 let reason = (error as? GoogleCalendarDayError)?.localizedDescription ?? GoogleCalendarDayError.unavailable.localizedDescription
-                connectedActionStatus = reason + (AppLanguage.isFrench
-                    ? " Votre matin est en pause. Dites actualise ce calendrier, suivant ou arrête."
-                    : " Your morning is paused. Say refresh this calendar, next, or stop.")
+                connectedActionStatus = reason + (AppLanguage.isFrench ? " Votre matin est en pause. " : " Your morning is paused. ")
+                    + googleCalendarDayRefreshInstruction
                 recordExecution(.unavailable)
                 if readAloud, let connectedActionStatus { speech.speak(connectedActionStatus) }
             }
@@ -176,8 +176,8 @@ extension MorningStore {
         let summary = document.summary()
         guard connectedMoment.present(summary, token: attempt, executionID: context) else { return }
         connectedMoment.markPresenting(attempt, executionID: context)
-        connectedActionStatus = AppLanguage.isFrench ? "Lecture de « \(document.target.calendarName) » reçue."
-            : "Reading received from “\(document.target.calendarName)”."
+        connectedActionStatus = AppLanguage.isFrench ? "Lecture de « \(document.target.sourceLabel()) » reçue."
+            : "Reading received from “\(document.target.sourceLabel())”."
         guard recordExecution(.completed, confirmedExternalEffect: true) else { pause(); return }
         do { if readAloud { try await speech.speakAndWait(summary) } }
         catch {
@@ -185,9 +185,14 @@ extension MorningStore {
                   connectedMoment.matches(attempt, executionID: context) else { return }
             connectedMoment.finishPresentation(attempt, executionID: context)
             if session?.status == .running { pause() }
-            connectedActionStatus = AppLanguage.isFrench
-                ? "Le calendrier a été lu, mais sa lecture vocale n’a pas pu finir. Votre matin est en pause. Dites répète pour relire ces mêmes informations, ou suivant."
-                : "The calendar was read, but its spoken presentation could not finish. Your morning is paused. Say repeat to read the same information, or next."
+            connectedActionStatus = (AppLanguage.isFrench
+                ? "Le calendrier a été lu, mais sa lecture vocale n’a pas pu finir. Votre matin est en pause. "
+                : "The calendar was read, but its spoken presentation could not finish. Your morning is paused. ")
+                + (canHearHandsFreeCommands
+                    ? (AppLanguage.isFrench ? "Dites répète pour relire ces mêmes informations, ou suivant."
+                       : "Say repeat to read the same information, or next.")
+                    : (AppLanguage.isFrench ? "Utilisez Relire cette journée pour retrouver ces informations, ou Suivant."
+                       : "Use Read this day again for the same information, or Next."))
             return
         }
         guard !Task.isCancelled, googleCalendarDayIsCurrent(context, generation: generation, privacyGeneration: privacyGeneration),
@@ -203,8 +208,17 @@ extension MorningStore {
     private func pauseGoogleCalendarDayForRefresh() {
         if session?.status == .running { pause() }
         connectedActionStatus = AppLanguage.isFrench
-            ? "La lecture de ce calendrier a expiré ou n’est plus disponible. Votre matin est en pause. Dites actualise ce calendrier pour une nouvelle lecture, ou suivant."
-            : "This calendar reading has expired or is no longer available. Your morning is paused. Say refresh this calendar for a new reading, or next."
+            ? "La lecture de ce calendrier a expiré ou n’est plus disponible. Votre matin est en pause. " + googleCalendarDayRefreshInstruction
+            : "This calendar reading has expired or is no longer available. Your morning is paused. " + googleCalendarDayRefreshInstruction
         if readAloud, let connectedActionStatus { speech.speak(connectedActionStatus) }
+    }
+
+    private var googleCalendarDayRefreshInstruction: String {
+        if canHearHandsFreeCommands {
+            return AppLanguage.isFrench ? "Dites actualise ce calendrier, suivant ou arrête."
+                : "Say refresh this calendar, next, or stop."
+        }
+        return AppLanguage.isFrench ? "Utilisez les boutons Actualiser ce calendrier, Suivant ou Arrêter."
+            : "Use the buttons Refresh this calendar, Next or Stop."
     }
 }

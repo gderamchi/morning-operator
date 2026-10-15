@@ -5,6 +5,11 @@ import UIKit
 
 extension MorningStore {
     var handsFreeVoiceActive: Bool { handsFreeVoice.isActive }
+    var canHearHandsFreeCommands: Bool {
+        guard sessionActive, automatic, let session,
+              handsFreeListeningSuppressedSessionID != session.id else { return false }
+        return handsFreeVoice.isActive
+    }
     var handsFreeVoiceStatus: String {
         if let session, handsFreeListeningSuppressedSessionID == session.id {
             return AppLanguage.isFrench ? "Écoute désactivée pour ce matin. Les boutons restent disponibles."

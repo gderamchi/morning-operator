@@ -79,7 +79,7 @@ struct StepTargetEditor: View {
             }
             if case let .googleCalendarDay(calendar) = target {
                 Text("Google Calendar").font(.subheadline)
-                Text(calendar.calendarName).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                Text(calendar.sourceLabel()).font(.subheadline).fixedSize(horizontal: false, vertical: true)
                 if let target, let details = RoutineConnectedReview.summary(for: target) {
                     Text(details).font(.subheadline).fixedSize(horizontal: false, vertical: true)
                 }
@@ -122,8 +122,8 @@ enum RoutineConnectedReview {
     static func summary(for target: RoutineStepTarget) -> String? {
         if case let .googleCalendarDay(calendar) = target {
             return AppLanguage.isFrench
-                ? "Google Calendar : lire « \(calendar.calendarName) » pour le jour courant, dans le fuseau de cet iPhone. Les dates sont recalculées à chaque matin et à chaque actualisation. Au plus 25 événements ; toute lecture partielle est annoncée. Aucune modification du calendrier."
-                : "Google Calendar: read “\(calendar.calendarName)” for today in this iPhone’s time zone. Dates are recalculated each morning and on refresh. Up to 25 events; a partial reading is disclosed. No calendar changes."
+                ? "Google Calendar : lire « \(calendar.sourceLabel(french: true)) » pour le jour courant, dans le fuseau de cet iPhone. Les dates sont recalculées à chaque matin et à chaque actualisation. Au plus 25 événements ; toute lecture partielle est annoncée. Aucune modification du calendrier."
+                : "Google Calendar: read “\(calendar.sourceLabel(french: false))” for today in this iPhone’s time zone. Dates are recalculated each morning and on refresh. Up to 25 events; a partial reading is disclosed. No calendar changes."
         }
         if case let .calendlyDay(account) = target {
             return AppLanguage.isFrench

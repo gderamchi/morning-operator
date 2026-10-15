@@ -36,6 +36,25 @@ struct GoogleCalendarDayTests {
         #expect(throws: (any Error).self) { try JSONDecoder().decode(RoutineStepTarget.self, from: Data("{\"kind\":\"futureCalendar\"}".utf8)) }
     }
 
+    @Test func primaryLabelSurvivesApprovalStorageAndOldSelectionsRemainUnchanged() throws {
+        let oldJSON = Data("{\"connectionID\":\"ca_synthetic\",\"calendarID\":\"real-calendar@example.invalid\",\"calendarName\":\"Personal calendar\"}".utf8)
+        let old = try JSONDecoder().decode(GoogleCalendarDayTarget.self, from: oldJSON)
+        #expect(old.isPrimary == nil && old.sourceLabel(french: false) == "Personal calendar")
+        let now = date("2026-03-29T10:00:00Z")
+        for primary in [false, true] {
+            let selected = try GoogleCalendarDayTarget(connectionID: old.connectionID, calendarID: old.calendarID,
+                calendarName: old.calendarName, isPrimary: primary)
+            let routine = RoutineVersion(sourceLabel: "Synthetic selection", steps: [RoutineStep(title: "Calendar", target: .googleCalendarDay(selected))], isApproved: true)
+            let restored = try JSONDecoder().decode(RoutineVersion.self, from: JSONEncoder().encode(routine))
+            #expect(restored.isApproved && restored.steps[0].target == .googleCalendarDay(selected))
+            let doc = try GoogleCalendarDayDocument(target: selected, window: .init(at: now, timeZone: paris), receivedAt: now, events: [], isPartial: false)
+            #expect(doc.summary(french: false).contains("primary calendar") == primary)
+            #expect(doc.summary(french: true).contains("calendrier principal") == primary)
+            #expect(!selected.sourceLabel(french: false).contains(selected.calendarID))
+        }
+        #expect(try JSONDecoder().decode(GoogleCalendarDayTarget.self, from: JSONEncoder().encode(old)) == old)
+    }
+
     @Test func pinnedSessionAndRetainedPreferencesPreserveSelectionButPortableImportIsManual() throws {
         let selection = try target(), action = RoutineStepTarget.googleCalendarDay(selection)
         let step = RoutineStep(title: "My work calendar", kind: .calendar, durationMinutes: 3, target: action)

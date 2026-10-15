@@ -23,14 +23,18 @@ struct CalendlyDayMomentView: View {
                 if let document = store.currentCalendlyDay {
                     Text(document.summary()).font(.raleway(.subheadline)).textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("calendlyDay.summary")
-                    Text(french ? "Rendez-vous qui commencent aujourd’hui, dans le fuseau de cet iPhone. Posez une question, dites répète ou actualise mes rendez-vous."
-                         : "Bookings starting today, in this iPhone’s time zone. Ask a question, say repeat or refresh my bookings.")
+                    Text(store.canHearHandsFreeCommands
+                         ? (french ? "Rendez-vous qui commencent aujourd’hui, dans le fuseau de cet iPhone. Posez une question, dites répète ou actualise mes rendez-vous."
+                            : "Bookings starting today, in this iPhone’s time zone. Ask a question, say repeat or refresh my bookings.")
+                         : (french ? "Rendez-vous qui commencent aujourd’hui, dans le fuseau de cet iPhone. Utilisez les boutons pour relire, actualiser ou poursuivre votre matin."
+                            : "Bookings starting today, in this iPhone’s time zone. Use the buttons to read again, refresh or continue your morning."))
                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted).fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("calendlyDay.controlsHint")
                     Button(french ? "Relire ces rendez-vous" : "Read these bookings again") { _ = store.repeatCalendlyDay() }
                         .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("calendlyDay.repeat")
                 } else if !store.connectedMoment.isInFlight {
-                    Text(french ? "Aucune lecture actuelle n’est disponible. Cela ne signifie pas que vous n’avez aucun rendez-vous. Actualisez ce moment ou dites suivant."
-                         : "No current reading is available. This does not mean you have no bookings. Refresh this moment or say next.")
+                    Text(french ? "Aucune lecture actuelle n’est disponible. Cela ne signifie pas que vous n’avez aucun rendez-vous. Actualisez ce moment ou passez à la suite."
+                         : "No current reading is available. This does not mean you have no bookings. Refresh this moment or go to the next moment.")
                         .font(.raleway(.subheadline)).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("calendlyDay.unavailable")
                 }
                 Button(french ? "Actualiser mes rendez-vous" : "Refresh my bookings") { store.refreshCalendlyDay() }

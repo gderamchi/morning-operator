@@ -28,10 +28,13 @@ import MorningCore
         let emptyDay = flags.contains("--ui-testing-google-calendar-empty-day")
         let partial = flags.contains("--ui-testing-google-calendar-partial")
         let unavailable = flags.contains("--ui-testing-google-calendar-unavailable")
+        let homonyms = flags.contains("--ui-testing-google-calendar-homonyms")
         let connection = "ca_synthetic_google_calendar", cursor = "opaque-synthetic-calendar-page-two"
         let firstID = "synthetic-primary@calendar.invalid", secondID = "synthetic-second@group.calendar.invalid"
-        let firstName = "SYNTHETIC calendrier personnel de préparation du matin avec un nom volontairement très long"
-        let secondName = "SYNTHETIC deuxième page calendrier partagé de préparation du matin"
+        let thirdID = "synthetic-third@group.calendar.invalid", sharedName = "SYNTHETIC calendrier partagé du matin"
+        let firstName = homonyms ? sharedName : "SYNTHETIC calendrier personnel de préparation du matin avec un nom volontairement très long"
+        let secondName = homonyms ? sharedName : "SYNTHETIC deuxième page calendrier partagé de préparation du matin"
+        let calendarIDs = homonyms ? [firstID, secondID, thirdID] : [firstID, secondID]
         return ComposioService(baseURL: URL(string: "https://synthetic-google-calendar.invalid")!,
             tokenStore: Tokens("synthetic-google-calendar-installation-token"), executionStore: Tokens(nil)) { request in
             guard let url = request.url, url.scheme == "https", url.host == "synthetic-google-calendar.invalid",
@@ -64,9 +67,12 @@ import MorningCore
                           arguments["show_hidden"] == .bool(false), arguments["show_deleted"] == .bool(false) else { throw FixtureError.blocked }
                     if let page = arguments["page_token"] {
                         guard page == .string(cursor) else { throw FixtureError.blocked }
-                        data = ["calendars": [calendar(secondID, secondName)], "next_page_token": ""]
+                        data = ["calendars": [calendar(homonyms ? thirdID : secondID, secondName)], "next_page_token": ""]
                     } else {
-                        data = ["calendars": [calendar(firstID, firstName, primary: true),
+                        let eligible = homonyms
+                            ? [calendar(firstID, firstName, primary: true), calendar(secondID, secondName)]
+                            : [calendar(firstID, firstName, primary: true)]
+                        data = ["calendars": eligible + [
                             calendar("synthetic-freebusy@calendar.invalid", "SYNTHETIC disponibilités seules masquées", role: "freeBusyReader"),
                             calendar("synthetic-hidden@calendar.invalid", "SYNTHETIC calendrier masqué", hidden: true),
                             calendar("synthetic-deleted@calendar.invalid", "SYNTHETIC calendrier supprimé", deleted: true)], "next_page_token": cursor]
@@ -74,7 +80,7 @@ import MorningCore
                 case "GOOGLECALENDAR_EVENTS_LIST":
                     let fields = "kind,summary,timeZone,accessRole,nextPageToken,items(id,status,summary,start,end,location)"
                     guard Set(arguments.keys) == Set(["calendarId", "timeMin", "timeMax", "timeZone", "singleEvents", "orderBy", "showDeleted", "maxResults", "fields"]),
-                          let id = arguments["calendarId"]?.stringValue, [firstID, secondID].contains(id),
+                          let id = arguments["calendarId"]?.stringValue, calendarIDs.contains(id),
                           let zoneID = arguments["timeZone"]?.stringValue, let zone = TimeZone(identifier: zoneID),
                           let from = arguments["timeMin"]?.stringValue, let to = arguments["timeMax"]?.stringValue,
                           let start = ISO8601DateFormatter().date(from: from),

@@ -25,6 +25,40 @@ struct GoogleCalendarDayServiceTests {
         #expect(doc.target == selectedLaterPage && doc.events.isEmpty)
     }
 
+    @Test func primaryLabelsDistinguishChoicesAndLaterPageHomonymsInvalidateTheEarlierChoice() throws {
+        let primary = try GoogleCalendarChoice(id: "main@example.invalid", name: "Morning", isPrimary: true)
+        let first = try GoogleCalendarChoice(id: "first@example.invalid", name: "Morning")
+        let later = try GoogleCalendarChoice(id: "later@example.invalid", name: "Morning")
+        #expect(primary.sourceLabel(french: false) == "Morning (primary calendar)")
+        #expect(primary.sourceLabel(french: true) == "Morning (calendrier principal)")
+        #expect(try primary.target(connectionID: "ca_synthetic").isPrimary == true)
+        #expect(try first.target(connectionID: "ca_synthetic").isPrimary == false)
+        #expect(!primary.isAmbiguous(in: [primary, first]) && !first.isAmbiguous(in: [primary, first]))
+        let all = [primary, first, later]
+        #expect(!primary.isAmbiguous(in: all) && first.isAmbiguous(in: all) && later.isAmbiguous(in: all))
+        for french in [false, true] {
+            #expect(try primary.target(connectionID: "ca_synthetic").sourceLabel(french: french) == primary.sourceLabel(french: french))
+        }
+        // A source name that looks like our suffix must not become a second identical label.
+        let suffixName = try GoogleCalendarChoice(id: "suffix@example.invalid", name: primary.sourceLabel(french: false))
+        #expect(primary.isAmbiguous(in: [primary, suffixName], french: false))
+    }
+
+    @Test func reviewedPrimaryStatusIsRecheckedWithoutRewritingLegacySelections() async throws {
+        let f = Fixture(), service = f.reader()
+        let primary = try #require(try await service.calendars(connectionID: f.connection).choices.first)
+        let approved = try primary.target(connectionID: f.connection)
+        #expect(approved.isPrimary == true)
+        let initial = try await service.read(target: approved)
+        #expect(initial.target == approved && initial.summary(french: false).contains("primary calendar"))
+        f.listPages[""] = ["calendars": [f.calendar(primary: false)]]
+        let eventReads = f.reads.filter { $0.tool == GoogleCalendarReadContract.eventsTool }.count
+        await #expect(throws: GoogleCalendarDayError.selectionChanged) { try await service.read(target: approved) }
+        #expect(f.reads.filter { $0.tool == GoogleCalendarReadContract.eventsTool }.count == eventReads)
+        let legacy = try await service.read(target: f.target())
+        #expect(legacy.target.isPrimary == nil && !legacy.summary(french: false).contains("primary calendar"))
+    }
+
     @Test func runtimeWindowIsRebuiltOnEachReadAndEventsUseOnlyFixedCamelCaseArguments() async throws {
         let f = Fixture(), service = f.reader()
         f.eventPayload = ["kind": "calendar#events", "items": [f.event()], "nextPageToken": "more-events"]
@@ -186,8 +220,8 @@ struct GoogleCalendarDayServiceTests {
         }
         func reader(timeout: Duration = .seconds(40)) -> GoogleCalendarDayService { .init(service: client, now: { self.now }, timeZone: { self.zone }, readTimeout: timeout) }
         func target() throws -> GoogleCalendarDayTarget { try .init(connectionID: connection, calendarID: calendarID, calendarName: "Personal calendar") }
-        func calendar(id: String? = nil, name: String = "Personal calendar", override: String? = nil, role: String = "owner", zone: String = "Europe/Paris") -> [String: Any] {
-            var row: [String: Any] = ["id": id ?? calendarID, "summary": name, "timeZone": zone, "accessRole": role, "primary": true]
+        func calendar(id: String? = nil, name: String = "Personal calendar", override: String? = nil, role: String = "owner", zone: String = "Europe/Paris", primary: Bool = true) -> [String: Any] {
+            var row: [String: Any] = ["id": id ?? calendarID, "summary": name, "timeZone": zone, "accessRole": role, "primary": primary]
             if let override { row["summaryOverride"] = override }; return row
         }
         func event() -> [String: Any] { ["id": "meeting", "status": "confirmed", "summary": "Morning meeting", "start": ["dateTime": "2026-03-29T11:00:00+02:00"], "end": ["dateTime": "2026-03-29T12:00:00+02:00"], "description": "OMITTED_PRIVATE_DESCRIPTION", "attendees": [["email": "OMITTED_PRIVATE_ATTENDEE"]]] }
