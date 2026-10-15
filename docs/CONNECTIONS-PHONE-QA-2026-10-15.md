@@ -47,3 +47,11 @@ Observed on 15 October 2026 around 21:01–21:07 Europe/Paris, on the paired iPh
 The Google/OAuth configuration and new routine implementation are being prepared in the separately coordinated workstream. Neither the future build nor its voice/routine features are certified by these 1522 observations.
 
 Device Hub subsequently stopped accepting coordinate gestures with `noWindowsAvailable`, despite fresh state, reacquisition and compact/full-window checks. Its Mac accessibility commands and phone image remained available, but physical iOS accessibility nodes were not exposed. This is a **test-control limitation**, not an app-success claim. Ordinary real-device XCTest checks are being prepared in the UI-test target without fixture or reset arguments; no new native permission or external write was accepted during this first inspection.
+
+## Ordinary-phone XCTest gate
+
+The isolated UI-test source and its four project references were compiled with the full installed Xcode toolchain: **build-for-testing succeeded**. Independent review found no routine edits, grant acceptance or external writes. The test app artifact separately passed local configuration checks for the matching native Google client/callback and backend origin, but that app artifact was **not installed**.
+
+Only the signed `MorningOperatorUITests-Runner.app` was installed. A local `.xctestrun` used the Xcode-documented `UseDestinationArtifacts=true`, explicit ordinary bundle identifier and existing destination artifacts, without app paths for installation or fixture arguments. A subsequent `devicectl` check confirmed the ordinary MORE app remained **0.1.0 (1522)**.
+
+On launch, iOS displayed **“Enter iPhone Passcode for XCTest — Enable UI Automation.”** The owner was asked to validate directly on the phone; no passcode was requested in chat or entered by the test. The runner timed out while enabling automation mode, before any of the three acceptance tests initialized. **Zero functional test outcomes are claimed** from this attempt. The native Calendar/Reminders accesses and phone API account association remain unverified until the owner completes this system gate and the checks are rerun. No automatic retry was made.
