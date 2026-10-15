@@ -60,12 +60,24 @@ All `/v1` routes except installation creation and the browser verifier require `
 | `DELETE /v1/connections/{id}` | — | `204`, requests provider grant revocation as well as account deletion |
 | `GET /v1/tools?service=...` | — | `{tools:[{slug,name,description,inputSchema}]}` |
 | `POST /v1/execute` | `{tool,arguments,connectionID,requestID}` | `{requestID,successful,data?,error?}`; `error` has `{code,message}` |
+| `GET /v1/slack/reply-identity?connectionID=...` | — | `{protocolVersion:1,connectionID,revision,teamID,userID,botID?,teamName,userName}` |
+| `POST /v1/slack/replies` | `{connectionID,requestID,expectedIdentity:{revision,teamID,userID,botID?},channelID,threadTS,body}` | `{requestID,successful:true,data}` only with an exact Slack reply receipt; metadata-only replay as below |
 
 Connections are filtered both upstream and locally by owner, configured auth-config ID and toolkit. Credentials/state returned by Composio are discarded. Every execution rechecks active account ownership and tool toolkit/version before dispatch. Legacy property-map input descriptions are normalized to an object JSON Schema for the app; full argument/schema validation is performed by Composio. The local app's review/approval policy must decide whether to invoke a particular tool.
 
 The Worker reads precomputed public catalog JSON from D1 using the configured toolkit/version pair, after installation authentication. It forwards that JSON without parsing and serializing the tool definitions again. A missing or stale pinned snapshot returns `503 catalog_unavailable`; there is no expensive provider fallback. The owner refreshes snapshots with the [catalog bootstrap](CLOUDFLARE.md#refresh-public-catalogs). These rows contain public tool descriptions and schemas, never connected accounts, execution arguments or provider results. The Node adapter still loads and normalizes the live public catalog dynamically. Execution always verifies fresh provider account/tool metadata, independently of catalog snapshots.
 
 Deletion asks Composio to revoke upstream credentials asynchronously. A 204 here confirms the Composio deletion response, not completed provider-side revocation. A shared provider grant may affect sibling connections; provider settings remain the place to inspect final access.
+
+### Contextual Slack replies
+
+The dedicated reply route uses this same handler in Node and the Cloudflare Worker. It is implemented and tested locally; deploying it and proving a real account/receipt are separate checks. Contextual replies never fall back to generic execution if this protocol is unavailable. Existing reads and previously reviewed generic actions retain their contract.
+
+Identity comes from pinned `SLACK_TEST_AUTH` ([Slack contract](https://docs.slack.dev/reference/methods/auth.test/)), not the account alias. The opaque SHA-256 `revision` includes the documented account ID, owner, auth configuration, toolkit, active/disabled state, `created_at` and `updated_at` ([Composio account schema](https://docs.composio.dev/reference/v3/api-reference/connected-accounts/getConnectedAccountsByNanoid)). Missing or invalid timestamps refuse this capability. Both the read and send handler check current ownership and active grant metadata around `auth.test`; the send handler compares the reviewed revision/team/user/bot and checks account metadata again immediately before provider dispatch. A mismatch returns `slack_identity_changed`; missing identity or metadata returns `slack_identity_unavailable`. These are explicit refusals before any send. The client must still pin the source channel/thread/message and revalidate it before review and sending.
+
+Only named-channel IDs (`C…`/`G…`), string thread timestamps, a UUID request ID and bounded plain text are accepted. The server constructs one `section`/`plain_text` block with `emoji:false` and `block_id:more-reply-v1-<lowercase request UUID>`, plus exact `fallback_text`, disabled unfurls and `reply_broadcast:false`. It accepts no caller-supplied blocks or extra tool arguments and rejects Slack entity/mention tokens. An exact echoed account actor, channel, thread, timestamp, marker and body are required before success. The marker supports receipt verification; a [section block ID](https://docs.slack.dev/reference/block-kit/blocks/section-block/) is **not** a Slack idempotency key.
+
+The send fingerprint includes the expected identity, destination and exact body. The same atomic reservation and content-free journal described below apply to this route, including D1 across Worker isolates. A timeout, inner Slack failure, mismatched echo or lost durable receipt after dispatch stays `execution_uncertain` and is never retried automatically. There is no reconciliation endpoint in this slice. The local tests exercise the real Worker router and D1 with intercepted synthetic upstream calls; they do not establish Slack account access or a live post.
 
 ## Replay and uncertainty
 

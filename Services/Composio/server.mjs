@@ -20,6 +20,58 @@ function canonical(value) {
   return JSON.stringify(value);
 }
 
+const slackTimestamp = value => typeof value === 'string' && /^\d{10,16}\.\d{6}$/.test(value);
+const slackIdentityID = (value, prefix) => typeof value === 'string' && new RegExp(`^[${prefix}][A-Z0-9]{2,79}$`).test(value);
+const slackMarker = requestID => `more-reply-v1-${requestID}`;
+function slackAccountRevision(account) {
+  // These are the documented connected-account timestamps, not its editable alias
+  // or credential material. Missing revision metadata disables this reply route.
+  if (![account.created_at, account.updated_at].every(value => typeof value === 'string' && value.length <= 100 && Number.isFinite(Date.parse(value))) || Date.parse(account.updated_at) < Date.parse(account.created_at)) {
+    fail(409, 'slack_identity_unavailable', 'Slack identity could not be verified. Reconnect and review this reply again.');
+  }
+  return hash(canonical({ id: account.id, userID: account.user_id, toolkit: account.toolkit.slug,
+    authConfigID: account.auth_config.id, status: account.status, createdAt: account.created_at,
+    updatedAt: account.updated_at, disabled: account.is_disabled === true, authDisabled: account.auth_config.is_disabled === true }));
+}
+function slackSubject(result) {
+  const data = result?.data;
+  if (result?.successful !== true || !object(data) || data.ok !== true ||
+      !slackIdentityID(data.team_id, 'T') || !slackIdentityID(data.user_id, 'UW') ||
+      (data.bot_id !== undefined && !slackIdentityID(data.bot_id, 'B')) ||
+      ![data.team, data.user].every(value => typeof value === 'string' && value.trim().length > 0 && value.length <= 200)) {
+    fail(409, 'slack_identity_unavailable', 'Slack identity could not be verified. Reconnect and review this reply again.');
+  }
+  return { teamID: data.team_id, userID: data.user_id, ...(data.bot_id === undefined ? {} : { botID: data.bot_id }), teamName: data.team, userName: data.user };
+}
+function sameSlackIdentity(actual, expected) {
+  return actual.revision === expected.revision && actual.teamID === expected.teamID &&
+    actual.userID === expected.userID && (actual.botID ?? null) === (expected.botID ?? null);
+}
+function validSlackReply(input) {
+  exactKeys(input, ['connectionID', 'requestID', 'expectedIdentity', 'channelID', 'threadTS', 'body']);
+  if (typeof input.connectionID !== 'string' || !idPattern.test(input.connectionID) || !uuidPattern.test(input.requestID ?? '') ||
+      !object(input.expectedIdentity) || !slackIdentityID(input.channelID, 'CG') || !slackTimestamp(input.threadTS) ||
+      typeof input.body !== 'string' || input.body.trim().length === 0 || input.body.length > 3000 ||
+      Buffer.byteLength(input.body, 'utf8') > 12000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(input.body) || /<[@!#]/.test(input.body)) {
+    fail(400, 'invalid_slack_reply', 'Review this Slack reply. A supported channel, thread and plain text without mentions are required.');
+  }
+  const expected = input.expectedIdentity;
+  exactKeys(expected, ['revision', 'teamID', 'userID', 'botID']);
+  if (typeof expected.revision !== 'string' || !/^[a-f0-9]{64}$/.test(expected.revision) ||
+      !slackIdentityID(expected.teamID, 'T') || !slackIdentityID(expected.userID, 'UW') ||
+      (expected.botID !== undefined && !slackIdentityID(expected.botID, 'B'))) {
+    fail(400, 'invalid_slack_reply', 'Review the current Slack account before preparing this reply.');
+  }
+}
+function verifiedSlackReply(result, input) {
+  const data = result?.data, message = data?.message, blocks = message?.blocks;
+  return result?.successful === true && object(data) && data.ok === true && data.channel === input.channelID && slackTimestamp(data.ts) &&
+    object(message) && message.ts === data.ts && message.thread_ts === input.threadTS && message.user === input.expectedIdentity.userID &&
+    (message.bot_id ?? null) === (input.expectedIdentity.botID ?? null) && Array.isArray(blocks) && blocks.length === 1 &&
+    blocks[0]?.type === 'section' && blocks[0]?.block_id === slackMarker(input.requestID) &&
+    blocks[0]?.text?.type === 'plain_text' && blocks[0]?.text?.text === input.body && blocks[0]?.text?.emoji === false;
+}
+
 export function configFromEnv(env = process.env) {
   if (!env.COMPOSIO_API_KEY) throw new Error('COMPOSIO_API_KEY is required.');
   const toolkits = JSON.parse(env.COMPOSIO_TOOLKITS_JSON ?? '{}');
@@ -210,6 +262,81 @@ export async function createRequestHandler(config, { storage = new FileStorage(c
     return installation.userID;
   }
 
+  async function slackTool(slug, toolkit) {
+    const tool = await upstream(`tools/${slug}`, { query: { version: toolkit.version } });
+    if (tool.slug !== slug || tool.toolkit?.slug !== 'slack' || tool.is_deprecated || tool.version !== toolkit.version) {
+      fail(400, 'tool_account_mismatch', 'The Slack operation is not available for this account version.');
+    }
+    return tool;
+  }
+
+  async function slackReplyIdentity(connectionID, userID) {
+    try {
+      const account = await accountFor(connectionID, userID, true);
+      if (account.toolkit.slug !== 'slack') fail(400, 'tool_account_mismatch', 'Choose a Slack account for this reply.');
+      const toolkit = service('slack'), revision = slackAccountRevision(account);
+      await slackTool('SLACK_TEST_AUTH', toolkit);
+      const result = await upstream('tools/execute/SLACK_TEST_AUTH', { method: 'POST', payload: {
+        connected_account_id: connectionID, user_id: userID, version: toolkit.version, arguments: {} } });
+      const subject = slackSubject(result);
+      const after = await accountFor(connectionID, userID, true);
+      if (slackAccountRevision(after) !== revision) fail(409, 'slack_identity_changed', 'The Slack account changed. Review this reply again before sending.');
+      return { protocolVersion: 1, connectionID, revision, ...subject };
+    } catch (error) {
+      if (error instanceof HTTPError && ['invalid_connection', 'connection_not_found', 'connection_inactive', 'unsupported_service', 'tool_account_mismatch', 'slack_identity_unavailable', 'slack_identity_changed'].includes(error.code)) throw error;
+      fail(409, 'slack_identity_unavailable', 'Slack identity could not be verified. Reconnect and review this reply again.');
+    }
+  }
+
+  async function slackReply(userID, input) {
+    validSlackReply(input);
+    input.requestID = input.requestID.toLowerCase();
+    const requestKey = `${userID}/${input.requestID}`;
+    const fingerprint = hash(canonical({ kind: 'slack-reply-v1', ...input }));
+    if (!await storage.reserveExecution(userID, input.requestID, fingerprint)) {
+      let saved; try { saved = await storage.getExecution(userID, input.requestID); } catch { /* Never reclaim an unreadable reservation. */ }
+      if (!saved || saved.fingerprint !== fingerprint) fail(409, saved ? 'request_mismatch' : 'execution_uncertain', 'This reply cannot be repeated; inspect its outcome first.');
+      if (saved.state === 'complete') return saved.receipt;
+      fail(409, activeRequests.has(requestKey) ? 'execution_pending' : 'execution_uncertain', 'This reply may already have been sent. Check its outcome before another attempt.');
+    }
+    activeRequests.add(requestKey);
+    let effectStarted = false;
+    try {
+      const actual = await slackReplyIdentity(input.connectionID, userID);
+      if (!sameSlackIdentity(actual, input.expectedIdentity)) fail(409, 'slack_identity_changed', 'The Slack account changed. Review this reply again before sending.');
+      const toolkit = service('slack');
+      await slackTool('SLACK_SEND_MESSAGE', toolkit);
+      // Check again after the final metadata request. No client-only preflight can
+      // authorize a replacement connected account between review and dispatch.
+      const account = await accountFor(input.connectionID, userID, true);
+      if (slackAccountRevision(account) !== actual.revision) fail(409, 'slack_identity_changed', 'The Slack account changed. Review this reply again before sending.');
+      const arguments_ = { channel: input.channelID, thread_ts: input.threadTS,
+        blocks: [{ type: 'section', block_id: slackMarker(input.requestID), text: { type: 'plain_text', text: input.body, emoji: false } }],
+        fallback_text: input.body, reply_broadcast: false, unfurl_links: false, unfurl_media: false };
+      effectStarted = true;
+      const result = await upstream('tools/execute/SLACK_SEND_MESSAGE', { method: 'POST', payload: {
+        connected_account_id: input.connectionID, user_id: userID, version: toolkit.version, arguments: arguments_ } });
+      if (!verifiedSlackReply(result, input)) fail(502, 'slack_receipt_unverified', 'Slack did not return a matching reply receipt.');
+      const receipt = { status: 200, payload: { requestID: input.requestID, successful: true, data: result.data } };
+      await storage.saveExecution(userID, input.requestID, { fingerprint, state: 'complete', receipt: {
+        status: 200, payload: { requestID: input.requestID, successful: true, resultAvailable: false } } });
+      return receipt;
+    } catch (error) {
+      if (effectStarted) {
+        await storage.saveExecution(userID, input.requestID, { fingerprint, state: 'uncertain' });
+        fail(409, 'execution_uncertain', 'This reply may already have been sent. Check its outcome before another attempt.');
+      }
+      // Metadata/read failures before dispatch are a verified refusal, so the
+      // client need not retain a false "possibly posted" claim for this attempt.
+      if (!(error instanceof HTTPError) || !['invalid_connection', 'connection_not_found', 'connection_inactive', 'unsupported_service', 'tool_account_mismatch', 'slack_identity_unavailable', 'slack_identity_changed'].includes(error.code)) {
+        error = new HTTPError(409, 'slack_identity_unavailable', 'Slack identity could not be verified. Reconnect and review this reply again.');
+      }
+      const receipt = { status: error.status ?? 500, payload: envelope(error) };
+      await storage.saveExecution(userID, input.requestID, { fingerprint, state: 'complete', receipt });
+      return receipt;
+    } finally { activeRequests.delete(requestKey); }
+  }
+
   async function execution(userID, input) {
     exactKeys(input, ['tool', 'arguments', 'connectionID', 'requestID']);
     if (typeof input.tool !== 'string' || !/^[A-Z][A-Z0-9_]{1,200}$/.test(input.tool) || !object(input.arguments) || !uuidPattern.test(input.requestID ?? '') || typeof input.connectionID !== 'string' || !idPattern.test(input.connectionID)) fail(400, 'invalid_execution', 'A tool, arguments, connectionID and UUID requestID are required.');
@@ -265,6 +392,17 @@ export async function createRequestHandler(config, { storage = new FileStorage(c
         return reply(302, undefined, { Location: callback.href });
       }
       const userID = await identity(request);
+      if (request.method === 'GET' && url.pathname === '/v1/slack/reply-identity') {
+        if ([...url.searchParams.keys()].some(key => key !== 'connectionID') || url.searchParams.getAll('connectionID').length !== 1) {
+          fail(400, 'invalid_slack_reply', 'Choose one Slack account for this reply.');
+        }
+        return reply(200, await slackReplyIdentity(url.searchParams.get('connectionID'), userID));
+      }
+      if (request.method === 'POST' && url.pathname === '/v1/slack/replies') {
+        if (url.search) fail(400, 'invalid_slack_reply', 'Use the reviewed Slack reply without extra parameters.');
+        const receipt = await slackReply(userID, await body(request));
+        return reply(receipt.status, receipt.payload);
+      }
       if (request.method === 'POST' && url.pathname === '/v1/connections/complete') {
         const input = await body(request); exactKeys(input, ['sessionURI']);
         if (typeof input.sessionURI !== 'string' || !input.sessionURI || input.sessionURI.length > 4096) fail(400, 'invalid_auth_session', 'A valid auth session is required.');
