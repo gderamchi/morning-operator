@@ -1201,6 +1201,7 @@ private struct MorningSunHome: View {
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
     private var running: Bool { session?.status == .running || session?.status == .paused }
     private var finishedToday: Bool {
@@ -1292,10 +1293,11 @@ private struct MorningSunHome: View {
             } else if finishedToday, let session {
                 finished(session)
             } else {
-                Text(isFrench ? "prêt à commencer ?" : "ready to begin?")
+                Text(isFrench ? "on y va ?" : "ready to begin?")
                     .font(.serif(.title)).accessibilityIdentifier("morning.readyQuestion")
                 Button(action: begin) {
-                    Text(isFrench ? "Commencer" : "Begin").frame(maxWidth: .infinity)
+                    Text(isFrench ? "Commencer" : "Begin")
+                        .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("morning.begin")
@@ -1303,19 +1305,20 @@ private struct MorningSunHome: View {
             if let notice {
                 Text(notice).font(.raleway(.subheadline)).accessibilityIdentifier("app.notice")
             }
-            HStack(spacing: 20) {
+            destinationLayout {
                 Button(action: openSettings) {
                     Label(isFrench ? "Réglages" : "Settings", systemImage: "gearshape")
                         .frame(minHeight: 48).contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("morning.settings")
-                Spacer(minLength: 0)
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
                 Button(action: openRoutine) {
                     Label(isFrench ? "Ma routine" : "My routine", systemImage: "list.bullet")
                         .frame(minHeight: 48).contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("morning.review")
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .font(.raleway(.subheadline))
             .buttonStyle(.plain)
             if needsSolarCity {
@@ -1331,6 +1334,12 @@ private struct MorningSunHome: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("morning.heading")
+    }
+
+    private var destinationLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 20))
     }
 
     private func finished(_ session: RoutineSession) -> some View {
