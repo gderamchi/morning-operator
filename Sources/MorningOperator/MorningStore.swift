@@ -223,7 +223,7 @@ final class MorningStore {
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
     let briefing: MorningBriefingController
-    let composio = CalendlyDayUITestFixture.serviceIfRequested() ?? GoogleCalendarDayUITestFixture.serviceIfRequested() ?? SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
+    let composio = OutlookInboxUITestFixture.serviceIfRequested() ?? CalendlyDayUITestFixture.serviceIfRequested() ?? GoogleCalendarDayUITestFixture.serviceIfRequested() ?? SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
     let nativeConnections = NativeConnectionsService()
     var selectedSlackMessageTS: String?
     @ObservationIgnored var slackReplyTask: Task<Void, Never>?
@@ -274,6 +274,11 @@ final class MorningStore {
     var calendlyDayContext: MorningExecutionID?
     var calendlyDayPrivacyGeneration: UUID?
     @ObservationIgnored var calendlyDayFreshnessTask: Task<Void, Never>?
+    var outlookInboxDocument: OutlookInboxDocument?
+    var outlookMessageDocument: OutlookMessageDocument?
+    var outlookInboxContext: MorningExecutionID?
+    var outlookInboxPrivacyGeneration: UUID?
+    @ObservationIgnored var outlookInboxFreshnessTask: Task<Void, Never>?
     @ObservationIgnored let routineWebMoment = RoutineWebMomentRetainer()
     @ObservationIgnored var mailBudgetWork: [UUID: MorningExecutionID] = [:]
     @ObservationIgnored var mailBudgetDeadlinePaused: MorningExecutionID?
@@ -465,6 +470,16 @@ final class MorningStore {
                     userName: "SYNTHETIC Camille, compte de préparation du matin avec un nom volontairement très long") {
                 routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic Calendly day", steps: [
                     RoutineStep(title: target.userName, detail: "SYNTHETIC read-only bookings starting today in this iPhone’s current time zone.", kind: .calendar, durationMinutes: 3, target: .calendlyDay(target)),
+                    RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-outlook-runtime"), OutlookInboxUITestFixture.isRequested,
+               let target = try? OutlookInboxTarget(connectionID: OutlookInboxUITestFixture.connectionID,
+                    accountID: OutlookInboxUITestFixture.accountID, displayName: OutlookInboxUITestFixture.displayName,
+                    mailboxAddress: OutlookInboxUITestFixture.mailboxAddress) {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic Outlook Inbox", steps: [
+                    RoutineStep(title: "Outlook · \(target.sourceLabel())", detail: "SYNTHETIC read-only Inbox previews, with a separately selected message body. No Outlook account is used.",
+                        kind: .messages, durationMinutes: 3, target: .outlookInbox(target)),
                     RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
                 ])
             }
@@ -696,7 +711,9 @@ final class MorningStore {
     }
     var canSuggestSavedObservations: Bool {
         routinePreferencesIssue == nil && (intelligence.isAvailable || usesSyntheticProposalFixture ||
-            observationArchive.entries.contains { $0.correctedText == nil && $0.browserLearning != nil })
+            observationArchive.entries.contains {
+                $0.correctedText == nil && ($0.browserLearning != nil || $0.screenTimeEvidence?.hasMorningEvidence == true)
+            })
     }
 
     func loadSample() {
@@ -1081,6 +1098,7 @@ final class MorningStore {
         cancelStepPlayback()
         if repeatGoogleCalendarDay() { return }
         if repeatCalendlyDay() { return }
+        if repeatOutlookReading() { return }
         if repeatConnectedMoment() { return }
         if step.webBehavior != nil {
             if let event = webExecutionEvent, event.sessionID == session.id, event.stepID == step.id,
@@ -1569,7 +1587,7 @@ final class MorningStore {
                 guard let self else { return }
                 do {
                     let proposal: EvidenceRoutineProposal
-                    if evidence.hasOnlyBrowserLessons {
+                    if evidence.hasOnlyStructuredEvidence {
                         proposal = try LearningEvidencePreparation.assemble(evidence: evidence, steps: [],
                             preserving: base, preferences: preferences)
                     } else if usesSyntheticProposalFixture {
@@ -1778,7 +1796,7 @@ final class MorningStore {
             throw AppleIntelligenceError.insufficientActivityEvidence
         }
         var seen = Set<UUID>()
-        let citations = evidence.units.filter { seen.insert($0.acquisitionID).inserted }.map {
+        let citations = evidence.units.filter { $0.sourceLayer != .screenTimeAggregate && seen.insert($0.acquisitionID).inserted }.map {
             RoutineEvidenceCitationInput(unitID: $0.id, quote: String($0.text.prefix(220)))
         }
         return try LearningEvidencePreparation.assemble(evidence: evidence, steps: [
@@ -2147,6 +2165,19 @@ final class MorningStore {
         observationContextClassification = entry?.correctedText == nil ? entry?.classification : nil
     }
 
+    /// A successful system read refreshes its dated sources atomically. The person's
+    /// selected editor, corrections, approved routine and explicit selection stay separate.
+    @discardableResult
+    func saveScreenTimeEvidence(_ evidence: [ScreenTimeObservationEvidence]) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !sessionActive else { return false }
+        // A successful empty answer changes no historical source or correction.
+        guard !evidence.isEmpty else { return true }
+        guard saveObservationEdits() else { return false }
+        return changeObservationArchive(selecting: selectedObservationID) { archive in
+            for day in evidence { try archive.upsertScreenTime(day) }
+        }
+    }
+
     private func changeObservationArchive(selecting id: UUID?,
                                           _ mutation: (inout ObservationArchive) throws -> Void) -> Bool {
         guard !privacyBlocksWork else { return false }
@@ -2198,10 +2229,21 @@ final class MorningStore {
     /// Explicit isolated fixture data only; never substitutes for a real recording.
     private func seedObservationArchiveIfRequested() {
         let args = ProcessInfo.processInfo.arguments
-        guard args.contains("--ui-testing"), args.contains("--ui-testing-observation-archive"),
+        #if DEBUG
+        let joinFixture = args.contains("--ui-testing-learning-source-join")
+        #else
+        let joinFixture = false
+        #endif
+        guard args.contains("--ui-testing"), args.contains("--ui-testing-observation-archive") || joinFixture,
               args.first(where: { $0.hasPrefix("--ui-testing-workspace=") })
                 .flatMap({ UUID(uuidString: String($0.dropFirst("--ui-testing-workspace=".count))) }) != nil else { return }
         do {
+            #if DEBUG
+            if joinFixture {
+                try seedLearningSourceJoinFixture()
+                return
+            }
+            #endif
             let now = Date()
             let zone = TimeZone.current.identifier
             let today = try ObservationObservedDate(date: now, timeZoneIdentifier: zone, provenance: .userAssigned)
@@ -2222,6 +2264,53 @@ final class MorningStore {
             persist()
         } catch { notice = "Synthetic archive fixture could not be prepared." }
     }
+
+    #if DEBUG
+    /// Only called by the isolated UI-test workspace guard above. All source data
+    /// is manufactured and the existing synthetic proposal path discloses no model call.
+    private func seedLearningSourceJoinFixture() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Paris")!
+        let at = { (day: Int, hour: Int) in calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour))! }
+        let readAt = at(14, 14)
+        let hours: [ScreenTimeHour] = [
+            .init(interval: .init(start: at(13, 22), duration: 3600), firstPickup: at(13, 22),
+                apps: [.init(bundleIdentifier: "com.apple.mobilemail", seconds: 300)]),
+            .init(interval: .init(start: at(14, 7), duration: 3600), firstPickup: at(14, 7),
+                longestActivity: .init(start: at(14, 7), duration: 480),
+                apps: [.init(bundleIdentifier: "com.burbn.instagram", seconds: 480)])]
+        let reports = try ScreenTimeObservationEvidence.make(hours: hours, queryStart: at(13, 18), now: readAt, calendar: calendar)
+        let report = reports.first { $0.day == at(14, 0) }!
+        let unknown = try ScreenTimeObservationEvidence.make(hours: [
+            .init(interval: .init(start: at(15, 8), duration: 3600), firstPickup: at(15, 8),
+                apps: [.init(bundleIdentifier: "com.burbn.instagram", seconds: 1200)])],
+            queryStart: at(15, 0), now: at(15, 14), calendar: calendar)[0]
+        let knownID = UUID(uuidString: "44444444-4444-4444-8444-444444444444")!
+        let unknownID = UUID(uuidString: "55555555-5555-4555-8555-555555555555")!
+        let browserID = UUID(uuidString: "66666666-6666-4666-8666-666666666666")!
+        let videoID = UUID(uuidString: "77777777-7777-4777-8777-777777777777")!
+        let observed = try ObservationObservedDate(date: at(14, 7), timeZoneIdentifier: calendar.timeZone.identifier, provenance: .userAssigned)
+        var rhythm = BrowserRhythmAccumulator(site: .instagram)
+        let segments = [BrowserLearningSegment(behavior: .browseFeed, startSeconds: 0, endSeconds: 10, gestures: 2)!,
+                        BrowserLearningSegment(behavior: .watchStories, startSeconds: 20, endSeconds: 100, gestures: 2)!]
+        guard rhythm.update(BrowserRhythmTotals(distance: 200, movingSeconds: 5, scrollBursts: 3, clicks: 2)!, segments: segments) else {
+            throw ObservationArchiveError.invalidSource
+        }
+        let browser = try ObservationAcquisition.browserLesson(summary: rhythm.summary(durationSeconds: 110),
+            observedDate: observed, importedAt: readAt, origin: .synthetic, id: browserID)
+        let frame = try ObservationFrameEvidence(requestedTimeSeconds: 0, actualTimeSeconds: 0, outcome: .observed,
+            text: "Apple Calendar\nA colleague shared the complete project agenda.")
+        let video = try ObservationVideoEvidence(durationSeconds: 2, frames: [frame])
+        let clip = try ObservationAcquisition(id: videoID, importedAt: readAt, observedDate: observed, origin: .synthetic,
+            sourceKind: .video, sourceLabel: "SYNTHETIC — selected video", originalText: video.renderedText,
+            videoEvidence: video, frameReviews: [.init(sampleID: frame.id, label: "Apple Calendar", evidenceQuote: "Apple Calendar", reviewedAt: readAt)])
+        observationArchive = try .init(entries: [
+            .screenTime(report, origin: .synthetic, id: knownID),
+            .screenTime(unknown, origin: .synthetic, id: unknownID), browser, clip])
+        projectObservation(nil)
+        persist()
+    }
+    #endif
 
     func cancelAnalysis() {
         analysisTask?.cancel()
@@ -2595,6 +2684,7 @@ final class MorningStore {
         clearSlackReply()
         clearGoogleCalendarDay()
         clearCalendlyDay()
+        clearOutlookInbox()
         connectedMoment.clear()
         routineWebMoment.clear()
         composio.cancelPendingOperations()
@@ -2732,6 +2822,7 @@ final class MorningStore {
         clearSlackReply()
         clearGoogleCalendarDay()
         clearCalendlyDay()
+        clearOutlookInbox()
         connectedMoment.clear()
         routineWebMoment.clear()
         stopHandsFreeVoice(); mailMorning.clear()

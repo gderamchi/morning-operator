@@ -61,6 +61,9 @@ struct ObservationHistoryView: View {
                 Section {
                     Text("Choose dated observations from your own mornings, or a separate set of samples. Nothing is selected automatically.")
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                    Text(AppLanguage.isFrench ? "Vous pouvez réunir les agrégats Screen Time, vidéos et leçons navigateur sélectionnés."
+                        : "You can combine the selected Screen Time aggregates, videos and browser lessons.")
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     if dynamicTypeSize.isAccessibilitySize { selectionDetails }
                     if store.usesSyntheticProposalFixture {
                         Text("Synthetic suggestion test — no Apple model call")
@@ -255,6 +258,12 @@ struct ObservationHistoryRow: View {
             if entry.origin != .human {
                 Text(observationOriginLabel(entry.origin)).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
+            if let evidence = entry.screenTimeEvidence {
+                Text(evidence.hasMorningEvidence
+                    ? (AppLanguage.isFrench ? "Agrégats du matin · ordre estimé" : "Morning aggregates · estimated order")
+                    : (AppLanguage.isFrench ? "Fenêtre du matin inconnue" : "Morning window unknown"))
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            }
         }.padding(.vertical, 4)
     }
 }
@@ -283,7 +292,9 @@ struct ObservationHistoryDetail: View {
                         .accessibilityIdentifier("observation.observedDate")
                     if let date = entry.observedDate {
                         LabeledContent("Time zone", value: date.timeZoneIdentifier)
-                        Text(date.provenance == .recordingSession ? "Day recorded by this recording session." : "Day assigned by you.")
+                        Text(date.provenance == .screenTimeReport
+                             ? (AppLanguage.isFrench ? "Jour et fuseau du rapport Screen Time." : "Day and time zone of the Screen Time report.")
+                             : String(localized: date.provenance == .recordingSession ? "Day recorded by this recording session." : "Day assigned by you."))
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     LabeledContent("Origin", value: observationOriginLabel(entry.origin))
@@ -296,11 +307,33 @@ struct ObservationHistoryDetail: View {
                         .accessibilityLabel("Imported")
                         .accessibilityValue(observationImportDateLabel(entry))
                         .accessibilityIdentifier("observation.importedDate")
-                    Button(entry.observedDate == nil ? "Set observed day" : "Change day or origin") { assigningDate = true }
-                        .disabled(store.busy || store.sessionActive)
-                        .accessibilityIdentifier("observation.setDate")
+                    if entry.screenTimeEvidence == nil {
+                        Button(entry.observedDate == nil ? "Set observed day" : "Change day or origin") { assigningDate = true }
+                            .disabled(store.busy || store.sessionActive)
+                            .accessibilityIdentifier("observation.setDate")
+                    }
                 } footer: {
                     Text("Import time is separate from the day you observed. These dates don't establish how long you used your phone.")
+                }
+
+                if let evidence = entry.screenTimeEvidence {
+                    Section {
+                        Text(evidence.hasMorningEvidence
+                            ? (AppLanguage.isFrench ? "Fenêtre du matin retenue ; ordre des apps estimé." : "Retained morning window; app order is estimated.")
+                            : (AppLanguage.isFrench ? "Fenêtre du matin inconnue. Ces agrégats ne proposent aucune habitude ; vous pouvez les choisir avec une vidéo ou une leçon valide." : "Morning window unknown. These aggregates propose no habit; you can select them beside a valid video or lesson."))
+                            .accessibilityIdentifier("observation.screenTime.coverage")
+                        Text(AppLanguage.isFrench ? "Les périodes absentes restent inconnues. Aucun contenu, geste ni usage continu n’est établi." : "Missing periods remain unknown. No content, gesture or continuous use is established.")
+                        DisclosureGroup(AppLanguage.isFrench ? "Couverture du rapport" : "Report coverage") {
+                            Text((AppLanguage.isFrench ? "Intervalle demandé : " : "Requested interval: ")
+                                + reportIntervalLabel(evidence.requestedWindow, zone: evidence.timeZoneIdentifier))
+                            Text((AppLanguage.isFrench ? "Intervalles renvoyés : " : "Returned intervals: ") + "\(evidence.returnedIntervals.count)")
+                            ForEach(Array(evidence.returnedIntervals.enumerated()), id: \.offset) { _, interval in
+                                Text(reportIntervalLabel(interval, zone: evidence.timeZoneIdentifier))
+                            }
+                            Text((AppLanguage.isFrench ? "Dernière lecture : " : "Last read: ")
+                                + reportIntervalLabel(.init(start: evidence.retrievedAt, duration: 0), zone: evidence.timeZoneIdentifier))
+                        }
+                    }.font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                 }
 
                 if let context = entry.recordingContext {
@@ -320,11 +353,13 @@ struct ObservationHistoryDetail: View {
                 }
 
                 Section {
-                    Button { preparingNarration = true } label: {
-                        Label("Read a saved moment", systemImage: "speaker.wave.2")
+                    if entry.screenTimeEvidence == nil || entry.correctedText != nil {
+                        Button { preparingNarration = true } label: {
+                            Label("Read a saved moment", systemImage: "speaker.wave.2")
+                        }
+                        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable)
+                        .accessibilityIdentifier("observation.prepareNarration")
                     }
-                    .disabled(store.busy || store.sessionActive || !store.storageIsAvailable)
-                    .accessibilityIdentifier("observation.prepareNarration")
                     Button {
                         if store.selectObservation(id: observationID) { onLearn() }
                     } label: { Label("Edit in Learn", systemImage: "pencil") }
@@ -387,6 +422,15 @@ struct ObservationHistoryDetail: View {
         } message: {
             Text("This removes this observation's original text, corrections, sampled frame evidence and screen interpretation. Routines and saved runs keep their existing content.")
         }
+    }
+
+    private func reportIntervalLabel(_ interval: DateInterval, zone: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.timeZone = TimeZone(identifier: zone)
+        formatter.dateFormat = "d MMM yyyy HH:mm"
+        let start = formatter.string(from: interval.start)
+        return interval.duration == 0 ? start : start + " – " + formatter.string(from: interval.end)
     }
 }
 

@@ -113,6 +113,12 @@ struct RoutineEvidenceProposalView: View {
                                     Text(source.sourceLabel).font(.raleway(.subheadline))
                                     Text("\(proposalDateLabel(source.observedDate)) · \(source.sourceLayer.displayName)")
                                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                    if let report = store.observationArchive.entry(id: source.acquisitionID)?.screenTimeEvidence {
+                                        Text(report.hasMorningEvidence
+                                            ? (AppLanguage.isFrench ? "Fenêtre du matin retenue ; ordre estimé. Les gestes viennent uniquement d’autres sources citées." : "Retained morning window; estimated order. Gestures come only from other cited sources.")
+                                            : (AppLanguage.isFrench ? "Fenêtre du matin inconnue : aucune habitude proposée depuis cette source." : "Morning window unknown: no habit proposed from this source."))
+                                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                    }
                                 }
                             }.accessibilityIdentifier("proposal.source.\(source.acquisitionID.uuidString)")
                         }

@@ -141,9 +141,13 @@
 		A175E049ED4B4D4AB08B0209 /* MorningVoicePreparationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B020A /* MorningVoicePreparationView.swift */; };
 		A175E049ED4B4D4AB08B020B /* MorningVoicePreparationPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B020C /* MorningVoicePreparationPresenter.swift */; };
 		A175E049ED4B4D4AB08B0301 /* MorningStore+Calendly.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0302 /* MorningStore+Calendly.swift */; };
+		A175E049ED4B4D4AB08B0401 /* MorningStore+Outlook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0402 /* MorningStore+Outlook.swift */; };
 		A175E049ED4B4D4AB08B0303 /* CalendlyDayMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0304 /* CalendlyDayMomentView.swift */; };
+		A175E049ED4B4D4AB08B0403 /* OutlookInboxMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0404 /* OutlookInboxMomentView.swift */; };
 		A175E049ED4B4D4AB08B0305 /* CalendlyDaySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0306 /* CalendlyDaySetupView.swift */; };
+		A175E049ED4B4D4AB08B0405 /* OutlookInboxSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0406 /* OutlookInboxSetupView.swift */; };
 		A175E049ED4B4D4AB08B0307 /* CalendlyDayUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0308 /* CalendlyDayUITestFixture.swift */; };
+		A175E049ED4B4D4AB08B0407 /* OutlookInboxUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0408 /* OutlookInboxUITestFixture.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -325,9 +329,13 @@
 		A175E049ED4B4D4AB08B020A /* MorningVoicePreparationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningVoicePreparationView.swift"; sourceTree = "<group>"; };
 		A175E049ED4B4D4AB08B020C /* MorningVoicePreparationPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningVoicePreparationPresenter.swift"; sourceTree = "<group>"; };
 		A175E049ED4B4D4AB08B0302 /* MorningStore+Calendly.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Calendly.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0402 /* MorningStore+Outlook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Outlook.swift"; sourceTree = "<group>"; };
 		A175E049ED4B4D4AB08B0304 /* CalendlyDayMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CalendlyDayMomentView.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0404 /* OutlookInboxMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OutlookInboxMomentView.swift"; sourceTree = "<group>"; };
 		A175E049ED4B4D4AB08B0306 /* CalendlyDaySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CalendlyDaySetupView.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0406 /* OutlookInboxSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OutlookInboxSetupView.swift"; sourceTree = "<group>"; };
 		A175E049ED4B4D4AB08B0308 /* CalendlyDayUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CalendlyDayUITestFixture.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0408 /* OutlookInboxUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OutlookInboxUITestFixture.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -485,9 +493,13 @@
 				A175E049ED4B4D4AB08B020A /* MorningVoicePreparationView.swift */,
 				A175E049ED4B4D4AB08B020C /* MorningVoicePreparationPresenter.swift */,
 				A175E049ED4B4D4AB08B0302 /* MorningStore+Calendly.swift */,
+				A175E049ED4B4D4AB08B0402 /* MorningStore+Outlook.swift */,
 				A175E049ED4B4D4AB08B0304 /* CalendlyDayMomentView.swift */,
+				A175E049ED4B4D4AB08B0404 /* OutlookInboxMomentView.swift */,
 				A175E049ED4B4D4AB08B0306 /* CalendlyDaySetupView.swift */,
+				A175E049ED4B4D4AB08B0406 /* OutlookInboxSetupView.swift */,
 				A175E049ED4B4D4AB08B0308 /* CalendlyDayUITestFixture.swift */,
+				A175E049ED4B4D4AB08B0408 /* OutlookInboxUITestFixture.swift */,
 				9B941431C39046FC7CB3738A /* MorningStore+Mail.swift */,
 				9C53618048F8500BEF3E78F3 /* MorningStore+HandsFree.swift */,
 				98B22AFAFCA9A8E608BECF6E /* MorningStore+Execution.swift */,
@@ -916,9 +928,13 @@
 				A175E049ED4B4D4AB08B0209 /* MorningVoicePreparationView.swift in Sources */,
 				A175E049ED4B4D4AB08B020B /* MorningVoicePreparationPresenter.swift in Sources */,
 				A175E049ED4B4D4AB08B0301 /* MorningStore+Calendly.swift in Sources */,
+				A175E049ED4B4D4AB08B0401 /* MorningStore+Outlook.swift in Sources */,
 				A175E049ED4B4D4AB08B0303 /* CalendlyDayMomentView.swift in Sources */,
+				A175E049ED4B4D4AB08B0403 /* OutlookInboxMomentView.swift in Sources */,
 				A175E049ED4B4D4AB08B0305 /* CalendlyDaySetupView.swift in Sources */,
+				A175E049ED4B4D4AB08B0405 /* OutlookInboxSetupView.swift in Sources */,
 				A175E049ED4B4D4AB08B0307 /* CalendlyDayUITestFixture.swift in Sources */,
+				A175E049ED4B4D4AB08B0407 /* OutlookInboxUITestFixture.swift in Sources */,
 				E3544375F7026826D8A40DD9 /* MorningStore+Mail.swift in Sources */,
 				A36795BA2F1BAF85B6980FD2 /* MorningStore+HandsFree.swift in Sources */,
 				C8CC7BD199C9289C66D2EDA7 /* MorningStore+Execution.swift in Sources */,

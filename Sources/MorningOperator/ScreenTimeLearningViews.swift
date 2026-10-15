@@ -1,11 +1,18 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 /// The same normal Screen Time path appears in Learn and Settings. It never swaps
 /// in samples when access is unavailable. The read and daily results stay local.
 struct MorningScreenTimeView: View {
     @Bindable var store: MorningStore
+    var returnsToLearn = false
+    var onEdit: (() -> Void)? = nil
     @State private var showingReview = false
+    @State private var showingObservations = false
+    @State private var learnAfterObservations = false
+    @State private var editAfterObservations = false
+    @Environment(\.dismiss) private var dismiss
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 16) {
@@ -37,6 +44,17 @@ struct MorningScreenTimeView: View {
                         .buttonStyle(SecondaryButtonStyle()).disabled(store.busy || store.screenTimeBusy)
                         .accessibilityIdentifier("learn.screenTime.review")
                 }
+                if store.observationArchive.entries.contains(where: { $0.screenTimeEvidence != nil }) {
+                    Button(AppLanguage.isFrench ? "Réunir les observations choisies" : "Combine selected observations") {
+                        showingObservations = true
+                    }.buttonStyle(SecondaryButtonStyle())
+                        .disabled(store.busy || store.screenTimeBusy || store.sessionActive)
+                        .accessibilityIdentifier("learn.screenTime.observations")
+                    Text(AppLanguage.isFrench
+                        ? "Les agrégats enregistrés sont disponibles avec vos vidéos et leçons navigateur. Choisissez les sources avant de demander une proposition commune."
+                        : "Saved aggregates are available beside your videos and browser lessons. Choose the sources before requesting a combined suggestion.")
+                        .font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted)
+                }
                 if let message = store.screenTimeMessage {
                     Text(message).font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted)
                         .accessibilityIdentifier("learn.screenTime.message")
@@ -52,7 +70,25 @@ struct MorningScreenTimeView: View {
         }
         .onAppear { store.refreshScreenTimeAccess() }
         .fullScreenCover(isPresented: $showingReview) { ScreenTimeProposalView(store: store) }
-        .onChange(of: store.dataGeneration) { _, _ in showingReview = false }
+        .sheet(isPresented: $showingObservations, onDismiss: {
+            if editAfterObservations {
+                editAfterObservations = false
+                if let onEdit { onEdit() } else { store.tab = .routine }
+            } else if learnAfterObservations {
+                learnAfterObservations = false
+                if returnsToLearn { dismiss() } else { store.tab = .learn }
+            }
+        }) {
+            NavigationStack {
+                ObservationHistoryView(store: store, onLearn: {
+                    learnAfterObservations = true; showingObservations = false
+                }, onEdit: {
+                    editAfterObservations = true; showingObservations = false
+                })
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingObservations = false } } }
+            }
+        }
+        .onChange(of: store.dataGeneration) { _, _ in showingReview = false; showingObservations = false }
     }
 
     private func dailyUse(_ day: ScreenTimeDailyUsage) -> some View {

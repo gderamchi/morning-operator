@@ -234,6 +234,8 @@ struct MorningConnectionsView: View {
                 GoogleCalendarDaySetupView(store: store)
             } else if id == "calendly" {
                 CalendlyDaySetupView(store: store)
+            } else if id == "outlook" {
+                OutlookInboxSetupView(store: store)
             } else {
                 APIConnectionsView(service: store.composio, serviceID: id, privacyBlocked: store.privacyBlocksWork,
                     privacyGeneration: store.dataGeneration, onAddToRoutine: { connection, tool, arguments in

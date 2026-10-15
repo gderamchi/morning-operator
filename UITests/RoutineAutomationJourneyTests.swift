@@ -3,6 +3,195 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    func testLearningCombinesExplicitScreenTimeBrowserAndVideoSourcesBeforeDelegation() {
+        let app = launch(["--ui-testing-approved", "--ui-testing-learning-source-join", "--ui-testing-evidence-proposals"])
+        defer { app.terminate() }
+        openScreenTimeObservationChoices(app)
+        let ids = ["44444444-4444-4444-8444-444444444444", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777"]
+        for id in ids {
+            let choice = visibleButton("observation.select.\(id)", in: app)
+            XCTAssertEqual(choice.value as? String, "Not selected", "Source selection must be explicit.")
+            choice.tap()
+            XCTAssertEqual(choice.value as? String, "Selected")
+        }
+        XCTAssertEqual(app.buttons["observation.select.55555555-5555-4555-8555-555555555555"].value as? String, "Not selected")
+        XCTAssertTrue(app.staticTexts["observations.selectionSummary"].label.contains("3 observations"))
+        attach("automation-learning-three-source-types-explicit-selection", app)
+        enabledVisibleButton("observations.suggestUpdate", in: app).tap()
+        XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["proposal.fixtureMode"].label.contains("no Apple model call"))
+        XCTAssertTrue(app.staticTexts["proposal.sources"].label.contains("3 observations"))
+        for index in 0..<3 {
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "proposal.step.\(index)").firstMatch.exists)
+        }
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "proposal.step.3").firstMatch.exists,
+                       "Whole-app Screen Time minutes must not invent a separate activity or split the observed sequence.")
+        attach("automation-learning-combined-source-proposal-unapproved", app)
+        enabledVisibleButton("proposal.edit", in: app).tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.approve"].isEnabled, "Opening the proposal must not delegate it.")
+        XCTAssertTrue(app.buttons["routine.step.2"].exists)
+        XCTAssertFalse(app.buttons["routine.step.3"].exists)
+        attach("automation-learning-combined-source-editable-draft", app)
+    }
+
+    func testLearningUnknownScreenTimeWindowStaysVisibleWithoutInventingAnActivity() {
+        let app = launch(["--ui-testing-approved", "--ui-testing-learning-source-join", "--ui-testing-evidence-proposals"])
+        defer { app.terminate() }
+        openScreenTimeObservationChoices(app)
+        for id in ["55555555-5555-4555-8555-555555555555", "66666666-6666-4666-8666-666666666666"] {
+            enabledVisibleButton("observation.select.\(id)", in: app).tap()
+        }
+        enabledVisibleButton("observations.suggestUpdate", in: app).tap()
+        XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["proposal.sources"].label.contains("2 observations"))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "proposal.step.1").firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "proposal.step.2").firstMatch.exists)
+        let unknown = visibleButton("proposal.source.55555555-5555-4555-8555-555555555555", in: app)
+        XCTAssertTrue(unknown.label.contains("Morning window unknown"), unknown.label)
+        XCTAssertTrue(app.buttons["proposal.approve"].isEnabled)
+        attach("automation-learning-unknown-screen-time-retained-as-unknown", app)
+    }
+
+    func testFrenchLargestOutlookSetupShowsNamedMailboxAndAddsAnUnapprovedDraft() {
+        let app = launch(["--ui-testing-outlook-inbox", "--ui-testing-empty-workspace",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        openOutlookSetup(app)
+        let identity = app.staticTexts["outlook.setup.identity"]
+        XCTAssertTrue(identity.waitForExistence(timeout: 10))
+        XCTAssertTrue(identity.label.contains("SYNTHETIC Camille, compte Outlook de préparation du matin avec un nom volontairement très long"))
+        XCTAssertTrue(identity.label.contains("camille@synthetic.invalid"))
+        _ = visibleButton("outlook.setup.account.0", in: app)
+        assertNoOutlookTechnicalDetails(app)
+        attach("automation-outlook-french-largest-named-mailbox", app)
+        enabledVisibleButton("outlook.setup.add", in: app).tap()
+        let added = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS[c] %@", "ajouté au brouillon"), object: app.staticTexts["outlook.setup.status"])
+        XCTAssertEqual(XCTWaiter.wait(for: [added], timeout: 8), .completed)
+        XCTAssertFalse(app.buttons["outlook.setup.add"].isEnabled)
+        assertNoOutlookTechnicalDetails(app)
+        attach("automation-outlook-french-largest-added", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        tapVisible("setup.routine", in: app)
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.approve"].isEnabled)
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("SYNTHETIC Camille"))
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("camille@synthetic.invalid"))
+        assertNoOutlookTechnicalDetails(app)
+        attach("automation-outlook-unapproved-draft", app)
+    }
+
+    func testFrenchLargestOutlookEmptyAccountHasHumanRecovery() {
+        let app = launch(["--ui-testing-outlook-inbox", "--ui-testing-outlook-empty-account", "--ui-testing-empty-workspace",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        openOutlookSetup(app)
+        let empty = app.staticTexts["outlook.setup.emptyAccount"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 10))
+        XCTAssertTrue(empty.label.contains("Connectez un compte Outlook"))
+        XCTAssertFalse(app.staticTexts["outlook.setup.identity"].exists)
+        XCTAssertFalse(app.buttons["outlook.setup.add"].exists)
+        _ = visibleButton("outlook.setup.manage", in: app)
+        assertNoOutlookTechnicalDetails(app)
+        attach("automation-outlook-french-largest-empty-account", app)
+    }
+
+    func testOutlookObservedOrdinalsChooseOneBodyRepeatWithoutReadAndRefreshPreviews() {
+        let app = launchOutlookRuntime(["--ui-testing-outlook-duplicate-headers"])
+        defer { app.terminate() }
+        let summary = app.staticTexts["outlookInbox.summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 15))
+        XCTAssertTrue(summary.label.contains("Previews only"))
+        XCTAssertFalse(app.staticTexts["outlookInbox.bodyText"].exists)
+        XCTAssertEqual(outlookReads(app), "Inbox reads: 1 · message reads: 0")
+        let first = enabledVisibleButton("outlookInbox.message.0", in: app)
+        XCTAssertTrue(first.label.contains("Message 1"))
+        XCTAssertTrue(first.label.contains("SYNTHETIC même objet reçu le même jour"))
+        XCTAssertNotNil(first.label.range(of: #"\d{1,2}:\d{2}"#, options: .regularExpression))
+        let second = enabledVisibleButton("outlookInbox.message.1", in: app)
+        XCTAssertTrue(second.label.contains("Message 2"))
+        XCTAssertTrue(second.label.contains("SYNTHETIC même objet reçu le même jour"))
+        XCTAssertNotEqual(first.label, second.label)
+        second.tap()
+        let body = app.staticTexts["outlookInbox.bodyText"]
+        XCTAssertTrue(body.waitForExistence(timeout: 12))
+        XCTAssertTrue(body.label.hasPrefix("SYNTHETIC corps du message 2 choisi."), body.label)
+        XCTAssertFalse(body.label.contains("SYNTHETIC aperçu"))
+        XCTAssertEqual(outlookReads(app), "Inbox reads: 1 · message reads: 1")
+        scrollTo(body, identifier: "outlookInbox.bodyText", in: app)
+        attach("automation-outlook-second-observed-message-body", app)
+        let original = body.label
+        enabledVisibleButton("outlookInbox.repeat", in: app).tap()
+        _ = enabledVisibleButton("outlookInbox.refresh", in: app)
+        XCTAssertEqual(body.label, original)
+        XCTAssertEqual(outlookReads(app), "Inbox reads: 1 · message reads: 1")
+        enabledVisibleButton("outlookInbox.refresh", in: app).tap()
+        waitForOutlookReads("Inbox reads: 2 · message reads: 1", app)
+        XCTAssertTrue(summary.exists)
+        XCTAssertFalse(app.staticTexts["outlookInbox.bodyText"].exists)
+        XCTAssertFalse(app.scrollViews["outlookInbox.body"].exists)
+        assertNoOutlookTechnicalDetails(app)
+        attach("automation-outlook-refreshed-previews-synthetic", app)
+    }
+
+    func testOutlookRuntimeDistinguishesCompleteEmptyPartialAndPartialEmpty() {
+        let cases: [([String], String, String)] = [
+            (["--ui-testing-outlook-empty"], "No unread messages were found in the Inbox", "complete-empty"),
+            (["--ui-testing-outlook-partial"], "More unread messages remain outside these three previews", "partial"),
+            (["--ui-testing-outlook-partial", "--ui-testing-outlook-empty"], "This part contains no messages. This reading is partial", "partial-empty")]
+        for (flags, expected, name) in cases {
+            let app = launchOutlookRuntime(flags)
+            defer { app.terminate() }
+            let summary = app.staticTexts["outlookInbox.summary"]
+            XCTAssertTrue(summary.waitForExistence(timeout: 15))
+            XCTAssertTrue(summary.label.contains(expected), summary.label)
+            if name != "complete-empty" { XCTAssertFalse(summary.label.contains("No unread messages were found in the Inbox")) }
+            if name != "partial" { XCTAssertFalse(app.buttons["outlookInbox.message.0"].exists) }
+            XCTAssertFalse(app.staticTexts["outlookInbox.unavailable"].exists)
+            XCTAssertEqual(outlookReads(app), "Inbox reads: 1 · message reads: 0")
+            assertNoOutlookTechnicalDetails(app)
+            attach("automation-outlook-\(name)-synthetic", app)
+        }
+    }
+
+    func testOutlookMissingBodyDoesNotSubstituteThePreviewAndPauses() {
+        let app = launchOutlookRuntime(["--ui-testing-outlook-body-missing"])
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["outlookInbox.summary"].waitForExistence(timeout: 15))
+        enabledVisibleButton("outlookInbox.message.0", in: app).tap()
+        let body = app.staticTexts["outlookInbox.body"]
+        XCTAssertTrue(body.waitForExistence(timeout: 12))
+        XCTAssertTrue(body.label.contains("body is unavailable"), body.label)
+        XCTAssertTrue(body.label.contains("preview is not a substitute"))
+        XCTAssertFalse(app.staticTexts["outlookInbox.bodyText"].exists)
+        XCTAssertTrue(app.staticTexts["outlookInbox.bodyIncomplete"].exists)
+        XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
+        XCTAssertEqual(outlookReads(app), "Inbox reads: 1 · message reads: 1")
+        scrollTo(body, identifier: "outlookInbox.body", in: app)
+        attach("automation-outlook-missing-body-honest-recovery", app)
+    }
+
+    func testOutlookUnavailablePausesAndNextKeepsAnHonestRecap() {
+        let app = launchOutlookRuntime(["--ui-testing-outlook-unavailable", "--ui-testing-short-budgets"])
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["outlookInbox.unavailable"].waitForExistence(timeout: 15))
+        let status = app.staticTexts["moment.connectedResult"]
+        let paused = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Your morning is paused"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [paused], timeout: 8), .completed)
+        XCTAssertTrue(status.label.contains("Use the buttons Refresh Outlook"), status.label)
+        XCTAssertFalse(status.label.lowercased().contains("say "))
+        XCTAssertFalse(app.staticTexts["outlookInbox.summary"].exists)
+        XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
+        XCTAssertEqual(outlookReads(app), "Inbox reads: 1 · message reads: 0")
+        _ = enabledVisibleButton("outlookInbox.refresh", in: app)
+        attach("automation-outlook-unavailable-recovery-synthetic", app)
+        tapVisible("morning.next", in: app)
+        XCTAssertTrue(app.staticTexts["morning.complete"].waitForExistence(timeout: 35))
+        XCTAssertTrue(app.staticTexts["morning.executionSummary"].label.contains("Unavailable: 1"))
+        attach("automation-outlook-unavailable-honest-recap", app)
+    }
+
     func testFrenchLargestCalendlySetupShowsNamedIdentityAndAddsAnUnapprovedDraft() {
         let app = launch(["--ui-testing-calendly-day", "--ui-testing-empty-workspace",
                           "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
@@ -15,7 +204,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         assertNoCalendlyTechnicalDetails(app)
         attach("automation-calendly-french-largest-named-identity", app)
         enabledVisibleButton("calendly.setup.add", in: app).tap()
-        let added = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "ajoutés au brouillon"), object: app.staticTexts["calendly.setup.status"])
+        let added = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS[c] %@", "ajouté au brouillon"), object: app.staticTexts["calendly.setup.status"])
         XCTAssertEqual(XCTWaiter.wait(for: [added], timeout: 8), .completed)
         XCTAssertFalse(app.buttons["calendly.setup.add"].isEnabled)
         assertNoCalendlyTechnicalDetails(app)
@@ -261,6 +450,11 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         enabledVisibleButton("googleCalendarDay.repeat", in: app).tap()
         XCTAssertEqual(summary.label, original)
         XCTAssertEqual(app.staticTexts["googleCalendarDay.synthetic"].value as? String, "HTTP event reads: 1")
+        let repeatButton = enabledVisibleButton("googleCalendarDay.repeat", in: app)
+        // Inspect the settled layout after the reading state transition/scroll.
+        Thread.sleep(forTimeInterval: 1)
+        XCTAssertLessThanOrEqual(hint.frame.maxY, repeatButton.frame.minY + 1,
+                                 "The complete button-help caption must clear the next control.")
         attach("automation-google-calendar-without-listening-button-help", app)
     }
 
@@ -582,15 +776,25 @@ final class RoutineAutomationJourneyTests: XCTestCase {
     }
 
     func testUnavailableCalendarPausesWithVisibleRecoveryAndNextPreservesTruth() {
-        let app = launch(["--ui-testing-native-unavailable", "--ui-testing-approved", "--ui-testing-hands-free", "--ui-testing-read-aloud", "--ui-testing-short-budgets"])
+        let app = launch(["--ui-testing-native-unavailable", "--ui-testing-approved", "--ui-testing-hands-free", "--ui-testing-read-aloud", "--ui-testing-short-budgets", "--ui-testing-voice-preparation"])
         defer { app.terminate() }
         reveal(app)
         app.buttons["morning.begin"].tap()
+        XCTAssertTrue(app.staticTexts["voice.access.status"].waitForExistence(timeout: 8))
+        tapVisible("voice.access.withoutListening", in: app)
+        reveal(app)
         let status = app.staticTexts["moment.connectedResult"]
         XCTAssertTrue(status.waitForExistence(timeout: 20))
         XCTAssertTrue(status.label.contains("Your day is not ready"), status.label)
         XCTAssertTrue(status.label.contains("Your morning is paused"), status.label)
-        XCTAssertTrue(status.label.contains("say refresh this briefing for a new reading, next to continue"), status.label)
+        XCTAssertTrue(status.label.contains("Update this recap"), status.label)
+        XCTAssertFalse(status.label.lowercased().contains("say "), status.label)
+        XCTAssertTrue(app.staticTexts["morning.voiceStatus"].label.contains("Listening is off for this morning"))
+        enabledVisibleButton("briefing.updateCurrent", in: app).tap()
+        XCTAssertTrue(status.waitForExistence(timeout: 20))
+        XCTAssertTrue(status.label.contains("Your day is not ready"), status.label)
+        XCTAssertTrue(status.label.contains("Your morning is paused"), status.label)
+        XCTAssertFalse(status.label.lowercased().contains("say "), status.label)
         XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
         XCTAssertTrue(app.staticTexts["morning.currentStep"].label.contains("Calendar unavailable"))
         attach("automation-unavailable-calendar-recovery", app)
@@ -861,11 +1065,49 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         tapVisible("setup.connections", in: app)
         tapVisible("connections.account.slack", in: app)
     }
+    private func openScreenTimeObservationChoices(_ app: XCUIApplication) {
+        reveal(app)
+        app.buttons["morning.review"].tap()
+        tapVisible("learn.refine", in: app)
+        XCTAssertTrue(app.textViews["learn.notes"].waitForExistence(timeout: 8))
+        tapVisible("learn.screenTime", in: app)
+        tapVisible("learn.screenTime.observations", in: app)
+        XCTAssertTrue(app.buttons["observations.choose"].waitForExistence(timeout: 8))
+        app.buttons["observations.choose"].tap()
+        XCTAssertTrue(app.staticTexts["observations.fixtureMode"].exists)
+        XCTAssertFalse(app.buttons["observations.suggestUpdate"].isEnabled)
+    }
     private func openCalendlySetup(_ app: XCUIApplication) {
         reveal(app)
         tapVisible("morning.settings", in: app)
         tapVisible("setup.connections", in: app)
         tapVisible("connections.account.calendly", in: app)
+    }
+    private func openOutlookSetup(_ app: XCUIApplication) {
+        reveal(app)
+        tapVisible("morning.settings", in: app)
+        tapVisible("setup.connections", in: app)
+        tapVisible("connections.account.outlook", in: app)
+    }
+    private func launchOutlookRuntime(_ extra: [String] = []) -> XCUIApplication {
+        let app = launch(["--ui-testing-outlook-inbox", "--ui-testing-outlook-runtime", "--ui-testing-approved", "--ui-testing-hands-free"] + extra)
+        reveal(app); app.buttons["morning.begin"].tap()
+        return app
+    }
+    private func outlookReads(_ app: XCUIApplication) -> String {
+        app.staticTexts["outlookInbox.synthetic"].value as? String ?? ""
+    }
+    private func waitForOutlookReads(_ value: String, _ app: XCUIApplication) {
+        let expected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: app.staticTexts["outlookInbox.synthetic"])
+        let result = XCTWaiter.wait(for: [expected], timeout: 12)
+        if result != .completed { captureFailure("outlook-expected-reads-failed", app) }
+        XCTAssertEqual(result, .completed)
+    }
+    private func assertNoOutlookTechnicalDetails(_ app: XCUIApplication) {
+        let labels = (app.staticTexts.allElementsBoundByIndex + app.buttons.allElementsBoundByIndex).map(\.label).joined(separator: " ")
+        for forbidden in ["OUTLOOK_", "ca_synthetic_outlook", "synthetic-outlook-owner", "synthetic-outlook-message-", "synthetic-change-", "synthetic-inbox", "opaque-not-followed", "{\"", "JSON"] {
+            XCTAssertFalse(labels.contains(forbidden), "Technical value exposed: \(forbidden)")
+        }
     }
     private func launchCalendlyRuntime(_ extra: [String] = []) -> XCUIApplication {
         let app = launch(["--ui-testing-calendly-day", "--ui-testing-calendly-runtime", "--ui-testing-approved", "--ui-testing-hands-free"] + extra)

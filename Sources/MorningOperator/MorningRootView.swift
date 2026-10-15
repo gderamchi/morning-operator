@@ -87,6 +87,7 @@ struct MorningRootView: View {
                            slackMoment: store.currentSlackContext != nil ? AnyView(SlackMomentReplyView(store: store)) : nil,
                            googleCalendarDayMoment: store.currentGoogleCalendarDayContext != nil ? AnyView(GoogleCalendarDayMomentView(store: store)) : nil,
                            calendlyDayMoment: store.currentCalendlyDayContext != nil ? AnyView(CalendlyDayMomentView(store: store)) : nil,
+                           outlookInboxMoment: store.currentOutlookInboxContext != nil ? AnyView(OutlookInboxMomentView(store: store)) : nil,
                            voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
                            executionSummary: store.executionSummary,
                            timer: store.activeStepTimer,
@@ -105,6 +106,10 @@ struct MorningRootView: View {
                            stop: { store.stop() }, extend: { Task { await store.extendStepTimer() } },
                            offersReflection: store.shouldOfferCompletionReflection,
                            voiceBlocked: store.voiceInputBlocksPlayback,
+                           refreshBriefing: store.session?.status == .paused &&
+                               (store.currentStep?.automation == .todayCalendar || store.currentStep?.automation == .morningBriefing)
+                               ? { store.updateCurrentBriefing() } : nil,
+                           briefingRefreshBlocked: store.nativeMoment.isActive || store.voiceInputBlocksPlayback,
                            speak: { store.openCompletionCapture() }, write: { store.openCapture() },
                            notNow: { store.discardCompletionReflection() })
                 // Light status bar text over the night sky.
@@ -239,6 +244,7 @@ struct MorningRootView: View {
                 store.clearSlackReply()
                 store.clearGoogleCalendarDay()
                 store.clearCalendlyDay()
+                store.clearOutlookInbox()
                 store.routineWebMoment.discardSourceContext()
                 store.webExecutionEvent = nil
                 store.preserveMailExecutionBeforeInterruption()
@@ -607,6 +613,9 @@ struct TodayView: View {
                         }
                         if store.currentStep?.id == step.id, store.currentCalendlyDayContext != nil {
                             CalendlyDayMomentView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.currentOutlookInboxContext != nil {
+                            OutlookInboxMomentView(store: store)
                         }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
@@ -1276,6 +1285,7 @@ private struct MorningSunHome: View {
     var slackMoment: AnyView? = nil
     var googleCalendarDayMoment: AnyView? = nil
     var calendlyDayMoment: AnyView? = nil
+    var outlookInboxMoment: AnyView? = nil
     var voiceStatus: String? = nil
     var executionSummary: String? = nil
     var timer: StepTimer? = nil
@@ -1288,6 +1298,8 @@ private struct MorningSunHome: View {
     var extend: () -> Void
     var offersReflection = false
     var voiceBlocked = false
+    var refreshBriefing: (() -> Void)? = nil
+    var briefingRefreshBlocked = false
     var speak: () -> Void = {}
     var write: () -> Void = {}
     var notNow: () -> Void = {}
@@ -1431,11 +1443,18 @@ private struct MorningSunHome: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("moment.connectedResult")
                 }
+                if let refreshBriefing {
+                    Button("Update this recap", action: refreshBriefing)
+                        .buttonStyle(SecondaryButtonStyle())
+                        .disabled(briefingRefreshBlocked)
+                        .accessibilityIdentifier("briefing.updateCurrent")
+                }
                 if let mailMoment { mailMoment }
                 if let nativeMoment { nativeMoment }
                 if let slackMoment { slackMoment }
                 if let googleCalendarDayMoment { googleCalendarDayMoment }
                 if let calendlyDayMoment { calendlyDayMoment }
+                if let outlookInboxMoment { outlookInboxMoment }
                 HStack(spacing: 16) {
                     Button(action: session?.status == .paused ? resume : pause) {
                         Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",

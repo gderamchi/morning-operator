@@ -11,7 +11,17 @@ extension MorningStore {
         guard recordExecution(.unavailable) else { pause(); return }
         if session.status == .running { pause() }
         let recovery: String
-        if step.automation == .todayCalendar || step.automation == .morningBriefing {
+        if !canHearHandsFreeCommands {
+            if step.automation == .todayCalendar || step.automation == .morningBriefing {
+                recovery = AppLanguage.isFrench
+                    ? "Votre matin est en pause. Vérifiez vos sources dans les réglages si besoin. Utilisez Actualiser ce récapitulatif pour réessayer, Suivant pour poursuivre ou Arrêter."
+                    : "Your morning is paused. Check your sources in Settings if needed. Use Update this recap to retry, Next to move on or Stop."
+            } else {
+                recovery = AppLanguage.isFrench
+                    ? "Votre matin est en pause. Utilisez Continuer pour réessayer, Suivant pour poursuivre ou Arrêter."
+                    : "Your morning is paused. Use Continue to retry, Next to move on or Stop."
+            }
+        } else if step.automation == .todayCalendar || step.automation == .morningBriefing {
             recovery = AppLanguage.isFrench
                 ? "Votre matin est en pause. Vérifiez vos sources dans les réglages si besoin, puis dites actualise ce briefing pour une nouvelle lecture, suivant pour continuer ou arrête."
                 : "Your morning is paused. Check your sources in Settings if needed, then say refresh this briefing for a new reading, next to continue, or stop."
@@ -145,13 +155,13 @@ extension MorningStore {
             let explanation: String?
             switch event.state {
             case .needsChoice:
-                explanation = AppLanguage.isFrench ? "Ce site demande un choix de confidentialité, un abonnement ou une connexion. Votre matin est en pause. Faites votre choix dans la page ou dites suivant." : "This site needs a privacy, subscription or sign-in choice. Your morning is paused. Make your choice on the page, or say next."
+                explanation = (AppLanguage.isFrench ? "Ce site demande un choix de confidentialité, un abonnement ou une connexion. Votre matin est en pause. Faites votre choix dans la page. " : "This site needs a privacy, subscription or sign-in choice. Your morning is paused. Make your choice on the page. ") + nextMomentRecoveryInstruction
             case .needsSignIn:
-                explanation = AppLanguage.isFrench ? "Ce compte demande une connexion. Connectez-vous dans MORE, ou dites suivant pour continuer votre matin." : "This account needs a sign-in. Sign in in MORE, or say next to continue your morning."
+                explanation = (AppLanguage.isFrench ? "Ce compte demande une connexion. Connectez-vous dans MORE. " : "This account needs a sign-in. Sign in in MORE. ") + nextMomentRecoveryInstruction
             case .unavailable:
-                explanation = AppLanguage.isFrench ? "Je ne peux pas parcourir ce contenu. Dites suivant pour continuer, ou mettez en pause pour réessayer." : "I can’t browse this content. Say next to continue, or pause to try again."
+                explanation = (AppLanguage.isFrench ? "Je ne peux pas parcourir ce contenu. " : "I can’t browse this content. ") + nextMomentRecoveryInstruction
             case .uncertainAction:
-                explanation = AppLanguage.isFrench ? "Ce like n’est pas confirmé. Je m’arrête pour éviter de le répéter. Vous pouvez dire suivant." : "This like is unconfirmed. I’ve stopped to avoid repeating it. You can say next."
+                explanation = (AppLanguage.isFrench ? "Ce like n’est pas confirmé. Je m’arrête pour éviter de le répéter. " : "This like is unconfirmed. I’ve stopped to avoid repeating it. ") + nextMomentRecoveryInstruction
             default: explanation = nil
             }
             if let explanation { connectedActionStatus = explanation; speech.speak(explanation) }
@@ -159,13 +169,20 @@ extension MorningStore {
         if event.state == .needsChoice, session?.status == .running {
             pause()
             if readAloud {
-                speech.speak(AppLanguage.isFrench ? "Ce site demande un choix de confidentialité ou un abonnement. Votre matin est en pause. Vous pouvez dire suivant." : "This site needs a privacy or subscription choice. Your morning is paused. You can say next.")
+                speech.speak((AppLanguage.isFrench ? "Ce site demande un choix de confidentialité ou un abonnement. Votre matin est en pause. " : "This site needs a privacy or subscription choice. Your morning is paused. ") + nextMomentRecoveryInstruction)
             }
             return
         }
         if event.state != .performingAction, let timer = activeStepTimer, timer.hasAlertedCurrentEnd {
             _ = finishAutomatedBudget(timer)
         }
+    }
+
+    private var nextMomentRecoveryInstruction: String {
+        if canHearHandsFreeCommands {
+            return AppLanguage.isFrench ? "Dites suivant pour poursuivre votre matin." : "Say next to continue your morning."
+        }
+        return AppLanguage.isFrench ? "Utilisez le bouton Suivant pour poursuivre votre matin." : "Use the Next button to continue your morning."
     }
 
     /// Time ends a budget. Only observed work may be recorded as performed.

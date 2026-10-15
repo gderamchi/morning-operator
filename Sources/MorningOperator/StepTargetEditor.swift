@@ -16,7 +16,7 @@ struct StepTargetEditor: View {
         case let .externalApp(app, _): "app.\(app.rawValue)"
         case let .inAppWeb(url): WebMorningSite(url: url).map { "web.\($0.rawValue)" } ?? "web.saved"
         case .shortcut: "shortcut"
-        case .connectedAPI, .googleCalendarDay, .calendlyDay: "api.saved"
+        case .connectedAPI, .googleCalendarDay, .calendlyDay, .outlookInbox: "api.saved"
         case nil: "none"
         }
     }
@@ -97,6 +97,16 @@ struct StepTargetEditor: View {
                      : "To choose another account, add a moment from Apps & accounts.")
                     .font(.footnote).foregroundStyle(MorningStyle.muted)
             }
+            if case let .outlookInbox(account) = target {
+                Text("Outlook").font(.subheadline)
+                Text(account.sourceLabel()).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                if let target, let details = RoutineConnectedReview.summary(for: target) {
+                    Text(details).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                }
+                Text(AppLanguage.isFrench ? "Pour choisir une autre boîte de réception, ajoutez un moment depuis Apps et comptes."
+                     : "To choose another Inbox, add a moment from Apps & accounts.")
+                    .font(.footnote).foregroundStyle(MorningStyle.muted)
+            }
             Text("Choose an action from Apps & accounts, then add it to your routine.")
                 .font(.footnote).foregroundStyle(MorningStyle.muted)
         } header: { Text("During this moment") } footer: {
@@ -129,6 +139,11 @@ enum RoutineConnectedReview {
             return AppLanguage.isFrench
                 ? "Calendly : lire les rendez-vous de « \(account.userName) » qui commencent le jour courant, dans le fuseau de cet iPhone. Les dates sont recalculées à chaque matin et à chaque actualisation. Au plus 25 rendez-vous ; toute lecture partielle est annoncée. Aucun rendez-vous n’est créé ou annulé."
                 : "Calendly: read bookings for “\(account.userName)” starting today in this iPhone’s time zone. Dates are recalculated each morning and on refresh. Up to 25 bookings; a partial reading is disclosed. No booking is created or cancelled."
+        }
+        if case let .outlookInbox(account) = target {
+            return AppLanguage.isFrench
+                ? "Outlook : présenter jusqu’à trois messages non lus de « \(account.sourceLabel()) », y compris des messages plus anciens. La boîte est vérifiée et relue à chaque matin ou actualisation. Les aperçus sont distincts du contenu du message, lu seulement à votre demande. Aucun message n’est envoyé, modifié ou marqué comme lu."
+                : "Outlook: present up to three unread messages from “\(account.sourceLabel())”, including older mail. The Inbox is verified and read each morning or on refresh. Previews are distinct from message content, read only when you ask. No message is sent, changed or marked as read."
         }
         guard case let .connectedAPI(service, _, tool, json) = target else { return nil }
         if service == "slack", tool == "SLACK_FETCH_CONVERSATION_HISTORY",

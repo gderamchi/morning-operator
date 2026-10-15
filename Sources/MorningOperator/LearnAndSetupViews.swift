@@ -27,7 +27,7 @@ struct LearnView: View {
             NavigationLink {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        MorningScreenTimeView(store: store)
+                        MorningScreenTimeView(store: store, returnsToLearn: true, onEdit: { close() })
                         // Then show the morning itself: a recording or a file.
                         showMorningCard
                     }.padding(24)
@@ -374,7 +374,7 @@ struct SetupView: View {
                 }.accessibilityIdentifier("setup.routine")
             }
             NavigationLink {
-                ScrollView { MorningScreenTimeView(store: store).padding(24) }
+                ScrollView { MorningScreenTimeView(store: store, onEdit: openRoutine).padding(24) }
                     .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
             } label: {
                 LinkRow(title: String(localized: "Screen Time"), detail: "", symbol: "clock")
