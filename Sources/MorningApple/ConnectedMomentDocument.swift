@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import MorningCore
 
 /// Supplied by the app from the approved call, never inferred from provider prose or a model.
@@ -50,6 +51,7 @@ public struct ConnectedMomentDocument: Sendable {
 /// Separates a confirmed effect from its presentation. Repeating or resuming never
 /// retries a dispatched effect; a new token can only retry local summarization.
 @MainActor
+@Observable
 public final class ConnectedMomentState {
     public enum Phase: Equatable { case idle, preparing, dispatching, presenting, confirmed, ready, unavailable, uncertain }
     public enum Receipt: Equatable { case sourceAvailable, sourceUnavailable, tooLarge, stale }

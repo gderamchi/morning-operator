@@ -1,4 +1,6 @@
 import Foundation
+import Observation
+import Synchronization
 import MorningCore
 import Testing
 @testable import MorningApple
@@ -55,6 +57,29 @@ struct ConnectedMomentDocumentTests {
         #expect(state.isInFlight)
         state.finishPresentation(replay, executionID: context)
         #expect(!state.isInFlight)
+    }
+
+    @Test("Finishing the same reading notifies controls even when its summary did not change")
+    func finishingRepeatedPresentationUpdatesObservedAvailability() throws {
+        let state = ConnectedMomentState()
+        let context = context()
+        let attempt = try #require(state.begin(executionID: context, record: nil))
+        #expect(state.markDispatched(attempt, executionID: context))
+        #expect(state.receive(attempt, executionID: context, service: "Google Calendar", result: .string("Same source")) == .sourceAvailable)
+        #expect(state.present("Same reading.", token: attempt, executionID: context))
+        let repeated = try #require(state.beginPresentation(for: context))
+        let notified = Mutex(false)
+        let inFlight = withObservationTracking {
+            state.isInFlight
+        } onChange: {
+            notified.withLock { $0 = true }
+        }
+        #expect(inFlight)
+        state.finishPresentation(repeated, executionID: context)
+        #expect(notified.withLock { $0 })
+        #expect(!state.isInFlight)
+        #expect(state.summary(for: context) == "Same reading.")
+        #expect(state.begin(executionID: context, record: nil) == nil)
     }
 
     @Test("Pausing a dispatched request blocks replay but accepts its same known receipt")
