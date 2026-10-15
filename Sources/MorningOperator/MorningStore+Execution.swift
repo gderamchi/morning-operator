@@ -19,9 +19,17 @@ extension MorningStore {
         let timedIDs = Set(session.routine.steps.filter { $0.automation == .timedMoment }.map(\.id))
         let timed = records.filter { timedIDs.contains($0.stepID) && $0.outcome == .budgetFinished }.count
         let verified = done - timed
+        let confirmedWithoutPresentation = records.filter {
+            $0.confirmedExternalEffect == true && $0.outcome != .completed && $0.outcome != .budgetFinished
+        }.count
         var parts: [String] = []
         if timed > 0 { parts.append(AppLanguage.isFrench ? "Moments chronométrés terminés : \(timed)." : "Timed moments finished: \(timed).") }
         if verified > 0 { parts.append(AppLanguage.isFrench ? "Opérations vérifiées : \(verified)." : "Verified operations: \(verified).") }
+        if confirmedWithoutPresentation > 0 {
+            parts.append(AppLanguage.isFrench
+                ? "Actions confirmées par le service, restitution incomplète : \(confirmedWithoutPresentation)."
+                : "Service-confirmed actions with incomplete presentation: \(confirmedWithoutPresentation).")
+        }
         if skipped > 0 { parts.append(AppLanguage.isFrench ? "Moments passés : \(skipped)." : "Moments passed: \(skipped).") }
         if unavailable > 0 { parts.append(AppLanguage.isFrench ? "Indisponibles : \(unavailable)." : "Unavailable: \(unavailable).") }
         if uncertain > 0 { parts.append(AppLanguage.isFrench ? "Résultats à vérifier : \(uncertain)." : "Results to check: \(uncertain).") }
@@ -36,12 +44,14 @@ extension MorningStore {
     }
 
     @discardableResult
-    func recordExecution(_ outcome: RoutineExecutionRecord.Outcome, observed: Int? = nil, likes: Int? = nil) -> Bool {
+    func recordExecution(_ outcome: RoutineExecutionRecord.Outcome, observed: Int? = nil, likes: Int? = nil,
+                         confirmedExternalEffect: Bool? = nil) -> Bool {
         guard !privacyBlocksWork, let session, let step = currentStep else { return false }
         let previous = executionRecords
         let old = currentExecutionRecord
         let record = RoutineExecutionRecord(sessionID: session.id, stepID: step.id, outcome: outcome,
-            observedContents: max(observed ?? 0, old?.observedContents ?? 0), confirmedLikes: max(likes ?? 0, old?.confirmedLikes ?? 0))
+            observedContents: max(observed ?? 0, old?.observedContents ?? 0), confirmedLikes: max(likes ?? 0, old?.confirmedLikes ?? 0),
+            confirmedExternalEffect: confirmedExternalEffect ?? old?.confirmedExternalEffect)
         executionRecords.removeAll { $0.sessionID == session.id && $0.stepID == step.id }
         executionRecords.append(record)
         executionRecords = Array(executionRecords.suffix(256))
@@ -142,6 +152,19 @@ extension MorningStore {
         if step.automation == .timedMoment {
             guard recordExecution(.budgetFinished) else { pause(); return true }
             advance(commandID: step.id)
+            return true
+        }
+        if case .connectedAPI = step.target {
+            // A deadline cannot certify a remote effect. Wait for an active receipt
+            // or presentation to settle, then preserve its actual recorded result.
+            if connectedMoment.isInFlight { return true }
+            let performed = currentExecutionRecord?.confirmedExternalEffect == true &&
+                currentExecutionRecord?.outcome == .completed
+            if performed { guard recordExecution(.budgetFinished) else { pause(); return true } }
+            else if currentExecutionRecord?.outcome != .uncertain {
+                guard recordExecution(.unavailable) else { pause(); return true }
+            }
+            advance(skipping: !performed, commandID: step.id)
             return true
         }
         guard step.webBehavior != nil else { return false }

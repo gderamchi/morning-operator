@@ -21,6 +21,7 @@ public struct BrowserRhythmSummary: Equatable, Sendable {
     public let site: WebMorningSite
     public let durationSeconds: Double
     public let totals: BrowserRhythmTotals
+    public let learningTrace: BrowserLearningTrace?
     public var averageMovingSpeed: Double? {
         guard totals.movingSeconds > 0 else { return nil }
         let speed = totals.distance / totals.movingSeconds
@@ -32,17 +33,31 @@ public struct BrowserRhythmSummary: Equatable, Sendable {
 public struct BrowserRhythmAccumulator: Sendable {
     public let site: WebMorningSite
     public private(set) var totals = BrowserRhythmTotals(distance: 0, movingSeconds: 0, scrollBursts: 0, clicks: 0)!
+    public private(set) var segments: [BrowserLearningSegment] = []
     public init(site: WebMorningSite) { self.site = site }
 
-    @discardableResult public mutating func update(_ value: BrowserRhythmTotals) -> Bool {
+    @discardableResult public mutating func update(_ value: BrowserRhythmTotals,
+        segments: [BrowserLearningSegment] = []) -> Bool {
         guard value.distance >= totals.distance, value.movingSeconds >= totals.movingSeconds,
-              value.scrollBursts >= totals.scrollBursts, value.clicks >= totals.clicks else { return false }
+              value.scrollBursts >= totals.scrollBursts, value.clicks >= totals.clicks,
+              BrowserLearningTrace.validSegments(segments, site: site, durationSeconds: 900),
+              segments.count >= self.segments.count else { return false }
+        for index in self.segments.indices {
+            let previous = self.segments[index], next = segments[index]
+            if index == self.segments.count - 1 {
+                guard previous.behavior == next.behavior, previous.startSeconds == next.startSeconds,
+                      previous.endSeconds <= next.endSeconds, previous.gestures <= next.gestures else { return false }
+            } else if previous != next { return false }
+        }
         totals = value
+        self.segments = segments
         return true
     }
 
     public func summary(durationSeconds: Double) -> BrowserRhythmSummary {
-        .init(site: site, durationSeconds: durationSeconds.isFinite ? min(900, max(0, durationSeconds)) : 0, totals: totals)
+        let duration = durationSeconds.isFinite ? min(900, max(0, durationSeconds)) : 0
+        return .init(site: site, durationSeconds: duration, totals: totals,
+            learningTrace: BrowserLearningTrace(site: site, durationSeconds: duration, segments: segments))
     }
 }
 
@@ -52,6 +67,36 @@ public enum BrowserRhythmPolicy {
         return true
     }
 
+    /// Known route families only. A root messaging page says nothing about unread
+    /// messages; profile/search/article routes say nothing about a feed action.
+    public static func behavior(site: WebMorningSite, url: URL?) -> WebMorningBehavior? {
+        guard permits(site: site, url: url), let url else { return nil }
+        let path = url.path.lowercased().split(separator: "/").map(String.init)
+        switch site {
+        case .instagram:
+            if path.isEmpty { return .browseFeed }
+            if path.first == "stories", path.count >= 2 { return .watchStories }
+            if ["reel", "reels"].contains(path.first ?? "") { return .watchVideos }
+        case .facebook:
+            if path.isEmpty || path == ["home.php"] { return .browseFeed }
+            if path.first == "stories" { return .watchStories }
+        case .tiktok:
+            if path.isEmpty || path == ["foryou"] || path == ["following"] { return .watchVideos }
+        case .youtube:
+            if path.first == "shorts" { return .watchVideos }
+        case .twitter:
+            if path.isEmpty || path == ["home"] { return .browseFeed }
+        case .reddit:
+            if path.isEmpty || (path.count == 2 && path.first == "r") { return .browseFeed }
+        case .threads:
+            if path.isEmpty || path == ["following"] { return .browseFeed }
+        case .news:
+            if path.isEmpty { return .readHeadlines }
+        case .gmail, .whatsapp: return nil
+        }
+        return nil
+    }
+
     /// Installed only for the visible document after Start learning. Capture-phase
     /// scroll observes nested elements in that document, never cross-origin frames.
     public static func script(site: WebMorningSite, nonce: UUID) -> String {
@@ -59,13 +104,53 @@ public enum BrowserRhythmPolicy {
         let paths = json(WebMorningPolicy.signInPathFragments)
         return #"""
         (() => {
-          const nonce = '\#(nonce.uuidString)', hosts = \#(hosts), paths = \#(paths);
+          const nonce = '\#(nonce.uuidString)', hosts = \#(hosts), paths = \#(paths), site = '\#(site.rawValue)';
           const previous = globalThis.__moreRhythm;
           if (previous) previous.stop(previous.nonce);
           let ended = false, pending = null, userUntil = 0, lastScroll = -Infinity;
           let distance = 0, movingSeconds = 0, scrollBursts = 0, clicks = 0;
+          const started = performance.now(), segments = [];
+          let lastBehavior = null, semanticEnded = false;
           const positions = new WeakMap();
           const field = target => target instanceof Element && !!target.closest('input,textarea,select,[contenteditable],[role="textbox"]');
+          const inputEvent = event => field(event.target) || event.composedPath().some(field);
+          const behavior = () => {
+            const p = location.pathname.toLowerCase().split('/').filter(Boolean), first = p[0];
+            if (site === 'instagram') {
+              if (!p.length) return 'browseFeed';
+              if (first === 'stories' && p.length >= 2) return 'watchStories';
+              if (['reel','reels'].includes(first)) return 'watchVideos';
+            } else if (site === 'facebook') {
+              if (!p.length || (p.length === 1 && first === 'home.php')) return 'browseFeed';
+              if (first === 'stories') return 'watchStories';
+            } else if (site === 'tiktok') {
+              if (!p.length || (p.length === 1 && ['foryou','following'].includes(first))) return 'watchVideos';
+            } else if (site === 'youtube') {
+              if (first === 'shorts') return 'watchVideos';
+            } else if (site === 'twitter') {
+              if (!p.length || (p.length === 1 && first === 'home')) return 'browseFeed';
+            } else if (site === 'reddit') {
+              if (!p.length || (p.length === 2 && first === 'r')) return 'browseFeed';
+            } else if (site === 'threads') {
+              if (!p.length || (p.length === 1 && first === 'following')) return 'browseFeed';
+            } else if (site === 'news' && !p.length) return 'readHeadlines';
+            return null;
+          };
+          const record = now => {
+            const current = behavior(), elapsed = (now - started) / 1000;
+            if (semanticEnded || !Number.isFinite(elapsed) || elapsed < 0 || elapsed > 900) return;
+            if (!current) { lastBehavior = null; return; }
+            const previous = segments[segments.length - 1];
+            if (previous && lastBehavior === current && previous.gestures < 100000) {
+              previous.endSeconds = elapsed; previous.gestures++;
+            } else {
+              // Preserve the beginning of the observed sequence. Never evict an
+              // earlier segment or pretend the bounded lesson covers every route.
+              if (segments.length >= 16) { semanticEnded = true; return; }
+              segments.push({behavior:current,startSeconds:elapsed,endSeconds:elapsed,gestures:1});
+            }
+            lastBehavior = current;
+          };
           const safe = () => window.top === window && !document.hidden && location.protocol === 'https:' &&
             hosts.includes(location.hostname.toLowerCase()) && !paths.some(p => (location.pathname.toLowerCase() + '/').includes(p)) &&
             !document.querySelector('input[type="password"],input[type="email"],input[autocomplete="username"],input[autocomplete="current-password"],input[autocomplete="new-password"],input[autocomplete="one-time-code"],form[action*="login" i],form[action*="signin" i]');
@@ -77,14 +162,14 @@ public enum BrowserRhythmPolicy {
           const flush = () => {
             if (pending) clearTimeout(pending);
             pending = null;
-            if (!ended && safe()) post({distance, movingSeconds, scrollBursts, clicks});
+            if (!ended && safe()) post({distance, movingSeconds, scrollBursts, clicks, segments});
           };
           const queue = () => { if (!pending) pending = setTimeout(flush, 250); };
           const remember = node => {
             if (node instanceof Element) positions.set(node, {top: node.scrollTop, time: performance.now()});
           };
           const input = event => {
-            if (!event.isTrusted || field(event.target)) return;
+            if (!event.isTrusted || inputEvent(event)) return;
             if (!safe()) { stop(nonce, true); return; }
             userUntil = performance.now() + 2000;
             event.composedPath().forEach(remember);
@@ -104,14 +189,18 @@ public enum BrowserRhythmPolicy {
             movingSeconds += Math.min(0.25, Math.max(0, now - prior.time) / 1000);
             if (now - lastScroll > 300) scrollBursts++;
             lastScroll = now;
+            record(now);
             queue();
           };
           const click = event => {
-            if (!event.isTrusted || field(event.target)) return;
+            if (!event.isTrusted || inputEvent(event)) return;
             if (!safe()) { stop(nonce, true); return; }
-            clicks++; flush();
+            clicks++; record(performance.now()); flush();
           };
-          const changed = () => { if (!safe()) stop(nonce, true); };
+          const changed = () => {
+            if (!safe()) stop(nonce, true);
+            else if (behavior() !== lastBehavior) lastBehavior = null;
+          };
           const observer = new MutationObserver(changed);
           function stop(requested, blocked = false) {
             if (requested !== nonce || ended) return;
@@ -128,7 +217,7 @@ public enum BrowserRhythmPolicy {
               if (blocked) post({blocked: true});
               if (globalThis.__moreRhythm?.nonce === nonce) delete globalThis.__moreRhythm;
             }
-            return {distance, movingSeconds, scrollBursts, clicks};
+            return {distance, movingSeconds, scrollBursts, clicks, segments};
           }
           if (!safe()) return false;
           globalThis.__moreRhythm = {nonce, stop};

@@ -1,5 +1,7 @@
 import Foundation
+import CoreFoundation
 import MorningCore
+import MorningApple
 import Observation
 import OSLog
 import UIKit
@@ -34,7 +36,17 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     private(set) var isClearing = false
     /// The presenting view revokes this whenever it leaves the foreground.
     var actionsEnabled = false {
-        didSet { if actionsEnabled { resumeExecutionIfNeeded() } else { suspendExecution() } }
+        didSet {
+            let enabled = actionsEnabled && !isRetired
+            // Retaining a hidden page must not leave its media playing. WebKit
+            // suspends playback without inspecting page content or form fields.
+            let suspended = !enabled
+            if mediaPlaybackSuspended != suspended {
+                mediaPlaybackSuspended = suspended
+                webView.setAllMediaPlaybackSuspended(suspended, completionHandler: nil)
+            }
+            if enabled { resumeExecutionIfNeeded() } else { suspendExecution() }
+        }
     }
     var learningAllowed = false {
         didSet { if !learningAllowed { stopLearning() } }
@@ -56,10 +68,12 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             BrowserRhythmPolicy.permits(site: site, url: webView.url)
     }
     private(set) var executionEvent: WebMorningExecutionEvent?
+    private(set) var executionDiagnostic = ""
     @ObservationIgnored var onExecutionEvent: ((WebMorningExecutionEvent) -> Void)?
     @ObservationIgnored var executionIsAuthorized: (() -> Bool)?
     @ObservationIgnored var executionCanAdvance: (() -> Bool)?
     @ObservationIgnored private var executionPlan: WebMorningExecutionPlan?
+    @ObservationIgnored private var executionHistoryPlan: WebMorningExecutionPlan?
     @ObservationIgnored private var executionDeadline: Date?
     @ObservationIgnored private var executionTask: Task<Void, Never>?
     @ObservationIgnored private var executionNonce: UUID?
@@ -73,9 +87,12 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     @ObservationIgnored private let privacyAtCreation: LocalDataControlState?
     @ObservationIgnored private let startURL: URL
     @ObservationIgnored private var hasStarted = false
+    @ObservationIgnored private var executionContextText: [String] = []
+    @ObservationIgnored private var isRetired = false
+    @ObservationIgnored private var mediaPlaybackSuspended = false
 
     private var privacyIsCurrent: Bool {
-        guard let created = privacyAtCreation, !created.forgetPending,
+        guard !isRetired, let created = privacyAtCreation, !created.forgetPending,
               let current = try? LocalDataControl(directory: LocalDataControl.defaultDirectory).status(),
               !current.forgetPending, current.generation == created.generation else { return false }
         return true
@@ -180,9 +197,15 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             guard let self else { return }
             defer { if self.learningReviewNonce == nonce { self.isFinishingLearning = false } }
             let final = try? await self.webView.evaluateJavaScript(source, contentWorld: Self.rhythmWorld)
+            let finalElapsed = max(elapsed, ProcessInfo.processInfo.systemUptime - self.learningStarted)
             guard self.learningReviewNonce == nonce, self.privacyIsCurrent,
-                  let body = final as? [String: Any], let totals = Self.rhythmTotals(body), var finished else { return }
-            if finished.update(totals) { self.learningSummary = finished.summary(durationSeconds: elapsed) }
+                  let body = final as? [String: Any],
+                  Set(body.keys) == Set(["distance", "movingSeconds", "scrollBursts", "clicks", "segments"]),
+                  let snapshot = Self.rhythmSnapshot(body, behavior: BrowserRhythmPolicy.behavior(site: self.site, url: self.webView.url), elapsed: finalElapsed),
+                  var finished else { return }
+            if finished.update(snapshot.totals, segments: snapshot.segments) {
+                self.learningSummary = finished.summary(durationSeconds: finalElapsed)
+            }
         }
     }
 
@@ -206,18 +229,41 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
               let nonce = learningNonce, body["nonce"] as? String == nonce.uuidString else { return }
         if body.count == 2, body["blocked"] as? Bool == true { stopLearning(); return }
         guard BrowserRhythmPolicy.permits(site: site, url: webView.url),
-              Set(body.keys) == Set(["nonce", "distance", "movingSeconds", "scrollBursts", "clicks"]),
-              let value = Self.rhythmTotals(body),
+              Set(body.keys) == Set(["nonce", "distance", "movingSeconds", "scrollBursts", "clicks", "segments"]),
+              let snapshot = Self.rhythmSnapshot(body, behavior: BrowserRhythmPolicy.behavior(site: site, url: webView.url),
+                  elapsed: ProcessInfo.processInfo.systemUptime - learningStarted),
               var rhythm else { return }
-        guard rhythm.update(value) else { return }
+        guard rhythm.update(snapshot.totals, segments: snapshot.segments) else { return }
         self.rhythm = rhythm
         if ProcessInfo.processInfo.systemUptime - learningStarted >= 900 { stopLearning() }
     }
 
-    private static func rhythmTotals(_ body: [String: Any]) -> BrowserRhythmTotals? {
-        guard let distance = body["distance"] as? Double, let seconds = body["movingSeconds"] as? Double,
-              let bursts = body["scrollBursts"] as? Int, let clicks = body["clicks"] as? Int else { return nil }
-        return BrowserRhythmTotals(distance: distance, movingSeconds: seconds, scrollBursts: bursts, clicks: clicks)
+    private static func rhythmSnapshot(_ body: [String: Any], behavior: WebMorningBehavior?, elapsed: Double)
+        -> (totals: BrowserRhythmTotals, segments: [BrowserLearningSegment])? {
+        func number(_ value: Any?) -> Double? {
+            guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+            return number.doubleValue
+        }
+        func integer(_ value: Any?) -> Int? {
+            guard let number = number(value), number.isFinite, number >= 0, number <= 100_000,
+                  number.rounded(.towardZero) == number else { return nil }
+            return Int(number)
+        }
+        guard let distance = number(body["distance"]), let seconds = number(body["movingSeconds"]),
+              let bursts = integer(body["scrollBursts"]), let clicks = integer(body["clicks"]),
+              let totals = BrowserRhythmTotals(distance: distance, movingSeconds: seconds, scrollBursts: bursts, clicks: clicks),
+              let rawSegments = body["segments"] as? [[String: Any]], rawSegments.count <= 16 else { return nil }
+        var segments: [BrowserLearningSegment] = []
+        for raw in rawSegments {
+            guard Set(raw.keys) == Set(["behavior", "startSeconds", "endSeconds", "gestures"]),
+                  let name = raw["behavior"] as? String, let routeBehavior = WebMorningBehavior(rawValue: name),
+                  let start = number(raw["startSeconds"]), let end = number(raw["endSeconds"]),
+                  end <= min(900, elapsed + 1), let gestures = integer(raw["gestures"]),
+                  let segment = BrowserLearningSegment(behavior: routeBehavior, startSeconds: start, endSeconds: end, gestures: gestures) else { return nil }
+            segments.append(segment)
+        }
+        guard segments.isEmpty || segments.last?.behavior == behavior else { return nil }
+        return (totals, segments)
     }
 
     private func evaluate(_ task: WebMorningTask) async -> WebMorningOutcome {
@@ -242,18 +288,67 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     /// The presenter supplies only the behavior from its approved session snapshot.
     /// Changing a deadline never creates a second worker or resets observed results.
     func configureExecution(plan: WebMorningExecutionPlan?, endsAt: Date?) {
+        guard !isRetired else { return }
         guard let plan else { stopExecution(); executionPlan = nil; return }
-        let changed = executionPlan?.sessionID != plan.sessionID || executionPlan?.stepID != plan.stepID ||
-            executionPlan?.behavior != plan.behavior || executionPlan?.likesAllowed != plan.likesAllowed
+        let changed = executionHistoryPlan?.sessionID != plan.sessionID || executionHistoryPlan?.stepID != plan.stepID ||
+            executionHistoryPlan?.behavior != plan.behavior || executionHistoryPlan?.likesAllowed != plan.likesAllowed
         if changed {
             stopExecution()
-            executionPlan = plan
             observedFingerprints = []; observedContentCount = plan.initialObservedContentCount
             confirmedLikeCount = plan.initialConfirmedLikeCount; lastSpokenFingerprint = nil
             executionFinished = false; actionPending = false
+            executionContextText = []
         }
+        executionPlan = plan
+        executionHistoryPlan = plan
         executionDeadline = endsAt
         resumeExecutionIfNeeded()
+    }
+
+    /// Closing a retained routine page suspends its worker without discarding the
+    /// live page, viewport, spoken-content identity or observed-content set.
+    func suspendPresentation() {
+        actionsEnabled = false
+        learningAllowed = false
+        onExecutionEvent = nil
+        executionIsAuthorized = nil
+        executionCanAdvance = nil
+    }
+
+    /// Clear private snapshot text on backgrounding, preserving content-free
+    /// deduplication keys and the actual browser position for a coherent resume.
+    func discardSourceContext() {
+        actionsEnabled = false
+        clearSourceText()
+    }
+
+    private func clearSourceText() {
+        executionContextText = []
+        outcome = nil
+        if let plan = executionPlan, let event = executionEvent {
+            let cleared = WebMorningExecutionEvent(plan: plan, state: event.state,
+                observedContentCount: observedContentCount, confirmedLikeCount: confirmedLikeCount)
+            if cleared != event {
+                executionEvent = cleared
+                onExecutionEvent?(cleared)
+            }
+        }
+    }
+
+    /// Revokes every callback before releasing a retired moment. A disappearing
+    /// SwiftUI view cannot reactivate this old controller after the store moves on.
+    func retire() {
+        guard !isRetired else { return }
+        isRetired = true
+        onExecutionEvent = nil; executionIsAuthorized = nil; executionCanAdvance = nil
+        actionsEnabled = false; learningAllowed = false
+        discardLearning(); stopExecution()
+        executionPlan = nil; executionHistoryPlan = nil; executionContextText = []
+        executionEvent = nil; outcome = nil; observedFingerprints = []
+        lastSpokenFingerprint = nil
+        webView.stopLoading()
+        webView.navigationDelegate = nil; webView.uiDelegate = nil
+        webView.loadHTMLString("", baseURL: nil)
     }
 
     func stopExecution() {
@@ -291,7 +386,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             .unresolvedKeys(sessionID: plan.sessionID, stepID: plan.stepID).isEmpty) == false)
         let safeState: WebMorningExecutionState = hasPending && state != .performingAction ? .uncertainAction : state
         let event = WebMorningExecutionEvent(plan: plan, state: safeState, observedContentCount: observedContentCount,
-                                            confirmedLikeCount: confirmedLikeCount, spokenText: text)
+                                            confirmedLikeCount: confirmedLikeCount, spokenText: text, contextText: executionContextText)
         if executionEvent != event { executionEvent = event; onExecutionEvent?(event) }
     }
 
@@ -305,9 +400,21 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
               WebMorningExecutionPolicy.permits(site: site, url: webView.url) else { return nil }
         let generation = pageGeneration, page = webView.url
         let script = WebMorningExecutionPolicy.script(site: site, behavior: plan.behavior)
-        let value = try? await webView.evaluateJavaScript(script, contentWorld: .defaultClient)
-        guard executionIsCurrent(nonce), generation == pageGeneration, page == webView.url else { return nil }
-        return WebMorningPageObservation.parse(value)
+        let started = ProcessInfo.processInfo.systemUptime
+        do {
+            let value = try await webView.evaluateJavaScript(script, contentWorld: .defaultClient)
+            guard executionIsCurrent(nonce), generation == pageGeneration, page == webView.url else { return nil }
+            let observation = WebMorningPageObservation.parse(value)
+            let milliseconds = Int((ProcessInfo.processInfo.systemUptime - started) * 1_000)
+            executionDiagnostic = "status=\(observation?.status.rawValue ?? "invalid") reason=\(observation?.reason ?? "none") evalMs=\(milliseconds) attached=\(webView.window != nil)"
+            Self.record("WEBMORNING site=\(site.rawValue) \(executionDiagnostic)")
+            return observation
+        } catch {
+            guard executionIsCurrent(nonce), generation == pageGeneration, page == webView.url else { return nil }
+            executionDiagnostic = "evaluationError=\((error as NSError).code) attached=\(webView.window != nil)"
+            Self.record("WEBMORNING site=\(site.rawValue) \(executionDiagnostic)")
+            return nil
+        }
     }
 
     /// Returns dispatch only. A subsequent independent observation establishes the effect.
@@ -350,23 +457,27 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             }
             if WebMorningPolicy.isSignInPage(webView.url) || WebMorningSite(url: webView.url ?? startURL) != site {
+                clearSourceText()
                 publishExecution(.needsSignIn)
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             }
             guard let observation = await executionObserve(plan, nonce: nonce) else {
                 guard executionIsCurrent(nonce) else { return }
                 unavailableAttempts += 1
-                if unavailableAttempts >= 5 { publishExecution(.unavailable); return }
+                if unavailableAttempts >= 5 { clearSourceText(); publishExecution(.unavailable); return }
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             }
             switch observation.status {
             case .signin:
+                clearSourceText()
                 publishExecution(.needsSignIn)
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             case .choice:
+                clearSourceText()
                 publishExecution(.needsChoice)
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             case .loading, .empty:
+                clearSourceText()
                 if observation.consentCanDismiss == true {
                     _ = await executionCommand("rejectConsent", observation: observation, plan: plan, nonce: nonce)
                 }
@@ -374,7 +485,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
                 publishExecution(.waitingForPage)
                 if unavailableAttempts >= 8 { publishExecution(.unavailable); return }
                 guard await executionWait(1, nonce: nonce) else { return }; continue
-            case .unavailable: publishExecution(.unavailable); return
+            case .unavailable: clearSourceText(); publishExecution(.unavailable); return
             case .ready: break
             }
             unavailableAttempts = 0
@@ -396,6 +507,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
                 }
             }
             guard let fingerprint = observation.fingerprint else { publishExecution(.unavailable); return }
+            executionContextText = observation.text ?? []
             if observedFingerprints.insert(fingerprint).inserted { observedContentCount += 1 }
             let spoken = (plan.behavior == .readHeadlines || plan.behavior == .readUnread) && lastSpokenFingerprint != fingerprint
                 ? observation.text ?? [] : []
@@ -482,6 +594,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         isClearing = true
         defer { isClearing = false }
         discardLearning()
+        discardSourceContext()
         stopExecution()
         actionsEnabled = false
         webView.stopLoading()
@@ -502,13 +615,14 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
               url.user == nil, url.password == nil else { decisionHandler(.cancel); return }
         if navigationAction.targetFrame?.isMainFrame != false {
             stopLearning()
+            clearSourceText()
             pageGeneration += 1
             displayedHost = url.host ?? ""
             isSignInPage = true
             outcome = nil
             loadFailed = false
         }
-        decisionHandler(.allow)
+        decisionHandler(privacyIsCurrent ? .allow : .cancel)
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
@@ -552,6 +666,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     private func invalidateUnavailablePage() {
         pageGeneration += 1
         discardLearning()
+        clearSourceText()
         outcome = nil
         loadFailed = true
         isSignInPage = true
@@ -577,6 +692,31 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
                 try folder.setResourceValues(values)
             } catch { record("WEBMORNING backupExclusion=unverified") }
         }
+    }
+}
+
+/// Only one pinned routine page is retained, in memory. Standalone browsing and
+/// sign-in/learning pages keep their independent controller lifetime.
+@MainActor
+final class RoutineWebMomentRetainer {
+    private var retained: (executionID: MorningExecutionID, site: WebMorningSite, initialURL: URL, controller: WebMorningController)?
+
+    func controller(for executionID: MorningExecutionID, site: WebMorningSite, initialURL: URL) -> WebMorningController {
+        if let retained, retained.executionID == executionID, retained.site == site, retained.initialURL == initialURL {
+            return retained.controller
+        }
+        clear()
+        let controller = WebMorningController(site: site, initialURL: initialURL)
+        retained = (executionID, site, initialURL, controller)
+        return controller
+    }
+
+    func discardSourceContext() { retained?.controller.discardSourceContext() }
+
+    func clear() {
+        let previous = retained?.controller
+        retained = nil
+        previous?.retire()
     }
 }
 

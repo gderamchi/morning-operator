@@ -48,7 +48,8 @@ public enum RoutineExecutionSuggestion {
         }
         guard step.automation == nil, case let .inAppWeb(url) = step.target,
               let site = WebMorningSite(url: url), url == site.table.startURL,
-              site != .gmail, step.webBehavior == WebMorningBehavior.defaultBehavior(for: site) else { return false }
+              site != .gmail, let behavior = step.webBehavior,
+              WebMorningBehavior.availableBehaviors(for: site).contains(behavior) else { return false }
         return true
     }
 

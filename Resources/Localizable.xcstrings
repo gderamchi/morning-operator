@@ -8315,6 +8315,22 @@
         }
       }
     },
+    "Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uniquement les catégories de pages connues et vos gestes ici. Examinez les actions proposées dans Apprendre avant de les valider."
+          }
+        }
+      }
+    },
     "Only listens when you tap. Up to eight seconds, processed on this device. Nothing is saved from this turn.": {
       "localizations": {
         "fr": {

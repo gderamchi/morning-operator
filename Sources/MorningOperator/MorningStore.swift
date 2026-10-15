@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Observation
 import MorningCore
 import MorningApple
@@ -222,6 +223,8 @@ final class MorningStore {
     let briefing: MorningBriefingController
     let composio = ComposioService()
     let nativeConnections = NativeConnectionsService()
+    @ObservationIgnored let connectedMoment = ConnectedMomentState()
+    @ObservationIgnored let routineWebMoment = RoutineWebMomentRetainer()
     @ObservationIgnored var connectedAPITask: Task<Void, Never>?
     @ObservationIgnored var nativeStepContext: (requestID: UUID, sessionID: UUID, stepID: UUID)?
     var connectedActionStatus: String?
@@ -602,7 +605,10 @@ final class MorningStore {
             arguments.first(where: { $0.hasPrefix("--ui-testing-workspace=") })
                 .flatMap { UUID(uuidString: String($0.dropFirst("--ui-testing-workspace=".count))) } != nil
     }
-    var canSuggestSavedObservations: Bool { routinePreferencesIssue == nil && (intelligence.isAvailable || usesSyntheticProposalFixture) }
+    var canSuggestSavedObservations: Bool {
+        routinePreferencesIssue == nil && (intelligence.isAvailable || usesSyntheticProposalFixture ||
+            observationArchive.entries.contains { $0.correctedText == nil && $0.browserLearning != nil })
+    }
 
     func loadSample() {
         guard !privacyBlocksWork else { return }
@@ -867,7 +873,7 @@ final class MorningStore {
 
     func pause() {
         guard !privacyBlocksWork else { return }
-        mailMorning.cancel()
+        preserveMailExecutionBeforeInterruption()
         executionSpeechTask?.cancel(); executionSpeechTask = nil
         cancelVoiceCommandTurn()
         endOpening()
@@ -899,7 +905,9 @@ final class MorningStore {
     func advance(skipping: Bool = false, commandID: UUID = UUID()) {
         guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
+        preserveMailExecutionBeforeInterruption()
         finishExecutionIfNeeded(skipping: skipping)
+        webExecutionEvent = nil
         mailMorning.cancel()
         executionSpeechTask?.cancel(); executionSpeechTask = nil
         // Pause, Next, Stop and Again take over from the opening. A changed listening
@@ -924,7 +932,12 @@ final class MorningStore {
 
     func stop() {
         guard !privacyBlocksWork else { return }
+        preserveMailExecutionBeforeInterruption()
+        if sessionActive, currentExecutionRecord?.outcome == .running || currentExecutionRecord == nil {
+            recordExecution(.interrupted)
+        }
         stopHandsFreeVoice()
+        webExecutionEvent = nil
         mailMorning.cancel()
         executionSpeechTask?.cancel(); executionSpeechTask = nil
         cancelVoiceCommandTurn()
@@ -943,6 +956,18 @@ final class MorningStore {
               let session, let step = currentStep else { return }
         endOpening()
         cancelStepPlayback()
+        if repeatConnectedMoment() { return }
+        if step.webBehavior != nil {
+            if let event = webExecutionEvent, event.sessionID == session.id, event.stepID == step.id,
+               !event.contextText.isEmpty {
+                speech.speak(event.contextText.joined(separator: ". "))
+            } else {
+                speech.speak(AppLanguage.isFrench
+                    ? "Aucun texte observé n’est disponible pour ce moment. Dites reprends pour retrouver la page, ou suivant pour continuer."
+                    : "No observed text is available for this moment. Say resume to return to the page, or next to continue.")
+            }
+            return
+        }
         if step.automation == nil {
             speech.speak("\(step.title). \(step.detail)")
             return
@@ -1171,11 +1196,30 @@ final class MorningStore {
         completionInvitationSessionID = nil
         guard readAloud, hasSavedCompletedSession, session?.id == id,
               !voiceInputBlocksPlayback, !capturePresented, !captureVoicePresented else { return }
-        let french = speech.selectedVoice?.language.hasPrefix("fr") == true
-        speech.speak(french
-            ? "Votre matinée est terminée. Y a-t-il une pensée, un rêve ou un rappel que vous aimeriez garder ? Touchez Parler quand vous voulez."
-            : "Your morning is complete. Is there a thought, a dream or a reminder you'd like to keep? Tap Speak whenever you're ready.")
-        completionInvitationPlaybackID = speech.playbackID
+        let token = UUID(), generation = dataGeneration
+        completionInvitationPlaybackID = token
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { if completionInvitationPlaybackID == token { completionInvitationPlaybackID = nil } }
+            do {
+                try await handsFreeVoice.stopAndRelease()
+                guard !Task.isCancelled, completionInvitationPlaybackID == token,
+                      dataGeneration == generation, !privacyBlocksWork, readAloud,
+                      hasSavedCompletedSession, session?.id == id, session?.status == .completed,
+                      !handsFreeVoice.isActive, !handsFreeVoice.needsAudioRelease,
+                      !voiceInputBlocksPlayback, !capturePresented, !captureVoicePresented,
+                      UIApplication.shared.applicationState == .active else { return }
+                let french = speech.voiceIdentifier == nil ? AppLanguage.isFrench : speech.selectedVoice?.language.hasPrefix("fr") == true
+                speech.speak(french
+                    ? "Votre matinée est terminée. Y a-t-il une pensée, un rêve ou un rappel que vous aimeriez garder ? Touchez Parler quand vous voulez."
+                    : "Your morning is complete. Is there a thought, a dream or a reminder you'd like to keep? Tap Speak whenever you're ready.")
+                completionInvitationPlaybackID = speech.playbackID
+            } catch {
+                // A failed microphone release must not start a competing player.
+                guard completionInvitationPlaybackID == token else { return }
+                notice = handsFreeVoice.message
+            }
+        }
     }
 
     func stopCompletionInvitation() {
@@ -1393,7 +1437,10 @@ final class MorningStore {
                 guard let self else { return }
                 do {
                     let proposal: EvidenceRoutineProposal
-                    if usesSyntheticProposalFixture {
+                    if evidence.hasOnlyBrowserLessons {
+                        proposal = try LearningEvidencePreparation.assemble(evidence: evidence, steps: [],
+                            preserving: base, preferences: preferences)
+                    } else if usesSyntheticProposalFixture {
                         // The fixture exercises assembly, stale checks, saving and approval;
                         // it is never evidence that a Foundation Models request succeeded.
                         #if DEBUG
@@ -1908,25 +1955,15 @@ final class MorningStore {
         return changeObservationArchive(selecting: nil) { $0.clear() }
     }
 
-    /// The person explicitly saves a numeric summary from a visible browser lesson.
-    /// It is ordinary reviewable evidence, never a replay or an approved routine.
+    /// Save explicitly observed route categories and non-input gestures. A lesson
+    /// becomes source-linked evidence; the person still reviews every future action.
     @discardableResult
     func saveBrowserRhythmObservation(_ summary: BrowserRhythmSummary) -> Bool {
         guard !privacyBlocksWork, storageIsAvailable, !busy, !sessionActive,
               saveObservationEdits(), summary.durationSeconds.isFinite else { return false }
         do {
-            let pace = summary.averageMovingSpeed.map { "About \(Int($0.rounded())) CSS pixels per moving second." } ?? "No scrolling pace measured."
-            let entry = try ObservationAcquisition(
-                observedDate: ObservationObservedDate(date: .now, timeZoneIdentifier: TimeZone.current.identifier, provenance: .userAssigned),
-                origin: .human, sourceKind: .manual,
-                sourceLabel: "Browser learning — \(summary.site.displayName)",
-                originalText: """
-                Explicit browser lesson in MORE: \(summary.site.displayName).
-                Observed for about \(Int(summary.durationSeconds.rounded())) seconds.
-                \(summary.totals.scrollBursts) observed scroll bursts; \(summary.totals.clicks) observed non-input taps.
-                \(pace)
-                This is a partial measurement of one visible web page, not the native app. No page text, field entries, tap targets or full click history was saved. It does not establish preferred content, exact intent or a replayable gesture sequence.
-                """)
+            let entry = try ObservationAcquisition.browserLesson(summary: summary,
+                observedDate: ObservationObservedDate(date: .now, timeZoneIdentifier: TimeZone.current.identifier, provenance: .userAssigned))
             return changeObservationArchive(selecting: entry.id) { _ = try $0.insert(entry) }
         } catch { notice = error.localizedDescription; return false }
     }
@@ -2380,6 +2417,8 @@ final class MorningStore {
         briefing.cancelAndClear()
         connectedAPITask?.cancel(); connectedAPITask = nil
         connectedActionStatus = nil
+        connectedMoment.clear()
+        routineWebMoment.clear()
         composio.cancelPendingOperations()
         nativeConnections.cancelPendingWork()
         stepExecutor.clear()
@@ -2510,6 +2549,8 @@ final class MorningStore {
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         executionRecords = []; webExecutionEvent = nil
+        connectedMoment.clear()
+        routineWebMoment.clear()
         stopHandsFreeVoice(); mailMorning.clear()
         budgetAndFeedback = RoutineBudgetAndFeedback(); savedRunEndings = []
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false

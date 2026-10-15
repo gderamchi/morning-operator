@@ -335,7 +335,11 @@ enum OwnInterfaceWording {
         ]),
         Screen(name: "Browser learning", copy: [
             shown("Learning your scroll and tap rhythm", fr: "Apprentissage du rythme de vos gestes"),
-            shown("Only this page. This estimate does not replay your gestures.", fr: "Cette page seulement. Cette estimation ne reproduit pas vos gestes.")
+            earlier("Only this page. This estimate does not replay your gestures.", "Cette page seulement. Cette estimation ne reproduit pas vos gestes."),
+            part("Only known page categories and gestures here", fr: "Uniquement les catégories de pages connues et vos gestes ici",
+                 of: "Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval."),
+            part("Review MORE’s proposed actions in Learn before approval", fr: "Examinez les actions proposées dans Apprendre avant de les valider",
+                 of: "Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval.")
         ], controls: [
             shown("Stop learning", fr: "Arrêter l’apprentissage"),
             shown("Save to Learn", fr: "Garder pour apprendre")

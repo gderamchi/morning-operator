@@ -218,8 +218,16 @@ struct MorningRootView: View {
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
                 store.suspendHandsFreeVoice()
+                store.routineWebMoment.discardSourceContext()
+                store.webExecutionEvent = nil
+                store.preserveMailExecutionBeforeInterruption()
                 store.mailMorning.clear()
-                if store.currentStep?.automation == .gmailInbox {
+                store.connectedMoment.discardContent()
+                let clearsConnectedResult: Bool = {
+                    if case .connectedAPI = store.currentStep?.target { return true }
+                    return store.currentStep?.automation == .gmailInbox
+                }()
+                if clearsConnectedResult {
                     store.connectedAPITask?.cancel(); store.connectedAPITask = nil
                     store.connectedActionStatus = nil
                 }
@@ -1345,10 +1353,13 @@ private struct MorningSunHome: View {
                 Text(isFrench ? "on y va ?" : "ready to begin?")
                     .font(.serif(.title)).accessibilityIdentifier("morning.readyQuestion")
                 Button(action: begin) {
-                    Text(isFrench ? "Commencer mon matin" : "Start my morning")
+                    Text(dynamicTypeSize.isAccessibilitySize
+                        ? (isFrench ? "Commencer" : "Begin")
+                        : (isFrench ? "Commencer mon matin" : "Start my morning"))
                         .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .accessibilityLabel(isFrench ? "Commencer mon matin" : "Start my morning")
                 .accessibilityIdentifier("morning.begin")
             }
             if let notice {

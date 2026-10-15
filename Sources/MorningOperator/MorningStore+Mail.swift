@@ -3,6 +3,15 @@ import MorningApple
 import MorningCore
 
 extension MorningStore {
+    /// Capture an in-flight send before cancellation/background clears its private
+    /// dialogue. The durable recap must preserve an unconfirmed external effect.
+    func preserveMailExecutionBeforeInterruption() {
+        guard let session, let step = currentStep,
+              mailMorning.context?.sessionID == session.id, mailMorning.context?.stepID == step.id else { return }
+        mailMorning.cancel()
+        if let outcome = mailMorning.interruptedExecutionOutcome { recordExecution(outcome) }
+    }
+
     func beginMailMorning() {
         guard !privacyBlocksWork, let session, session.status == .running,
               let step = session.currentStep, step.automation == .gmailInbox else { return }
@@ -54,11 +63,8 @@ extension MorningStore {
         connectedActionStatus = mailMorning.message
         switch mailMorning.state {
         case .completed:
-            if mailMorning.lastSendOutcome == .uncertain {
-                guard recordExecution(.uncertain) else { return }
-                advance(skipping: true, commandID: context.stepID)
-            } else if mailMorning.lastSendOutcome == .notSent {
-                guard recordExecution(.unavailable) else { return }
+            if let outcome = mailMorning.completedExecutionOutcome, outcome != .completed {
+                guard recordExecution(outcome) else { return }
                 advance(skipping: true, commandID: context.stepID)
             } else {
                 completeAutomatedStep(sessionID: context.sessionID, stepID: context.stepID)

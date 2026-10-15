@@ -1,5 +1,12 @@
 # Gmail reading and local replies
 
+## Contextual routine revision — 15 October 2026
+
+The standalone reader below remains available. A routine can also use **Read my mail and help me reply**: MORE reads a bounded unread selection, explains its selection, then supports yes/no, reply intention, local drafting, corrections and an explicit spoken Send. The visible Gmail setup offers optional read-and-send consent; readonly grants remain readonly. A durable content-free Message-ID journal reconciles uncertain sends before any further action. Generic unattended email-send routine tools are refused. [Execution details and current evidence](ROUTINE-AUTOMATION.md).
+
+Native compilation and synthetic Gmail tests pass. Actual spoken provider sending remains unverified; the required local OAuth configuration was absent during this run. Do not infer a send pass from an authorized test or an injected HTTP receipt.
+
+
 The owner confirmed real Google sign-in and the unread Inbox count in ordinary MORE build 1516 on 15 October 2026, then confirmed reading messages in build 1517. Local reply generation and the complete morning remain unconfirmed. The owner rejected the repeated per-screen sign-ins; #151 replaces that first credential design with a securely saved connection.
 
 ## Normal iPhone flow

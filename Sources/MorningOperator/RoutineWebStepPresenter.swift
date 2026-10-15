@@ -1,5 +1,6 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 /// A web moment uses the same persisted timer and guarded Next request as an app
 /// moment. Reopening its page never starts a second budget.
@@ -14,20 +15,28 @@ private struct RoutineWebStepPresenter: ViewModifier {
             if let url = store.pendingWebTarget,
                let site = WebMorningSite(url: url),
                let step = store.currentStep,
-               let timer = store.activeStepTimer {
+               let timer = store.activeStepTimer,
+               let session = store.session {
+                let executionID = MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
+                let controller = store.routineWebMoment.controller(for: executionID, site: site, initialURL: url)
                 WebMorningView(site: site, minutes: step.durationMinutes, initialURL: url,
                     isStepActive: store.session?.status == .running,
                     stepEndsAt: timer.endsAt, timerPausedAt: timer.pausedAt,
                     onExtend: { Task { await store.extendStepTimer(expectedTimer: timer) } },
                     onNext: { store.nextTargetStep(sessionID: timer.sessionID, stepID: timer.stepID) },
                     executionPlan: store.webExecutionPlan,
-                    onExecutionEvent: { store.receiveWebExecution($0) },
-                    executionIsAuthorized: {
-                        !store.privacyBlocksWork && store.session?.id == timer.sessionID &&
+                    onExecutionEvent: { [weak store] event in store?.receiveWebExecution(event) },
+                    executionIsAuthorized: { [weak store] in
+                        guard let store else { return false }
+                        return !store.privacyBlocksWork && store.session?.id == timer.sessionID &&
                         store.currentStep?.id == timer.stepID && store.session?.status == .running && store.automatic
                     },
-                    executionCanAdvance: { !store.speech.isSpeaking && !store.voiceInputBlocksPlayback },
+                    executionCanAdvance: { [weak store] in
+                        guard let store else { return false }
+                        return !store.speech.isSpeaking && !store.voiceInputBlocksPlayback
+                    },
                     onPause: { store.pause() }, onResume: { store.resume() },
+                    retainedController: controller,
                     onClose: closePage)
                     .id(step.id)
             } else {

@@ -35,6 +35,12 @@ struct MorningOperatorApp: App {
                         .accessibilityIdentifier("system.qaIdentity")
                         .accessibilityLabel(Text(verbatim: "\(Bundle.main.bundleIdentifier ?? "missing")|\(Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "missing")"))
                         .allowsHitTesting(false)
+                } else if let workspace = Self.testWorkspace {
+                    Text(verbatim: "Test routine")
+                        .font(.raleway(.caption2)).padding(4)
+                        .accessibilityIdentifier("qa.testWorkspace")
+                        .accessibilityValue(workspace)
+                        .allowsHitTesting(false)
                 }
             }
             #endif
@@ -42,6 +48,14 @@ struct MorningOperatorApp: App {
     }
 
     #if DEBUG
+    private static var testWorkspace: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("--ui-testing"),
+              let argument = args.first(where: { $0.hasPrefix("--ui-testing-workspace=") }),
+              let id = UUID(uuidString: String(argument.dropFirst("--ui-testing-workspace=".count))) else { return nil }
+        return id.uuidString
+    }
+
     /// `--web-morning --web-morning-site=news` opens the in-app
     /// browser on its own for device checks. All page actions still require a tap.
     private static var webMorningLaunchSite: WebMorningSite? {

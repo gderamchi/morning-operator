@@ -23,6 +23,7 @@ struct WebMorningView: View {
     var onSignInReady: (() -> Void)?
     var learningOnly: Bool
     var onSaveRhythm: ((BrowserRhythmSummary) -> Bool)?
+    private let retainsRoutineController: Bool
     @State private var rhythmSaved = false
     @State private var rhythmSaveFailed = false
 
@@ -41,6 +42,7 @@ struct WebMorningView: View {
          onExecutionEvent: ((WebMorningExecutionEvent) -> Void)? = nil,
          executionIsAuthorized: (() -> Bool)? = nil, executionCanAdvance: (() -> Bool)? = nil,
          onPause: (() -> Void)? = nil, onResume: (() -> Void)? = nil,
+         retainedController: WebMorningController? = nil,
          onClose: @escaping () -> Void) {
         self.site = site; self.isStepActive = isStepActive; self.stepEndsAt = stepEndsAt; self.timerPausedAt = timerPausedAt
         self.onExtend = onExtend; self.onNext = onNext; self.onClose = onClose
@@ -49,7 +51,8 @@ struct WebMorningView: View {
         self.executionPlan = executionPlan; self.onExecutionEvent = onExecutionEvent
         self.onPause = onPause; self.onResume = onResume
         self.executionIsAuthorized = executionIsAuthorized; self.executionCanAdvance = executionCanAdvance
-        _controller = State(initialValue: WebMorningController(site: site, initialURL: initialURL))
+        retainsRoutineController = retainedController != nil
+        _controller = State(initialValue: retainedController ?? WebMorningController(site: site, initialURL: initialURL))
         _clock = State(initialValue: WebMorningStepClock(start: Date(), minutes: minutes))
     }
 
@@ -109,8 +112,11 @@ struct WebMorningView: View {
             controller.configureExecution(plan: executionPlan, endsAt: deadline ?? clock.endsAt)
         }
         .onDisappear {
-            controller.actionsEnabled = false; controller.learningAllowed = false
-            controller.stopExecution()
+            if retainsRoutineController { controller.suspendPresentation() }
+            else {
+                controller.actionsEnabled = false; controller.learningAllowed = false
+                controller.stopExecution()
+            }
         }
     }
 
@@ -151,6 +157,12 @@ struct WebMorningView: View {
                 Text(text("\(summary.totals.scrollBursts) scrolls · \(summary.totals.clicks) taps",
                           "\(summary.totals.scrollBursts) séquences de défilement · \(summary.totals.clicks) appuis"))
                     .font(.raleway(.subheadline))
+                if let trace = summary.learningTrace {
+                    ScrollView {
+                        Text(trace.segments.indices.map { trace.proposedTitle(at: $0, french: locale.language.languageCode?.identifier == "fr") }.joined(separator: "\n"))
+                            .font(.raleway(.caption)).frame(maxWidth: .infinity, alignment: .leading)
+                    }.frame(maxHeight: 90).accessibilityIdentifier("web.learnedActivities")
+                }
                 if let speed = summary.averageMovingSpeed {
                     Text(speed > 800 ? text("A quick scrolling rhythm", "Un défilement rapide")
                          : speed > 250 ? text("A steady scrolling rhythm", "Un défilement régulier")
@@ -167,8 +179,8 @@ struct WebMorningView: View {
                     Button(text("Try again", "Recommencer")) { controller.discardLearning(); rhythmSaved = false; rhythmSaveFailed = false }
                         .buttonStyle(QuietButtonStyle())
                 }
-                Text(text("Only this page. This estimate does not replay your gestures.",
-                          "Cette page seulement. Cette estimation ne reproduit pas vos gestes."))
+                Text(text("Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval.",
+                          "Uniquement les catégories de pages connues et vos gestes ici. Examinez les actions proposées dans Apprendre avant de les valider."))
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 if rhythmSaveFailed {
                     Text(text("Couldn't save yet. Try Save again.", "Enregistrement impossible. Réessayez."))
@@ -199,6 +211,7 @@ struct WebMorningView: View {
                 } else {
                     Text(line).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         .frame(maxWidth: .infinity, alignment: .leading).accessibilityIdentifier("web.result")
+                        .accessibilityValue(resultDiagnostic)
                 }
             }
             HStack(spacing: 4) {
@@ -279,6 +292,14 @@ struct WebMorningView: View {
         case .refused: return text("Not on this page.", "Pas sur cette page.")
         case nil: return nil
         }
+    }
+
+    private var resultDiagnostic: String {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("--ui-testing") ? controller.executionDiagnostic : ""
+        #else
+        return ""
+        #endif
     }
 
     private func title(for task: WebMorningTask) -> String {

@@ -46,6 +46,11 @@ struct RoutineExecutionSuggestionTests {
     @Test func storedSuggestionShapesRejectLikesArbitraryPagesAndUnrelatedActions() {
         var step = RoutineExecutionSuggestion.applyingReviewedLabel(to: RoutineStep(title: "Instagram"), label: "Instagram")
         #expect(RoutineExecutionSuggestion.isBoundedSuggestion(step))
+        step.webBehavior = .watchStories
+        #expect(RoutineExecutionSuggestion.isBoundedSuggestion(step))
+        step.webBehavior = .readUnread
+        #expect(!RoutineExecutionSuggestion.isBoundedSuggestion(step))
+        step.webBehavior = .browseFeed
         step.webLikesAllowed = true
         #expect(!RoutineExecutionSuggestion.isBoundedSuggestion(step))
         step.webLikesAllowed = false

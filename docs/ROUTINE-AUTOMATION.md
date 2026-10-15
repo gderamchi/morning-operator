@@ -27,3 +27,7 @@ Connected account actions use local argument proposals and an explicit human-rea
 Package tests establish deterministic policy, encoding, stale-result/cancellation and injected-provider behavior. Simulator tests establish visible navigation, explicit delegation, clock/session transitions, recap persistence and actual public-page behavior where observed. Synthetic command injection is never microphone recognition. A loaded web page is never successful browsing.
 
 The final MORE acceptance also needs real connected accounts and an ordinary iPhone: acoustic barge-in, local-model latency, social stories/video/likes, all provider operations and actual voice-directed mail sending. These gates remain open until individually observed. Screen Time, video and semantic browser learning must also be reconciled into the common proposal; this runtime work does not by itself complete that learning pipeline.
+
+## Acceptance tracking
+
+Remaining real-provider, voice, complete-source-learning and full-service acceptance is tracked in [#173](https://github.com/gibouu/morning-operator/issues/173). Runtime work is pushed on `guillaume/routine-automation`; a WIP checkpoint is not a product acceptance pass. The native/synthetic test report is kept separate from authenticated provider results.

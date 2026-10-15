@@ -145,6 +145,13 @@ struct MorningConnectionsView: View {
                 .id("\(site.rawValue).\(learningWebsite)")
         }
         .task(id: store.dataGeneration) { await refresh() }
+        .onChange(of: website) { _, _ in
+            // Independent setup shares website cookies with the routine. An
+            // account switch must never resume the old account's DOM or speech.
+            if store.currentStep?.webBehavior != nil, store.session?.status == .running { store.pause() }
+            store.routineWebMoment.clear()
+            store.webExecutionEvent = nil
+        }
         .onChange(of: store.dataGeneration) { _, _ in
             website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false
         }

@@ -142,6 +142,9 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
     /// sharing its `sessionID` are one recording kept as several files, in index order.
     /// Nil for every observation saved before sessions existed and for a single file.
     public let sessionSegment: ObservationSessionSegmentReference?
+    /// Native, bounded route/gesture observations from an explicit browser lesson.
+    /// Corrections remain ordinary user reports and discard this action evidence.
+    public let browserLearning: BrowserLearningTrace?
     public var effectiveText: String { correctedText ?? originalText }
 
     public init(id: UUID = UUID(), importedAt: Date? = Date(), fileSHA256: String? = nil,
@@ -153,7 +156,8 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                 recordingContext: ObservationRecordingContext? = nil,
                 frameReviews: [ObservationFrameReview] = [],
                 sessionSegment: ObservationSessionSegmentReference? = nil,
-                windowCapture: ObservationWindowCapture? = nil) throws {
+                windowCapture: ObservationWindowCapture? = nil,
+                browserLearning: BrowserLearningTrace? = nil) throws {
         // Only a recorded file can be a segment of a recording session.
         guard sessionSegment == nil || sourceKind == .video else { throw ObservationArchiveError.invalidSource }
         self.sessionSegment = sessionSegment
@@ -190,6 +194,15 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
         self.observedDate = observedDate
         self.recordingContext = recordingContext
         self.windowCapture = windowCapture
+        if let browserLearning, correctedText == nil {
+            guard sourceKind == .manual, origin == .human, digest == nil,
+                  recordingContext == nil, windowCapture == nil, videoEvidence == nil,
+                  classification == nil, frameReviews.isEmpty, sessionSegment == nil,
+                  [false, true].contains(where: {
+                      originalText.utf8.elementsEqual(browserLearning.renderedText(french: $0).utf8)
+                  }) else { throw ObservationArchiveError.invalidSource }
+            self.browserLearning = browserLearning
+        } else { self.browserLearning = nil }
         self.origin = origin
         self.sourceKind = sourceKind
         self.sourceLabel = sourceLabel
@@ -207,6 +220,23 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
             self.classification = classification
         }
         self.warnings = retainedWarnings
+    }
+
+    /// Called only with the visible browser controller's validated native summary.
+    /// A lesson with no recognized route gestures stays an ordinary manual note.
+    public static func browserLesson(summary: BrowserRhythmSummary,
+        observedDate: ObservationObservedDate, importedAt: Date = Date()) throws -> Self {
+        let text: String
+        if let trace = summary.learningTrace { text = trace.renderedText() }
+        else {
+            text = AppLanguage.isFrench
+                ? "Apprentissage explicite dans le navigateur — \(summary.site.displayName). \(summary.totals.scrollBursts) défilements ; \(summary.totals.clicks) gestes hors saisie. Couverture partielle : aucune activité précise établie. Aucun texte de page ni champ enregistré."
+                : "Explicit browser lesson — \(summary.site.displayName). \(summary.totals.scrollBursts) scroll bursts; \(summary.totals.clicks) non-input gestures. Partial coverage: no specific activity established. No page text or fields saved."
+        }
+        return try .init(importedAt: importedAt, observedDate: observedDate, origin: .human,
+            sourceKind: .manual, sourceLabel: AppLanguage.isFrench
+                ? "Apprentissage navigateur — \(summary.site.displayName)" : "Browser learning — \(summary.site.displayName)",
+            originalText: text, browserLearning: summary.learningTrace)
     }
 
     /// Strict mutation boundary. A human label is grounded by an exact original quote,
@@ -276,7 +306,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                   correctedText: correctedText, videoEvidence: videoEvidence,
                   classification: classification, warnings: warnings, recordingContext: recordingContext,
                   frameReviews: frameReviews ?? self.frameReviews, sessionSegment: sessionSegment,
-                  windowCapture: windowCapture)
+                  windowCapture: windowCapture, browserLearning: browserLearning)
     }
 
     fileprivate func declaring(_ capture: ObservationWindowCapture) throws -> Self {
@@ -284,7 +314,8 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                   origin: origin, sourceKind: sourceKind, sourceLabel: sourceLabel, originalText: originalText,
                   correctedText: correctedText, videoEvidence: videoEvidence,
                   classification: classification, warnings: warnings, recordingContext: recordingContext,
-                  frameReviews: frameReviews, sessionSegment: sessionSegment, windowCapture: capture)
+                  frameReviews: frameReviews, sessionSegment: sessionSegment, windowCapture: capture,
+                  browserLearning: browserLearning)
     }
 
     /// Derived interpretation can be discarded independently of valid source. Exact source
@@ -357,6 +388,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
         }
         for excerpt in classification?.inputSelection?.excerpts ?? [] { total += excerpt.text.utf8.count }
         for review in frameReviews { total += (review.label?.utf8.count ?? 0) + (review.evidenceQuote?.utf8.count ?? 0) }
+        if let browserLearning { total += (try? JSONEncoder().encode(browserLearning).count) ?? 0 }
         return total
     }
     fileprivate var lineCount: Int { videoEvidence?.frames.reduce(0) { $0 + ($1.ocrLines?.count ?? 0) } ?? 0 }
@@ -364,7 +396,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
     private enum CodingKeys: String, CodingKey {
         case id, importedAt, fileSHA256, observedDate, origin, sourceKind, sourceLabel, originalText
         case correctedText, videoEvidence, classification, warnings, recordingContext, frameReviews, windowCapture
-        case sessionSegment
+        case sessionSegment, browserLearning
     }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -399,6 +431,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
             if !warnings.contains(.invalidClassificationRemoved) { warnings.append(.invalidClassificationRemoved) }
         }
         let correctedText = try values.decodeIfPresent(String.self, forKey: .correctedText)
+        let restoredBrowserLearning = (try? values.decodeIfPresent(BrowserLearningTrace.self, forKey: .browserLearning)) ?? nil
         let restoredReviews: [ObservationFrameReview]
         do {
             let reviews = try values.decodeIfPresent([ObservationFrameReview].self, forKey: .frameReviews) ?? []
@@ -428,7 +461,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                       sessionSegment: sourceKind == .video
                           ? (try? values.decodeIfPresent(ObservationSessionSegmentReference.self, forKey: .sessionSegment))
                           : nil,
-                      windowCapture: restoredCapture)
+                      windowCapture: restoredCapture, browserLearning: restoredBrowserLearning)
     }
 }
 

@@ -15,6 +15,7 @@ extension MorningStore {
     /// narration keeps its existing pause-on-background behavior.
     var keepsTimerInBackground: Bool {
         if currentStep?.webBehavior != nil { return false }
+        if case .connectedAPI = currentStep?.target { return false }
         return session?.status == .running && activeStepTimer?.pausedAt == nil && activeStepTimer != nil
     }
 
@@ -43,6 +44,10 @@ extension MorningStore {
             if currentExecutionRecord == nil { guard recordExecution(.running) else { pause(); return true } }
             if !shouldOpen, step.webBehavior != nil, case let .inAppWeb(url) = step.target {
                 pendingWebTarget = url
+            }
+            if !shouldOpen, case let .connectedAPI(service, connectionID, tool, arguments) = step.target {
+                runConnectedAction(service: service, connectionID: connectionID, tool: tool,
+                    argumentsJSON: arguments, sessionID: session.id, stepID: step.id)
             }
             if shouldOpen {
                 switch step.target {
@@ -138,7 +143,14 @@ extension MorningStore {
     func pauseStepTimer() {
         if connectedAPITask != nil {
             connectedAPITask?.cancel(); connectedAPITask = nil
-            connectedActionStatus = String(localized: "Waiting stopped. If the action had started, check the account before doing it again.")
+            connectedMoment.pause()
+            // A confirmed result survives an interruption; pausing must not replace it
+            // with an uncertainty message or trigger the provider effect on resume.
+            if !connectedMoment.effectConfirmed, connectedMoment.wasDispatched {
+                connectedActionStatus = AppLanguage.isFrench
+                    ? "L’action n’est pas confirmée. Vérifiez son résultat dans le compte connecté, ou dites suivant."
+                    : "The action is unconfirmed. Check its result in the connected account, or say next."
+            }
         }
         stepTimerTask?.cancel(); stepTimerTask = nil
         if let timer = activeStepTimer {
@@ -155,6 +167,7 @@ extension MorningStore {
         nativeConnections.cancelPendingWork()
         stepTimerTask?.cancel(); stepTimerTask = nil
         let retired = StepTimerFile.clear()
+        if retired { connectedMoment.clear(); routineWebMoment.clear() }
         StepTimerAlert.cancel()
         pendingWebTarget = nil
         stepTimerRevision += 1

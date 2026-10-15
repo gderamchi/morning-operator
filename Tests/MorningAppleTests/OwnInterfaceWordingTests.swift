@@ -200,6 +200,10 @@ private enum OwnScreenFixtures {
         "Your current routine stays ready until you approve. Approving replaces it with the moments you keep here.",
         "Let MORE take care of this morning"
     ]
+    static let browserLearningResult = [
+        "Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval.",
+        "Save to Learn"
+    ]
     static let recording = [
         "Confirm Apple's picker, then go through your morning. This screen closes when recording begins. We stop at your chosen limit and save the visible text for you to review when you return.",
         "Stop automatically after", "Start screen recording", "You're in control",
@@ -240,6 +244,7 @@ private enum OwnScreenFixtures {
     ]
     static let all = [("Learn", learn), ("Review", review), ("Settings", settings),
                       ("Routine", routine), ("Delegated routine", delegatedRoutine), ("Screen Time review", screenTimeReview),
+                      ("Browser learning result", browserLearningResult),
                       ("Recording", recording), ("Voice", voice),
                       ("Step", step), ("Privacy", privacy)]
 
@@ -665,6 +670,12 @@ struct OwnInterfaceWordingTests {
         }
         // Ordinary updater buttons still cannot exclude another app's real content.
         #expect(!isOwnInterface("Updates\nKeep current\nApprove update\n09:00 Team planning meeting"))
+    }
+
+    @Test("Earlier browser-learning recordings remain excluded after semantic preview wording")
+    func earlierBrowserLearningRemainsExcluded() {
+        #expect(isOwnInterface("Learning your scroll and tap rhythm\nOnly this page. This estimate does not replay your gestures.\nSave to Learn"))
+        #expect(isOwnInterface("Apprentissage du rythme de vos gestes\nCette page seulement. Cette estimation ne reproduit pas vos gestes.\nGarder pour apprendre"))
     }
 
     @Test("Sentences are specific enough to count; short labels are kept as controls")

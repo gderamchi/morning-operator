@@ -271,5 +271,30 @@ struct WebMorningExecutionScriptTests {
         #expect(WebMorningPageObservation.parse(result)?.status == .signin)
         #expect(context.objectForKeyedSubscript("clicks")?.toInt32() == 0)
     }
+
+    @Test func aDelayedReadOnlyObservationIsAcceptedWhileExpiredMutationsRemainBlocked() throws {
+        let context = try context()
+        let staleDeadline = Date().addingTimeInterval(-10)
+        let observation = try #require(WebMorningPageObservation.parse(evaluate(context, expiresAt: staleDeadline)))
+        #expect(observation.status == .ready)
+        #expect(observation.fingerprint != nil)
+        let expired = try #require(WebMorningPageObservation.parse(evaluate(context, command: "advance",
+            fingerprint: observation.fingerprint, expiresAt: staleDeadline)))
+        #expect(expired.status == .unavailable && expired.reason == "expired")
+        #expect(context.objectForKeyedSubscript("moves")?.toInt32() == 0)
+        #expect(context.objectForKeyedSubscript("clicks")?.toInt32() == 0)
+    }
+
+    @Test func aDocumentHiddenDuringPresentationWaitsBeforeReadingContent() throws {
+        let context = try context()
+        context.evaluateScript("""
+        document.hidden=true;
+        Object.defineProperty(item,'innerText',{get(){throw Error('Hidden content read');}});
+        """)
+        let observation = try #require(WebMorningPageObservation.parse(evaluate(context)))
+        #expect(observation.status == .loading && observation.reason == "hidden")
+        #expect(observation.fingerprint == nil && observation.text == nil)
+        #expect(context.objectForKeyedSubscript("clicks")?.toInt32() == 0)
+    }
 }
 #endif

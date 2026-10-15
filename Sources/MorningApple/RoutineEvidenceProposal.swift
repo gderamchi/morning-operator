@@ -151,8 +151,13 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
             let restoredEvidence = try LearningEvidencePreparation.prepare(acquisitions: sources)
             // Rebuild user-owned rows independently of the stored support claims. The
             // authoritative journal suppresses legacy retention, including after a cleared keep.
+            // Browser lessons are an ordered native observation, not a model's
+            // choice of which segments to retain. Rebuild every candidate before
+            // preferences, assigning saved IDs only through exact citations.
+            let restoredCandidates = try LearningEvidencePreparation.restoredBrowserCandidates(
+                evidence: restoredEvidence, proposal: self)
             let candidate = RoutineVersion(createdAt: routine.createdAt, sourceLabel: routine.sourceLabel,
-                steps: routine.steps)
+                steps: restoredCandidates)
             var inherited = Self.inferredDraft(from: candidate, preserving: baseRoutine,
                 preferences: preferences, at: routine.createdAt)
             let legacyKept = preferences == nil ? Self.keptSteps(in: baseRoutine) : []
@@ -340,6 +345,18 @@ public struct PreparedLearningEvidenceUnit: Equatable, Sendable, Identifiable {
     fileprivate let context: String
     var kind: LearningEvidenceKind { sourceLayer == .videoFrame ? .visibleTaskContent : evidenceKind }
     fileprivate let evidenceKind: LearningEvidenceKind
+    fileprivate let browserContext: PreparedBrowserLearningContext?
+}
+
+fileprivate struct PreparedBrowserLearningContext: Equatable, Sendable {
+    let trace: BrowserLearningTrace
+    let segmentIndex: Int
+    let french: Bool
+}
+
+fileprivate struct PreparedBrowserLessonGroup {
+    var segmentUnits: [[PreparedLearningEvidenceUnit]]
+    var acquisitionIDs: Set<UUID> { Set(segmentUnits.flatMap { $0.map(\.acquisitionID) }) }
 }
 
 public struct PreparedLearningEvidence: Equatable, Sendable {
@@ -348,6 +365,9 @@ public struct PreparedLearningEvidence: Equatable, Sendable {
     public let omissions: [LearningEvidenceOmission]
     public let submittedCharacterCount: Int
     public var modelRequestCount: Int { batches.count }
+    /// Native categories need no generative interpretation. This can be proposed
+    /// locally even when the optional on-device language model is unavailable.
+    public var hasOnlyBrowserLessons: Bool { !units.isEmpty && units.allSatisfy { $0.browserContext != nil } }
     let batches: [[PreparedLearningEvidenceUnit]]
     let prompts: [String]
 }
@@ -406,6 +426,18 @@ public enum LearningEvidencePreparation {
             if let correction = entry.correctedText {
                 guard LearningEvidencePolicy.isEligibleWrittenContext(correction) else { throw RoutineEvidenceProposalError.insufficientEvidence }
                 units += try makeUnits(text: correction, entry: entry, layer: .correction, sampleID: nil, kind: .userReportedActivity)
+            } else if let trace = entry.browserLearning {
+                let french = entry.originalText.utf8.elementsEqual(trace.renderedText(french: true).utf8)
+                for index in trace.segments.indices {
+                    let text = trace.segmentText(at: index, french: french)
+                    guard let range = EvidenceText.exactRange(of: text, in: entry.originalText) else {
+                        throw RoutineEvidenceProposalError.invalidCitation
+                    }
+                    units.append(.init(id: UUID(), acquisitionID: entry.id, text: text, sourceLayer: .original,
+                        sampleID: nil, startCharacterOffset: range.lowerBound, reviewedContext: nil,
+                        context: entry.originalText, evidenceKind: .userReportedActivity,
+                        browserContext: .init(trace: trace, segmentIndex: index, french: french)))
+                }
             } else if let video = entry.videoEvidence {
                 // Imported files and older recordings carry no spans and are judged by text alone.
                 let ownInterface = entry.recordingContext?.ownInterfaceIntervals
@@ -483,7 +515,8 @@ public enum LearningEvidencePreparation {
                                 preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal? = nil,
                                 at date: Date = Date()) throws -> EvidenceRoutineProposal {
         try preferences?.validate()
-        guard !steps.isEmpty, steps.count <= maximumModelCalls * 4, date.timeIntervalSince1970.isFinite else {
+        guard (!steps.isEmpty || evidence.units.contains(where: { $0.browserContext != nil })), steps.count <= maximumModelCalls * 4,
+              date.timeIntervalSince1970.isFinite else {
             throw RoutineEvidenceProposalError.insufficientEvidence
         }
         if let base {
@@ -492,6 +525,19 @@ public enum LearningEvidencePreparation {
         var proposed: [RoutineStep] = []
         var citationsByStep: [UUID: [RoutineEvidenceCitation]] = [:]
         var keyIndexes: [String: Int] = [:]
+        let browserGroups = browserLessonGroups(evidence: evidence)
+        let browserSources = browserGroups.reduce(into: Set<UUID>()) { $0.formUnion($1.acquisitionIDs) }
+        let browserSteps = try browserGroups.map { group in try group.segmentUnits.map { try browserCandidate(units: $0) } }
+        var insertedBrowserGroups = Set<Int>()
+        func insertBrowserGroup(_ index: Int) throws {
+            guard insertedBrowserGroups.insert(index).inserted else { return }
+            for (segment, step) in browserSteps[index].enumerated() {
+                proposed.append(step)
+                citationsByStep[step.id] = try browserGroups[index].segmentUnits[segment].map {
+                    try browserCitation(unit: $0, evidence: evidence)
+                }
+            }
+        }
         for input in steps {
             let title = input.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let detail = input.detail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -513,6 +559,16 @@ public enum LearningEvidencePreparation {
                     endCharacterOffset: unit.startCharacterOffset + range.upperBound, sourceLayer: unit.sourceLayer)
                 if !citations.contains(citation) { citations.append(citation) }
             }
+            let browserAnchors = browserGroups.indices.filter { index in
+                citations.contains { browserGroups[index].acquisitionIDs.contains($0.acquisitionID) }
+            }
+            citations.removeAll { browserSources.contains($0.acquisitionID) }
+            // Preserve the model's position among other sources, but put each
+            // entire native lesson in its observed order at its first citation.
+            if citations.isEmpty {
+                for index in browserAnchors { try insertBrowserGroup(index) }
+                continue
+            }
             let key = input.kind.rawValue + ":" + ObservationText.normalized(title)
             if let index = keyIndexes[key] {
                 let id = proposed[index].id
@@ -527,10 +583,15 @@ public enum LearningEvidencePreparation {
                 keyIndexes[key] = proposed.count
                 proposed.append(step); citationsByStep[step.id] = citations
             }
+            for index in browserAnchors { try insertBrowserGroup(index) }
         }
+        for index in browserGroups.indices { try insertBrowserGroup(index) }
         // Pending receipts hold structured provenance. Keep bounded, exact quotations in
         // the routine too, so explicit approval does not erase the established source text.
         for index in proposed.indices {
+            if (citationsByStep[proposed[index].id] ?? []).contains(where: {
+                browserUnit(for: $0, evidence: evidence) != nil
+            }) { continue }
             var seenQuotes = Set<Data>()
             let quotes = (citationsByStep[proposed[index].id] ?? []).compactMap { citation -> String? in
                 seenQuotes.insert(Data(citation.quote.utf8)).inserted ? citation.quote : nil
@@ -579,6 +640,11 @@ public enum LearningEvidencePreparation {
         citations: [RoutineEvidenceCitation], evidence: PreparedLearningEvidence) -> RoutineStep {
         let manual = RoutineExecutionSuggestion.applying(to: step, bundleIdentifier: nil)
         guard !citations.isEmpty else { return manual }
+        let browserUnits = citations.compactMap { browserUnit(for: $0, evidence: evidence) }
+        if browserUnits.count == citations.count, let context = browserUnits.first?.browserContext,
+           browserUnits.allSatisfy({ $0.browserContext == context }) {
+            return context.trace.applying(to: manual, segment: context.segmentIndex)
+        }
         var exactLabel: String?
         for citation in citations {
             guard citation.sourceLayer == .videoFrame, let sampleID = citation.sampleID,
@@ -600,6 +666,105 @@ public enum LearningEvidencePreparation {
         }
         guard let exactLabel else { return manual }
         return RoutineExecutionSuggestion.applyingReviewedLabel(to: manual, label: exactLabel)
+    }
+
+    private static func browserCitation(unit: PreparedLearningEvidenceUnit,
+        evidence: PreparedLearningEvidence) throws -> RoutineEvidenceCitation {
+        guard unit.browserContext != nil,
+              let snapshot = evidence.sourceSnapshots.first(where: { $0.acquisitionID == unit.acquisitionID }) else {
+            throw RoutineEvidenceProposalError.invalidCitation
+        }
+        return .init(acquisitionID: unit.acquisitionID, sourceRevision: snapshot.sourceRevision,
+            sampleID: nil, quote: unit.text, startCharacterOffset: unit.startCharacterOffset,
+            endCharacterOffset: unit.startCharacterOffset + unit.text.count, sourceLayer: .original)
+    }
+
+    private static func browserUnit(for citation: RoutineEvidenceCitation,
+        evidence: PreparedLearningEvidence) -> PreparedLearningEvidenceUnit? {
+        evidence.units.first { unit in
+            unit.browserContext != nil && (try? browserCitation(unit: unit, evidence: evidence)) == citation
+        }
+    }
+
+    private static func browserCandidate(units: [PreparedLearningEvidenceUnit], id: UUID = UUID()) throws -> RoutineStep {
+        guard let unit = units.first, let context = unit.browserContext,
+              units.allSatisfy({ $0.browserContext == context && $0.text == unit.text }) else {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
+        let segment = context.trace.segments[context.segmentIndex]
+        let minutes = max(1, Int(((segment.endSeconds - segment.startSeconds) / 60).rounded(.up)))
+        let note = context.french
+            ? "Couverture partielle de gestes observés, sans contenu de page ni preuve d’attention continue. Durée proposée arrondie à la minute, à ajuster avant validation. Likes désactivés."
+            : "Partial coverage of observed gestures, without page content or proof of continuous attention. Suggested duration rounded up to a minute; adjust before approval. Likes disabled."
+        let multiple = units.count > 1 ? (context.french
+            ? "\nDes observations distinctes soutiennent cette même séquence ; elles ne forment pas une matinée continue."
+            : "\nSeparate observations support this same sequence; they are not one continuous morning.") : ""
+        return .init(id: id, title: context.trace.proposedTitle(at: context.segmentIndex, french: context.french),
+            detail: unit.text + "\n" + note + multiple + "\n" + EvidenceDetailText.savedTentativeNotes[context.french ? 1 : 0]
+                + "\n" + EvidenceDetailText.savedLabels[context.french ? 1 : 0] + " “\(unit.text)”",
+            kind: context.trace.site == .news ? .briefing : .entertainment, durationMinutes: minutes)
+    }
+
+    fileprivate static func restoredBrowserCandidates(evidence: PreparedLearningEvidence,
+        proposal: EvidenceRoutineProposal) throws -> [RoutineStep] {
+        guard evidence.units.contains(where: { $0.browserContext != nil }) else { return proposal.routine.steps }
+        let groups = browserLessonGroups(evidence: evidence)
+        let browserSources = groups.reduce(into: Set<UUID>()) { $0.formUnion($1.acquisitionIDs) }
+        var groupByStepID: [UUID: Int] = [:]
+        var browserRows: [[RoutineStep]] = []
+        for (index, group) in groups.enumerated() {
+            var rows: [RoutineStep] = []
+            for units in group.segmentUnits {
+                let citations = try units.map { try browserCitation(unit: $0, evidence: evidence) }
+                let matching = proposal.support.filter { $0.citations == citations }
+                guard matching.count <= 1 else { throw RoutineEvidenceProposalError.invalidProposal }
+                let id = matching.first?.stepID ?? UUID()
+                if matching.first != nil { groupByStepID[id] = index }
+                rows.append(try browserCandidate(units: units, id: id))
+            }
+            browserRows.append(rows)
+        }
+        // A malformed or mixed citation cannot masquerade as an ordinary model
+        // row while a canonical candidate is restored beside it.
+        for item in proposal.support where groupByStepID[item.stepID] == nil {
+            if item.citations.contains(where: { browserSources.contains($0.acquisitionID) }) {
+                throw RoutineEvidenceProposalError.invalidCitation
+            }
+        }
+        if evidence.hasOnlyBrowserLessons { return browserRows.flatMap { $0 } }
+        var restored: [RoutineStep] = [], inserted = Set<Int>()
+        func insert(_ index: Int) {
+            if inserted.insert(index).inserted { restored += browserRows[index] }
+        }
+        for step in proposal.routine.steps {
+            if let group = groupByStepID[step.id] { insert(group) }
+            else if proposal.support.first(where: { $0.stepID == step.id })?.reason == .preservedUserDecision {
+                let matches = browserRows.indices.filter { index in
+                    browserRows[index].contains { $0.kind == step.kind && $0.title == step.title }
+                }
+                if matches.count == 1, let index = matches.first { insert(index) }
+            } else { restored.append(step) }
+        }
+        for index in groups.indices { insert(index) }
+        return restored
+    }
+
+    private static func browserLessonGroups(evidence: PreparedLearningEvidence) -> [PreparedBrowserLessonGroup] {
+        var seen = Set<UUID>(), groups: [PreparedBrowserLessonGroup] = []
+        for unit in evidence.units where unit.browserContext != nil {
+            guard seen.insert(unit.acquisitionID).inserted, let context = unit.browserContext else { continue }
+            let source = evidence.units.filter { $0.acquisitionID == unit.acquisitionID && $0.browserContext != nil }
+                .sorted { $0.browserContext!.segmentIndex < $1.browserContext!.segmentIndex }
+            // Only an identical complete observed sequence can be merged across
+            // independent mornings. Never concatenate different partial lessons.
+            if let index = groups.firstIndex(where: {
+                guard let first = $0.segmentUnits.first?.first?.browserContext else { return false }
+                return first.trace == context.trace && first.french == context.french && $0.segmentUnits.count == source.count
+            }) {
+                for segment in source.indices { groups[index].segmentUnits[segment].append(source[segment]) }
+            } else { groups.append(.init(segmentUnits: source.map { [$0] })) }
+        }
+        return groups
     }
 
     fileprivate static func snapshot(_ entry: ObservationAcquisition) throws -> LearningSourceSnapshot {
@@ -653,7 +818,7 @@ public enum LearningEvidencePreparation {
             defer { offset += chunk.count }
             return .init(id: UUID(), acquisitionID: entry.id, text: chunk, sourceLayer: layer,
                 sampleID: sampleID, startCharacterOffset: offset, reviewedContext: reviewedContext,
-                context: text, evidenceKind: kind)
+                context: text, evidenceKind: kind, browserContext: nil)
         }
     }
 
@@ -695,13 +860,15 @@ private enum EvidenceRevision {
             let originalText: String; let correctedText: String?; let videoEvidence: ObservationVideoEvidence?
             let frameReviews: [ObservationFrameReview]?
             let ownInterfaceIntervals: OwnInterfaceIntervals?
+            let browserLearning: BrowserLearningTrace?
         }
         return try hash(Payload(id: value.id, importedAt: value.importedAt, fileSHA256: value.fileSHA256,
             observedDate: value.observedDate, origin: value.origin, sourceKind: value.sourceKind,
             sourceLabel: value.sourceLabel, originalText: value.originalText, correctedText: value.correctedText,
             videoEvidence: value.videoEvidence,
             frameReviews: value.frameReviews.isEmpty ? nil : value.frameReviews.sorted { $0.sampleID.uuidString < $1.sampleID.uuidString },
-            ownInterfaceIntervals: value.recordingContext?.ownInterfaceIntervals))
+            ownInterfaceIntervals: value.recordingContext?.ownInterfaceIntervals,
+            browserLearning: value.browserLearning))
     }
 }
 

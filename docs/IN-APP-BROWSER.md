@@ -2,11 +2,17 @@
 
 Checked 15 October 2026. This is a built prototype, not an App Store approval or a verified integration with these services.
 
-## What it does
+## Routine execution revision — 15 October 2026
 
-The person sees the website and signs in on its own page. One tap asks MORE to read a visible unread number, show up to five headlines, or request one video-feed scroll. There is no automatic advance, scheduled reader, hidden browser or voice action in this implementation. The website's own buttons still work when the person uses them.
+Reviewed routine moments now have session-scoped feed, video, story, headline or unread-information behaviors, automatic progression and optional explicitly reviewed likes. The driver observes before/after actions, stops for sign-in or privacy/subscription choices, and journals uncertain likes before any retry. Previously saved web moments remain manual until edited. Closing an automated page pauses its session. [Execution contract and evidence boundaries](ROUTINE-AUTOMATION.md).
 
-MORE's scripts never click, type, submit, read credential values or send network requests. Known login, consent and recovery URLs are blocked before any script. Each script checks its HTTPS origin again, then checks only whether a credential field exists; an inline login form returns `unsupported` before page content is read. No DOM dumps, message bodies, account screenshots, full URLs or unknown hostnames enter MORE's logs. Results stay in memory while the screen is open. Headline text is displayed locally; logs record only its count.
+The descriptions and phone evidence below refer to the earlier standalone/manual tools; they do not establish the new autonomous service behavior.
+
+## Manual browsing mode
+
+The person sees the website and signs in on its own page. One tap asks MORE to read a visible unread number, show up to five headlines, or request one video-feed scroll. This standalone mode does not automatically advance. Approved routine moments use the execution path described above. The website's own buttons still work when the person uses them.
+
+The standalone reading scripts never click, type, submit, read credential values or send network requests. The routine driver additionally performs only the reviewed browser operations. Known login, consent and recovery URLs are blocked before any script. Each script checks its HTTPS origin again, then checks only whether a credential field exists; an inline login form returns `unsupported` before page content is read. No DOM dumps, message bodies, account screenshots, full URLs or unknown hostnames enter MORE's logs. Results stay in memory while the screen is open. Headline text is displayed locally; logs record only its count.
 
 The browser uses a dedicated persistent WebKit data store. The site can keep its sign-in there between launches. **Clear all website sign-ins** removes that store's website data. This does not revoke a linked device on the service's server; use that service's device settings too. `Library/WebKit` and `Library/Cookies` are marked excluded from backup on a best-effort basis. WebKit controls its storage layout: backup/restore exclusion is **unverified**, so do not promise that sessions cannot enter backups.
 
@@ -22,7 +28,7 @@ Routine callers must use Plan B's `RoutineStep.target`, saved `StepTimer.endsAt`
 | WhatsApp | Visible unread markers inside the chat list; desktop user agent | Not tested. No claim that iPhone WKWebView loads or links successfully. Zero markers report unsupported. |
 | Gmail | Native metadata API reader replaces title scraping and embedded sign-in; saved Gmail moments open that reader. | Client configuration is absent and live Google consent/read is unverified. See [connection evidence](CONNECTION-EVIDENCE.md). Opening Mail or marking a website ready is not inbox access. |
 
-Core policy/parser/script tests and an unsigned generic iOS app build run on the Mac. A signed, separate MORE QA bundle passed the shared routine/timer phone journey described above. Instagram sign-in and one matching unread result are owner-confirmed; other account flows, count accuracy across layouts and video progression remain unverified. Simulator runtime is unavailable here.
+Core policy/parser/script tests and an unsigned generic iOS app build run on the Mac. A signed, separate MORE QA bundle passed the shared routine/timer phone journey described above. Instagram sign-in and one matching unread result are owner-confirmed; other account flows, count accuracy across layouts and video progression remain unverified. The newer simulator runs are recorded separately in the execution report.
 
 ## Login and service rules
 

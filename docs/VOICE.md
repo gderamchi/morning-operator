@@ -1,10 +1,14 @@
 # Voice with MORE
 
-MORE uses native system speech for approved notes, selected historical excerpts and prepared Calendar/Weather recaps. Command input and spoken capture each require an explicit listening turn. There is no continuously listening custom wake word.
+MORE uses native system speech for approved notes, selected historical excerpts and prepared Calendar/Weather recaps. An active hands-free morning now owns continuous on-device recognition and duplex output. Speech can interrupt the current operation; final requests are bound to the session and step at speech onset. Manual command/capture sheets remain available as a fallback and first release the continuous microphone. There is no cloud recognition/model fallback.
 
 Physical microphone recognition, HomePod routing and listener-confirmed speech quality remain open. An earlier phone greeting reached speech completion, but the owner did not confirm hearing it. [Verification](PHASE-ONE.md) separates native simulator speech callbacks, injected text tests and actual phone evidence.
 
-## Use it
+## Hands-free morning
+
+Start a reviewed approved routine with hands-free execution enabled. MORE listens while the app is foreground, including while paused, so Resume needs no new button. Pause, Resume, Next, Repeat, Stop and +2 minutes control the same session. Contextual questions use the local model; Gmail reply/send dialogue uses its own validated policy. Leaving the foreground or ending the morning releases the microphone. Permissions and hardware/model availability remain visible system gates. [Runtime contract and proof limits](ROUTINE-AUTOMATION.md).
+
+## Manual turns
 
 1. Start an approved routine. Open **Morning controls → Speak a command**. MORE pauses the run and cancels its current automatic operation.
 2. Choose **English** or **Français**, then **Tap to speak**. The app stops and releases its speech output before preparing the microphone. It requests Speech and microphone access when needed.

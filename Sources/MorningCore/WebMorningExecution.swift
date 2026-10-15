@@ -112,12 +112,15 @@ public struct WebMorningPageObservation: Decodable, Sendable, Equatable {
     public let mediaPlaying: Bool?
     public let scrollOffset: Double?
     public let consentCanDismiss: Bool?
+    /// Fixed diagnostic code only; never page or account content.
+    public let reason: String?
 
     public static func parse(_ value: Any?) -> Self? {
         guard let value = value as? String, value.utf8.count <= 12_000,
               let data = value.data(using: .utf8), let result = try? JSONDecoder().decode(Self.self, from: data),
               (result.fingerprint?.count ?? 0) <= 128, (result.contentID?.count ?? 0) <= 512,
               (result.storyRoute?.count ?? 0) <= 512,
+              result.reason.map({ ["expired", "origin", "hidden"].contains($0) }) != false,
               result.scrollOffset.map({ $0.isFinite && $0 >= 0 && $0 <= 100_000_000 }) != false,
               (result.text?.count ?? 0) <= 5,
               result.text?.allSatisfy({ !$0.isEmpty && $0.count <= 600 }) != false,
@@ -211,12 +214,12 @@ public enum WebMorningExecutionPolicy {
         return #"""
         (() => {
           const out = x => JSON.stringify(x), command = \#(json(command)), expected = \#(json(fingerprint));
-          if (Date.now() > \#(Int(expiresAt.timeIntervalSince1970 * 1000))) return out({status:'unavailable'});
+          if (command !== 'observe' && Date.now() > \#(Int(expiresAt.timeIntervalSince1970 * 1000))) return out({status:'unavailable',reason:'expired'});
           if (window.top !== window || location.protocol !== 'https:' ||
               !\#(json(site.table.allowedHosts.sorted())).includes(location.hostname.toLowerCase()) ||
-              location.port && location.port !== '443' || location.username || location.password) return out({status:'unavailable'});
+              location.port && location.port !== '443' || location.username || location.password) return out({status:'unavailable',reason:'origin'});
           if (\#(json(WebMorningPolicy.signInPathFragments)).some(p => (location.pathname.toLowerCase() + '/').includes(p))) return out({status:'signin'});
-          if (document.hidden) return out({status:'unavailable'});
+          if (document.hidden) return out({status:'loading',reason:'hidden'});
           const parent = e => e?.assignedSlot || e?.parentElement || e?.getRootNode?.().host || null;
           const composedContains = (container, node) => {
             for (let depth=0; node && depth<32; depth++,node=parent(node)) {
