@@ -49,6 +49,7 @@
 		647B27017C21B1D8DE16868C /* ObservationReviewJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBCD13C76AC1673A5ABB265 /* ObservationReviewJourneyTests.swift */; };
 		64F00673A20D02EDE87DEC1C /* MorningActivityWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6421A7C6E0C7191E7A400BDA /* MorningActivityWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */; };
+		D5A5D642293823A4BE3DD697 /* RealPhoneConnectionAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 544FB4109EDA92E7E7D6A106 /* RealPhoneConnectionAcceptanceTests.swift */; };
 		67A98BDB2A6A5C858891964C /* ObservationNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F941677DE9F9C2E0BDA7D0AF /* ObservationNarrationTests.swift */; };
 		6876BF24D24875964FEEDF83 /* ObservationHistoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82BF0FC72888DE2BB7BEFC0B /* ObservationHistoryViews.swift */; };
 		68BADEEAA81EAA79C508218C /* MorningActivitySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0814A1DE4C0A82002840418D /* MorningActivitySettingsView.swift */; };
@@ -212,6 +213,7 @@
 		5245715AA5896422DD4A58FB /* ObservationScreenReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationScreenReviewView.swift; sourceTree = "<group>"; };
 		53E140570EA270FCBB45F2D9 /* ObservationReviewViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationReviewViews.swift; sourceTree = "<group>"; };
 		57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceObservationTests.swift; sourceTree = "<group>"; };
+		544FB4109EDA92E7E7D6A106 /* RealPhoneConnectionAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealPhoneConnectionAcceptanceTests.swift; sourceTree = "<group>"; };
 		58F03249FE9F66A37BCFC54E /* MorningBenchmarkCalendar.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MorningBenchmarkCalendar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		60FD6CE6264431F3794EA24E /* MorningObservationBenchmarkUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MorningObservationBenchmarkUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6393BAB9D1CD67AB5774B214 /* AppTransitionIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTransitionIntent.swift; sourceTree = "<group>"; };
@@ -367,6 +369,7 @@
 				E606BC30A53C585226160F40 /* ClockObservationTests.swift */,
 				A5F56F33A281305BB7D95FEC /* CompletionCaptureTests.swift */,
 				57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */,
+				544FB4109EDA92E7E7D6A106 /* RealPhoneConnectionAcceptanceTests.swift */,
 				129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */,
 				31C92D40B6EFA01488AD3742 /* InterfaceTourTests.swift */,
 				B90072D117F6AB3DF784AC2F /* MorningBriefingTests.swift */,
@@ -765,6 +768,7 @@
 				D81288817F8AA73709A15AF5 /* ClockObservationTests.swift in Sources */,
 				1DE00DFEBB39E3066AC8AFD4 /* CompletionCaptureTests.swift in Sources */,
 				655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */,
+				D5A5D642293823A4BE3DD697 /* RealPhoneConnectionAcceptanceTests.swift in Sources */,
 				9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */,
 				CD3F1E802A61F825BE343107 /* InterfaceTourTests.swift in Sources */,
 				613C8FFC0E2ACE7A6276D961 /* MorningBriefingTests.swift in Sources */,
