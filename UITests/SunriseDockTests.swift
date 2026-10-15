@@ -27,11 +27,12 @@ final class SunriseDockTests: XCTestCase {
     }
 
     func testRevealedSettingsAndSavedRoutineOpenTheirDestinations() {
-        var app = launch()
+        var app = launch(phase: "night")
         reveal(in: app)
         app.buttons["morning.settings"].tap()
         XCTAssertTrue(app.buttons["setup.briefing"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(app.buttons["morning.playback"].exists)
+        attach("quiet-solar-night-settings", app)
         app.terminate()
 
         app = launch()
@@ -105,6 +106,10 @@ final class SunriseDockTests: XCTestCase {
         for identifier in ["morning.settings", "morning.review", "morning.begin", "morning.closeActions"] {
             assertReachable(identifier, in: app)
         }
+        assertReachable("morning.review", in: app)
+        attach("quiet-solar-night-fr-largest-footer", app)
+        assertReachable("morning.begin", in: app)
+        attach("quiet-solar-night-fr-largest-begin", app)
         attach("quiet-solar-night-fr-largest-controls", app)
     }
 
