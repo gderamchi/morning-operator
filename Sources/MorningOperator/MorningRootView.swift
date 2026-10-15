@@ -73,6 +73,7 @@ struct MorningRootView: View {
                                showingActions = false
                                if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true }
                            },
+                           weatherSynthetic: store.usesSyntheticBriefing,
                            needsSolarCity: store.briefing.settings.weatherLocation == nil, notice: store.notice,
                            session: store.session, currentStep: store.currentStep,
                            begin: {
@@ -257,18 +258,30 @@ struct MorningRootView: View {
             store.tab = .today
         }
         .onChange(of: store.briefing.settings.weatherLocation, initial: true) { _, location in
-            MorningThemeClock.shared.setLocation(store.privacyBlocksWork ? nil : location)
+            synchronizeHomeWeather()
         }
         .onChange(of: store.privacyBlocksWork) { _, blocked in
-            MorningThemeClock.shared.setLocation(blocked ? nil : store.briefing.settings.weatherLocation)
+            synchronizeHomeWeather()
         }
+        .onChange(of: store.briefing.prepared) { _, _ in synchronizeHomeWeather() }
         .task { await initializeMorning() }
         .task {
             while !Task.isCancelled {
                 MorningThemeClock.shared.refresh()
+                if scenePhase == .active {
+                    await store.refreshHomeWeatherIfNeeded()
+                    synchronizeHomeWeather()
+                }
                 try? await Task.sleep(for: .seconds(60))
             }
         }
+    }
+
+    private func synchronizeHomeWeather() {
+        MorningThemeClock.shared.setWeather(
+            snapshot: store.privacyBlocksWork ? nil : store.briefing.currentWeatherSnapshot,
+            status: store.briefing.prepared?.weather.status ?? .notConfigured,
+            location: store.privacyBlocksWork ? nil : store.briefing.settings.weatherLocation)
     }
 
     private func initializeMorning() async {
@@ -1185,6 +1198,7 @@ private struct MorningSunHome: View {
     @Binding var actionsShown: Bool
     var openSettings: () -> Void
     var openRoutine: () -> Void
+    var weatherSynthetic: Bool
     var needsSolarCity: Bool
     var notice: String?
     var session: RoutineSession?
@@ -1202,6 +1216,8 @@ private struct MorningSunHome: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
     private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
     private var running: Bool { session?.status == .running || session?.status == .paused }
     private var finishedToday: Bool {
@@ -1215,48 +1231,75 @@ private struct MorningSunHome: View {
         return reduceMotion
     }
 
+    private var strongInk: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing-reduce-transparency") { return true }
+        #endif
+        return reduceTransparency || contrast == .increased
+    }
+
     var body: some View {
         GeometryReader { geometry in
-            let night = MorningThemeClock.shared.celestial.moon.opacity
+            let clock = MorningThemeClock.shared
+            let night = clock.celestial.moon.opacity
             ZStack(alignment: .bottom) {
-                MorningQuietSky(night: night).ignoresSafeArea()
-                VStack(spacing: 12) {
-                    if actionsShown {
-                        ScrollView {
-                            controls
-                                .padding(22)
-                                .frame(maxWidth: 360)
-                                .background(night > 0.5 ? Color(red: 0.086, green: 0.114, blue: 0.204) : MorningStyle.surface,
-                                            in: RoundedRectangle(cornerRadius: 14))
-                                .frame(maxWidth: .infinity)
-                        }
-                        .defaultScrollAnchor(.bottom, for: .alignment)
-                        .scrollBounceBehavior(.basedOnSize)
-                        .transition(still ? .opacity : .opacity.combined(with: .offset(y: 12)))
-                    } else {
-                        Spacer(minLength: 0)
+                Button {
+                    withAnimation(still ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22)) {
+                        actionsShown.toggle()
                     }
-                    Button {
-                        withAnimation(still ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22)) {
-                            actionsShown.toggle()
-                        }
-                    } label: {
-                        MorningQuietLandscape(scene: MorningThemeClock.shared.celestial,
-                                              twinkles: !still && scenePhase == .active)
-                            .frame(width: min(max(0, geometry.size.width - 40), 340), height: min(200, geometry.size.height * 0.38))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("morning.actions")
-                    .accessibilityLabel(actionsShown
-                        ? (isFrench ? "Masquer les commandes" : "Hide controls")
-                        : (isFrench ? "Afficher les commandes" : "Show controls"))
-                    .accessibilityHint(isFrench ? "Le paysage suit l’heure de votre iPhone." : "The landscape follows your iPhone’s time.")
+                } label: {
+                    MorningQuietLandscape(scene: clock.celestial, weather: clock.weatherScene,
+                                          twinkles: !still && scenePhase == .active, strongInk: strongInk)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
                 }
-                .padding(.bottom, 12)
+                .buttonStyle(.plain)
+                .ignoresSafeArea()
+                .accessibilityIdentifier("morning.actions")
+                .accessibilityLabel(actionsShown
+                    ? (isFrench ? "Masquer les commandes" : "Hide controls")
+                    : (isFrench ? "Afficher les commandes" : "Show controls"))
+                .accessibilityValue(clock.skyAccessibilityDescription)
+                .accessibilityHint(isFrench ? "Le paysage suit l’heure de votre iPhone." : "The landscape follows your iPhone’s time.")
+
+                if actionsShown {
+                    ScrollView {
+                        controls
+                            .padding(22)
+                            .frame(maxWidth: 360)
+                            .background(night > 0.5 ? Color(red: 0.086, green: 0.114, blue: 0.204) : MorningStyle.surface,
+                                        in: RoundedRectangle(cornerRadius: 14))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .frame(maxHeight: geometry.size.height * (dynamicTypeSize.isAccessibilitySize ? 0.78 : 0.68))
+                    .defaultScrollAnchor(.bottom, for: .alignment)
+                    .scrollBounceBehavior(.basedOnSize)
+                    .padding(.horizontal, 20).padding(.bottom, 20)
+                    .transition(still ? .opacity : .opacity.combined(with: .offset(y: 12)))
+                } else if let attribution = clock.weatherAttribution, !weatherSynthetic {
+                    weatherCredit(attribution, night: night)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24).padding(.bottom, 8)
+                }
             }
             .foregroundStyle(night > 0.5 ? Color(red: 0.91, green: 0.91, blue: 0.96) : MorningStyle.ink)
         }
+    }
+
+    private func weatherCredit(_ attribution: WeatherAttributionInfo, night: Double) -> some View {
+        Link(destination: attribution.legalURL) {
+            AsyncImage(url: night > 0.5 ? attribution.combinedMarkDarkURL : attribution.combinedMarkLightURL) { phase in
+                if let image = phase.image {
+                    image.resizable().scaledToFit().frame(width: 100, height: 18)
+                } else {
+                    Text(attribution.serviceName).font(.raleway(.caption))
+                }
+            }
+            .frame(minWidth: 100, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(attribution.serviceName)
+        .accessibilityIdentifier("morning.weatherCredit")
     }
 
     private var controls: some View {
@@ -1321,10 +1364,18 @@ private struct MorningSunHome: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .font(.raleway(.subheadline))
             .buttonStyle(.plain)
+            if !needsSolarCity || MorningThemeClock.shared.usesWeatherFixture {
+                Text(MorningThemeClock.shared.weatherStatusDescription)
+                    .font(.raleway(.caption))
+                    .accessibilityIdentifier("morning.weatherStatus")
+            }
+            if let attribution = MorningThemeClock.shared.weatherAttribution {
+                MorningWeatherAttributionView(attribution: attribution, synthetic: weatherSynthetic)
+            }
             if needsSolarCity {
                 Button(action: openSettings) {
-                    Text(isFrench ? "Choisissez votre ville dans Votre journée pour suivre le lever et le coucher du soleil."
-                                  : "Choose your city in Your day to follow sunrise and sunset.")
+                    Text(isFrench ? "Choisissez votre ville dans Votre journée pour adapter le ciel à l’heure et à la météo."
+                                  : "Choose your city in Your day for local daylight and weather.")
                         .font(.raleway(.caption)).multilineTextAlignment(.leading).opacity(0.75)
                         .frame(minHeight: 44, alignment: .leading).contentShape(Rectangle())
                 }
