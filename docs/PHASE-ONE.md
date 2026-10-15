@@ -1,10 +1,18 @@
 # MORE: implementation and verification
 
-**Current installed app source: `1952d9f`, 10 October 2026, on `codex/more-quiet-morning`.** Simulator compilation, signed iPhone compilation and deep/strict signature verification passed. Ordinary installation and launch returned success, preserving the owner's data. Design acceptance remains open. This is a testable revision, not evidence of complete morning ingestion, connected inboxes, real speech recognition or HomePod operation.
+**Current physical installation: MORE 0.1.0 (1519), app source `1b3be4c`, 15 October 2026, from PR [#170](https://github.com/gibouu/morning-operator/pull/170).** Signed iPhone build, deep/strict signature verification, in-place installation and ordinary foreground launch succeeded on the connected iPhone 17 / iOS 27.2. The installed app version and live process were queried afterward. No fixture arguments, uninstall or data reset were used. The PR is ready for review but remains unmerged: the authenticated GitHub account has read-only access to the upstream repository. This establishes delivery of the PR source to the phone, not a merged-main installation or owner acceptance of every flow.
+
+## Physical delivery of quiet solar Home — 15 October 2026
+
+At the owner's request, the ordinary personal MORE app was updated in place using its existing local signing/bundle configuration. The signed app and embedded widget both report build 1519. Install and ordinary launch returned success; the subsequent installed-app and running-process queries confirmed the new version was active. The source checkpoint is `1b3be4c`; later delivery-record changes are documentation and test-evidence only. Local command records are under the ignored `work/quiet-solar-iphone/` directory. Personal signing overrides, profiles, device identifiers and records were not committed.
+
+The existing personal provisioning configuration does not enable WeatherKit or Screen Time; this installation does not establish either service's availability. No provider/account journey, physical visual inspection, VoiceOver session or listener acceptance was performed. The owner can now perform the remaining acceptance in [#171](https://github.com/gibouu/morning-operator/issues/171).
+
+**Remaining delivery blocker:** GitHub rejected the requested upstream merge because the current account lacks repository write permission. PR #170 is ready and conflict-free, but a maintainer must merge it. The installation above uses the PR branch directly and must not be described as merged-main delivery.
 
 ## Quiet dotted solar Home candidate — 15 October 2026
 
-PR [#170](https://github.com/gibouu/morning-operator/pull/170), branch `guillaume/quiet-solar-home`, app source `e818f16`. This candidate has **not been installed on a physical iPhone**. It was developed in an isolated checkout to preserve the owner's parallel connection work.
+PR [#170](https://github.com/gibouu/morning-operator/pull/170), branch `guillaume/quiet-solar-home`, app source `e818f16`. This candidate was subsequently installed as MORE 0.1.0 (1519), as recorded above. It was developed in an isolated checkout to preserve the owner's parallel connection work.
 
 Home opens with only a small dotted landscape at the bottom; touch reveals/hides Begin, My routine, Settings and the existing run/completion controls. Sunrise/sunset are calculated offline for the city selected in Your day, using the iPhone's date/time zone. Without a city, the menu/settings disclose a 07:00–19:00 reference cycle. The moon is decorative. No device-location permission or additional remote service was introduced.
 
