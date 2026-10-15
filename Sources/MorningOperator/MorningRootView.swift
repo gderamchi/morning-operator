@@ -265,13 +265,12 @@ struct MorningRootView: View {
         }
         .onChange(of: store.briefing.prepared) { _, _ in synchronizeHomeWeather() }
         .task { await initializeMorning() }
-        .task {
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 MorningThemeClock.shared.refresh()
-                if scenePhase == .active {
-                    await store.refreshHomeWeatherIfNeeded()
-                    synchronizeHomeWeather()
-                }
+                await store.refreshHomeWeatherIfNeeded()
+                synchronizeHomeWeather()
                 try? await Task.sleep(for: .seconds(60))
             }
         }
