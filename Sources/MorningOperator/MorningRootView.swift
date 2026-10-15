@@ -59,10 +59,12 @@ struct MorningRootView: View {
 
     // Dark system chrome belongs only to the night landscape. Reading screens
     // and presented controls keep the existing light paper and native fields.
-    private var nightHomeAppearance: Bool {
-        path.isEmpty && MorningThemeClock.shared.celestial.moon.opacity > 0.57
-            && !showingInvitation && !store.capturePresented && !store.voiceCommandPresented
+    private var homeSkyIsVisible: Bool {
+        path.isEmpty && !showingInvitation && !store.capturePresented && !store.voiceCommandPresented
             && !store.captureVoicePresented && store.pendingWebTarget == nil && !store.privacyBlocksWork
+    }
+    private var nightHomeAppearance: Bool {
+        homeSkyIsVisible && MorningThemeClock.shared.celestial.moon.opacity > 0.57
     }
 
     private var presentedContent: some View {
@@ -73,6 +75,7 @@ struct MorningRootView: View {
                                showingActions = false
                                if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true }
                            },
+                           motionAllowed: homeSkyIsVisible,
                            weatherSynthetic: store.usesSyntheticBriefing,
                            needsSolarCity: store.briefing.settings.weatherLocation == nil, notice: store.notice,
                            session: store.session, currentStep: store.currentStep,
@@ -1202,6 +1205,7 @@ private struct MorningSunHome: View {
     @Binding var actionsShown: Bool
     var openSettings: () -> Void
     var openRoutine: () -> Void
+    var motionAllowed: Bool
     var weatherSynthetic: Bool
     var needsSolarCity: Bool
     var notice: String?
@@ -1255,7 +1259,8 @@ private struct MorningSunHome: View {
                     }
                 } label: {
                     MorningQuietLandscape(scene: clock.celestial, weather: clock.weatherScene,
-                                          twinkles: !still && scenePhase == .active, strongInk: strongInk)
+                                          animated: !still, active: motionAllowed && scenePhase == .active,
+                                          strongInk: strongInk)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .contentShape(Rectangle())
                 }
