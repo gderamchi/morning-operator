@@ -120,15 +120,82 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
             "This count needs a refresh."
         ])).firstMatch
         XCTAssertFalse(stale.exists, "The native Gmail result is no longer fresh.")
-        let rowCount = app.buttons.matching(identifier: "gmail.message.open").count
+        let identifiedRows = app.buttons.matching(identifier: "gmail.message.open")
+        // SwiftUI can propagate the surrounding VStack's identifier over its
+        // CardButtons. It has no other buttons, so these are the same inbox rows.
+        let rowCount = identifiedRows.count > 0 ? identifiedRows.count
+            : app.buttons.matching(identifier: "gmail.messages").count
         let empty = app.staticTexts.matching(NSPredicate(format: "label IN %@", [
             "No unread messages in Inbox.", "Aucun message non lu dans la boîte de réception."
         ])).firstMatch.exists
         XCTAssertTrue(rowCount <= 5, "The native unread list exceeded its five-message bound.")
         XCTAssertTrue(rowCount > 0 || empty, "A missing list is not evidence of an empty unread Inbox.")
         XCTAssertFalse(rowCount > 0 && empty, "The native unread list and its empty-state indicator disagree.")
+        if ProcessInfo.processInfo.environment["MO_REAL_PHONE_EXPECT_GMAIL_SEND_ACCESS"] == "1" {
+            XCTAssertFalse(app.buttons["gmail.enableSending"].exists,
+                           "The existing native Gmail session does not expose sending access. No broader consent was started.")
+        }
         // No successful mailbox content is explicitly captured or opened.
         // Never inspect or print message labels, subjects, senders, or counts.
+    }
+
+    func testInspectExistingRoutineWithoutEditing() throws {
+        try activateOrdinaryApp()
+        let routine = app.buttons["setup.routine"]
+        if !routine.exists || !routine.isHittable {
+            let settings = app.buttons["morning.settings"]
+            if !settings.exists {
+                let controls = app.buttons["morning.actions"]
+                guard controls.waitForExistence(timeout: 10), controls.isHittable,
+                      ["Show controls", "Afficher les commandes"].contains(controls.label) else {
+                    throw XCTSkip("Leave ordinary MORE on Home or Settings. No other screen was dismissed.")
+                }
+                controls.tap()
+            }
+            reveal(settings)
+            settings.tap()
+        }
+        reveal(routine)
+        routine.tap()
+        let editor = app.descendants(matching: .any).matching(identifier: "routine.editor").firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 10), "The existing routine editor did not appear.")
+        try refusePermissionOrFixtureScreens()
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "routine.step."))
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10), "No existing routine moment was rendered.")
+
+        var labels: [Int: String] = [:]
+        var draftApprovalVisible = false
+        for page in 0..<5 {
+            try refusePermissionOrFixtureScreens()
+            draftApprovalVisible = draftApprovalVisible || app.buttons["routine.approve"].exists
+            for row in rows.allElementsBoundByIndex.prefix(32) where row.exists && row.isHittable {
+                guard let index = Int(row.identifier.dropFirst("routine.step.".count)),
+                      (0..<32).contains(index) else { continue }
+                labels[index] = String(row.label.prefix(4_096))
+            }
+            capture("real-phone-existing-routine-page-\(page + 1)")
+            if labels.count >= 8 || page == 4 { break }
+            let scroll: XCUIElement
+            if app.collectionViews.firstMatch.exists { scroll = app.collectionViews.firstMatch }
+            else if app.tables.firstMatch.exists { scroll = app.tables.firstMatch }
+            else { scroll = app.scrollViews.firstMatch }
+            guard scroll.exists else { break }
+            scroll.swipeUp()
+        }
+        XCTAssertFalse(labels.isEmpty, "The existing plan appeared, but no visible routine row could be inventoried.")
+        let inventory = ([
+            "Local routine inventory; no moment opened or action executed.",
+            "Runner locale: \(Locale.current.identifier)",
+            "Preferred languages: \(Locale.preferredLanguages.prefix(3).joined(separator: ", "))",
+            "Draft approval control present: \(draftApprovalVisible)",
+            "Observed row count: \(labels.count)"
+        ] + labels.keys.sorted().map { "routine.step.\($0): \(labels[$0] ?? "")" }).joined(separator: "\n")
+        let attachment = XCTAttachment(string: inventory)
+        attachment.name = "real-phone-existing-routine-inventory-local-only"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        // The five-page bound is an inventory limit, not proof that every moment was visible.
+        // Never open a row, approve, save, import, change a budget, delete, or begin a run.
     }
 
     func testPresentNativeGmailReadAndSendSignInForOwner() throws {
