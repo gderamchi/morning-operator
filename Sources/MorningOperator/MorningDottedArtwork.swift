@@ -46,11 +46,11 @@ struct MorningDottedSunrise: Shape {
 struct MorningDottedDisc: Shape {
     enum Kind { case sun, moon }
     var kind: Kind = .sun
+    var cells = 23
 
     func path(in rect: CGRect) -> Path {
         let side = min(rect.width, rect.height)
         let origin = CGPoint(x: rect.midX - side / 2, y: rect.midY - side / 2)
-        let cells = 23
         let cell = side / CGFloat(cells)
         var path = Path()
         for row in 0..<cells {
@@ -469,112 +469,386 @@ struct MorningDottedFrame: Shape {
     }
 }
 
-/// A small printed landscape. Only the stars shimmer; the sky's position changes
-/// with the minute clock, so opening the app never replays the sun's journey.
+/// Decorative time never moves the solar clock. Static paper, celestial bodies and ground
+/// stay outside the ambient timelines.
 struct MorningQuietLandscape: View {
     let scene: MorningCelestialScene
-    var twinkles = true
+    var weather: MorningWeatherScene?
+    var animated = true
+    var active = true
+    var strongInk = false
+    @ViewState private var pausedAt: Date?
+    @ViewState private var suspendedInterval: TimeInterval = 0
 
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
             let night = scene.moon.opacity
-            let ink = Color(red: 0.43 - 0.03 * night, green: 0.35 + 0.12 * night, blue: 0.25 + 0.34 * night)
-            let height = min(1, max(0, (0.76 - scene.sun.centerY) / 0.58))
-            let gold = Color(red: 0.95 + 0.05 * height, green: 0.40 + 0.34 * height, blue: 0.15 + 0.17 * height)
+            let visibility = weather?.celestialVisibility ?? 1
+            let altitude = min(1, max(0, (0.76 - scene.sun.centerY) / 0.58))
+            let diameter = min(size.width * 0.30, min(size.height * 0.25, 142))
             ZStack {
-                // Both bodies sit behind the horizon and trees.
-                MorningDottedDisc()
-                    .fill(LinearGradient(colors: [Color(red: 1, green: 0.87, blue: 0.52), gold], startPoint: .top, endPoint: .bottom))
-                    .frame(width: 58, height: 58)
-                    .position(x: size.width * scene.sun.centerX, y: size.height * scene.sun.centerY)
-                    .opacity(scene.sun.opacity)
-                MorningDottedDisc(kind: .moon)
-                    .fill(Color(red: 0.90, green: 0.89, blue: 0.77))
-                    .frame(width: 42, height: 42)
-                    .position(x: size.width * scene.moon.centerX, y: size.height * scene.moon.centerY)
-                    .opacity(night)
-            }
-            .mask(alignment: .top) { Rectangle().frame(height: size.height * 0.765) }
-
-            TimelineView(.animation(minimumInterval: 0.125, paused: !twinkles || night < 0.01)) { timeline in
-                Canvas { context, canvas in
-                    let stars: [(Double, Double, Double)] = [
-                        (0.10, 0.16, 0.4), (0.23, 0.34, 1.8), (0.34, 0.09, 3.2),
-                        (0.49, 0.29, 0.9), (0.62, 0.12, 4.4), (0.76, 0.33, 2.6),
-                        (0.88, 0.12, 5.1), (0.94, 0.47, 1.4), (0.42, 0.48, 3.8)
-                    ]
-                    let seconds = twinkles ? timeline.date.timeIntervalSinceReferenceDate : 0
-                    for (index, star) in stars.enumerated() {
-                        let brightness = twinkles ? 0.52 + 0.28 * sin(seconds * 0.75 + star.2) : 0.68
-                        let point = CGPoint(x: canvas.width * star.0, y: canvas.height * star.1)
-                        var dots = Path()
-                        let radius = index.isMultiple(of: 3) ? 1.25 : 0.85
-                        dots.addEllipse(in: CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2))
-                        if index.isMultiple(of: 3) {
-                            for distance in [3.5, 6.0] {
-                                for axis in [CGPoint(x: 1, y: 0), CGPoint(x: -1, y: 0), CGPoint(x: 0, y: 1), CGPoint(x: 0, y: -1)] {
-                                    let r = distance < 4 ? 0.65 : 0.4
-                                    dots.addEllipse(in: CGRect(x: point.x + axis.x * distance - r, y: point.y + axis.y * distance - r, width: r * 2, height: r * 2))
-                                }
-                            }
-                        }
-                        context.fill(dots, with: .color(Color(red: 0.92, green: 0.91, blue: 0.83).opacity(brightness * night)))
-                    }
-                }
-            }
-            Canvas { context, canvas in
-                let horizon = canvas.height * 0.76
-                var land = Path()
-                func dot(_ x: Double, _ y: Double, _ radius: Double) {
-                    land.addEllipse(in: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2))
-                }
-                // A low, irregular dotted hill, with sparse grain beneath it.
-                for column in 0...82 {
-                    let x = canvas.width * Double(column) / 82
-                    let edge = sin(Double(column) * 0.12) * 1.6
-                    dot(x, horizon + edge, 0.7)
-                    if column.isMultiple(of: 3) { dot(x + 1, horizon + 9 + sin(Double(column)) * 3, 0.45) }
-                    if column.isMultiple(of: 5) { dot(x - 2, horizon + 19 + cos(Double(column)) * 4, 0.35) }
-                }
-                // A pair of trees on either side, entirely made of round impressions.
-                for (fraction, scale) in [(0.09, 0.72), (0.18, 1.0), (0.82, 0.88), (0.91, 0.63)] {
-                    let x = canvas.width * fraction
-                    let base = horizon - 1
-                    for row in 0...10 { dot(x, base - Double(row) * 3.2 * scale, 0.8 * scale) }
-                    for row in 0...12 {
-                        let y = base - (21 + Double(row) * 2.4) * scale
-                        let halfWidth = sqrt(max(0, 1 - pow((Double(row) - 6) / 6.6, 2))) * 17 * scale
-                        for column in -7...7 {
-                            let dx = Double(column) * 2.7 * scale
-                            guard abs(dx) <= halfWidth else { continue }
-                            let grain = Double((row * 13 + (column + 7) * 7) % 9) / 9
-                            dot(x + dx, y, (0.55 + grain * 0.45) * scale)
+                MorningQuietSky(night: night, weather: weather, strongInk: strongInk)
+                MorningWallpaperStars(night: night * (weather?.starVisibility ?? 1), animated: animated,
+                                      active: active, pausedAt: pausedAt, suspendedInterval: suspendedInterval)
+                MorningDottedDisc(cells: 37)
+                    .fill(LinearGradient(colors: [Color(red: 1, green: 0.85, blue: 0.43),
+                        Color(red: 0.96, green: 0.38 + 0.34 * altitude, blue: 0.12 + 0.13 * altitude)],
+                        startPoint: .top, endPoint: .bottom))
+                    .frame(width: diameter, height: diameter)
+                    .position(position(scene.sun, in: size))
+                    .opacity(scene.sun.opacity * visibility)
+                MorningDottedDisc(kind: .moon, cells: 37)
+                    .fill(Color(red: 0.92, green: 0.91, blue: 0.81))
+                    .frame(width: diameter * 0.88, height: diameter * 0.88)
+                    .position(position(scene.moon, in: size))
+                    .opacity(night * visibility)
+                if let weather {
+                    // The expensive dot grids are traced once, outside the timeline.
+                    let stamps = cloudStamps(size: size, weather: weather)
+                    let moves = weather.cloudCoverage > 0 || weather.precipitation != .none
+                        || weather.windIntensity > 0 || weather.atmosphere != .clear || weather.condition == .hot
+                    TimelineView(.animation(minimumInterval: 1 / 24,
+                                            paused: !MorningSkyAnimation.runs(animated && active && moves))) { timeline in
+                        let seconds = MorningSkyAnimation.time(at: pausedAt ?? timeline.date, animated: animated,
+                                                              suspendedInterval: suspendedInterval)
+                        Canvas(opaque: false, rendersAsynchronously: true) { context, canvas in
+                            clouds(stamps, in: context, size: canvas, weather: weather, night: night, seconds: seconds)
+                            atmosphere(in: context, size: canvas, weather: weather, night: night, seconds: seconds)
+                            precipitation(in: context, size: canvas, weather: weather, night: night, seconds: seconds)
+                            wind(in: context, size: canvas, weather: weather, night: night, seconds: seconds)
                         }
                     }
-                    for side in [-1.0, 1.0] {
-                        for step in 0...4 { dot(x + side * Double(step) * 2, base - (19 + Double(step) * 1.8) * scale, 0.7 * scale) }
-                    }
                 }
-                // A few blades of grass give the ground a scale without filling the page.
-                for fraction in [0.29, 0.34, 0.66, 0.72] {
-                    let x = canvas.width * fraction
-                    for step in 0...2 { dot(x + Double(step), horizon - Double(step) * 2, 0.55) }
+                Canvas(opaque: false, rendersAsynchronously: true) { context, canvas in
+                    ground(in: context, size: canvas, night: night)
                 }
-                context.fill(land, with: .color(ink.opacity(0.76)))
             }
         }
         .accessibilityHidden(true)
         .allowsHitTesting(false)
+        .onChange(of: active, initial: true) { _, active in
+            // Hidden Home freezes its pose and resumes from there, without rewinding.
+            if active, let pause = pausedAt {
+                suspendedInterval += max(0, Date.now.timeIntervalSince(pause))
+                pausedAt = nil
+            } else if !active, pausedAt == nil {
+                pausedAt = .now
+            }
+        }
+    }
+
+    private func position(_ body: MorningCelestialPosition, in size: CGSize) -> CGPoint {
+        let progress = min(1, max(0, (body.centerX - 0.12) / 0.76))
+        let height = min(1, max(0, (0.76 - body.centerY) / 0.58))
+        return CGPoint(x: size.width * (0.16 + 0.68 * progress), y: size.height * (0.61 - 0.23 * height))
+    }
+
+    private func dot(_ path: inout Path, x: Double, y: Double, radius: Double) {
+        path.addEllipse(in: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2))
+    }
+
+    private struct CloudStamp {
+        let dots: Path
+        let origin: CGPoint
+        let width: Double
+        let speed: Double
+    }
+
+    private func cloudStamps(size: CGSize, weather: MorningWeatherScene) -> [CloudStamp] {
+        guard weather.cloudCoverage > 0 else { return [] }
+        let placements = [(0.16, 0.22, 0.74), (0.83, 0.29, 0.9), (0.53, 0.13, 1.0),
+                          (0.32, 0.42, 1.1), (0.82, 0.51, 0.85), (0.13, 0.65, 1.0), (0.58, 0.68, 0.8)]
+        let count = min(placements.count, max(1, Int(ceil(weather.cloudCoverage * 7))))
+        return (0..<count).map { index in
+            let placement = placements[index]
+            let width = size.width * (0.38 + 0.24 * weather.cloudCoverage) * placement.2
+            let height = width * 0.34
+            var dots = Path()
+            for row in 0...Int(height / 3.7) {
+                for column in 0...Int(width / 3.7) {
+                    let x = Double(column) * 3.7, y = Double(row) * 3.7
+                    let nx = x / width, ny = y / height
+                    let base = pow((nx - 0.5) / 0.49, 2) + pow((ny - 0.69) / 0.27, 2)
+                    let left = pow((nx - 0.31) / 0.22, 2) + pow((ny - 0.47) / 0.39, 2)
+                    let top = pow((nx - 0.57) / 0.25, 2) + pow((ny - 0.39) / 0.44, 2)
+                    let edge = min(base, min(left, top))
+                    guard edge < 1 else { continue }
+                    let grain = Double((row * 37 + column * 13 + index * 7) % 11) / 11
+                    dot(&dots, x: x, y: y, radius: (0.42 + grain * 0.49) * (1 - edge * 0.28))
+                }
+            }
+            return CloudStamp(dots: dots,
+                              origin: CGPoint(x: size.width * placement.0 - width / 2,
+                                              y: size.height * placement.1 - height / 2), width: width,
+                              speed: 2.3 * (0.7 + Double(index) * 0.11) + weather.windIntensity * 6)
+        }
+    }
+
+    private func clouds(_ stamps: [CloudStamp], in context: GraphicsContext, size: CGSize,
+                        weather: MorningWeatherScene, night: Double, seconds: Double) {
+        let ink = Color(red: 0.36 + night * 0.23, green: 0.40 + night * 0.23, blue: 0.45 + night * 0.29)
+            .opacity(strongInk ? 0.75 : 0.44 + weather.cloudCoverage * 0.20)
+        for stamp in stamps {
+            let span = size.width + stamp.width + 40
+            let x = MorningSkyAnimation.wrap(stamp.origin.x + stamp.width + 20 + seconds * stamp.speed, span: span)
+                - stamp.width - 20
+            // Wrap only while the whole cloud is beyond the edge; no visible pop.
+            for copy in [-span, 0, span] where x + copy < size.width && x + copy + stamp.width > 0 {
+                var cloud = context
+                cloud.translateBy(x: x + copy, y: stamp.origin.y)
+                cloud.fill(stamp.dots, with: .color(ink))
+            }
+        }
+    }
+
+    private func precipitation(in context: GraphicsContext, size: CGSize, weather: MorningWeatherScene, night: Double, seconds: Double) {
+        guard weather.precipitation != .none else { return }
+        var random = MorningSeededRandom(seed: 731)
+        var dots = Path()
+        let count = Int(25 + 125 * weather.precipitationIntensity)
+        for index in 0..<count {
+            let seedX = random.range(0.025, 0.975) * size.width
+            let seedY = random.range(0.10, 0.94) * size.height
+            let icy = weather.precipitation == .freezingRain || weather.precipitation == .hail
+            let snow = weather.precipitation == .snow
+                || (weather.precipitation == .wintryMix && index.isMultiple(of: 2))
+                || (weather.precipitation == .sleet && index.isMultiple(of: 3))
+            let depth = 0.65 + Double(index % 7) / 10
+            let speed = (snow ? 13 : 70 + weather.precipitationIntensity * 75) * depth
+            let slant = snow ? 0.12 + weather.windIntensity * 0.7 : 0.24 + weather.windIntensity * 0.7
+            let sway = snow ? sin(seconds * 0.55 + Double(index)) * 9 : 0
+            let x = MorningSkyAnimation.wrap(seedX + 32 + seconds * speed * slant + sway,
+                                            span: size.width + 64) - 32
+            let y = MorningSkyAnimation.wrap(seedY + 32 + seconds * speed, span: size.height + 64) - 32
+            if snow {
+                let r = random.range(0.65, 1.35)
+                dot(&dots, x: x, y: y, radius: r)
+                if index.isMultiple(of: 3) {
+                    for offset in [-3.0, 3.0] {
+                        dot(&dots, x: x + offset, y: y, radius: 0.55)
+                        dot(&dots, x: x, y: y + offset, radius: 0.55)
+                    }
+                }
+            } else if weather.precipitation == .hail {
+                dot(&dots, x: x, y: y, radius: 1.7)
+                dot(&dots, x: x - 0.8, y: y + 4, radius: 0.55)
+            } else {
+                let length = 3 + Int(weather.precipitationIntensity * 4)
+                for step in 0..<length {
+                    let distance = Double(step) * 2.8
+                    dot(&dots, x: x + distance * (0.24 + weather.windIntensity * 0.7),
+                        y: y + distance, radius: icy ? 0.88 : 0.64)
+                }
+                if icy { dot(&dots, x: x - 1, y: y + 8, radius: 1.1) }
+            }
+        }
+        let ink = Color(red: 0.31 + 0.4 * night, green: 0.44 + 0.3 * night, blue: 0.57 + 0.28 * night)
+        context.fill(dots, with: .color(ink.opacity(strongInk ? 0.9 : 0.67)))
+        if weather.precipitation == .rain, seconds > 0 {
+            // Small, staggered rings where the rain meets the printed ground.
+            for index in 0..<4 {
+                let progress = MorningSkyAnimation.wrap(seconds / 3.6 + Double(index) * 0.27, span: 1)
+                let radius = 2 + progress * 7
+                var ring = Path()
+                for step in 0..<18 {
+                    let angle = Double(step) / 18 * .pi * 2
+                    dot(&ring, x: size.width * (0.23 + Double(index) * 0.18) + cos(angle) * radius,
+                        y: size.height * (0.915 + Double(index % 2) * 0.013) + sin(angle) * radius * 0.24,
+                        radius: 0.45)
+                }
+                context.fill(ring, with: .color(ink.opacity(sin(progress * .pi) * 0.38)))
+            }
+        }
+        if weather.lightning {
+            // A printed bolt, never a flashing light.
+            var bolt = Path()
+            let points = [CGPoint(x: size.width * 0.76, y: size.height * 0.27),
+                          CGPoint(x: size.width * 0.70, y: size.height * 0.35),
+                          CGPoint(x: size.width * 0.75, y: size.height * 0.34),
+                          CGPoint(x: size.width * 0.68, y: size.height * 0.43)]
+            for index in 0..<(points.count - 1) {
+                for step in 0...12 {
+                    let t = Double(step) / 12
+                    dot(&bolt, x: points[index].x + (points[index + 1].x - points[index].x) * t,
+                        y: points[index].y + (points[index + 1].y - points[index].y) * t, radius: 1.1)
+                }
+            }
+            context.fill(bolt, with: .color(Color(red: 0.91, green: 0.72, blue: 0.37).opacity(0.8)))
+        }
+    }
+
+    private func atmosphere(in context: GraphicsContext, size: CGSize, weather: MorningWeatherScene, night: Double, seconds: Double) {
+        guard weather.atmosphere != .clear || weather.condition == .hot || weather.condition == .frigid else { return }
+        var dots = Path()
+        let fog = weather.atmosphere == .fog
+        for band in 0..<(fog ? 7 : 4) {
+            let y = size.height * (0.32 + Double(band) * 0.085)
+            for column in -4...Int(size.width / 4.8 + 4) {
+                for row in 0..<(fog ? 5 : 2) {
+                    let x = Double(column) * 4.8
+                    let wave = sin(x / 50 + Double(band) + seconds * 0.18) * (weather.condition == .hot ? 9 : 2)
+                    dot(&dots, x: x + sin(seconds * 0.09 + Double(band)) * 8,
+                        y: y + Double(row) * 4 + wave,
+                        radius: 0.43 + Double(abs(column * 7 + row) % 5) * 0.07)
+                }
+            }
+        }
+        let warm = weather.atmosphere == .dust || weather.condition == .hot
+        let ink = warm ? Color(red: 0.65, green: 0.42, blue: 0.21)
+            : Color(red: 0.48 + night * 0.2, green: 0.51 + night * 0.2, blue: 0.55 + night * 0.22)
+        context.fill(dots, with: .color(ink.opacity(strongInk ? 0.7 : 0.4)))
+        if weather.condition == .frigid {
+            var frost = Path()
+            for x in stride(from: 18.0, to: size.width, by: 35) {
+                for step in -3...3 {
+                    dot(&frost, x: x + Double(step) * 2.3, y: size.height * 0.88, radius: 0.75)
+                    dot(&frost, x: x, y: size.height * 0.88 + Double(step) * 2.3, radius: 0.75)
+                }
+            }
+            context.fill(frost, with: .color(ink.opacity(0.8)))
+        }
+    }
+
+    private func wind(in context: GraphicsContext, size: CGSize, weather: MorningWeatherScene, night: Double, seconds: Double) {
+        guard weather.windIntensity > 0 else { return }
+        var dots = Path()
+        let count = Int(2 + weather.windIntensity * 6)
+        for band in 0..<count {
+            let origin = CGPoint(x: size.width * (band.isMultiple(of: 2) ? 0.04 : 0.64),
+                                 y: size.height * (0.19 + Double(band) * 0.093))
+            for step in 0...22 {
+                let t = Double(step) / 22
+                let x = MorningSkyAnimation.wrap(origin.x + t * size.width * 0.30 + 32
+                    + seconds * (5 + weather.windIntensity * 10), span: size.width + 64) - 32
+                dot(&dots, x: x, y: origin.y + sin(t * .pi * 1.3 + seconds * 0.24) * 9, radius: 0.65)
+            }
+        }
+        context.fill(dots, with: .color(Color(red: 0.45 + night * 0.2, green: 0.48 + night * 0.2, blue: 0.52 + night * 0.2).opacity(0.6)))
+    }
+
+    private func ground(in context: GraphicsContext, size: CGSize, night: Double) {
+        let horizon = size.height * 0.91
+        let scale = min(1.4, size.width / 360)
+        var land = Path()
+        for column in 0...Int(size.width / 4) {
+            let x = Double(column) * 4
+            dot(&land, x: x, y: horizon + sin(Double(column) * 0.12) * 1.6, radius: 0.65)
+            if column.isMultiple(of: 3) { dot(&land, x: x + 1, y: horizon + 10 + sin(Double(column)) * 3, radius: 0.4) }
+        }
+        for (fraction, proportion) in [(0.09, 0.72), (0.20, 1.0), (0.80, 0.88), (0.91, 0.63)] {
+            let x = size.width * fraction
+            let base = horizon - 1
+            let tree = scale * proportion * 1.17
+            for row in 0...11 { dot(&land, x: x, y: base - Double(row) * 3.5 * tree, radius: 0.85 * tree) }
+            for row in 0...14 {
+                let y = base - (23 + Double(row) * 2.6) * tree
+                let halfWidth = sqrt(max(0, 1 - pow((Double(row) - 7) / 7.5, 2))) * 18 * tree
+                for column in -8...8 {
+                    let dx = Double(column) * 2.7 * tree
+                    guard abs(dx) <= halfWidth else { continue }
+                    let grain = Double((row * 13 + (column + 8) * 7) % 9) / 9
+                    dot(&land, x: x + dx, y: y, radius: (0.55 + grain * 0.45) * tree)
+                }
+            }
+        }
+        for fraction in [0.29, 0.34, 0.66, 0.72] {
+            for step in 0...3 { dot(&land, x: size.width * fraction + Double(step), y: horizon - Double(step) * 2, radius: 0.55) }
+        }
+        let ink = Color(red: 0.43 - 0.03 * night, green: 0.35 + 0.12 * night, blue: 0.25 + 0.34 * night)
+        context.fill(land, with: .color(ink.opacity(0.80)))
+    }
+}
+
+private enum MorningSkyAnimation {
+    static let epoch = Date.now
+    static let previewTime: Double? = {
+        #if DEBUG
+        if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--theme-motion-time=") }),
+           let time = Double(argument.dropFirst("--theme-motion-time=".count)),
+           time.isFinite, (0...86_400).contains(time) { return time }
+        #endif
+        return nil
+    }()
+
+    static func runs(_ animated: Bool) -> Bool { animated && previewTime == nil }
+    static func time(at date: Date, animated: Bool, suspendedInterval: TimeInterval) -> Double {
+        animated ? (previewTime ?? max(0, date.timeIntervalSince(epoch) - suspendedInterval)) : 0
+    }
+    static func wrap(_ value: Double, span: Double) -> Double { value - floor(value / span) * span }
+}
+
+private struct MorningWallpaperStars: View {
+    var night: Double
+    var animated: Bool
+    var active: Bool
+    var pausedAt: Date?
+    var suspendedInterval: TimeInterval
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 24,
+                                paused: !MorningSkyAnimation.runs(animated && active) || night < 0.01)) { timeline in
+            let seconds = MorningSkyAnimation.time(at: pausedAt ?? timeline.date, animated: animated,
+                                                  suspendedInterval: suspendedInterval)
+            Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+                var random = MorningSeededRandom(seed: 4701)
+                for index in 0..<110 {
+                    let point = CGPoint(x: random.range(0.035, 0.965) * size.width,
+                                        y: random.range(0.055, 0.96) * size.height)
+                    let phase = random.range(0, .pi * 2)
+                    let speed = random.range(0.38, 0.85)
+                    let pulse = (1 + sin(seconds * speed + phase)) / 2
+                    let bright = index.isMultiple(of: 9)
+                    let brightness = animated ? 0.22 + (bright ? 0.58 : 0.35) * pow(pulse, 1.4) : 0.64
+                    let radius = bright ? 1.15 : random.range(0.4, 0.78)
+                    var path = Path(ellipseIn: CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2))
+                    if bright {
+                        for reach in [3.2, 5.6] {
+                            for axis in [CGPoint(x: 1, y: 0), CGPoint(x: -1, y: 0), CGPoint(x: 0, y: 1), CGPoint(x: 0, y: -1)] {
+                                let r = reach < 4 ? 0.6 : 0.35
+                                path.addEllipse(in: CGRect(x: point.x + axis.x * reach - r, y: point.y + axis.y * reach - r, width: r * 2, height: r * 2))
+                            }
+                        }
+                    }
+                    context.fill(path, with: .color(Color(red: 0.92, green: 0.91, blue: 0.83).opacity(brightness * night)))
+                }
+                if animated, night > 0.35 { shootingStar(in: context, size: size, seconds: seconds) }
+            }
+        }
+    }
+
+    private func shootingStar(in context: GraphicsContext, size: CGSize, seconds: Double) {
+        let cycle = floor(seconds / 47)
+        let progress = (seconds - cycle * 47 - 18) / 1.8
+        guard (0...1).contains(progress) else { return }
+        var random = MorningSeededRandom(seed: UInt64(cycle) &+ 9163)
+        let direction = Int(cycle).isMultiple(of: 2) ? 1.0 : -1.0
+        let start = CGPoint(x: size.width * random.range(0.25, 0.65), y: size.height * random.range(0.13, 0.29))
+        let dx = size.width * 0.29 * direction, dy = size.height * 0.095
+        let visibility = pow(sin(progress * .pi), 2) * night
+        for step in 0..<18 {
+            let tail = Double(step) / 17
+            let t = max(0, progress - tail * 0.22)
+            let radius = 0.4 + (1 - tail) * 0.65
+            let point = CGPoint(x: start.x + dx * t, y: start.y + dy * t)
+            let dot = Path(ellipseIn: CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2))
+            context.fill(dot, with: .color(Color(red: 0.95, green: 0.91, blue: 0.75)
+                .opacity(visibility * (1 - tail) * 0.78)))
+        }
     }
 }
 
 struct MorningQuietSky: View {
     var night: Double
+    var weather: MorningWeatherScene?
+    var strongInk = false
     var body: some View {
+        let clouds = weather?.cloudCoverage ?? 0
+        let cold = weather?.precipitation == .snow || weather?.condition == .frigid
         ZStack {
-            Color(red: 1, green: 0.97, blue: 0.90)
-            Color(red: 0.055, green: 0.065, blue: 0.12).opacity(night)
+            Color(red: 1 - clouds * 0.07, green: 0.97 - clouds * 0.035, blue: cold ? 0.97 : 0.90 + clouds * 0.035)
+            Color(red: 0.055 + clouds * 0.015, green: 0.065 + clouds * 0.015, blue: 0.12 + clouds * 0.025).opacity(night)
+            MorningHalftone(color: night > 0.5 ? Color(red: 0.75, green: 0.77, blue: 0.86) : Color(red: 0.35, green: 0.32, blue: 0.29),
+                            opacity: strongInk ? 0.19 : 0.11, cell: 5, radius: 0.36)
         }
         .accessibilityHidden(true)
         .allowsHitTesting(false)

@@ -15263,6 +15263,66 @@
         }
       }
     },
+    "Weather preview: %@ (sample).": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aperçu météo : %@ (exemple)."
+          }
+        }
+      }
+    },
+    "Choose a city in Your day to show its weather on Home.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une ville dans Votre journée pour adapter le ciel à sa météo."
+          }
+        }
+      }
+    },
+    "%@: %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : %@."
+          }
+        }
+      }
+    },
+    "Weather for %@ needs an update.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La météo de %@ doit être actualisée."
+          }
+        }
+      }
+    },
+    "Weather for %@ is not available yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La météo de %@ n’est pas encore disponible."
+          }
+        }
+      }
+    },
+    "Weather for %@ is unavailable right now.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La météo de %@ est indisponible pour le moment."
+          }
+        }
+      }
+    },
     "API action · %@": {
       "localizations": {
         "fr": {

@@ -19,6 +19,27 @@ final class MorningThemeClock {
     private(set) var celestial: MorningCelestialScene
     private(set) var solar: MorningSolarDay = .fixed
     private(set) var location: WeatherLocation?
+    private(set) var weatherScene: MorningWeatherScene?
+    private(set) var weatherAttribution: WeatherAttributionInfo?
+    private var weatherSnapshot: WeatherObservationSnapshot?
+    private var weatherStatus: MorningBriefingSourceStatus = .notConfigured
+    private let weatherPreview = MorningThemeClock.weatherFromArguments()
+    var usesWeatherFixture: Bool { weatherPreview != nil }
+    var weatherStatusDescription: String {
+        if let weatherPreview {
+            return String(localized: "Weather preview: \(weatherPreview) (sample).")
+        }
+        guard let location else { return String(localized: "Choose a city in Your day to show its weather on Home.") }
+        if let weatherSnapshot, weatherScene != nil {
+            return String(localized: "\(location.displayName): \(weatherSnapshot.conditionDescription).")
+        }
+        switch weatherStatus {
+        case .stale: return String(localized: "Weather for \(location.displayName) needs an update.")
+        case .notConfigured: return String(localized: "Weather for \(location.displayName) is not available yet.")
+        default: return String(localized: "Weather for \(location.displayName) is unavailable right now.")
+        }
+    }
+    var skyAccessibilityDescription: String { weatherStatusDescription }
     var isUsingReferenceDay: Bool { location == nil }
     var solarSourceDescription: String {
         if let location {
@@ -35,12 +56,24 @@ final class MorningThemeClock {
         blend = MorningDayClock.blend(at: now)
         celestial = MorningCelestialClock.scene(at: now)
         pinnedPhase = Self.phaseFromArguments()
-        if pinnedPhase != nil { refresh(now: now) }
+        refresh(now: now)
     }
 
     func setLocation(_ location: WeatherLocation?, now: Date = .now) {
+        if self.location != location {
+            weatherSnapshot = nil; weatherAttribution = nil; weatherScene = nil
+            weatherStatus = .notConfigured
+        }
         self.location = location
         refresh(now: now)
+    }
+
+    func setWeather(snapshot: WeatherObservationSnapshot?, status: MorningBriefingSourceStatus,
+                    location: WeatherLocation?, now: Date = .now) {
+        setLocation(location, now: now)
+        weatherSnapshot = snapshot
+        weatherStatus = status
+        refreshWeather(now: now)
     }
 
     func refresh(now: Date = .now) {
@@ -53,6 +86,34 @@ final class MorningThemeClock {
         if next != blend { blend = next }
         let art = pinnedPhase.map(MorningCelestialClock.scene(for:)) ?? MorningCelestialClock.scene(at: now, calendar: calendar, solar: day)
         if art != celestial { celestial = art }
+        refreshWeather(now: now)
+    }
+
+    private func refreshWeather(now: Date) {
+        if let weatherPreview {
+            weatherScene = MorningWeatherCondition(rawValue: weatherPreview).map { MorningWeatherScene(condition: $0) }
+            weatherAttribution = nil
+            return
+        }
+        guard let location, let snapshot = weatherSnapshot,
+              snapshot.isCurrent(for: location, at: now) else {
+            if weatherSnapshot != nil { weatherStatus = .stale }
+            weatherSnapshot = nil; weatherScene = nil; weatherAttribution = nil
+            return
+        }
+        weatherScene = MorningWeatherScene(condition: snapshot.condition, cloudCover: snapshot.cloudCover)
+        weatherAttribution = snapshot.attribution
+        weatherStatus = .fresh
+    }
+
+    private static func weatherFromArguments() -> String? {
+        #if DEBUG
+        if let option = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--theme-weather=") }) {
+            let value = String(option.dropFirst("--theme-weather=".count))
+            if value == "unavailable" || MorningWeatherCondition(rawValue: value) != nil { return value }
+        }
+        #endif
+        return nil
     }
 
     /// `--theme-phase=dawn` (UI tests, debug) or `MO_THEME_PHASE=dawn` (snapshots).

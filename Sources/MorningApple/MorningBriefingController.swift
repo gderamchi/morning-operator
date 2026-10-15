@@ -92,6 +92,11 @@ public final class MorningBriefingController {
     public var hasConfiguredSources: Bool {
         !settings.calendarIDs.isEmpty || settings.weatherLocation != nil || settings.includesHealth
     }
+    /// The same memory-only observation used by the briefing, admitted for the
+    /// currently selected city. Reading it never contacts the provider.
+    public var currentWeatherSnapshot: WeatherObservationSnapshot? {
+        currentWeather(at: now())
+    }
     /// Pin beside a document; settings/reset/cancellation changes invalidate it.
     public var playbackRevision: UUID { revision }
 
@@ -155,6 +160,7 @@ public final class MorningBriefingController {
     /// never reauthorize older text that predates a known Calendar change.
     @ObservationIgnored private var calendarPlaybackAdmissions: [UUID: CalendarPlaybackAdmission] = [:]
     @ObservationIgnored private var weatherInput: MorningBriefingInput<WeatherObservationSnapshot> = .notConfigured
+    @ObservationIgnored private var lastWeatherAttemptAt: Date?
     @ObservationIgnored private var sleepInput: SleepBriefingInput = .excluded
     @ObservationIgnored private var preparingKey: PreparationKey?
 
@@ -411,6 +417,24 @@ public final class MorningBriefingController {
         isSearchingCities = false
     }
 
+    /// A quiet Home can stay open all day. Reuse the preparation/cache owner and
+    /// retry unavailable weather at most every five minutes while foregrounded.
+    public func refreshForHome(at date: Date? = nil) async {
+        guard prepareForAccess(), settings.weatherLocation != nil else { return }
+        let instant = date ?? now()
+        guard instant.timeIntervalSinceReferenceDate.isFinite, currentWeather(at: instant) == nil else { return }
+        if let lastWeatherAttemptAt, instant >= lastWeatherAttemptAt,
+           instant.timeIntervalSince(lastWeatherAttemptAt) < 300 { return }
+        _ = await refresh(at: instant)
+    }
+
+    private func currentWeather(at instant: Date) -> WeatherObservationSnapshot? {
+        guard (try? withCurrentAccess { }) != nil, let location = settings.weatherLocation,
+              case .snapshot(let snapshot) = weatherInput,
+              snapshot.isCurrent(for: location, at: instant, maximumAge: policy.weatherMaximumAge) else { return nil }
+        return snapshot
+    }
+
     /// Same-context callers share one preparation, including a concurrent force
     /// request. Force refresh changes source data only; it has no session effects.
     public func refresh(at date: Date? = nil, force: Bool = false) async -> PreparedMorningBriefing? {
@@ -519,6 +543,7 @@ public final class MorningBriefingController {
         let current = try compose(calendar: .notConfigured, weather: cached, at: instant, zone: zone)
         guard force || current.weather.status != .fresh else { return cached }
         let service = weather
+        lastWeatherAttemptAt = instant
         do {
             return .snapshot(try await BriefingSourceDeadline<WeatherObservationSnapshot>(clock: clock).run(timeout: sourceTimeout) {
                 try await service.currentWeather(for: location)
@@ -569,6 +594,7 @@ public final class MorningBriefingController {
         refreshTask = nil; accessTask = nil; searchTask = nil; suggestionTask = nil; preparingKey = nil
         isPreparing = false; isConnectingCalendar = false; isSearchingCities = false
         prepared = nil; calendarInput = .notConfigured; weatherInput = .notConfigured; sleepInput = .excluded
+        lastWeatherAttemptAt = nil
         calendarPlaybackAdmissions = [:]
         cityQuery = ""; cityResults = []; citySuggestions = []; citySearchOutcome = nil
         if clearChoices { calendarChoices = []; weather.forgetCitySuggestions() }
