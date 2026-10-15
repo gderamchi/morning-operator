@@ -6,6 +6,8 @@ The app already calls native WeatherKit for the deliberately selected city. A pa
 
 An Account Holder or Admin enables the App ID services. The person building must have access to that paid team's Certificates, Identifiers & Profiles in Xcode; otherwise the owner builds and installs the app themselves. Do not share Apple passwords, certificates or private keys in Git or chat.
 
+For an **organization** membership, invite the builder to the developer team and grant Certificates, Identifiers & Profiles access. For an **individual** membership, an App Store Connect invitation does not grant that developer-team access: the paid Account Holder must perform signing. [Apple's role rules](https://developer.apple.com/help/account/access/roles).
+
 1. Sign in to [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list), select the paid team and open the explicit App ID for `com.gibouu.morningoperator`.
 2. Enable **WeatherKit** in **Capabilities** and in **App Services**, save and confirm both changes. Apple requires both selections. Update or regenerate the development provisioning profile after changing the App ID; an older cached profile is insufficient. [Apple's steps](https://developer.apple.com/help/account/identifiers/enable-app-capabilities).
 3. In full Xcode, add the authorized Apple account under **Settings → Accounts** and select the paid team for **MorningOperator** and **MorningActivityWidget**. Keep automatic signing enabled. Register the intended phone with that team if required, and complete Trust/Developer Mode prompts on the unlocked phone.
