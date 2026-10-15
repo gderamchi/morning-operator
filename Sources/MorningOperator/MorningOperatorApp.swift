@@ -18,6 +18,7 @@ struct MorningOperatorApp: App {
             #if DEBUG
             if let site = Self.webMorningLaunchSite, showingWebPreview {
                 WebMorningView(site: site, minutes: 10, onClose: { showingWebPreview = false })
+                    .preferredColorScheme(.light)
             } else {
                 MorningRootView(store: store)
             }
@@ -25,8 +26,6 @@ struct MorningOperatorApp: App {
             MorningRootView(store: store)
             #endif
             }
-            // Match system status text to the sky; MORE still owns its paper palette.
-            .preferredColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.57 ? .dark : .light)
             #if DEBUG
             .overlay(alignment: .topLeading) {
                 if ProcessInfo.processInfo.arguments.contains("--qa-system-checks"),

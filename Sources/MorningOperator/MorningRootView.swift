@@ -57,6 +57,14 @@ struct MorningRootView: View {
         return Double(session.completedStepIDs.count) / Double(session.routine.steps.count)
     }
 
+    // Dark system chrome belongs only to the night landscape. Reading screens
+    // and presented controls keep the existing light paper and native fields.
+    private var nightHomeAppearance: Bool {
+        path.isEmpty && MorningThemeClock.shared.celestial.moon.opacity > 0.57
+            && !showingInvitation && !store.capturePresented && !store.voiceCommandPresented
+            && !store.captureVoicePresented && store.pendingWebTarget == nil && !store.privacyBlocksWork
+    }
+
     private var presentedContent: some View {
         NavigationStack(path: Binding(get: { path }, set: { path = $0 })) {
             MorningSunHome(actionsShown: $showingActions,
@@ -84,7 +92,7 @@ struct MorningRootView: View {
                            speak: { store.openCompletionCapture() }, write: { store.openCapture() },
                            notNow: { store.discardCompletionReflection() })
                 // Light status bar text over the night sky.
-                .toolbarColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.57 ? .dark : .light, for: .navigationBar)
+                .toolbarColorScheme(nightHomeAppearance ? .dark : .light, for: .navigationBar)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeRoute.self) { route in
                     switch route {
@@ -116,9 +124,8 @@ struct MorningRootView: View {
                     }
                 }
         }
-        // On the stack, not its first screen, so the status bar clock follows the sky
-        // on pushed screens too and turns light at night.
-        .preferredColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.57 ? .dark : .light)
+        // Keep night status text light on Home and use light paper on destinations.
+        .preferredColorScheme(nightHomeAppearance ? .dark : .light)
         .background(MorningPaper(showsSun: false))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { dockWidth = $0 }
         .background {
