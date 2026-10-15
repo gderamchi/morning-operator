@@ -59,9 +59,9 @@ struct StepTargetEditor: View {
                 Text("Add and authorize the shortcut in Shortcuts first. Its name alone does not verify a connection.")
                     .font(.footnote).foregroundStyle(MorningStyle.muted)
             }
-            if case let .connectedAPI(service, _, _, arguments) = target {
+            if case let .connectedAPI(service, _, _, _) = target, let target {
                 Text(service.capitalized).font(.subheadline)
-                if let details = try? ConnectedActionReview.summary(argumentsJSON: arguments) {
+                if let details = RoutineConnectedReview.summary(for: target) {
                     if let reviewedDetail, !reviewedDetail.isEmpty, reviewedDetail != details {
                         Text(AppLanguage.isFrench ? "Description et compte enregistrés" : "Saved account and description")
                             .font(.caption).foregroundStyle(MorningStyle.muted)
@@ -92,5 +92,25 @@ struct StepTargetEditor: View {
         case .place: String(localized: "Place (optional)")
         case .webAddress: String(localized: "Web address")
         }
+    }
+}
+
+/// Presentation only: a configured Slack read has one fixed operation. Its
+/// saved names describe the owner's choice; execution still verifies IDs and
+/// fresh provider identity, then reviews the actual destination before sending.
+enum RoutineConnectedReview {
+    static func summary(for target: RoutineStepTarget) -> String? {
+        guard case let .connectedAPI(service, _, tool, json) = target else { return nil }
+        if service == "slack", tool == "SLACK_FETCH_CONVERSATION_HISTORY",
+           let arguments = try? ComposioJSONValue.parseObject(json),
+           Set(arguments.keys) == ["channel", "limit"], arguments["limit"] == .number(3),
+           let channel = arguments["channel"]?.stringValue,
+           (3...80).contains(channel.count), channel.first.map({ "CG".contains($0) }) == true,
+           channel.allSatisfy({ $0.isASCII && ($0.isUppercase || $0.isNumber) }) {
+            return AppLanguage.isFrench
+                ? "Slack : lire les trois derniers messages du canal choisi. Le compte et le canal enregistrés seront revérifiés pendant la lecture ; toute réponse demande une relecture et votre instruction d’envoi."
+                : "Slack: read the latest three messages in the chosen channel. The saved account and channel will be checked again during reading; any reply requires review and your instruction to send."
+        }
+        return try? ConnectedActionReview.summary(argumentsJSON: json)
     }
 }

@@ -3,6 +3,99 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    func testFrenchLargestSlackSetupLoadsNamedPagesAndAddsAnUnapprovedDraft() {
+        let app = launch(["--ui-testing-slack-setup", "--ui-testing-empty-workspace",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        openSlackSetup(app)
+        let first = visibleButton("slack.setup.channel.0", in: app)
+        XCTAssertTrue(first.label.contains("SYNTHETIC-preparation-du-matin-canal-membre-au-nom-long"))
+        XCTAssertFalse(app.buttons["slack.setup.channel.1"].exists, "Archived, nonmember and read-only channels must be excluded.")
+        let labels = app.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
+        XCTAssertTrue(labels.contains("SYNTHETIC équipe du matin avec un nom volontairement très long"))
+        XCTAssertTrue(labels.contains("SYNTHETIC Camille propriétaire du compte de démonstration"))
+        assertNoSlackTechnicalDetails(app)
+        attach("automation-slack-setup-french-largest-first-page", app)
+        tapVisible("slack.setup.more", in: app)
+        let second = visibleButton("slack.setup.channel.1", in: app)
+        XCTAssertTrue(second.label.contains("SYNTHETIC-seconde-page-canal-membre"))
+        XCTAssertFalse(app.buttons["slack.setup.channel.2"].exists)
+        XCTAssertFalse(app.buttons["slack.setup.more"].exists)
+        second.tap()
+        attach("automation-slack-setup-french-largest-second-page", app)
+        tapVisible("slack.setup.add", in: app)
+        let status = app.staticTexts["slack.setup.status"]
+        let added = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Ajouté au brouillon"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [added], timeout: 8), .completed)
+        XCTAssertFalse(app.buttons["slack.setup.add"].isEnabled)
+        assertNoSlackTechnicalDetails(app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        tapVisible("setup.routine", in: app)
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.approve"].isEnabled, "Adding a Slack moment creates an unapproved routine for the owner to review.")
+        XCTAssertTrue(app.buttons["routine.step.0"].label.contains("SYNTHETIC-seconde-page-canal-membre"))
+        assertNoSlackTechnicalDetails(app)
+        attach("automation-slack-added-unapproved-draft", app)
+    }
+
+    func testFrenchLargestSlackSetupEmptyAccountHasAHumanRecovery() {
+        let app = launch(["--ui-testing-slack-setup", "--ui-testing-slack-empty", "--ui-testing-empty-workspace",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        openSlackSetup(app)
+        let empty = app.staticTexts["slack.setup.empty"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 8))
+        XCTAssertTrue(empty.label.contains("Connectez un compte Slack"))
+        XCTAssertFalse(app.buttons["slack.setup.channel.0"].exists)
+        XCTAssertFalse(app.buttons["slack.setup.add"].exists)
+        XCTAssertFalse(app.buttons["slack.setup.account.0"].exists)
+        _ = visibleButton("slack.setup.manage", in: app)
+        assertNoSlackTechnicalDetails(app)
+        attach("automation-slack-setup-french-largest-empty-account", app)
+    }
+
+    func testFrenchLargestSlackReplyRequiresReviewAndClearsPrivateTextOnBackground() {
+        let app = launch(["--ui-testing-slack-reply", "--ui-testing-approved", "--ui-testing-hands-free",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        reveal(app); app.buttons["morning.begin"].tap()
+        tapVisible("slackMoment.message.0", in: app)
+        XCTAssertTrue(app.staticTexts["slackMoment.synthetic"].exists)
+        let intention = app.descendants(matching: .any).matching(identifier: "slackMoment.intention").firstMatch
+        scrollTo(intention, identifier: "slackMoment.intention", in: app)
+        intention.tap(); intention.typeText("Merci pour le message")
+        tapVisible("slackMoment.prepare", in: app)
+        let destination = app.staticTexts["slackMoment.destination"]
+        XCTAssertTrue(destination.waitForExistence(timeout: 10))
+        XCTAssertTrue(destination.label.contains("SYNTHETIC workspace"))
+        XCTAssertTrue(destination.label.contains("SYNTHETIC account"))
+        XCTAssertTrue(destination.label.contains("#synthetic-qa"))
+        let body = app.descendants(matching: .any).matching(identifier: "slackMoment.body").firstMatch
+        XCTAssertTrue(body.waitForExistence(timeout: 8))
+        scrollTo(body, identifier: "slackMoment.body", in: app)
+        body.tap(); body.typeText("Merci, je relis cela ce matin.")
+        tapVisible("slackMoment.review", in: app)
+        let send = app.buttons["slackMoment.send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 8))
+        XCTAssertFalse(send.isEnabled, "Interrupted synthetic speech requires a complete screen review, never a fabricated acoustic pass.")
+        tapVisible("slackMoment.reviewed", in: app)
+        XCTAssertTrue(send.isEnabled)
+        attach("automation-slack-french-largest-reviewed-synthetic", app)
+        tapVisible("slackMoment.send", in: app)
+        let status = app.staticTexts["slackMoment.status"]
+        let posted = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "publiée", "synthetic-qa"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [posted], timeout: 8), .completed)
+        XCTAssertFalse(send.exists)
+        attach("automation-slack-synthetic-confirmed-once", app)
+        XCUIDevice.shared.press(.home); app.activate(); reveal(app)
+        XCTAssertFalse(app.staticTexts["slackMoment.destination"].exists)
+        XCTAssertFalse(app.staticTexts["slackMoment.source"].exists)
+        XCTAssertFalse(app.staticTexts["slackMoment.status"].exists)
+        XCTAssertFalse(app.buttons["slackMoment.send"].exists)
+        XCTAssertTrue(app.staticTexts["slackMoment.empty"].exists)
+    }
+
     func testNativeCorrectionIsReachableInsideLiveBrowserWithoutLosingTheMoment() {
         let app = launch(["--ui-testing-public-feed", "--ui-testing-native-actions", "--ui-testing-approved", "--ui-testing-hands-free"])
         defer { app.terminate() }
@@ -389,19 +482,45 @@ final class RoutineAutomationJourneyTests: XCTestCase {
     }
     private func visibleButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         let button = app.buttons[identifier]
-        for _ in 0..<12 where !button.exists || !button.isHittable {
+        scrollTo(button, identifier: identifier, in: app)
+        return button
+    }
+    private func scrollTo(_ element: XCUIElement, identifier: String, in app: XCUIApplication) {
+        for _ in 0..<24 where !element.exists || !element.isHittable {
             let scrolls = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex + app.scrollViews.allElementsBoundByIndex
             let scroll = scrolls.first { $0.isHittable } ?? app
-            if button.exists, button.frame.height > 0, button.frame.midY < scroll.frame.midY { scroll.swipeDown() }
+            // UIKit reports a zero frame for an offscreen multiline text field,
+            // while its internal scroll indicator retains the correct position.
+            // Use that position so a newly shortened form can be found above us.
+            let frame = element.exists && element.frame.height > 0 ? element.frame :
+                (element.exists ? element.descendants(matching: .any).allElementsBoundByIndex.first(where: { $0.frame.height > 0 })?.frame : nil)
+            if let frame, frame.height > 0, frame.midY < scroll.frame.midY { scroll.swipeDown() }
             else { scroll.swipeUp() }
         }
-        XCTAssertTrue(button.exists, "Missing control: \(identifier)")
-        XCTAssertTrue(button.isHittable, "Unreachable control: \(identifier)")
-        return button
+        if !element.exists || !element.isHittable { captureFailure("unreachable-\(identifier)", app) }
+        XCTAssertTrue(element.exists, "Missing control: \(identifier)")
+        XCTAssertTrue(element.isHittable, "Unreachable control: \(identifier)")
+    }
+    private func openSlackSetup(_ app: XCUIApplication) {
+        reveal(app)
+        tapVisible("morning.settings", in: app)
+        tapVisible("setup.connections", in: app)
+        tapVisible("connections.account.slack", in: app)
+    }
+    private func assertNoSlackTechnicalDetails(_ app: XCUIApplication) {
+        let labels = (app.staticTexts.allElementsBoundByIndex + app.buttons.allElementsBoundByIndex).map(\.label).joined(separator: " ")
+        for forbidden in ["SLACK_", "ca_slack_synthetic_setup", "C12345678", "C22222222", "T12345678", "U12345678", "opaque-fixture", "SYNTHETIC-archive-masque", "SYNTHETIC-non-membre-masque", "SYNTHETIC-lecture-seule-masque", "{\"", "JSON"] {
+            XCTAssertFalse(labels.contains(forbidden), "Technical or ineligible value exposed: \(forbidden)")
+        }
     }
     private func attach(_ name: String, _ app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+    private func captureFailure(_ name: String, _ app: XCUIApplication) {
+        attach(name, app)
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = name + "-accessibility"; tree.lifetime = .keepAlways; add(tree)
     }
     private func remainingSeconds(_ label: String) -> Int {
         let components = label.split(separator: ":").compactMap { Int($0) }

@@ -221,9 +221,27 @@ final class MorningStore {
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
     let briefing: MorningBriefingController
-    let composio = ComposioService()
+    let composio = SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
     let nativeConnections = NativeConnectionsService()
-    var nativeConfirmedActionCounts: [UUID: Int] = [:]
+    var selectedSlackMessageTS: String?
+    @ObservationIgnored var slackReplyTask: Task<Void, Never>?
+    @ObservationIgnored lazy var slackReply: SlackThreadReplyConversation = {
+        let provider: any SlackThreadReplyProviding
+        #if DEBUG
+        if usesSyntheticSlack { provider = SlackReplyUITestProvider() }
+        else { provider = SlackComposioReplyProvider(service: composio) }
+        #else
+        provider = SlackComposioReplyProvider(service: composio)
+        #endif
+        return SlackThreadReplyConversation(provider: provider, directory: snapshot.url.deletingLastPathComponent(), speak: { [weak self] text in
+            guard let self, !privacyBlocksWork else { throw CancellationError() }
+            #if DEBUG
+            if usesSyntheticSlack { throw CancellationError() }
+            #endif
+            try await speech.speakAndWait(text)
+        })
+    }()
+    var nativeActionCountCache: [UUID: (routineVersionID: UUID, generation: UUID, counts: NativeMomentActionCounts)] = [:]
     @ObservationIgnored var nativeMomentTask: Task<Void, Never>?
     @ObservationIgnored lazy var nativeMoment: NativeMomentConversation = {
         let provider: any NativeMomentProviding
@@ -324,6 +342,7 @@ final class MorningStore {
     private(set) var privacyTestAnalysisWaiting = false
     #endif
     private(set) var dataGeneration = UUID()
+    var localPrivacyGeneration: UUID? { (try? privacyControl.status())?.generation }
     private(set) var privacyIsForgetting = false
     private(set) var privacyNeedsCleanup = false
     private(set) var privacyHasInterruptedRemoval = false
@@ -410,6 +429,13 @@ final class MorningStore {
                 routine = RoutineVersion(sourceLabel: "Demo fixture — live public Reddit browsing", steps: [
                     RoutineStep(title: "Reddit", kind: .entertainment, durationMinutes: 2,
                         target: .inAppWeb(site: URL(string: "https://www.reddit.com/r/france/")!), webBehavior: .browseFeed),
+                    RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-slack-reply") {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic Slack reply", steps: [
+                    RoutineStep(title: "Slack · #synthetic-qa", detail: "SYNTHETIC local fixture. Read three messages; review a reply before sending. No Slack account is used.", durationMinutes: 3,
+                        target: .connectedAPI(service: "slack", connectionID: "synthetic-slack", tool: "SLACK_FETCH_CONVERSATION_HISTORY", argumentsJSON: "{\"channel\":\"CSYNTHETIC\",\"limit\":3}")),
                     RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
                 ])
             }
@@ -925,6 +951,11 @@ final class MorningStore {
     func resume() {
         guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
+        guard !slackReply.isActive else {
+            notice = AppLanguage.isFrench ? "Terminez la réponse Slack ou fermez cette demande avant de reprendre."
+                : "Finish the Slack reply or close this request before resuming."
+            return
+        }
         do {
             try session?.resume(); notice = nil
             guard persist() else { pauseAfterSaveFailure(); return }
@@ -2499,6 +2530,7 @@ final class MorningStore {
         connectedAPITask?.cancel(); connectedAPITask = nil
         connectedActionStatus = nil
         clearNativeMoment(forPrivacy: true)
+        clearSlackReply()
         connectedMoment.clear()
         routineWebMoment.clear()
         composio.cancelPendingOperations()
@@ -2561,7 +2593,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json"] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2633,6 +2665,7 @@ final class MorningStore {
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         executionRecords = []; webExecutionEvent = nil
         clearNativeMoment(forPrivacy: true)
+        clearSlackReply()
         connectedMoment.clear()
         routineWebMoment.clear()
         stopHandsFreeVoice(); mailMorning.clear()

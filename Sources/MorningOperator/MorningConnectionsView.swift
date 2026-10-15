@@ -228,10 +228,14 @@ struct MorningConnectionsView: View {
         let info = providerInfo(id)
         let connected = connections.contains { $0.service == id && $0.isActive }
         return NavigationLink {
-            APIConnectionsView(service: store.composio, serviceID: id, privacyBlocked: store.privacyBlocksWork,
-                privacyGeneration: store.dataGeneration, onAddToRoutine: { connection, tool, arguments in
-                    store.addAPIAction(connection: connection, tool: tool, argumentsJSON: arguments)
-                })
+            if id == "slack" {
+                SlackRoutineSetupView(store: store)
+            } else {
+                APIConnectionsView(service: store.composio, serviceID: id, privacyBlocked: store.privacyBlocksWork,
+                    privacyGeneration: store.dataGeneration, onAddToRoutine: { connection, tool, arguments in
+                        store.addAPIAction(connection: connection, tool: tool, argumentsJSON: arguments)
+                    })
+            }
         } label: {
             connectionRow(title: connected ? info.name : text("Connect \(info.name)", "Connecter \(info.name)"),
                 detail: info.detail, symbol: info.symbol,

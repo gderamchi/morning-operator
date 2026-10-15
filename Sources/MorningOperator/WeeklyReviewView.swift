@@ -420,9 +420,9 @@ struct RoutineReviewEditor: View {
                 Text(step.title).font(.raleway(.subheadline, .medium))
                 Text("\(step.durationMinutes) min · \(step.executionDescription)")
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                if case let .connectedAPI(_, _, _, arguments) = step.target {
+                if case .connectedAPI = step.target, let target = step.target {
                     Text(step.detail).font(.footnote).foregroundStyle(MorningStyle.muted)
-                    Text((try? ConnectedActionReview.summary(argumentsJSON: arguments)) ?? "Review unavailable")
+                    Text(RoutineConnectedReview.summary(for: target) ?? "Review unavailable")
                         .font(.footnote).fixedSize(horizontal: false, vertical: true)
                 }
             }

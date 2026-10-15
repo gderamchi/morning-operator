@@ -130,6 +130,10 @@
 		A171E049ED4B4D4AB08B0D01 /* MorningMailMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171E049ED4B4D4AB08B0D02 /* MorningMailMomentView.swift */; };
 		A171E049ED4B4D4AB08B0D03 /* NativeMomentReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171E049ED4B4D4AB08B0D04 /* NativeMomentReviewView.swift */; };
 		A171E049ED4B4D4AB08B0D05 /* MorningStore+NativeMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171E049ED4B4D4AB08B0D06 /* MorningStore+NativeMoment.swift */; };
+		A175E049ED4B4D4AB08B0101 /* MorningStore+Slack.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0102 /* MorningStore+Slack.swift */; };
+		A175E049ED4B4D4AB08B0103 /* SlackMomentReplyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0104 /* SlackMomentReplyView.swift */; };
+		A175E049ED4B4D4AB08B0105 /* SlackRoutineSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0106 /* SlackRoutineSetupView.swift */; };
+		A175E049ED4B4D4AB08B0107 /* SlackSetupUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A175E049ED4B4D4AB08B0108 /* SlackSetupUITestFixture.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -300,6 +304,10 @@
 		A171E049ED4B4D4AB08B0D02 /* MorningMailMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningMailMomentView.swift; sourceTree = "<group>"; };
 		A171E049ED4B4D4AB08B0D04 /* NativeMomentReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NativeMomentReviewView.swift"; sourceTree = "<group>"; };
 		A171E049ED4B4D4AB08B0D06 /* MorningStore+NativeMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+NativeMoment.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0102 /* MorningStore+Slack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Slack.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0104 /* SlackMomentReplyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SlackMomentReplyView.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0106 /* SlackRoutineSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SlackRoutineSetupView.swift"; sourceTree = "<group>"; };
+		A175E049ED4B4D4AB08B0108 /* SlackSetupUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SlackSetupUITestFixture.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -446,6 +454,10 @@
 			children = (
 				A171E049ED4B4D4AB08B0D04 /* NativeMomentReviewView.swift */,
 				A171E049ED4B4D4AB08B0D06 /* MorningStore+NativeMoment.swift */,
+				A175E049ED4B4D4AB08B0102 /* MorningStore+Slack.swift */,
+				A175E049ED4B4D4AB08B0104 /* SlackMomentReplyView.swift */,
+				A175E049ED4B4D4AB08B0106 /* SlackRoutineSetupView.swift */,
+				A175E049ED4B4D4AB08B0108 /* SlackSetupUITestFixture.swift */,
 				9B941431C39046FC7CB3738A /* MorningStore+Mail.swift */,
 				9C53618048F8500BEF3E78F3 /* MorningStore+HandsFree.swift */,
 				98B22AFAFCA9A8E608BECF6E /* MorningStore+Execution.swift */,
@@ -863,6 +875,10 @@
 				D3E9DB5BEC04C3AE555CACB2 /* MorningStore.swift in Sources */,
 				A171E049ED4B4D4AB08B0D03 /* NativeMomentReviewView.swift in Sources */,
 				A171E049ED4B4D4AB08B0D05 /* MorningStore+NativeMoment.swift in Sources */,
+				A175E049ED4B4D4AB08B0101 /* MorningStore+Slack.swift in Sources */,
+				A175E049ED4B4D4AB08B0103 /* SlackMomentReplyView.swift in Sources */,
+				A175E049ED4B4D4AB08B0105 /* SlackRoutineSetupView.swift in Sources */,
+				A175E049ED4B4D4AB08B0107 /* SlackSetupUITestFixture.swift in Sources */,
 				E3544375F7026826D8A40DD9 /* MorningStore+Mail.swift in Sources */,
 				A36795BA2F1BAF85B6980FD2 /* MorningStore+HandsFree.swift in Sources */,
 				C8CC7BD199C9289C66D2EDA7 /* MorningStore+Execution.swift in Sources */,

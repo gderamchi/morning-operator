@@ -8,6 +8,7 @@ extension MorningStore {
         guard !Task.isCancelled, !privacyBlocksWork, sessionActive, let session, let step = currentStep else { return false }
         let context = MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
         guard nativeMoment.accepts(text, context: context) else { return false }
+        clearSlackReply()
         mailMorning.revokeReviewPreservingDraft(context: context)
         let generation = dataGeneration
         if session.status == .running { pause() }
@@ -23,6 +24,7 @@ extension MorningStore {
     func performNativeMoment(_ action: @escaping @MainActor (NativeMomentConversation, MorningExecutionID) async -> Void) {
         guard !privacyBlocksWork, sessionActive, let session, let step = currentStep else { return }
         let context = MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
+        clearSlackReply()
         mailMorning.revokeReviewPreservingDraft(context: context)
         if session.status == .running { pause() }
         nativeMomentTask?.cancel()
@@ -39,19 +41,21 @@ extension MorningStore {
         }
     }
 
-    func confirmedNativeActionCount(for session: RoutineSession) -> Int? {
-        if let count = nativeConfirmedActionCounts[session.id] { return count }
-        guard let count = try? nativeMoment.confirmedActionCount(for: session) else { return nil }
-        return count
+    func nativeActionCounts(for session: RoutineSession) -> NativeMomentActionCounts? {
+        guard !privacyBlocksWork else { return nil }
+        if let cached = nativeActionCountCache[session.id], cached.routineVersionID == session.routine.id,
+           cached.generation == dataGeneration { return cached.counts }
+        return try? nativeMoment.actionCounts(for: session)
     }
 
     func refreshNativeActionCount(for expected: RoutineSession? = nil) {
-        guard let session = expected ?? session, let count = try? nativeMoment.confirmedActionCount(for: session) else { return }
-        nativeConfirmedActionCounts[session.id] = count
+        guard !privacyBlocksWork, let session = expected ?? session,
+              let counts = try? nativeMoment.actionCounts(for: session) else { return }
+        nativeActionCountCache[session.id] = (session.routine.id, dataGeneration, counts)
     }
 
     func clearNativeMoment(forPrivacy: Bool = false) {
-        if forPrivacy { nativeConfirmedActionCounts = [:] } else { refreshNativeActionCount() }
+        if forPrivacy { nativeActionCountCache = [:] } else { refreshNativeActionCount() }
         if nativeMoment.context != nil { speech.stop() }
         nativeMomentTask?.cancel(); nativeMomentTask = nil
         nativeMoment.clear()

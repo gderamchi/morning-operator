@@ -184,7 +184,7 @@ extension MorningStore {
         stepTimerTask?.cancel(); stepTimerTask = nil
         let retired = StepTimerFile.clear()
         if retired {
-            connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment()
+            connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment(); clearSlackReply()
             mailBudgetWork = [:]; mailBudgetDeadlinePaused = nil
         }
         StepTimerAlert.cancel()

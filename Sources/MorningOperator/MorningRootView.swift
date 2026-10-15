@@ -84,6 +84,7 @@ struct MorningRootView: View {
                            mailMoment: store.currentStep?.automation == .gmailInbox && store.sessionActive
                                ? AnyView(MorningMailMomentView(store: store)) : nil,
                            nativeMoment: store.sessionActive && store.pendingWebTarget == nil ? AnyView(NativeMomentReviewView(store: store)) : nil,
+                           slackMoment: store.currentSlackContext != nil ? AnyView(SlackMomentReplyView(store: store)) : nil,
                            voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
                            executionSummary: store.executionSummary,
                            timer: store.activeStepTimer,
@@ -232,6 +233,7 @@ struct MorningRootView: View {
             if phase == .background {
                 store.suspendHandsFreeVoice()
                 store.clearNativeMoment()
+                store.clearSlackReply()
                 store.routineWebMoment.discardSourceContext()
                 store.webExecutionEvent = nil
                 store.preserveMailExecutionBeforeInterruption()
@@ -591,6 +593,9 @@ struct TodayView: View {
                         }
                         if store.currentStep?.id == step.id, store.sessionActive, store.pendingWebTarget == nil {
                             NativeMomentReviewView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.currentSlackContext != nil {
+                            SlackMomentReplyView(store: store)
                         }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
@@ -1257,6 +1262,7 @@ private struct MorningSunHome: View {
     var connectedActionStatus: String? = nil
     var mailMoment: AnyView? = nil
     var nativeMoment: AnyView? = nil
+    var slackMoment: AnyView? = nil
     var voiceStatus: String? = nil
     var executionSummary: String? = nil
     var timer: StepTimer? = nil
@@ -1403,6 +1409,7 @@ private struct MorningSunHome: View {
                 }
                 if let mailMoment { mailMoment }
                 if let nativeMoment { nativeMoment }
+                if let slackMoment { slackMoment }
                 HStack(spacing: 16) {
                     Button(action: session?.status == .paused ? resume : pause) {
                         Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",

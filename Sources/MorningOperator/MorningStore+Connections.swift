@@ -50,6 +50,9 @@ extension MorningStore {
               session.routine.isApproved, let step = currentStep, step.id == stepID,
               step.target == .connectedAPI(service: service, connectionID: connectionID, tool: tool, argumentsJSON: argumentsJSON) else { return }
         let context = MorningExecutionID(sessionID: sessionID, routineVersionID: session.routine.id, stepID: stepID)
+        #if DEBUG
+        if usesSyntheticSlack, service == "slack" { presentSyntheticSlack(context: context); return }
+        #endif
         guard !ConnectedRoutineActionPolicy.requiresSpokenMailSend(service: service, tool: tool) else {
             connectedActionStatus = ConnectedRoutineActionPolicy.spokenMailSendExplanation
             notice = connectedActionStatus
@@ -62,7 +65,7 @@ extension MorningStore {
             return
         }
         connectedAPITask?.cancel()
-        let generation = dataGeneration
+        let generation = dataGeneration, privacyGeneration = localPrivacyGeneration
         let requestID = IntegrationRequestID.make(sessionID: sessionID, stepID: stepID)
         connectedActionStatus = String(localized: "Requesting the connected service…")
         connectedAPITask = Task { @MainActor [weak self] in
@@ -91,10 +94,11 @@ extension MorningStore {
                 }
                 let result = try await composio.execute(tool: tool, arguments: arguments,
                     connectionID: connectionID, requestID: requestID)
-                guard connectedActionIsCurrent(context, generation: generation) else { return }
+                guard connectedActionIsCurrent(context, generation: generation), localPrivacyGeneration == privacyGeneration else { return }
                 if result.successful {
                     let receipt = connectedMoment.receive(attempt, executionID: context, service: service,
-                        result: result.data, resultAvailable: result.resultAvailable != false)
+                        result: result.data, resultAvailable: result.resultAvailable != false,
+                        origin: ConnectedMomentOrigin(tool: tool, connectionID: connectionID, arguments: arguments, privacyGeneration: privacyGeneration))
                     guard receipt != .stale else { return }
                     guard recordExecution(.running, confirmedExternalEffect: true) else { pause(); return }
                     guard receipt == .sourceAvailable else {
@@ -117,6 +121,48 @@ extension MorningStore {
                 finishConnectedFailure(connectedMoment.wasDispatched ? uncertainConnectedResultMessage :
                     (AppLanguage.isFrench ? "Le service est inaccessible. Dites suivant pour continuer, ou mettez en pause pour vérifier la connexion." : "The service is unavailable. Say next to continue, or pause to check the connection."),
                     outcome: connectedMoment.wasDispatched ? .uncertain : .unavailable)
+            }
+        }
+    }
+
+    /// Explicitly refresh only the approved Slack read. This cannot publish or change its destination.
+    func refreshSlackMessages() {
+        guard let context = currentSlackContext, let step = currentStep,
+              case let .connectedAPI(_, connectionID, tool, json) = step.target,
+              ![.sending, .uncertain].contains(slackReply.phase) else { return }
+        clearSlackReply()
+        if session?.status == .running { pause() }
+        connectedAPITask?.cancel()
+        connectedMoment.clear()
+        #if DEBUG
+        if usesSyntheticSlack { presentSyntheticSlack(context: context); return }
+        #endif
+        guard let attempt = connectedMoment.begin(executionID: context, record: nil) else { return }
+        let generation = dataGeneration, privacyGeneration = localPrivacyGeneration
+        connectedActionStatus = AppLanguage.isFrench ? "Actualisation des messages Slack…" : "Refreshing Slack messages…"
+        connectedAPITask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { if connectedMoment.matches(attempt, executionID: context) { connectedAPITask = nil } }
+            do {
+                let connections = try await composio.connections()
+                guard !Task.isCancelled, connectedActionIsCurrent(context, generation: generation),
+                      connections.contains(where: { $0.id == connectionID && $0.service == "slack" && $0.isActive }) else { throw SlackReplyError.accountChanged }
+                let arguments = try ComposioJSONValue.parseObject(json)
+                let result = try await composio.readSlack(tool: tool, arguments: arguments, connectionID: connectionID)
+                try Task.checkCancellation()
+                guard connectedActionIsCurrent(context, generation: generation), localPrivacyGeneration == privacyGeneration,
+                      connectedMoment.markDispatched(attempt, executionID: context),
+                      result.successful, result.resultAvailable != false,
+                      connectedMoment.receive(attempt, executionID: context, service: "slack", result: result.data,
+                        origin: ConnectedMomentOrigin(tool: tool, connectionID: connectionID, arguments: arguments, privacyGeneration: privacyGeneration)) == .sourceAvailable else { throw SlackReplyError.unavailable }
+                await presentConnectedMoment(context: context, generation: generation, attempt: attempt)
+            } catch {
+                guard !Task.isCancelled, connectedActionIsCurrent(context, generation: generation), connectedMoment.matches(attempt, executionID: context) else { return }
+                connectedMoment.fail(attempt, executionID: context)
+                connectedActionStatus = AppLanguage.isFrench ? "La lecture Slack n’a pas pu être actualisée. Aucun message n’a été publié. Réessayez ou dites suivant."
+                    : "Slack messages could not be refreshed. Nothing was posted. Try again or say next."
+                recordExecution(.unavailable)
+                if readAloud, let connectedActionStatus { speech.speak(connectedActionStatus) }
             }
         }
     }

@@ -1,5 +1,6 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 /// What happened in one ended morning, in plain sentences, rebuilt from the session each
 /// time it is shown. It reads the run only: nothing here changes the routine or the saved
@@ -38,9 +39,25 @@ struct MorningRecapView: View {
             if let summary = store.executionSummary(for: session) {
                 Text(summary).font(.raleway(.footnote)).accessibilityIdentifier("recap.execution")
             }
-            if let count = store.confirmedNativeActionCount(for: session), count > 0 {
-                Text(AppLanguage.isFrench ? "Actions Apple confirmées : \(count)" : "Apple actions confirmed: \(count)")
-                    .font(.raleway(.footnote)).accessibilityIdentifier("recap.nativeActions")
+            if let counts = store.nativeActionCounts(for: session) {
+                if counts.confirmed > 0 {
+                    Text(AppLanguage.isFrench ? "Actions Apple confirmées : \(counts.confirmed)" : "Apple actions confirmed: \(counts.confirmed)")
+                        .font(.raleway(.footnote)).accessibilityIdentifier("recap.nativeActions")
+                }
+                if counts.unconfirmed > 0 {
+                    Text(AppLanguage.isFrench ? "Actions Apple à vérifier : \(counts.unconfirmed)" : "Apple actions to check: \(counts.unconfirmed)")
+                        .font(.raleway(.footnote)).accessibilityIdentifier("recap.nativeActionsUnconfirmed")
+                }
+            }
+            if let counts = store.slackActionCounts(for: session) {
+                if counts.confirmed > 0 {
+                    Text(AppLanguage.isFrench ? "Réponses Slack confirmées : \(counts.confirmed)" : "Slack replies confirmed: \(counts.confirmed)")
+                        .font(.raleway(.footnote)).accessibilityIdentifier("recap.slackReplies")
+                }
+                if counts.unconfirmed > 0 {
+                    Text(AppLanguage.isFrench ? "Réponses Slack à vérifier : \(counts.unconfirmed)" : "Slack replies to check: \(counts.unconfirmed)")
+                        .font(.raleway(.footnote)).accessibilityIdentifier("recap.slackRepliesUnconfirmed")
+                }
             }
             MorningRecapFeedback(store: store, session: session)
         }

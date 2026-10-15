@@ -38,6 +38,7 @@ struct MorningOperatorApp: App {
                 } else if let workspace = Self.testWorkspace {
                     Text(verbatim: "Test routine")
                         .font(.raleway(.caption2)).padding(4)
+                        .dynamicTypeSize(.medium)
                         .accessibilityIdentifier("qa.testWorkspace")
                         .accessibilityValue(workspace)
                         .allowsHitTesting(false)
