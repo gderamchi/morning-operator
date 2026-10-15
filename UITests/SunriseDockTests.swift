@@ -239,6 +239,131 @@ final class SunriseDockTests: XCTestCase {
         }
     }
 
+    func testWeatherMotionChangesRepresentativeSkies() {
+        for (weather, phase) in movingSkies {
+            let app = launch(phase: phase, weather: weather)
+            assertQuietArrival(in: app)
+            let (before, after) = observeSky(in: app)
+            XCTAssertNotEqual(scenePixels(before), scenePixels(after),
+                              "\(weather)/\(phase) should show gentle atmospheric motion.")
+            attach("motion-\(weather)-\(phase)-before", before)
+            attach("motion-\(weather)-\(phase)-after", after)
+            app.terminate()
+        }
+    }
+
+    func testReduceMotionKeepsAllRepresentativeWeatherStill() {
+        for (weather, phase) in movingSkies {
+            let app = launch(phase: phase, weather: weather, extra: ["--ui-testing-reduce-motion"])
+            assertQuietArrival(in: app)
+            let (before, after) = observeSky(in: app)
+            XCTAssertEqual(scenePixels(before), scenePixels(after),
+                           "Reduce Motion must freeze \(weather)/\(phase), including precipitation and shooting stars.")
+            attach("motion-reduced-\(weather)-\(phase)-before", before)
+            attach("motion-reduced-\(weather)-\(phase)-after", after)
+            app.terminate()
+        }
+    }
+
+    func testFrozenWeatherTimeChangesPoseWithoutRestartingAtTheMenu() {
+        var firstPose: Data?
+        var laterPose: Data?
+        for seconds in [0, 8] {
+            let app = launch(weather: "cloudy", extra: ["--theme-motion-time=\(seconds)"])
+            assertQuietArrival(in: app)
+            let before = app.buttons["morning.actions"].screenshot()
+            let pixels = scenePixels(before)
+            if seconds == 0 { firstPose = pixels }
+            else { laterPose = pixels }
+            attach("motion-cloudy-day-t\(seconds)", before)
+
+            reveal(in: app)
+            assertReachable("morning.closeActions", in: app)
+            app.buttons["morning.closeActions"].tap()
+            assertQuietArrival(in: app)
+            let after = app.buttons["morning.actions"].screenshot()
+            XCTAssertEqual(pixels, scenePixels(after),
+                           "Opening and closing the menu must preserve the atmospheric clock and seeded scene.")
+            attach("motion-cloudy-day-t\(seconds)-after-menu", after)
+            app.terminate()
+        }
+        XCTAssertNotNil(firstPose)
+        XCTAssertNotNil(laterPose)
+        XCTAssertNotEqual(firstPose, laterPose, "Clouds must advance between the two sampled weather times.")
+    }
+
+    func testWeatherAnimationTimeDoesNotAdvanceTheSunOrWallpaper() {
+        var firstPose: Data?
+        for seconds in [0, 600] {
+            let app = launch(weather: "clear", extra: ["--theme-motion-time=\(seconds)"])
+            assertQuietArrival(in: app)
+            let screenshot = app.buttons["morning.actions"].screenshot()
+            let pixels = scenePixels(screenshot)
+            if seconds == 0 { firstPose = pixels }
+            else {
+                XCTAssertEqual(firstPose, pixels,
+                               "The atmospheric clock must never move the solar clock or animate the dotted wallpaper.")
+            }
+            attach("motion-clear-day-t\(seconds)", screenshot)
+            app.terminate()
+        }
+        XCTAssertNotNil(firstPose)
+    }
+
+    func testWeatherAnimationTimeDoesNotAdvanceTheMoon() throws {
+        var firstBounds: CGRect?
+        for seconds in [0, 600] {
+            let app = launch(phase: "night", weather: "clear", extra: ["--theme-motion-time=\(seconds)"])
+            assertQuietArrival(in: app)
+            let screenshot = app.buttons["morning.actions"].screenshot()
+            let bounds = try XCTUnwrap(brightMoonBounds(screenshot), "The night sky must retain its central moon.")
+            if let firstBounds {
+                XCTAssertEqual(firstBounds.minX, bounds.minX, accuracy: 1.5)
+                XCTAssertEqual(firstBounds.minY, bounds.minY, accuracy: 1.5)
+                XCTAssertEqual(firstBounds.maxX, bounds.maxX, accuracy: 1.5)
+                XCTAssertEqual(firstBounds.maxY, bounds.maxY, accuracy: 1.5)
+            } else { firstBounds = bounds }
+            attach("motion-clear-night-t\(seconds)", screenshot)
+            app.terminate()
+        }
+    }
+
+    func testShootingStarPreviewAndReduceMotionAtTheSameWeatherTimes() {
+        var stillPose: Data?
+        for reduced in [false, true] {
+            for seconds in reduced ? [16.0, 18.9] : [16.0, 18.9, 21.0] {
+                var arguments = ["--theme-motion-time=\(seconds)"]
+                if reduced { arguments.append("--ui-testing-reduce-motion") }
+                let app = launch(phase: "night", weather: "clear", extra: arguments)
+                assertQuietArrival(in: app)
+                let screenshot = app.buttons["morning.actions"].screenshot()
+                let pixels = scenePixels(screenshot)
+                if reduced {
+                    if stillPose == nil { stillPose = pixels }
+                    else {
+                        XCTAssertEqual(stillPose, pixels,
+                                       "Reduce Motion must suppress a shooting star even at its sampled peak.")
+                    }
+                }
+                attach("motion-meteor-\(reduced ? "reduced" : "sample")-t\(seconds)", screenshot)
+                app.terminate()
+            }
+        }
+        XCTAssertNotNil(stillPose)
+    }
+
+    private var movingSkies: [(String, String)] {
+        [("clear", "night"), ("cloudy", "day"), ("rain", "day"), ("snow", "night"), ("windy", "day")]
+    }
+
+    private func observeSky(in app: XCUIApplication) -> (XCUIScreenshot, XCUIScreenshot) {
+        let before = app.buttons["morning.actions"].screenshot()
+        let elapsed = expectation(description: "Observe gentle weather motion")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { elapsed.fulfill() }
+        wait(for: [elapsed], timeout: 5)
+        return (before, app.buttons["morning.actions"].screenshot())
+    }
+
     private func launch(phase: String = "day", weather: String? = "clear", empty: Bool = false,
                         extra: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
@@ -298,8 +423,10 @@ final class SunriseDockTests: XCTestCase {
             else { controls.swipeUp() }
         }
         XCTAssertTrue(fullyVisible(), app.debugDescription, file: file, line: line)
-        XCTAssertGreaterThanOrEqual(button.frame.width, 44, identifier, file: file, line: line)
-        XCTAssertGreaterThanOrEqual(button.frame.height, 44, identifier, file: file, line: line)
+        // Native transformed coordinates can report 43.99999999999994 for a
+        // 44-point target. Preserve the minimum while allowing floating-point noise.
+        XCTAssertGreaterThanOrEqual(button.frame.width + 0.001, 44, identifier, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(button.frame.height + 0.001, 44, identifier, file: file, line: line)
         XCTAssertGreaterThanOrEqual(button.frame.minX, 0, identifier, file: file, line: line)
         XCTAssertLessThanOrEqual(button.frame.maxX, app.frame.maxX, identifier, file: file, line: line)
         XCTAssertLessThanOrEqual(button.frame.maxY, app.frame.maxY, identifier, file: file, line: line)
@@ -318,6 +445,49 @@ final class SunriseDockTests: XCTestCase {
                                                      width: Double(image.width) * 0.90,
                                                      height: Double(image.height) * 0.18)) else { return nil }
         return UIImage(cgImage: cropped).pngData()
+    }
+
+    private func scenePixels(_ screenshot: XCUIScreenshot) -> Data? {
+        guard let image = screenshot.image.cgImage,
+              let cropped = image.cropping(to: CGRect(x: Double(image.width) * 0.03,
+                                                     y: Double(image.height) * 0.12,
+                                                     width: Double(image.width) * 0.94,
+                                                     height: Double(image.height) * 0.74)) else {
+            XCTFail("The native sky screenshot could not be cropped.")
+            return nil
+        }
+        return UIImage(cgImage: cropped).pngData()
+    }
+
+    private func brightMoonBounds(_ screenshot: XCUIScreenshot) -> CGRect? {
+        guard let image = screenshot.image.cgImage,
+              let moon = image.cropping(to: CGRect(x: Double(image.width) * 0.15,
+                                                  y: Double(image.height) * 0.28,
+                                                  width: Double(image.width) * 0.50,
+                                                  height: Double(image.height) * 0.32)) else { return nil }
+        var pixels = [UInt8](repeating: 0, count: moon.width * moon.height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { bytes -> Bool in
+            guard let context = CGContext(data: bytes.baseAddress, width: moon.width, height: moon.height,
+                bitsPerComponent: 8, bytesPerRow: moon.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue) else { return false }
+            context.draw(moon, in: CGRect(x: 0, y: 0, width: CGFloat(moon.width), height: CGFloat(moon.height)))
+            return true
+        }
+        guard drawn else { return nil }
+        var minX = moon.width, minY = moon.height, maxX = -1, maxY = -1
+        for y in 0..<moon.height {
+            for x in 0..<moon.width {
+                let index = (y * moon.width + x) * 4
+                // Full moon ink is brighter than the twinkling stars; ignore
+                // their changing opacity when measuring the celestial silhouette.
+                if pixels[index] > 220 && pixels[index + 1] > 215 && pixels[index + 2] > 190 {
+                    minX = min(minX, x); minY = min(minY, y)
+                    maxX = max(maxX, x); maxY = max(maxY, y)
+                }
+            }
+        }
+        guard maxX > minX, maxY > minY else { return nil }
+        return CGRect(x: CGFloat(minX), y: CGFloat(minY), width: CGFloat(maxX - minX), height: CGFloat(maxY - minY))
     }
 
     private func attach(_ name: String, _ screenshot: XCUIScreenshot) {
