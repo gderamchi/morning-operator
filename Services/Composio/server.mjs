@@ -306,8 +306,8 @@ export async function createRequestHandler(config, { storage = new FileStorage(c
       if (!sameSlackIdentity(actual, input.expectedIdentity)) fail(409, 'slack_identity_changed', 'The Slack account changed. Review this reply again before sending.');
       const toolkit = service('slack');
       await slackTool('SLACK_SEND_MESSAGE', toolkit);
-      // Check again after the final metadata request. No client-only preflight can
-      // authorize a replacement connected account between review and dispatch.
+      // Recheck after metadata. This is a preflight, not a Composio credential
+      // lease: project administrators and provider token custody remain trusted.
       const account = await accountFor(input.connectionID, userID, true);
       if (slackAccountRevision(account) !== actual.revision) fail(409, 'slack_identity_changed', 'The Slack account changed. Review this reply again before sending.');
       const arguments_ = { channel: input.channelID, thread_ts: input.threadTS,

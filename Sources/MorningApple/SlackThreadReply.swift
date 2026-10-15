@@ -192,8 +192,10 @@ public struct SlackReplyReceipt: Sendable, Equatable {
 }
 
 /// Fixed known tools only. No model-generated tool, destination, arguments or remote model.
-/// Account identity is checked before review and again before dispatch. A server grant
-/// revision/CAS must be supplied by the dedicated server route; no generic-send fallback exists.
+/// Account identity is checked before review and again before dispatch. The dedicated
+/// server rechecks the reviewed subject and grant metadata; this is not an atomic
+/// Composio credential lease. Composio custody and project administrators remain trusted.
+/// No generic-send fallback exists.
 @MainActor public final class SlackComposioReplyProvider: SlackThreadReplyProviding {
     private let service: ComposioService
     private let now: @MainActor () -> Date

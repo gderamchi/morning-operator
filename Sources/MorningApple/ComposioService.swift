@@ -259,7 +259,8 @@ public final class ComposioService {
         return result
     }
 
-    /// This dedicated route binds the provider subject and opaque grant revision.
+    /// The dedicated route verifies the current provider subject and account metadata.
+    /// Its revision is a preflight check, not a conditional Composio credential lease.
     /// An old server is unavailable, never a reason to fall back to a generic send.
     public func slackReplyIdentity(connectionID: String) async throws -> SlackReplyIdentity {
         guard Self.validIdentifier(connectionID) else { throw SlackReplyError.accountChanged }
