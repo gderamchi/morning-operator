@@ -65,13 +65,15 @@ public struct MorningVoiceAccessSnapshot: Equatable, Sendable {
         self.init(probe: Self.systemSnapshot, speechRequest: {
             #if os(iOS)
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                SFSpeechRecognizer.requestAuthorization { _ in continuation.resume() }
+                let completion: @Sendable (SFSpeechRecognizerAuthorizationStatus) -> Void = { _ in continuation.resume() }
+                SFSpeechRecognizer.requestAuthorization(completion)
             }
             #endif
         }, microphoneRequest: {
             #if os(iOS)
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                AVAudioApplication.requestRecordPermission { _ in continuation.resume() }
+                let completion: @Sendable (Bool) -> Void = { _ in continuation.resume() }
+                AVAudioApplication.requestRecordPermission(completionHandler: completion)
             }
             #endif
         })
