@@ -88,11 +88,14 @@ public struct WebMorningExecutionEvent: Sendable, Equatable {
     public let observedContentCount: Int
     public let confirmedLikeCount: Int
     public let spokenText: [String]
+    /// Volatile visible source data for contextual questions; never a persisted action.
+    public let contextText: [String]
     public init(plan: WebMorningExecutionPlan, state: WebMorningExecutionState,
-                observedContentCount: Int, confirmedLikeCount: Int, spokenText: [String] = []) {
+                observedContentCount: Int, confirmedLikeCount: Int, spokenText: [String] = [], contextText: [String] = []) {
         sessionID = plan.sessionID; stepID = plan.stepID; self.state = state
         self.observedContentCount = observedContentCount; self.confirmedLikeCount = confirmedLikeCount
         self.spokenText = spokenText
+        self.contextText = contextText
     }
 }
 
@@ -214,25 +217,73 @@ public enum WebMorningExecutionPolicy {
               location.port && location.port !== '443' || location.username || location.password) return out({status:'unavailable'});
           if (\#(json(WebMorningPolicy.signInPathFragments)).some(p => (location.pathname.toLowerCase() + '/').includes(p))) return out({status:'signin'});
           if (document.hidden) return out({status:'unavailable'});
+          const parent = e => e?.assignedSlot || e?.parentElement || e?.getRootNode?.().host || null;
+          const composedContains = (container, node) => {
+            for (let depth=0; node && depth<32; depth++,node=parent(node)) {
+              if (node===container || container?.contains?.(node)) return true;
+            }
+            return false;
+          };
+          const hitAt = (x,y) => {
+            let hit=document.elementFromPoint(x,y);
+            for (let depth=0; hit?.shadowRoot && depth<16; depth++) {
+              const next=hit.shadowRoot.elementFromPoint?.(x,y);
+              if (!next || next===hit) break;
+              hit=next;
+            }
+            return hit;
+          };
           const visible = e => {
             if (!e) return false; const r=e.getBoundingClientRect(), s=getComputedStyle(e);
-            if (!(r.width>0 && r.height>0 && r.bottom>0 && r.top<innerHeight && s.visibility!=='hidden' && s.display!=='none')) return false;
+            if (!(r.width>0 && r.height>0 && r.bottom>0 && r.top<innerHeight && s.visibility!=='hidden' && s.display!=='none' && s.opacity!=='0')) return false;
             if (typeof document.elementFromPoint==='function') {
               const x=Math.max(1,Math.min(innerWidth-1,r.left+r.width/2)), y=Math.max(1,Math.min(innerHeight-1,(Math.max(0,r.top)+Math.min(innerHeight,r.bottom))/2));
-              const hit=document.elementFromPoint(x,y);
-              if (!hit || !(hit===e || e.contains(hit) || hit.contains(e))) return false;
+              const hit=hitAt(x,y);
+              if (!hit || !(composedContains(e,hit) || s.pointerEvents==='none' && composedContains(hit,e))) return false;
             }
             return true;
           };
-          const all = (root, selectors) => selectors.flatMap(s => { try { return Array.from(root.querySelectorAll(s)); } catch (_) { return []; } });
+          const rootCache=new WeakMap();
+          const rootsWithin = root => {
+            if (rootCache.has(root)) return rootCache.get(root);
+            const roots=[root], seen=new Set(roots); let scanned=0;
+            const add=r=>{ if (r && !seen.has(r) && roots.length<96) { seen.add(r);roots.push(r); } };
+            for (let index=0; index<roots.length && scanned<8000; index++) {
+              const current=roots[index]; add(current.shadowRoot);
+              // A consent host can follow a long feed; discover it before ordinary cards.
+              for (const selector of ['[role=dialog]','[aria-modal=true]','[id*="consent" i]','[class*="consent" i]','[id*="cookie" i]','shreddit-consent-banner','shreddit-cookie-banner','faceplate-modal','faceplate-dialog']) {
+                let priority=[]; try { priority=current.querySelectorAll(selector); } catch (_) {}
+                for(let i=0;i<priority.length && i<96;i++) add(priority[i].shadowRoot);
+              }
+              let nodes=[]; try { nodes=current.querySelectorAll('*'); } catch (_) {}
+              for(let i=0;i<nodes.length && scanned<8000;i++,scanned++) add(nodes[i].shadowRoot);
+            }
+            rootCache.set(root,roots); return roots;
+          };
+          const all = (root, selectors) => {
+            const result=[],seen=new Set();
+            for(const current of rootsWithin(root)) for(const selector of selectors) {
+              let nodes=[]; try { nodes=current.querySelectorAll(selector); } catch (_) {}
+              for(let i=0;i<nodes.length && result.length<800;i++) if(!seen.has(nodes[i])) {seen.add(nodes[i]);result.push(nodes[i]);}
+            }
+            return result;
+          };
           if (all(document, ['input[type=password]','input[autocomplete=one-time-code]','input[autocomplete=current-password]','form[action*="login" i]']).some(visible)) return out({status:'signin'});
           if (document.readyState === 'loading') return out({status:'loading'});
           const clean = x => (x || '').replace(/\s+/g,' ').trim();
           const hash = s => { let h=2166136261; for(let i=0;i<s.length;i++) { h ^= s.charCodeAt(i); h = Math.imul(h,16777619); } return (h>>>0).toString(16); };
           // Privacy-preserving dismissal only: never grant tracking consent.
           const consentNames=['continuer sans accepter','continue without accepting','tout refuser','refuser tout','reject all','reject optional cookies'];
-          const consent=all(document,['#didomi-host button','#didomi-host a','[role=dialog] button','[role=dialog] a'])
-            .filter(visible).find(e=>consentNames.includes(clean(e.getAttribute('aria-label')||e.innerText).replace(/[›→]$/u,'').trim().toLowerCase()));
+          const consentContext = e => {
+            for(let depth=0;e && depth<24;depth++,e=parent(e)) {
+              const role=e.getAttribute?.('role'), modal=e.getAttribute?.('aria-modal');
+              const identity=[e.localName,e.getAttribute?.('id'),e.getAttribute?.('class')].filter(Boolean).join(' ');
+              if(role==='dialog' || modal==='true' || ['dialog','faceplate-dialog','faceplate-modal'].includes(e.localName) || /cookie|consent|didomi/i.test(identity)) return true;
+            }
+            return false;
+          };
+          const consent=all(document,['button','a','[role=button]']).filter(visible)
+            .find(e=>consentContext(e) && consentNames.includes(clean(e.getAttribute('aria-label')||e.innerText).replace(/[›→]$/u,'').trim().toLowerCase()));
           if (command==='rejectConsent') {
             if (expected!=='consent' || !consent) return out({status:'unavailable'});
             consent.click(); return out({status:'dispatched'});
@@ -260,17 +311,23 @@ public enum WebMorningExecutionPolicy {
           }
           nodes.sort((a,b)=>Math.abs(a.getBoundingClientRect().top+a.getBoundingClientRect().height/2-innerHeight/2)-Math.abs(b.getBoundingClientRect().top+b.getBoundingClientRect().height/2-innerHeight/2));
           let item = nodes[0];
-          const text = clean(item.innerText || item.textContent).slice(0,600);
+          const readable = e => {
+            const own=clean(e.innerText || e.textContent);
+            if(own) return own.slice(0,600);
+            return all(e,['h1','h2','h3','p','[slot=title]']).filter(visible).slice(0,5)
+              .map(n=>clean(n.innerText||n.textContent)).filter(Boolean).join(' ').slice(0,600);
+          };
+          const text = readable(item);
           const links = all(item,['a[href]']);
           const contentLink = links.map(a=>sameRoute(a.href)).find(p=>p && /\/(p|reel|reels|shorts|status|video|comments|post|stories)\//.test(p));
           const contentID = contentLink || item.getAttribute('data-id') || item.getAttribute('post-id') || item.getAttribute('id') || ((/\/(shorts|reel|reels|stories)\//.test(location.pathname)) ? location.pathname : null);
-          const video = item.matches('video') ? item : item.querySelector('video');
-          const image = item.matches('img') ? item : item.querySelector('img');
+          const video = item.matches('video') ? item : all(item,['video'])[0];
+          const image = item.matches('img') ? item : all(item,['img'])[0];
           if (video && ['watchVideos','watchStories'].includes(behavior) && video.readyState<2) return out({status:'loading'});
           if (!text && !(video && video.readyState>=2) && !(image && image.complete && image.naturalWidth>0)) return out({status:'empty'});
           const fingerprint = hash(contentID || text+'|'+(video?.currentSrc || image?.currentSrc || ''));
           // Match a control's accessible name exactly; never infer a click from prose.
-          const names = e => clean(e.getAttribute('aria-label') || e.querySelector('svg[aria-label]')?.getAttribute('aria-label') || e.getAttribute('title') || e.innerText).toLowerCase();
+          const names = e => clean(e.getAttribute('aria-label') || all(e,['svg[aria-label]'])[0]?.getAttribute('aria-label') || e.getAttribute('title') || e.innerText).toLowerCase();
           const buttons = all(item,['button','[role=button]']).filter(visible);
           const likedNames = ['unlike','ne plus aimer','retirer la mention j’aime',"retirer la mention j'aime",'liked','aimé'];
           const likeNames = ['like',"j’aime","j'aime",'aimer'];
@@ -278,10 +335,10 @@ public enum WebMorningExecutionPolicy {
           const likeButton = buttons.find(e=>(e.getAttribute('data-testid')==='like' || likeNames.includes(names(e))) && e.getAttribute('aria-pressed')!=='true');
           const nextNames = behavior==='watchStories' ? ['next','suivant','next story','story suivante'] : ['next video','vidéo suivante','scroll down','faire défiler vers le bas'];
           const next = all(document,['button','[role=button]']).filter(visible).find(e=>nextNames.includes(names(e)));
-          let scroller=item.parentElement;
+          let scroller=parent(item);
           while (scroller && scroller!==document.body && scroller!==document.documentElement) {
             if (/(auto|scroll)/.test(getComputedStyle(scroller).overflowY) && scroller.scrollHeight>scroller.clientHeight+10) break;
-            scroller=scroller.parentElement;
+            scroller=parent(scroller);
           }
           scroller=scroller && scroller!==document.body && scroller!==document.documentElement ? scroller : document.scrollingElement;
           const canScroll=!!scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-2;

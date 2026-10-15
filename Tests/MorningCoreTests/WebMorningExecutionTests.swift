@@ -168,7 +168,7 @@ struct WebMorningExecutionScriptTests {
         let context = try context()
         context.evaluateScript("""
         var video={readyState:0,paused:true};
-        item.querySelector=s=>s==='video' ? video : null;
+        item.querySelectorAll=s=>s==='video' ? [video] : [];
         item.innerText='A caption while the video is still loading';
         """)
         let result = try evaluate(context, behavior: .watchVideos)
@@ -180,10 +180,11 @@ struct WebMorningExecutionScriptTests {
         let context = try context()
         context.evaluateScript("""
         var rejected=0,accepted=0;
-        var reject={getBoundingClientRect:bounds,getAttribute:()=>null,innerText:'Reject all',click:()=>{rejected++;}};
+        var consentHost={localName:'div',getAttribute:k=>k==='id' ? 'didomi-host' : null};
+        var reject={parentElement:consentHost,getBoundingClientRect:bounds,getAttribute:()=>null,innerText:'Reject all',click:()=>{rejected++;}};
         var accept={getBoundingClientRect:bounds,getAttribute:()=>null,innerText:'Accept all',click:()=>{accepted++;}};
         var originalQuery=document.querySelectorAll;
-        document.querySelectorAll=s=>s==='#didomi-host button' && !rejected ? [reject,accept] : originalQuery(s);
+        document.querySelectorAll=s=>s==='button' && !rejected ? [reject,accept] : originalQuery(s);
         """)
         let before = try #require(WebMorningPageObservation.parse(evaluate(context)))
         #expect(before.status == .loading && before.consentCanDismiss == true)
@@ -192,6 +193,50 @@ struct WebMorningExecutionScriptTests {
         #expect(after.status == .ready && after.fingerprint != before.fingerprint)
         #expect(context.objectForKeyedSubscript("rejected")?.toInt32() == 1)
         #expect(context.objectForKeyedSubscript("accepted")?.toInt32() == 0)
+    }
+
+    @Test func redditCookieDialogAndContentInsideOpenShadowRootsAreObservedSafely() throws {
+        let context = try context()
+        context.evaluateScript("""
+        location.hostname='www.reddit.com';location.href='https://www.reddit.com/';
+        var innerWidth=400,rejected=0,accepted=0;
+        var cookieHost={localName:'shreddit-cookie-banner',getAttribute:()=>null};
+        var cookieRoot={host:cookieHost,querySelectorAll:s=>!rejected && (s==='button'||s==='*') ? [reject,accept] : [],elementFromPoint:()=>reject};
+        var reject={getBoundingClientRect:bounds,getAttribute:()=>null,getRootNode:()=>cookieRoot,innerText:'Reject Optional Cookies',click:()=>{rejected++;}};
+        var accept={getBoundingClientRect:bounds,getAttribute:()=>null,getRootNode:()=>cookieRoot,innerText:'Accept All',click:()=>{accepted++;}};
+        cookieHost.shadowRoot=cookieRoot;
+        var postRoot={host:item,querySelectorAll:s=>s==='h1'||s==='*' ? [title] : [],elementFromPoint:()=>title};
+        var title={getBoundingClientRect:bounds,getAttribute:()=>null,getRootNode:()=>postRoot,innerText:'A real public post title'};
+        item.innerText='';item.textContent='';item.shadowRoot=postRoot;
+        document.elementFromPoint=()=>rejected ? item : cookieHost;
+        document.querySelectorAll=s=>s==='*' ? [cookieHost,item] : s==='shreddit-cookie-banner' ? [cookieHost] : s==='shreddit-post' ? [item] : [];
+        """)
+        let beforeScript = WebMorningExecutionPolicy.script(site: .reddit, behavior: .browseFeed)
+        let beforeValue = try #require(context.evaluateScript(beforeScript)?.toString())
+        #expect(context.exception == nil)
+        let before = try #require(WebMorningPageObservation.parse(beforeValue))
+        #expect(before.consentCanDismiss == true && before.status == .loading)
+        let rejectScript = WebMorningExecutionPolicy.script(site: .reddit, behavior: .browseFeed,
+            command: "rejectConsent", fingerprint: before.fingerprint)
+        let dispatch = try #require(context.evaluateScript(rejectScript)?.toString())
+        #expect(dispatch.contains("dispatched"))
+        let afterValue = try #require(context.evaluateScript(beforeScript)?.toString())
+        #expect(context.exception == nil)
+        let after = try #require(WebMorningPageObservation.parse(afterValue))
+        #expect(after.status == .ready && after.text == ["A real public post title"])
+        #expect(context.objectForKeyedSubscript("rejected")?.toInt32() == 1)
+        #expect(context.objectForKeyedSubscript("accepted")?.toInt32() == 0)
+    }
+
+    @Test func privacyWordsInsideAnOrdinaryPostDoNotAuthorizeConsentClicks() throws {
+        let context = try context()
+        context.evaluateScript("""
+        var originalQuery=document.querySelectorAll;
+        var pretend={parentElement:item,getBoundingClientRect:bounds,getAttribute:()=>null,innerText:'Reject Optional Cookies',click:()=>{throw Error('Post content clicked');}};
+        document.querySelectorAll=s=>s==='button' ? [pretend] : originalQuery(s);
+        """)
+        let result = try #require(WebMorningPageObservation.parse(evaluate(context)))
+        #expect(result.status == .ready && result.consentCanDismiss != true)
     }
 
     @Test func privacyOrSubscriptionWallNeedsThePersonsChoice() throws {
