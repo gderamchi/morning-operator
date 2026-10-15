@@ -62,14 +62,14 @@ extension MorningStore {
                 switch step.target {
                 case let .externalApp(app, detail):
                     guard let url = app.url(detail: detail), UIApplication.shared.canOpenURL(url) else {
-                        notice = String(localized: "This app couldn't open. You can continue in MORE or choose Next.")
+                        notice = String(localized: "This app couldn't open. You can continue in MORE or choose Next.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                         return true
                     }
                     UIApplication.shared.open(url) { [weak self] opened in
                         guard !opened else { return }
                         Task { @MainActor in
                             guard self?.session?.id == session.id, self?.currentStep?.id == step.id else { return }
-                            self?.notice = String(localized: "This app couldn't open. You can continue in MORE or choose Next.")
+                            self?.notice = String(localized: "This app couldn't open. You can continue in MORE or choose Next.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                         }
                     }
                 case let .inAppWeb(site): pendingWebTarget = site
@@ -84,7 +84,7 @@ extension MorningStore {
                                   self.nativeStepContext?.requestID == requestID,
                                   self.session?.id == session.id, self.currentStep?.id == step.id else { return }
                             self.nativeConnections.shortcutCouldNotOpen(requestID: requestID)
-                            self.notice = String(localized: "Shortcuts couldn't open. Check the installed shortcut before trying again.")
+                            self.notice = String(localized: "Shortcuts couldn't open. Check the installed shortcut before trying again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                         }
                     }
                 case let .connectedAPI(service, connectionID, tool, arguments):
@@ -103,7 +103,7 @@ extension MorningStore {
             synchronizeMorningActivity()
             return true
         } catch {
-            notice = String(localized: "This moment couldn't start: \(error.localizedDescription)")
+            notice = String(localized: "This moment couldn't start: \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             pause()
             return true
         }
@@ -127,7 +127,7 @@ extension MorningStore {
             guard let (alertedTimer, claimedAlert) = claimed, claimedAlert else { return }
             self.stepTimerRevision += 1
             if self.finishAutomatedBudget(alertedTimer) { return }
-            self.notice = String(localized: "Time's up. Choose +2 min or Next.")
+            self.notice = String(localized: "Time's up. Choose +2 min or Next.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             let nextLabel = self.nextStepTimerLabel
             await StepTimerActivity.publish(timer: alertedTimer, timeIsUp: true)
             guard !Task.isCancelled, let current = self.activeStepTimer,
@@ -136,14 +136,14 @@ extension MorningStore {
             // Background execution and audibility are system decisions. Ask for speech
             // only while MORE already has its foreground spoken-guidance path.
             if UIApplication.shared.applicationState == .active, self.readAloud, !self.voiceInputBlocksPlayback {
-                self.speech.speak(String(localized: "Time's up. \(nextLabel)"))
+                self.speech.speak(String(localized: "Time's up. \(nextLabel)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
             }
         }
     }
 
     var nextStepTimerLabel: String {
-        guard let session, let next = StepNavigation.nextStep(in: session) else { return String(localized: "Finish") }
-        return String(localized: "Next: \(next.target?.destination.displayName ?? "MORE")")
+        guard let session, let next = StepNavigation.nextStep(in: session) else { return String(localized: "Finish", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        return String(localized: "Next: \(next.target?.destination.displayName ?? "MORE")", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
 
     func extendStepTimer(expectedTimer: StepTimer? = nil) async {
@@ -206,7 +206,7 @@ extension MorningStore {
         pendingWebTarget = nil
         stepTimerRevision += 1
         if !retired, !privacyBlocksWork {
-            notice = String(localized: "The timer couldn't be stopped safely. Try again before leaving this moment.")
+            notice = String(localized: "The timer couldn't be stopped safely. Try again before leaving this moment.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
         return retired
     }

@@ -44,7 +44,7 @@ public final class NativeConnectionsService {
                     }
                 }
             }
-        } catch { shortcutMessage = error.localizedDescription }
+        } catch { shortcutMessage = error.moreDescription }
     }
 
     public func setShortcutName(_ name: String, for operation: NativeShortcutOperation) throws {
@@ -60,7 +60,7 @@ public final class NativeConnectionsService {
 
     public func launchShortcut(name: String, input: String, operation: NativeShortcutOperation = .custom) throws -> URL {
         try withReadyAccess {
-            if bridge.expire() { shortcutMessage = ShortcutBridgeError.expired.localizedDescription }
+            if bridge.expire() { shortcutMessage = ShortcutBridgeError.expired.moreDescription }
             let request = try bridge.begin(name: name, input: input, operation: operation)
             shortcutOutcomes[operation] = nil; shortcutMessage = nil
             shortcutDeadline?.cancel()
@@ -68,7 +68,7 @@ public final class NativeConnectionsService {
                 do { try await Task.sleep(for: .seconds(ShortcutBridge.timeout)) } catch { return }
                 guard let self, self.bridge.pending?.id == request.id else { return }
                 self.bridge.cancel()
-                self.shortcutMessage = ShortcutBridgeError.expired.localizedDescription
+                self.shortcutMessage = ShortcutBridgeError.expired.moreDescription
             }
             return request.launchURL
         }
@@ -82,29 +82,29 @@ public final class NativeConnectionsService {
                 shortcutDeadline?.cancel(); shortcutDeadline = nil
                 shortcutOutcomes[outcome.operation] = outcome; shortcutMessage = nil
             }
-        } catch { shortcutMessage = error.localizedDescription }
+        } catch { shortcutMessage = error.moreDescription }
         return true
     }
 
     public func shortcutCouldNotOpen(requestID: UUID? = nil) {
         if let requestID, bridge.pending?.id != requestID { return }
         bridge.cancel(); shortcutDeadline?.cancel(); shortcutDeadline = nil
-        shortcutMessage = String(localized: "Shortcuts couldn't open. Check that it is installed and the shortcut name is correct.", bundle: .module)
+        shortcutMessage = String(localized: "Shortcuts couldn't open. Check that it is installed and the shortcut name is correct.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     }
 
     public func refreshAccess() {
-        if bridge.expire() { shortcutMessage = ShortcutBridgeError.expired.localizedDescription }
+        if bridge.expire() { shortcutMessage = ShortcutBridgeError.expired.moreDescription }
         if !hasReminderAccess { reminders = []; remindersReadAt = nil }
     }
 
     public func stopWaitingForShortcut() {
         bridge.cancel(); shortcutDeadline?.cancel(); shortcutDeadline = nil
-        shortcutMessage = String(localized: "MORE stopped waiting. The shortcut may still be running; check its outcome before running it again.", bundle: .module)
+        shortcutMessage = String(localized: "MORE stopped waiting. The shortcut may still be running; check its outcome before running it again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     }
 
     public func readUpcomingReminders() {
         guard !remindersBusy else { return }
-        do { try withReadyAccess { } } catch { reminderMessage = error.localizedDescription; return }
+        do { try withReadyAccess { } } catch { reminderMessage = error.moreDescription; return }
         let attempt = UUID()
         reminderAttempt = attempt; remindersBusy = true; reminderMessage = nil
         reminders = []; remindersReadAt = nil
@@ -121,7 +121,7 @@ public final class NativeConnectionsService {
                     do { try await Task.sleep(for: .seconds(10)) } catch { return }
                     guard let self, self.reminderAttempt == attempt else { return }
                     self.cancelReminderRead()
-                    self.reminderMessage = String(localized: "Reminders didn't answer in time. Try reading them again.", bundle: .module)
+                    self.reminderMessage = String(localized: "Reminders didn't answer in time. Try reading them again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
                 }
                 let values = try await reminderService.fetchUpcomingReminders(limit: 50)
                 try Task.checkCancellation(); try withReadyAccess { }
@@ -131,7 +131,7 @@ public final class NativeConnectionsService {
             } catch {
                 guard reminderAttempt == attempt else { return }
                 reminderDeadline?.cancel(); reminderDeadline = nil
-                if !(error is CancellationError) { reminderMessage = error.localizedDescription }
+                if !(error is CancellationError) { reminderMessage = error.moreDescription }
             }
         }
     }
@@ -143,11 +143,11 @@ public final class NativeConnectionsService {
                       (0..<300).contains(Date().timeIntervalSince(readAt)) else { throw ReminderServiceError.reminderChanged }
                 try reminderService.completeReminder(reminder)
                 reminders.removeAll { $0.id == reminder.id }
-                reminderMessage = String(localized: "Marked complete in Apple Reminders.", bundle: .module)
+                reminderMessage = String(localized: "Marked complete in Apple Reminders.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             }
         } catch {
             reminders = []; remindersReadAt = nil
-            reminderMessage = error.localizedDescription
+            reminderMessage = error.moreDescription
         }
     }
 

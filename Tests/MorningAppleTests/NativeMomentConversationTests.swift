@@ -8,6 +8,20 @@ struct NativeMomentConversationTests {
     private func context() -> MorningExecutionID { .init(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID()) }
     private func directory() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent("native-moment-tests-\(UUID())") }
 
+    @Test func languagePresentationPreservesActionAndRevokesReviewWithoutWriting() async {
+        let provider = NativeMomentFakeProvider(), context = context(), path = directory()
+        defer { try? FileManager.default.removeItem(at: path) }
+        let conversation = NativeMomentConversation(provider: provider, directory: path, speak: { _ in })
+        _ = await conversation.respond("Reminder: water plants no date", context: context)
+        let title = conversation.action?.title, destination = conversation.action?.destination
+        #expect(conversation.canConfirm)
+        conversation.appLanguageDidChange()
+        #expect(!conversation.canConfirm && provider.writes.isEmpty)
+        #expect(conversation.action?.title == title && conversation.action?.destination == destination)
+        _ = await conversation.respond("add it", context: context)
+        #expect(provider.writes.isEmpty)
+    }
+
     @Test func creationNeedsSeparateReviewedConfirmationAndDoubleConfirmDoesNotWrite() async throws {
         let provider = NativeMomentFakeProvider(), context = context(), path = directory()
         defer { try? FileManager.default.removeItem(at: path) }

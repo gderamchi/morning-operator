@@ -13,6 +13,29 @@ struct GmailMorningTests {
     private let scheme = "com.googleusercontent.apps.123456789-synthetic"
     private let state = String(repeating: "s", count: 43)
 
+    @Test func languagePresentationChangeKeepsLiteralDraftAndRequiresNewReviewWithoutSending() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" { posts += 1 }
+            return response(request, ["resultSizeEstimate": 0])
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let conversation = GmailMorningConversation(service: service, privacy: context.privacy, speak: { _ in })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: id, generation: nil)
+        await conversation.respond("Envoie-moi un mail objet «Exact subject» texte «Café e\u{301} stays exact.»", context: id)
+        let before = Data(conversation.draftText.utf8), recipient = conversation.recipient
+        #expect(conversation.canSendSelfMessage)
+        conversation.appLanguageDidChange()
+        #expect(Data(conversation.draftText.utf8) == before && conversation.recipient == recipient)
+        #expect(!conversation.canSendSelfMessage && posts == 0)
+        await conversation.respond("send it", context: id)
+        #expect(posts == 0 && conversation.canSendSelfMessage)
+    }
+
     @Test func newSelfMessageUsesNativeProfileExactMIMEAndOneDurableClaim() async throws {
         let context = Context(); defer { context.cleanup() }
         var posts: [URLRequest] = []

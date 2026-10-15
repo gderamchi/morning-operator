@@ -27,25 +27,25 @@ final class MorningThemeClock {
     var usesWeatherFixture: Bool { weatherPreview != nil }
     var weatherStatusDescription: String {
         if let weatherPreview {
-            return String(localized: "Weather preview: \(weatherPreview) (sample).")
+            return String(localized: "Weather preview: \(weatherPreview) (sample).", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
-        guard let location else { return String(localized: "Choose a city in Your day to show its weather on Home.") }
+        guard let location else { return String(localized: "Choose a city in Your day to show its weather on Home.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
         if let weatherSnapshot, weatherScene != nil {
-            return String(localized: "\(location.displayName): \(weatherSnapshot.conditionDescription).")
+            return String(localized: "\(location.displayName): \(weatherSnapshot.localizedConditionDescription()).", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
         switch weatherStatus {
-        case .stale: return String(localized: "Weather for \(location.displayName) needs an update.")
-        case .notConfigured: return String(localized: "Weather for \(location.displayName) is not available yet.")
-        default: return String(localized: "Weather for \(location.displayName) is unavailable right now.")
+        case .stale: return String(localized: "Weather for \(location.displayName) needs an update.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .notConfigured: return String(localized: "Weather for \(location.displayName) is not available yet.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        default: return String(localized: "Weather for \(location.displayName) is unavailable right now.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
     var skyAccessibilityDescription: String { weatherStatusDescription }
     var isUsingReferenceDay: Bool { location == nil }
     var solarSourceDescription: String {
         if let location {
-            return String(localized: "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone. No device location is requested.")
+            return String(localized: "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone. No device location is requested.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
-        return String(localized: "Choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.")
+        return String(localized: "Choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
     /// A pinned phase for previews, snapshots and tests. `nil` follows the clock.
     var pinnedPhase: MorningDayPhase? {

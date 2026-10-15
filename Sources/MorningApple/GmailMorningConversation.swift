@@ -62,6 +62,7 @@ public final class GmailMorningConversation {
     private var session: GmailAccessSession?
     private var messages: [GmailMessage] = []
     private var selectedIndex = 0
+    private var inboxNarration: (readCount: Int, priorityFirst: Bool, hasMore: Bool, failedCount: Int)?
     private var pendingIntention = ""
     private var generation: UUID?
     private var attempt = UUID()
@@ -88,7 +89,7 @@ public final class GmailMorningConversation {
         do {
             try requireCurrent(token)
             guard let access = try await service.restoreConnection(generation: generation) else {
-                try await unavailable("Connectez Gmail dans les réglages avant votre prochain matin.", token: token); return
+                try await unavailable(String(localized: "Connect Gmail in settings before your next morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
             }
             try requireCurrent(token)
             session = access
@@ -96,13 +97,13 @@ public final class GmailMorningConversation {
             try requireCurrent(token)
             guard !inbox.messages.isEmpty else {
                 if inbox.failedMessageCount > 0 {
-                    try await unavailable("Certains mails n’ont pas pu être lus. Je ne peux pas conclure que votre boîte est vide.", token: token)
+                    try await unavailable(String(localized: "Some emails could not be read. I cannot conclude that your inbox is empty.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
                 } else {
                     readOutcome = .read
                     state = access.canSendMessages ? .choosingMailAction : .completed
                     try await say(access.canSendMessages
-                        ? "Aucun mail non lu dans votre boîte de réception. Vous pouvez préparer une note à vous-même, ou continuer votre matin."
-                        : "Aucun mail non lu dans votre boîte de réception. Je continue votre matin.", token: token)
+                        ? String(localized: "There are no unread emails in your inbox. You can prepare a note to yourself or continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                        : String(localized: "There are no unread emails in your inbox. I’ll continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
                 }
                 return
             }
@@ -122,7 +123,7 @@ public final class GmailMorningConversation {
             }
             try requireCurrent(token)
             guard !fetched.isEmpty else {
-                try await unavailable("Les mails n’ont pas pu être lus. Vous pouvez passer cette étape ou réessayer plus tard.", token: token); return
+                try await unavailable(String(localized: "Your emails could not be read. You can skip this moment or try again later.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
             }
             readOutcome = .read
             // Transparent deterministic ordering: urgency words, then the provider's
@@ -131,21 +132,60 @@ public final class GmailMorningConversation {
                 let left = Self.priority(lhs.element), right = Self.priority(rhs.element)
                 return left == right ? lhs.offset < rhs.offset : left > right
             }.prefix(3).map(\.element))
-            let chosen = messages.enumerated().map { index, mail in
-                let detail = mail.bodyUnavailable ? "Le contenu de ce message n’est pas lisible ici." :
-                    "Le message dit : " + Self.excerpt(mail.plainTextBody)
-                return "\(index + 1). \(mail.sender). \(mail.subject.isEmpty ? "Sans objet" : mail.subject). \(detail)"
-            }.joined(separator: " ")
-            summary = "J’ai consulté \(fetched.count) mails non lus. Voici \(messages.count) messages à examiner. " + chosen
-            if fetched.contains(where: { Self.priority($0) > 0 }) {
-                summary += " Les mentions d’urgence ou d’échéance passent en premier ; vous pouvez choisir un autre message."
-            } else { summary += " Ils suivent l’ordre de votre boîte de réception." }
-            if inbox.hasMore { summary += " D’autres mails non lus n’ont pas été consultés." }
-            if failures > 0 { summary += " \(failures) messages n’ont pas pu être lus." }
+            inboxNarration = (fetched.count, fetched.contains(where: { Self.priority($0) > 0 }), inbox.hasMore, failures)
+            summary = inboxSummary()
             selectedIndex = 0; recipient = messages[0].replyAddress
             state = .askingToReply
-            try await say(summary + " Voulez-vous répondre au premier ? Vous pouvez aussi choisir un numéro, préparer une note à vous-même ou continuer votre matin.", token: token)
+            try await say(summary + String(localized: " Would you like to reply to the first one? You can also choose a number, prepare a note to yourself, or continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
         } catch { await fail(error, token: token) }
+    }
+
+    private func inboxSummary() -> String {
+        guard let facts = inboxNarration else { return "" }
+        let chosen = messages.enumerated().map { index, mail in
+            let detail = mail.bodyUnavailable ? String(localized: "This message’s content cannot be read here.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) :
+                String(localized: "The message says: ", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) + Self.excerpt(mail.plainTextBody)
+            return "\(index + 1). \(mail.sender). \(mail.subject.isEmpty ? String(localized: "No subject", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) : mail.subject). \(detail)"
+        }.joined(separator: " ")
+        var result = String(localized: "I reviewed \(facts.readCount) unread emails. ", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) + String(localized: "Here are \(messages.count) messages to consider. ", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) + chosen
+        if facts.priorityFirst {
+            result += String(localized: " Messages mentioning urgency or a deadline come first; you can choose another message.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        } else { result += String(localized: " They follow your inbox order.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
+        if facts.hasMore { result += String(localized: " Other unread emails have not been reviewed.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
+        if facts.failedCount > 0 { result += String(localized: " \(facts.failedCount) messages could not be read.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
+        return result
+    }
+
+    /// Refresh presentation only. Draft bytes, recipient bindings and send journals stay intact.
+    public func appLanguageDidChange() {
+        questionID = nil
+        sendReviewRevoked = true
+        summary = inboxSummary()
+        switch state {
+        case .idle: message = ""
+        case .askingToReply where selectedIndex != 0 && messages.indices.contains(selectedIndex):
+            message = String(localized: "\(messages[selectedIndex].sender). \(messages[selectedIndex].subject). Would you like to reply?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .askingToReply:
+            message = summary + String(localized: " Would you like to reply to the first one? You can also choose a number, prepare a note to yourself, or continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .choosingMailAction:
+            message = String(localized: "There are no unread emails in your inbox. You can prepare a note to yourself or continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .askingForIntention:
+            message = String(localized: "What would you like to reply?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .reviewingReply:
+            message = String(localized: "Reply to \(recipient ?? ""): \(draftText) Your draft is ready. What would you like to do next?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .reviewingSelfMessage:
+            message = String(localized: "New email to \(recipient ?? ""). Subject: \(selfMessageSubject). Body: \(draftText) Your draft is ready. What would you like to do next?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .uncertain, .sending:
+            message = String(localized: "The send is unconfirmed. I will not send this message again. Say check to review sent mail, or no to continue.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .completed:
+            message = lastSendOutcome == .sent
+                ? String(localized: "Gmail confirms your email was sent to \(recipient ?? ""). I’ll continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                : String(localized: "All right, I’ll continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .preparingReply:
+            message = String(localized: "Preparing your reply…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .preparing, .unavailable:
+            message = String(localized: "Your emails are unavailable right now. You can continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        }
     }
 
     /// Called only with an owner's recognized utterance from the current session.
@@ -173,16 +213,16 @@ public final class GmailMorningConversation {
             }
             if ["non", "non merci", "no", "no thanks", "continue", "continuer", "passe les mails"].contains(normalized) {
                 state = .completed; draftText = ""; recipient = nil
-                try await say("D’accord, je continue votre matin.", token: token); return
+                try await say(String(localized: "All right, I’ll continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
             }
             if isComposingSelfMessage {
                 if state == .uncertain {
                     if Self.isSend(normalized) || ["verifie", "check", "check sent", "verifie les envois"].contains(normalized) {
                         try await sendSelfMessage(token: token)
-                    } else { try await say("Cet envoi attend une vérification. Aucun nouveau mail ne sera envoyé. Dites vérifier ou non pour continuer.", token: token) }
+                    } else { try await say(String(localized: "This send needs checking. No new email will be sent. Say check, or no to continue.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token) }
                 } else if Self.isSend(normalized) {
                     guard selfMessageDraft != nil else {
-                        try await say("Complétez et vérifiez l’objet et le texte avant de demander l’envoi.", token: token); return
+                        try await say(String(localized: "Complete and review the subject and body before requesting a send.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
                     }
                     if sendReviewRevoked { try await speakSelfMessage(token: token); return }
                     try await sendSelfMessage(token: token)
@@ -196,13 +236,13 @@ public final class GmailMorningConversation {
             if let index = Self.messageIndex(normalized), messages.indices.contains(index), state != .uncertain {
                 selectedIndex = index; recipient = messages[index].replyAddress; draftText = ""; pendingIntention = ""
                 state = .askingToReply
-                try await say("\(messages[index].sender). \(messages[index].subject). Voulez-vous lui répondre ?", token: token); return
+                try await say(String(localized: "\(messages[index].sender). \(messages[index].subject). Would you like to reply?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
             }
             if state == .unavailable {
                 if ["reessaie", "reessaye", "reessayer", "retry", "try again"].contains(normalized) {
                     await begin(context: context, generation: generation)
                 } else {
-                    try await say("Les mails ne sont pas prêts. Dites réessaie, non ou suivant pour continuer votre matin.", token: token)
+                    try await say(String(localized: "Your emails are not ready. Say retry, no, or next to continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
                 }
                 return
             }
@@ -213,33 +253,33 @@ public final class GmailMorningConversation {
                 let hasReplyIntention = ["oui ", "yes ", "reponds lui ", "repond lui ", "reply ", "tell them "].contains(where: normalized.hasPrefix)
                 if ["oui", "yes", "reponds lui", "repondre", "reply"].contains(normalized) || hasReplyIntention {
                     guard !mail.bodyUnavailable, !mail.bodyWasTruncated else {
-                        try await say("Ce message n’est pas disponible en entier. Je ne prépare pas de réponse sur un contenu incomplet. Vous pouvez choisir un autre message ou dire non.", token: token); return
+                        try await say(String(localized: "This message is incomplete. I cannot prepare a reply from partial content. You can choose another message or say no.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
                     }
                     guard recipient != nil else {
-                        try await say("L’adresse de réponse est ambiguë. Vous pouvez choisir un autre message ou dire non.", token: token); return
+                        try await say(String(localized: "The reply address is ambiguous. You can choose another message or say no.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
                     }
                     if hasReplyIntention { try await prepare(mail: mail, guidance: transcript, token: token) }
                     else {
                         state = .askingForIntention
-                        try await say("Que souhaitez-vous lui répondre ?", token: token)
+                        try await say(String(localized: "What would you like to reply?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
                     }
                 } else {
-                    try await say("Dites oui pour répondre, non pour continuer, ou le numéro d’un message.", token: token)
+                    try await say(String(localized: "Say yes to reply, no to continue, or a message number.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
                 }
             case .askingForIntention:
-                let guidance = pendingIntention.isEmpty ? transcript : pendingIntention + " Correction : " + transcript
+                let guidance = pendingIntention.isEmpty ? transcript : pendingIntention + String(localized: " Correction: ", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) + transcript
                 try await prepare(mail: mail, guidance: guidance, token: token)
             case .reviewingReply:
                 if Self.isSend(normalized) {
                     guard session.canSendMessages else {
-                        try await say("L’envoi n’est pas autorisé pour ce compte. Activez lecture et envoi dans les réglages Gmail. Votre réponse n’a pas été envoyée.", token: token); return
+                        try await say(String(localized: "Sending is not authorized for this account. Enable reading and sending in Gmail settings. Your reply has not been sent.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
                     }
                     if sendReviewRevoked { try await reviewReply(mail: mail, token: token); return }
                     try await send(mail: mail, session: session, token: token)
                 } else if ["repete", "relis", "read it", "read again"].contains(normalized) {
                     try await reviewReply(mail: mail, token: token)
                 } else if ["oui", "yes"].contains(normalized) {
-                    try await say("La réponse à \(recipient ?? mail.sender) attend une demande explicite de votre part. Vous pouvez aussi la corriger.", token: token)
+                    try await say(String(localized: "The reply to \(recipient ?? mail.sender) needs your explicit request to send. You can also revise it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
                 } else {
                     try await prepare(mail: mail, guidance: transcript, token: token, revising: true)
                 }
@@ -247,7 +287,7 @@ public final class GmailMorningConversation {
                 if Self.isSend(normalized) || ["verifie", "check", "check sent", "verifie les envois"].contains(normalized) {
                     try await send(mail: mail, session: session, token: token)
                 } else {
-                    try await say("L’envoi est incertain. Dites vérifier pour rechercher cette réponse dans les messages envoyés, ou non pour continuer. Je ne la renvoie pas.", token: token)
+                    try await say(String(localized: "The send is uncertain. Say check to look for this reply in sent mail, or no to continue. I will not send it again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
                 }
             default: break
             }
@@ -263,7 +303,7 @@ public final class GmailMorningConversation {
         else if state == .preparingReply {
             drafts.cancel()
             state = draftText.isEmpty ? .askingForIntention : .reviewingReply
-            message = "La préparation a été interrompue. Votre intention est conservée ; dites votre correction ou non pour continuer."
+            message = String(localized: "Preparation was interrupted. Your intention is preserved; say your correction or no to continue.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         } else if state == .preparing { state = .unavailable }
         if isComposingSelfMessage, state == .askingForIntention || state == .reviewingReply { state = .reviewingSelfMessage }
     }
@@ -280,7 +320,7 @@ public final class GmailMorningConversation {
 
     public func clear() {
         cancel(); context = nil; session = nil; messages = []; selectedIndex = 0; pendingIntention = ""
-        draftText = ""; recipient = nil; summary = ""; message = ""; state = .idle; generation = nil; lastSendOutcome = nil
+        draftText = ""; recipient = nil; summary = ""; inboxNarration = nil; message = ""; state = .idle; generation = nil; lastSendOutcome = nil
         readOutcome = .unavailable
         isComposingSelfMessage = false; selfMessageSubject = ""; selfMessageDraft = nil
         sendReviewRevoked = false
@@ -303,7 +343,7 @@ public final class GmailMorningConversation {
             recipient = profileRecipient
             if intention.isEmpty || ["envoie moi un mail", "envoie moi un email", "note a moi meme", "send me an email", "email myself"].contains(Self.normalized(intention)) {
                 state = .reviewingSelfMessage
-                try await say("Note à vous-même : \(recipient ?? ""). Dictez un objet et un texte, ou complétez les champs. Rien n’est encore envoyé.", token: token)
+                try await say(String(localized: "Note to yourself: \(recipient ?? ""). Dictate a subject and body, or fill in the fields. Nothing has been sent.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
             } else { try await prepareSelfMessage(intention: intention, token: token) }
         } catch { await fail(error, token: token) }
     }
@@ -323,7 +363,7 @@ public final class GmailMorningConversation {
         attempt = UUID(); questionID = nil; selfMessageDraft = nil
         selfMessageSubject = subject; draftText = body
         sendReviewRevoked = true
-        message = "Vos modifications attendent une nouvelle relecture avant l’envoi."
+        message = String(localized: "Your changes need a new review before sending.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     }
 
     private func prepareSelfMessage(intention: String, token: UUID) async throws {
@@ -350,10 +390,10 @@ public final class GmailMorningConversation {
 
     private func speakSelfMessage(token: UUID) async throws {
         guard selfMessageDraft != nil else {
-            try await say("Complétez l’objet et le texte de votre note à vous-même dans les champs, puis relisez le brouillon. Rien n’est envoyé.", token: token); return
+            try await say(String(localized: "Fill in the subject and body of your note to yourself, then review the draft. Nothing is sent.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token); return
         }
         sendReviewRevoked = true
-        try await say("Nouveau mail à \(recipient ?? "") . Objet : \(selfMessageSubject). Texte : \(draftText) Votre brouillon est prêt. Quelle suite souhaitez-vous lui donner ?", token: token)
+        try await say(String(localized: "New email to \(recipient ?? ""). Subject: \(selfMessageSubject). Body: \(draftText) Your draft is ready. What would you like to do next?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
         try requireCurrent(token)
         sendReviewRevoked = false
     }
@@ -386,7 +426,7 @@ public final class GmailMorningConversation {
 
     private func reviewReply(mail: GmailMessage, token: UUID) async throws {
         sendReviewRevoked = true
-        try await say("Réponse à \(recipient ?? mail.sender) : \(draftText) Votre brouillon est prêt. Quelle suite souhaitez-vous lui donner ?", token: token)
+        try await say(String(localized: "Reply to \(recipient ?? mail.sender): \(draftText) Your draft is ready. What would you like to do next?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
         try requireCurrent(token)
         sendReviewRevoked = false
     }
@@ -406,16 +446,16 @@ public final class GmailMorningConversation {
         switch result {
         case .sent:
             state = .completed
-            try await say("Gmail confirme l’envoi de votre mail à \(recipient ?? "") . Je continue votre matin.", token: token)
+            try await say(String(localized: "Gmail confirms your email was sent to \(recipient ?? ""). I’ll continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
         case .notSent:
             state = .uncertain
-            try await say("Gmail a refusé l’envoi. Aucune nouvelle tentative n’est lancée. Vous pouvez dire non pour continuer.", token: token)
+            try await say(String(localized: "Gmail refused the send. No new attempt is being made. You can say no to continue.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
         case .uncertain:
             state = .uncertain
-            try await say("L’envoi n’est pas confirmé. Je ne renvoie pas ce message. Dites vérifier pour consulter les messages envoyés, ou non pour continuer.", token: token)
+            try await say(String(localized: "The send is unconfirmed. I will not send this message again. Say check to review sent mail, or no to continue.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
         case .draftMismatch:
             state = .uncertain
-            try await say("Une autre réponse a déjà été tentée pour ce mail pendant ce matin. Ce nouveau brouillon n’a pas été envoyé. Vérifiez les messages envoyés avant de préparer une nouvelle réponse. Dites non pour continuer.", token: token)
+            try await say(String(localized: "Another reply to this email was already attempted this morning. This new draft has not been sent. Check sent mail before preparing another reply. Say no to continue.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale), token: token)
         }
     }
 
@@ -436,14 +476,14 @@ public final class GmailMorningConversation {
             if error is CancellationError { throw CancellationError() }
             guard questionID == id, state == pinnedState, selectedIndex == pinnedIndex, draftText == pinnedDraft else { return }
             response = error as? MorningVoiceConversationError == .unavailable
-                ? "La conversation locale n’est pas disponible sur cet appareil. Votre choix précédent est conservé ; vous pouvez continuer votre matin."
-                : "Je n’ai pas pu préparer de réponse à cette question. Votre choix précédent est conservé ; vous pouvez réessayer."
+                ? String(localized: "Local conversation is unavailable on this device. Your previous choice is preserved; you can continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                : String(localized: "I could not prepare an answer to that question. Your previous choice is preserved; you can try again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
         try requireCurrent(token)
         guard questionID == id, state == pinnedState, selectedIndex == pinnedIndex, draftText == pinnedDraft else { return }
         let clean = response.trimmingCharacters(in: .whitespacesAndNewlines)
         let spoken = !clean.isEmpty && clean.count <= 2_000 ? clean
-            : "Je n’ai pas pu préparer de réponse à cette question. Votre choix précédent est conservé ; vous pouvez réessayer."
+            : String(localized: "I could not prepare an answer to that question. Your previous choice is preserved; you can try again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         try await say(spoken, token: token)
     }
 
@@ -471,9 +511,9 @@ public final class GmailMorningConversation {
         guard attempt == token else { return }
         if error is CancellationError { return }
         let text: String
-        if let known = error as? GmailConnectionError { text = known.localizedDescription }
-        else if let known = error as? GmailReplyDraftError { text = known.localizedDescription }
-        else { text = "Les mails sont indisponibles pour le moment. Vous pouvez continuer votre matin." }
+        if let known = error as? GmailConnectionError { text = known.moreDescription }
+        else if let known = error as? GmailReplyDraftError { text = known.moreDescription }
+        else { text = String(localized: "Your emails are unavailable right now. You can continue your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
         if error as? GmailConnectionError == .connectionChanged {
             session = nil; messages = []; summary = ""; draftText = ""; recipient = nil; pendingIntention = ""
             readOutcome = .unavailable; state = .unavailable

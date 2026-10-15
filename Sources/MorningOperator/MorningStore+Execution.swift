@@ -112,7 +112,7 @@ extension MorningStore {
                     notice = ConnectedRoutineActionPolicy.spokenMailSendExplanation; return false
                 }
                 do { _ = try ConnectedActionReview.summary(argumentsJSON: arguments) }
-                catch { notice = error.localizedDescription; return false }
+                catch { notice = error.moreDescription; return false }
             }
         }
         return true

@@ -72,7 +72,7 @@ struct RoutineEvidenceProposalView: View {
                                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 Text(step.executionDescription).font(.raleway(.subheadline))
                                 if let target = step.target, target.integrationRoute == .api {
-                                    Text(RoutineConnectedReview.summary(for: target) ?? "Review unavailable")
+                                    Text(RoutineConnectedReview.summary(for: target) ?? String(localized: "Review unavailable", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                                         .font(.footnote).fixedSize(horizontal: false, vertical: true)
                                 }
                             }.padding(.vertical, 3)
@@ -200,7 +200,7 @@ struct RoutineEvidenceProposalView: View {
     }
 
     private var keepCurrentButton: some View {
-        Button(store.routine == nil ? "Discard" : "Keep current") {
+        Button(store.routine == nil ? String(localized: "Discard", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Keep current", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
             if store.discardPendingRoutineProposal() { dismiss() }
         }
         .buttonStyle(SecondaryButtonStyle())
@@ -227,12 +227,12 @@ struct RoutineEvidenceProposalView: View {
         let isSample = proposal.sourceSnapshots.first?.origin == .synthetic
         return Section {
             VStack(alignment: .leading, spacing: 10) {
-                Text(isSample ? "Sample morning" : "Your next morning")
+                Text(isSample ? String(localized: "Sample morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Your next morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                     .font(.serif(.title2, .medium))
                 Text("Selected: \(proposal.sourceSnapshots.count) observations across \(dayCount) dated days")
                     .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted).accessibilityIdentifier("proposal.sources")
-                Text(store.routine == nil ? "Review your moments, then approve when ready."
-                     : "Your current routine stays ready until you approve.")
+                Text(store.routine == nil ? String(localized: "Review your moments, then approve when ready.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                     : String(localized: "Your current routine stays ready until you approve.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 if store.usesSyntheticProposalFixture {
                     Text("Synthetic suggestion test — no Apple model call")
@@ -254,6 +254,7 @@ struct RoutineEvidenceProposalView: View {
 
 private func proposalDateLabel(_ value: ObservationObservedDate) -> String {
     let formatter = DateFormatter()
+    formatter.locale = AppLanguage.locale
     formatter.dateStyle = .medium
     formatter.timeStyle = .none
     formatter.calendar = Calendar(identifier: .gregorian)

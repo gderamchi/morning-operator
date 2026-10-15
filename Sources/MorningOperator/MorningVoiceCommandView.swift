@@ -5,8 +5,7 @@ import MorningApple
 /// An explicit listening turn, separate from background listening or Siri invocation.
 struct MorningVoiceCommandView: View {
     @Bindable var store: MorningStore
-    @ViewState<MorningVoiceCommandLanguage> private var language =
-        Locale.current.language.languageCode?.identifier == "fr" ? .french : .english
+    private var language: MorningVoiceCommandLanguage { .current }
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -20,14 +19,6 @@ struct MorningVoiceCommandView: View {
                         .font(.serif(.largeTitle, .medium))
                     Text("Your morning is paused. Say next, pause, resume, skip, repeat or stop.")
                         .font(.raleway(.body)).foregroundStyle(MorningStyle.muted)
-                    Picker("Command language", selection: $language) {
-                        Text("English").tag(MorningVoiceCommandLanguage.english)
-                        Text("Français").tag(MorningVoiceCommandLanguage.french)
-                    }.pickerStyle(.segmented).disabled(store.voiceInputBlocksPlayback)
-                    if language == .french {
-                        Text("Suivant · pause · reprends · passe cette étape · répète · arrête")
-                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
-                    }
                     Text(store.voiceCommandFeedback ?? store.voiceCommands.message)
                         .font(.raleway(.subheadline)).accessibilityIdentifier("voiceCommand.status")
                     if !store.voiceCommands.transcript.isEmpty {

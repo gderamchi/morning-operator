@@ -24,23 +24,31 @@ public enum MorningHandsFreeVoicePolicy {
             "which", "can you tell", "could you tell", "can you explain", "could you explain", "can you summarize",
             "tell me ", "summarize ", "explain "].contains(where: words.hasPrefix)
     }
-    public static func control(in text: String) -> MorningHandsFreeControl? {
-        if let command = MorningVoiceCommandParser.parse(text) { return .session(command) }
+    public static func control(in text: String, language: MorningVoiceCommandLanguage? = nil) -> MorningHandsFreeControl? {
+        if let command = MorningVoiceCommandParser.parse(text, language: language) { return .session(command) }
         var words = normalized(text)
         if words.hasPrefix("more ") { words.removeFirst(5) }
-        switch words {
-        case "actualise ce briefing", "actualise le briefing", "actualise ce recapitulatif", "mets a jour ce briefing",
-             "refresh this briefing", "update this briefing", "refresh this recap", "update this recap": return .refreshBriefing
-        case "extend", "more time", "two more minutes", "add two minutes", "add 2 minutes",
-             "prolonge", "prolonger", "encore deux minutes", "encore 2 minutes",
-             "ajoute deux minutes", "ajoute 2 minutes": return .extend
-        case "continue please", "continue s il te plait", "reprends la routine", "reprends mon matin":
-            return .session(.resume)
-        case "next please", "passe a la suite", "passe a l etape suivante", "on passe a la suite":
-            return .session(.next)
-        case "stop please", "arrete mon matin", "arrete le matin": return .session(.stop)
-        default: return nil
+        if language != .french {
+            switch words {
+            case "refresh this briefing", "update this briefing", "refresh this recap", "update this recap": return .refreshBriefing
+            case "extend", "more time", "two more minutes", "add two minutes", "add 2 minutes": return .extend
+            case "continue please": return .session(.resume)
+            case "next please": return .session(.next)
+            case "stop please": return .session(.stop)
+            default: break
+            }
         }
+        if language != .english {
+            switch words {
+            case "actualise ce briefing", "actualise le briefing", "actualise ce recapitulatif", "mets a jour ce briefing": return .refreshBriefing
+            case "prolonge", "prolonger", "encore deux minutes", "encore 2 minutes", "ajoute deux minutes", "ajoute 2 minutes": return .extend
+            case "continue s il te plait", "reprends la routine", "reprends mon matin": return .session(.resume)
+            case "passe a la suite", "passe a l etape suivante", "on passe a la suite": return .session(.next)
+            case "arrete mon matin", "arrete le matin": return .session(.stop)
+            default: break
+            }
+        }
+        return nil
     }
 
     /// Short replies must remain interruptible even when MORE mentioned the same

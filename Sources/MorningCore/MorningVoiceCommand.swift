@@ -6,6 +6,7 @@ public enum MorningVoiceCommand: String, CaseIterable, Sendable, Equatable {
 
 public enum MorningVoiceCommandLanguage: String, CaseIterable, Sendable {
     case english, french
+    public static var current: Self { AppLanguage.isFrench ? .french : .english }
     public var localeIdentifier: String { self == .english ? "en-US" : "fr-FR" }
     public var exampleCommands: [String] {
         self == .english ? ["next", "pause", "resume", "skip", "repeat", "stop"]
@@ -16,21 +17,36 @@ public enum MorningVoiceCommandLanguage: String, CaseIterable, Sendable {
 /// Exact command grammar, not intent inference. Negation, extra clauses and descriptive
 /// instructions are not treated as permission to act merely because they contain a verb.
 public enum MorningVoiceCommandParser {
-    public static func parse(_ transcript: String) -> MorningVoiceCommand? {
+    public static func parse(_ transcript: String, language: MorningVoiceCommandLanguage? = nil) -> MorningVoiceCommand? {
         let normalized = transcript.folding(options: [.caseInsensitive, .diacriticInsensitive],
             locale: Locale(identifier: "en_US_POSIX"))
         let separators = CharacterSet.letters.union(.decimalDigits).inverted
         var words = normalized.components(separatedBy: separators).filter { !$0.isEmpty }
         if words.first == "more" { words.removeFirst() }
-        switch words.joined(separator: " ") {
-        case "next", "next step", "suivant", "etape suivante": return .next
-        case "pause", "pause morning", "mets en pause": return .pause
-        case "resume", "continue", "resume morning", "reprends", "reprendre", "continuer": return .resume
-        case "skip", "skip step", "skip this step", "passe cette etape", "passer cette etape": return .skip
-        case "again", "read again", "repeat", "repeat that", "repeat this step", "repete", "repeter", "repete cette etape": return .repeatStep
-        case "stop", "stop morning", "arrete", "arreter", "arrete la routine": return .stop
-        default: return nil
+        let command = words.joined(separator: " ")
+        if language != .french {
+            switch command {
+            case "next", "next step": return .next
+            case "pause", "pause morning": return .pause
+            case "resume", "continue", "resume morning": return .resume
+            case "skip", "skip step", "skip this step": return .skip
+            case "again", "read again", "repeat", "repeat that", "repeat this step": return .repeatStep
+            case "stop", "stop morning": return .stop
+            default: break
+            }
         }
+        if language != .english {
+            switch command {
+            case "suivant", "etape suivante": return .next
+            case "pause", "mets en pause": return .pause
+            case "reprends", "reprendre", "continuer": return .resume
+            case "passe cette etape", "passer cette etape": return .skip
+            case "repete", "repeter", "repete cette etape": return .repeatStep
+            case "stop", "arrete", "arreter", "arrete la routine": return .stop
+            default: break
+            }
+        }
+        return nil
     }
 }
 
@@ -59,18 +75,19 @@ public struct MorningVoiceCommandEnvelope: Identifiable, Sendable, Equatable {
 public struct MorningVoiceCommandTurn: Sendable {
     public let id: UUID
     public let context: MorningVoiceCommandContext
+    private let language: MorningVoiceCommandLanguage?
     public private(set) var isFinished = false
 
-    public init(id: UUID = UUID(), context: MorningVoiceCommandContext) {
-        self.id = id; self.context = context
+    public init(id: UUID = UUID(), context: MorningVoiceCommandContext, language: MorningVoiceCommandLanguage? = nil) {
+        self.id = id; self.context = context; self.language = language
     }
 
     public mutating func accept(transcript: String, isFinal: Bool,
                                 alternatives: [String] = []) -> MorningVoiceCommandEnvelope? {
         guard !isFinished, isFinal else { return nil }
         isFinished = true
-        guard let command = MorningVoiceCommandParser.parse(transcript),
-              alternatives.allSatisfy({ MorningVoiceCommandParser.parse($0) == command }) else { return nil }
+        guard let command = MorningVoiceCommandParser.parse(transcript, language: language),
+              alternatives.allSatisfy({ MorningVoiceCommandParser.parse($0, language: language) == command }) else { return nil }
         return .init(id: id, context: context, command: command, transcript: transcript)
     }
 

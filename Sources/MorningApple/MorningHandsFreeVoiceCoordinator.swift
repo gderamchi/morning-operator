@@ -17,7 +17,7 @@ public enum MorningHandsFreeVoiceState: String, Sendable {
 @Observable
 public final class MorningHandsFreeVoiceCoordinator {
     public private(set) var state: MorningHandsFreeVoiceState = .idle
-    public private(set) var message = String(localized: "Voice is off.", bundle: .module)
+    public private(set) var message = String(localized: "Voice is off.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     public private(set) var needsAudioRelease = false
     public var isActive: Bool { state == .preparing || state == .listening || state == .understanding }
     /// Kept in memory only; a new utterance, stop or scene suspension clears it.
@@ -28,6 +28,7 @@ public final class MorningHandsFreeVoiceCoordinator {
     public var continuation = MorningVoiceContinuationPolicy()
 
     #if os(iOS)
+    @ObservationIgnored private var language: MorningVoiceCommandLanguage = .current
     @ObservationIgnored private var runID: UUID?
     @ObservationIgnored private var recognitionID: UUID?
     @ObservationIgnored private var startup: Task<Void, Never>?
@@ -78,10 +79,11 @@ public final class MorningHandsFreeVoiceCoordinator {
               context() != nil else { return }
         let id = UUID()
         runID = id
+        self.language = language
         self.speech = speech; self.context = context; self.onSpeech = onSpeech; self.onUtterance = onUtterance
         state = .preparing; transcript = ""
         consecutiveFailures = 0
-        message = String(localized: "Preparing hands-free voice…", bundle: .module)
+        message = String(localized: "Preparing hands-free voice…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         let precedingCleanup = cleanup
         startup = Task { [weak self] in
             guard let self else { return }
@@ -100,19 +102,19 @@ public final class MorningHandsFreeVoiceCoordinator {
                 beginRecognition(id: id)
             } catch {
                 guard runID == id else { return }
-                let reason = (error as? MorningVoiceListeningError)?.localizedDescription
-                    ?? String(localized: "Hands-free voice is unavailable. Your morning controls remain available.", bundle: .module)
+                let reason = (error as? MorningVoiceListeningError)?.moreDescription
+                    ?? String(localized: "Hands-free voice is unavailable. Your morning controls remain available.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
                 stop(finalState: .unavailable, finalMessage: reason)
             }
         }
         #else
         state = .unavailable
-        message = String(localized: "Hands-free microphone input requires an iPhone.", bundle: .module)
+        message = String(localized: "Hands-free microphone input requires an iPhone.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         #endif
     }
 
     /// Invalidation is synchronous: a late result cannot survive stop/background.
-    public func stop() { stop(finalState: .idle, finalMessage: String(localized: "Voice is off.", bundle: .module)) }
+    public func stop() { stop(finalState: .idle, finalMessage: String(localized: "Voice is off.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)) }
 
     public func stopAndRelease() async throws {
         stop()
@@ -152,7 +154,7 @@ public final class MorningHandsFreeVoiceCoordinator {
                 needsAudioRelease = false
             } catch {
                 needsAudioRelease = true; state = .failed
-                message = String(localized: "The microphone could not be released. Stop voice again before continuing.", bundle: .module)
+                message = String(localized: "The microphone could not be released. Stop voice again before continuing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
                 throw error
             }
         }
@@ -198,7 +200,7 @@ public final class MorningHandsFreeVoiceCoordinator {
 
     private func beginRecognition(id: UUID) {
         guard runID == id, let recognizer, recognizer.isAvailable else {
-            if runID == id { stop(finalState: .unavailable, finalMessage: MorningVoiceListeningError.unavailable.localizedDescription) }
+            if runID == id { stop(finalState: .unavailable, finalMessage: MorningVoiceListeningError.unavailable.moreDescription) }
             return
         }
         recognitionTask?.cancel()
@@ -208,10 +210,10 @@ public final class MorningHandsFreeVoiceCoordinator {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true; request.shouldReportPartialResults = true
         request.addsPunctuation = true; request.taskHint = .dictation
-        request.contextualStrings = MorningVoiceCommandLanguage.english.exampleCommands + MorningVoiceCommandLanguage.french.exampleCommands
+        request.contextualStrings = language.exampleCommands + language.exampleCommands.map { "MORE \($0)" }
         sink.replace(with: request)
         state = .listening
-        message = String(localized: "Listening · You can interrupt MORE.", bundle: .module)
+        message = String(localized: "Listening · You can interrupt MORE.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         let receiveResult: @Sendable (SFSpeechRecognitionResult?, (any Error)?) -> Void = { [weak self] result, error in
             let text = result?.bestTranscription.formattedString
             let isFinal = result?.isFinal == true
@@ -238,7 +240,7 @@ public final class MorningHandsFreeVoiceCoordinator {
             if !isFinishing {
                 consecutiveFailures += 1
                 if consecutiveFailures >= 3 {
-                    stop(finalState: .unavailable, finalMessage: MorningVoiceListeningError.unavailable.localizedDescription)
+                    stop(finalState: .unavailable, finalMessage: MorningVoiceListeningError.unavailable.moreDescription)
                     return
                 }
             }
@@ -297,7 +299,7 @@ public final class MorningHandsFreeVoiceCoordinator {
         // can interrupt an answer without tapping or opening a sheet.
         beginRecognition(id: id)
         if missedSpeech {
-            speech?.speak(String(localized: "I couldn't hear that clearly. Please say it again.", bundle: .module))
+            speech?.speak(String(localized: "I couldn't hear that clearly. Please say it again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
         }
         guard let utterance, let onUtterance else { return }
         processing?.cancel()
@@ -317,7 +319,7 @@ public final class MorningHandsFreeVoiceCoordinator {
                     guard !Task.isCancelled, let self, runID == id else { return }
                     if name == AVAudioSession.routeChangeNotification,
                        reason == AVAudioSession.RouteChangeReason.categoryChange.rawValue { continue }
-                    stop(finalState: .idle, finalMessage: String(localized: "Voice paused after an interruption. Resume your morning to listen again.", bundle: .module))
+                    stop(finalState: .idle, finalMessage: String(localized: "Voice paused after an interruption. Resume your morning to listen again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
                     return
                 }
             })

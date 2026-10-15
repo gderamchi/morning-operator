@@ -5,6 +5,15 @@ import MorningCore
 
 @Suite("Hands-free session voice policy")
 struct MorningHandsFreeVoiceTests {
+    @Test("Hands-free controls follow the selected app language")
+    func selectedControlLanguage() {
+        #expect(MorningHandsFreeVoicePolicy.control(in: "encore deux minutes", language: .french) == .extend)
+        #expect(MorningHandsFreeVoicePolicy.control(in: "two more minutes", language: .english) == .extend)
+        #expect(MorningHandsFreeVoicePolicy.control(in: "two more minutes", language: .french) == nil)
+        #expect(MorningHandsFreeVoicePolicy.control(in: "actualise ce briefing", language: .english) == nil)
+        #expect(MorningHandsFreeVoicePolicy.control(in: "résume", language: .french) == nil)
+    }
+
     @Test("Controls accept whole French/English phrases and preserve negation")
     func controlGrammar() {
         #expect(MorningHandsFreeVoicePolicy.control(in: "MORE, suivant !") == .session(.next))
@@ -147,6 +156,21 @@ struct DuplexSpeechPlaybackTests {
 @Suite("Local hands-free conversation")
 @MainActor
 struct MorningVoiceConversationTests {
+    @Test("The model is instructed to answer in the app language while private source text stays intact")
+    func explicitResponseLanguage() async throws {
+        var captured = ""
+        let service = MorningVoiceConversation(generator: { prompt in captured = prompt; return "Une réponse." })
+        _ = try await service.answer("What is next?", context: "Mail: keep these exact words", language: .french)
+        var values = try JSONDecoder().decode([String: String].self, from: Data(captured.utf8))
+        #expect(values["responseLanguage"] == "French")
+        #expect(values["momentContext"] == "Mail: keep these exact words")
+        _ = try await service.answer("Et ensuite ?", context: "Une note personnelle", language: .english)
+        values = try JSONDecoder().decode([String: String].self, from: Data(captured.utf8))
+        #expect(values["responseLanguage"] == "English")
+        #expect(values["momentContext"] == "Une note personnelle")
+        #expect(MorningVoiceConversation.instructions.contains("do not change responseLanguage"))
+    }
+
     @Test("Only an available local model receives escaped, bounded context")
     func localPrompt() async throws {
         var captured = ""

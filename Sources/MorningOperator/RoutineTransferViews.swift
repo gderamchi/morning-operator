@@ -52,7 +52,7 @@ struct RoutineExportView: View {
         NavigationStack {
             MorningList {
                 Section {
-                    Text(includeNotes ? "Your plan and its notes" : "Your plan only")
+                    Text(includeNotes ? String(localized: "Your plan and its notes", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Your plan only", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                         .font(.serif(.headline))
                     Text("Review the names and text below before saving a file. Names can contain personal information.")
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
@@ -72,7 +72,7 @@ struct RoutineExportView: View {
                     Section {
                         Label("This routine couldn't be prepared for export", systemImage: "exclamationmark.circle")
                             .font(.serif(.headline))
-                        Text(error.localizedDescription).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                        Text(error.moreDescription).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     }.accessibilityIdentifier("export.validationError")
                 }
 
@@ -114,7 +114,7 @@ struct RoutineExportView: View {
                 contentType: .json, defaultFilename: "MORE-Morning-Routine") { result in
                 switch result {
                 case .success:
-                    statusMessage = String(localized: "Routine exported. Your saved routine hasn't changed.")
+                    statusMessage = String(localized: "Routine exported. Your saved routine hasn't changed.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                     statusIsError = false
                 case .failure(let error):
                     let cocoaError = error as NSError
@@ -123,7 +123,7 @@ struct RoutineExportView: View {
                         statusMessage = nil
                         statusIsError = false
                     } else {
-                        statusMessage = String(localized: "The file couldn't be saved. \(error.localizedDescription)")
+                        statusMessage = String(localized: "The file couldn't be saved. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                         statusIsError = true
                     }
                 }
@@ -151,7 +151,7 @@ struct RoutineExportView: View {
             showingFileExporter = true
         } catch {
             preparedFile = nil
-            statusMessage = String(localized: "The file couldn't be prepared. \(error.localizedDescription)")
+            statusMessage = String(localized: "The file couldn't be prepared. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             statusIsError = true
         }
     }
@@ -217,7 +217,7 @@ struct RoutineImportView: View {
                 Button {
                     failureMessage = nil
                     if !onUse(documentSnapshot) {
-                        failureMessage = errorMessage() ?? String(localized: "The draft couldn't be saved. Your current routine is unchanged.")
+                        failureMessage = errorMessage() ?? String(localized: "The draft couldn't be saved. Your current routine is unchanged.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                     }
                 } label: {
                     Label("Use as a draft", systemImage: "square.and.pencil")
@@ -240,9 +240,9 @@ private struct RoutineTransferPreview: View {
         Section {
             LabeledContent("Source version", value: String(document.sourceRoutineVersion))
                 .accessibilityIdentifier("\(prefix).version")
-            LabeledContent("Approval when exported", value: document.approvalAtExport ? String(localized: "Approved") : String(localized: "Draft"))
+            LabeledContent("Approval when exported", value: document.approvalAtExport ? String(localized: "Approved", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Draft", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 .accessibilityIdentifier("\(prefix).approval")
-            LabeledContent("Planned time", value: String(localized: "\(document.steps.reduce(0) { $0 + $1.durationMinutes }) minutes"))
+            LabeledContent("Planned time", value: String(localized: "\(document.steps.reduce(0) { $0 + $1.durationMinutes }) minutes", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
             if document.sourceIsSynthetic {
                 Label("Sample or test plan", systemImage: "sparkles")
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
@@ -264,7 +264,7 @@ private struct RoutineTransferPreview: View {
             Section {
                 Text(verbatim: step.title).font(.serif(.headline)).textSelection(.enabled)
                     .accessibilityIdentifier("\(prefix).step.\(index).title")
-                LabeledContent(step.kind.displayName, value: String(localized: "\(step.durationMinutes) minutes planned"))
+                LabeledContent(step.kind.displayName, value: String(localized: "\(step.durationMinutes) minutes planned", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                     .font(.raleway(.subheadline))
                     .accessibilityIdentifier("\(prefix).step.\(index).minutes")
                 if step.isRequired {
@@ -292,7 +292,7 @@ private struct RoutineTransferPreview: View {
                 LabeledContent("Format", value: document.format)
                 LabeledContent("Format version", value: String(document.formatVersion))
                 LabeledContent("Routine ID", value: document.sourceRoutineID.uuidString)
-                LabeledContent("Routine created", value: document.sourceCreatedAt.formatted(date: .abbreviated, time: .standard))
+                LabeledContent("Routine created", value: document.sourceCreatedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .standard).locale(AppLanguage.locale)))
                 ForEach(Array(document.steps.enumerated()), id: \.element.id) { index, step in
                     LabeledContent("Moment \(index + 1) ID", value: step.id.uuidString)
                 }

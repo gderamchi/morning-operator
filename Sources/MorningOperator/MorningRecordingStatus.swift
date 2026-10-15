@@ -1,3 +1,4 @@
+import MorningCore
 import SwiftUI
 import MorningApple
 
@@ -10,9 +11,9 @@ struct SavedRecordingRecoveryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(store.busy ? "Reading your recording" : "Your recording is saved", systemImage: "externaldrive.badge.checkmark")
+            Label(store.busy ? String(localized: "Reading your recording", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Your recording is saved", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), systemImage: "externaldrive.badge.checkmark")
                 .font(.raleway(.subheadline, .medium))
-            Text(store.busy ? store.analysisStatus : (store.observationIssue ?? String(localized: "Retry understanding it, or discard the recording.")))
+            Text(store.busy ? store.analysisStatus : (store.observationIssue ?? String(localized: "Retry understanding it, or discard the recording.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             if store.sessionActive {
                 Text("Finish or stop the current morning before retrying.").font(.raleway(.caption))
@@ -52,10 +53,10 @@ struct MorningRecordingStatus: View {
                 HStack(spacing: 12) {
                     Image(systemName: "record.circle.fill").foregroundStyle(.red)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(recording.state == .recording ? "Recording your morning" : "Finishing your recording")
+                        Text(recording.state == .recording ? String(localized: "Recording your morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Finishing your recording", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                             .font(.raleway(.subheadline, .medium))
                         Text(recording.state == .recording
-                             ? String(localized: "Stops in \(remainingTime) · visible screen only")
+                             ? String(localized: "Stops in \(remainingTime) · visible screen only", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                              : recording.message).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     Spacer(minLength: 4)
@@ -102,7 +103,7 @@ struct MorningRecordingStatus: View {
                         .font(.raleway(.subheadline, .medium))
                     Text(issue).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     HStack {
-                        Button(store.hasImportedObservation ? "Review saved text" : "Open learning", action: onReview)
+                        Button(store.hasImportedObservation ? String(localized: "Review saved text", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Open learning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), action: onReview)
                             .buttonStyle(SecondaryButtonStyle())
                         Button("Dismiss") { store.dismissObservationIssue() }.buttonStyle(.borderless)
                     }

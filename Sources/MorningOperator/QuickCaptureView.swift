@@ -11,7 +11,7 @@ extension QuickCaptureKind {
         case .calendarIdea: "calendar"
         }
     }
-    var shortTitle: String { self == .calendarIdea ? String(localized: "Calendar") : displayName }
+    var shortTitle: String { self == .calendarIdea ? String(localized: "Calendar", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : displayName }
 }
 
 struct CapturesView: View {
@@ -20,8 +20,8 @@ struct CapturesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                PageHeading(eyebrow: String(localized: "Keep a little spark"), title: String(localized: "Before it slips away."),
-                            subtitle: String(localized: "A dream. An idea. Something for later. Give it a place to land."))
+                PageHeading(eyebrow: String(localized: "Keep a little spark", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), title: String(localized: "Before it slips away.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+                            subtitle: String(localized: "A dream. An idea. Something for later. Give it a place to land.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 Button { store.openCapture() } label: {
                     HStack {
                         Image(systemName: "plus").font(.serif(.title3))
@@ -39,8 +39,8 @@ struct CapturesView: View {
                 }
                 let items = store.captures.filter { filter == nil || $0.kind == filter }
                 if items.isEmpty {
-                    EmptyMoment(symbol: filter?.symbol ?? "sparkles", title: filter == .dream ? String(localized: "A home for your dreams.") : String(localized: "Room for a new idea."),
-                        detail: String(localized: "Write it here, use your keyboard's dictation, or ask Siri to capture it with MORE."))
+                    EmptyMoment(symbol: filter?.symbol ?? "sparkles", title: filter == .dream ? String(localized: "A home for your dreams.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Room for a new idea.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+                        detail: String(localized: "Write it here, use your keyboard's dictation, or ask Siri to capture it with MORE.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 } else {
                     ForEach(items) { capture in
                         Card {
@@ -49,7 +49,7 @@ struct CapturesView: View {
                                     Label(capture.kind.shortTitle, systemImage: capture.kind.symbol).font(.raleway(.caption, .semibold))
                                         .foregroundStyle(MorningStyle.accent)
                                     Spacer()
-                                    Text(capture.createdAt.formatted(.dateTime.month(.abbreviated).day())).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                    Text(capture.createdAt.formatted(.dateTime.month(.abbreviated).day().locale(AppLanguage.locale))).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 }
                                 Text(capture.text).font(.raleway(.body)).textSelection(.enabled)
                                 if capture.source == .voice {
@@ -58,11 +58,11 @@ struct CapturesView: View {
                                         .accessibilityIdentifier("capture.spokenSource")
                                 }
                                 if let date = capture.requestedDate {
-                                    Label(date.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
+                                    Label(date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(AppLanguage.locale)), systemImage: "clock")
                                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                 }
                                 if store.receipts[capture.id.uuidString] != nil {
-                                    Label(capture.kind == .reminder ? "Added to Apple Reminders" : "Added to Apple Calendar", systemImage: "checkmark.circle")
+                                    Label(capture.kind == .reminder ? String(localized: "Added to Apple Reminders", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Added to Apple Calendar", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), systemImage: "checkmark.circle")
                                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.green)
                                 } else if store.pendingCaptures[capture.id.uuidString] != nil {
                                     Text("Save unconfirmed · check the Apple app before retrying").font(.raleway(.caption)).foregroundStyle(.orange)
@@ -79,7 +79,7 @@ struct CapturesView: View {
     }
     private func filterChip(_ kind: QuickCaptureKind?) -> some View {
         Button { filter = kind } label: {
-            Text(kind?.shortTitle ?? String(localized: "All")).font(.raleway(.subheadline, .medium))
+            Text(kind?.shortTitle ?? String(localized: "All", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)).font(.raleway(.subheadline, .medium))
                 .padding(.horizontal, 16).padding(.vertical, 11)
                 .background(filter == kind ? MorningStyle.selected : MorningStyle.surface, in: Capsule())
         }.buttonStyle(.plain).accessibilityIdentifier("capture.filter.\(kind?.rawValue ?? "all")").accessibilityAddTraits(filter == kind ? .isSelected : [])
@@ -102,8 +102,8 @@ struct QuickCaptureView: View {
     @ViewState<QuickCaptureSource> private var source: QuickCaptureSource = .typed
     private var isSchedule: Bool { kind == .reminder || kind == .calendarIdea }
     private var buttonTitle: String {
-        if isSchedule && saveToSystem { return kind == .reminder ? String(localized: "Add to Reminders") : String(localized: "Add to Calendar") }
-        return kind == .dream ? String(localized: "Save my dream") : String(localized: "Save thought")
+        if isSchedule && saveToSystem { return kind == .reminder ? String(localized: "Add to Reminders", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Add to Calendar", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        return kind == .dream ? String(localized: "Save my dream", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Save thought", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
 
     var body: some View {
@@ -146,7 +146,7 @@ struct QuickCaptureView: View {
                             if let explanation { Text(explanation).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
                         }.font(.raleway(.subheadline)).padding(20).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: 22))
                     }
-                    Text(!(isSchedule && saveToSystem) ? "Saved privately in Morning Operator on this device." : kind == .reminder ? "Review the text and time. Saving adds one item to your default Apple Reminders list. Your Apple account may sync it to other devices." : "Review the text and time. Saving adds one item to your default Apple calendar. Your Apple account may sync it to other devices.")
+                    Text(!(isSchedule && saveToSystem) ? String(localized: "Saved privately in Morning Operator on this device.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : kind == .reminder ? String(localized: "Review the text and time. Saving adds one item to your default Apple Reminders list. Your Apple account may sync it to other devices.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Review the text and time. Saving adds one item to your default Apple calendar. Your Apple account may sync it to other devices.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     if let notice = store.notice { NoticeView(text: notice, dismiss: { store.notice = nil }) }
                 }.padding(24).frame(maxWidth: 620).frame(maxWidth: .infinity)
@@ -204,7 +204,7 @@ struct QuickCaptureView: View {
         else { hasDate = false }
         explanation = parsed.dateExplanation
         if parsed.needsDateReview && parsed.suggestedDate == nil {
-            explanation = String(localized: "Choose the date and time you meant before saving.")
+            explanation = String(localized: "Choose the date and time you meant before saving.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
 }

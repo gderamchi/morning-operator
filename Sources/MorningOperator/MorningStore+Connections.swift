@@ -10,8 +10,8 @@ extension MorningStore {
            outcome.requestID == context.requestID, session?.id == context.sessionID,
            currentStep?.id == context.stepID, !privacyBlocksWork {
             connectedActionStatus = outcome.status == .returned
-                ? String(localized: "Shortcut returned. \(outcome.text)")
-                : String(localized: "The shortcut did not finish. Check its outcome before running it again.")
+                ? String(localized: "Shortcut returned. \(outcome.text)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                : String(localized: "The shortcut did not finish. Check its outcome before running it again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             nativeStepContext = nil
         }
         return true
@@ -35,10 +35,10 @@ extension MorningStore {
                 : "The same values, including the dates shown, will be used each morning. Edit this moment to change them."
             detail = review + "\n\n" + fixedValues
             guard detail.count <= ConnectedActionReview.maximumSummaryCharacters else { throw ConnectedActionReviewError.tooLarge }
-        } catch { notice = error.localizedDescription; return false }
+        } catch { notice = error.moreDescription; return false }
         let step = RoutineStep(title: tool.name, detail: detail, durationMinutes: 1, target: target)
         if addConnectedStep(step) {
-            notice = String(localized: "Action added to your draft. Review and approve the routine before starting.")
+            notice = String(localized: "Action added to your draft. Review and approve the routine before starting.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             return true
         }
         return false
@@ -67,7 +67,7 @@ extension MorningStore {
         connectedAPITask?.cancel()
         let generation = dataGeneration, privacyGeneration = localPrivacyGeneration
         let requestID = IntegrationRequestID.make(sessionID: sessionID, stepID: stepID)
-        connectedActionStatus = String(localized: "Requesting the connected service…")
+        connectedActionStatus = String(localized: "Requesting the connected service…", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         connectedAPITask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
@@ -102,7 +102,7 @@ extension MorningStore {
                     guard receipt != .stale else { return }
                     guard recordExecution(.running, confirmedExternalEffect: true) else { pause(); return }
                     guard receipt == .sourceAvailable else {
-                        finishConnectedFailure(receipt == .tooLarge ? ConnectedResultError.tooLarge.localizedDescription : clearedConnectedResultMessage,
+                        finishConnectedFailure(receipt == .tooLarge ? ConnectedResultError.tooLarge.moreDescription : clearedConnectedResultMessage,
                             outcome: .unavailable)
                         return
                     }
@@ -241,7 +241,7 @@ extension MorningStore {
             guard !Task.isCancelled, connectedActionIsCurrent(context, generation: generation),
                   connectedMoment.matches(attempt, executionID: context) else { return }
             connectedMoment.fail(attempt, executionID: context)
-            finishConnectedFailure(ConnectedResultError.modelUnavailable.localizedDescription, outcome: .unavailable)
+            finishConnectedFailure(ConnectedResultError.modelUnavailable.moreDescription, outcome: .unavailable)
         }
     }
 

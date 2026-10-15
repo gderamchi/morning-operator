@@ -1923,7 +1923,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce n’était pas une commande claire. Essayez suivant, pause, reprends, passe, répète ou arrête."
+            "value": "La commande n’était pas claire. Essayez suivant, pause, reprends, passe cette étape, répète ou arrête."
           }
         }
       }
@@ -3354,6 +3354,1136 @@
           "stringUnit": {
             "state": "translated",
             "value": "La connexion Gmail a changé. Ouvrez Gmail de nouveau pour continuer."
+          }
+        }
+      }
+    },
+    " %lld messages could not be read.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": " %lld message could not be read."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": " %lld messages could not be read."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": " %lld message n’a pas pu être lu."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": " %lld messages n’ont pas pu être lus."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    " Correction: ": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Correction : "
+          }
+        }
+      }
+    },
+    " Messages mentioning urgency or a deadline come first; you can choose another message.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Les mentions d’urgence ou d’échéance passent en premier ; vous pouvez choisir un autre message."
+          }
+        }
+      }
+    },
+    " Other unread emails have not been reviewed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " D’autres mails non lus n’ont pas été consultés."
+          }
+        }
+      }
+    },
+    " They follow your inbox order.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Ils suivent l’ordre de votre boîte de réception."
+          }
+        }
+      }
+    },
+    " Would you like to reply to the first one? You can also choose a number, prepare a note to yourself, or continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Voulez-vous répondre au premier ? Vous pouvez aussi choisir un numéro, préparer une note à vous-même ou continuer votre matin."
+          }
+        }
+      }
+    },
+    "%@. %@. Would you like to reply?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@. %@. Voulez-vous lui répondre ?"
+          }
+        }
+      }
+    },
+    "All right, I’ll continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "D’accord, je continue votre matin."
+          }
+        }
+      }
+    },
+    "Another reply to this email was already attempted this morning. This new draft has not been sent. Check sent mail before preparing another reply. Say no to continue.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une autre réponse a déjà été tentée pour ce mail pendant ce matin. Ce nouveau brouillon n’a pas été envoyé. Vérifiez les messages envoyés avant de préparer une nouvelle réponse. Dites non pour continuer."
+          }
+        }
+      }
+    },
+    "Apple Foundation Models is available. Analysis runs locally on this Mac.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Foundation Models est disponible. L’analyse s’effectue localement sur ce Mac."
+          }
+        }
+      }
+    },
+    "Clock": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horloge"
+          }
+        }
+      }
+    },
+    "Complete and review the subject and body before requesting a send.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complétez et vérifiez l’objet et le texte avant de demander l’envoi."
+          }
+        }
+      }
+    },
+    "Connect Gmail in settings before your next morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez Gmail dans les réglages avant votre prochain matin."
+          }
+        }
+      }
+    },
+    "Demo fixture — includes a synthetic saved observation": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo fixture — comprend une observation synthétique enregistrée"
+          }
+        }
+      }
+    },
+    "Enable reading and sending in Gmail settings before asking MORE to send a reply.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activez la lecture et l’envoi dans les réglages Gmail avant de demander à MORE d’envoyer une réponse."
+          }
+        }
+      }
+    },
+    "Enter the exact name of a shortcut you added in Shortcuts (up to 128 characters).": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez le nom exact d’un raccourci ajouté dans Raccourcis (128 caractères maximum)."
+          }
+        }
+      }
+    },
+    "Fill in the subject and body of your note to yourself, then review the draft. Nothing is sent.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complétez l’objet et le texte de votre note à vous-même dans les champs, puis relisez le brouillon. Rien n’est envoyé."
+          }
+        }
+      }
+    },
+    "Foundation Models is not supported by this build.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette version ne prend pas en charge Foundation Models."
+          }
+        }
+      }
+    },
+    "Gmail confirms your email was sent to %@. I’ll continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail confirme l’envoi de votre mail à %@ . Je continue votre matin."
+          }
+        }
+      }
+    },
+    "Gmail has not confirmed whether this reply was sent. MORE will check Sent before any further send.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail n’a pas confirmé si cette réponse a été envoyée. MORE vérifiera les messages envoyés avant tout nouvel envoi."
+          }
+        }
+      }
+    },
+    "Gmail refused the send. No new attempt is being made. You can say no to continue.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gmail a refusé l’envoi. Aucune nouvelle tentative n’est lancée. Vous pouvez dire non pour continuer."
+          }
+        }
+      }
+    },
+    "Hands-free microphone input requires an iPhone.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le microphone mains libres nécessite un iPhone."
+          }
+        }
+      }
+    },
+    "Hands-free voice is unavailable. Your morning controls remain available.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La voix mains libres est indisponible. Les commandes de votre matin restent disponibles."
+          }
+        }
+      }
+    },
+    "Here are %lld messages to consider. ": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Here is %lld message to consider. "
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Here are %lld messages to consider. "
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Voici %lld message à examiner. "
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Voici %lld messages à examiner. "
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "I could not prepare an answer to that question. Your previous choice is preserved; you can try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je n’ai pas pu préparer de réponse à cette question. Votre choix précédent est conservé ; vous pouvez réessayer."
+          }
+        }
+      }
+    },
+    "I couldn't hear that clearly. Please say it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je n’ai pas bien entendu. Répétez, s’il vous plaît."
+          }
+        }
+      }
+    },
+    "I couldn't prepare an answer. You can ask again, or say resume to continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je n’ai pas pu préparer de réponse. Vous pouvez réessayer ou dire reprends pour continuer votre matin."
+          }
+        }
+      }
+    },
+    "I reviewed %lld unread emails. ": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "I reviewed %lld unread email. "
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "I reviewed %lld unread emails. "
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "J’ai consulté %lld mail non lu. "
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "J’ai consulté %lld mails non lus. "
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Keep shortcut input within 1,024 bytes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limitez l’entrée du raccourci à 1 024 octets."
+          }
+        }
+      }
+    },
+    "Listening · You can interrupt MORE.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À l’écoute · Vous pouvez interrompre MORE."
+          }
+        }
+      }
+    },
+    "Local conversation is unavailable on this device. Your previous choice is preserved; you can continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La conversation locale n’est pas disponible sur cet appareil. Votre choix précédent est conservé ; vous pouvez continuer votre matin."
+          }
+        }
+      }
+    },
+    "MORE couldn't prepare valid details for this action. Add more detail or complete the available fields.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE n’a pas pu préparer de détails valides pour cette action. Précisez votre demande ou complétez les champs disponibles."
+          }
+        }
+      }
+    },
+    "MORE is already waiting for a shortcut. Check its outcome before running another.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE attend déjà un raccourci. Vérifiez son résultat avant d’en lancer un autre."
+          }
+        }
+      }
+    },
+    "MORE stopped waiting. The shortcut may still be running; check its outcome before running it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE a cessé d’attendre. Le raccourci est peut-être encore en cours ; vérifiez son résultat avant de le relancer."
+          }
+        }
+      }
+    },
+    "Mail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mail"
+          }
+        }
+      }
+    },
+    "Marked complete in Apple Reminders.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marqué comme terminé dans Rappels Apple."
+          }
+        }
+      }
+    },
+    "Messages": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages"
+          }
+        }
+      }
+    },
+    "New email to %@. Subject: %@. Body: %@ Your draft is ready. What would you like to do next?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau mail à %@ . Objet : %@. Texte : %@ Votre brouillon est prêt. Quelle suite souhaitez-vous lui donner ?"
+          }
+        }
+      }
+    },
+    "No subject": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sans objet"
+          }
+        }
+      }
+    },
+    "Note to yourself: %@. Dictate a subject and body, or fill in the fields. Nothing has been sent.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note à vous-même : %@. Dictez un objet et un texte, ou complétez les champs. Rien n’est encore envoyé."
+          }
+        }
+      }
+    },
+    "Notes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes"
+          }
+        }
+      }
+    },
+    "Other shortcut": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autre raccourci"
+          }
+        }
+      }
+    },
+    "Preparation was interrupted. Your intention is preserved; say your correction or no to continue.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La préparation a été interrompue. Votre intention est conservée ; dites votre correction ou non pour continuer."
+          }
+        }
+      }
+    },
+    "Preparing hands-free voice…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation de la voix mains libres…"
+          }
+        }
+      }
+    },
+    "Reconnect this account before using it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnectez ce compte avant de l’utiliser."
+          }
+        }
+      }
+    },
+    "Reminders didn't answer in time. Try reading them again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rappels n’a pas répondu à temps. Essayez de relire les rappels."
+          }
+        }
+      }
+    },
+    "Reply to %@: %@ Your draft is ready. What would you like to do next?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réponse à %@ : %@ Votre brouillon est prêt. Quelle suite souhaitez-vous lui donner ?"
+          }
+        }
+      }
+    },
+    "Review the Slack account, channel, thread and reply text before continuing.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez le compte Slack, le canal, le fil et le texte de la réponse avant de continuer."
+          }
+        }
+      }
+    },
+    "Review the action details before trying again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez les détails de l’action avant de réessayer."
+          }
+        }
+      }
+    },
+    "Say yes to reply, no to continue, or a message number.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dites oui pour répondre, non pour continuer, ou le numéro d’un message."
+          }
+        }
+      }
+    },
+    "Sending is not authorized for this account. Enable reading and sending in Gmail settings. Your reply has not been sent.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’envoi n’est pas autorisé pour ce compte. Activez lecture et envoi dans les réglages Gmail. Votre réponse n’a pas été envoyée."
+          }
+        }
+      }
+    },
+    "Shortcuts couldn't open. Check that it is installed and the shortcut name is correct.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raccourcis n’a pas pu s’ouvrir. Vérifiez que l’application est installée et que le nom du raccourci est exact."
+          }
+        }
+      }
+    },
+    "Some emails could not be read. I cannot conclude that your inbox is empty.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certains mails n’ont pas pu être lus. Je ne peux pas conclure que votre boîte est vide."
+          }
+        }
+      }
+    },
+    "The Slack account could not be verified or has changed. Reconnect and review this reply again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le compte Slack n’a pas pu être vérifié ou a changé. Reconnectez-le et relisez cette réponse."
+          }
+        }
+      }
+    },
+    "The action may already have run. Check its outcome in the connected account before another attempt. MORE will not repeat it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’action a peut-être déjà été réalisée. Vérifiez son résultat dans le compte connecté avant une autre tentative. MORE ne la relance pas."
+          }
+        }
+      }
+    },
+    "The available actions could not be loaded completely. Try again later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les actions disponibles n’ont pas pu être chargées entièrement. Réessayez plus tard."
+          }
+        }
+      }
+    },
+    "The connection service could not complete this request. Try again later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service de connexion n’a pas pu terminer cette demande. Réessayez plus tard."
+          }
+        }
+      }
+    },
+    "The local conversation model is unavailable. You can still say next, pause, resume, repeat, more time or stop.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle de conversation local est indisponible. Vous pouvez toujours dire suivant, pause, reprends, répète, plus de temps ou arrête."
+          }
+        }
+      }
+    },
+    "The local model is unavailable. Complete the available fields, or come back when local preparation is ready.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle local est indisponible. Complétez les champs disponibles ou revenez quand la préparation locale sera prête."
+          }
+        }
+      }
+    },
+    "The message says: ": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le message dit : "
+          }
+        }
+      }
+    },
+    "The microphone could not be released. Stop voice again before continuing.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le microphone n’a pas pu être libéré. Arrêtez à nouveau la voix avant de continuer."
+          }
+        }
+      }
+    },
+    "The provider did not return a verified result. Check the connected account before trying the action again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fournisseur n’a pas renvoyé de résultat vérifié. Consultez le compte connecté avant de relancer l’action."
+          }
+        }
+      }
+    },
+    "The provider reported that the action failed. Check its outcome before another attempt.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fournisseur indique que l’action a échoué. Vérifiez son résultat avant une autre tentative."
+          }
+        }
+      }
+    },
+    "The reply address is ambiguous. You can choose another message or say no.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’adresse de réponse est ambiguë. Vous pouvez choisir un autre message ou dire non."
+          }
+        }
+      }
+    },
+    "The reply safety record is unavailable. Nothing new will be sent.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le registre de sécurité des réponses est indisponible. Aucun nouveau message ne sera envoyé."
+          }
+        }
+      }
+    },
+    "The reply to %@ needs your explicit request to send. You can also revise it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La réponse à %@ attend une demande explicite de votre part. Vous pouvez aussi la corriger."
+          }
+        }
+      }
+    },
+    "The send is uncertain. Say check to look for this reply in sent mail, or no to continue. I will not send it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’envoi est incertain. Dites vérifier pour rechercher cette réponse dans les messages envoyés, ou non pour continuer. Je ne la renvoie pas."
+          }
+        }
+      }
+    },
+    "The send is unconfirmed. I will not send this message again. Say check to review sent mail, or no to continue.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’envoi n’est pas confirmé. Je ne renvoie pas ce message. Dites vérifier pour consulter les messages envoyés, ou non pour continuer."
+          }
+        }
+      }
+    },
+    "The shortcut didn't return in time. Check it in Shortcuts before running it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le raccourci n’est pas revenu à temps. Vérifiez-le dans Raccourcis avant de le relancer."
+          }
+        }
+      }
+    },
+    "The shortcut returned too much text. Limit its output to 8,192 bytes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le raccourci a renvoyé trop de texte. Limitez sa sortie à 8 192 octets."
+          }
+        }
+      }
+    },
+    "There are no unread emails in your inbox. I’ll continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun mail non lu dans votre boîte de réception. Je continue votre matin."
+          }
+        }
+      }
+    },
+    "There are no unread emails in your inbox. You can prepare a note to yourself or continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun mail non lu dans votre boîte de réception. Vous pouvez préparer une note à vous-même, ou continuer votre matin."
+          }
+        }
+      }
+    },
+    "There is no current briefing to read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il n’y a aucun récapitulatif à jour à lire."
+          }
+        }
+      }
+    },
+    "This Reminders list doesn't allow changes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette liste de Rappels ne permet pas les modifications."
+          }
+        }
+      }
+    },
+    "This action does not match the selected account. Choose the account and review it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette action ne correspond pas au compte choisi. Choisissez le compte et vérifiez-le à nouveau."
+          }
+        }
+      }
+    },
+    "This action is too complex to prepare locally. Choose a simpler action.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette action est trop complexe à préparer localement. Choisissez une action plus simple."
+          }
+        }
+      }
+    },
+    "This connection could not be verified. Return to MORE and start a new connection.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette connexion n’a pas pu être vérifiée. Revenez dans MORE et recommencez la connexion."
+          }
+        }
+      }
+    },
+    "This connection is not available in this build yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette connexion n’est pas encore disponible dans cette version."
+          }
+        }
+      }
+    },
+    "This installation is no longer authorized. Reconnect your account.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette installation n’est plus autorisée. Reconnectez votre compte."
+          }
+        }
+      }
+    },
+    "This message has no single verified reply address. Your reply has not been sent.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce message n’a pas d’adresse de réponse unique vérifiée. Votre réponse n’a pas été envoyée."
+          }
+        }
+      }
+    },
+    "This message is incomplete. I cannot prepare a reply from partial content. You can choose another message or say no.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce message n’est pas disponible en entier. Je ne prépare pas de réponse sur un contenu incomplet. Vous pouvez choisir un autre message ou dire non."
+          }
+        }
+      }
+    },
+    "This message’s content cannot be read here.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le contenu de ce message n’est pas lisible ici."
+          }
+        }
+      }
+    },
+    "This moment could not finish. You can retry or continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce moment n’a pas pu se terminer. Vous pouvez réessayer ou continuer votre matin."
+          }
+        }
+      }
+    },
+    "This moment is managed by your morning session.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce moment est géré par votre session du matin."
+          }
+        }
+      }
+    },
+    "This recap needs an update before it can be read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce récapitulatif doit être actualisé avant sa lecture."
+          }
+        }
+      }
+    },
+    "This reminder changed or is no longer available. Read your reminders again before marking it complete.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce rappel a changé ou n’est plus disponible. Relisez vos rappels avant de le marquer comme terminé."
+          }
+        }
+      }
+    },
+    "This saved excerpt has changed or was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet extrait enregistré a changé ou a été supprimé."
+          }
+        }
+      }
+    },
+    "This send needs checking. No new email will be sent. Say check, or no to continue.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet envoi attend une vérification. Aucun nouveau mail ne sera envoyé. Dites vérifier ou non pour continuer."
+          }
+        }
+      }
+    },
+    "This shortcut return doesn't match a pending request. Nothing was accepted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce retour de raccourci ne correspond à aucune demande en attente. Rien n’a été accepté."
+          }
+        }
+      }
+    },
+    "Voice is off.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La voix est désactivée."
+          }
+        }
+      }
+    },
+    "Voice paused after an interruption. Resume your morning to listen again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La voix est en pause après une interruption. Reprenez votre matin pour réactiver l’écoute."
+          }
+        }
+      }
+    },
+    "What would you like to reply?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Que souhaitez-vous lui répondre ?"
+          }
+        }
+      }
+    },
+    "Your changes need a new review before sending.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos modifications attendent une nouvelle relecture avant l’envoi."
+          }
+        }
+      }
+    },
+    "Your day is not ready. Check Calendar & weather in Settings.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre journée n’est pas prête. Vérifiez Calendrier et météo dans Réglages."
+          }
+        }
+      }
+    },
+    "Your emails are not ready. Say retry, no, or next to continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les mails ne sont pas prêts. Dites réessaie, non ou suivant pour continuer votre matin."
+          }
+        }
+      }
+    },
+    "Your emails are unavailable right now. You can continue your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les mails sont indisponibles pour le moment. Vous pouvez continuer votre matin."
+          }
+        }
+      }
+    },
+    "Your emails could not be read. You can skip this moment or try again later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les mails n’ont pas pu être lus. Vous pouvez passer cette étape ou réessayer plus tard."
+          }
+        }
+      }
+    },
+    "Your selected calendars are not ready. Check Calendar & weather in Settings.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les calendriers choisis ne sont pas prêts. Vérifiez Calendrier et météo dans Réglages."
+          }
+        }
+      }
+    },
+    "Your sources changed. This recap needs an update.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos sources ont changé. Ce récapitulatif doit être actualisé."
+          }
+        }
+      }
+    },
+    "Speech stopped.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture s’est arrêtée."
+          }
+        }
+      }
+    },
+    "Duplex speech output could not finish safely.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture vocale n’a pas pu se terminer correctement."
+          }
+        }
+      }
+    },
+    "Duplex speech could not resume.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture vocale n’a pas pu reprendre."
+          }
+        }
+      }
+    },
+    "Preparing your reply…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation de votre réponse…"
+          }
+        }
+      }
+    },
+    "No compatible installed voice": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune voix installée compatible"
           }
         }
       }

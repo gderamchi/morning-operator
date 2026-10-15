@@ -48,7 +48,7 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
         if pinnedExecutionID != context.executionID {
             pinnedBriefing = nil; pinnedExecutionID = nil
         }
-        guard spokenEnabled else { return .needsUser(String(localized: "Read at your pace, then tap Next.", bundle: .module)) }
+        guard spokenEnabled else { return .needsUser(String(localized: "Read at your pace, then tap Next.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)) }
         switch step.automation {
         case .spokenNote:
             try await speak("\(step.title). \(step.detail)")
@@ -57,7 +57,7 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
             // Never turn deleted or changed evidence into an ordinary static note.
             guard step.observationReference != nil, let text = resolveObservation(step),
                   !text.isEmpty, text.utf8.elementsEqual(step.detail.utf8) else {
-                return .unavailable(String(localized: "This saved excerpt has changed or was removed.", bundle: .module))
+                return .unavailable(String(localized: "This saved excerpt has changed or was removed.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
             }
             try checkAttempt(token)
             try await speak(text)
@@ -68,10 +68,10 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
                 try checkAttempt(token)
                 guard configurationID() == configuration else { throw CancellationError() }
                 guard let document, document.isCurrent(at: now(), timeZoneIdentifier: timeZone()) else {
-                    return .unavailable(String(localized: "Your day is not ready. Check Calendar & weather in Settings.", bundle: .module))
+                    return .unavailable(String(localized: "Your day is not ready. Check Calendar & weather in Settings.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
                 }
                 if step.automation == .todayCalendar && document.calendar.status != .fresh {
-                    return .unavailable(String(localized: "Your selected calendars are not ready. Check Calendar & weather in Settings.", bundle: .module))
+                    return .unavailable(String(localized: "Your selected calendars are not ready. Check Calendar & weather in Settings.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
                 }
                 pinnedBriefing = document
                 pinnedExecutionID = context.executionID
@@ -79,22 +79,22 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
             }
             guard let document = pinnedBriefing else { throw CancellationError() }
             guard document.isCurrent(at: now(), timeZoneIdentifier: timeZone()) else {
-                return .unavailable(String(localized: "This recap needs an update before it can be read.", bundle: .module))
+                return .unavailable(String(localized: "This recap needs an update before it can be read.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
             }
             guard pinnedConfigurationID == configurationID(), permitsPlayback(document) else {
-                return .unavailable(String(localized: "Your sources changed. This recap needs an update.", bundle: .module))
+                return .unavailable(String(localized: "Your sources changed. This recap needs an update.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
             }
             if step.automation == .todayCalendar && document.calendar.status != .fresh {
-                return .unavailable(String(localized: "Your selected calendars are not ready. Check Calendar & weather in Settings.", bundle: .module))
+                return .unavailable(String(localized: "Your selected calendars are not ready. Check Calendar & weather in Settings.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
             }
             let text = Self.text(for: step.automation, in: document)
-            guard !text.isEmpty else { return .unavailable(String(localized: "There is no current briefing to read.", bundle: .module)) }
+            guard !text.isEmpty else { return .unavailable(String(localized: "There is no current briefing to read.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)) }
             try checkAttempt(token)
             try await speak(text)
         case nil:
-            return .needsUser(String(localized: "Enjoy this moment. Tap Next when you're ready.", bundle: .module))
+            return .needsUser(String(localized: "Enjoy this moment. Tap Next when you're ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
         case .timedMoment, .gmailInbox:
-            return .needsUser(String(localized: "This moment is managed by your morning session.", bundle: .module))
+            return .needsUser(String(localized: "This moment is managed by your morning session.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
         }
         try checkAttempt(token)
         return .completed

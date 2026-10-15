@@ -1446,6 +1446,536 @@
           }
         }
       }
+    },
+    "Browse the feed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parcourir le fil"
+          }
+        }
+      }
+    },
+    "Demo fixture — synthetic morning, not observed personal data": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo fixture — matinée synthétique, aucune donnée personnelle observée"
+          }
+        }
+      }
+    },
+    "Keep this moment, then continue": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder ce moment, puis continuer"
+          }
+        }
+      }
+    },
+    "MORE opens the video feed and moves to the next video after each viewing moment.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE ouvre le fil de vidéos et passe à la vidéo suivante après chaque moment de visionnage."
+          }
+        }
+      }
+    },
+    "MORE opens your stories and advances through the visible stories.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE ouvre vos stories et avance parmi les stories visibles."
+          }
+        }
+      }
+    },
+    "MORE reads the unread information visible in this browser.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE lit les informations non lues visibles dans ce navigateur."
+          }
+        }
+      }
+    },
+    "MORE reads the visible headlines and continues through the page.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE lit les titres visibles et poursuit la lecture de la page."
+          }
+        }
+      }
+    },
+    "MORE reads visible posts and scrolls through your feed at a gentle pace.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE lit les publications visibles et fait défiler votre fil à un rythme tranquille."
+          }
+        }
+      }
+    },
+    "Observed Shortcuts events for configured apps only. These are not pickups or a complete device-usage log.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Événements observés via Raccourcis pour les apps configurées uniquement. Il ne s’agit ni de prises en main ni d’un journal complet d’utilisation de l’appareil."
+          }
+        }
+      }
+    },
+    "Read headlines aloud": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire les titres à voix haute"
+          }
+        }
+      }
+    },
+    "Read my mail and help me reply": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire mes mails et m’aider à répondre"
+          }
+        }
+      }
+    },
+    "Read visible unread information": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire les informations non lues visibles"
+          }
+        }
+      }
+    },
+    "Watch stories": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regarder les stories"
+          }
+        }
+      }
+    },
+    "Watch videos": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regarder des vidéos"
+          }
+        }
+      }
+    },
+    "Unknown conditions": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conditions inconnues"
+          }
+        }
+      }
+    },
+    "Blizzard": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blizzard"
+          }
+        }
+      }
+    },
+    "Blowing dust": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poussière soulevée"
+          }
+        }
+      }
+    },
+    "Blowing snow": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poudrerie"
+          }
+        }
+      }
+    },
+    "Breezy": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brise"
+          }
+        }
+      }
+    },
+    "Clear skies": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ciel dégagé"
+          }
+        }
+      }
+    },
+    "Cloudy": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuageux"
+          }
+        }
+      }
+    },
+    "Drizzle": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bruine"
+          }
+        }
+      }
+    },
+    "Snow flurries": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Averses de neige"
+          }
+        }
+      }
+    },
+    "Fog": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brouillard"
+          }
+        }
+      }
+    },
+    "Freezing drizzle": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bruine verglaçante"
+          }
+        }
+      }
+    },
+    "Freezing rain": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluie verglaçante"
+          }
+        }
+      }
+    },
+    "Very cold": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grand froid"
+          }
+        }
+      }
+    },
+    "Hail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grêle"
+          }
+        }
+      }
+    },
+    "Haze": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brume"
+          }
+        }
+      }
+    },
+    "Heavy rain": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortes pluies"
+          }
+        }
+      }
+    },
+    "Heavy snow": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortes chutes de neige"
+          }
+        }
+      }
+    },
+    "Hot": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaleur"
+          }
+        }
+      }
+    },
+    "Hurricane": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouragan"
+          }
+        }
+      }
+    },
+    "Isolated thunderstorms": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages isolés"
+          }
+        }
+      }
+    },
+    "Mostly clear": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ciel généralement dégagé"
+          }
+        }
+      }
+    },
+    "Mostly cloudy": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ciel généralement nuageux"
+          }
+        }
+      }
+    },
+    "Partly cloudy": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partiellement nuageux"
+          }
+        }
+      }
+    },
+    "Rain": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pluie"
+          }
+        }
+      }
+    },
+    "Scattered thunderstorms": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages épars"
+          }
+        }
+      }
+    },
+    "Sleet": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grésil"
+          }
+        }
+      }
+    },
+    "Smoke": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fumée"
+          }
+        }
+      }
+    },
+    "Snow": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neige"
+          }
+        }
+      }
+    },
+    "Strong storms": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Violents orages"
+          }
+        }
+      }
+    },
+    "Snow showers with sunny intervals": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Averses de neige et éclaircies"
+          }
+        }
+      }
+    },
+    "Rain showers with sunny intervals": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Averses et éclaircies"
+          }
+        }
+      }
+    },
+    "Thunderstorms": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orages"
+          }
+        }
+      }
+    },
+    "Tropical storm": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempête tropicale"
+          }
+        }
+      }
+    },
+    "Windy": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Venteux"
+          }
+        }
+      }
+    },
+    "Wintry mix": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Précipitations hivernales mixtes"
+          }
+        }
+      }
+    },
+    "Ready": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prêt"
+          }
+        }
+      }
+    },
+    "Complete": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminé"
+          }
+        }
+      }
+    },
+    "Stopped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêté"
+          }
+        }
+      }
+    },
+    "MORE could not complete this request. Check its state before trying again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE n’a pas pu terminer cette demande. Vérifiez son état avant de réessayer."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -109,7 +109,7 @@ struct NativeConnectionsView: View {
                 canAddToRoutine: !store.sessionActive && !store.busy) { name, input in
                 let target = RoutineStepTarget.shortcut(name: name, input: input)
                 do { try target.validateIntegration() }
-                catch { store.notice = error.localizedDescription; return false }
+                catch { store.notice = error.moreDescription; return false }
                 return store.addConnectedStep(RoutineStep(title: name,
                     detail: text("Native action through your shortcut", "Action native avec votre raccourci"),
                     durationMinutes: 1, target: target))
@@ -132,7 +132,7 @@ struct NativeConnectionsView: View {
                 .accessibilityIdentifier("native.remindersRead")
             if service.remindersBusy { ProgressView(text("Reading reminders…", "Lecture des rappels…")) }
             if let readAt = service.remindersReadAt {
-                Text(text("Read at \(readAt.formatted(date: .omitted, time: .shortened))", "Lus à \(readAt.formatted(date: .omitted, time: .shortened))"))
+                Text(text("Read at \(readAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(AppLanguage.locale)))", "Lus à \(readAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(AppLanguage.locale)))"))
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 if service.reminders.isEmpty {
                     Text(text("No dated reminders to finish in the next seven days.",
@@ -146,7 +146,7 @@ struct NativeConnectionsView: View {
                     Text(reminder.title).font(.raleway(.headline)).fixedSize(horizontal: false, vertical: true)
                     Text(reminder.listTitle).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
-                    if let due = reminder.dueDate { Text(due.formatted(date: .abbreviated, time: .shortened)).font(.raleway(.caption)) }
+                    if let due = reminder.dueDate { Text(due.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(AppLanguage.locale))).font(.raleway(.caption)) }
                     Button(text("Mark complete", "Marquer comme terminé")) { service.completeReminder(reminder) }
                         .buttonStyle(SecondaryButtonStyle()).disabled(service.remindersBusy)
                         .accessibilityLabel(text("Mark \(reminder.title) complete", "Terminer \(reminder.title)"))
@@ -196,7 +196,7 @@ private struct NativeShortcutCard: View {
                 .nativeConnectionInput().accessibilityIdentifier("native.\(operation.rawValue).name")
             Button(text("Save without running", "Enregistrer sans lancer")) {
                 do { try service.setShortcutName(name, for: operation); issue = nil }
-                catch { issue = error.localizedDescription }
+                catch { issue = error.moreDescription }
             }.buttonStyle(SecondaryButtonStyle()).disabled(name == (service.shortcutNames[operation] ?? ""))
             DisclosureGroup(text("Send text to the shortcut (optional)", "Transmettre du texte au raccourci (facultatif)")) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -224,7 +224,7 @@ private struct NativeShortcutCard: View {
                         issue = text("Added to your draft. Review and approve the routine before starting.",
                                      "Ajouté au brouillon. Vérifiez et approuvez la routine avant de démarrer.")
                     }
-                } catch { issue = error.localizedDescription }
+                } catch { issue = error.moreDescription }
             }.buttonStyle(SecondaryButtonStyle())
                 .disabled(!canAddToRoutine || !ShortcutBridge.isValidName(name) || input.utf8.count > ShortcutBridge.inputByteLimit)
                 .accessibilityIdentifier("native.\(operation.rawValue).addToRoutine")
@@ -274,7 +274,7 @@ private struct NativeShortcutCard: View {
             let requestID = service.pendingShortcut?.id
             issue = nil
             openURL(url) { accepted in if !accepted { service.shortcutCouldNotOpen(requestID: requestID) } }
-        } catch { issue = error.localizedDescription }
+        } catch { issue = error.moreDescription }
     }
     private func text(_ english: String, _ french: String) -> String { locale.language.languageCode?.identifier == "fr" ? french : english }
 }

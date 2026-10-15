@@ -49,7 +49,7 @@ struct ObservationNarrationView: View {
                             Button {
                                 message = nil
                                 previewID = store.previewObservationNarration(prepared)
-                                if previewID == nil { message = String(localized: "The preview isn't ready. Check the source and try again.") }
+                                if previewID == nil { message = String(localized: "The preview isn't ready. Check the source and try again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
                             } label: { Label("Hear preview", systemImage: "play.fill") }
                             .disabled(blocked || store.speech.state != .idle)
                             .accessibilityIdentifier("narration.hear")
@@ -59,14 +59,14 @@ struct ObservationNarrationView: View {
                                     .accessibilityIdentifier("narration.stop")
                             }
                         }.buttonStyle(.borderless)
-                        Text(playing ? store.speech.statusText : (store.speech.lastError ?? String(localized: "Ready when you are")))
+                        Text(playing ? store.speech.statusText : (store.speech.lastError ?? String(localized: "Ready when you are", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("narration.playback")
                             .accessibilityValue(playing ? store.speech.state.rawValue : "idle")
-                        Button(added ? "Added to your draft" : "Add to my morning") {
+                        Button(added ? String(localized: "Added to your draft", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Add to my morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
                             stopPreview()
                             added = store.addObservationNarration(prepared)
-                            message = added ? String(localized: "Review and approve your updated morning before running it.") : store.notice
+                            message = added ? String(localized: "Review and approve your updated morning before running it.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : store.notice
                         }.disabled(blocked || added)
                             .accessibilityIdentifier("narration.add")
                         if let message {
@@ -110,7 +110,7 @@ struct ObservationNarrationView: View {
             .onChange(of: entry) { _, _ in
                 stopPreview(); selectedID = nil; added = false
                 if requestedNarration != nil {
-                    message = String(localized: "This saved source changed. Choose the excerpt again before adding it.")
+                    message = String(localized: "This saved source changed. Choose the excerpt again before adding it.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                 }
             }
             .onChange(of: scenePhase) { _, phase in if phase != .active { stopPreview() } }
@@ -130,7 +130,7 @@ struct ObservationNarrationView: View {
                   $0.frameID == current.reference.frameID &&
                       $0.text.utf8.elementsEqual(current.reference.quote.utf8)
               }) else {
-            message = String(localized: "This exact excerpt is no longer available. Return to its source or choose a saved line yourself.")
+            message = String(localized: "This exact excerpt is no longer available. Return to its source or choose a saved line yourself.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             return
         }
         selectedID = candidate.id

@@ -89,6 +89,7 @@ struct MorningInvitationView: View {
 
     private func scheduledTime(_ date: Date, zone: String) -> String {
         let formatter = DateFormatter()
+        formatter.locale = AppLanguage.locale
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         formatter.timeZone = TimeZone(identifier: zone) ?? .current

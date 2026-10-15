@@ -9,6 +9,22 @@ struct SlackThreadReplyTests {
     private let instant = Date(timeIntervalSince1970: 1_800_000_000)
     private let channel = "C12345678", author = "U33333333", parent = "1800000000.000001"
 
+    @Test func languagePresentationPreservesDraftAndSourceWithoutPosting() async throws {
+        let setup = try setup(); defer { setup.cleanup() }
+        let provider = Provider(destination: try destination()), source = try source()
+        let exact = "Café e\u{301} stays exact."
+        let conversation = SlackThreadReplyConversation(provider: provider,
+            drafts: SlackReplyDraftService(generator: { _ in exact }), directory: setup.directory,
+            now: { instant }, speak: { _ in })
+        await conversation.prepare(intention: "Reply", source: source, context: source.executionID)
+        #expect(conversation.canConfirm)
+        conversation.appLanguageDidChange()
+        #expect(!conversation.canConfirm && provider.sends == 0)
+        #expect(conversation.source == source && Data(conversation.body.utf8) == Data(exact.utf8))
+        _ = await conversation.respond("send it", context: source.executionID)
+        #expect(provider.sends == 0)
+    }
+
     @Test func provenanceIsRequiredAndProviderIDsNeverComeFromProse() throws {
         let context = context()
         let result = readResult()
