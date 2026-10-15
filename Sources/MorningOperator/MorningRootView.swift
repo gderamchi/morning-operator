@@ -23,8 +23,6 @@ struct MorningRootView: View {
     // it. These flags keep their old meaning ("that destination is showing").
     private enum HomeRoute: Hashable { case settings, routine, learn, history }
     @ViewState<[HomeRoute]> private var path: [HomeRoute] = []
-    @ViewState<Date?> private var sunKick: Date? = nil
-    @ViewState<Int> private var sunKicks = 0
     private func route(_ route: HomeRoute) -> Bool { path.contains(route) }
     private func setRoute(_ route: HomeRoute, _ visible: Bool) {
         if visible { if !path.contains(route) { path.append(route) } }
@@ -59,12 +57,23 @@ struct MorningRootView: View {
         return Double(session.completedStepIDs.count) / Double(session.routine.steps.count)
     }
 
+    // Dark system chrome belongs only to the night landscape. Reading screens
+    // and presented controls keep the existing light paper and native fields.
+    private var nightHomeAppearance: Bool {
+        path.isEmpty && MorningThemeClock.shared.celestial.moon.opacity > 0.57
+            && !showingInvitation && !store.capturePresented && !store.voiceCommandPresented
+            && !store.captureVoicePresented && store.pendingWebTarget == nil && !store.privacyBlocksWork
+    }
+
     private var presentedContent: some View {
         NavigationStack(path: Binding(get: { path }, set: { path = $0 })) {
-            // Home is the sun on its paper and the greeting. The one control is Settings,
-            // top right; Routine is reached from Settings.
-            MorningSunHome(routine: store.routine, night: MorningThemeClock.shared.celestial.moon.opacity,
-                           step: sunKicks, openSettings: { showingSettings = true },
+            MorningSunHome(actionsShown: $showingActions,
+                           openSettings: { showingActions = false; showingSettings = true },
+                           openRoutine: {
+                               showingActions = false
+                               if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true }
+                           },
+                           needsSolarCity: store.briefing.settings.weatherLocation == nil, notice: store.notice,
                            session: store.session, currentStep: store.currentStep,
                            connectedActionStatus: store.connectedActionStatus,
                            begin: {
@@ -83,24 +92,8 @@ struct MorningRootView: View {
                            voiceBlocked: store.voiceInputBlocksPlayback,
                            speak: { store.openCompletionCapture() }, write: { store.openCapture() },
                            notNow: { store.discardCompletionReflection() })
-                .safeAreaInset(edge: .bottom) {
-                    if let notice = store.notice {
-                        NoticeView(text: notice, dismiss: { store.notice = nil })
-                            .padding(.horizontal, 24).padding(.bottom, 12)
-                    }
-                }
-                // The sky, then the touch layer, both under the text and buttons so those
-                // keep their own taps.
-                .background {
-                    ZStack {
-                        MorningSunBackdrop(kick: sunKick, kicks: sunKicks)
-                        MorningTouchLight(night: MorningThemeClock.shared.celestial.moon.opacity > 0.5,
-                                          onBody: { sunKick = Date(); sunKicks += 1 })
-                            .ignoresSafeArea()
-                    }
-                }
                 // Light status bar text over the night sky.
-                .toolbarColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.5 ? .dark : .light, for: .navigationBar)
+                .toolbarColorScheme(nightHomeAppearance ? .dark : .light, for: .navigationBar)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeRoute.self) { route in
                     switch route {
@@ -132,10 +125,9 @@ struct MorningRootView: View {
                     }
                 }
         }
-        // On the stack, not its first screen, so the status bar clock follows the sky
-        // on pushed screens too and turns light at night.
-        .preferredColorScheme(MorningThemeClock.shared.celestial.moon.opacity > 0.5 ? .dark : nil)
-        .background(MorningPaper(progress: routineProgress))
+        // Keep night status text light on Home and use light paper on destinations.
+        .preferredColorScheme(nightHomeAppearance ? .dark : .light)
+        .background(MorningPaper(showsSun: false))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { dockWidth = $0 }
         .background {
             #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
@@ -221,9 +213,6 @@ struct MorningRootView: View {
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
                 showingActions = false
-                // Reopening starts the greeting again.
-                sunKicks = 0
-                sunKick = nil
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
                 #endif
@@ -268,6 +257,12 @@ struct MorningRootView: View {
             // Revealing progress is not a request to start or resume. Keep any
             // unfinished review sheet intact rather than discarding the draft.
             store.tab = .today
+        }
+        .onChange(of: store.briefing.settings.weatherLocation, initial: true) { _, location in
+            MorningThemeClock.shared.setLocation(store.privacyBlocksWork ? nil : location)
+        }
+        .onChange(of: store.privacyBlocksWork) { _, blocked in
+            MorningThemeClock.shared.setLocation(blocked ? nil : store.briefing.settings.weatherLocation)
         }
         .task { await initializeMorning() }
         .task {
@@ -1190,15 +1185,13 @@ private struct MorningHaptics: ViewModifier {
     }
 }
 
-/// The first screen: the sun on its paper, the greeting, and a quiet line of small
-/// icons that sketches the morning ahead. Nothing here is a link.
+/// Home stays a quiet landscape until the person asks for their controls.
 private struct MorningSunHome: View {
-    var routine: RoutineVersion?
-    /// 0 by day, 1 at night: text and icons turn light over the night sky.
-    var night: Double
-    /// How many times the sun was touched: the greeting first, then the date, then the question.
-    var step: Int
+    @Binding var actionsShown: Bool
     var openSettings: () -> Void
+    var openRoutine: () -> Void
+    var needsSolarCity: Bool
+    var notice: String?
     var session: RoutineSession?
     var currentStep: RoutineStep?
     var connectedActionStatus: String? = nil
@@ -1207,303 +1200,178 @@ private struct MorningSunHome: View {
     var pause: () -> Void
     var resume: () -> Void
     var next: () -> Void
-    /// After a saved, finished run: offer to keep a thought about it.
     var offersReflection = false
     var voiceBlocked = false
     var speak: () -> Void = {}
     var write: () -> Void = {}
     var notNow: () -> Void = {}
+    @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
     private var running: Bool { session?.status == .running || session?.status == .paused }
-    /// Today's run reached its last moment. Yesterday's finished run gives way to a new greeting.
     private var finishedToday: Bool {
         guard let done = session?.completedAt else { return false }
         return Calendar.current.isDateInToday(done)
     }
-    /// The sun is not an accessibility element, so VoiceOver and UI tests reach the
-    /// question without touching it.
-    private var questionShown: Bool {
-        if step >= 2 || voiceOverEnabled { return true }
+    private var still: Bool {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--ui-testing") { return true }
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing-reduce-motion") { return true }
         #endif
-        return false
+        return reduceMotion
     }
-    @Environment(\.locale) private var locale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
-    private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
-    private var ink: Color { night > 0.5 ? Color(red: 0.93, green: 0.92, blue: 0.97) : MorningStyle.ink }
-
-    var body: some View {
-        Group {
-        if running, let step = currentStep {
-            // A morning in progress: the moment now, and quiet controls.
-            VStack(alignment: .leading, spacing: 12) {
-                Text(isFrench ? "maintenant" : "now")
-                    .font(.raleway(.subheadline, .medium)).opacity(0.7)
-                Text(step.title)
-                    .font(.custom("DM Serif Display", size: 40, relativeTo: .largeTitle))
-                    .accessibilityIdentifier("morning.currentStep")
-                Text("\(step.durationMinutes) min").font(.raleway(.subheadline)).opacity(0.7)
-                if let connectedActionStatus {
-                    ScrollView {
-                        Text(connectedActionStatus).font(.raleway(.subheadline)).textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 120)
-                    .accessibilityIdentifier("moment.connectedResult")
-                }
-                HStack(spacing: 12) {
-                    Button(action: session?.status == .paused ? resume : pause) {
-                        Image(systemName: session?.status == .paused ? "play.fill" : "pause.fill")
-                            .font(.system(size: 18)).frame(width: 30, height: 30)
-                    }
-                    .buttonStyle(.glass).buttonBorderShape(.circle)
-                    .accessibilityLabel(session?.status == .paused ? "Continue" : "Pause")
-                    .accessibilityIdentifier("morning.playback")
-                    Button(action: next) {
-                        Text(isFrench ? "suivant" : "next")
-                            .font(.raleway(.body, .semibold))
-                            .padding(.horizontal, 18).padding(.vertical, 6)
-                    }
-                    .buttonStyle(.glass)
-                    .accessibilityIdentifier("morning.next")
-                }
-                .padding(.top, 8)
-            }
-            .transition(.opacity)
-        } else if finishedToday, let session {
-            finished(session)
-                .transition(.opacity)
-        } else {
-        // Each line keeps its place, one under the other, but only the latest shows:
-        // the greeting, then the date below it, then the question below that.
-        VStack(alignment: .leading, spacing: 10) {
-            Text(night > 0.5 ? (isFrench ? "bonsoir" : "good evening") : (isFrench ? "bonjour" : "good morning"))
-                .font(.custom("DM Serif Display", size: 46, relativeTo: .largeTitle))
-                .opacity(step == 0 ? 1 : 0)
-                .accessibilityHidden(step != 0)
-            Text(isFrench ? "nous sommes \(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide)))"
-                          : "today is \(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))")
-                .font(.custom("DM Serif Display", size: 28, relativeTo: .title2))
-                .opacity(step == 1 ? 1 : 0)
-                .accessibilityHidden(step != 1)
-            VStack(alignment: .leading, spacing: 16) {
-                Text(isFrench ? "êtes-vous prêt à commencer ?" : "ready to begin?")
-                    .font(.custom("DM Serif Display", size: 28, relativeTo: .title2))
-                    .accessibilityIdentifier("morning.readyQuestion")
-                Button(action: begin) {
-                    Text(isFrench ? "commencer" : "begin")
-                        .font(.custom("Raleway", size: 17, relativeTo: .body).weight(.semibold))
-                        .padding(.horizontal, 22).padding(.vertical, 6)
-                }
-                .buttonStyle(.glass)
-                .accessibilityIdentifier("morning.begin")
-            }
-            .padding(.top, 10)
-            .opacity(questionShown ? 1 : 0)
-            .allowsHitTesting(questionShown)
-            .accessibilityHidden(!questionShown)
-        }
-        }
-        }
-        .animation(.easeOut(duration: 0.4), value: running)
-        .animation(.easeOut(duration: 0.4), value: finishedToday)
-        // Clear of the Settings button.
-        .padding(.trailing, 56)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: step)
-        .foregroundStyle(ink)
-        // Contain, not combine: the buttons inside stay separate, reachable controls.
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("morning.heading")
-        .padding(.horizontal, 24).padding(.top, 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .overlay(alignment: .topTrailing) {
-            Button(action: openSettings) {
-                Image(systemName: "gearshape").font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(ink).frame(width: 30, height: 30)
-            }
-            .buttonStyle(.glass).buttonBorderShape(.circle)
-            .contentShape(Rectangle().inset(by: -8))
-            .accessibilityLabel("Settings").accessibilityIdentifier("morning.settings")
-            .padding(.trailing, 20).padding(.top, 14)
-        }
-    }
-
-    /// The morning is done: a closing word, what was done and how long it really took.
-    private func finished(_ session: RoutineSession) -> some View {
-        let moments = session.completedStepIDs.count
-        let minutes = max(1, Int(((session.activeDuration(until: session.completedAt ?? .now) ?? 0) / 60).rounded()))
-        let summary = "\(moments) moment\(moments == 1 ? "" : "s") · \(minutes) min"
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(isFrench ? "bonne matinée" : "have a good day")
-                .font(.custom("DM Serif Display", size: 46, relativeTo: .largeTitle))
-                .accessibilityIdentifier("morning.complete")
-            Text(summary).font(.raleway(.subheadline)).opacity(0.7)
-                .accessibilityLabel(isFrench ? "\(moments) moments faits en \(minutes) minutes"
-                                             : "\(moments) moments done in \(minutes) minutes")
-                .accessibilityIdentifier("morning.completeSummary")
-            if offersReflection {
-                HStack(spacing: 12) {
-                    Button(action: speak) {
-                        Image(systemName: "mic").font(.system(size: 18)).frame(width: 30, height: 30)
-                    }
-                    .buttonStyle(.glass).buttonBorderShape(.circle).disabled(voiceBlocked)
-                    .accessibilityLabel(isFrench ? "Dire une pensée" : "Speak a thought")
-                    .accessibilityIdentifier("morning.speakReflection")
-                    Button(action: write) {
-                        Text(isFrench ? "noter une pensée" : "note a thought")
-                            .font(.raleway(.body, .semibold))
-                            .padding(.horizontal, 18).padding(.vertical, 6)
-                    }
-                    .buttonStyle(.glass)
-                    .accessibilityIdentifier("morning.reflect")
-                    Button(isFrench ? "plus tard" : "not now", action: notNow)
-                        .font(.raleway(.subheadline)).opacity(0.7).frame(minHeight: 44)
-                        .accessibilityIdentifier("morning.dismissReflection")
-                }
-                .padding(.top, 8)
-            }
-        }
-    }
-
-    /// A recognisable little picture for a moment: the app or habit it names first,
-    /// then where it opens, then its kind.
-    static func icon(for step: RoutineStep) -> String {
-        let title = step.title.lowercased()
-        let words: [(String, String)] = [
-            ("duolingo", "bird"), ("chess", "checkerboard.rectangle"), ("échec", "checkerboard.rectangle"),
-            ("gmail", "envelope"), ("mail", "envelope"), ("whatsapp", "message"), ("messenger", "message"),
-            ("message", "message"), ("snapchat", "camera"), ("instagram", "camera"), ("tiktok", "play.square"),
-            ("youtube", "play.rectangle"), ("netflix", "play.rectangle"), ("spotify", "music.note"),
-            ("music", "music.note"), ("musique", "music.note"), ("podcast", "headphones"),
-            ("météo", "cloud.sun"), ("weather", "cloud.sun"), ("calend", "calendar"), ("agenda", "calendar"),
-            ("actu", "newspaper"), ("news", "newspaper"), ("linkedin", "briefcase"), ("eau", "drop"),
-            ("water", "drop"), ("sport", "figure.run"), ("run", "figure.run"), ("yoga", "figure.mind.and.body"),
-            ("pensée", "lightbulb"), ("thought", "lightbulb"), ("café", "cup.and.saucer"), ("coffee", "cup.and.saucer")
-        ]
-        if let match = words.first(where: { title.contains($0.0) }) { return match.1 }
-        if case let .externalApp(app, _) = step.target {
-            switch app {
-            case .messages, .whatsapp: return "message"
-            case .mail: return "envelope"
-            case .instagram: return "camera"
-            case .calendar: return "calendar"
-            case .maps: return "map"
-            case .safari: return "safari"
-            }
-        }
-        if case .inAppWeb = step.target { return "globe" }
-        switch step.kind {
-        case .briefing: return "sun.horizon"
-        case .messages: return "message"
-        case .calendar: return "calendar"
-        case .wellbeing: return "heart"
-        case .entertainment: return "play.rectangle"
-        case .custom: return "leaf"
-        }
-    }
-}
-
-/// The sun's own colours, cream to gold to a hint of rust, as a barely graded page.
-private struct MorningSunBackdrop: View {
-    var kick: Date? = nil
-    var kicks: Int = 0
-    @Environment(\.colorScheme) private var scheme
-    var body: some View {
-        let night = MorningThemeClock.shared.celestial.moon.opacity
-        ZStack {
-            // A plain cream page: the sun and its lines carry the colour.
-            (scheme == .dark ? Color(red: 0.16, green: 0.11, blue: 0.09) : Color(red: 1.0, green: 0.97, blue: 0.90))
-            // The night sky, deep indigo, lighter towards the horizon.
-            LinearGradient(stops: [.init(color: Color(red: 0.05, green: 0.06, blue: 0.15), location: 0),
-                                   .init(color: Color(red: 0.13, green: 0.13, blue: 0.29), location: 0.42),
-                                   .init(color: Color(red: 0.20, green: 0.17, blue: 0.34), location: 0.5),
-                                   .init(color: Color(red: 0.08, green: 0.09, blue: 0.20), location: 1)],
-                           startPoint: .top, endPoint: .bottom)
-                .opacity(night)
-            MorningCelestialArtwork(scene: MorningThemeClock.shared.celestial, kick: kick, kicks: kicks)
-        }
-        .ignoresSafeArea()
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
-    }
-}
-
-/// A touch on Home leaves light behind: by day a small lens flare with a few sparkles,
-/// at night a shooting star crossing from the touch. Purely decorative; never a button.
-private struct MorningTouchLight: View {
-    var night: Bool
-    var onBody: () -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private struct Burst: Identifiable { let id = UUID(); let point: CGPoint; let start: Date; let night: Bool; let big: Bool }
-    @ViewState<[Burst]> private var bursts: [Burst] = []
-    @ViewState<Int> private var bodyTaps = 0
 
     var body: some View {
         GeometryReader { geometry in
-            TimelineView(.animation(paused: bursts.isEmpty)) { timeline in
-                Canvas { context, size in
-                    let now = timeline.date
-                    for burst in bursts {
-                        let t = now.timeIntervalSince(burst.start)
-                        star(context: context, size: size, at: burst.point, t: t)
+            let night = MorningThemeClock.shared.celestial.moon.opacity
+            ZStack(alignment: .bottom) {
+                MorningQuietSky(night: night).ignoresSafeArea()
+                VStack(spacing: 12) {
+                    if actionsShown {
+                        ScrollView {
+                            controls
+                                .padding(22)
+                                .frame(maxWidth: 360)
+                                .background(night > 0.5 ? Color(red: 0.086, green: 0.114, blue: 0.204) : MorningStyle.surface,
+                                            in: RoundedRectangle(cornerRadius: 14))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .defaultScrollAnchor(.bottom, for: .alignment)
+                        .scrollBounceBehavior(.basedOnSize)
+                        .transition(still ? .opacity : .opacity.combined(with: .offset(y: 12)))
+                    } else {
+                        Spacer(minLength: 0)
                     }
+                    Button {
+                        withAnimation(still ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22)) {
+                            actionsShown.toggle()
+                        }
+                    } label: {
+                        MorningQuietLandscape(scene: MorningThemeClock.shared.celestial,
+                                              twinkles: !still && scenePhase == .active)
+                            .frame(width: min(max(0, geometry.size.width - 40), 340), height: min(200, geometry.size.height * 0.38))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("morning.actions")
+                    .accessibilityLabel(actionsShown
+                        ? (isFrench ? "Masquer les commandes" : "Hide controls")
+                        : (isFrench ? "Afficher les commandes" : "Show controls"))
+                    .accessibilityHint(isFrench ? "Le paysage suit l’heure de votre iPhone." : "The landscape follows your iPhone’s time.")
                 }
+                .padding(.bottom, 12)
             }
-            .contentShape(Rectangle())
-            .onTapGesture(coordinateSpace: .local) { point in
-                // The sun's (or moon's) disc, where the artwork draws it.
-                let scene = MorningThemeClock.shared.celestial
-                let diameter = min(geometry.size.width * 0.72, 300) * (night ? 0.82 : 1)
-                let full = geometry.frame(in: .global)
-                let origin = CGPoint(x: -full.minX, y: -full.minY)
-                let screen = CGSize(width: full.width + full.minX, height: full.height + full.minY)
-                let body = night ? scene.moon : scene.sun
-                let centre = CGPoint(x: origin.x + screen.width * body.centerX, y: origin.y + screen.height * body.centerY)
-                let onDisc = hypot(point.x - centre.x, point.y - centre.y) < diameter / 2
-                if onDisc { bodyTaps += 1; onBody() }
-                guard !reduceMotion, night else { return }
-                let now = Date()
-                bursts = bursts.filter { now.timeIntervalSince($0.start) < 2.2 }
-                    + [Burst(point: onDisc ? centre : point, start: now, night: night, big: onDisc)]
-                Task {
-                    try? await Task.sleep(for: .seconds(2.3))
-                    bursts.removeAll { Date().timeIntervalSince($0.start) >= 2.2 }
-                }
-            }
+            .foregroundStyle(night > 0.5 ? Color(red: 0.91, green: 0.91, blue: 0.96) : MorningStyle.ink)
         }
-        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.9), trigger: bodyTaps)
-        .accessibilityHidden(true)
     }
 
-    private func star(context: GraphicsContext, size: CGSize, at p: CGPoint, t: Double) {
-        guard t < 1.6 else { return }
-        let travel = min(1, t / 0.9)
-        let eased = 1 - pow(1 - travel, 2)
-        let length: CGFloat = 260
-        let dx: CGFloat = -0.82, dy: CGFloat = 0.57
-        let head = CGPoint(x: p.x + dx * length * eased, y: p.y + dy * length * eased)
-        let tailLength = 120 * (t < 0.9 ? 1 : max(0, 1 - (t - 0.9) / 0.7))
-        let tail = CGPoint(x: head.x - dx * tailLength, y: head.y - dy * tailLength)
-        let fade = t < 0.9 ? 1 : max(0, 1 - (t - 0.9) / 0.7)
-        var trail = context
-        trail.addFilter(.blur(radius: 1.5))
-        var line = Path(); line.move(to: tail); line.addLine(to: head)
-        trail.stroke(line, with: .linearGradient(Gradient(colors: [.clear, Color(red: 0.85, green: 0.88, blue: 1).opacity(0.95 * fade)]),
-                                                  startPoint: tail, endPoint: head), lineWidth: 2.4)
-        var glow = context
-        glow.addFilter(.blur(radius: 6))
-        glow.fill(Path(ellipseIn: CGRect(x: head.x - 7, y: head.y - 7, width: 14, height: 14)), with: .color(.white.opacity(0.9 * fade)))
-        context.fill(Path(ellipseIn: CGRect(x: head.x - 2, y: head.y - 2, width: 4, height: 4)), with: .color(.white.opacity(fade)))
-        // Faint sparks left behind the head.
-        var random = MorningSeededRandom(seed: UInt64(abs(Int(p.x * 13 + p.y * 7))))
-        for _ in 0..<8 {
-            let along = random.range(0.1, 1.0)
-            let sx = tail.x + (head.x - tail.x) * along + random.range(-6, 6)
-            let sy = tail.y + (head.y - tail.y) * along + random.range(-6, 6)
-            context.fill(Path(ellipseIn: CGRect(x: sx - 0.8, y: sy - 0.8, width: 1.6, height: 1.6)),
-                         with: .color(.white.opacity(0.7 * fade * along)))
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Spacer()
+                Button {
+                    withAnimation(still ? .easeOut(duration: 0.12) : .easeOut(duration: 0.18)) { actionsShown = false }
+                } label: {
+                    Image(systemName: "xmark").font(.system(size: 16)).frame(width: 44, height: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isFrench ? "Fermer" : "Close")
+                .accessibilityIdentifier("morning.closeActions")
+            }
+            if running, let step = currentStep {
+                Text(step.title)
+                    .font(.serif(.title)).accessibilityIdentifier("morning.currentStep")
+                Text("\(step.durationMinutes) min").font(.raleway(.subheadline)).opacity(0.7)
+                if let connectedActionStatus {
+                    Text(connectedActionStatus).font(.raleway(.subheadline)).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("moment.connectedResult")
+                }
+                HStack(spacing: 16) {
+                    Button(action: session?.status == .paused ? resume : pause) {
+                        Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",
+                              systemImage: session?.status == .paused ? "play.fill" : "pause.fill")
+                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("morning.playback")
+                    Spacer(minLength: 0)
+                    Button(action: next) {
+                        Text(isFrench ? "Suivant" : "Next").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("morning.next")
+                }
+                .buttonStyle(.plain)
+            } else if finishedToday, let session {
+                finished(session)
+            } else {
+                Text(isFrench ? "on y va ?" : "ready to begin?")
+                    .font(.serif(.title)).accessibilityIdentifier("morning.readyQuestion")
+                Button(action: begin) {
+                    Text(isFrench ? "Commencer" : "Begin")
+                        .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("morning.begin")
+            }
+            if let notice {
+                Text(notice).font(.raleway(.subheadline)).accessibilityIdentifier("app.notice")
+            }
+            destinationLayout {
+                Button(action: openSettings) {
+                    Label(isFrench ? "Réglages" : "Settings", systemImage: "gearshape")
+                        .frame(minHeight: 48).contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("morning.settings")
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+                Button(action: openRoutine) {
+                    Label(isFrench ? "Ma routine" : "My routine", systemImage: "list.bullet")
+                        .frame(minHeight: 48).contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("morning.review")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.raleway(.subheadline))
+            .buttonStyle(.plain)
+            if needsSolarCity {
+                Button(action: openSettings) {
+                    Text(isFrench ? "Choisissez votre ville dans Votre journée pour suivre le lever et le coucher du soleil."
+                                  : "Choose your city in Your day to follow sunrise and sunset.")
+                        .font(.raleway(.caption)).multilineTextAlignment(.leading).opacity(0.75)
+                        .frame(minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("morning.solarCity")
+            }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("morning.heading")
+    }
+
+    private var destinationLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 20))
+    }
+
+    private func finished(_ session: RoutineSession) -> some View {
+        let moments = session.completedStepIDs.count
+        let minutes = max(1, Int(((session.activeDuration(until: session.completedAt ?? .now) ?? 0) / 60).rounded()))
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(isFrench ? "bonne journée" : "have a good day")
+                .font(.serif(.title)).accessibilityIdentifier("morning.complete")
+            Text("\(moments) moment\(moments == 1 ? "" : "s") · \(minutes) min")
+                .font(.raleway(.subheadline)).opacity(0.7)
+                .accessibilityIdentifier("morning.completeSummary")
+            if offersReflection {
+                Button(action: speak) { Label(isFrench ? "Dire une pensée" : "Speak a thought", systemImage: "mic").frame(minHeight: 44).contentShape(Rectangle()) }
+                    .disabled(voiceBlocked).accessibilityIdentifier("morning.speakReflection")
+                Button(action: write) { Text(isFrench ? "Noter une pensée" : "Note a thought").frame(minHeight: 44).contentShape(Rectangle()) }
+                    .accessibilityIdentifier("morning.reflect")
+                Button(action: notNow) { Text(isFrench ? "Plus tard" : "Not now").frame(minHeight: 44).contentShape(Rectangle()) }
+                    .accessibilityIdentifier("morning.dismissReflection")
+            }
+        }
+        .buttonStyle(.plain)
     }
 }

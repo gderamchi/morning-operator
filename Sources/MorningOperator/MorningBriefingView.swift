@@ -174,8 +174,11 @@ struct MorningBriefingView: View {
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
         } header: { Text("Weather · optional") } footer: {
-            Text("Searches go to Apple Maps; the city you choose is sent to Apple Weather. MORE doesn't request your device location.")
-                .font(.raleway(.caption2))
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Searches go to Apple Maps; the city you choose is sent to Apple Weather. MORE doesn't request your device location.")
+                Text(MorningThemeClock.shared.solarSourceDescription)
+                    .accessibilityIdentifier("briefing.solarSource")
+            }.font(.raleway(.caption2))
         }
     }
 

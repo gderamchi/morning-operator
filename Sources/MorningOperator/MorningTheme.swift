@@ -1,22 +1,31 @@
 import SwiftUI
 import Observation
 import MorningCore
+import MorningApple
 #if os(iOS)
 import UIKit
 #else
 import AppKit
 #endif
 
-/// The clock behind the palette. Refreshed once a minute by the root view; the
-/// resolved blend is what every colour reads. Debug builds and UI tests may pin a phase.
+/// The clock behind the palette. Refreshes resolve the selected city's solar day
+/// locally using the iPhone's date and time zone. No device location is requested.
+/// Debug builds and UI tests may pin a phase.
 @Observable @MainActor
 final class MorningThemeClock {
     static let shared = MorningThemeClock()
 
     private(set) var blend: MorningPhaseBlend
     private(set) var celestial: MorningCelestialScene
-    /// Sunrise and sunset in minutes. Fixed hours until a solar source supplies them.
-    var solar: MorningSolarDay = .fixed
+    private(set) var solar: MorningSolarDay = .fixed
+    private(set) var location: WeatherLocation?
+    var isUsingReferenceDay: Bool { location == nil }
+    var solarSourceDescription: String {
+        if let location {
+            return String(localized: "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone. No device location is requested.")
+        }
+        return String(localized: "Choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.")
+    }
     /// A pinned phase for previews, snapshots and tests. `nil` follows the clock.
     var pinnedPhase: MorningDayPhase? {
         didSet { refresh() }
@@ -29,10 +38,20 @@ final class MorningThemeClock {
         if pinnedPhase != nil { refresh(now: now) }
     }
 
+    func setLocation(_ location: WeatherLocation?, now: Date = .now) {
+        self.location = location
+        refresh(now: now)
+    }
+
     func refresh(now: Date = .now) {
-        let next = pinnedPhase.map(MorningPhaseBlend.steady) ?? MorningDayClock.blend(at: now, solar: solar)
+        let calendar = Calendar.current
+        let day = location.flatMap {
+            MorningSolarDay.calculate(for: now, latitude: $0.latitude, longitude: $0.longitude, calendar: calendar)
+        } ?? .fixed
+        if day != solar { solar = day }
+        let next = pinnedPhase.map(MorningPhaseBlend.steady) ?? MorningDayClock.blend(at: now, calendar: calendar, solar: day)
         if next != blend { blend = next }
-        let art = pinnedPhase.map(MorningCelestialClock.scene(for:)) ?? MorningCelestialClock.scene(at: now, solar: solar)
+        let art = pinnedPhase.map(MorningCelestialClock.scene(for:)) ?? MorningCelestialClock.scene(at: now, calendar: calendar, solar: day)
         if art != celestial { celestial = art }
     }
 

@@ -18,6 +18,7 @@ struct MorningOperatorApp: App {
             #if DEBUG
             if let site = Self.webMorningLaunchSite, showingWebPreview {
                 WebMorningView(site: site, minutes: 10, onClose: { showingWebPreview = false })
+                    .preferredColorScheme(.light)
             } else {
                 MorningRootView(store: store)
             }
@@ -25,9 +26,6 @@ struct MorningOperatorApp: App {
             MorningRootView(store: store)
             #endif
             }
-            // MORE's local-time palette owns the day-to-night journey. System
-            // appearance must not replace its paper, controls or website chrome.
-            .preferredColorScheme(.light)
             #if DEBUG
             .overlay(alignment: .topLeading) {
                 if ProcessInfo.processInfo.arguments.contains("--qa-system-checks"),

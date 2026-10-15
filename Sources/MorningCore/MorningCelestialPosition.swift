@@ -13,37 +13,32 @@ public struct MorningCelestialScene: Sendable, Equatable {
     public let moon: MorningCelestialPosition
 }
 
-/// A continuous, local-time journey: sunrise begins at the bottom centre, the sun
-/// climbs towards midday and returns to the horizon; a crescent takes over at night.
-/// Fixed reference hours are used until the app has a real solar-time provider.
+/// A decorative left-to-right arc between local sunrise and sunset; the crescent
+/// follows the same journey at night. Its position is not a lunar ephemeris.
 public enum MorningCelestialClock {
     public static func scene(atMinute minute: Double, solar: MorningSolarDay = .fixed) -> MorningCelestialScene {
-        let usable = solar.sunriseMinute.isFinite && solar.sunsetMinute.isFinite
-            && solar.sunriseMinute >= 75 && solar.sunsetMinute <= 1320
-            && solar.sunsetMinute - solar.sunriseMinute >= 120
-        let day = usable ? solar : .fixed
+        let day = solar.validated
+        // No invented rise/set when the sun stays above or below the horizon.
+        if day.condition != .dayAndNight {
+            return MorningCelestialScene(
+                sun: .init(centerX: 0.5, centerY: 0.18, opacity: day.condition == .allDay ? 1 : 0),
+                moon: .init(centerX: 0.5, centerY: 0.24, opacity: day.condition == .allNight ? 1 : 0))
+        }
         let safeMinute = minute.isFinite ? minute : 12 * 60
-        let wrapped = safeMinute.truncatingRemainder(dividingBy: 1440)
-        let t = wrapped < 0 ? wrapped + 1440 : wrapped
         let rise = day.sunriseMinute, set = day.sunsetMinute
         let daylight = set - rise
-        let dayProgress = clamp((t - rise) / daylight)
-        let altitude = sin(.pi * dayProgress)
-        // Smooth arrival below the horizon before sunrise and departure after sunset.
-        let horizonOffset: Double
-        if t < rise { horizonOffset = 0.10 * (1 - smooth((t - rise + 60) / 60)) }
-        else if t > set { horizonOffset = 0.10 * smooth((t - set) / 60) }
-        else { horizonOffset = 0 }
-        let visible = smooth((t - rise + 45) / 60) * (1 - smooth((t - set + 15) / 60))
         let nightLength = 1440 - daylight
-        let nightProgress: Double
-        if t >= set { nightProgress = (t - set) / nightLength }
-        else if t <= rise { nightProgress = (t + 1440 - set) / nightLength }
-        else { nightProgress = 0 } // Below the horizon while hidden during the day.
-        let moonAltitude = sin(.pi * clamp(nightProgress))
+        let sinceRise = wrap(safeMinute - rise)
+        let sinceSet = wrap(safeMinute - set)
+        let isDay = sinceRise <= daylight
+        let dayProgress = isDay ? sinceRise / daylight : (sinceSet < nightLength / 2 ? 1.0 : 0)
+        let nightProgress = !isDay ? sinceSet / nightLength : (sinceRise < daylight / 2 ? 1.0 : 0)
+        let distance = isDay ? min(sinceRise, daylight - sinceRise) : -min(sinceSet, nightLength - sinceSet)
+        let fade = min(15, min(daylight, nightLength) / 4)
+        let visible = smooth((distance + fade) / (2 * fade))
         return MorningCelestialScene(
-            sun: .init(centerX: 0.5, centerY: max(0.2, 0.94 - 0.74 * altitude + horizonOffset), opacity: visible),
-            moon: .init(centerX: 0.5, centerY: max(0.24, 0.94 - 0.70 * moonAltitude), opacity: 1 - visible))
+            sun: position(progress: dayProgress, opacity: visible),
+            moon: position(progress: nightProgress, opacity: 1 - visible))
     }
 
     public static func scene(at date: Date, calendar: Calendar = .current,
@@ -67,6 +62,13 @@ public enum MorningCelestialClock {
     }
 
     private static func clamp(_ value: Double) -> Double { min(1, max(0, value)) }
+    private static func wrap(_ minute: Double) -> Double {
+        let value = minute.truncatingRemainder(dividingBy: 1440)
+        return value < 0 ? value + 1440 : value
+    }
+    private static func position(progress: Double, opacity: Double) -> MorningCelestialPosition {
+        .init(centerX: 0.12 + 0.76 * progress, centerY: 0.76 - 0.58 * sin(.pi * progress), opacity: opacity)
+    }
     private static func smooth(_ value: Double) -> Double {
         let t = clamp(value)
         return t * t * (3 - 2 * t)

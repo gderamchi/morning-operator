@@ -7,19 +7,29 @@ public enum MorningDayPhase: String, CaseIterable, Sendable, Codable {
     case dawn, morning, day, evening, night
 }
 
-/// Sunrise and sunset as minutes after local midnight. Fixed hours stand in until a
-/// solar source exists; they already give the day a believable shape.
+/// Sunrise and sunset in local wall-clock minutes. An event can extend past
+/// midnight when the phone's time zone differs from the selected location's.
 public struct MorningSolarDay: Sendable, Equatable {
+    public enum Condition: Sendable, Equatable { case dayAndNight, allDay, allNight }
+
     public var sunriseMinute: Double
     public var sunsetMinute: Double
+    public var condition: Condition
 
-    public init(sunriseMinute: Double, sunsetMinute: Double) {
+    public init(sunriseMinute: Double, sunsetMinute: Double, condition: Condition = .dayAndNight) {
         self.sunriseMinute = sunriseMinute
         self.sunsetMinute = sunsetMinute
+        self.condition = condition
     }
 
     /// 07:00 and 19:00.
     public static let fixed = MorningSolarDay(sunriseMinute: 7 * 60, sunsetMinute: 19 * 60)
+
+    var validated: MorningSolarDay {
+        guard condition == .dayAndNight else { return self }
+        let length = sunsetMinute - sunriseMinute
+        return sunriseMinute.isFinite && sunsetMinute.isFinite && length > 0 && length < 1440 ? self : .fixed
+    }
 }
 
 /// Where the day is between two phases. `progress` is 0 at `from` and 1 at `to`,
@@ -49,39 +59,41 @@ public enum MorningDayClock {
     struct Keyframe { let minute: Double; let phase: MorningDayPhase }
 
     static func keyframes(for solar: MorningSolarDay) -> [Keyframe] {
-        // A solar provider may be unavailable or report polar-day values. Keep a
-        // valid, ordered daily cycle; these bounds leave room for the night ramps.
-        let valid = solar.sunriseMinute.isFinite && solar.sunsetMinute.isFinite
-            && solar.sunriseMinute >= 75 && solar.sunsetMinute <= 1320
-            && solar.sunsetMinute - solar.sunriseMinute >= 120
-        let day = valid ? solar : .fixed
+        let day = solar.validated
         let rise = day.sunriseMinute, set = day.sunsetMinute
         let daylight = set - rise
+        let night = 1440 - daylight
         // Short winter days compress the daytime holds rather than putting noon
         // after sunset. At the fixed 07:00 / 19:00 hours these retain the same anchors.
         return [
-            Keyframe(minute: rise - 75, phase: .night),
-            Keyframe(minute: rise - 15, phase: .dawn),
+            Keyframe(minute: rise - min(75, night * 0.4), phase: .night),
+            Keyframe(minute: rise - min(15, night * 0.1), phase: .dawn),
             Keyframe(minute: rise + min(30, daylight * 0.06), phase: .dawn),
             Keyframe(minute: rise + min(75, daylight * 0.15), phase: .morning),
             Keyframe(minute: rise + min(180, daylight * 0.30), phase: .morning),
             Keyframe(minute: rise + min(300, daylight * 0.50), phase: .day),
             Keyframe(minute: set - min(120, daylight * 0.20), phase: .day),
             Keyframe(minute: set - min(45, daylight * 0.08), phase: .evening),
-            Keyframe(minute: set + 30, phase: .evening),
-            Keyframe(minute: set + 120, phase: .night)
+            Keyframe(minute: set + min(30, night * 0.15), phase: .evening),
+            Keyframe(minute: set + min(120, night * 0.6), phase: .night)
         ]
     }
 
     /// The blend for a minute of the day (0 ..< 1440; other values wrap).
     public static func blend(atMinute minute: Double, solar: MorningSolarDay = .fixed) -> MorningPhaseBlend {
+        switch solar.condition {
+        case .allDay: return .steady(.day)
+        case .allNight: return .steady(.night)
+        case .dayAndNight: break
+        }
         let frames = keyframes(for: solar)
         let dayLength = 24.0 * 60
-        var t = minute.truncatingRemainder(dividingBy: dayLength)
-        if t < 0 { t += dayLength }
         guard let first = frames.first, let last = frames.last else { return .steady(.day) }
-        // Before the first or after the last keyframe the night holds across midnight.
-        if t < first.minute || t >= last.minute { return .steady(last.phase) }
+        let safeMinute = minute.isFinite ? minute : 12 * 60
+        var offset = (safeMinute - first.minute).truncatingRemainder(dividingBy: dayLength)
+        if offset < 0 { offset += dayLength }
+        let t = first.minute + offset
+        if t >= last.minute { return .steady(last.phase) }
         for index in 0..<(frames.count - 1) {
             let a = frames[index], b = frames[index + 1]
             guard t >= a.minute, t < b.minute else { continue }

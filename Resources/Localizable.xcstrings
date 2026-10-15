@@ -4412,6 +4412,16 @@
         }
       }
     },
+    "Choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une ville pour suivre le lever et le coucher du soleil sur l’accueil. En attendant, l’accueil utilise une journée de référence de 7 h à 19 h selon l’horloge de cet iPhone ; elle ne correspond pas à l’ensoleillement local."
+          }
+        }
+      }
+    },
     "Choose a date and time for the calendar event.": {
       "localizations": {
         "fr": {
@@ -6380,6 +6390,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accueil"
+          }
+        }
+      }
+    },
+    "Home follows sunrise and sunset in %@, calculated on this iPhone using its date and time zone. No device location is requested.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accueil suit le lever et le coucher du soleil à %@, calculés sur cet iPhone selon sa date et son fuseau horaire. Aucune géolocalisation n’est demandée."
           }
         }
       }
