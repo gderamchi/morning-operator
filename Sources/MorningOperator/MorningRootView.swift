@@ -67,12 +67,15 @@ struct MorningRootView: View {
                            step: sunKicks, openSettings: { showingSettings = true },
                            session: store.session, currentStep: store.currentStep,
                            begin: {
-                               // An approved routine plays; otherwise begin by learning the morning.
-                               if store.routine?.isApproved == true, !store.sessionActive {
-                                   if !store.start() { showingLearn = true }
-                               } else if !store.sessionActive {
-                                   showingLearn = true
-                               }
+                               guard !store.sessionActive else { return }
+                               // No routine yet: begin by learning the morning.
+                               guard let routine = store.routine else { showingLearn = true; return }
+                               // A saved routine plays. Tapping Begin is the person's own approval
+                               // of a saved draft; if it can't be approved, show the routine and why.
+                               if !routine.isApproved, !store.approve() { showingRoutineEditor = true; return }
+                               // A refused start leaves its notice on Home; it never sends a person
+                               // with a routine back to Learn.
+                               _ = store.start()
                            },
                            pause: { store.pause() }, resume: { store.resume() }, next: { store.advance() },
                            offersReflection: store.shouldOfferCompletionReflection,
@@ -1187,7 +1190,7 @@ private struct MorningSunHome: View {
     var openSettings: () -> Void
     var session: RoutineSession?
     var currentStep: RoutineStep?
-    /// Plays an approved routine, or opens the onboarding when there is none yet.
+    /// Plays the saved routine, or opens the onboarding when there is none yet.
     var begin: () -> Void
     var pause: () -> Void
     var resume: () -> Void
