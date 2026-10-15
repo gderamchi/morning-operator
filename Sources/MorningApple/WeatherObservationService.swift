@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import WeatherKit
+import MorningCore
 @preconcurrency import MapKit
 
 /// A deliberately selected place, never a request for the device's current location.
@@ -73,15 +74,20 @@ public struct WeatherObservationSnapshot: Sendable, Equatable {
     public let temperatureCelsius: Double
     public let conditionDescription: String
     public let symbolName: String
+    public let condition: MorningWeatherCondition
+    /// Apple's reported cloud fraction, not a value inferred from the description or icon.
+    public let cloudCover: Double?
     public let attribution: WeatherAttributionInfo
     public let expiresAt: Date?
 
     public init(location: WeatherLocation, retrievedAt: Date, observationAt: Date,
                 temperatureCelsius: Double, conditionDescription: String, symbolName: String,
-                attribution: WeatherAttributionInfo, expiresAt: Date? = nil) throws {
+                attribution: WeatherAttributionInfo, expiresAt: Date? = nil,
+                condition: MorningWeatherCondition = .unknown, cloudCover: Double? = nil) throws {
         guard retrievedAt.timeIntervalSince1970.isFinite, observationAt.timeIntervalSince1970.isFinite,
               expiresAt?.timeIntervalSince1970.isFinite != false,
               temperatureCelsius.isFinite, temperatureCelsius >= -273.15,
+              cloudCover.map({ $0.isFinite && (0...1).contains($0) }) != false,
               WeatherLocation.validLabel(conditionDescription, maximum: 240),
               WeatherLocation.validLabel(symbolName, maximum: 120) else {
             throw WeatherObservationError.invalidResponse
@@ -92,6 +98,8 @@ public struct WeatherObservationSnapshot: Sendable, Equatable {
         self.temperatureCelsius = temperatureCelsius
         self.conditionDescription = conditionDescription
         self.symbolName = symbolName
+        self.condition = condition
+        self.cloudCover = cloudCover
         self.attribution = attribution
         self.expiresAt = expiresAt
     }
@@ -280,11 +288,55 @@ public final class WeatherObservationService {
         return try WeatherObservationSnapshot(location: location, retrievedAt: Date(), observationAt: current.date,
             temperatureCelsius: current.temperature.converted(to: .celsius).value,
             conditionDescription: current.condition.description, symbolName: current.symbolName,
-            attribution: attribution, expiresAt: current.metadata.expirationDate)
+            attribution: attribution, expiresAt: current.metadata.expirationDate,
+            condition: MorningWeatherCondition(weatherKit: current.condition), cloudCover: current.cloudCover)
     }
 
     private static func nativeCitySearch(_ query: String) async throws -> [WeatherLocation] {
         try await NativeWeatherCitySearch(query: query).results()
+    }
+}
+
+extension MorningWeatherCondition {
+    /// Keep the SDK mapping exhaustive: localized labels and SF Symbols are presentation only.
+    init(weatherKit condition: WeatherCondition) {
+        switch condition {
+        case .blizzard: self = .blizzard
+        case .blowingDust: self = .blowingDust
+        case .blowingSnow: self = .blowingSnow
+        case .breezy: self = .breezy
+        case .clear: self = .clear
+        case .cloudy: self = .cloudy
+        case .drizzle: self = .drizzle
+        case .flurries: self = .flurries
+        case .foggy: self = .foggy
+        case .freezingDrizzle: self = .freezingDrizzle
+        case .freezingRain: self = .freezingRain
+        case .frigid: self = .frigid
+        case .hail: self = .hail
+        case .haze: self = .haze
+        case .heavyRain: self = .heavyRain
+        case .heavySnow: self = .heavySnow
+        case .hot: self = .hot
+        case .hurricane: self = .hurricane
+        case .isolatedThunderstorms: self = .isolatedThunderstorms
+        case .mostlyClear: self = .mostlyClear
+        case .mostlyCloudy: self = .mostlyCloudy
+        case .partlyCloudy: self = .partlyCloudy
+        case .rain: self = .rain
+        case .scatteredThunderstorms: self = .scatteredThunderstorms
+        case .sleet: self = .sleet
+        case .smoky: self = .smoky
+        case .snow: self = .snow
+        case .strongStorms: self = .strongStorms
+        case .sunFlurries: self = .sunFlurries
+        case .sunShowers: self = .sunShowers
+        case .thunderstorms: self = .thunderstorms
+        case .tropicalStorm: self = .tropicalStorm
+        case .windy: self = .windy
+        case .wintryMix: self = .wintryMix
+        @unknown default: self = .unknown
+        }
     }
 }
 
