@@ -26,7 +26,7 @@ Connected account actions use local argument proposals and an explicit human-rea
 
 Package tests establish deterministic policy, encoding, stale-result/cancellation and injected-provider behavior. Simulator tests establish visible navigation, explicit delegation, clock/session transitions, recap persistence and actual public-page behavior where observed. Synthetic command injection is never microphone recognition. A loaded web page is never successful browsing.
 
-The final MORE acceptance also needs real connected accounts and an ordinary iPhone: acoustic barge-in, local-model latency, social stories/video/likes, all provider operations and actual voice-directed mail sending. These gates remain open until individually observed. Screen Time, video and semantic browser learning must also be reconciled into the common proposal; this runtime work does not by itself complete that learning pipeline.
+Screen Time, reviewed video context and structured browser sequences now feed the common proposal while preserving citations and personal choices. The final MORE acceptance still needs real multi-morning source coverage, connected accounts and an ordinary iPhone: acoustic barge-in, local-model latency, social stories/video/likes, all provider operations and actual voice-directed mail sending. These gates remain open until individually observed.
 
 ## Acceptance tracking
 
