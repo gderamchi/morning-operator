@@ -188,3 +188,15 @@ The existing self-note's first complete review had passed before the native inte
 Narrow diagnostics found **no new 1535 crash**: only the previously captured 1532 audio crash remains in current app crash logs. Normal activation succeeded with the **same existing process**, without a reported DeviceLocked condition. A fresh filename-filtered, non-recursive journal inventory again returned **zero send journals**, confirming no native email claim/attempt at that point. No Send was pressed, routine restarted or installation reset. A lack of accessibility/stream state is not evidence of a new app crash, and a live process alone does not prove a responsive screen.
 
 The owner was asked to leave MORE in the foreground and report whether it responds, is frozen/closes, or the phone is locked. That observation is needed to distinguish a test-link/window failure from a UI hang. The observer and existing-moment helper preserve all effects and stop on unresolved-send status; an ordinary two-minute extension is available only if the same Mail timer is actually zero, and no such extension has yet been observed. Human-spoken authorization, the single self-mail receipt, authenticated websites and the full routine remain unverified.
+
+
+### Responsive phone confirmed; same Mail draft ready again
+
+The owner confirmed MORE was open and responsive to gestures. Only the signed UI-test runner was reinstalled; ordinary MORE remained 1535 with its existing workspace and Gmail grant. The next activation regained real accessibility snapshots and resumed the same Mail moment. This resolves the test-link interruption without establishing an application freeze or applying a speculative product fix.
+
+At **01:48:21 Paris on 16 October / 23:48:21 UTC on 15 October**, the existing-morning self-note preparation **passed in 39.952 seconds, zero failures/skips**. It again checked the fixed own-profile recipient, exact authorized subject/body and disabled-before-review/enabled-after-review Send control. It never pressed Send or started another morning. A successful narrowly filtered journal listing still returned zero matching native send journals immediately before the acoustic test.
+
+The owner was asked to say **“send” once** near the foreground iPhone. The observation helper performs no tap, typed speech, Send, retry, advance or new session. Until a real effect is independently confirmed, the acoustic send and completion remain unproven. The single authorization has not been broadened to another recipient or another message.
+
+
+The observation-only window at **01:49:27 Paris** ended after **55.084 seconds** with **one skip, zero failures**: no explicit Gmail receipt was observed. This is not a successful send test. The owner has not yet reported speaking the command, and no Send/retry was performed. A separately gated final-two-moment helper compiled successfully; it refuses Mail, never reopens composition and is reserved until the original send outcome is resolved. It can establish tactile pause/resume and arrival at the existing routine recap, not automatic execution of the seven user-led activities.

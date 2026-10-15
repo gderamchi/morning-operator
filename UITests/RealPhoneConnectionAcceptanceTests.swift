@@ -219,6 +219,73 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         // Only this existing moment's operation is saved. Never approve, start, or send mail.
     }
 
+    func testFinishExistingRoutineWithoutReopeningMail() throws {
+        guard ProcessInfo.processInfo.environment["MO_REAL_PHONE_FINISH_EXISTING_ROUTINE"] == "1" else {
+            throw XCTSkip("Requires the separate finish-existing-routine opt-in; no app was activated.")
+        }
+        leaveGmailSignInPresented = true // Preserve the existing session in teardown.
+        try activateOrdinaryApp()
+        let controls = app.buttons["morning.actions"]
+        guard controls.exists else { throw XCTSkip("Leave the existing ordinary morning on Home.") }
+        if ["Show controls", "Afficher les commandes"].contains(controls.label) { controls.tap() }
+        let current = app.staticTexts["morning.currentStep"]
+        guard current.waitForExistence(timeout: 10),
+              ["Scroll a little", "A thought for later"].contains(current.label),
+              !app.buttons["nativeMoment.cancel"].exists else {
+            throw XCTSkip("Only the existing final two moments without a pending native request may finish. Mail was not advanced or changed.")
+        }
+        let beganAtScroll = current.label == "Scroll a little"
+        var pauseResumeObserved = false
+        var nextTaps = 0
+        if beganAtScroll {
+            let playback = app.buttons["morning.playback"]
+            try revealRoutineControl(playback)
+            // An already-paused final moment first resumes, then gets the same explicit cycle.
+            if ["Continue", "Continuer"].contains(playback.label) {
+                XCTAssertTrue(current.label == "Scroll a little", "The moment changed before initial resume.")
+                playback.tap()
+                XCTAssertTrue(selfNoteWait(playback, predicate: NSPredicate(format: "label == %@", "Pause"), timeout: 10),
+                              "The existing moment did not resume.")
+            }
+            XCTAssertTrue(current.label == "Scroll a little" && playback.label == "Pause" && playback.isHittable,
+                          "The verified Scroll moment is not running; no pause was pressed.")
+            playback.tap()
+            XCTAssertTrue(selfNoteWait(playback, predicate: NSPredicate(format: "label IN %@", ["Continue", "Continuer"]), timeout: 10),
+                          "Pause did not expose the ordinary Continue control.")
+            XCTAssertTrue(current.label == "Scroll a little", "Pause changed the current moment.")
+            try refusePermissionOrFixtureScreens()
+            XCTAssertTrue(playback.isHittable, "Continue is not reachable; no replacement action was used.")
+            playback.tap()
+            XCTAssertTrue(selfNoteWait(playback, predicate: NSPredicate(format: "label == %@", "Pause"), timeout: 10),
+                          "Continue did not restore the running control.")
+            XCTAssertTrue(current.label == "Scroll a little", "Resume changed the current moment.")
+            pauseResumeObserved = true
+            let next = app.buttons["morning.next"]
+            try revealRoutineControl(next)
+            XCTAssertTrue(current.label == "Scroll a little" && next.isEnabled, "Scroll changed before its single Next.")
+            next.tap(); nextTaps += 1
+        }
+        XCTAssertTrue(selfNoteWait(current, predicate: NSPredicate(format: "exists == true AND label == %@", "A thought for later"), timeout: 10),
+                      "The expected final thought moment was not reached. No further Next was pressed.")
+        try refusePermissionOrFixtureScreens()
+        let next = app.buttons["morning.next"]
+        try revealRoutineControl(next)
+        XCTAssertTrue(current.label == "A thought for later" && next.isEnabled, "The last moment changed before its single Next.")
+        next.tap(); nextTaps += 1
+        let complete = app.staticTexts["morning.complete"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), "The existing morning did not reach its completion screen.")
+        try refusePermissionOrFixtureScreens()
+        XCTAssertTrue(app.staticTexts["morning.completeSummary"].exists, "The completion summary is missing.")
+        XCTAssertTrue(app.staticTexts["morning.executionSummary"].exists, "The execution summary is missing.")
+        XCTAssertFalse(current.exists, "An active moment remains after the completion screen.")
+        XCTAssertFalse(app.buttons["morning.next"].exists, "Next remains after completion.")
+        XCTAssertTrue(nextTaps <= 2, "The final-two-moment bound was exceeded.")
+        let evidence = XCTAttachment(string: "Began at Scroll: \(beganAtScroll)\nTouch pause/resume with unchanged title observed: \(pauseResumeObserved)\nNext taps: \(nextTaps)\nCompletion and both summaries observed; active moment and Next absent.\nNo Mail action, Send, new session, routine edit or teardown navigation.")
+        evidence.name = "real-phone-existing-routine-final-moments"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
+
     private func openExistingRoutine() throws {
         try activateOrdinaryApp()
         let routine = app.buttons["setup.routine"]
