@@ -26,10 +26,12 @@ targets:
     platform: iOS
     sources:
       - path: Sources/MorningOperator
+      - path: Sources/MorningSharedActivity
       - path: Resources/Assets.xcassets
       - path: Resources/Localizable.xcstrings
       - path: Resources/InfoPlist.xcstrings
       - path: Resources/AppShortcuts.xcstrings
+      - path: Resources/Fonts
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator
@@ -52,6 +54,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources/MorningActivityWidget
+      - path: Sources/MorningSharedActivity
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator.activity
@@ -64,6 +67,8 @@ targets:
     dependencies:
       - package: MorningOperatorShared
         product: MorningCore
+      - package: MorningOperatorShared
+        product: MorningApple
   MorningOperatorUITests:
     type: bundle.ui-testing
     platform: iOS

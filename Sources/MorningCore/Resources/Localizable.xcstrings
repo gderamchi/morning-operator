@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@ in MORE": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ dans MORE"
+          }
+        }
+      }
+    },
     "A little chess. A little joy. Keep this time for yourself.": {
       "localizations": {
         "fr": {
@@ -27,6 +37,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Un peu de temps pour jouer"
+          }
+        }
+      }
+    },
+    "A page in MORE": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une page dans MORE"
           }
         }
       }
@@ -311,12 +331,32 @@
         }
       }
     },
+    "Email someone": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer un mail"
+          }
+        }
+      }
+    },
     "Entertainment": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Divertissement"
+          }
+        }
+      }
+    },
+    "Finish": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer"
           }
         }
       }
@@ -381,6 +421,16 @@
         }
       }
     },
+    "Lights and coffee": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lumières et café"
+          }
+        }
+      }
+    },
     "Local privacy controls require a file location.": {
       "localizations": {
         "fr": {
@@ -411,12 +461,42 @@
         }
       }
     },
+    "Log water": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noter l’eau bue"
+          }
+        }
+      }
+    },
+    "Mail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mail"
+          }
+        }
+      }
+    },
     "Make room for the day": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Faites de la place pour la journée"
+          }
+        }
+      }
+    },
+    "Maps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plans"
           }
         }
       }
@@ -437,6 +517,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Plusieurs moments suggérés pourraient correspondre à une préférence enregistrée. Vérifiez les activités concernées avant de réessayer."
+          }
+        }
+      }
+    },
+    "Morning playlist": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist du matin"
+          }
+        }
+      }
+    },
+    "Next: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ensuite : %@"
           }
         }
       }
@@ -617,6 +717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enregistré"
+          }
+        }
+      }
+    },
+    "Text someone": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer un message"
           }
         }
       }
@@ -1031,6 +1141,16 @@
         }
       }
     },
+    "Work Focus on": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activer le mode Travail"
+          }
+        }
+      }
+    },
     "Your moment": {
       "localizations": {
         "fr": {
@@ -1057,6 +1177,202 @@
           "stringUnit": {
             "state": "translated",
             "value": "À vous"
+          }
+        }
+      }
+    },
+    "Books": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Livres"
+          }
+        }
+      }
+    },
+    "Camera": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appareil photo"
+          }
+        }
+      }
+    },
+    "Clock": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horloge"
+          }
+        }
+      }
+    },
+    "Estimated from hourly Screen Time.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimé à partir des heures de Temps d’écran."
+          }
+        }
+      }
+    },
+    "Fitness": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forme"
+          }
+        }
+      }
+    },
+    "From Screen Time": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "D’après Temps d’écran"
+          }
+        }
+      }
+    },
+    "Health": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Santé"
+          }
+        }
+      }
+    },
+    "Measured by Screen Time.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesuré par Temps d’écran."
+          }
+        }
+      }
+    },
+    "Music": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musique"
+          }
+        }
+      }
+    },
+    "Notes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes"
+          }
+        }
+      }
+    },
+    "Phone": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléphone"
+          }
+        }
+      }
+    },
+    "Photos": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos"
+          }
+        }
+      }
+    },
+    "Reminders": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rappels"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages"
+          }
+        }
+      }
+    },
+    "Shortcuts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raccourcis"
+          }
+        }
+      }
+    },
+    "Stocks": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bourse"
+          }
+        }
+      }
+    },
+    "Unnamed app": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App sans nom"
+          }
+        }
+      }
+    },
+    "Usually %lld min, on %lld of %lld mornings.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En général %1$lld min, %2$lld matins sur %3$lld."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Usually %1$lld min, on %2$lld of %3$lld mornings."
+          }
+        }
+      }
+    },
+    "Weather": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Météo"
           }
         }
       }

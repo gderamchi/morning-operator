@@ -72,6 +72,7 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var observationArchive: ObservationArchive?
     var selectedObservationID: UUID?
     var pendingRoutineProposal: RecoverableRoutineProposal?
+    var pendingScreenTimeProposal: ScreenTimeRoutineProposal?
     var consumedMorningEntryIDs: [UUID]?
     var routinePreferences: RecoverableRoutinePreferences?
     /// Which morning sessions were already greeted (issue #28). Session identifiers only.
@@ -103,6 +104,8 @@ private extension WorkspaceSnapshot {
         observationArchive = try values.decodeIfPresent(ObservationArchive.self, forKey: .observationArchive)
         selectedObservationID = try values.decodeIfPresent(UUID.self, forKey: .selectedObservationID)
         pendingRoutineProposal = try values.decodeIfPresent(RecoverableRoutineProposal.self, forKey: .pendingRoutineProposal)
+        // A damaged derived proposal must not make the person's routine unreadable.
+        pendingScreenTimeProposal = try? values.decodeIfPresent(ScreenTimeRoutineProposal.self, forKey: .pendingScreenTimeProposal)
         consumedMorningEntryIDs = try values.decodeIfPresent([UUID].self, forKey: .consumedMorningEntryIDs)
         // Missing is an older workspace. Present-but-null is damaged saved data;
         // keep it unreadable until the user explicitly resets their choices.
@@ -132,6 +135,15 @@ final class MorningStore {
     private(set) var observationArchive = ObservationArchive()
     private(set) var selectedObservationID: UUID?
     private(set) var pendingRoutineProposal: EvidenceRoutineProposal?
+    private(set) var pendingScreenTimeProposal: ScreenTimeRoutineProposal?
+    var screenTimeBusy = false
+    var screenTimeMessage: String?
+    var screenTimeAccess: ScreenTimeAccess = .notAsked
+    var screenTimeDailyUsage: [ScreenTimeDailyUsage] = []
+    var screenTimeLearning: ScreenTimeLearning?
+    @ObservationIgnored let screenTimeSource: any ScreenTimeSource = ScreenTimeSources.make()
+    @ObservationIgnored var screenTimeTask: Task<Void, Never>?
+    @ObservationIgnored var screenTimeTaskID: UUID?
     private(set) var routinePreferences = RoutinePreferenceJournal()
     private(set) var routinePreferencesIssue: String?
     private var unreadablePreferences: RecoverableRoutinePreferences?
@@ -147,6 +159,9 @@ final class MorningStore {
     private(set) var pendingRecordingShouldAutoProcess = false
     private var pendingRecordingInterruption: String?
     private var pendingRecordingContext: ObservationRecordingContext?
+    var stepTimerRevision = 0
+    var pendingWebTarget: URL?
+    @ObservationIgnored var stepTimerTask: Task<Void, Never>?
     var calendarBusy: Bool { briefing.isConnectingCalendar }
     var readAloud = true
     var automatic = true
@@ -157,12 +172,9 @@ final class MorningStore {
     private var morningActivityStartSessionID: UUID?
     private var morningActivityStartRequestID: UUID?
     @ObservationIgnored private lazy var morningActivityNamespace: MorningActivityNamespace = {
-        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return .production }
-        // Use the actual isolated workspace, including the generated identifier
-        // used by older tests. A test must never clean up a personal activity.
-        let name = snapshot.url.deletingLastPathComponent().lastPathComponent
-        let id = UUID(uuidString: String(name.dropFirst("MorningOperatorUITests-".count))) ?? UUID()
-        return .testing(workspaceID: id)
+        MorningActivityNamespace.workspace(directory: snapshot.url.deletingLastPathComponent(),
+            isUITesting: ProcessInfo.processInfo.arguments.contains("--ui-testing"))
+            ?? .testing(workspaceID: UUID())
     }()
     @ObservationIgnored private lazy var morningActivity = MorningLiveActivityCoordinator(
         namespace: morningActivityNamespace,
@@ -363,6 +375,9 @@ final class MorningStore {
                     return
                 }
                 routine = saved.routine
+                if let proposal = saved.pendingScreenTimeProposal, proposal.baseRoutineID == routine?.id {
+                    pendingScreenTimeProposal = proposal
+                }
                 session = saved.session
                 savedCompletionSessionID = saved.session?.status == .completed ? saved.session?.id : nil
                 previousRoutine = saved.previousRoutine
@@ -432,7 +447,7 @@ final class MorningStore {
                 consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
                 greetingState = saved.greeting ?? MorningGreetingState()
                 if !pendingCaptures.isEmpty { notice = String(localized: "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again.") }
-                if session?.status == .running {
+                if session?.status == .running, currentStep?.target == nil || activeStepTimer == nil {
                     sessionTimingInterrupted = true
                     try session?.pause()
                     notice = String(localized: "Your previous morning is paused. Resume when you're ready.")
@@ -478,6 +493,9 @@ final class MorningStore {
     #if DEBUG
     var morningActivityTestNamespace: MorningActivityNamespace? {
         let args = ProcessInfo.processInfo.arguments
+        if Bundle.main.bundleIdentifier == "com.gibouu.morningoperator.systemqa", args.contains("--qa-system-checks") {
+            return .production
+        }
         guard args.contains("--ui-testing"), args.contains("--ui-testing-live-activity"),
               let value = args.first(where: { $0.hasPrefix("--ui-testing-workspace=") }),
               let id = UUID(uuidString: String(value.dropFirst("--ui-testing-workspace=".count))),
@@ -511,7 +529,7 @@ final class MorningStore {
             guard let self else { return }
             let enabled = self.showMorningOnLockScreen && self.storageIsAvailable && !self.morningActivitySaveBlocked
             let snapshot = MorningActivityProjection.snapshot(session: self.session,
-                needsAttention: self.automation.status != .executing)
+                needsAttention: self.automation.status != .executing, timer: self.activeStepTimer)
             let generation = self.dataGeneration
             do {
                 try await self.morningActivity.synchronize(snapshot: snapshot, enabled: enabled,
@@ -781,7 +799,14 @@ final class MorningStore {
         cancelVoiceCommandTurn()
         endOpening()
         cancelStepPlayback()
+        pauseStepTimer()
         do { try session?.pause(); speech.stop(); notice = nil; persist() }
+        catch { notice = error.localizedDescription }
+    }
+
+    func resumeForNext() {
+        guard !privacyBlocksWork, !voiceInputBlocksPlayback else { return }
+        do { try session?.resume(); if !persist() { pauseAfterSaveFailure() } }
         catch { notice = error.localizedDescription }
     }
 
@@ -804,8 +829,10 @@ final class MorningStore {
         // choice does not, except that a hands-free morning never waits for the answer.
         endOpening()
         cancelStepPlayback()
+        let previousSession = session
         do {
             try session?.advance(skipping: skipping, commandID: commandID)
+            guard endStepTimer() else { session = previousSession; return }
             speech.stop()
             notice = nil
             if session?.status == .completed {
@@ -824,6 +851,7 @@ final class MorningStore {
         endOpening()
         cancelStepPlayback()
         speech.stop()
+        guard endStepTimer() else { return }
         do { try session?.stop(); archiveTerminalSession(); notice = nil; persist() }
         catch { notice = error.localizedDescription }
     }
@@ -1369,6 +1397,75 @@ final class MorningStore {
         return true
     }
 
+    /// Saves a fresh Screen Time suggestion. It replaces an earlier one, never the routine.
+    @discardableResult
+    func savePendingScreenTimeProposal(_ proposal: ScreenTimeRoutineProposal) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, proposal.baseRoutineID == routine?.id else { return false }
+        let previous = pendingScreenTimeProposal
+        pendingScreenTimeProposal = proposal
+        guard persist() else { pendingScreenTimeProposal = previous; return false }
+        return true
+    }
+
+    /// The owner's edits before approval: leave a step out, or change its minutes.
+    func editPendingScreenTimeProposal(_ edit: (inout ScreenTimeRoutineProposal) -> Void) {
+        guard !privacyBlocksWork, !busy, var proposal = pendingScreenTimeProposal else { return }
+        let previous = proposal
+        edit(&proposal)
+        guard proposal != previous else { return }
+        pendingScreenTimeProposal = proposal
+        if !persist() { pendingScreenTimeProposal = previous }
+    }
+
+    /// Installs the included steps as the routine. Only this explicit approval changes it.
+    @discardableResult
+    func approvePendingScreenTimeProposal() -> Bool {
+        guard !privacyBlocksWork else { return false }
+        guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return false }
+        guard !busy, !screenTimeBusy, !sessionActive, !voiceInputBlocksPlayback, storageIsAvailable,
+              let proposal = pendingScreenTimeProposal else { return false }
+        guard proposal.baseRoutineID == routine?.id else {
+            notice = String(localized: "Your routine changed since this suggestion was made. Learn from Screen Time again for a fresh one.")
+            return false
+        }
+        let draft: RoutineVersion
+        do { draft = try proposal.draft(preserving: routine) }
+        catch { notice = String(localized: "Keep at least one app to approve this suggestion."); return false }
+        let oldRoutine = routine
+        let oldPrevious = previousRoutine
+        let oldSession = session
+        let oldHistory = history
+        let oldBudget = budgetAndFeedback
+        archiveTerminalSession()
+        if let oldRoutine, oldRoutine.isApproved { previousRoutine = oldRoutine }
+        routine = draft.approved()
+        session = routine.map { RoutineSession(routine: $0) }
+        pendingScreenTimeProposal = nil
+        guard persist() else {
+            routine = oldRoutine
+            previousRoutine = oldPrevious
+            session = oldSession
+            history = oldHistory
+            budgetAndFeedback = oldBudget
+            pendingScreenTimeProposal = proposal
+            return false
+        }
+        approvalCount += 1
+        notice = String(localized: "Update approved. Your next morning will use this routine.")
+        return true
+    }
+
+    @discardableResult
+    func discardPendingScreenTimeProposal() -> Bool {
+        // A successful refresh may invalidate this independent derived value
+        // while an unrelated observation analysis is running.
+        guard !privacyBlocksWork, let proposal = pendingScreenTimeProposal else { return false }
+        pendingScreenTimeProposal = nil
+        guard persist() else { pendingScreenTimeProposal = proposal; return false }
+        notice = String(localized: "Suggestion discarded. Your current morning is unchanged.")
+        return true
+    }
+
     private func syntheticEvidenceProposal(evidence: PreparedLearningEvidence,
                                            preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal) throws -> EvidenceRoutineProposal {
         guard usesSyntheticProposalFixture,
@@ -1721,6 +1818,29 @@ final class MorningStore {
         return changeObservationArchive(selecting: nil) { $0.clear() }
     }
 
+    /// The person explicitly saves a numeric summary from a visible browser lesson.
+    /// It is ordinary reviewable evidence, never a replay or an approved routine.
+    @discardableResult
+    func saveBrowserRhythmObservation(_ summary: BrowserRhythmSummary) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !busy, !sessionActive,
+              saveObservationEdits(), summary.durationSeconds.isFinite else { return false }
+        do {
+            let pace = summary.averageMovingSpeed.map { "About \(Int($0.rounded())) CSS pixels per moving second." } ?? "No scrolling pace measured."
+            let entry = try ObservationAcquisition(
+                observedDate: ObservationObservedDate(date: .now, timeZoneIdentifier: TimeZone.current.identifier, provenance: .userAssigned),
+                origin: .human, sourceKind: .manual,
+                sourceLabel: "Browser learning — \(summary.site.displayName)",
+                originalText: """
+                Explicit browser lesson in MORE: \(summary.site.displayName).
+                Observed for about \(Int(summary.durationSeconds.rounded())) seconds.
+                \(summary.totals.scrollBursts) observed scroll bursts; \(summary.totals.clicks) observed non-input taps.
+                \(pace)
+                This is a partial measurement of one visible web page, not the native app. No page text, field entries, tap targets or full click history was saved. It does not establish preferred content, exact intent or a replayable gesture sequence.
+                """)
+            return changeObservationArchive(selecting: entry.id) { _ = try $0.insert(entry) }
+        } catch { notice = error.localizedDescription; return false }
+    }
+
     private func projectObservation(_ id: UUID?) {
         let entry = id.flatMap { observationArchive.entry(id: $0) }
         selectedObservationID = entry?.id
@@ -2040,6 +2160,7 @@ final class MorningStore {
         guard openingPresentation == nil else { return }
         guard !voiceInputBlocksPlayback else { return }
         guard let session, session.status == .running else { return }
+        if beginTargetStep() { return }
         if automatic {
             stepExecutor.spokenEnabled = readAloud
             automation.runCurrentStep(in: session) { [weak self] context in
@@ -2059,6 +2180,7 @@ final class MorningStore {
     }
 
     private func pauseAfterSaveFailure() {
+        pauseStepTimer()
         endOpening()
         cancelStepPlayback()
         speech.stop()
@@ -2110,11 +2232,13 @@ final class MorningStore {
                 observationContextClassification: observationContextClassification.map(RecoverableObservationClassification.init),
                 observationArchive: observationArchive, selectedObservationID: selectedObservationID,
                 pendingRoutineProposal: validProposal.map(RecoverableRoutineProposal.init),
+                pendingScreenTimeProposal: pendingScreenTimeProposal.flatMap { $0.baseRoutineID == routine?.id ? $0 : nil },
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences),
                 greeting: greetingState))
             }
             pendingRoutineProposal = validProposal
+            if pendingScreenTimeProposal?.baseRoutineID != routine?.id { pendingScreenTimeProposal = nil }
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
             savedRunEndings = runEndingsInMemory
             observationEditsNeedSave = false
@@ -2158,6 +2282,7 @@ final class MorningStore {
         analysisAttempt = nil
         let oldAnalysis = analysisTask
         oldAnalysis?.cancel()
+        cancelScreenTimeRead()
         briefing.cancelAndClear()
         stepExecutor.clear()
         endOpening()
@@ -2169,6 +2294,15 @@ final class MorningStore {
         MorningIntentRouter.shared.resetPendingRequests()
         do {
             try await morningActivity.endAllForPrivacy()
+            // SDK streams may ignore cancellation. Never report successful
+            // removal while a private Screen Time query still owns its task.
+            for _ in 0..<50 where !screenTimeReadIsQuiescent {
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            guard screenTimeReadIsQuiescent else {
+                throw NSError(domain: "MORE.Privacy", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                    String(localized: "Screen Time is still stopping. Try removal again in a moment.")])
+            }
             // Vision/file-provider work must finish before its source is removed.
             // Delayed callbacks are independently rejected by the attempt/epoch.
             await oldAnalysis?.value
@@ -2186,6 +2320,9 @@ final class MorningStore {
             try ScreenRecordingFiles.removeAllOwnedRecordings()
             #endif
             try await invitation.forget()
+            endStepTimer()
+            try MorningAlarmService.shared.forget()
+            await WebMorningController.clearAllSignIns()
             try privacyControl.withForgetAccess(expectedGeneration: generation) {
                 try recordingRecovery.removeAllOwnedData()
                 // SEGMENTED SESSIONS (#27) ARE NOT FORGOTTEN HERE YET. Nothing in the app
@@ -2196,7 +2333,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json"] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2261,6 +2398,9 @@ final class MorningStore {
         observationVideoEvidence = nil; observationContextClassification = nil
         observationSaveIssue = nil; observationEditsNeedSave = false; observationIssue = nil
         pendingRoutineProposal = nil
+        pendingScreenTimeProposal = nil
+        screenTimeBusy = false; screenTimeMessage = nil; screenTimeAccess = .notAsked
+        screenTimeDailyUsage = []; screenTimeLearning = nil
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         budgetAndFeedback = RoutineBudgetAndFeedback(); savedRunEndings = []

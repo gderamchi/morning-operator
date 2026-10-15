@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>MorningURLScheme</key>
+	<string>more</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>PatrickHand-Regular.ttf</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key>
@@ -53,6 +59,17 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>sms</string>
+		<string>message</string>
+		<string>whatsapp</string>
+		<string>instagram</string>
+		<string>calshow</string>
+		<string>maps</string>
+	</array>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>MORE schedules your morning alarm and opens your approved morning when you stop it.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>MORE listens during the voice turns you start on this device.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

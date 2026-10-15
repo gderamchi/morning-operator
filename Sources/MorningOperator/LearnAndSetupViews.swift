@@ -15,12 +15,21 @@ struct LearnView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var notesFocused: Bool
-    @ScaledMetric(relativeTo: .body) private var notesEditorHeight: CGFloat = 220
+    @ScaledMetric(relativeTo: .body) private var notesEditorHeight: CGFloat = 136
 
     private var learningContent: some View {
         VStack(alignment: .leading, spacing: 24) {
-            PageHeading(eyebrow: String(localized: "Your rhythm"), title: String(localized: "Make your morning yours."),
-                subtitle: String(localized: "Start with what you already do. You'll review every suggestion before it becomes your routine."))
+            PageHeading(eyebrow: String(localized: "Your rhythm"), title: String(localized: "Make your morning yours."))
+
+            NavigationLink {
+                ScrollView { MorningScreenTimeView(store: store).padding(24) }
+                    .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
+            } label: {
+                LinkRow(title: String(localized: "1 · See your rhythm"),
+                        detail: String(localized: "Start with your real Screen Time"), symbol: "clock")
+                    .padding(MorningTheme.Space.card)
+                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+            }.buttonStyle(.plain).accessibilityIdentifier("learn.screenTime")
 
             if let issue = store.observationIssue {
                 Card {
@@ -55,8 +64,8 @@ struct LearnView: View {
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
-                    sectionTitle(String(localized: "Show us your morning"), symbol: "rectangle.on.rectangle")
-                    Text("Start an explicitly shared recording or bring one you already made. Go through a short part of your morning, then review what we can see.")
+                    sectionTitle(String(localized: "2 · Show your morning"), symbol: "rectangle.on.rectangle")
+                    Text("Record a moment, or add a file.")
                         .font(.subheadline).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     // Two compact actions side by side; VoiceOver keeps the full labels.
@@ -64,18 +73,22 @@ struct LearnView: View {
                         HStack(spacing: 12) { learnActions }
                         VStack(alignment: .leading, spacing: 12) { learnActions }
                     }
-                    Text("A screenshot or text file works too. Only the file you choose is read; recording never starts automatically.")
-                        .font(.footnote).foregroundStyle(MorningStyle.muted)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
+            NavigationLink { MorningConnectionsView(store: store) } label: {
+                LinkRow(title: String(localized: "3 · Make yourself at home"),
+                        detail: String(localized: "Sign in to your websites, together"), symbol: "globe")
+                    .padding(MorningTheme.Space.card)
+                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+            }.buttonStyle(.plain).accessibilityIdentifier("learn.connections")
+
             Card {
                 VStack(alignment: .leading, spacing: 18) {
-                    sectionTitle(store.hasImportedObservation ? String(localized: "What we could see") : String(localized: "Add context, if you like"), symbol: "pencil.and.outline")
+                    sectionTitle(store.hasImportedObservation ? String(localized: "What we could see") : String(localized: "A few words"), symbol: "pencil.and.outline")
                     Text(store.hasImportedObservation
-                         ? "Review the text we found and correct anything we missed. The original stays in Review → Saved observations. Visible words don't always mean you performed an activity."
-                         : "What do you check first? What helps you feel ready? Include the small things you want to make time for.")
+                         ? "Edit what we found. Your original stays saved."
+                         : "What would make a good morning?")
                         .font(.subheadline).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     if let observation = store.selectedObservation {
@@ -109,11 +122,6 @@ struct LearnView: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                Label("Your routine stays in your hands", systemImage: "hand.raised")
-                    .font(.subheadline.weight(.medium)).foregroundStyle(MorningStyle.green)
-                Text("Your current routine stays ready while you review a suggestion. Approve it when it fits, or keep the morning you already have.")
-                    .font(.footnote).foregroundStyle(MorningStyle.muted)
-                    .fixedSize(horizontal: false, vertical: true)
                 DisclosureGroup("About on-device learning") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.modelSummary)
@@ -227,7 +235,7 @@ struct LearnView: View {
     private var notesEditor: some View {
         ZStack(alignment: .topLeading) {
             if store.notes.isEmpty {
-                Text("I check my calendar, read a few messages, then spend ten minutes playing chess…")
+                Text("A little news, a few messages, time to think…")
                     .font(.body).foregroundStyle(MorningStyle.muted.opacity(0.7))
                     .padding(12).allowsHitTesting(false)
             }
@@ -239,7 +247,7 @@ struct LearnView: View {
                 .disabled(store.busy || store.sessionActive)
         }
         .background(MorningStyle.background, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(MorningStyle.line))
+        .overlay(MorningDottedFrame(cornerRadius: 16).fill(MorningStyle.line))
     }
 
     @ViewBuilder private var analyzeControls: some View {
@@ -284,7 +292,9 @@ struct LearnView: View {
         #if os(iOS)
         if #available(iOS 27.0, *) {
             Button { recording = true } label: {
-                Label("Record", systemImage: "record.circle").lineLimit(1)
+                Label { Text("Record").lineLimit(1) } icon: {
+                    MorningDottedIcon(systemName: "record.circle").frame(width: 20, height: 20)
+                }
             }.buttonStyle(CompactPrimaryButtonStyle())
                 .disabled(!store.canStartRecording)
                 .accessibilityLabel("Record a little of my morning")
@@ -296,7 +306,9 @@ struct LearnView: View {
             importGeneration = store.dataGeneration
             importing = true
         } label: {
-            Label("Choose", systemImage: "plus").lineLimit(1)
+            Label { Text("Choose").lineLimit(1) } icon: {
+                MorningDottedIcon(systemName: "plus").frame(width: 20, height: 20)
+            }
         }
         .buttonStyle(SecondaryButtonStyle())
         .disabled(store.busy || store.sessionActive)
@@ -305,14 +317,17 @@ struct LearnView: View {
     }
 
     private func sectionTitle(_ title: String, symbol: String) -> some View {
-        Label(title, systemImage: symbol)
-            .font(.title3.weight(.semibold)).foregroundStyle(MorningStyle.ink)
+        Label { Text(title) } icon: {
+            MorningDottedIcon(systemName: symbol).frame(width: 24, height: 24)
+        }
+            .font(MorningTheme.Typography.heading).foregroundStyle(MorningStyle.ink)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 
 struct SetupView: View {
     @Bindable var store: MorningStore
+    @ViewState<Bool> private var choosingAlarm = false
     @ViewState<Bool> private var choosingVoice = false
     @ViewState<Bool> private var choosingInvitation = false
     @ViewState<Bool> private var showingPrivacy = false
@@ -321,68 +336,78 @@ struct SetupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            PageHeading(eyebrow: String(localized: "Make yourself at home"), title: String(localized: "A few things, your way."),
-                subtitle: String(localized: "Choose what to connect and how you'd like your morning to sound."))
-
+            NavigationLink {
+                ScrollView { MorningScreenTimeView(store: store).padding(24) }
+                    .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
+            } label: {
+                LinkRow(title: String(localized: "Screen Time"), detail: "", symbol: "clock")
+                    .padding(MorningTheme.Space.card)
+                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+            }.buttonStyle(.plain).accessibilityIdentifier("setup.screenTime")
+            NavigationLink { MorningConnectionsView(store: store) } label: {
+                LinkRow(title: String(localized: "Your websites"), detail: String(localized: "One guided sign-in pass"), symbol: "globe")
+                    .padding(MorningTheme.Space.card)
+                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+            }.buttonStyle(.plain).accessibilityIdentifier("setup.connections")
+            CardButton { choosingAlarm = true } content: {
+                LinkRow(title: String(localized: "Morning alarm"), detail: "", symbol: "alarm")
+            }.accessibilityIdentifier("setup.alarm")
+            NavigationLink { ShortcutTemplatesView() } label: {
+                LinkRow(title: String(localized: "Shortcuts & timers"), detail: "", symbol: "timer")
+                    .padding(MorningTheme.Space.card)
+                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+            }.buttonStyle(.plain)
             CardButton { choosingInvitation = true } content: {
                 HStack(spacing: 14) {
-                    Image(systemName: "sun.horizon").font(.title2)
+                    MorningDottedIcon(systemName: "sun.horizon").frame(width: 28, height: 28)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("Your next morning").font(.headline)
+                        Text("Your next morning").font(MorningTheme.Typography.heading)
                         Text(store.invitation.statusText).font(.caption).foregroundStyle(MorningStyle.muted)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption)
+                    MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
                 }
             }.accessibilityIdentifier("setup.invitation")
 
             CardButton { choosingBriefing = true } content: {
                 HStack(spacing: 14) {
-                    Image(systemName: "sun.max").font(.title2)
+                    MorningDottedIcon(systemName: "sun.max").frame(width: 28, height: 28)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("Your day").font(.headline)
-                        Text("A little context before your morning begins.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text("Calendar & weather").font(MorningTheme.Typography.heading)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption)
+                    MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
                 }
             }.accessibilityIdentifier("setup.briefing")
 
             CardButton { choosingActivity = true } content: {
                 HStack(spacing: 14) {
-                    Image(systemName: "platter.filled.top.iphone").font(.title2)
+                    MorningDottedIcon(systemName: "platter.filled.top.iphone").frame(width: 28, height: 28)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("Morning at a glance").font(.headline)
-                        Text("Keep your place on the Lock Screen.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text("Lock Screen").font(MorningTheme.Typography.heading)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption)
+                    MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
                 }
             }.accessibilityIdentifier("setup.activity")
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
-                    Label("A voice to guide you", systemImage: "speaker.wave.2")
-                        .font(.title3.weight(.semibold))
                     Button { choosingVoice = true } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("Companion voice").font(.subheadline.weight(.semibold))
+                                Text("Voice").font(MorningTheme.Typography.heading)
                                 Text(store.speech.selectedVoiceSummary)
                                     .font(.caption).foregroundStyle(MorningStyle.muted)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").font(.caption)
+                            MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(store.sessionActive)
                         .accessibilityIdentifier("setup.voice")
                     Toggle(isOn: $store.readAloud) {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("Read each step aloud").font(.subheadline.weight(.medium))
-                            Text("Hear the next step as you move through your routine.")
-                                .font(.footnote).foregroundStyle(MorningStyle.muted)
                         }
                     }
                     .tint(MorningStyle.accent).accessibilityIdentifier("setup.readAloud")
@@ -396,11 +421,11 @@ struct SetupView: View {
                         .accessibilityIdentifier("setup.speechStatus")
                         .accessibilityValue(store.speech.state.rawValue)
                     Divider().overlay(MorningStyle.line)
-                    VStack(alignment: .leading, spacing: 9) {
-                        Text("Listen where you like").font(.subheadline.weight(.medium))
+                    DisclosureGroup("Audio output") {
+                        VStack(alignment: .leading, spacing: 9) {
                         #if os(iOS)
                         HStack(alignment: .top, spacing: 12) {
-                            Text("Use the audio output picker to choose an available speaker, including a HomePod on your network.")
+                            Text("Choose a speaker or HomePod.")
                                 .font(.footnote).foregroundStyle(MorningStyle.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                             MorningAudioRoutePicker()
@@ -413,20 +438,19 @@ struct SetupView: View {
                         Text("Speaker output doesn't connect a HomePod microphone. Room-to-room listening isn't available yet.")
                             .font(.footnote).foregroundStyle(MorningStyle.muted)
                             .fixedSize(horizontal: false, vertical: true)
+                        }.padding(.top, 8)
                     }
                 }
             }
 
             CardButton { showingPrivacy = true } content: {
                 HStack(spacing: 14) {
-                    Image(systemName: "lock.shield").font(.title2)
+                    MorningDottedIcon(systemName: "lock.shield").frame(width: 28, height: 28)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("Privacy & data").font(.headline)
-                        Text("What stays here, and what you can remove.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text("Privacy & data").font(MorningTheme.Typography.heading)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption)
+                    MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
                 }
             }.accessibilityIdentifier("setup.privacy")
 
@@ -439,8 +463,7 @@ struct SetupView: View {
                     }
                     Divider()
                     Text("You can capture thoughts and dreams, edit a routine, and use spoken guidance even while the on-device model is unavailable.")
-                    Text("Connecting a phone to a Mac doesn't automatically give this app control of the phone. The separate development test runner is needed for the phone-control experiment.")
-                    Text("Messages and email aren't connected here yet. Automatic room detection and continuous voice commands also need further work.")
+                    Text("MORE guides native app steps. Inside MORE’s browser, you can ask it to read supported pages or move to the next video.")
                 }
                 .font(.footnote).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 16)
@@ -450,8 +473,9 @@ struct SetupView: View {
         }.foregroundStyle(MorningStyle.ink)
         .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
         .task { if store.privacyNeedsCleanup { showingPrivacy = true } }
-        .sheet(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
-        .sheet(isPresented: $choosingActivity) { MorningActivitySettingsView(store: store) }
+        .fullScreenCover(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
+        .fullScreenCover(isPresented: $choosingActivity) { MorningActivitySettingsView(store: store) }
+        .fullScreenCover(isPresented: $choosingAlarm) { MorningAlarmView() }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
     }
@@ -545,6 +569,7 @@ struct StepEditor: View {
                 } footer: {
                     Text(automationExplanation)
                 }
+                StepTargetEditor(target: $step.target)
                 Section {
                     Button("Remove this step", role: .destructive) { choosingRemoval = true }
                         .accessibilityIdentifier("step.remove")
