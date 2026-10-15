@@ -468,3 +468,115 @@ struct MorningDottedFrame: Shape {
         return path
     }
 }
+
+/// A small printed landscape. Only the stars shimmer; the sky's position changes
+/// with the minute clock, so opening the app never replays the sun's journey.
+struct MorningQuietLandscape: View {
+    let scene: MorningCelestialScene
+    var twinkles = true
+
+    var body: some View {
+        GeometryReader { geometry in
+            let size = geometry.size
+            let night = scene.moon.opacity
+            let ink = Color(red: 0.43 - 0.03 * night, green: 0.35 + 0.12 * night, blue: 0.25 + 0.34 * night)
+            let height = min(1, max(0, (0.76 - scene.sun.centerY) / 0.58))
+            let gold = Color(red: 0.95 + 0.05 * height, green: 0.40 + 0.34 * height, blue: 0.15 + 0.17 * height)
+            ZStack {
+                // Both bodies sit behind the horizon and trees.
+                MorningDottedDisc()
+                    .fill(LinearGradient(colors: [Color(red: 1, green: 0.87, blue: 0.52), gold], startPoint: .top, endPoint: .bottom))
+                    .frame(width: 58, height: 58)
+                    .position(x: size.width * scene.sun.centerX, y: size.height * scene.sun.centerY)
+                    .opacity(scene.sun.opacity)
+                MorningDottedDisc(kind: .moon)
+                    .fill(Color(red: 0.90, green: 0.89, blue: 0.77))
+                    .frame(width: 42, height: 42)
+                    .position(x: size.width * scene.moon.centerX, y: size.height * scene.moon.centerY)
+                    .opacity(night)
+            }
+            .mask(alignment: .top) { Rectangle().frame(height: size.height * 0.765) }
+
+            TimelineView(.animation(minimumInterval: 0.125, paused: !twinkles || night < 0.01)) { timeline in
+                Canvas { context, canvas in
+                    let stars: [(Double, Double, Double)] = [
+                        (0.10, 0.16, 0.4), (0.23, 0.34, 1.8), (0.34, 0.09, 3.2),
+                        (0.49, 0.29, 0.9), (0.62, 0.12, 4.4), (0.76, 0.33, 2.6),
+                        (0.88, 0.12, 5.1), (0.94, 0.47, 1.4), (0.42, 0.48, 3.8)
+                    ]
+                    let seconds = twinkles ? timeline.date.timeIntervalSinceReferenceDate : 0
+                    for (index, star) in stars.enumerated() {
+                        let brightness = twinkles ? 0.52 + 0.28 * sin(seconds * 0.75 + star.2) : 0.68
+                        let point = CGPoint(x: canvas.width * star.0, y: canvas.height * star.1)
+                        var dots = Path()
+                        let radius = index.isMultiple(of: 3) ? 1.25 : 0.85
+                        dots.addEllipse(in: CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2))
+                        if index.isMultiple(of: 3) {
+                            for distance in [3.5, 6.0] {
+                                for axis in [CGPoint(x: 1, y: 0), CGPoint(x: -1, y: 0), CGPoint(x: 0, y: 1), CGPoint(x: 0, y: -1)] {
+                                    let r = distance < 4 ? 0.65 : 0.4
+                                    dots.addEllipse(in: CGRect(x: point.x + axis.x * distance - r, y: point.y + axis.y * distance - r, width: r * 2, height: r * 2))
+                                }
+                            }
+                        }
+                        context.fill(dots, with: .color(Color(red: 0.92, green: 0.91, blue: 0.83).opacity(brightness * night)))
+                    }
+                }
+            }
+            Canvas { context, canvas in
+                let horizon = canvas.height * 0.76
+                var land = Path()
+                func dot(_ x: Double, _ y: Double, _ radius: Double) {
+                    land.addEllipse(in: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2))
+                }
+                // A low, irregular dotted hill, with sparse grain beneath it.
+                for column in 0...82 {
+                    let x = canvas.width * Double(column) / 82
+                    let edge = sin(Double(column) * 0.12) * 1.6
+                    dot(x, horizon + edge, 0.7)
+                    if column.isMultiple(of: 3) { dot(x + 1, horizon + 9 + sin(Double(column)) * 3, 0.45) }
+                    if column.isMultiple(of: 5) { dot(x - 2, horizon + 19 + cos(Double(column)) * 4, 0.35) }
+                }
+                // Two slightly different trees, entirely made of round impressions.
+                for (fraction, scale) in [(0.13, 1.0), (0.87, 0.82)] {
+                    let x = canvas.width * fraction
+                    let base = horizon - 1
+                    for row in 0...10 { dot(x, base - Double(row) * 3.2 * scale, 0.8 * scale) }
+                    for row in 0...12 {
+                        let y = base - (21 + Double(row) * 2.4) * scale
+                        let halfWidth = sqrt(max(0, 1 - pow((Double(row) - 6) / 6.6, 2))) * 17 * scale
+                        for column in -7...7 {
+                            let dx = Double(column) * 2.7 * scale
+                            guard abs(dx) <= halfWidth else { continue }
+                            let grain = Double((row * 13 + (column + 7) * 7) % 9) / 9
+                            dot(x + dx, y, (0.55 + grain * 0.45) * scale)
+                        }
+                    }
+                    for side in [-1.0, 1.0] {
+                        for step in 0...4 { dot(x + side * Double(step) * 2, base - 19 - Double(step) * 1.8, 0.7 * scale) }
+                    }
+                }
+                // A few blades of grass give the ground a scale without filling the page.
+                for fraction in [0.29, 0.34, 0.66, 0.72] {
+                    let x = canvas.width * fraction
+                    for step in 0...2 { dot(x + Double(step), horizon - Double(step) * 2, 0.55) }
+                }
+                context.fill(land, with: .color(ink.opacity(0.76)))
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+struct MorningQuietSky: View {
+    var night: Double
+    var body: some View {
+        ZStack {
+            Color(red: 1, green: 0.97, blue: 0.90)
+            Color(red: 0.055, green: 0.065, blue: 0.12).opacity(night)
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
