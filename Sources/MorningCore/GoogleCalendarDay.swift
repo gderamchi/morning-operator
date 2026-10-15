@@ -146,15 +146,30 @@ public struct GoogleCalendarDayDocument: Equatable, Sendable {
                 ? (french ? "Aucun événement dans cette partie de la lecture. La journée peut contenir d’autres événements." : "No events in this part of the reading. There may be more events today.")
                 : (french ? "Aucun événement prévu dans ce calendrier aujourd’hui." : "No events scheduled in this calendar today."))
         } else {
-            lines.append(french ? "\(events.count) événement(s) lu(s). Voici les \(min(3, events.count)) premiers." : "\(events.count) event(s) read. Here are the first \(min(3, events.count)).")
+            if events.count == 1 {
+                lines.append(french ? "1 événement lu. Voici cet événement." : "1 event read. Here it is.")
+            } else {
+                let introduction = events.count > 3
+                    ? (french ? "Voici les 3 premiers." : "Here are the first 3.")
+                    : (french ? "Voici ces \(events.count) événements." : "Here they are.")
+                lines.append((french ? "\(events.count) événements lus. " : "\(events.count) events read. ") + introduction)
+            }
             lines += events.prefix(3).map { render($0, french: french, titleLimit: 80, locationLimit: 40) }
-            if events.count > 3 { lines.append(french ? "Les \(events.count - 3) autres restent disponibles dans cette lecture." : "The other \(events.count - 3) remain available in this reading.") }
+            if events.count == 4 {
+                lines.append(french ? "L’autre événement reste disponible dans cette lecture." : "The other event remains available in this reading.")
+            } else if events.count > 4 {
+                lines.append(french ? "Les \(events.count - 3) autres restent disponibles dans cette lecture." : "The other \(events.count - 3) remain available in this reading.")
+            }
             if events.prefix(3).contains(where: { $0.title.count > 80 || ($0.location?.count ?? 0) > 40 }) {
                 lines.append(french ? "Les titres ou lieux longs sont abrégés." : "Long titles or locations are abbreviated.")
             }
             if isPartial { lines.append(french ? "Lecture partielle : d’autres événements peuvent suivre." : "Partial reading: more events may follow.") }
         }
-        if cancelledCount > 0 { lines.append(french ? "\(cancelledCount) événement(s) annulé(s) ignoré(s)." : "\(cancelledCount) cancelled event(s) omitted.") }
+        if cancelledCount == 1 {
+            lines.append(french ? "1 événement annulé a été écarté." : "1 cancelled event was omitted.")
+        } else if cancelledCount > 1 {
+            lines.append(french ? "\(cancelledCount) événements annulés ont été écartés." : "\(cancelledCount) cancelled events were omitted.")
+        }
         return lines.joined(separator: " ")
     }
 

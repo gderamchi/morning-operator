@@ -34,6 +34,7 @@ public extension RoutineStep {
         case let .shortcut(name, _): service = "Shortcuts · \(name)"
         case let .connectedAPI(name, _, _, _): service = name.replacingOccurrences(of: "_", with: " ").capitalized
         case .googleCalendarDay(let calendar): service = "Google Calendar · \(calendar.calendarName)"
+        case .calendlyDay(let account): service = "Calendly · \(account.userName)"
         case nil: service = automation == .gmailInbox ? "Gmail" : nil
         }
         return service.map { "\($0) · \(operationDescription)" } ?? operationDescription
@@ -59,6 +60,7 @@ public extension RoutineStep {
         if case .shortcut = target { return fr ? "Exécuter le raccourci installé et vérifier son retour." : "Run the installed shortcut and check its return." }
         if case .connectedAPI = target { return fr ? "Effectuer l’action du compte présentée ci-dessous." : "Perform the account action described below." }
         if case .googleCalendarDay = target { return fr ? "Lire les événements d’aujourd’hui, dans le fuseau actuel de cet iPhone. Jusqu’à 25 événements ; toute lecture partielle est signalée." : "Read today’s events in this iPhone’s current time zone. Up to 25 events; partial readings are disclosed." }
+        if case .calendlyDay = target { return fr ? "Lire les rendez-vous qui commencent aujourd’hui, dans le fuseau actuel de cet iPhone. Jusqu’à 25 rendez-vous ; toute lecture partielle est signalée." : "Read bookings starting today in this iPhone’s current time zone. Up to 25 bookings; partial readings are disclosed." }
         switch automation {
         case .spokenNote: return fr ? "Lire le texte de ce moment." : "Read this moment’s text."
         case .todayCalendar: return fr ? "Lire les événements du jour de vos calendriers choisis." : "Read today’s events from your selected calendars."

@@ -28,7 +28,7 @@ public enum IntegrationTargetError: Error, LocalizedError, Equatable {
 extension RoutineStepTarget {
     public var isConnectedAction: Bool {
         switch self {
-        case .shortcut, .connectedAPI, .googleCalendarDay: true
+        case .shortcut, .connectedAPI, .googleCalendarDay, .calendlyDay: true
         case .externalApp, .inAppWeb: false
         }
     }
@@ -36,7 +36,7 @@ extension RoutineStepTarget {
     public var integrationRoute: IntegrationRoute? {
         switch self {
         case .shortcut: .nativeIOS
-        case .connectedAPI, .googleCalendarDay: .api
+        case .connectedAPI, .googleCalendarDay, .calendlyDay: .api
         case .inAppWeb: .browser
         case .externalApp(let app, _):
             switch app {
@@ -66,6 +66,7 @@ extension RoutineStepTarget {
                   let object = try? JSONSerialization.jsonObject(with: Data(arguments.utf8)),
                   object is [String: Any] else { throw IntegrationTargetError.invalidArguments }
         case .googleCalendarDay(let target): try target.validate()
+        case .calendlyDay(let target): try target.validate()
         case .externalApp, .inAppWeb: break
         }
     }

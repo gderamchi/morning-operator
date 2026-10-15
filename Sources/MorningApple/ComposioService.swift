@@ -272,6 +272,19 @@ public final class ComposioService {
         return result
     }
 
+    /// Only fixed current-identity and bounded personal-day Calendly reads.
+    /// A fresh read ID never consumes or releases a local write reservation.
+    public func readCalendly(tool: String, arguments: [String: ComposioJSONValue], connectionID: String) async throws -> ComposioExecutionResult {
+        guard Self.validIdentifier(connectionID), CalendlyDayReadContract.validRead(tool, arguments) else { throw ComposioServiceError.invalidArguments }
+        try Task.checkCancellation()
+        let id = UUID()
+        let result: ComposioExecutionResult = try await request("POST", path: "execute", body: .object([
+            "tool": .string(tool), "arguments": .object(arguments), "connectionID": .string(connectionID), "requestID": .string(id.uuidString)]))
+        try Task.checkCancellation()
+        guard result.requestID == id, result.successful || result.error != nil else { throw ComposioServiceError.invalidResponse }
+        return result
+    }
+
     /// The dedicated route verifies the current provider subject and account metadata.
     /// Its revision is a preflight check, not a conditional Composio credential lease.
     /// An old server is unavailable, never a reason to fall back to a generic send.
