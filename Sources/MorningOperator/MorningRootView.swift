@@ -83,7 +83,7 @@ struct MorningRootView: View {
                            connectedActionStatus: store.connectedActionStatus,
                            mailMoment: store.currentStep?.automation == .gmailInbox && store.sessionActive
                                ? AnyView(MorningMailMomentView(store: store)) : nil,
-                           nativeMoment: store.sessionActive ? AnyView(NativeMomentReviewView(store: store)) : nil,
+                           nativeMoment: store.sessionActive && store.pendingWebTarget == nil ? AnyView(NativeMomentReviewView(store: store)) : nil,
                            voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
                            executionSummary: store.executionSummary,
                            timer: store.activeStepTimer,
@@ -589,7 +589,7 @@ struct TodayView: View {
                         if store.currentStep?.id == step.id, step.automation == .gmailInbox, store.sessionActive {
                             MorningMailMomentView(store: store)
                         }
-                        if store.currentStep?.id == step.id, store.sessionActive {
+                        if store.currentStep?.id == step.id, store.sessionActive, store.pendingWebTarget == nil {
                             NativeMomentReviewView(store: store)
                         }
                         if store.session?.status == .paused,

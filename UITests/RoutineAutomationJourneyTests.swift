@@ -24,10 +24,12 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         request.tap(); request.typeText("Calendar: synthetic coffee Friday at ten")
         tapVisible("nativeMoment.prepare", in: app)
         XCTAssertTrue(app.staticTexts["nativeMoment.synthetic"].exists)
-        let title = app.descendants(matching: .any).matching(identifier: "nativeMoment.title").firstMatch
+        let titles = app.descendants(matching: .any).matching(identifier: "nativeMoment.title")
+        XCTAssertEqual(titles.count, 1, "The visible browser panel must own the only current native editor.")
+        let title = titles.firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 8))
         for _ in 0..<6 where !title.isHittable { app.swipeUp() }
-        XCTAssertTrue(title.isHittable)
+        XCTAssertTrue(title.isHittable, title.debugDescription)
         title.tap(); title.typeText(" corrected")
         XCTAssertTrue(app.buttons["nativeMoment.editReview"].exists)
         XCTAssertFalse(app.buttons["nativeMoment.confirm"].exists, "An unsupported date must require details; it cannot prepare an Apple write.")
@@ -374,7 +376,9 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             } else if button.exists, button.frame.height > 0 {
                 requiredShift = viewportBottom - 8 - button.frame.maxY
             } else { requiredShift = -140 }
-            let shift = max(-140, min(140, requiredShift))
+            // Tiny drags stay inside UIKit's touch slop and leave a partly
+            // clipped control unmoved. Keep enough travel to begin scrolling.
+            let shift = requiredShift < 0 ? max(-140, min(-44, requiredShift)) : min(140, max(44, requiredShift))
             let end = origin.withOffset(CGVector(dx: app.frame.midX, dy: startY + shift))
             start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
         }
