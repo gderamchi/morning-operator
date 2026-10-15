@@ -89,8 +89,8 @@ struct LearnView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     sectionTitle(store.hasImportedObservation ? String(localized: "What we could see") : String(localized: "A few words"), symbol: "pencil.and.outline")
                     Text(store.hasImportedObservation
-                         ? "Edit what we found. Your original stays saved."
-                         : "What would make a good morning?")
+                         ? String(localized: "Edit what we found. Your original stays saved.")
+                         : String(localized: "What would make a good morning?"))
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     if let observation = store.selectedObservation {
@@ -410,6 +410,20 @@ struct SetupView: View {
             }.accessibilityIdentifier("setup.briefing")
 
             Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Language").font(MorningTheme.Typography.heading)
+                    Picker("Language", selection: Binding(
+                        get: { AppLanguage.code },
+                        set: { AppLanguage.setChosenLanguage($0) })) {
+                        Text(verbatim: "Français").tag("fr")
+                        Text(verbatim: "English").tag("en")
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("setup.language")
+                }
+            }
+
+            Card {
                 VStack(alignment: .leading, spacing: 18) {
                     Button { choosingVoice = true } label: {
                         HStack {
@@ -459,7 +473,7 @@ struct SetupView: View {
                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("setup.speechStatus")
-                        .accessibilityValue(store.speech.state.rawValue)
+                        .accessibilityValue(store.speech.statusText)
                     Divider().overlay(MorningStyle.line)
                     DisclosureGroup("Audio output") {
                         VStack(alignment: .leading, spacing: 9) {

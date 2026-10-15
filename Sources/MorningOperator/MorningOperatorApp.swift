@@ -10,7 +10,10 @@ struct MorningOperatorApp: App {
     @State private var showingWebPreview = true
     #endif
 
-    init() { MorningAppShortcuts.updateAppShortcutParameters() }
+    init() {
+        AppLanguage.initialize()
+        MorningAppShortcuts.updateAppShortcutParameters()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -25,6 +28,11 @@ struct MorningOperatorApp: App {
             #else
             MorningRootView(store: store)
             #endif
+            }
+            .environment(\.locale, AppLanguage.locale)
+            .onChange(of: AppLanguage.code) { _, _ in
+                store.appLanguageDidChange()
+                MorningAppShortcuts.updateAppShortcutParameters()
             }
             #if DEBUG
             .overlay(alignment: .topLeading) {
