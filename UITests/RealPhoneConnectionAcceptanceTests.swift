@@ -5,6 +5,7 @@ import XCTest
 @MainActor
 final class RealPhoneConnectionAcceptanceTests: XCTestCase {
     private var app: XCUIApplication!
+    private var leaveGmailSignInPresented = false
 
     private func activateOrdinaryApp() throws {
         continueAfterFailure = false
@@ -130,6 +131,40 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         // Never inspect or print message labels, subjects, senders, or counts.
     }
 
+    func testPresentNativeGmailReadAndSendSignInForOwner() throws {
+        guard ProcessInfo.processInfo.environment["MO_REAL_PHONE_PRESENT_GMAIL_SIGN_IN"] == "read_and_send" else {
+            throw XCTSkip("Requires the separate read_and_send sign-in presentation opt-in; no app was activated.")
+        }
+        try openConnections()
+        let reader = app.buttons["connections.gmailReader"]
+        reveal(reader)
+        reader.tap()
+        try refusePermissionOrFixtureScreens()
+        let connect = app.buttons["gmail.connect"]
+        XCTAssertTrue(connect.waitForExistence(timeout: 10), "The ordinary reader is not offering a new Gmail connection.")
+        reveal(connect)
+        guard connect.isEnabled, !app.buttons["gmail.refresh"].exists,
+              !app.buttons["gmail.disconnect"].exists,
+              !app.staticTexts["gmail.configuration"].exists,
+              !app.staticTexts["gmail.error"].exists else {
+            throw XCTSkip("A saved connection, retry, configuration problem, or read error requires review. No consent was started.")
+        }
+        let enableSending = app.buttons["gmail.enableSending"]
+        XCTAssertTrue(enableSending.waitForExistence(timeout: 10), "This installed app does not expose the requested read-and-send sign-in.")
+        reveal(enableSending)
+        XCTAssertTrue(enableSending.isEnabled, "The requested sign-in action is not ready.")
+        // Returning to the reader's parent would cancel ASWebAuthenticationSession.
+        leaveGmailSignInPresented = true
+        enableSending.tap()
+        _ = app.webViews.firstMatch.waitForExistence(timeout: 12)
+        let presented = app.webViews.allElementsBoundByIndex.contains { $0.isHittable }
+            || app.alerts.count > 0
+            || XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.count > 0
+        capture(presented ? "real-phone-gmail-sign-in-presented-owner-handoff" : "real-phone-gmail-sign-in-presentation-unconfirmed")
+        XCTAssertTrue(presented, "No system web view or prompt was detected. Authentication success is not claimed.")
+        // The owner completes Google consent. Never enter credentials, accept, cancel, or go back here.
+    }
+
     func testReadRemindersOnlyWithPreviouslyGrantedAccess() throws {
         try openConnections()
         let reminders = button(containing: ["Find your upcoming reminders and mark them done.",
@@ -162,15 +197,15 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         try activateOrdinaryApp()
         try refusePermissionOrFixtureScreens()
         if isConnectionsPage { return }
-        if connectionsNavigation.isHittable && app.buttons["connections.gmailReader"].exists {
+        if connectionsNavigation.exists && connectionsNavigation.isHittable && app.buttons["connections.gmailReader"].exists {
             reveal(app.buttons["connections.gmailReader"])
             XCTAssertTrue(isConnectionsPage, "The visible Apps & accounts page could not be confirmed.")
             return
         }
         let connections = app.buttons["setup.connections"]
-        if !connections.isHittable {
+        if !connections.exists || !connections.isHittable {
             let settings = app.buttons["morning.settings"]
-            if !settings.isHittable {
+            if !settings.exists || !settings.isHittable {
                 let controls = app.buttons["morning.actions"]
                 guard controls.waitForExistence(timeout: 10), controls.isHittable,
                       ["Show controls", "Afficher les commandes"].contains(controls.label) else {
@@ -195,7 +230,7 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
     }
 
     private var isConnectionsPage: Bool {
-        connectionsNavigation.isHittable && app.buttons["connections.gmailReader"].exists
+        connectionsNavigation.exists && connectionsNavigation.isHittable && app.buttons["connections.gmailReader"].exists
     }
 
     private var gmailAPIConnection: XCUIElement {
@@ -207,6 +242,7 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
     }
 
     private func returnToConnections(calendar: Bool = false) {
+        guard !leaveGmailSignInPresented else { return }
         guard app.alerts.count == 0,
               XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.count == 0 else { return }
         if isConnectionsPage { return }
