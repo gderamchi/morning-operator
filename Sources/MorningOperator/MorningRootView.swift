@@ -83,6 +83,12 @@ struct MorningRootView: View {
                            voiceBlocked: store.voiceInputBlocksPlayback,
                            speak: { store.openCompletionCapture() }, write: { store.openCapture() },
                            notNow: { store.discardCompletionReflection() })
+                .safeAreaInset(edge: .bottom) {
+                    if let notice = store.notice {
+                        NoticeView(text: notice, dismiss: { store.notice = nil })
+                            .padding(.horizontal, 24).padding(.bottom, 12)
+                    }
+                }
                 // The sky, then the touch layer, both under the text and buttons so those
                 // keep their own taps.
                 .background {
@@ -445,7 +451,6 @@ struct MorningRootView: View {
             }
             .background(MorningPaper(showsSun: false)).navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
-            .accessibilityLabel(title)
             .toolbar {
                 ToolbarItem(placement: .principal) { Text(displayTitle ?? title).font(MorningTheme.Typography.title) }
             }
