@@ -21,6 +21,10 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
             throw XCTSkip("Provide the explicit installed ordinary MORE bundle in MO_REAL_PHONE_BUNDLE_ID.")
         }
         app = XCUIApplication(bundleIdentifier: bundle)
+        // A failed assertion can stop a method before Swift defer runs.
+        addTeardownBlock { @MainActor [weak self] () async throws in
+            self?.returnToConnections()
+        }
         // Activate the existing ordinary app without launch arguments or launch environment.
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), "The selected ordinary app did not reach the foreground.")
@@ -71,10 +75,10 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
             "briefing.calendar.", ["briefing.calendarConnect", "briefing.error"]))
         XCTAssertTrue(readiness.firstMatch.waitForExistence(timeout: 15), "The calendar connection screen did not become ready.")
         capture("real-phone-existing-calendar-access")
+        XCTAssertFalse(app.staticTexts["briefing.error"].exists, "The existing calendar source reported a read error.")
         guard choices.count > 0 else {
             throw XCTSkip("No existing readable calendar inventory was exposed. No permission or calendar selection was changed.")
         }
-        XCTAssertFalse(app.staticTexts["briefing.error"].exists, "The existing calendar source reported a read error.")
         // Inventory only: no calendar toggle, event mutation, or speech preview is used.
     }
 
@@ -191,7 +195,7 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
     }
 
     private var isConnectionsPage: Bool {
-        connectionsNavigation.isHittable && app.buttons["connections.gmailReader"].isHittable
+        connectionsNavigation.isHittable && app.buttons["connections.gmailReader"].exists
     }
 
     private var gmailAPIConnection: XCUIElement {
@@ -206,14 +210,21 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         guard app.alerts.count == 0,
               XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.count == 0 else { return }
         if isConnectionsPage { return }
-        if calendar {
+        let calendarPage = app.navigationBars.matching(NSPredicate(format: "label IN %@", ["Your day", "Votre journée"]))
+            .allElementsBoundByIndex.contains { $0.isHittable }
+        if calendar || calendarPage {
             let done = app.navigationBars.buttons.matching(NSPredicate(format: "label IN %@", ["Done", "Terminé"])).firstMatch
             if done.exists && done.isHittable { done.tap() }
             if isConnectionsPage { return }
         }
-        let back = app.navigationBars.buttons.matching(NSPredicate(
-            format: "label IN %@", ["Apps & accounts", "Apps et comptes", "Back", "Retour"])).firstMatch
-        if back.exists && back.isHittable { back.tap() }
+        let knownPage = app.navigationBars.matching(NSPredicate(format: "label IN %@", [
+            "Gmail", "Reminders", "Rappels", "Your day", "Votre journée"
+        ])).allElementsBoundByIndex.contains { $0.isHittable }
+        guard knownPage else { return }
+        let back = app.buttons.matching(NSPredicate(
+            format: "label IN %@", ["Apps & accounts", "Apps et comptes", "Back", "Retour"]))
+            .allElementsBoundByIndex.first { $0.isHittable && $0.frame.minY < 180 }
+        back?.tap()
     }
 
     private func refusePermissionOrFixtureScreens() throws {
