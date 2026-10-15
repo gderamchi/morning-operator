@@ -164,7 +164,8 @@ public final class ReminderService {
         try Task.checkCancellation()
         let predicate = store.predicateForIncompleteReminders(withDueDateStarting: start, ending: end, calendars: nil)
         let snapshots: [ReminderSummary] = try await withCheckedThrowingContinuation { continuation in
-            store.fetchReminders(matching: predicate) { reminders in
+            // EventKit calls back on its search queue, not the service's MainActor.
+            store.fetchReminders(matching: predicate) { @Sendable reminders in
                 guard let reminders else {
                     continuation.resume(throwing: ReminderServiceError.fetchFailed)
                     return
