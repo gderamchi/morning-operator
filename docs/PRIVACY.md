@@ -45,6 +45,8 @@ Deleting just one observation has a narrower scope: it removes that acquisition 
 
 **Your day** sends an explicit city search to Apple Maps and the chosen city's coordinates to Apple Weather. It does not request device location. EventKit reading remains a local store read. Weather responses, event titles and prepared sentences remain transient and are not observation evidence or training records. These requests contain no recording, OCR or habit content. The app still has no remote-model fallback. [Your day guide](YOUR-DAY.md).
 
+Browser execution records retain only bounded SHA-256 content fingerprints alongside the session's observed-content count, not the source page text, URLs or DOM. These local identities prevent the same content being counted again after a process restart. They share the workspace's retention and full-forgetting behavior; they are not a history of raw browsing content or a provider-effect receipt.
+
 ## What stays outside MORE
 
 - Original media selected from Photos, Files or another provider, and routine files imported from those locations.

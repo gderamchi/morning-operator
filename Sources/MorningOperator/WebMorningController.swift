@@ -77,7 +77,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     @ObservationIgnored private var executionDeadline: Date?
     @ObservationIgnored private var executionTask: Task<Void, Never>?
     @ObservationIgnored private var executionNonce: UUID?
-    @ObservationIgnored private var observedFingerprints = Set<String>()
+    @ObservationIgnored private var contentProgress = WebMorningContentProgress()
     @ObservationIgnored private var observedContentCount = 0
     @ObservationIgnored private var confirmedLikeCount = 0
     @ObservationIgnored private var lastSpokenFingerprint: String?
@@ -294,7 +294,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             executionHistoryPlan?.behavior != plan.behavior || executionHistoryPlan?.likesAllowed != plan.likesAllowed
         if changed {
             stopExecution()
-            observedFingerprints = []; observedContentCount = plan.initialObservedContentCount
+            contentProgress = plan.initialContentProgress; observedContentCount = contentProgress.observedCount
             confirmedLikeCount = plan.initialConfirmedLikeCount; lastSpokenFingerprint = nil
             executionFinished = false; actionPending = false
             executionContextText = []
@@ -327,7 +327,8 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         outcome = nil
         if let plan = executionPlan, let event = executionEvent {
             let cleared = WebMorningExecutionEvent(plan: plan, state: event.state,
-                observedContentCount: observedContentCount, confirmedLikeCount: confirmedLikeCount)
+                observedContentCount: observedContentCount, confirmedLikeCount: confirmedLikeCount,
+                contentProgress: contentProgress)
             if cleared != event {
                 executionEvent = cleared
                 onExecutionEvent?(cleared)
@@ -344,7 +345,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         actionsEnabled = false; learningAllowed = false
         discardLearning(); stopExecution()
         executionPlan = nil; executionHistoryPlan = nil; executionContextText = []
-        executionEvent = nil; outcome = nil; observedFingerprints = []
+        executionEvent = nil; outcome = nil; contentProgress = .init()
         lastSpokenFingerprint = nil
         webView.stopLoading()
         webView.navigationDelegate = nil; webView.uiDelegate = nil
@@ -386,7 +387,8 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             .unresolvedKeys(sessionID: plan.sessionID, stepID: plan.stepID).isEmpty) == false)
         let safeState: WebMorningExecutionState = hasPending && state != .performingAction ? .uncertainAction : state
         let event = WebMorningExecutionEvent(plan: plan, state: safeState, observedContentCount: observedContentCount,
-                                            confirmedLikeCount: confirmedLikeCount, spokenText: text, contextText: executionContextText)
+                                            confirmedLikeCount: confirmedLikeCount, spokenText: text, contextText: executionContextText,
+                                            contentProgress: contentProgress)
         if executionEvent != event { executionEvent = event; onExecutionEvent?(event) }
     }
 
@@ -528,7 +530,15 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             }
             guard let fingerprint = observation.fingerprint else { publishExecution(.unavailable); return }
             executionContextText = observation.text ?? []
-            if observedFingerprints.insert(fingerprint).inserted { observedContentCount += 1 }
+            do {
+                let isNew = try contentProgress.observe(site: site, fingerprint: fingerprint)
+                observedContentCount = contentProgress.observedCount
+                executionDiagnostic += " newContent=\(isNew ? 1 : 0) savedCount=\(observedContentCount)"
+            } catch {
+                executionDiagnostic = "stop=contentProgressCapacity"
+                publishExecution(.unavailable)
+                return
+            }
             let spoken = (plan.behavior == .readHeadlines || plan.behavior == .readUnread) && lastSpokenFingerprint != fingerprint
                 ? observation.text ?? [] : []
             if !spoken.isEmpty { lastSpokenFingerprint = fingerprint }

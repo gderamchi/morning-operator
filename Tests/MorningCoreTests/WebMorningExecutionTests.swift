@@ -32,6 +32,71 @@ struct WebMorningExecutionTests {
         #expect(WebMorningPageObservation.parse("{") == nil)
     }
 
+    @Test func contentProgressSurvivesAColdRestoreWithoutCountingTheSameContentAgain() throws {
+        let session = UUID(), step = UUID()
+        var progress = WebMorningContentProgress()
+        #expect(try progress.observe(site: .reddit, fingerprint: "first-private-content"))
+        #expect(try progress.observe(site: .reddit, fingerprint: "second-private-content"))
+        let record = RoutineExecutionRecord(sessionID: session, stepID: step, outcome: .interrupted,
+            observedContents: 2, webContentProgress: progress)
+        let saved = try JSONEncoder().encode(record)
+        #expect(!String(decoding: saved, as: UTF8.self).contains("private-content"))
+        let restored = try JSONDecoder().decode(RoutineExecutionRecord.self, from: saved)
+        let plan = WebMorningExecutionPlan(sessionID: session, stepID: step, behavior: .browseFeed,
+            initialObservedContentCount: restored.observedContents, initialContentProgress: restored.webContentProgress)
+        var reopened = plan.initialContentProgress
+        #expect(plan.initialObservedContentCount == 2)
+        #expect(try !reopened.observe(site: .reddit, fingerprint: "first-private-content"))
+        #expect(reopened.observedCount == 2)
+        #expect(try reopened.observe(site: .reddit, fingerprint: "third-private-content"))
+        #expect(reopened.observedCount == 3)
+        // A new session/step starts without importing the previous moment's keys.
+        var next = WebMorningExecutionPlan(sessionID: UUID(), stepID: UUID(), behavior: .browseFeed).initialContentProgress
+        #expect(try next.observe(site: .reddit, fingerprint: "first-private-content"))
+        #expect(next.observedCount == 1)
+    }
+
+    @Test func legacyBrowserCountsRemainUsableWithoutInventingMissingContentIdentities() throws {
+        var progress = WebMorningExecutionPlan(sessionID: UUID(), stepID: UUID(), behavior: .browseFeed,
+            initialObservedContentCount: 7).initialContentProgress
+        #expect(progress.observedCount == 7)
+        #expect(try progress.observe(site: .reddit, fingerprint: "new"))
+        #expect(progress.observedCount == 8)
+        #expect(try !progress.observe(site: .reddit, fingerprint: "new"))
+        #expect(progress.observedCount == 8)
+        #expect(try progress.observe(site: .twitter, fingerprint: "new"))
+        #expect(progress.observedCount == 9)
+    }
+
+    @Test func corruptContentProgressCannotSilentlyRestartDeduplication() throws {
+        let validKey = String(repeating: "a", count: 64)
+        let invalid: [[String: Any]] = [
+            ["observedCount": 1, "keys": ["raw page text"]],
+            ["observedCount": 2, "keys": [validKey, validKey]],
+            ["observedCount": 0, "keys": [validKey]],
+            ["observedCount": -1, "keys": []],
+            ["observedCount": 100_001, "keys": []]
+        ]
+        for object in invalid {
+            let saved = try JSONSerialization.data(withJSONObject: object)
+            #expect(throws: (any Error).self) { try JSONDecoder().decode(WebMorningContentProgress.self, from: saved) }
+        }
+    }
+
+    @Test func progressCapacityKeepsOldIdentitiesInsteadOfEvictingAndRecountingThem() throws {
+        var progress = WebMorningContentProgress()
+        for index in 0..<WebMorningContentProgress.maximumKeys {
+            try progress.observe(site: .reddit, fingerprint: "content-\(index)")
+        }
+        #expect(try !progress.observe(site: .reddit, fingerprint: "content-0"))
+        #expect(throws: WebMorningContentProgress.ProgressError.capacityReached) {
+            try progress.observe(site: .reddit, fingerprint: "one-too-many")
+        }
+        #expect(progress.observedCount == WebMorningContentProgress.maximumKeys)
+        let restored = try JSONDecoder().decode(WebMorningContentProgress.self, from: JSONEncoder().encode(progress))
+        #expect(restored == progress)
+    }
+
     @Test func journalBlocksAnUnknownEffectAcrossReopenAndNeverTogglesTwice() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

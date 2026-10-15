@@ -54,6 +54,59 @@ public enum WebMorningBehavior: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Local, content-free deduplication for one routine moment across process restarts.
+/// A legacy count has no recoverable identities; new observations add opaque hashes.
+public struct WebMorningContentProgress: Codable, Sendable, Equatable {
+    public static let maximumKeys = 4_096
+    public private(set) var observedCount: Int
+    private var keys: Set<String>
+
+    public init(legacyObservedCount: Int = 0) {
+        observedCount = min(100_000, max(0, legacyObservedCount))
+        keys = []
+    }
+
+    public func preservingCount(atLeast count: Int) -> Self {
+        var copy = self
+        copy.observedCount = max(observedCount, min(100_000, max(0, count)))
+        return copy
+    }
+
+    /// Returns false for content already observed in this moment. At capacity the
+    /// caller must stop rather than evict identities and inflate the recap later.
+    @discardableResult
+    public mutating func observe(site: WebMorningSite, fingerprint: String) throws -> Bool {
+        guard !fingerprint.isEmpty, fingerprint.utf8.count <= 512 else { throw ProgressError.invalidState }
+        let key = SHA256.hash(data: Data("\(site.rawValue):\(fingerprint)".utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        if keys.contains(key) { return false }
+        guard keys.count < Self.maximumKeys, observedCount < 100_000 else { throw ProgressError.capacityReached }
+        keys.insert(key)
+        observedCount += 1
+        return true
+    }
+
+    public enum ProgressError: Error { case invalidState, capacityReached }
+    private enum CodingKeys: String, CodingKey { case observedCount, keys }
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let count = try container.decode(Int.self, forKey: .observedCount)
+        let saved = try container.decode([String].self, forKey: .keys)
+        guard (0...100_000).contains(count), saved.count <= Self.maximumKeys,
+              Set(saved).count == saved.count, count >= saved.count,
+              saved.allSatisfy({ $0.utf8.count == 64 && $0.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } }) else {
+            throw ProgressError.invalidState
+        }
+        observedCount = count
+        keys = Set(saved)
+    }
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(observedCount, forKey: .observedCount)
+        try container.encode(keys.sorted(), forKey: .keys)
+    }
+}
+
 public struct WebMorningExecutionPlan: Sendable, Equatable {
     public let sessionID: UUID
     public let stepID: UUID
@@ -63,14 +116,17 @@ public struct WebMorningExecutionPlan: Sendable, Equatable {
     public let dwellSeconds: TimeInterval
     public let initialObservedContentCount: Int
     public let initialConfirmedLikeCount: Int
+    public let initialContentProgress: WebMorningContentProgress
 
     public init(sessionID: UUID, stepID: UUID, behavior: WebMorningBehavior,
                 likesAllowed: Bool = false, maximumLikes: Int = 3, dwellSeconds: TimeInterval = 12,
-                initialObservedContentCount: Int = 0, initialConfirmedLikeCount: Int = 0) {
+                initialObservedContentCount: Int = 0, initialConfirmedLikeCount: Int = 0,
+                initialContentProgress: WebMorningContentProgress? = nil) {
         self.sessionID = sessionID; self.stepID = stepID; self.behavior = behavior
         self.likesAllowed = likesAllowed; self.maximumLikes = min(3, max(0, maximumLikes))
         self.dwellSeconds = dwellSeconds.isFinite ? min(60, max(5, dwellSeconds)) : 12
-        self.initialObservedContentCount = min(100_000, max(0, initialObservedContentCount))
+        self.initialContentProgress = (initialContentProgress ?? .init()).preservingCount(atLeast: initialObservedContentCount)
+        self.initialObservedContentCount = self.initialContentProgress.observedCount
         self.initialConfirmedLikeCount = min(3, max(0, initialConfirmedLikeCount))
     }
 }
@@ -90,12 +146,15 @@ public struct WebMorningExecutionEvent: Sendable, Equatable {
     public let spokenText: [String]
     /// Volatile visible source data for contextual questions; never a persisted action.
     public let contextText: [String]
+    public let contentProgress: WebMorningContentProgress?
     public init(plan: WebMorningExecutionPlan, state: WebMorningExecutionState,
-                observedContentCount: Int, confirmedLikeCount: Int, spokenText: [String] = [], contextText: [String] = []) {
+                observedContentCount: Int, confirmedLikeCount: Int, spokenText: [String] = [], contextText: [String] = [],
+                contentProgress: WebMorningContentProgress? = nil) {
         sessionID = plan.sessionID; stepID = plan.stepID; self.state = state
         self.observedContentCount = observedContentCount; self.confirmedLikeCount = confirmedLikeCount
         self.spokenText = spokenText
         self.contextText = contextText
+        self.contentProgress = contentProgress
     }
 }
 
