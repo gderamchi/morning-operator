@@ -83,6 +83,7 @@ struct MorningRootView: View {
                            connectedActionStatus: store.connectedActionStatus,
                            mailMoment: store.currentStep?.automation == .gmailInbox && store.sessionActive
                                ? AnyView(MorningMailMomentView(store: store)) : nil,
+                           nativeMoment: store.sessionActive ? AnyView(NativeMomentReviewView(store: store)) : nil,
                            voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
                            executionSummary: store.executionSummary,
                            timer: store.activeStepTimer,
@@ -230,6 +231,7 @@ struct MorningRootView: View {
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
                 store.suspendHandsFreeVoice()
+                store.clearNativeMoment()
                 store.routineWebMoment.discardSourceContext()
                 store.webExecutionEvent = nil
                 store.preserveMailExecutionBeforeInterruption()
@@ -586,6 +588,9 @@ struct TodayView: View {
                         }
                         if store.currentStep?.id == step.id, step.automation == .gmailInbox, store.sessionActive {
                             MorningMailMomentView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.sessionActive {
+                            NativeMomentReviewView(store: store)
                         }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
@@ -1251,6 +1256,7 @@ private struct MorningSunHome: View {
     var currentStep: RoutineStep?
     var connectedActionStatus: String? = nil
     var mailMoment: AnyView? = nil
+    var nativeMoment: AnyView? = nil
     var voiceStatus: String? = nil
     var executionSummary: String? = nil
     var timer: StepTimer? = nil
@@ -1329,6 +1335,7 @@ private struct MorningSunHome: View {
                     .frame(maxHeight: geometry.size.height * (dynamicTypeSize.isAccessibilitySize ? 0.78 : 0.68))
                     .defaultScrollAnchor(.bottom, for: .alignment)
                     .scrollBounceBehavior(.basedOnSize)
+                    .scrollDismissesKeyboard(.interactively)
                     .padding(.horizontal, 20).padding(.bottom, 20)
                     .transition(still ? .opacity : .opacity.combined(with: .offset(y: 12)))
                 } else if let attribution = clock.weatherAttribution, !weatherSynthetic {
@@ -1395,6 +1402,7 @@ private struct MorningSunHome: View {
                         .accessibilityIdentifier("moment.connectedResult")
                 }
                 if let mailMoment { mailMoment }
+                if let nativeMoment { nativeMoment }
                 HStack(spacing: 16) {
                     Button(action: session?.status == .paused ? resume : pause) {
                         Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",

@@ -25,7 +25,7 @@ public final class GmailMorningConversation {
         session?.canReadMessages == true && session?.canSendMessages == true && context != nil &&
             ![.preparing, .preparingReply, .sending, .uncertain, .completed].contains(state) && lastSendOutcome == nil
     }
-    public var canSendSelfMessage: Bool { isComposingSelfMessage && state == .reviewingSelfMessage && selfMessageDraft != nil }
+    public var canSendSelfMessage: Bool { isComposingSelfMessage && state == .reviewingSelfMessage && selfMessageDraft != nil && !sendReviewRevoked }
     public private(set) var context: MorningExecutionID?
     public var isCompleted: Bool { state == .completed }
     public var completedExecutionOutcome: RoutineExecutionRecord.Outcome? {
@@ -62,6 +62,7 @@ public final class GmailMorningConversation {
     private var generation: UUID?
     private var attempt = UUID()
     private var questionID: UUID?
+    private var sendReviewRevoked = false
 
     public init(service: GmailConnectionService = GmailConnectionService(),
                 drafts: GmailReplyDraftService = GmailReplyDraftService(),
@@ -179,6 +180,7 @@ public final class GmailMorningConversation {
                     guard selfMessageDraft != nil else {
                         try await say("Complétez et vérifiez l’objet et le texte avant de demander l’envoi.", token: token); return
                     }
+                    if sendReviewRevoked { try await speakSelfMessage(token: token); return }
                     try await sendSelfMessage(token: token)
                 } else if ["oui", "yes", "repete", "relis", "read it", "read again"].contains(normalized) {
                     try await speakSelfMessage(token: token)
@@ -228,9 +230,10 @@ public final class GmailMorningConversation {
                     guard session.canSendMessages else {
                         try await say("L’envoi n’est pas autorisé pour ce compte. Activez lecture et envoi dans les réglages Gmail. Votre réponse n’a pas été envoyée.", token: token); return
                     }
+                    if sendReviewRevoked { try await reviewReply(mail: mail, token: token); return }
                     try await send(mail: mail, session: session, token: token)
                 } else if ["repete", "relis", "read it", "read again"].contains(normalized) {
-                    try await say(draftText + " Quelle suite souhaitez-vous donner à cette réponse ?", token: token)
+                    try await reviewReply(mail: mail, token: token)
                 } else if ["oui", "yes"].contains(normalized) {
                     try await say("La réponse à \(recipient ?? mail.sender) attend une demande explicite de votre part. Vous pouvez aussi la corriger.", token: token)
                 } else {
@@ -261,11 +264,22 @@ public final class GmailMorningConversation {
         if isComposingSelfMessage, state == .askingForIntention || state == .reviewingReply { state = .reviewingSelfMessage }
     }
 
+    /// Another action dialogue takes conversational focus. Keep the exact draft,
+    /// but require its complete review again before a later separate Send.
+    /// Already claimed sends retain their journal-only reconciliation path.
+    public func revokeReviewPreservingDraft(context: MorningExecutionID) {
+        guard self.context == context, !draftText.isEmpty, lastSendOutcome == nil,
+              state != .sending, state != .uncertain, state != .completed else { return }
+        cancel()
+        sendReviewRevoked = true
+    }
+
     public func clear() {
         cancel(); context = nil; session = nil; messages = []; selectedIndex = 0; pendingIntention = ""
         draftText = ""; recipient = nil; summary = ""; message = ""; state = .idle; generation = nil; lastSendOutcome = nil
         readOutcome = .unavailable
         isComposingSelfMessage = false; selfMessageSubject = ""; selfMessageDraft = nil
+        sendReviewRevoked = false
     }
 
     /// An ordinary owner action in the active mail moment, not an Inbox fixture.
@@ -275,6 +289,7 @@ public final class GmailMorningConversation {
         attempt = UUID(); questionID = nil
         let token = attempt
         isComposingSelfMessage = true; selfMessageDraft = nil; selfMessageSubject = ""; draftText = ""; recipient = nil
+        sendReviewRevoked = true
         state = .preparingReply
         do {
             try requireCurrent(token)
@@ -303,12 +318,14 @@ public final class GmailMorningConversation {
               lastSendOutcome == nil else { return }
         attempt = UUID(); questionID = nil; selfMessageDraft = nil
         selfMessageSubject = subject; draftText = body
+        sendReviewRevoked = true
         message = "Vos modifications attendent une nouvelle relecture avant l’envoi."
     }
 
     private func prepareSelfMessage(intention: String, token: UUID) async throws {
         state = .preparingReply
         selfMessageDraft = nil
+        sendReviewRevoked = true
         let previous = try? GmailSelfMessageContent(subject: selfMessageSubject, body: draftText)
         let proposed = try await selfDrafts.propose(intention: intention, previous: previous)
         try requireCurrent(token)
@@ -331,7 +348,10 @@ public final class GmailMorningConversation {
         guard selfMessageDraft != nil else {
             try await say("Complétez l’objet et le texte de votre note à vous-même dans les champs, puis relisez le brouillon. Rien n’est envoyé.", token: token); return
         }
+        sendReviewRevoked = true
         try await say("Nouveau mail à \(recipient ?? "") . Objet : \(selfMessageSubject). Texte : \(draftText) Votre brouillon est prêt. Quelle suite souhaitez-vous lui donner ?", token: token)
+        try requireCurrent(token)
+        sendReviewRevoked = false
     }
 
     private func sendSelfMessage(token: UUID) async throws {
@@ -345,6 +365,7 @@ public final class GmailMorningConversation {
 
     private func prepare(mail: GmailMessage, guidance: String, token: UUID, revising: Bool = false) async throws {
         state = .preparingReply
+        sendReviewRevoked = true
         if !revising { pendingIntention = guidance }
         let reply: String
         if revising {
@@ -356,7 +377,14 @@ public final class GmailMorningConversation {
         }
         try requireCurrent(token)
         draftText = reply; pendingIntention = ""; state = .reviewingReply
-        try await say("Réponse à \(recipient ?? mail.sender) : \(reply) Votre brouillon est prêt. Quelle suite souhaitez-vous lui donner ?", token: token)
+        try await reviewReply(mail: mail, token: token)
+    }
+
+    private func reviewReply(mail: GmailMessage, token: UUID) async throws {
+        sendReviewRevoked = true
+        try await say("Réponse à \(recipient ?? mail.sender) : \(draftText) Votre brouillon est prêt. Quelle suite souhaitez-vous lui donner ?", token: token)
+        try requireCurrent(token)
+        sendReviewRevoked = false
     }
 
     private func send(mail: GmailMessage, session: GmailAccessSession, token: UUID) async throws {

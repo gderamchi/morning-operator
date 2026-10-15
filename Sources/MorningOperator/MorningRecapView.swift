@@ -38,6 +38,10 @@ struct MorningRecapView: View {
             if let summary = store.executionSummary(for: session) {
                 Text(summary).font(.raleway(.footnote)).accessibilityIdentifier("recap.execution")
             }
+            if let count = store.confirmedNativeActionCount(for: session), count > 0 {
+                Text(AppLanguage.isFrench ? "Actions Apple confirmées : \(count)" : "Apple actions confirmed: \(count)")
+                    .font(.raleway(.footnote)).accessibilityIdentifier("recap.nativeActions")
+            }
             MorningRecapFeedback(store: store, session: session)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

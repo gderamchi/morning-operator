@@ -24,11 +24,13 @@ struct MorningMailMomentView: View {
                     get: { mail.selfMessageSubject },
                     set: { store.editSelfMail(subject: $0, body: mail.draftText) }))
                     .accessibilityIdentifier("mail.selfSubject")
+                    .disabled(mail.lastSendOutcome != nil || mail.state != .reviewingSelfMessage)
                 Text(french ? "Texte du message" : "Message body").font(.caption)
                 TextEditor(text: Binding(get: { mail.draftText },
                     set: { store.editSelfMail(subject: mail.selfMessageSubject, body: $0) }))
                     .frame(minHeight: 120, maxHeight: 220)
                     .accessibilityIdentifier("mail.selfBody")
+                    .disabled(mail.lastSendOutcome != nil || mail.state != .reviewingSelfMessage)
                 Button(french ? "Relire ce brouillon" : "Review this draft") { store.reviewSelfMail() }
                     .disabled(mail.selfMessageSubject.isEmpty || mail.draftText.isEmpty || mail.lastSendOutcome != nil)
                     .accessibilityIdentifier("mail.selfReview")

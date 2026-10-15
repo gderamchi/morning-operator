@@ -59,6 +59,15 @@ public struct ReminderSummary: Sendable, Equatable, Identifiable {
     public let notes: String
     public let dueDate: Date?
     public let listTitle: String
+    public let listID: String
+    public let sourceID: String
+    public let sourceTitle: String
+
+    public init(id: String, title: String, notes: String, dueDate: Date?, listTitle: String,
+                listID: String = "", sourceID: String = "", sourceTitle: String = "") {
+        self.id = id; self.title = title; self.notes = notes; self.dueDate = dueDate
+        self.listTitle = listTitle; self.listID = listID; self.sourceID = sourceID; self.sourceTitle = sourceTitle
+    }
 }
 
 public struct EventKitWriteReceipt: Sendable, Equatable, Identifiable {
@@ -166,7 +175,9 @@ public final class ReminderService {
                           let due = EventKitDraftValidation.reminderDueDate(components),
                           due >= start, due <= end else { return nil }
                     return ReminderSummary(id: reminder.calendarItemIdentifier, title: reminder.title ?? String(localized: "Untitled reminder", bundle: .module),
-                        notes: reminder.notes ?? "", dueDate: due, listTitle: reminder.calendar.title)
+                        notes: reminder.notes ?? "", dueDate: due, listTitle: reminder.calendar.title,
+                        listID: reminder.calendar.calendarIdentifier, sourceID: reminder.calendar.source.sourceIdentifier,
+                        sourceTitle: reminder.calendar.source.title)
                 }.sorted {
                     if $0.dueDate != $1.dueDate { return ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
                     return $0.id < $1.id
@@ -181,21 +192,9 @@ public final class ReminderService {
 
     @discardableResult
     public func createReminder(from draft: ReminderDraft) throws -> EventKitWriteReceipt {
-        try draft.validate()
-        guard hasReminderAccess else { throw ReminderServiceError.remindersNotAuthorized }
-        guard let list = store.defaultCalendarForNewReminders(), list.allowsContentModifications else {
-            throw ReminderServiceError.noWritableReminderList
-        }
-        let reminder = EKReminder(eventStore: store)
-        reminder.calendar = list
-        reminder.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        reminder.notes = draft.notes.isEmpty ? nil : draft.notes
-        if let due = draft.dueDate, let timeZone = TimeZone(identifier: draft.timeZoneIdentifier) {
-            reminder.dueDateComponents = EventKitDraftValidation.reminderDateComponents(due, timeZone: timeZone)
-            if draft.notifyAtDueTime { reminder.addAlarm(EKAlarm(absoluteDate: due)) }
-        }
-        try store.save(reminder, commit: true)
-        return EventKitWriteReceipt(id: reminder.calendarItemIdentifier, title: reminder.title, destination: .reminder)
+        let destination = try destination(for: .reminder)
+        let id = try perform(.reminder(draft, destination))
+        return EventKitWriteReceipt(id: id, title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines), destination: .reminder)
     }
 
     /// Re-read the exact reviewed item before applying an idempotent completion.
@@ -204,12 +203,14 @@ public final class ReminderService {
         guard let reminder = store.calendarItem(withIdentifier: expected.id) as? EKReminder else {
             throw ReminderServiceError.reminderChanged
         }
-        if reminder.isCompleted { return }
         guard reminder.title == expected.title, (reminder.notes ?? "") == expected.notes,
               reminder.calendar.title == expected.listTitle,
+              (expected.listID.isEmpty || reminder.calendar.calendarIdentifier == expected.listID),
+              (expected.sourceID.isEmpty || reminder.calendar.source.sourceIdentifier == expected.sourceID),
               reminder.dueDateComponents.flatMap(EventKitDraftValidation.reminderDueDate) == expected.dueDate else {
             throw ReminderServiceError.reminderChanged
         }
+        if reminder.isCompleted { return }
         guard reminder.calendar.allowsContentModifications else { throw ReminderServiceError.reminderNotWritable }
         reminder.isCompleted = true
         try store.save(reminder, commit: true)
@@ -217,22 +218,10 @@ public final class ReminderService {
 
     @discardableResult
     public func createCalendarEvent(from draft: CalendarEventDraft) throws -> EventKitWriteReceipt {
-        try draft.validate()
-        guard hasCalendarWriteAccess else { throw ReminderServiceError.calendarNotAuthorized }
-        guard let calendar = store.defaultCalendarForNewEvents, calendar.allowsContentModifications else {
-            throw ReminderServiceError.noWritableCalendar
-        }
-        let event = EKEvent(eventStore: store)
-        event.calendar = calendar
-        event.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        event.notes = draft.notes.isEmpty ? nil : draft.notes
-        event.startDate = draft.startDate
-        event.endDate = draft.endDate
-        event.timeZone = TimeZone(identifier: draft.timeZoneIdentifier)
-        event.isAllDay = false
-        try store.save(event, span: .thisEvent, commit: true)
-        // With write-only access, the identifier is a receipt, not permission to read the event.
-        return EventKitWriteReceipt(id: event.calendarItemIdentifier, title: event.title, destination: .calendar)
+        let destination = try destination(for: .calendar)
+        let id = try perform(.event(draft, destination))
+        // Write-only access confirms a local save, not remote synchronization or read permission.
+        return EventKitWriteReceipt(id: id, title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines), destination: .calendar)
     }
 
     private func requireUsageDescription(_ key: String) throws {
@@ -249,6 +238,64 @@ public final class ReminderService {
         case .writeOnly: .writeOnly
         case .fullAccess: .fullAccess
         @unknown default: .unknown
+        }
+    }
+}
+
+
+extension ReminderService: NativeMomentProviding {
+    public func destination(for kind: CaptureDestination) throws -> NativeMomentDestination {
+        let calendar: EKCalendar
+        switch kind {
+        case .reminder:
+            guard hasReminderAccess else { throw ReminderServiceError.remindersNotAuthorized }
+            guard let value = store.defaultCalendarForNewReminders(), value.allowsContentModifications else { throw ReminderServiceError.noWritableReminderList }
+            calendar = value
+        case .calendar:
+            guard hasCalendarWriteAccess else { throw ReminderServiceError.calendarNotAuthorized }
+            guard let value = store.defaultCalendarForNewEvents, value.allowsContentModifications else { throw ReminderServiceError.noWritableCalendar }
+            calendar = value
+        default: throw NativeMomentError.destinationChanged
+        }
+        return NativeMomentDestination(id: calendar.calendarIdentifier, sourceID: calendar.source.sourceIdentifier,
+            title: calendar.title, sourceTitle: calendar.source.title, kind: kind)
+    }
+
+    public func validateDestination(_ expected: NativeMomentDestination) throws {
+        guard try destination(for: expected.kind) == expected else { throw NativeMomentError.destinationChanged }
+    }
+
+    public func upcomingReminders() async throws -> [ReminderSummary] {
+        try await fetchUpcomingReminders(limit: 50)
+    }
+
+    public func perform(_ action: NativeMomentAction) throws -> String {
+        switch action {
+        case .complete(let expected):
+            guard !expected.listID.isEmpty, !expected.sourceID.isEmpty else { throw NativeMomentError.staleSource }
+            try completeReminder(expected); return expected.id
+        case .reminder(let draft, let expected):
+            try draft.validate(); try validateDestination(expected)
+            guard expected.kind == .reminder, let list = store.defaultCalendarForNewReminders(),
+                  list.calendarIdentifier == expected.id else { throw NativeMomentError.destinationChanged }
+            let reminder = EKReminder(eventStore: store)
+            reminder.calendar = list; reminder.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            reminder.notes = draft.notes.isEmpty ? nil : draft.notes
+            if let date = draft.dueDate, let zone = TimeZone(identifier: draft.timeZoneIdentifier) {
+                reminder.dueDateComponents = EventKitDraftValidation.reminderDateComponents(date, timeZone: zone)
+                if draft.notifyAtDueTime { reminder.addAlarm(EKAlarm(absoluteDate: date)) }
+            }
+            try store.save(reminder, commit: true); return reminder.calendarItemIdentifier
+        case .event(let draft, let expected):
+            try draft.validate(); try validateDestination(expected)
+            guard expected.kind == .calendar, let calendar = store.defaultCalendarForNewEvents,
+                  calendar.calendarIdentifier == expected.id else { throw NativeMomentError.destinationChanged }
+            let event = EKEvent(eventStore: store)
+            event.calendar = calendar; event.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            event.notes = draft.notes.isEmpty ? nil : draft.notes; event.startDate = draft.startDate; event.endDate = draft.endDate
+            event.timeZone = TimeZone(identifier: draft.timeZoneIdentifier); event.isAllDay = false
+            event.alarms = nil; event.recurrenceRules = nil
+            try store.save(event, span: .thisEvent, commit: true); return event.calendarItemIdentifier
         }
     }
 }

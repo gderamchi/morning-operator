@@ -236,6 +236,8 @@ enum OwnInterfaceWording {
          shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour")],
         [shown("Suggested update", fr: "Mise à jour suggérée"), shown("Discard", fr: "Supprimer"),
          shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour")],
+        // At accessibility sizes only MORE's compact branded approval stays pinned.
+        [shown("Suggested update", fr: "Mise à jour suggérée"), shown("Let MORE do it", fr: "Confier à MORE")],
         // The list of saved observations: its title and the button beside it, and the two
         // buttons under it once some are chosen.
         [shown("Observations", fr: "Observations"), shown("Choose mornings", fr: "Choisir des matinées")],

@@ -25,6 +25,7 @@ public final class MorningHandsFreeVoiceCoordinator {
     public let conversation = MorningVoiceConversation()
     public var interruptedRunningSession = false
     public var momentContext = ""
+    public var continuation = MorningVoiceContinuationPolicy()
 
     #if os(iOS)
     @ObservationIgnored private var runID: UUID?
@@ -122,7 +123,7 @@ public final class MorningHandsFreeVoiceCoordinator {
     }
 
     private func stop(finalState: MorningHandsFreeVoiceState, finalMessage: String) {
-        transcript = ""; interruptedRunningSession = false; momentContext = ""
+        transcript = ""; interruptedRunningSession = false; momentContext = ""; continuation.invalidate()
         #if os(iOS)
         runID = nil; recognitionID = nil; turn.cancel()
         startup?.cancel(); processing?.cancel(); processing = nil

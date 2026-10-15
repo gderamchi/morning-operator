@@ -128,6 +128,8 @@
 		B1DF2F619CD89B91CAD0E0CA /* RoutineAutomationJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B4013B2301F4C70849A6C0 /* RoutineAutomationJourneyTests.swift */; };
 		E3544375F7026826D8A40DD9 /* MorningStore+Mail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B941431C39046FC7CB3738A /* MorningStore+Mail.swift */; };
 		A171E049ED4B4D4AB08B0D01 /* MorningMailMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171E049ED4B4D4AB08B0D02 /* MorningMailMomentView.swift */; };
+		A171E049ED4B4D4AB08B0D03 /* NativeMomentReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171E049ED4B4D4AB08B0D04 /* NativeMomentReviewView.swift */; };
+		A171E049ED4B4D4AB08B0D05 /* MorningStore+NativeMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171E049ED4B4D4AB08B0D06 /* MorningStore+NativeMoment.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -296,6 +298,8 @@
 		83B4013B2301F4C70849A6C0 /* RoutineAutomationJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RoutineAutomationJourneyTests.swift"; sourceTree = "<group>"; };
 		9B941431C39046FC7CB3738A /* MorningStore+Mail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Mail.swift"; sourceTree = "<group>"; };
 		A171E049ED4B4D4AB08B0D02 /* MorningMailMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningMailMomentView.swift; sourceTree = "<group>"; };
+		A171E049ED4B4D4AB08B0D04 /* NativeMomentReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NativeMomentReviewView.swift"; sourceTree = "<group>"; };
+		A171E049ED4B4D4AB08B0D06 /* MorningStore+NativeMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+NativeMoment.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -440,6 +444,8 @@
 		B85A9C9668908E5EDC3AC769 /* MorningOperator */ = {
 			isa = PBXGroup;
 			children = (
+				A171E049ED4B4D4AB08B0D04 /* NativeMomentReviewView.swift */,
+				A171E049ED4B4D4AB08B0D06 /* MorningStore+NativeMoment.swift */,
 				9B941431C39046FC7CB3738A /* MorningStore+Mail.swift */,
 				9C53618048F8500BEF3E78F3 /* MorningStore+HandsFree.swift */,
 				98B22AFAFCA9A8E608BECF6E /* MorningStore+Execution.swift */,
@@ -855,6 +861,8 @@
 				55ECD994DC959979FBCF2177 /* MorningStore+StepTimer.swift in Sources */,
 				3DAD6D551A8D23872EB45AEF /* MorningStore+UITestObservation.swift in Sources */,
 				D3E9DB5BEC04C3AE555CACB2 /* MorningStore.swift in Sources */,
+				A171E049ED4B4D4AB08B0D03 /* NativeMomentReviewView.swift in Sources */,
+				A171E049ED4B4D4AB08B0D05 /* MorningStore+NativeMoment.swift in Sources */,
 				E3544375F7026826D8A40DD9 /* MorningStore+Mail.swift in Sources */,
 				A36795BA2F1BAF85B6980FD2 /* MorningStore+HandsFree.swift in Sources */,
 				C8CC7BD199C9289C66D2EDA7 /* MorningStore+Execution.swift in Sources */,

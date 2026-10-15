@@ -223,6 +223,28 @@ final class MorningStore {
     let briefing: MorningBriefingController
     let composio = ComposioService()
     let nativeConnections = NativeConnectionsService()
+    var nativeConfirmedActionCounts: [UUID: Int] = [:]
+    @ObservationIgnored var nativeMomentTask: Task<Void, Never>?
+    @ObservationIgnored lazy var nativeMoment: NativeMomentConversation = {
+        let provider: any NativeMomentProviding
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing"), ProcessInfo.processInfo.arguments.contains("--ui-testing-native-actions") {
+            provider = NativeMomentUITestProvider()
+        } else { provider = reminders }
+        #else
+        provider = reminders
+        #endif
+        return NativeMomentConversation(provider: provider, directory: snapshot.url.deletingLastPathComponent(), speak: { [weak self] text in
+            guard let self, !self.privacyBlocksWork else { throw CancellationError() }
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing"), ProcessInfo.processInfo.arguments.contains("--ui-testing-native-actions") {
+                // Synthetic UI fixtures use the explicit screen-review fallback, never fake acoustic success.
+                throw CancellationError()
+            }
+            #endif
+            try await self.speech.speakAndWait(text)
+        })
+    }()
     @ObservationIgnored let connectedMoment = ConnectedMomentState()
     @ObservationIgnored let routineWebMoment = RoutineWebMomentRetainer()
     @ObservationIgnored var connectedAPITask: Task<Void, Never>?
@@ -232,6 +254,7 @@ final class MorningStore {
     var webExecutionEvent: WebMorningExecutionEvent?
     @ObservationIgnored var executionSpeechTask: Task<Void, Never>?
     let handsFreeVoice = MorningHandsFreeVoiceCoordinator()
+    @ObservationIgnored var handsFreePauseRevision = UUID()
     @ObservationIgnored var handsFreeUtteranceHandler: (@MainActor (String) async -> Bool)?
     @ObservationIgnored lazy var mailMorning = GmailMorningConversation(speak: { [weak self] text in
         guard let self else { throw CancellationError() }
@@ -522,6 +545,7 @@ final class MorningStore {
                 notice = String(localized: "\(message) Your existing file is protected from changes.")
             }
         }
+        refreshNativeActionCount()
     }
 
     /// Unsaved typed notes have no archive entry yet and are never imported evidence.
@@ -878,6 +902,7 @@ final class MorningStore {
     }
 
     func pause() {
+        handsFreePauseRevision = UUID()
         guard !privacyBlocksWork else { return }
         preserveMailExecutionBeforeInterruption()
         executionSpeechTask?.cancel(); executionSpeechTask = nil
@@ -2467,6 +2492,7 @@ final class MorningStore {
         briefing.cancelAndClear()
         connectedAPITask?.cancel(); connectedAPITask = nil
         connectedActionStatus = nil
+        clearNativeMoment(forPrivacy: true)
         connectedMoment.clear()
         routineWebMoment.clear()
         composio.cancelPendingOperations()
@@ -2599,6 +2625,7 @@ final class MorningStore {
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         executionRecords = []; webExecutionEvent = nil
+        clearNativeMoment(forPrivacy: true)
         connectedMoment.clear()
         routineWebMoment.clear()
         stopHandsFreeVoice(); mailMorning.clear()

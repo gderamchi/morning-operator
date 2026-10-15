@@ -82,11 +82,11 @@ struct GmailConnectionView: View {
                 Button {
                     controller.connect(access: .readAndSend)
                 } label: {
-                    Text(AppLanguage.isFrench ? "Autoriser les réponses pendant mon matin" : "Enable replies during my morning")
+                    Text(AppLanguage.isFrench ? "Autoriser l’envoi pendant mon matin" : "Enable sending during my morning")
                 }
                 .disabled(!canRead || controller.isBusy)
                 .accessibilityIdentifier("gmail.enableSending")
-                Text(AppLanguage.isFrench ? "Google demandera aussi le droit d’envoyer. MORE n’envoie une réponse préparée que lorsque vous dites « envoie »." : "Google will also ask for sending access. MORE sends a prepared reply only when you say “send”.")
+                Text(AppLanguage.isFrench ? "Google demandera aussi le droit d’envoyer. MORE n’envoie un message préparé et relu qu’après votre demande explicite d’envoi." : "Google will also ask for sending access. MORE sends a prepared, reviewed message only after your explicit request to send it.")
                     .font(.caption).foregroundStyle(MorningStyle.muted)
             }
             if controller.hasSession || controller.hasSavedConnection || controller.canRetryConnection {

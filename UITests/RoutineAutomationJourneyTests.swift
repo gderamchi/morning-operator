@@ -3,6 +3,48 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    func testNativeRequestReviewAndBackgroundPrivacyUseExplicitSyntheticProvider() {
+        let app = launch(["--ui-testing-native-actions", "--ui-testing-approved", "--ui-testing-hands-free"])
+        defer { app.terminate() }
+        reveal(app)
+        app.buttons["morning.begin"].tap()
+        tapVisible("nativeMoment.open", in: app)
+        let request = app.descendants(matching: .any).matching(identifier: "nativeMoment.request").firstMatch
+        XCTAssertTrue(request.waitForExistence(timeout: 8))
+        request.tap(); request.typeText("Private unsubmitted synthetic request")
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        reveal(app)
+        tapVisible("nativeMoment.open", in: app)
+        XCTAssertFalse((request.value as? String ?? "").contains("Private unsubmitted"), "Backgrounding must clear even an unsubmitted native request.")
+        request.tap(); request.typeText("Reminder: water plants no date")
+        tapVisible("nativeMoment.prepare", in: app)
+        let confirm = app.buttons["nativeMoment.confirm"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["nativeMoment.synthetic"].label.contains("SYNTHETIC"))
+        XCTAssertFalse(confirm.isEnabled, "Interrupted spoken review must require explicit screen review before writing.")
+        tapVisible("nativeMoment.reviewed", in: app)
+        tapVisible("nativeMoment.confirm", in: app)
+        let status = app.staticTexts["nativeMoment.status"]
+        let added = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@ AND label CONTAINS %@", "was added", "water plants", "SYNTHETIC"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [added], timeout: 8), .completed)
+        XCTAssertFalse(confirm.exists)
+        attach("automation-synthetic-native-addition-confirmed", app)
+        tapVisible("nativeMoment.cancel", in: app)
+        tapVisible("nativeMoment.open", in: app)
+        request.tap(); request.typeText("read my reminders")
+        tapVisible("nativeMoment.prepare", in: app)
+        tapVisible("nativeMoment.reminder.0", in: app)
+        XCTAssertTrue(confirm.waitForExistence(timeout: 8))
+        XCTAssertFalse(confirm.isEnabled)
+        tapVisible("nativeMoment.reviewed", in: app)
+        tapVisible("nativeMoment.confirm", in: app)
+        let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "marked complete", "SYNTHETIC appeler le garage"), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 8), .completed)
+        XCTAssertFalse(confirm.exists)
+        attach("automation-synthetic-observed-reminder-completed", app)
+    }
+
     func testLearnedSuggestionCanBeEditedBeforeDelegationAndRestoresPreviousRoutine() {
         let app = launch(["--ui-testing-approved", "--ui-testing-observation-archive", "--ui-testing-evidence-proposals"])
         defer { app.terminate() }
@@ -64,7 +106,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         app.buttons["morning.begin"].tap()
         let status = app.staticTexts["moment.connectedResult"]
         XCTAssertTrue(status.waitForExistence(timeout: 20))
-        XCTAssertTrue(status.label.contains("Your selected calendars are not ready"), status.label)
+        XCTAssertTrue(status.label.contains("Your day is not ready"), status.label)
         XCTAssertTrue(status.label.contains("Your morning is paused"), status.label)
         XCTAssertTrue(status.label.contains("Say resume to retry, next to continue"), status.label)
         XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
@@ -78,6 +120,30 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertFalse(recap.contains("Verified operations: 2"), recap)
         XCTAssertFalse(status.exists)
         attach("automation-unavailable-calendar-honest-recap", app)
+    }
+
+    func testFrenchLargestTextKeepsLearnedProposalActionsReachable() {
+        let app = launch(["--ui-testing-approved", "--ui-testing-observation-archive", "--ui-testing-evidence-proposals",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        reveal(app)
+        app.buttons["morning.review"].tap()
+        tapVisible("learn.refine", in: app)
+        tapVisible("learn.savedObservations", in: app)
+        XCTAssertTrue(app.buttons["observations.choose"].waitForExistence(timeout: 8))
+        app.buttons["observations.choose"].tap()
+        tapVisible("observation.select.11111111-1111-4111-8111-111111111111", in: app)
+        tapVisible("observations.suggestUpdate", in: app)
+        XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 15))
+        let keep = visibleButton("proposal.keepCurrent", in: app)
+        XCTAssertTrue(keep.isHittable)
+        let edit = visibleButton("proposal.edit", in: app)
+        attach("automation-french-largest-learned-proposal-actions", app)
+        XCTAssertTrue(edit.isHittable)
+        XCTAssertTrue(app.buttons["proposal.approve"].isHittable)
+        edit.tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.approve"].isHittable)
     }
 
     func testFrenchLargestTextKeepsDelegationAndApprovalReachable() {
@@ -247,11 +313,19 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         }
     }
     private func tapVisible(_ identifier: String, in app: XCUIApplication) {
+        visibleButton(identifier, in: app).tap()
+    }
+    private func visibleButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         let button = app.buttons[identifier]
-        for _ in 0..<10 where !button.exists || !button.isHittable { app.swipeUp() }
+        for _ in 0..<12 where !button.exists || !button.isHittable {
+            let scrolls = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex + app.scrollViews.allElementsBoundByIndex
+            let scroll = scrolls.first { $0.isHittable } ?? app
+            if button.exists, button.frame.height > 0, button.frame.midY < scroll.frame.midY { scroll.swipeDown() }
+            else { scroll.swipeUp() }
+        }
         XCTAssertTrue(button.exists, "Missing control: \(identifier)")
         XCTAssertTrue(button.isHittable, "Unreachable control: \(identifier)")
-        button.tap()
+        return button
     }
     private func attach(_ name: String, _ app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: app.screenshot())

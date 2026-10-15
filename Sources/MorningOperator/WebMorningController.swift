@@ -731,6 +731,8 @@ final class RoutineWebMomentRetainer {
         return controller
     }
 
+    func hasController(for executionID: MorningExecutionID) -> Bool { retained?.executionID == executionID }
+
     func discardSourceContext() { retained?.controller.discardSourceContext() }
 
     func clear() {

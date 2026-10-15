@@ -658,6 +658,13 @@ struct OwnInterfaceWordingTests {
         #expect(!sources.contains("enum OwnInterfaceWording"))
     }
 
+    @Test("The compact learned-proposal bars still exclude source quotations at large text sizes")
+    func compactProposalExcludesItsQuotedContent() {
+        #expect(isOwnInterface("Suggested update\nLet MORE do it\n09:00 Team planning meeting"))
+        #expect(isOwnInterface("Mise à jour suggérée\nConfier à MORE\n09:00 Réunion de planification"))
+        #expect(!isOwnInterface("Suggested update\nApprove\n09:00 Team planning meeting"))
+    }
+
     @Test("Delegation wording keeps historical routine and suggestion screens excluded")
     func earlierApprovalScreensRemainExcluded() {
         for screen in [

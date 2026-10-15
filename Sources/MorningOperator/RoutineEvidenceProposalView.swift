@@ -9,12 +9,20 @@ struct RoutineEvidenceProposalView: View {
     var onLearn: () -> Void
     var onEdit: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
             MorningList {
                 if let proposal = store.pendingRoutineProposal {
                     summary(proposal)
+                    if dynamicTypeSize.isAccessibilitySize {
+                        Section {
+                            delegationExplanation
+                            editButton
+                            keepCurrentButton
+                        }
+                    }
                     if proposal.baseRoutineID != nil, let current = store.routine {
                         Section {
                             DisclosureGroup("Compare with current routine") {
@@ -144,42 +152,15 @@ struct RoutineEvidenceProposalView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if let proposal = store.pendingRoutineProposal {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(AppLanguage.isFrench ? "MORE s’occupe des actions présentées ici. Vous pouvez l’interrompre à tout moment." : "MORE takes care of the actions shown here. You can interrupt at any time.")
-                            .font(.footnote).fixedSize(horizontal: false, vertical: true)
-                        if store.sessionActive {
-                            Text("Finish or end your current morning before approving an update.")
-                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                        }
-                        Button {
-                            if store.editPendingRoutineProposal() {
-                                onEdit()
-                                dismiss()
+                        if dynamicTypeSize.isAccessibilitySize {
+                            approveButton(proposal, compact: true)
+                        } else {
+                            delegationExplanation
+                            editButton
+                            HStack(spacing: 12) {
+                                keepCurrentButton
+                                approveButton(proposal, compact: false)
                             }
-                        } label: {
-                            Label(AppLanguage.isFrench ? "Ajuster cette proposition" : "Adjust this suggestion", systemImage: "slider.horizontal.3")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(SecondaryButtonStyle())
-                        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil)
-                        .accessibilityIdentifier("proposal.edit")
-                        HStack(spacing: 12) {
-                            Button(store.routine == nil ? "Discard" : "Keep current") {
-                                if store.discardPendingRoutineProposal() { dismiss() }
-                            }
-                            .buttonStyle(SecondaryButtonStyle())
-                            .disabled(store.busy || !store.storageIsAvailable)
-                            .accessibilityIdentifier("proposal.keepCurrent")
-                            Button {
-                                if store.approvePendingRoutineProposal() {
-                                    dismiss()
-                                    store.tab = .today
-                                }
-                            } label: {
-                                Label(AppLanguage.isFrench ? "Confier ce matin à MORE" : "Let MORE take care of this morning", systemImage: "checkmark").frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil || proposal.routine.steps.isEmpty)
-                            .accessibilityIdentifier("proposal.approve")
                         }
                     }.padding(20).background(.regularMaterial)
                 }
@@ -187,6 +168,52 @@ struct RoutineEvidenceProposalView: View {
         }
         .onAppear { store.routineProposalPresented = true }
         .onDisappear { store.routineProposalPresented = false }
+    }
+
+    private var delegationExplanation: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AppLanguage.isFrench ? "MORE s’occupe des actions présentées ici. Vous pouvez l’interrompre à tout moment." : "MORE takes care of the actions shown here. You can interrupt at any time.")
+                .font(.footnote).fixedSize(horizontal: false, vertical: true)
+            if store.sessionActive {
+                Text("Finish or end your current morning before approving an update.")
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            }
+        }
+    }
+
+    private var editButton: some View {
+        Button {
+            if store.editPendingRoutineProposal() { onEdit(); dismiss() }
+        } label: {
+            Label(AppLanguage.isFrench ? "Ajuster cette proposition" : "Adjust this suggestion", systemImage: "slider.horizontal.3")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil)
+        .accessibilityIdentifier("proposal.edit")
+    }
+
+    private var keepCurrentButton: some View {
+        Button(store.routine == nil ? "Discard" : "Keep current") {
+            if store.discardPendingRoutineProposal() { dismiss() }
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .disabled(store.busy || !store.storageIsAvailable)
+        .accessibilityIdentifier("proposal.keepCurrent")
+    }
+
+    private func approveButton(_ proposal: EvidenceRoutineProposal, compact: Bool) -> some View {
+        Button {
+            if store.approvePendingRoutineProposal() { dismiss(); store.tab = .today }
+        } label: {
+            Label(compact ? (AppLanguage.isFrench ? "Confier à MORE" : "Let MORE do it")
+                  : (AppLanguage.isFrench ? "Confier ce matin à MORE" : "Let MORE take care of this morning"), systemImage: "checkmark")
+                .frame(maxWidth: .infinity)
+        }
+        .accessibilityLabel(AppLanguage.isFrench ? "Confier ce matin à MORE" : "Let MORE take care of this morning")
+        .buttonStyle(PrimaryButtonStyle())
+        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil || proposal.routine.steps.isEmpty)
+        .accessibilityIdentifier("proposal.approve")
     }
 
     private func summary(_ proposal: EvidenceRoutineProposal) -> some View {

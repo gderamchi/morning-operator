@@ -167,7 +167,7 @@ extension MorningStore {
         nativeConnections.cancelPendingWork()
         stepTimerTask?.cancel(); stepTimerTask = nil
         let retired = StepTimerFile.clear()
-        if retired { connectedMoment.clear(); routineWebMoment.clear() }
+        if retired { connectedMoment.clear(); routineWebMoment.clear(); clearNativeMoment() }
         StepTimerAlert.cancel()
         pendingWebTarget = nil
         stepTimerRevision += 1

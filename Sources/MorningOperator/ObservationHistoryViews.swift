@@ -8,6 +8,7 @@ struct ObservationHistoryView: View {
     var onlyUndated = false
     var onLearn: () -> Void
     var onEdit: (() -> Void)? = nil
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ViewState<Bool> private var confirmingClear = false
     @ViewState<Bool> private var choosingMornings = false
     @ViewState<Set<UUID>> private var selectedIDs = []
@@ -60,6 +61,7 @@ struct ObservationHistoryView: View {
                 Section {
                     Text("Choose dated observations from your own mornings, or a separate set of samples. Nothing is selected automatically.")
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                    if dynamicTypeSize.isAccessibilitySize { selectionDetails }
                     if store.usesSyntheticProposalFixture {
                         Text("Synthetic suggestion test — no Apple model call")
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
@@ -180,6 +182,26 @@ struct ObservationHistoryView: View {
 
     private var suggestionControls: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if !dynamicTypeSize.isAccessibilitySize { selectionDetails }
+            Button {
+                proposalBeforeRequest = store.pendingRoutineProposal?.id
+                awaitingSuggestion = true
+                store.suggestRoutine(from: selectedIDs)
+                finishSuggestionIfReady()
+            } label: {
+                Label(dynamicTypeSize.isAccessibilitySize
+                      ? (AppLanguage.isFrench ? "Proposer" : "Suggest") : String(localized: "Suggest an update"), systemImage: "sparkles")
+                    .frame(maxWidth: .infinity)
+            }
+            .accessibilityLabel("Suggest an update")
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(selectionIssue != nil || store.busy || store.sessionActive || !store.storageIsAvailable || !store.canSuggestSavedObservations)
+            .accessibilityIdentifier("observations.suggestUpdate")
+        }.padding(20).background(.regularMaterial)
+    }
+
+    private var selectionDetails: some View {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text(selectionSummary).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     .accessibilityIdentifier("observations.selectionSummary")
@@ -190,18 +212,7 @@ struct ObservationHistoryView: View {
                 }
             }
             if let selectionIssue { Text(selectionIssue).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
-            Button {
-                proposalBeforeRequest = store.pendingRoutineProposal?.id
-                awaitingSuggestion = true
-                store.suggestRoutine(from: selectedIDs)
-                finishSuggestionIfReady()
-            } label: {
-                Label("Suggest an update", systemImage: "sparkles").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(selectionIssue != nil || store.busy || store.sessionActive || !store.storageIsAvailable || !store.canSuggestSavedObservations)
-            .accessibilityIdentifier("observations.suggestUpdate")
-        }.padding(20).background(.regularMaterial)
+        }
     }
 
     private func eligibilityIssue(_ entry: ObservationAcquisition) -> String? {

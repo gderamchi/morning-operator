@@ -670,6 +670,106 @@ struct GmailMorningTests {
         #expect(unavailable.message.contains("conversation locale") && unavailable.lastSendOutcome == nil)
     }
 
+    @Test func nativeDialogueTerminalCannotSendTheOlderMailWithoutFreshSeparateReview() async throws {
+        for selfMessage in [false, true] {
+            let context = Context(); defer { context.cleanup() }
+            var posts = 0, spoken: [String] = []
+            let service = makeService(context) { request in
+                if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+                if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+                if request.httpMethod == "POST" { posts += 1; return response(request, ["id": "sent123"]) }
+                if request.url?.path.hasSuffix("/messages") == true {
+                    return response(request, selfMessage ? ["resultSizeEstimate": 0] : ["messages": [["id": "a1"]]])
+                }
+                return response(request, object("a1", subject: "Invented", body: "Invented request"))
+            }
+            try service.saveConnection(session: await access(service), generation: nil)
+            let mail = GmailMorningConversation(service: service,
+                drafts: GmailReplyDraftService(generator: { _ in "Exact older reply." }), privacy: context.privacy,
+                speak: { spoken.append($0) })
+            let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+            await mail.begin(context: id, generation: nil)
+            if selfMessage { await mail.beginSelfMessage(intention: "objet «Test MORE» texte «Exact older note.»", context: id) }
+            else { await mail.respond("oui", context: id); await mail.respond("Invented intention", context: id) }
+            let oldDraft = mail.draftText, oldRecipient = mail.recipient
+            let native = NativeMomentConversation(provider: MailHandoffNativeProvider(), directory: context.directory, speak: { _ in })
+            // Same focus handoff as the ordinary Store native entry points.
+            mail.revokeReviewPreservingDraft(context: id)
+            _ = await native.respond("Reminder: water plants no date", context: id)
+            _ = await native.respond("add it", context: id)
+            #expect(native.phase == .completed)
+            #expect(mail.draftText == oldDraft && mail.recipient == oldRecipient && !mail.canSendSelfMessage)
+            await mail.respond("envoie", context: id)
+            #expect(posts == 0 && spoken.last?.contains(oldDraft) == true)
+            #expect(mail.draftText == oldDraft && mail.recipient == oldRecipient)
+            await mail.respond("envoie", context: id)
+            await mail.respond("envoie", context: id)
+            #expect(posts == 1 && mail.lastSendOutcome == .sent)
+        }
+    }
+
+    @Test func interruptedHandoffReviewKeepsTouchAndVoiceSendRevokedUntilACompleteReview() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0, interruptReview = false
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" { posts += 1; return response(request, ["id": "sent123"]) }
+            return response(request, ["resultSizeEstimate": 0])
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let mail = GmailMorningConversation(service: service, privacy: context.privacy, speak: { _ in
+            if interruptReview { throw CancellationError() }
+        })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await mail.begin(context: id, generation: nil)
+        await mail.beginSelfMessage(intention: "objet «Test MORE» texte «Exact body»", context: id)
+        mail.revokeReviewPreservingDraft(context: .init(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID()))
+        #expect(mail.canSendSelfMessage)
+        mail.revokeReviewPreservingDraft(context: id)
+        #expect(!mail.canSendSelfMessage)
+        interruptReview = true
+        await mail.respond("envoie", context: id)
+        await mail.respond("envoie", context: id)
+        #expect(!mail.canSendSelfMessage && posts == 0)
+        interruptReview = false
+        await mail.reviewSelfMessage(subject: mail.selfMessageSubject, body: mail.draftText, context: id)
+        #expect(mail.canSendSelfMessage && posts == 0)
+        await mail.respond("envoie", context: id)
+        mail.revokeReviewPreservingDraft(context: id)
+        #expect(posts == 1 && mail.lastSendOutcome == .sent && mail.isCompleted)
+    }
+
+    @Test func handoffDoesNotResetAnUncertainSendOrItsDurableClaim() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" { posts += 1; throw URLError(.timedOut) }
+            return response(request, ["resultSizeEstimate": 0])
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let mail = GmailMorningConversation(service: service, privacy: context.privacy, speak: { _ in })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await mail.begin(context: id, generation: nil)
+        await mail.beginSelfMessage(intention: "objet «Test MORE» texte «Exact body»", context: id)
+        await mail.respond("envoie", context: id)
+        #expect(mail.state == .uncertain && mail.lastSendOutcome == .uncertain && posts == 1)
+        mail.revokeReviewPreservingDraft(context: id)
+        await mail.respond("envoie", context: id)
+        #expect(mail.state == .uncertain && mail.lastSendOutcome == .uncertain && posts == 1)
+    }
+
+    @MainActor private final class MailHandoffNativeProvider: NativeMomentProviding {
+        func destination(for kind: CaptureDestination) throws -> NativeMomentDestination {
+            .init(id: "synthetic-list", sourceID: "synthetic-account", title: "Synthetic list", sourceTitle: "Synthetic account", kind: kind)
+        }
+        func validateDestination(_ destination: NativeMomentDestination) throws {}
+        func upcomingReminders() async throws -> [ReminderSummary] { [] }
+        func perform(_ action: NativeMomentAction) throws -> String { "synthetic-native-receipt" }
+    }
+
     private func makeService(_ context: Context, _ transport: @escaping GmailConnectionService.Transport) -> GmailConnectionService {
         GmailConnectionService(transport: transport, now: { instant }, credentialStorage: context.storage,
             privacyControl: context.privacy, configurationProvider: {
