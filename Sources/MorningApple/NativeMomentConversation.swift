@@ -54,6 +54,12 @@ public enum NativeMomentError: LocalizedError, Sendable {
     }
 }
 
+/// A content-free projection of durable claims, separate from routine completion.
+public struct NativeMomentActionCounts: Sendable, Equatable {
+    public let confirmed: Int
+    public let unconfirmed: Int
+}
+
 /// One native draft at a time, scoped to the current moment. Provider IDs never come from a model.
 @MainActor @Observable public final class NativeMomentConversation {
     public enum Phase: Sendable, Equatable { case idle, preparing, choosingReminder, needsDetails, reviewing, awaitingConfirmation, writing, completed, unavailable, uncertain }
@@ -237,8 +243,12 @@ public enum NativeMomentError: LocalizedError, Sendable {
     }
 
     public func confirmedActionCount(for session: RoutineSession) throws -> Int {
+        try actionCounts(for: session).confirmed
+    }
+
+    public func actionCounts(for session: RoutineSession) throws -> NativeMomentActionCounts {
         let current = try control.status()
-        return try NativeMomentJournal(control: control).confirmedCount(contexts: session.routine.steps.map {
+        return try NativeMomentJournal(control: control).counts(contexts: session.routine.steps.map {
             MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: $0.id)
         }, generation: current.generation)
     }
@@ -404,8 +414,15 @@ struct NativeMomentJournal {
         }
     }
     func confirmedCount(contexts: [MorningExecutionID], generation: UUID?) throws -> Int {
+        try counts(contexts: contexts, generation: generation).confirmed
+    }
+    func counts(contexts: [MorningExecutionID], generation: UUID?) throws -> NativeMomentActionCounts {
         let keys = Set(contexts.map { Self.contextKey($0) })
-        return try access(generation) { _, entries in entries.filter { $0.receipt != nil && keys.contains($0.context) }.count }
+        return try access(generation) { _, entries in
+            let matching = entries.filter { keys.contains($0.context) }
+            return NativeMomentActionCounts(confirmed: matching.filter { $0.receipt != nil }.count,
+                unconfirmed: matching.filter { $0.receipt == nil }.count)
+        }
     }
     private static func contextKey(_ context: MorningExecutionID) -> String {
         Self.digest(Data("\(context.sessionID):\(context.routineVersionID):\(context.stepID)".utf8))

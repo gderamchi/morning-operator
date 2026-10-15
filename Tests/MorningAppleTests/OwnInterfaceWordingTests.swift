@@ -685,6 +685,26 @@ struct OwnInterfaceWordingTests {
         #expect(isOwnInterface("Apprentissage du rythme de vos gestes\nCette page seulement. Cette estimation ne reproduit pas vos gestes.\nGarder pour apprendre"))
     }
 
+    @Test("Slack setup and source-bound reply panels exclude their quotations in both languages", arguments: ["en", "fr"])
+    func slackScreensExcludeTheirSourceText(language: String) throws {
+        let catalogs = try ShippedCatalogs.load()
+        let screens = [
+            ["Slack in your morning", "Choose a workspace and channel. MORE can read its messages and prepare a reply for your review."],
+            ["Reply in Slack", "Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction."]
+        ]
+        for keys in screens {
+            let lines = try OwnScreenFixtures.lines(keys, language, from: catalogs, width: 26)
+            let screen = (lines + ["09:00 Team planning meeting", "Can we meet tomorrow?"]).joined(separator: "\n")
+            #expect(isOwnInterface(screen))
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+            }
+            // An ordinary external Slack heading and real content remain usable evidence.
+            let heading = try catalogs.text(keys[0], language)
+            #expect(!isOwnInterface(heading + "\n09:00 Team planning meeting\nCan we meet tomorrow?"))
+        }
+    }
+
     @Test("Sentences are specific enough to count; short labels are kept as controls")
     func copyIsLongEnoughToBeDistinctive() {
         for screen in OwnInterfaceWording.screens {

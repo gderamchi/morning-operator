@@ -265,6 +265,56 @@ struct NativeMomentConversationTests {
         let restored = NativeMomentJournal(control: LocalDataControl(directory: path))
         #expect(try restored.confirmedCount(contexts: [first], generation: nil) == 1)
         #expect(try restored.confirmedCount(contexts: [other], generation: nil) == 1)
+        #expect(try restored.counts(contexts: [first], generation: nil) == NativeMomentActionCounts(confirmed: 1, unconfirmed: 1))
+        #expect(try restored.counts(contexts: [other], generation: nil) == NativeMomentActionCounts(confirmed: 1, unconfirmed: 0))
+        try restored.confirm(id: pending, fingerprint: String(repeating: "b", count: 64), receipt: "later-confirmed-source", generation: nil)
+        let confirmed = NativeMomentJournal(control: LocalDataControl(directory: path))
+        #expect(try confirmed.counts(contexts: [first], generation: nil) == NativeMomentActionCounts(confirmed: 2, unconfirmed: 0))
+    }
+
+    @Test func uncertainProviderWriteSurvivesClearAndRestorationWithoutCompletingItsMailMoment() async throws {
+        let provider = NativeMomentFakeProvider(), path = directory()
+        defer { try? FileManager.default.removeItem(at: path) }
+        provider.failWrite = true
+        let step = RoutineStep(title: "Private current mail moment", automation: .gmailInbox)
+        var session = RoutineSession(routine: RoutineVersion(sourceLabel: "Synthetic recap", steps: [step]).approved())
+        try session.start()
+        try session.pause()
+        let before = session
+        let context = MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
+        let conversation = NativeMomentConversation(provider: provider, directory: path, speak: { _ in })
+        _ = await conversation.respond("Reminder: PRIVATE_OWNER_TITLE no date", context: context)
+        _ = await conversation.respond("add it", context: context)
+        #expect(conversation.phase == .uncertain && provider.writes.count == 1)
+        #expect(try conversation.actionCounts(for: session) == NativeMomentActionCounts(confirmed: 0, unconfirmed: 1))
+        conversation.clear()
+        let restored = NativeMomentConversation(provider: provider, directory: path, speak: { _ in })
+        let journalURL = path.appendingPathComponent("native-moment-journal.json")
+        let saved = try Data(contentsOf: journalURL)
+        #expect(try restored.actionCounts(for: session) == NativeMomentActionCounts(confirmed: 0, unconfirmed: 1))
+        let otherSession = RoutineSession(routine: session.routine)
+        #expect(try restored.actionCounts(for: otherSession) == NativeMomentActionCounts(confirmed: 0, unconfirmed: 0))
+        #expect(session == before && session.completedStepIDs.isEmpty && session.currentStep?.automation == .gmailInbox)
+        #expect(try Data(contentsOf: journalURL) == saved, "Projection reads must not rewrite or resolve the claim.")
+        let text = try #require(String(data: saved, encoding: .utf8))
+        for privateValue in ["PRIVATE_OWNER_TITLE", step.title, "My list", "My account", "list-1", "account-1", "real-injected-receipt"] {
+            #expect(!text.contains(privateValue))
+        }
+    }
+
+    @Test func projectionRequiresExactVersionStepAndCurrentPrivacyGeneration() throws {
+        let path = directory(); defer { try? FileManager.default.removeItem(at: path) }
+        let control = LocalDataControl(directory: path), context = context()
+        let journal = NativeMomentJournal(control: control)
+        let claimed = try journal.claim(id: UUID(), context: context, fingerprint: String(repeating: "e", count: 64), generation: nil)
+        #expect(claimed)
+        let wrongVersion = MorningExecutionID(sessionID: context.sessionID, routineVersionID: UUID(), stepID: context.stepID)
+        let wrongStep = MorningExecutionID(sessionID: context.sessionID, routineVersionID: context.routineVersionID, stepID: UUID())
+        #expect(try journal.counts(contexts: [wrongVersion, wrongStep], generation: nil) == NativeMomentActionCounts(confirmed: 0, unconfirmed: 0))
+        #expect(try journal.counts(contexts: [context, context], generation: nil) == NativeMomentActionCounts(confirmed: 0, unconfirmed: 1))
+        #expect(throws: LocalDataControlError.staleGeneration) {
+            try journal.counts(contexts: [context], generation: UUID())
+        }
     }
 
     @Test func expiredSourceReviewSpeaksRecoveryInsteadOfOldDetails() async {

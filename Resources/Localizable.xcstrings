@@ -1,6 +1,70 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Slack in your morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slack in your morning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slack dans votre matin"
+          }
+        }
+      }
+    },
+    "Choose a workspace and channel. MORE can read its messages and prepare a reply for your review.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a workspace and channel. MORE can read its messages and prepare a reply for your review."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un espace et un canal. MORE pourra lire ses messages et préparer une réponse à relire."
+          }
+        }
+      }
+    },
+    "Reply in Slack": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply in Slack"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondre dans Slack"
+          }
+        }
+      }
+    },
+    "Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un message et dites ce que vous souhaitez répondre. MORE relit le compte, le canal, le message et la réponse avant votre instruction d’envoi."
+          }
+        }
+      }
+    },
     "Bring your saved mornings together": {
       "localizations": {
         "en": {

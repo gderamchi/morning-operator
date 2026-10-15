@@ -203,6 +203,13 @@ enum OwnInterfaceWording {
 
     /// Screens without a heading of their own: both pieces must be present.
     static let pairs: [[Phrase]] = [
+        // A Slack heading alone can belong to Slack; MORE's own explanation must accompany it.
+        [shown("Slack in your morning", fr: "Slack dans votre matin"),
+         shown("Choose a workspace and channel. MORE can read its messages and prepare a reply for your review.",
+               fr: "Choisissez un espace et un canal. MORE pourra lire ses messages et préparer une réponse à relire.")],
+        [shown("Reply in Slack", fr: "Répondre dans Slack"),
+         shown("Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction.",
+               fr: "Choisissez un message et dites ce que vous souhaitez répondre. MORE relit le compte, le canal, le message et la réponse avant votre instruction d’envoi.")],
         [earlier("Start my morning"), earlier("Update my morning")],
         [earlier("A little perspective."), shown("Settings & connections", fr: "Réglages et connexions")],
         [earlier("More room for your day."), earlier("Anything you’d like to remember?")],

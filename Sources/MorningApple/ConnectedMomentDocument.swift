@@ -1,22 +1,39 @@
 import Foundation
 import MorningCore
 
+/// Supplied by the app from the approved call, never inferred from provider prose or a model.
+/// This provenance is ephemeral, like the result whose meaning it binds.
+public struct ConnectedMomentOrigin: Sendable, Equatable {
+    public let tool: String
+    public let connectionID: String
+    public let arguments: [String: ComposioJSONValue]
+    public let privacyGeneration: UUID?
+
+    public init(tool: String, connectionID: String, arguments: [String: ComposioJSONValue], privacyGeneration: UUID? = nil) {
+        self.tool = tool; self.connectionID = connectionID; self.arguments = arguments
+        self.privacyGeneration = privacyGeneration
+    }
+}
+
 /// An ephemeral provider receipt, scoped to one pinned moment. Never encoded or saved.
 public struct ConnectedMomentDocument: Sendable {
     public static let maximumSourceBytes = 24_000
     public let executionID: MorningExecutionID
     public let service: String
     public let receivedAt: Date
+    public let origin: ConnectedMomentOrigin?
     public let result: ComposioJSONValue?
     public let sourceText: String
     public fileprivate(set) var summary: String?
 
-    public init(executionID: MorningExecutionID, service: String, result: ComposioJSONValue?, receivedAt: Date = Date()) throws {
+    public init(executionID: MorningExecutionID, service: String, result: ComposioJSONValue?, receivedAt: Date = Date(),
+                origin: ConnectedMomentOrigin? = nil) throws {
         let source = try result?.prettyPrintedJSON() ?? "The provider returned no additional result data."
         guard source.utf8.count <= Self.maximumSourceBytes else { throw ConnectedResultError.tooLarge }
         self.executionID = executionID
         self.service = String(service.prefix(100))
         self.receivedAt = receivedAt
+        self.origin = origin
         self.result = result
         self.sourceText = source
     }
@@ -78,12 +95,14 @@ public final class ConnectedMomentState {
 
     /// May accept a known receipt after a pause, but never after discard or clear.
     public func receive(_ token: UUID, executionID: MorningExecutionID, service: String,
-                        result: ComposioJSONValue?, resultAvailable: Bool = true, at: Date = Date()) -> Receipt {
+                        result: ComposioJSONValue?, resultAvailable: Bool = true, at: Date = Date(),
+                        origin: ConnectedMomentOrigin? = nil) -> Receipt {
         guard matches(token, executionID: executionID), wasDispatched, !effectConfirmed else { return .stale }
         effectConfirmed = true; phase = .confirmed
         guard resultAvailable else { return .sourceUnavailable }
         do {
-            document = try ConnectedMomentDocument(executionID: executionID, service: service, result: result, receivedAt: at)
+            document = try ConnectedMomentDocument(executionID: executionID, service: service, result: result,
+                receivedAt: at, origin: origin)
             return .sourceAvailable
         } catch { return .tooLarge }
     }
