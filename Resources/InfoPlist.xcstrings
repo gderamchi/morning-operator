@@ -62,13 +62,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE listens during the voice turns you start on this device."
+            "value": "MORE listens on this device during your hands-free morning so you can interrupt, pause or request an action. Listening stops when you end the morning or leave the app."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE écoute uniquement pendant les échanges vocaux que vous lancez sur cet appareil."
+            "value": "MORE écoute sur cet appareil pendant votre matin mains libres pour vous permettre de l’interrompre, de mettre en pause ou de demander une action. L’écoute s’arrête quand vous terminez votre matin ou quittez l’app."
           }
         }
       }

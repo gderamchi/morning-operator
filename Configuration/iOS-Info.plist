@@ -84,7 +84,7 @@
 	<key>NSAlarmKitUsageDescription</key>
 	<string>MORE schedules your morning alarm and opens your approved morning when you stop it.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MORE listens during the voice turns you start on this device.</string>
+	<string>MORE listens on this device during your hands-free morning so you can interrupt, pause or request an action. Listening stops when you end the morning or leave the app.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>MORE transcribes your requested voice commands and drafts.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

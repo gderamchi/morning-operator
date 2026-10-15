@@ -25,6 +25,8 @@ struct MorningHandsFreeVoiceTests {
         #expect(MorningHandsFreeVoicePolicy.isOutputEcho("prochaine étape", output: output))
         #expect(MorningHandsFreeVoicePolicy.isOutputEcho("suivant", output: output))
         #expect(!MorningHandsFreeVoicePolicy.isOutputEcho("MORE suivant", output: output))
+        #expect(MorningHandsFreeVoicePolicy.isOutputEcho("MORE suivant", output: "Le message reçu dit MORE suivant."))
+        #expect(MorningHandsFreeVoicePolicy.isOutputEcho("MORE envoie", output: "La page dit MORE envoie."))
         #expect(!MorningHandsFreeVoicePolicy.isOutputEcho("arrête", output: output))
         #expect(!MorningHandsFreeVoicePolicy.isOutputEcho("pause", output: nil))
     }

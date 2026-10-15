@@ -9,7 +9,7 @@ private struct RoutineWebStepPresenter: ViewModifier {
     func body(content: Content) -> some View {
         content.fullScreenCover(isPresented: Binding(
             get: { store.pendingWebTarget != nil },
-            set: { if !$0 { store.pendingWebTarget = nil } }
+            set: { if !$0 { closePage() } }
         )) {
             if let url = store.pendingWebTarget,
                let site = WebMorningSite(url: url),
@@ -22,8 +22,13 @@ private struct RoutineWebStepPresenter: ViewModifier {
                     onNext: { store.nextTargetStep(sessionID: timer.sessionID, stepID: timer.stepID) },
                     executionPlan: store.webExecutionPlan,
                     onExecutionEvent: { store.receiveWebExecution($0) },
+                    executionIsAuthorized: {
+                        !store.privacyBlocksWork && store.session?.id == timer.sessionID &&
+                        store.currentStep?.id == timer.stepID && store.session?.status == .running && store.automatic
+                    },
+                    executionCanAdvance: { !store.speech.isSpeaking && !store.voiceInputBlocksPlayback },
                     onPause: { store.pause() }, onResume: { store.resume() },
-                    onClose: { store.pendingWebTarget = nil })
+                    onClose: closePage)
                     .id(step.id)
             } else {
                 VStack(spacing: 24) {
@@ -37,6 +42,10 @@ private struct RoutineWebStepPresenter: ViewModifier {
                     .background(MorningPaper(showsSun: false)).foregroundStyle(MorningStyle.ink)
             }
         }
+    }
+    private func closePage() {
+        if store.webExecutionPlan != nil, store.session?.status == .running { store.pause() }
+        store.pendingWebTarget = nil
     }
 }
 

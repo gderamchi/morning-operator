@@ -335,9 +335,26 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
         /// Owner's edits before approval.
         public var included: Bool
         public var minutes: Int
+        /// A complete explicit Keep, shown in this proposal before approval.
+        public fileprivate(set) var retainedStep: RoutineStep? = nil
 
         public var isMeasured: Bool { minutesMeasured }
-        public var suggestedTarget: RoutineStepTarget? { ScreenTimeAppCatalog.routineTarget(for: bundleIdentifier) }
+        public var allowedMinutesRange: ClosedRange<Int> {
+            retainedStep == nil ? ScreenTimeRoutineProposal.minutesRange : RoutineStep.durationMinutesRange
+        }
+        public var suggestedStep: RoutineStep {
+            if var retainedStep { retainedStep.durationMinutes = minutes; return retainedStep }
+            var candidate = RoutineExecutionSuggestion.applying(to: RoutineStep(id: id, title: title,
+                kind: kind.stepKind, durationMinutes: minutes), bundleIdentifier: bundleIdentifier)
+            if candidate.automation == nil, candidate.target == nil {
+                candidate.target = ScreenTimeAppCatalog.routineTarget(for: bundleIdentifier)
+            }
+            return candidate
+        }
+        public var suggestedTarget: RoutineStepTarget? { suggestedStep.target }
+        public var executionExplanation: String? {
+            retainedStep == nil ? RoutineExecutionSuggestion.explanation(bundleIdentifier: bundleIdentifier) : nil
+        }
     }
 
     public let id: UUID
@@ -352,6 +369,12 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
     /// How far back Screen Time returned data, in local days.
     public let daysOfData: Int
     public private(set) var steps: [Step]
+    public private(set) var preferenceSnapshot: RoutinePreferenceJournal?
+
+    /// A changed standing choice requires a fresh, visibly reviewed proposal.
+    public func isCurrent(preferences: RoutinePreferenceJournal) -> Bool {
+        preferenceSnapshot.map { $0 == preferences } ?? preferences.entries.isEmpty
+    }
 
     public var includedSteps: [Step] { steps.filter(\.included) }
 
@@ -417,22 +440,38 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
             morningsFound: all.count, daysOfData: learning.daysOfData, steps: Array(steps))
     }
 
-    /// Applies the owner's saved choices: an app he excluded from suggestions is removed and
-    /// a saved duration becomes the starting minutes. Matching is by title and kind, as the
-    /// journal matches, and every step that matches gets the choice. Keep choices add nothing:
-    /// the review shows only what Screen Time found. Returns false when nothing is left.
+    /// Reconcile before review. Kept moments remain complete and visible; exclusions
+    /// and timing choices are never applied as hidden changes at approval time.
     public mutating func applyPreferences(_ journal: RoutinePreferenceJournal) -> Bool {
-        for entry in journal.entries {
-            let matches = { (step: Step) in
-                step.kind.stepKind == entry.targetKind && preferenceTitleKey(step.title) == entry.normalizedTitle
+        do {
+            try journal.validate()
+            var next: [Step] = [], matched = Set<UUID>()
+            for var item in steps where !item.bundleIdentifier.isEmpty {
+                item.retainedStep = nil
+                if let preference = try journal.matchingPreference(for: item.suggestedStep) {
+                    if preference.presence == .keep, matched.contains(preference.id) { return false }
+                    matched.insert(preference.id)
+                    if preference.presence == .exclude { continue }
+                    if let retained = preference.retainedStep {
+                        item.retainedStep = retained
+                        item.minutes = preference.durationMinutes ?? retained.durationMinutes
+                    } else if let minutes = preference.durationMinutes { item.minutes = minutes }
+                }
+                next.append(item)
             }
-            if entry.presence == .exclude { steps.removeAll(where: matches); continue }
-            guard let minutes = entry.durationMinutes else { continue }
-            for index in steps.indices where matches(steps[index]) {
-                steps[index].minutes = min(max(minutes, Self.minutesRange.lowerBound), Self.minutesRange.upperBound)
+            for preference in journal.entries where preference.presence == .keep && !matched.contains(preference.id) {
+                guard let retained = preference.retainedStep else { return false }
+                var item = Step(id: retained.id, bundleIdentifier: "", title: retained.title,
+                    kind: .other, medianMinutes: retained.durationMinutes, morningsSeen: 0,
+                    minutesMeasured: false, orderMeasured: false, isAttentionSink: false,
+                    included: true, minutes: preference.durationMinutes ?? retained.durationMinutes)
+                item.retainedStep = retained
+                next.append(item)
             }
-        }
-        return !steps.isEmpty
+            guard !next.isEmpty, next.count <= Self.maximumSteps + RoutinePreferenceJournal.maximumEntries else { return false }
+            steps = next; preferenceSnapshot = journal
+            return true
+        } catch { return false }
     }
 
     public mutating func setIncluded(_ included: Bool, stepID: UUID) {
@@ -442,15 +481,20 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
 
     public mutating func setMinutes(_ minutes: Int, stepID: UUID) {
         guard let index = steps.firstIndex(where: { $0.id == stepID }) else { return }
-        steps[index].minutes = min(max(minutes, Self.minutesRange.lowerBound), Self.minutesRange.upperBound)
+        let range = steps[index].allowedMinutesRange
+        steps[index].minutes = min(max(minutes, range.lowerBound), range.upperBound)
     }
 
     /// The draft routine: exactly the included steps, in order, with the reviewed minutes.
     /// What the owner approves is what he saw; nothing is added, removed or retimed after review.
     public func draft(preserving base: RoutineVersion?, at date: Date = .now) throws -> RoutineVersion {
         let steps = includedSteps.map { step in
-            RoutineStep(title: step.title, detail: Self.detail(for: step, of: morningsUsed), kind: step.kind.stepKind,
-                        durationMinutes: step.minutes, target: step.suggestedTarget)
+            var candidate = step.suggestedStep
+            if step.retainedStep == nil {
+                candidate.detail = Self.detail(for: step, of: morningsUsed)
+                if let explanation = step.executionExplanation { candidate.detail += " " + explanation }
+            }
+            return candidate
         }
         guard !steps.isEmpty else { throw ScreenTimeProposalError.nothingIncluded }
         return RoutineVersion(number: base?.nextNumber ?? 1, createdAt: date,
@@ -477,13 +521,22 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
         morningsFound = try values.decode(Int.self, forKey: .morningsFound)
         daysOfData = try values.decode(Int.self, forKey: .daysOfData)
         steps = try values.decode([Step].self, forKey: .steps)
+        preferenceSnapshot = try values.decodeIfPresent(RoutinePreferenceJournal.self, forKey: .preferenceSnapshot)
+        try preferenceSnapshot?.validate()
         guard (0..<(24 * 60)).contains(typicalStartMinuteOfDay), (1...60).contains(morningsUsed),
               (morningsUsed...60).contains(morningsFound), (0...60).contains(daysOfData),
-              (1...Self.maximumSteps).contains(steps.count), Set(steps.map(\.id)).count == steps.count,
+              (1...(Self.maximumSteps + RoutinePreferenceJournal.maximumEntries)).contains(steps.count),
+              steps.filter({ !$0.bundleIdentifier.isEmpty }).count <= Self.maximumSteps,
+              Set(steps.map(\.id)).count == steps.count,
+              Set(steps.map { $0.suggestedStep.id }).count == steps.count,
               steps.allSatisfy({ step in
-                  !step.title.isEmpty && step.title.count <= 120 && step.bundleIdentifier.count <= 255
-                      && Self.minutesRange.contains(step.minutes) && Self.minutesRange.contains(step.medianMinutes)
-                      && (1...morningsUsed).contains(step.morningsSeen)
+                  let retained = step.retainedStep
+                  let savedKeep = preferenceSnapshot?.entries.first { $0.retainedStep == retained && $0.presence == .keep }
+                  return !step.title.isEmpty && step.title.count <= (retained == nil ? 120 : 2_000)
+                      && step.bundleIdentifier.count <= 255 && step.allowedMinutesRange.contains(step.minutes)
+                      && step.allowedMinutesRange.contains(step.medianMinutes)
+                      && (retained == nil ? (1...morningsUsed).contains(step.morningsSeen) : savedKeep != nil)
+                      && (!step.bundleIdentifier.isEmpty || retained != nil)
               }) else { throw ScreenTimeProposalError.invalidProposal }
     }
 
@@ -492,6 +545,7 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
         self.id = id; self.createdAt = createdAt; self.baseRoutineID = baseRoutineID
         self.typicalStartMinuteOfDay = typicalStartMinuteOfDay; self.timeZoneIdentifier = timeZoneIdentifier
         self.morningsUsed = morningsUsed; self.morningsFound = morningsFound; self.daysOfData = daysOfData; self.steps = steps
+        preferenceSnapshot = nil
     }
 }
 

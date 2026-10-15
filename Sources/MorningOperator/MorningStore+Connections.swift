@@ -19,12 +19,19 @@ extension MorningStore {
     @discardableResult
     func addAPIAction(connection: ComposioConnection, tool: ComposioTool, argumentsJSON: String) -> Bool {
         guard !privacyBlocksWork, !sessionActive, !busy else { return false }
+        guard !ConnectedRoutineActionPolicy.requiresSpokenMailSend(service: connection.service, tool: tool.slug) else {
+            notice = ConnectedRoutineActionPolicy.spokenMailSendExplanation
+            return false
+        }
         let target = RoutineStepTarget.connectedAPI(service: connection.service, connectionID: connection.id,
             tool: tool.slug, argumentsJSON: argumentsJSON)
-        do { try target.validateIntegration() }
-        catch { notice = error.localizedDescription; return false }
-        let step = RoutineStep(title: tool.name, detail: String(localized: "Action · \(connection.name)"),
-            durationMinutes: 1, target: target)
+        let detail: String
+        do {
+            try target.validateIntegration()
+            detail = try ConnectedActionReview.summary(argumentsJSON: argumentsJSON, schema: tool.inputSchema,
+                account: connection.accountLabel ?? connection.name)
+        } catch { notice = error.localizedDescription; return false }
+        let step = RoutineStep(title: tool.name, detail: detail, durationMinutes: 1, target: target)
         if addConnectedStep(step) {
             notice = String(localized: "Action added to your draft. Review and approve the routine before starting.")
             return true
@@ -34,6 +41,13 @@ extension MorningStore {
 
     func runConnectedAction(service: String, connectionID: String, tool: String, argumentsJSON: String,
                             sessionID: UUID, stepID: UUID) {
+        guard !ConnectedRoutineActionPolicy.requiresSpokenMailSend(service: service, tool: tool) else {
+            connectedActionStatus = ConnectedRoutineActionPolicy.spokenMailSendExplanation
+            notice = connectedActionStatus
+            recordExecution(.unavailable)
+            if readAloud { speech.speak(ConnectedRoutineActionPolicy.spokenMailSendExplanation) }
+            return
+        }
         connectedAPITask?.cancel()
         let generation = dataGeneration
         let requestID = IntegrationRequestID.make(sessionID: sessionID, stepID: stepID)
@@ -52,6 +66,7 @@ extension MorningStore {
                       currentStep?.id == stepID, session?.status == .running else { return }
                 guard connections.contains(where: { $0.id == connectionID && $0.service == service && $0.isActive }) else {
                     connectedActionStatus = String(localized: "Reconnect this account in Apps & accounts.")
+                    recordExecution(.unavailable)
                     return
                 }
                 let arguments = try ComposioJSONValue.parseObject(argumentsJSON)
@@ -60,14 +75,24 @@ extension MorningStore {
                 guard !Task.isCancelled, dataGeneration == generation, !privacyBlocksWork,
                       session?.id == sessionID, currentStep?.id == stepID else { return }
                 if result.successful {
-                    connectedActionStatus = try result.data?.prettyPrintedJSON() ?? String(localized: "The service returned successfully.")
+                    let summary = try await ConnectedResultNarrator().summarize(result.data, service: service)
+                    guard !Task.isCancelled, dataGeneration == generation, !privacyBlocksWork,
+                          session?.id == sessionID, currentStep?.id == stepID, session?.status == .running else { return }
+                    connectedActionStatus = summary
+                    if readAloud { try await speech.speakAndWait(summary) }
+                    guard !Task.isCancelled, dataGeneration == generation else { return }
+                    if automatic { completeAutomatedStep(sessionID: sessionID, stepID: stepID) }
+                    else { recordExecution(.completed) }
                 } else {
+                    recordExecution(.uncertain)
                     connectedActionStatus = String(localized: "The service did not confirm this action. Check its result before trying again.")
                 }
             } catch {
                 guard !Task.isCancelled, dataGeneration == generation, !privacyBlocksWork,
                       session?.id == sessionID, currentStep?.id == stepID else { return }
-                connectedActionStatus = error.localizedDescription
+                recordExecution(error is ConnectedResultError ? .unavailable : .uncertain)
+                connectedActionStatus = error is ConnectedResultError ? error.localizedDescription
+                    : (AppLanguage.isFrench ? "L’action n’est pas confirmée. Vérifiez son résultat avant de la répéter." : "The action is unconfirmed. Check its result before repeating it.")
             }
         }
     }

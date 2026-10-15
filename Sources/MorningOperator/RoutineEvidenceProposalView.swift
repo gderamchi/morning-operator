@@ -61,6 +61,11 @@ struct RoutineEvidenceProposalView: View {
                                 if !briefDetail(step).isEmpty { Text(briefDetail(step)).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted) }
                                 Text("\(step.durationMinutes) minutes planned")
                                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                Text(step.executionDescription).font(.raleway(.subheadline))
+                                if case let .connectedAPI(_, _, _, arguments) = step.target {
+                                    Text((try? ConnectedActionReview.summary(argumentsJSON: arguments)) ?? "Review unavailable")
+                                        .font(.footnote).fixedSize(horizontal: false, vertical: true)
+                                }
                             }.padding(.vertical, 3)
                             if let support = proposal.support.first(where: { $0.stepID == step.id }) {
                                 if support.reason == .preservedUserDecision {
@@ -136,6 +141,8 @@ struct RoutineEvidenceProposalView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if let proposal = store.pendingRoutineProposal {
                     VStack(alignment: .leading, spacing: 10) {
+                        Text(AppLanguage.isFrench ? "MORE s’occupe des actions présentées ici. Vous pouvez l’interrompre à tout moment." : "MORE takes care of the actions shown here. You can interrupt at any time.")
+                            .font(.footnote).fixedSize(horizontal: false, vertical: true)
                         if store.sessionActive {
                             Text("Finish or end your current morning before approving an update.")
                                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
@@ -153,7 +160,7 @@ struct RoutineEvidenceProposalView: View {
                                     store.tab = .today
                                 }
                             } label: {
-                                Label("Approve update", systemImage: "checkmark").frame(maxWidth: .infinity)
+                                Label(AppLanguage.isFrench ? "Confier ce matin à MORE" : "Let MORE take care of this morning", systemImage: "checkmark").frame(maxWidth: .infinity)
                             }
                             .buttonStyle(PrimaryButtonStyle())
                             .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil || proposal.routine.steps.isEmpty)

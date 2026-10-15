@@ -140,19 +140,30 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                   routine.number == baseNumber + 1 else { return false }
             guard baseRoutineID == baseRoutine?.id,
                   baseRoutineRevision == (try baseRoutine.map { try EvidenceRevision.hash($0) }) else { return false }
+            var sources: [ObservationAcquisition] = []
             for snapshot in sourceSnapshots {
                 guard let entry = archive.entry(id: snapshot.acquisitionID),
                       try LearningEvidencePreparation.snapshot(entry) == snapshot else { return false }
+                sources.append(entry)
             }
+            // Rebuild eligible units and their exact reviewed frame bindings from
+            // the archive; stored proposal actions and support reasons grant nothing.
+            let restoredEvidence = try LearningEvidencePreparation.prepare(acquisitions: sources)
             // Rebuild user-owned rows independently of the stored support claims. The
             // authoritative journal suppresses legacy retention, including after a cleared keep.
             let candidate = RoutineVersion(createdAt: routine.createdAt, sourceLabel: routine.sourceLabel,
                 steps: routine.steps)
-            let inherited = Self.inferredDraft(from: candidate, preserving: baseRoutine,
+            var inherited = Self.inferredDraft(from: candidate, preserving: baseRoutine,
                 preferences: preferences, at: routine.createdAt)
+            let legacyKept = preferences == nil ? Self.keptSteps(in: baseRoutine) : []
+            let legacyKeptIDs = Set(legacyKept.map(\.id))
+            for index in inherited.steps.indices where !legacyKeptIDs.contains(inherited.steps[index].id) {
+                let citations = support.first { $0.stepID == inherited.steps[index].id }?.citations ?? []
+                inherited.steps[index] = LearningEvidencePreparation.applyingReviewedSuggestion(to: inherited.steps[index],
+                    citations: citations, evidence: restoredEvidence)
+            }
             let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: inherited.steps)
             guard try EvidenceRevision.hash(reconciled.steps) == EvidenceRevision.hash(routine.steps) else { return false }
-            let legacyKept = preferences == nil ? Self.keptSteps(in: baseRoutine) : []
             let keptIDs = Set(legacyKept.map(\.id)).union(reconciled.retainedStepIDs)
             for item in support {
                 guard let step = routine.steps.first(where: { $0.id == item.stepID }) else { return false }
@@ -173,7 +184,7 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                     }) else { return false }
                 }
                 if item.reason != .preservedUserDecision {
-                    guard !step.isRequired, step.automation == nil,
+                    guard !step.isRequired, RoutineExecutionSuggestion.isBoundedSuggestion(step),
                           step.observationReference == nil else { return false }
                     for citation in item.citations {
                         guard let entry = archive.entry(id: citation.acquisitionID),
@@ -255,7 +266,7 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                   step.title.count <= (inferred ? 120 : 2_000),
                   step.detail.count <= LearningEvidencePreparation.maximumDetailCharacters,
                   (1...(item.reason == .inferredEvidence ? 60 : RoutineStep.durationMinutesRange.upperBound)).contains(step.durationMinutes),
-                  !inferred || (!step.isRequired && step.automation == nil && step.observationReference == nil),
+                  !inferred || (!step.isRequired && RoutineExecutionSuggestion.isBoundedSuggestion(step) && step.observationReference == nil),
                   item.citations.count <= LearningEvidencePreparation.maximumCitationsPerStep,
                   item.preferenceIDs.count <= 100,
                   Set(item.preferenceIDs).count == item.preferenceIDs.count,
@@ -532,6 +543,12 @@ public enum LearningEvidencePreparation {
         let candidate = RoutineVersion(createdAt: date, sourceLabel: source, steps: proposed, isApproved: false)
         var routine = EvidenceRoutineProposal.inferredDraft(from: candidate, preserving: base,
             preferences: preferences, at: date)
+        // Identity comes only from every cited unit's explicit reviewed frame
+        // context. Enrich the sanitized draft before applying the person's choices.
+        for index in routine.steps.indices {
+            guard let citations = citationsByStep[routine.steps[index].id] else { continue }
+            routine.steps[index] = applyingReviewedSuggestion(to: routine.steps[index], citations: citations, evidence: evidence)
+        }
         let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: routine.steps)
         routine.steps = reconciled.steps
         // An explicit Keep may reintroduce a synthetic excerpt even when every
@@ -556,6 +573,33 @@ public enum LearningEvidencePreparation {
         }
         return try EvidenceRoutineProposal(base: base, routine: routine, sources: evidence.sourceSnapshots,
             support: support, omissions: evidence.omissions, preferences: preferences)
+    }
+
+    fileprivate static func applyingReviewedSuggestion(to step: RoutineStep,
+        citations: [RoutineEvidenceCitation], evidence: PreparedLearningEvidence) -> RoutineStep {
+        let manual = RoutineExecutionSuggestion.applying(to: step, bundleIdentifier: nil)
+        guard !citations.isEmpty else { return manual }
+        var exactLabel: String?
+        for citation in citations {
+            guard citation.sourceLayer == .videoFrame, let sampleID = citation.sampleID,
+                  let snapshot = evidence.sourceSnapshots.first(where: { $0.acquisitionID == citation.acquisitionID }),
+                  snapshot.sourceRevision == citation.sourceRevision,
+                  let unit = evidence.units.first(where: {
+                      $0.acquisitionID == citation.acquisitionID && $0.sampleID == sampleID && $0.sourceLayer == .videoFrame &&
+                      citation.startCharacterOffset >= $0.startCharacterOffset &&
+                      citation.endCharacterOffset <= $0.startCharacterOffset + $0.text.count
+                  }),
+                  EvidenceText.matches(citation.quote, in: unit.text,
+                    start: citation.startCharacterOffset - unit.startCharacterOffset,
+                    end: citation.endCharacterOffset - unit.startCharacterOffset),
+                  let reviewed = unit.reviewedContext,
+                  Data(unit.context.utf8).range(of: Data(reviewed.evidenceQuote.utf8)) != nil else { return manual }
+            if let exactLabel {
+                guard exactLabel.utf8.elementsEqual(reviewed.label.utf8) else { return manual }
+            } else { exactLabel = reviewed.label }
+        }
+        guard let exactLabel else { return manual }
+        return RoutineExecutionSuggestion.applyingReviewedLabel(to: manual, label: exactLabel)
     }
 
     fileprivate static func snapshot(_ entry: ObservationAcquisition) throws -> LearningSourceSnapshot {

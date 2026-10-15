@@ -78,6 +78,7 @@ struct MorningRootView: View {
                            connectedActionStatus: store.connectedActionStatus,
                            voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
                            executionSummary: store.executionSummary,
+                           timer: store.activeStepTimer,
                            begin: {
                                guard !store.sessionActive else { return }
                                // No routine yet: begin by learning the morning.
@@ -88,6 +89,7 @@ struct MorningRootView: View {
                                _ = store.start()
                            },
                            pause: { store.pause() }, resume: { store.resume() }, next: { store.advance() },
+                           stop: { store.stop() }, extend: { Task { await store.extendStepTimer() } },
                            offersReflection: store.shouldOfferCompletionReflection,
                            voiceBlocked: store.voiceInputBlocksPlayback,
                            speak: { store.openCompletionCapture() }, write: { store.openCapture() },
@@ -216,7 +218,11 @@ struct MorningRootView: View {
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
                 store.suspendHandsFreeVoice()
-                store.mailMorning.cancel()
+                store.mailMorning.clear()
+                if store.currentStep?.automation == .gmailInbox {
+                    store.connectedAPITask?.cancel(); store.connectedAPITask = nil
+                    store.connectedActionStatus = nil
+                }
                 showingActions = false
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
@@ -1204,11 +1210,14 @@ private struct MorningSunHome: View {
     var connectedActionStatus: String? = nil
     var voiceStatus: String? = nil
     var executionSummary: String? = nil
+    var timer: StepTimer? = nil
     /// Plays the saved routine, or opens the onboarding when there is none yet.
     var begin: () -> Void
     var pause: () -> Void
     var resume: () -> Void
     var next: () -> Void
+    var stop: () -> Void
+    var extend: () -> Void
     var offersReflection = false
     var voiceBlocked = false
     var speak: () -> Void = {}
@@ -1292,6 +1301,18 @@ private struct MorningSunHome: View {
                 Text(step.title)
                     .font(.serif(.title)).accessibilityIdentifier("morning.currentStep")
                 Text("\(step.durationMinutes) min").font(.raleway(.subheadline)).opacity(0.7)
+                Text(step.executionDescription).font(.raleway(.subheadline)).fixedSize(horizontal: false, vertical: true)
+                if let timer {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        HStack {
+                            Text(Duration.seconds(timer.remaining(at: context.date).rounded(.up)), format: .time(pattern: .minuteSecond))
+                                .monospacedDigit().accessibilityIdentifier("morning.remaining")
+                            Spacer()
+                            Button("+2 min", action: extend).frame(minHeight: 44)
+                                .accessibilityIdentifier("morning.extend")
+                        }
+                    }
+                }
                 if let voiceStatus {
                     Text(voiceStatus).font(.raleway(.caption)).accessibilityIdentifier("morning.voiceStatus")
                 }
@@ -1314,6 +1335,10 @@ private struct MorningSunHome: View {
                     .accessibilityIdentifier("morning.next")
                 }
                 .buttonStyle(.plain)
+                Button(action: stop) {
+                    Label(isFrench ? "Arrêter mon matin" : "Stop my morning", systemImage: "stop")
+                        .frame(minHeight: 44).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityIdentifier("morning.stop")
             } else if finishedToday, let session {
                 finished(session)
             } else {
@@ -1368,11 +1393,11 @@ private struct MorningSunHome: View {
 
     private func finished(_ session: RoutineSession) -> some View {
         let moments = session.completedStepIDs.count
-        let minutes = max(1, Int(((session.activeDuration(until: session.completedAt ?? .now) ?? 0) / 60).rounded()))
+        let elapsed = MorningStyle.duration(session.activeDuration(until: session.completedAt ?? .now))
         return VStack(alignment: .leading, spacing: 12) {
             Text(isFrench ? "bonne journée" : "have a good day")
                 .font(.serif(.title)).accessibilityIdentifier("morning.complete")
-            Text("\(moments) moment\(moments == 1 ? "" : "s") · \(minutes) min")
+            Text(isFrench ? "\(moments) moments · temps écoulé : \(elapsed)" : "\(moments) moments · elapsed: \(elapsed)")
                 .font(.raleway(.subheadline)).opacity(0.7)
                 .accessibilityIdentifier("morning.completeSummary")
             if let executionSummary {

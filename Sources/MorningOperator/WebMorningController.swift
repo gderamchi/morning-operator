@@ -104,7 +104,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     func startIfNeeded() {
         guard !hasStarted, privacyIsCurrent else { return }
         hasStarted = true
-        let destination = executionPlan.flatMap { WebMorningExecutionPolicy.entryURL(site: site, behavior: $0.behavior) } ?? startURL
+        let destination = startURL == site.table.startURL ? (executionPlan.flatMap { WebMorningExecutionPolicy.entryURL(site: site, behavior: $0.behavior) } ?? startURL) : startURL
         webView.load(URLRequest(url: destination))
     }
 
@@ -258,18 +258,19 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     func stopExecution() {
         executionTask?.cancel(); executionTask = nil; executionNonce = nil
-        if executionPlan != nil, !executionFinished { publishExecution(.cancelled) }
+        if executionPlan != nil, !executionFinished, executionEvent?.state != .needsChoice { publishExecution(.cancelled) }
     }
 
     private func suspendExecution() {
         guard executionTask != nil else { return }
         executionTask?.cancel(); executionTask = nil; executionNonce = nil
-        publishExecution(.paused)
+        if executionEvent?.state != .needsChoice { publishExecution(.paused) }
     }
 
     private func resumeExecutionIfNeeded() {
         guard let plan = executionPlan, actionsEnabled, !isClearing, !isLearning,
               !executionFinished, executionTask == nil, privacyIsCurrent else { return }
+        if executionEvent?.state == .needsChoice { executionEvent = nil }
         let nonce = UUID(); executionNonce = nonce
         executionTask = Task { [weak self] in
             guard let self else { return }
@@ -361,6 +362,9 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             switch observation.status {
             case .signin:
                 publishExecution(.needsSignIn)
+                guard await executionWait(1, nonce: nonce) else { return }; continue
+            case .choice:
+                publishExecution(.needsChoice)
                 guard await executionWait(1, nonce: nonce) else { return }; continue
             case .loading, .empty:
                 if observation.consentCanDismiss == true {

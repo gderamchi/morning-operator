@@ -1,8 +1,10 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 struct StepTargetEditor: View {
     @Binding var target: RoutineStepTarget?
+    var reviewedDetail: String? = nil
     private var selectedApp: StepApp? {
         guard case let .externalApp(app, _) = target else { return nil }; return app
     }
@@ -57,11 +59,22 @@ struct StepTargetEditor: View {
                 Text("Add and authorize the shortcut in Shortcuts first. Its name alone does not verify a connection.")
                     .font(.footnote).foregroundStyle(MorningStyle.muted)
             }
-            if case let .connectedAPI(service, _, tool, arguments) = target {
+            if case let .connectedAPI(service, _, _, arguments) = target {
                 Text(service.capitalized).font(.subheadline)
-                DisclosureGroup("Saved action details") {
-                    Text(tool).font(.caption)
-                    Text(arguments).font(.caption.monospaced()).textSelection(.enabled)
+                if let details = try? ConnectedActionReview.summary(argumentsJSON: arguments) {
+                    if let reviewedDetail, !reviewedDetail.isEmpty, reviewedDetail != details {
+                        Text(AppLanguage.isFrench ? "Description et compte enregistrés" : "Saved account and description")
+                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(reviewedDetail).font(.subheadline).textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text(AppLanguage.isFrench ? "Détails que MORE utilisera" : "Details MORE will use")
+                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                    Text(details).font(.subheadline).textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(ConnectedActionReviewError.unreadable.localizedDescription)
+                        .font(.footnote).foregroundStyle(MorningStyle.muted)
                 }
             }
             Text("Choose an action from Apps & accounts, then add it to your routine.")

@@ -1,5 +1,6 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 /// Presentation only. These components never create a routine or change approval.
 struct RoutineReviewSummary: View {
@@ -37,6 +38,11 @@ struct RoutineMomentRow: View {
                 Text(step.title).font(.subheadline.weight(.medium))
                 Text("\(step.durationMinutes) min · \(step.executionDescription)")
                     .font(.caption).foregroundStyle(MorningStyle.muted)
+                if case let .connectedAPI(_, _, _, arguments) = step.target {
+                    Text(step.detail).font(.footnote).foregroundStyle(MorningStyle.muted)
+                    Text((try? ConnectedActionReview.summary(argumentsJSON: arguments)) ?? "Review unavailable")
+                        .font(.footnote).fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 4)
             Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)

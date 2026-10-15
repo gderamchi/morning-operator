@@ -30,7 +30,7 @@ public enum MorningHandsFreeVoicePolicy {
     /// guard rejects a transcription copied from MORE's own recent output.
     public static func isOutputEcho(_ text: String, output: String?) -> Bool {
         let candidate = normalized(text)
-        guard candidate.count >= 3, !candidate.hasPrefix("more "), let output else { return false }
+        guard candidate.count >= 3, let output else { return false }
         return (" " + normalized(output) + " ").contains(" " + candidate + " ")
     }
 

@@ -5,16 +5,30 @@ import MorningApple
 extension MorningStore {
     var executionSummary: String? {
         guard let session else { return nil }
+        return executionSummary(for: session)
+    }
+    func executionSummary(for session: RoutineSession) -> String? {
         let records = executionRecords.filter { $0.sessionID == session.id }
         guard !records.isEmpty else { return nil }
         let done = records.filter { $0.outcome == .completed || $0.outcome == .budgetFinished }.count
         let unavailable = records.filter { $0.outcome == .unavailable }.count
         let uncertain = records.filter { $0.outcome == .uncertain }.count
+        let skipped = records.filter { $0.outcome == .skipped || $0.outcome == .interrupted }.count
         let contents = records.reduce(0) { $0 + $1.observedContents }
         let likes = records.reduce(0) { $0 + $1.confirmedLikes }
-        return AppLanguage.isFrench
-            ? "\(done) étapes exécutées · \(unavailable) indisponibles · \(uncertain) à vérifier. \(contents) contenus observés, \(likes) likes confirmés."
-            : "\(done) steps performed · \(unavailable) unavailable · \(uncertain) to check. \(contents) contents observed, \(likes) likes confirmed."
+        let timedIDs = Set(session.routine.steps.filter { $0.automation == .timedMoment }.map(\.id))
+        let timed = records.filter { timedIDs.contains($0.stepID) && $0.outcome == .budgetFinished }.count
+        let verified = done - timed
+        var parts: [String] = []
+        if timed > 0 { parts.append(AppLanguage.isFrench ? "Moments chronométrés terminés : \(timed)." : "Timed moments finished: \(timed).") }
+        if verified > 0 { parts.append(AppLanguage.isFrench ? "Opérations vérifiées : \(verified)." : "Verified operations: \(verified).") }
+        if skipped > 0 { parts.append(AppLanguage.isFrench ? "Moments passés : \(skipped)." : "Moments passed: \(skipped).") }
+        if unavailable > 0 { parts.append(AppLanguage.isFrench ? "Indisponibles : \(unavailable)." : "Unavailable: \(unavailable).") }
+        if uncertain > 0 { parts.append(AppLanguage.isFrench ? "Résultats à vérifier : \(uncertain)." : "Results to check: \(uncertain).") }
+        if session.routine.steps.contains(where: { $0.webBehavior != nil }) {
+            parts.append(AppLanguage.isFrench ? "Navigateur : \(contents) contenus observés, \(likes) likes confirmés." : "Browser: \(contents) contents observed, \(likes) likes confirmed.")
+        }
+        return parts.joined(separator: " ")
     }
     var currentExecutionRecord: RoutineExecutionRecord? {
         guard let session, let step = currentStep else { return nil }
@@ -27,7 +41,7 @@ extension MorningStore {
         let previous = executionRecords
         let old = currentExecutionRecord
         let record = RoutineExecutionRecord(sessionID: session.id, stepID: step.id, outcome: outcome,
-            observedContents: observed ?? old?.observedContents ?? 0, confirmedLikes: likes ?? old?.confirmedLikes ?? 0)
+            observedContents: max(observed ?? 0, old?.observedContents ?? 0), confirmedLikes: max(likes ?? 0, old?.confirmedLikes ?? 0))
         executionRecords.removeAll { $0.sessionID == session.id && $0.stepID == step.id }
         executionRecords.append(record)
         executionRecords = Array(executionRecords.suffix(256))
@@ -43,8 +57,22 @@ extension MorningStore {
 
     func completeAutomatedStep(sessionID: UUID, stepID: UUID) {
         guard !privacyBlocksWork, session?.id == sessionID, currentStep?.id == stepID,
-              session?.status == .running, recordExecution(.completed) else { return }
+              session?.status == .running else { return }
+        guard recordExecution(.completed) else { pause(); return }
         advance(commandID: stepID)
+    }
+
+    func mayApproveExecution(in routine: RoutineVersion) -> Bool {
+        for step in routine.steps {
+            if case let .connectedAPI(service, _, tool, arguments) = step.target {
+                guard !ConnectedRoutineActionPolicy.requiresSpokenMailSend(service: service, tool: tool) else {
+                    notice = ConnectedRoutineActionPolicy.spokenMailSendExplanation; return false
+                }
+                do { _ = try ConnectedActionReview.summary(argumentsJSON: arguments) }
+                catch { notice = error.localizedDescription; return false }
+            }
+        }
+        return true
     }
 
     var webExecutionPlan: WebMorningExecutionPlan? {
@@ -60,15 +88,18 @@ extension MorningStore {
     func receiveWebExecution(_ event: WebMorningExecutionEvent) {
         guard !privacyBlocksWork, session?.id == event.sessionID, currentStep?.id == event.stepID,
               sessionActive else { return }
+        let previousState = webExecutionEvent?.state
         webExecutionEvent = event
-        let outcome: RoutineExecutionRecord.Outcome
+        var outcome: RoutineExecutionRecord.Outcome
         switch event.state {
         case .running, .waitingForPage: outcome = .running
         case .paused, .cancelled: outcome = .interrupted
-        case .needsSignIn, .unavailable: outcome = .unavailable
-        case .uncertainAction: outcome = .uncertain
+        case .needsSignIn, .needsChoice, .unavailable: outcome = .unavailable
+        case .uncertainAction, .performingAction: outcome = .uncertain
         case .finished: outcome = event.observedContentCount > 0 ? .budgetFinished : .unavailable
         }
+        if currentExecutionRecord?.outcome == .uncertain,
+           [.paused, .cancelled, .waitingForPage, .needsSignIn, .needsChoice, .unavailable].contains(event.state) { outcome = .uncertain }
         guard recordExecution(outcome, observed: event.observedContentCount, likes: event.confirmedLikeCount) else { pause(); return }
         if !event.spokenText.isEmpty, readAloud, session?.status == .running {
             executionSpeechTask?.cancel()
@@ -76,6 +107,31 @@ extension MorningStore {
                 guard let self else { return }
                 try? await speech.speakAndWait(event.spokenText.joined(separator: ". "))
             }
+        }
+        if previousState != event.state, session?.status == .running, readAloud {
+            let explanation: String?
+            switch event.state {
+            case .needsChoice:
+                explanation = AppLanguage.isFrench ? "Ce site demande un choix de confidentialité, un abonnement ou une connexion. Votre matin est en pause. Faites votre choix dans la page ou dites suivant." : "This site needs a privacy, subscription or sign-in choice. Your morning is paused. Make your choice on the page, or say next."
+            case .needsSignIn:
+                explanation = AppLanguage.isFrench ? "Ce compte demande une connexion. Connectez-vous dans MORE, ou dites suivant pour continuer votre matin." : "This account needs a sign-in. Sign in in MORE, or say next to continue your morning."
+            case .unavailable:
+                explanation = AppLanguage.isFrench ? "Je ne peux pas parcourir ce contenu. Dites suivant pour continuer, ou mettez en pause pour réessayer." : "I can’t browse this content. Say next to continue, or pause to try again."
+            case .uncertainAction:
+                explanation = AppLanguage.isFrench ? "Ce like n’est pas confirmé. Je m’arrête pour éviter de le répéter. Vous pouvez dire suivant." : "This like is unconfirmed. I’ve stopped to avoid repeating it. You can say next."
+            default: explanation = nil
+            }
+            if let explanation { connectedActionStatus = explanation; speech.speak(explanation) }
+        }
+        if event.state == .needsChoice, session?.status == .running {
+            pause()
+            if readAloud {
+                speech.speak(AppLanguage.isFrench ? "Ce site demande un choix de confidentialité ou un abonnement. Votre matin est en pause. Vous pouvez dire suivant." : "This site needs a privacy or subscription choice. Your morning is paused. You can say next.")
+            }
+            return
+        }
+        if event.state != .performingAction, let timer = activeStepTimer, timer.hasAlertedCurrentEnd {
+            _ = finishAutomatedBudget(timer)
         }
     }
 
@@ -89,6 +145,8 @@ extension MorningStore {
             return true
         }
         guard step.webBehavior != nil else { return false }
+        if webExecutionEvent?.sessionID == timer.sessionID, webExecutionEvent?.stepID == timer.stepID,
+           webExecutionEvent?.state == .performingAction { return true }
         let record = currentExecutionRecord
         let performed = (record?.observedContents ?? 0) > 0 &&
             record?.outcome != .uncertain && record?.outcome != .unavailable && record?.outcome != .interrupted

@@ -490,16 +490,13 @@ struct ScreenTimeRoutineLearningTests {
             from: JSONEncoder().encode(proposal))
         let draft = try restoredProposal.draft(preserving: approved)
         let gmail = draft.steps[gmailIndex]
-        guard case let .inAppWeb(url) = gmail.target else {
-            Issue.record("A reviewed Gmail suggestion must open the existing in-MORE Gmail reader")
-            return
-        }
-        #expect(WebMorningSite(url: url) == .gmail)
-        #expect(gmail.target?.externalURL == nil)
+        #expect(gmail.target == nil)
+        #expect(gmail.webBehavior == nil)
         #expect(gmail.durationMinutes == 7)
-        #expect(gmail.automation == nil)
+        #expect(gmail.automation == .gmailInbox)
         #expect(draft.steps[unknownIndex].target == nil)
-        #expect(draft.steps[whatsappIndex].target == .externalApp(.whatsapp, detail: nil))
+        #expect(draft.steps[whatsappIndex].target == .inAppWeb(site: WebMorningSite.whatsapp.table.startURL))
+        #expect(draft.steps[whatsappIndex].webBehavior == .readUnread)
         #expect(!draft.isApproved)
         #expect(draft.number == approved.number + 1)
         let restoredApproved = try JSONDecoder().decode(RoutineVersion.self, from: savedApproved)
@@ -524,7 +521,8 @@ struct ScreenTimeRoutineLearningTests {
         #expect(draft.steps[0].durationMinutes == ScreenTimeRoutineProposal.minutesRange.upperBound)
         #expect(draft.steps[1].durationMinutes == 15)
         #expect(draft.steps.allSatisfy { $0.automation == nil && !$0.isRequired })
-        #expect(draft.steps.map(\.target) == [.externalApp(.whatsapp, detail: nil), nil, nil, .externalApp(.mail, detail: nil)])
+        #expect(draft.steps.map(\.target) == [.inAppWeb(site: WebMorningSite.whatsapp.table.startURL), nil, nil, .externalApp(.mail, detail: nil)])
+        #expect(draft.steps[0].webBehavior == .readUnread)
         #expect(draft.steps[3].detail.contains("Estimated"))
         #expect(draft.steps[1].detail.contains("Measured"))
 
@@ -554,4 +552,65 @@ struct ScreenTimeRoutineLearningTests {
         let format = french.localizedString(forKey: "Usually %lld min, on %lld of %lld mornings.", value: nil, table: nil)
         #expect(String(format: format, 12, 4, 5) == "En général 12 min, 4 matins sur 5.")
     }
+
+    @Test func recognizedSourceOperationsAreVisibleBeforeApprovalAndHaveStableIDs() throws {
+        let learning = learn(ordinaryDay(14, extra: [app("com.burbn.instagram", 5), app("com.google.Gmail", 5), app("com.apple.mobilecal", 5)]),
+            queryStart: at(18, day: 13))
+        let proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        let draft = try proposal.draft(preserving: nil)
+        for source in proposal.includedSteps {
+            let actual = try #require(draft.steps.first { $0.id == source.suggestedStep.id })
+            #expect(actual.automation == source.suggestedStep.automation)
+            #expect(actual.target == source.suggestedStep.target)
+            #expect(actual.webBehavior == source.suggestedStep.webBehavior)
+            #expect(actual.webLikesAllowed == source.suggestedStep.webLikesAllowed)
+        }
+        #expect(draft.steps.contains { $0.automation == .gmailInbox })
+        #expect(draft.steps.contains { $0.automation == .todayCalendar })
+        #expect(draft.steps.contains { $0.webBehavior == .browseFeed })
+        #expect(!draft.isApproved)
+    }
+
+    @Test func completeKeptChoicesAndAbsentMomentsAreShownBeforeApproval() throws {
+        let learning = learn(ordinaryDay(14, extra: [app("com.burbn.instagram", 5)]), queryStart: at(18, day: 13))
+        var proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        let saved = RoutineStep(title: "Instagram", detail: "My manual saved choice", kind: .entertainment,
+            durationMinutes: 11, isRequired: true, target: .inAppWeb(site: URL(string: "https://www.instagram.com/saved/")!))
+        let absent = RoutineStep(title: "Quiet breathing", detail: "A complete personal note", kind: .wellbeing,
+            durationMinutes: 300, isRequired: true, automation: .spokenNote)
+        var preferences = RoutinePreferenceJournal()
+        try preferences.upsert(RoutinePreference(target: saved, presence: .keep))
+        try preferences.upsert(RoutinePreference(target: absent, presence: .keep))
+        #expect(proposal.applyPreferences(preferences))
+        let visibleSaved = try #require(proposal.steps.first { $0.retainedStep?.id == saved.id })
+        let visibleAbsent = try #require(proposal.steps.first { $0.retainedStep?.id == absent.id })
+        #expect(visibleSaved.suggestedStep == saved)
+        #expect(visibleAbsent.suggestedStep == absent)
+        #expect(visibleAbsent.morningsSeen == 0 && !visibleAbsent.minutesMeasured)
+        let restored = try JSONDecoder().decode(ScreenTimeRoutineProposal.self, from: JSONEncoder().encode(proposal))
+        let draft = try restored.draft(preserving: nil)
+        #expect(draft.steps.contains(saved) && draft.steps.contains(absent))
+        #expect(!draft.steps.contains { $0.title == "Instagram" && $0.webBehavior != nil })
+        #expect(restored.isCurrent(preferences: preferences))
+        preferences.clear()
+        #expect(!restored.isCurrent(preferences: preferences))
+    }
+
+    @Test func savedKeptOperationsCannotBeForgedOutsideTheirPreferenceSnapshot() throws {
+        let learning = learn(ordinaryDay(14), queryStart: at(18, day: 13))
+        var proposal = try #require(ScreenTimeRoutineProposal.make(from: learning, nextMorning: at(7, day: 15), baseRoutineID: nil, calendar: calendar()))
+        let saved = RoutineStep(title: "My note", detail: "A personal note", automation: .spokenNote)
+        var preferences = RoutinePreferenceJournal()
+        try preferences.upsert(RoutinePreference(target: saved, presence: .keep))
+        #expect(proposal.applyPreferences(preferences))
+        var document = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(proposal)) as? [String: Any])
+        var steps = try #require(document["steps"] as? [[String: Any]])
+        let index = try #require(steps.firstIndex { $0["retainedStep"] != nil })
+        var forged = try #require(steps[index]["retainedStep"] as? [String: Any])
+        forged["automation"] = "gmailInbox"
+        steps[index]["retainedStep"] = forged; document["steps"] = steps
+        let data = try JSONSerialization.data(withJSONObject: document)
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(ScreenTimeRoutineProposal.self, from: data) }
+    }
+
 }

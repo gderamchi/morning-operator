@@ -517,7 +517,9 @@ struct StepEditor: View {
                 Section {
                     TextField("Give this step a name", text: $step.title)
                         .accessibilityLabel("Step name")
-                    if step.automation == .savedObservation {
+                    if case .connectedAPI = step.target {
+                        Text(step.detail).textSelection(.enabled)
+                    } else if step.automation == .savedObservation {
                         Text(step.detail).textSelection(.enabled)
                         Text("Choose a different excerpt from its observation in Review. Switching to Read this text aloud makes it an ordinary note.")
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
@@ -573,19 +575,21 @@ struct StepEditor: View {
                 } footer: {
                     Text(automationExplanation)
                 }
-                StepTargetEditor(target: $step.target)
+                StepTargetEditor(target: $step.target, reviewedDetail: step.detail)
                 if case let .inAppWeb(url) = step.target, let site = WebMorningSite(url: url), site != .gmail {
                     Section {
                         Picker(AppLanguage.isFrench ? "Ce que MORE fait" : "What MORE does", selection: $step.webBehavior) {
                             Text(AppLanguage.isFrench ? "Je navigue moi-même" : "I browse myself").tag(Optional<WebMorningBehavior>.none)
-                            ForEach(WebMorningBehavior.allCases, id: \.self) { behavior in
+                            ForEach(WebMorningBehavior.availableBehaviors(for: site), id: \.self) { behavior in
                                 Text(behavior.displayName).tag(Optional(behavior))
                             }
                         }.accessibilityIdentifier("step.webBehavior")
                         if step.webBehavior != nil {
-                            Toggle(AppLanguage.isFrench ? "Aimer jusqu’à 3 contenus affichés" : "Like up to 3 displayed contents", isOn: Binding(
-                                get: { step.webLikesAllowed == true }, set: { step.webLikesAllowed = $0 }))
-                                .accessibilityIdentifier("step.webLikes")
+                            if let behavior = step.webBehavior, WebMorningBehavior.permitsLikes(for: site, behavior: behavior) {
+                                Toggle(AppLanguage.isFrench ? "Aimer jusqu’à 3 contenus affichés" : "Like up to 3 displayed contents", isOn: Binding(
+                                    get: { step.webLikesAllowed == true }, set: { step.webLikesAllowed = $0 }))
+                                    .accessibilityIdentifier("step.webLikes")
+                            }
                             Text(step.executionDescription).font(.footnote).foregroundStyle(MorningStyle.muted)
                         }
                     } header: { Text(AppLanguage.isFrench ? "Pendant la navigation" : "While browsing") }
@@ -613,6 +617,12 @@ struct StepEditor: View {
                         edited.title = edited.title.trimmingCharacters(in: .whitespacesAndNewlines)
                         if edited.automation != .savedObservation { edited.observationReference = nil }
                         if edited.target != nil { edited.automation = nil }
+                        if case let .inAppWeb(url) = edited.target, let site = WebMorningSite(url: url), let behavior = edited.webBehavior {
+                            guard WebMorningBehavior.availableBehaviors(for: site).contains(behavior) else {
+                                saveError = AppLanguage.isFrench ? "Choisissez un comportement disponible pour ce site." : "Choose an available behavior for this site."; return
+                            }
+                            if !WebMorningBehavior.permitsLikes(for: site, behavior: behavior) { edited.webLikesAllowed = false }
+                        }
                         if case .inAppWeb = edited.target { } else { edited.webBehavior = nil; edited.webLikesAllowed = nil }
                         if onSave(edited, keepInSuggestions, keepDuration) { dismiss() }
                         else { saveError = failureMessage() }

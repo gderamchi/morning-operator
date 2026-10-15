@@ -23,6 +23,17 @@ public struct RoutineExecutionRecord: Codable, Equatable, Sendable, Identifiable
 
 public extension RoutineStep {
     var executionDescription: String {
+        let service: String?
+        switch target {
+        case let .inAppWeb(url): service = WebMorningSite(url: url)?.displayName ?? url.host
+        case let .externalApp(app, _): service = app.displayName
+        case let .shortcut(name, _): service = "Shortcuts · \(name)"
+        case let .connectedAPI(name, _, _, _): service = name.replacingOccurrences(of: "_", with: " ").capitalized
+        case nil: service = automation == .gmailInbox ? "Gmail" : nil
+        }
+        return service.map { "\($0) · \(operationDescription)" } ?? operationDescription
+    }
+    private var operationDescription: String {
         let fr = AppLanguage.isFrench
         if case .inAppWeb = target {
             guard let webBehavior else { return fr ? "Ouvrir la page ; navigation manuelle." : "Open the page; browse yourself." }

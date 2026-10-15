@@ -232,7 +232,7 @@ final class MorningStore {
     @ObservationIgnored var handsFreeUtteranceHandler: (@MainActor (String) async -> Bool)?
     @ObservationIgnored lazy var mailMorning = GmailMorningConversation(speak: { [weak self] text in
         guard let self else { throw CancellationError() }
-        try await self.speech.speakAndWait(text)
+        if self.readAloud { try await self.speech.speakAndWait(text) }
     })
     let usesSyntheticBriefing: Bool
     private(set) var consumedMorningEntryIDs: [UUID] = []
@@ -372,6 +372,13 @@ final class MorningStore {
                     RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
                 ])
             }
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-public-feed") {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — live public Reddit browsing", steps: [
+                    RoutineStep(title: "Reddit", kind: .entertainment, durationMinutes: 2,
+                        target: .inAppWeb(site: URL(string: "https://www.reddit.com/r/france/")!), webBehavior: .browseFeed),
+                    RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
             #endif
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-ten-moments") {
                 let titles = ["Your morning", "The weather", "Today's calendar", "Your reminders", "People and messages",
@@ -435,6 +442,9 @@ final class MorningStore {
                         routinePreferencesIssue = String(localized: "Your previous choices need review. Your routine is intact. Reset saved choices before making new suggestions.")
                     }
                 }
+                if let proposal = pendingScreenTimeProposal, !proposal.isCurrent(preferences: routinePreferences) {
+                    pendingScreenTimeProposal = nil
+                }
                 history = saved.history ?? MorningHistory()
                 budgetAndFeedback = (saved.budgetAndFeedback ?? RoutineBudgetAndFeedback()).droppingAcceptance(unlessFor: routine)
                 savedRunEndings = runEndingsInMemory
@@ -486,7 +496,7 @@ final class MorningStore {
                 consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
                 greetingState = saved.greeting ?? MorningGreetingState()
                 if !pendingCaptures.isEmpty { notice = String(localized: "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again.") }
-                if session?.status == .running, currentStep?.target == nil || activeStepTimer == nil {
+                if session?.status == .running, currentStep?.target == nil || activeStepTimer == nil || currentStep?.webBehavior != nil {
                     sessionTimingInterrupted = true
                     try session?.pause()
                     notice = String(localized: "Your previous morning is paused. Resume when you're ready.")
@@ -610,7 +620,13 @@ final class MorningStore {
     func approve() -> Bool {
         guard !privacyBlocksWork else { return false }
         guard let routine, !busy, !sessionActive else { return false }
-        do { for step in routine.steps { try step.target?.validateIntegration() } }
+        guard mayApproveExecution(in: routine) else { return false }
+        do {
+            for step in routine.steps {
+                try step.target?.validateIntegration()
+                if case let .connectedAPI(_, _, _, arguments) = step.target { _ = try ConnectedActionReview.summary(argumentsJSON: arguments) }
+            }
+        }
         catch { notice = error.localizedDescription; return false }
         guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return false }
         guard !routine.steps.isEmpty else { notice = String(localized: "Add at least one step before approving."); return false }
@@ -851,6 +867,8 @@ final class MorningStore {
 
     func pause() {
         guard !privacyBlocksWork else { return }
+        mailMorning.cancel()
+        executionSpeechTask?.cancel(); executionSpeechTask = nil
         cancelVoiceCommandTurn()
         endOpening()
         cancelStepPlayback()
@@ -1047,6 +1065,7 @@ final class MorningStore {
     func openVoiceCommands() {
         guard !privacyBlocksWork else { return }
         guard sessionActive else { return }
+        suspendHandsFreeVoice()
         if session?.status == .running { pause() }
         voiceCommandFeedback = nil
         voiceCommandPresented = true
@@ -1075,6 +1094,7 @@ final class MorningStore {
             }
             do {
                 try Task.checkCancellation()
+                try await prepareForManualVoiceInput()
                 try await speech.stopAndRelease()
                 try Task.checkCancellation()
                 guard voiceContext == context else { throw CancellationError() }
@@ -1168,6 +1188,7 @@ final class MorningStore {
         guard hasSavedCompletedSession, storageIsAvailable, !busy,
               !capturePresented, !voiceInputBlocksPlayback, !voiceCommandPresented else { return }
         completionInvitationSessionID = nil
+        suspendHandsFreeVoice()
         stopCompletionInvitation()
         completionVoiceSessionID = session?.id
         completionCaptureFeedback = nil
@@ -1194,6 +1215,7 @@ final class MorningStore {
             }
             do {
                 try Task.checkCancellation()
+                try await prepareForManualVoiceInput()
                 try await speech.stopAndRelease()
                 try Task.checkCancellation()
                 guard captureVoicePresented, completionCaptureAttempt == attempt,
@@ -1427,6 +1449,7 @@ final class MorningStore {
             notice = String(localized: "This suggestion no longer matches the saved observations or routine. Choose mornings to prepare a fresh one.")
             return false
         }
+        guard mayApproveExecution(in: proposal.routine) else { return false }
         let oldRoutine = routine
         let oldPrevious = previousRoutine
         let oldSession = session
@@ -1490,9 +1513,14 @@ final class MorningStore {
             notice = String(localized: "Your routine changed since this suggestion was made. Learn from Screen Time again for a fresh one.")
             return false
         }
+        guard proposal.isCurrent(preferences: routinePreferences) else {
+            notice = AppLanguage.isFrench ? "Vos choix ont changé. Préparez une nouvelle proposition avant de la valider." : "Your choices changed. Prepare a fresh suggestion before approving it."
+            return false
+        }
         let draft: RoutineVersion
         do { draft = try proposal.draft(preserving: routine) }
         catch { notice = String(localized: "Keep at least one app to approve this suggestion."); return false }
+        guard mayApproveExecution(in: draft) else { return false }
         let oldRoutine = routine
         let oldPrevious = previousRoutine
         let oldSession = session
@@ -2125,6 +2153,7 @@ final class MorningStore {
 
     func executionPreferencesChanged() {
         guard !privacyBlocksWork else { return }
+        if automatic { startHandsFreeVoice() } else { stopHandsFreeVoice() }
         cancelStepPlayback()
         speech.stop()
         guard persist() else { pauseAfterSaveFailure(); return }
@@ -2296,13 +2325,14 @@ final class MorningStore {
                 observationContextClassification: observationContextClassification.map(RecoverableObservationClassification.init),
                 observationArchive: observationArchive, selectedObservationID: selectedObservationID,
                 pendingRoutineProposal: validProposal.map(RecoverableRoutineProposal.init),
-                pendingScreenTimeProposal: pendingScreenTimeProposal.flatMap { $0.baseRoutineID == routine?.id ? $0 : nil },
+                pendingScreenTimeProposal: pendingScreenTimeProposal.flatMap { $0.baseRoutineID == routine?.id && $0.isCurrent(preferences: routinePreferences) ? $0 : nil },
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences),
                 greeting: greetingState, executionRecords: executionRecords))
             }
             pendingRoutineProposal = validProposal
-            if pendingScreenTimeProposal?.baseRoutineID != routine?.id { pendingScreenTimeProposal = nil }
+            if let proposal = pendingScreenTimeProposal,
+               proposal.baseRoutineID != routine?.id || !proposal.isCurrent(preferences: routinePreferences) { pendingScreenTimeProposal = nil }
             savedCompletionSessionID = session?.status == .completed ? session?.id : nil
             savedRunEndings = runEndingsInMemory
             observationEditsNeedSave = false

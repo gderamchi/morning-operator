@@ -76,7 +76,7 @@ public struct WebMorningExecutionPlan: Sendable, Equatable {
 }
 
 public enum WebMorningExecutionState: String, Codable, Sendable, Equatable {
-    case waitingForPage, running, performingAction, paused, needsSignIn, unavailable, uncertainAction, finished, cancelled
+    case waitingForPage, running, performingAction, paused, needsSignIn, needsChoice, unavailable, uncertainAction, finished, cancelled
 }
 
 /// Counts mean observed content and visible effects, never elapsed timers or page loads.
@@ -97,7 +97,7 @@ public struct WebMorningExecutionEvent: Sendable, Equatable {
 }
 
 public struct WebMorningPageObservation: Decodable, Sendable, Equatable {
-    public enum Status: String, Decodable, Sendable { case ready, loading, signin, empty, unavailable }
+    public enum Status: String, Decodable, Sendable { case ready, loading, signin, choice, empty, unavailable }
     public let status: Status
     public let fingerprint: String?
     public let contentID: String?
@@ -238,6 +238,11 @@ public enum WebMorningExecutionPolicy {
             consent.click(); return out({status:'dispatched'});
           }
           if (consent) return out({status:'loading',fingerprint:'consent',consentCanDismiss:true});
+          const choiceLabels=all(document,['button','a','[role=button]']).filter(visible)
+            .map(e=>clean(e.getAttribute('aria-label')||e.innerText).toLowerCase());
+          const accepts=choiceLabels.some(t=>['accepter et continuer','accept and continue','accepter les cookies','tout accepter','accept all','accept all cookies'].includes(t));
+          const personalChoice=choiceLabels.some(t=>["s’abonner","s'abonner",'subscribe','se connecter','sign in','paramétrer','manage preferences','personnaliser mes choix'].includes(t));
+          if (accepts && personalChoice) return out({status:'choice'});
           const sameRoute = href => { try { const u=new URL(href, location.href); return u.protocol==='https:' && \#(json(site.table.allowedHosts.sorted())).includes(u.hostname.toLowerCase()) && !u.username && !u.password && (!u.port || u.port==='443') && !\#(json(WebMorningPolicy.signInPathFragments)).some(p=>(u.pathname.toLowerCase()+'/').includes(p)) ? u.pathname : null; } catch (_) { return null; } };
           const behavior = \#(json(behavior.rawValue)), site = \#(json(site.rawValue));
           let nodes = [...new Set(all(document, \#(json(selectors))).filter(visible))];
@@ -261,6 +266,7 @@ public enum WebMorningExecutionPolicy {
           const contentID = contentLink || item.getAttribute('data-id') || item.getAttribute('post-id') || item.getAttribute('id') || ((/\/(shorts|reel|reels|stories)\//.test(location.pathname)) ? location.pathname : null);
           const video = item.matches('video') ? item : item.querySelector('video');
           const image = item.matches('img') ? item : item.querySelector('img');
+          if (video && ['watchVideos','watchStories'].includes(behavior) && video.readyState<2) return out({status:'loading'});
           if (!text && !(video && video.readyState>=2) && !(image && image.complete && image.naturalWidth>0)) return out({status:'empty'});
           const fingerprint = hash(contentID || text+'|'+(video?.currentSrc || image?.currentSrc || ''));
           // Match a control's accessible name exactly; never infer a click from prose.

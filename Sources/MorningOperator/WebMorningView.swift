@@ -241,7 +241,7 @@ struct WebMorningView: View {
                     Button(action: onNext) {
                         MorningDottedIcon(systemName: "arrow.right").frame(width: 25, height: 25).frame(width: 44, height: 44)
                     }.accessibilityLabel(text("Next step", "Étape suivante"))
-                        .disabled(!isStepActive).accessibilityIdentifier("web.nextMoment")
+                        .disabled(!isStepActive && executionPlan == nil).accessibilityIdentifier("web.nextMoment")
                 }
             }
         }
@@ -259,6 +259,7 @@ struct WebMorningView: View {
             case .performingAction: return text("Checking this like…", "Vérification de ce j’aime…")
             case .paused: return text("Your morning is paused. Resume when you're ready.", "Votre matin est en pause. Reprenez quand vous le souhaitez.")
             case .needsSignIn: return text("Sign in on the page. MORE will resume here.", "Connectez-vous sur la page. MORE reprendra ici.")
+            case .needsChoice: return text("This site needs a privacy choice, subscription or sign-in. Choose on the page, then resume, or skip this moment.", "Ce site demande un choix de confidentialité, un abonnement ou une connexion. Faites votre choix sur la page, puis reprenez, ou passez ce moment.")
             case .unavailable: return text("MORE couldn't continue on this page. Reload or skip this moment.", "MORE ne peut pas continuer sur cette page. Rechargez ou passez ce moment.")
             case .uncertainAction: return text("This like couldn't be verified. MORE has stopped to avoid repeating it.", "Ce j’aime n’a pas pu être vérifié. MORE s’est arrêté pour éviter de le répéter.")
             case .finished: return text("This moment is complete · \(event.observedContentCount) contents viewed", "Ce moment est terminé · \(event.observedContentCount) contenus parcourus")

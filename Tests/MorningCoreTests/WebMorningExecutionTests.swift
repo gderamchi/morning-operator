@@ -14,6 +14,9 @@ struct WebMorningExecutionTests {
         #expect(plan.maximumLikes == 3)
         #expect(plan.dwellSeconds == 12)
         #expect(WebMorningExecutionPlan(sessionID: session, stepID: step, behavior: .browseFeed).likesAllowed == false)
+        #expect(WebMorningBehavior.availableBehaviors(for: .news) == [.readHeadlines])
+        #expect(WebMorningBehavior.availableBehaviors(for: .gmail).isEmpty)
+        #expect(!WebMorningBehavior.permitsLikes(for: .news, behavior: .readHeadlines))
         let event = WebMorningExecutionEvent(plan: plan, state: .waitingForPage, observedContentCount: 0, confirmedLikeCount: 0)
         #expect(event.sessionID == session && event.stepID == step)
         #expect(event.observedContentCount == 0)
@@ -95,8 +98,9 @@ struct WebMorningExecutionScriptTests {
         return context
     }
     private func evaluate(_ context: JSContext, command: String = "observe", fingerprint: String? = nil,
-                          likesAllowed: Bool = false, expiresAt: Date = Date().addingTimeInterval(10)) throws -> String {
-        let script = WebMorningExecutionPolicy.script(site: .instagram, behavior: .browseFeed, command: command,
+                          likesAllowed: Bool = false, expiresAt: Date = Date().addingTimeInterval(10),
+                          behavior: WebMorningBehavior = .browseFeed) throws -> String {
+        let script = WebMorningExecutionPolicy.script(site: .instagram, behavior: behavior, command: command,
             fingerprint: fingerprint, likesAllowed: likesAllowed, expiresAt: expiresAt)
         let result = try #require(context.evaluateScript(script)?.toString())
         #expect(context.exception == nil)
@@ -158,6 +162,54 @@ struct WebMorningExecutionScriptTests {
         #expect(WebMorningPageObservation.parse(result)?.status == .empty)
         _ = try evaluate(context, command: "like", fingerprint: "anything", likesAllowed: true)
         #expect(context.objectForKeyedSubscript("clicks")?.toInt32() == 0)
+    }
+
+    @Test func videoCaptionsDoNotMakeUnloadedMediaLookReady() throws {
+        let context = try context()
+        context.evaluateScript("""
+        var video={readyState:0,paused:true};
+        item.querySelector=s=>s==='video' ? video : null;
+        item.innerText='A caption while the video is still loading';
+        """)
+        let result = try evaluate(context, behavior: .watchVideos)
+        #expect(WebMorningPageObservation.parse(result)?.status == .loading)
+        #expect(context.objectForKeyedSubscript("clicks")?.toInt32() == 0)
+    }
+
+    @Test func consentDismissalOnlyRejectsTrackingAndIsObservedAgain() throws {
+        let context = try context()
+        context.evaluateScript("""
+        var rejected=0,accepted=0;
+        var reject={getBoundingClientRect:bounds,getAttribute:()=>null,innerText:'Reject all',click:()=>{rejected++;}};
+        var accept={getBoundingClientRect:bounds,getAttribute:()=>null,innerText:'Accept all',click:()=>{accepted++;}};
+        var originalQuery=document.querySelectorAll;
+        document.querySelectorAll=s=>s==='#didomi-host button' && !rejected ? [reject,accept] : originalQuery(s);
+        """)
+        let before = try #require(WebMorningPageObservation.parse(evaluate(context)))
+        #expect(before.status == .loading && before.consentCanDismiss == true)
+        _ = try evaluate(context, command: "rejectConsent", fingerprint: before.fingerprint)
+        let after = try #require(WebMorningPageObservation.parse(evaluate(context)))
+        #expect(after.status == .ready && after.fingerprint != before.fingerprint)
+        #expect(context.objectForKeyedSubscript("rejected")?.toInt32() == 1)
+        #expect(context.objectForKeyedSubscript("accepted")?.toInt32() == 0)
+    }
+
+    @Test func privacyOrSubscriptionWallNeedsThePersonsChoice() throws {
+        let context = try context()
+        context.evaluateScript("""
+        location.hostname='www.lemonde.fr';location.href='https://www.lemonde.fr/';
+        var accepted=0,subscribed=0;
+        var accept={getBoundingClientRect:bounds,getAttribute:()=>null,innerText:'Accepter et continuer',click:()=>{accepted++;}};
+        var subscribe={getBoundingClientRect:bounds,getAttribute:()=>null,innerText:'S’abonner',click:()=>{subscribed++;}};
+        var originalQuery=document.querySelectorAll;
+        document.querySelectorAll=s=>s==='button' ? [accept,subscribe] : originalQuery(s);
+        """)
+        let script = WebMorningExecutionPolicy.script(site: .news, behavior: .readHeadlines)
+        let result = try #require(context.evaluateScript(script)?.toString())
+        #expect(context.exception == nil)
+        #expect(WebMorningPageObservation.parse(result)?.status == .choice)
+        #expect(context.objectForKeyedSubscript("accepted")?.toInt32() == 0)
+        #expect(context.objectForKeyedSubscript("subscribed")?.toInt32() == 0)
     }
 
     @Test func expiredCommandsAndInlinePasswordFormsCannotInteract() throws {
