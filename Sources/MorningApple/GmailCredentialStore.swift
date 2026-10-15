@@ -96,11 +96,12 @@ struct GmailSavedCredential: Codable, Sendable, CustomStringConvertible, CustomD
     var description: String { "GmailSavedCredential(redacted)" }
     var debugDescription: String { description }
 
-    init(clientID: String, refreshToken: String, generation: UUID?, installationID: UUID) {
+    init(clientID: String, refreshToken: String, generation: UUID?, installationID: UUID,
+         scope: String = GmailConnectionService.readonlyScope) {
         schemaVersion = 1
         id = UUID()
         self.clientID = clientID
-        scope = GmailConnectionService.readonlyScope
+        self.scope = scope
         self.refreshToken = refreshToken
         self.generation = generation
         self.installationID = installationID

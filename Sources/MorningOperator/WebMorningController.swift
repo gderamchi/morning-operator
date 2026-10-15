@@ -5,8 +5,8 @@ import OSLog
 import UIKit
 import WebKit
 
-/// One visible browser. Page actions require a foreground request; optional
-/// learning observes numeric rhythm only after an explicit Start learning tap.
+/// One visible browser. A reviewed routine can drive bounded page actions while
+/// foregrounded; learning remains a separate, explicitly enabled operation.
 @MainActor @Observable
 final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     static let storeIdentifier: UUID = {
@@ -33,7 +33,9 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     private(set) var displayedHost = ""
     private(set) var isClearing = false
     /// The presenting view revokes this whenever it leaves the foreground.
-    var actionsEnabled = false
+    var actionsEnabled = false {
+        didSet { if actionsEnabled { resumeExecutionIfNeeded() } else { suspendExecution() } }
+    }
     var learningAllowed = false {
         didSet { if !learningAllowed { stopLearning() } }
     }
@@ -53,6 +55,20 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             !isSignInPage && !loadFailed && !isClearing && !isRunning && !isFinishingLearning && !webView.isLoading &&
             BrowserRhythmPolicy.permits(site: site, url: webView.url)
     }
+    private(set) var executionEvent: WebMorningExecutionEvent?
+    @ObservationIgnored var onExecutionEvent: ((WebMorningExecutionEvent) -> Void)?
+    @ObservationIgnored var executionIsAuthorized: (() -> Bool)?
+    @ObservationIgnored var executionCanAdvance: (() -> Bool)?
+    @ObservationIgnored private var executionPlan: WebMorningExecutionPlan?
+    @ObservationIgnored private var executionDeadline: Date?
+    @ObservationIgnored private var executionTask: Task<Void, Never>?
+    @ObservationIgnored private var executionNonce: UUID?
+    @ObservationIgnored private var observedFingerprints = Set<String>()
+    @ObservationIgnored private var observedContentCount = 0
+    @ObservationIgnored private var confirmedLikeCount = 0
+    @ObservationIgnored private var lastSpokenFingerprint: String?
+    @ObservationIgnored private var executionFinished = false
+    @ObservationIgnored private var actionPending = false
     @ObservationIgnored private var pageGeneration = 0
     @ObservationIgnored private let privacyAtCreation: LocalDataControlState?
     @ObservationIgnored private let startURL: URL
@@ -73,6 +89,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore(forIdentifier: Self.storeIdentifier)
         configuration.allowsInlineMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = []
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
         if site.table.usesDesktopUserAgent { webView.customUserAgent = Self.desktopUserAgent }
@@ -87,7 +104,8 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     func startIfNeeded() {
         guard !hasStarted, privacyIsCurrent else { return }
         hasStarted = true
-        webView.load(URLRequest(url: startURL))
+        let destination = executionPlan.flatMap { WebMorningExecutionPolicy.entryURL(site: site, behavior: $0.behavior) } ?? startURL
+        webView.load(URLRequest(url: destination))
     }
 
     @discardableResult
@@ -111,7 +129,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     }
 
     @discardableResult func startLearning() async -> Bool {
-        guard canLearn, !isLearning else { return false }
+        guard canLearn, !isLearning, executionPlan == nil else { return false }
         let nonce = UUID()
         learningNonce = nonce; learningGeneration = pageGeneration
         learningReviewNonce = nil
@@ -221,10 +239,238 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         return WebMorningOutcome.parse(value, task: task)
     }
 
-    /// Clears every site's session in this app's dedicated WebKit store.
+    /// The presenter supplies only the behavior from its approved session snapshot.
+    /// Changing a deadline never creates a second worker or resets observed results.
+    func configureExecution(plan: WebMorningExecutionPlan?, endsAt: Date?) {
+        guard let plan else { stopExecution(); executionPlan = nil; return }
+        let changed = executionPlan?.sessionID != plan.sessionID || executionPlan?.stepID != plan.stepID ||
+            executionPlan?.behavior != plan.behavior || executionPlan?.likesAllowed != plan.likesAllowed
+        if changed {
+            stopExecution()
+            executionPlan = plan
+            observedFingerprints = []; observedContentCount = plan.initialObservedContentCount
+            confirmedLikeCount = plan.initialConfirmedLikeCount; lastSpokenFingerprint = nil
+            executionFinished = false; actionPending = false
+        }
+        executionDeadline = endsAt
+        resumeExecutionIfNeeded()
+    }
+
+    func stopExecution() {
+        executionTask?.cancel(); executionTask = nil; executionNonce = nil
+        if executionPlan != nil, !executionFinished { publishExecution(.cancelled) }
+    }
+
+    private func suspendExecution() {
+        guard executionTask != nil else { return }
+        executionTask?.cancel(); executionTask = nil; executionNonce = nil
+        publishExecution(.paused)
+    }
+
+    private func resumeExecutionIfNeeded() {
+        guard let plan = executionPlan, actionsEnabled, !isClearing, !isLearning,
+              !executionFinished, executionTask == nil, privacyIsCurrent else { return }
+        let nonce = UUID(); executionNonce = nonce
+        executionTask = Task { [weak self] in
+            guard let self else { return }
+            await self.execute(plan, nonce: nonce)
+            if self.executionNonce == nonce { self.executionTask = nil; self.executionNonce = nil }
+        }
+    }
+
+    private func executionIsCurrent(_ nonce: UUID) -> Bool {
+        !Task.isCancelled && executionNonce == nonce && actionsEnabled && privacyIsCurrent &&
+            !isLearning && !isClearing && UIApplication.shared.applicationState == .active &&
+            (executionIsAuthorized?() ?? true)
+    }
+
+    private func publishExecution(_ state: WebMorningExecutionState, text: [String] = []) {
+        guard let plan = executionPlan else { return }
+        let hasPending = actionPending || ((try? WebMorningLikeJournal(directory: LocalDataControl.defaultDirectory)
+            .unresolvedKeys(sessionID: plan.sessionID, stepID: plan.stepID).isEmpty) == false)
+        let safeState: WebMorningExecutionState = hasPending && state != .performingAction ? .uncertainAction : state
+        let event = WebMorningExecutionEvent(plan: plan, state: safeState, observedContentCount: observedContentCount,
+                                            confirmedLikeCount: confirmedLikeCount, spokenText: text)
+        if executionEvent != event { executionEvent = event; onExecutionEvent?(event) }
+    }
+
+    private func executionWait(_ seconds: TimeInterval, nonce: UUID) async -> Bool {
+        do { try await Task.sleep(for: .seconds(seconds)) } catch { return false }
+        return executionIsCurrent(nonce)
+    }
+
+    private func executionObserve(_ plan: WebMorningExecutionPlan, nonce: UUID) async -> WebMorningPageObservation? {
+        guard executionIsCurrent(nonce), !loadFailed, !webView.isLoading,
+              WebMorningExecutionPolicy.permits(site: site, url: webView.url) else { return nil }
+        let generation = pageGeneration, page = webView.url
+        let script = WebMorningExecutionPolicy.script(site: site, behavior: plan.behavior)
+        let value = try? await webView.evaluateJavaScript(script, contentWorld: .defaultClient)
+        guard executionIsCurrent(nonce), generation == pageGeneration, page == webView.url else { return nil }
+        return WebMorningPageObservation.parse(value)
+    }
+
+    /// Returns dispatch only. A subsequent independent observation establishes the effect.
+    private func executionCommand(_ command: String, observation: WebMorningPageObservation,
+                                  plan: WebMorningExecutionPlan, nonce: UUID) async -> Bool {
+        guard executionIsCurrent(nonce), !loadFailed, !webView.isLoading,
+              WebMorningExecutionPolicy.permits(site: site, url: webView.url),
+              let fingerprint = observation.fingerprint else { return false }
+        let generation = pageGeneration, page = webView.url
+        let script = WebMorningExecutionPolicy.script(site: site, behavior: plan.behavior, command: command,
+            fingerprint: fingerprint, likesAllowed: plan.likesAllowed)
+        let value = try? await webView.evaluateJavaScript(script, contentWorld: .defaultClient)
+        guard executionIsCurrent(nonce), generation == pageGeneration, page == webView.url,
+              let text = value as? String, text.utf8.count < 200,
+              let data = text.data(using: .utf8),
+              let result = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return false }
+        return result["status"] == "dispatched"
+    }
+
+    private func execute(_ plan: WebMorningExecutionPlan, nonce: UUID) async {
+        guard WebMorningBehavior.availableBehaviors(for: site).contains(plan.behavior) else {
+            publishExecution(.unavailable); return
+        }
+        var unavailableAttempts = 0, unchangedAdvances = 0
+        let journal = WebMorningLikeJournal(directory: LocalDataControl.defaultDirectory)
+        while executionIsCurrent(nonce) {
+            let hasUnresolved: Bool
+            do { hasUnresolved = try !journal.unresolvedKeys(sessionID: plan.sessionID, stepID: plan.stepID).isEmpty }
+            catch { publishExecution(.uncertainAction); return }
+            if hasUnresolved { actionPending = true; publishExecution(.performingAction) }
+            if let deadline = executionDeadline, Date() >= deadline, !hasUnresolved {
+                executionFinished = true
+                publishExecution(observedContentCount > 0 ? .finished : .unavailable); return
+            }
+            if loadFailed { publishExecution(.unavailable); return }
+            if webView.isLoading || webView.url == nil {
+                publishExecution(.waitingForPage)
+                unavailableAttempts += 1
+                if unavailableAttempts > 30 { publishExecution(.unavailable); return }
+                guard await executionWait(1, nonce: nonce) else { return }; continue
+            }
+            if WebMorningPolicy.isSignInPage(webView.url) || WebMorningSite(url: webView.url ?? startURL) != site {
+                publishExecution(.needsSignIn)
+                guard await executionWait(1, nonce: nonce) else { return }; continue
+            }
+            guard let observation = await executionObserve(plan, nonce: nonce) else {
+                guard executionIsCurrent(nonce) else { return }
+                unavailableAttempts += 1
+                if unavailableAttempts >= 5 { publishExecution(.unavailable); return }
+                guard await executionWait(1, nonce: nonce) else { return }; continue
+            }
+            switch observation.status {
+            case .signin:
+                publishExecution(.needsSignIn)
+                guard await executionWait(1, nonce: nonce) else { return }; continue
+            case .loading, .empty:
+                if observation.consentCanDismiss == true {
+                    _ = await executionCommand("rejectConsent", observation: observation, plan: plan, nonce: nonce)
+                }
+                unavailableAttempts += 1
+                publishExecution(.waitingForPage)
+                if unavailableAttempts >= 8 { publishExecution(.unavailable); return }
+                guard await executionWait(1, nonce: nonce) else { return }; continue
+            case .unavailable: publishExecution(.unavailable); return
+            case .ready: break
+            }
+            unavailableAttempts = 0
+            if let route = observation.storyRoute {
+                guard route.hasPrefix("/stories/"), let page = webView.url,
+                      let next = URL(string: route, relativeTo: page)?.absoluteURL,
+                      WebMorningExecutionPolicy.permits(site: site, url: next) else {
+                    publishExecution(.unavailable); return
+                }
+                webView.load(URLRequest(url: next))
+                guard await executionWait(1, nonce: nonce) else { return }; continue
+            }
+            if plan.behavior == .watchVideos || plan.behavior == .watchStories,
+               observation.mediaPlaying == false {
+                guard await executionCommand("play", observation: observation, plan: plan, nonce: nonce),
+                      await executionWait(1, nonce: nonce),
+                      let playing = await executionObserve(plan, nonce: nonce), playing.mediaPlaying == true else {
+                    if executionIsCurrent(nonce) { publishExecution(.unavailable) }; return
+                }
+            }
+            guard let fingerprint = observation.fingerprint else { publishExecution(.unavailable); return }
+            if observedFingerprints.insert(fingerprint).inserted { observedContentCount += 1 }
+            let spoken = (plan.behavior == .readHeadlines || plan.behavior == .readUnread) && lastSpokenFingerprint != fingerprint
+                ? observation.text ?? [] : []
+            if !spoken.isEmpty { lastSpokenFingerprint = fingerprint }
+            if !hasUnresolved { publishExecution(.running, text: spoken) }
+            guard executionIsCurrent(nonce) else { return }
+            // Reconcile every unresolved browser action before considering another like.
+            do {
+                let unresolved = try journal.unresolvedKeys()
+                if plan.likesAllowed, !unresolved.isEmpty {
+                    guard let contentID = observation.contentID, observation.liked == true,
+                          unresolved == [WebMorningLikeJournal.key(site: site, contentID: contentID)] else {
+                        publishExecution(.uncertainAction); return
+                    }
+                    try LocalDataControl(directory: LocalDataControl.defaultDirectory).withReadyAccess { state in
+                        guard state.generation == privacyAtCreation?.generation else { throw LocalDataControlError.staleGeneration }
+                        try journal.confirm(unresolved[0])
+                    }
+                    actionPending = false
+                    confirmedLikeCount = min(plan.maximumLikes, max(confirmedLikeCount,
+                        try journal.confirmedCount(sessionID: plan.sessionID, stepID: plan.stepID)))
+                    publishExecution(.running)
+                }
+                guard executionIsCurrent(nonce) else { return }
+                if plan.likesAllowed, confirmedLikeCount < plan.maximumLikes,
+                   observation.canLike == true, observation.liked != true, let contentID = observation.contentID,
+                   try journal.attemptCount(sessionID: plan.sessionID, stepID: plan.stepID) < plan.maximumLikes {
+                    let key = WebMorningLikeJournal.key(site: site, contentID: contentID)
+                    let reserved = try LocalDataControl(directory: LocalDataControl.defaultDirectory).withReadyAccess { state in
+                        guard state.generation == privacyAtCreation?.generation else { throw LocalDataControlError.staleGeneration }
+                        return try journal.reserve(key, sessionID: plan.sessionID, stepID: plan.stepID)
+                    }
+                    if reserved {
+                        actionPending = true; publishExecution(.performingAction)
+                        // An interrupted or ambiguous dispatch retains the attempt; never toggle again.
+                        guard await executionCommand("like", observation: observation, plan: plan, nonce: nonce),
+                              await executionWait(1.2, nonce: nonce),
+                              let after = await executionObserve(plan, nonce: nonce), after.contentID == contentID,
+                              after.liked == true else {
+                            if executionIsCurrent(nonce) { publishExecution(.uncertainAction) }; return
+                        }
+                        try LocalDataControl(directory: LocalDataControl.defaultDirectory).withReadyAccess { state in
+                            guard state.generation == privacyAtCreation?.generation else { throw LocalDataControlError.staleGeneration }
+                            try journal.confirm(key)
+                        }
+                        actionPending = false
+                        confirmedLikeCount = max(confirmedLikeCount,
+                            try journal.confirmedCount(sessionID: plan.sessionID, stepID: plan.stepID))
+                        publishExecution(.running)
+                    }
+                }
+            } catch { publishExecution(.uncertainAction); return }
+            guard await executionWait(plan.dwellSeconds, nonce: nonce) else { return }
+            while executionCanAdvance?() == false {
+                guard await executionWait(0.5, nonce: nonce) else { return }
+            }
+            if let deadline = executionDeadline, Date() >= deadline { continue }
+            guard let before = await executionObserve(plan, nonce: nonce) else { continue }
+            if before.canAdvance == false {
+                executionFinished = true; publishExecution(.finished); return
+            }
+            guard await executionCommand("advance", observation: before, plan: plan, nonce: nonce),
+                  await executionWait(1.2, nonce: nonce),
+                  let after = await executionObserve(plan, nonce: nonce), after.status == .ready,
+                  after.fingerprint != before.fingerprint || after.scrollOffset != before.scrollOffset else {
+                guard executionIsCurrent(nonce) else { return }
+                unchangedAdvances += 1
+                if unchangedAdvances >= 2 { publishExecution(.unavailable); return }
+                guard await executionWait(2, nonce: nonce) else { return }; continue
+            }
+            unchangedAdvances = 0
+        }
+    }
+
+    /// Clears every site's session and content-free action keys in this app's dedicated store.
     static func clearAllSignIns() async {
         await WKWebsiteDataStore(forIdentifier: storeIdentifier).removeData(
             ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
+        try? FileManager.default.removeItem(at: LocalDataControl.defaultDirectory.appendingPathComponent("browser-action-journal.json"))
     }
 
     func forgetSignIns() async {
@@ -232,6 +478,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         isClearing = true
         defer { isClearing = false }
         discardLearning()
+        stopExecution()
         actionsEnabled = false
         webView.stopLoading()
         pageGeneration += 1
@@ -241,7 +488,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         webView.load(URLRequest(url: site.table.startURL))
     }
 
-    func reload() { if privacyIsCurrent { webView.reload() } }
+    func reload() { if privacyIsCurrent { executionFinished = false; webView.reload() } }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
@@ -277,6 +524,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         let kind = isSignInPage ? "blocked" : "site"
         Self.record("WEBMORNING site=\(site.rawValue) page=\(kind)")
         Self.excludeWebDataFromBackup()
+        resumeExecutionIfNeeded()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) { failed(error) }

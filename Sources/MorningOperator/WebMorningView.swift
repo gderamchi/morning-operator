@@ -2,7 +2,7 @@ import MorningCore
 import SwiftUI
 import WebKit
 
-/// The page remains visible and each MORE action requires one tap. Routine callers
+/// The page remains visible while MORE performs an approved behavior. Routine callers
 /// pass their saved deadline and extension callback; only the standalone debug screen
 /// uses a local clock. Closing and reopening a routine does not reset its timer.
 struct WebMorningView: View {
@@ -13,6 +13,12 @@ struct WebMorningView: View {
     var onExtend: (() -> Void)?
     var onNext: (() -> Void)?
     var onClose: () -> Void
+    var executionPlan: WebMorningExecutionPlan?
+    var onExecutionEvent: ((WebMorningExecutionEvent) -> Void)?
+    var executionIsAuthorized: (() -> Bool)?
+    var executionCanAdvance: (() -> Bool)?
+    var onPause: (() -> Void)?
+    var onResume: (() -> Void)?
     /// A sign-in pass is normal browsing, without routine timers or page readers.
     var onSignInReady: (() -> Void)?
     var learningOnly: Bool
@@ -31,11 +37,18 @@ struct WebMorningView: View {
          stepEndsAt: Date? = nil, timerPausedAt: Date? = nil, onExtend: (() -> Void)? = nil,
          onNext: (() -> Void)? = nil, onSignInReady: (() -> Void)? = nil,
          learningOnly: Bool = false, onSaveRhythm: ((BrowserRhythmSummary) -> Bool)? = nil,
+         executionPlan: WebMorningExecutionPlan? = nil,
+         onExecutionEvent: ((WebMorningExecutionEvent) -> Void)? = nil,
+         executionIsAuthorized: (() -> Bool)? = nil, executionCanAdvance: (() -> Bool)? = nil,
+         onPause: (() -> Void)? = nil, onResume: (() -> Void)? = nil,
          onClose: @escaping () -> Void) {
         self.site = site; self.isStepActive = isStepActive; self.stepEndsAt = stepEndsAt; self.timerPausedAt = timerPausedAt
         self.onExtend = onExtend; self.onNext = onNext; self.onClose = onClose
         self.onSignInReady = onSignInReady
         self.learningOnly = learningOnly; self.onSaveRhythm = onSaveRhythm
+        self.executionPlan = executionPlan; self.onExecutionEvent = onExecutionEvent
+        self.onPause = onPause; self.onResume = onResume
+        self.executionIsAuthorized = executionIsAuthorized; self.executionCanAdvance = executionCanAdvance
         _controller = State(initialValue: WebMorningController(site: site, initialURL: initialURL))
         _clock = State(initialValue: WebMorningStepClock(start: Date(), minutes: minutes))
     }
@@ -71,10 +84,14 @@ struct WebMorningView: View {
         .tint(MorningStyle.accent)
         .sheet(isPresented: $showingAbout) { about }
         .onAppear {
+            controller.onExecutionEvent = onExecutionEvent
+            controller.executionIsAuthorized = executionIsAuthorized
+            controller.executionCanAdvance = executionCanAdvance
+            controller.configureExecution(plan: executionPlan, endsAt: stepEndsAt ?? clock.endsAt)
             if site != .gmail { controller.startIfNeeded() }
             controller.actionsEnabled = isStepActive && scenePhase == .active
             controller.learningAllowed = learningOnly && scenePhase == .active
-            if site != .gmail && !explained && onSignInReady == nil && !learningOnly { showingAbout = true }
+            if site != .gmail && executionPlan == nil && !explained && onSignInReady == nil && !learningOnly { showingAbout = true }
         }
         .onChange(of: scenePhase) { _, phase in
             controller.actionsEnabled = isStepActive && phase == .active && !showingAbout
@@ -85,7 +102,16 @@ struct WebMorningView: View {
             controller.actionsEnabled = !presented && isStepActive && scenePhase == .active
             controller.learningAllowed = learningOnly && !presented && scenePhase == .active
         }
-        .onDisappear { controller.actionsEnabled = false; controller.learningAllowed = false }
+        .onChange(of: executionPlan) { _, plan in
+            controller.configureExecution(plan: plan, endsAt: stepEndsAt ?? clock.endsAt)
+        }
+        .onChange(of: stepEndsAt) { _, deadline in
+            controller.configureExecution(plan: executionPlan, endsAt: deadline ?? clock.endsAt)
+        }
+        .onDisappear {
+            controller.actionsEnabled = false; controller.learningAllowed = false
+            controller.stopExecution()
+        }
     }
 
     private var topBar: some View {
@@ -176,13 +202,26 @@ struct WebMorningView: View {
                 }
             }
             HStack(spacing: 4) {
-                ForEach(site.table.tasks, id: \.self) { task in
+                if executionPlan == nil { ForEach(site.table.tasks, id: \.self) { task in
                     Button { Task { await controller.run(task) } } label: {
                         MorningDottedIcon(systemName: symbol(for: task)).frame(width: 24, height: 24).frame(width: 44, height: 44)
                     }
                     .accessibilityLabel(title(for: task))
                     .disabled(controller.isRunning || controller.isLearning || controller.isClearing || controller.isSignInPage || !controller.actionsEnabled)
                     .accessibilityIdentifier("web.\(task.rawValue)")
+                } }
+                if executionPlan != nil {
+                    if isStepActive, let onPause {
+                        Button(action: onPause) {
+                            MorningDottedIcon(systemName: "pause.fill").frame(width: 23, height: 23).frame(width: 44, height: 44)
+                        }.accessibilityLabel(text("Pause my morning", "Mettre mon matin en pause"))
+                            .accessibilityIdentifier("web.pause")
+                    } else if !isStepActive, let onResume {
+                        Button(action: onResume) {
+                            MorningDottedIcon(systemName: "play.fill").frame(width: 23, height: 23).frame(width: 44, height: 44)
+                        }.accessibilityLabel(text("Resume my morning", "Reprendre mon matin"))
+                            .accessibilityIdentifier("web.resume")
+                    }
                 }
                 if site != .gmail {
                     Button { controller.reload() } label: {
@@ -211,6 +250,21 @@ struct WebMorningView: View {
 
     private var resultLine: String? {
         if site == .gmail { return nil }
+        if let event = controller.executionEvent, executionPlan != nil {
+            switch event.state {
+            case .waitingForPage: return text("Preparing your content…", "Préparation de vos contenus…")
+            case .running:
+                return text("MORE is taking care of this · \(event.observedContentCount) contents viewed",
+                            "MORE s’en occupe · \(event.observedContentCount) contenus parcourus")
+            case .performingAction: return text("Checking this like…", "Vérification de ce j’aime…")
+            case .paused: return text("Your morning is paused. Resume when you're ready.", "Votre matin est en pause. Reprenez quand vous le souhaitez.")
+            case .needsSignIn: return text("Sign in on the page. MORE will resume here.", "Connectez-vous sur la page. MORE reprendra ici.")
+            case .unavailable: return text("MORE couldn't continue on this page. Reload or skip this moment.", "MORE ne peut pas continuer sur cette page. Rechargez ou passez ce moment.")
+            case .uncertainAction: return text("This like couldn't be verified. MORE has stopped to avoid repeating it.", "Ce j’aime n’a pas pu être vérifié. MORE s’est arrêté pour éviter de le répéter.")
+            case .finished: return text("This moment is complete · \(event.observedContentCount) contents viewed", "Ce moment est terminé · \(event.observedContentCount) contenus parcourus")
+            case .cancelled: return text("MORE has stopped on this page.", "MORE s’est arrêté sur cette page.")
+            }
+        }
         if controller.loadFailed { return text("Page unavailable. Try reload.", "Page indisponible. Réessayez.") }
         if controller.isSignInPage { return text("Sign in on the page.", "Connectez-vous sur la page.") }
         switch controller.outcome {
@@ -246,12 +300,12 @@ struct WebMorningView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    Text(text("You sign in. Each MORE action needs a tap.",
-                              "Vous vous connectez. Chaque action de MORE demande un appui."))
+                    Text(text(executionPlan == nil ? "You sign in and browse here. A validated routine can let MORE take care of this moment." : "MORE follows the behavior you approved. You can pause or stop at any time.",
+                              executionPlan == nil ? "Connectez-vous et naviguez ici. Une routine validée peut confier ce moment à MORE." : "MORE suit le comportement que vous avez validé. Vous pouvez le mettre en pause ou l’arrêter à tout moment."))
                         .font(MorningTheme.Typography.body)
                     DisclosureGroup(text("Privacy & website controls", "Confidentialité et commandes du site")) {
-                        Text(text("MORE’s scripts never read password fields or send messages. The site keeps its sign-in in this browser. Its own controls still work.",
-                                  "Les scripts de MORE ne lisent jamais les mots de passe et n’envoient pas de message. Le site garde sa session dans ce navigateur. Ses propres boutons restent actifs."))
+                        Text(text("MORE does not read passwords or send messages from these pages. Likes run only when included in the approved behavior, up to three per moment. Sign-in stays in this browser.",
+                                  "MORE ne lit pas les mots de passe et n’envoie pas de message depuis ces pages. Les j’aime sont réalisés seulement s’ils font partie du comportement validé, au maximum trois par moment. La connexion reste dans ce navigateur."))
                             .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).padding(.top, 8)
                     }.font(.raleway(.subheadline))
                     Button(text("Clear all website sign-ins", "Effacer toutes les connexions aux sites"), role: .destructive) {

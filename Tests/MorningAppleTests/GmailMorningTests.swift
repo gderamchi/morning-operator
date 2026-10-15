@@ -1,0 +1,252 @@
+import Foundation
+import MorningCore
+import Synchronization
+import Testing
+@testable import MorningApple
+
+/// Synthetic HTTP and invented mail only. These tests neither access Google nor Keychain.
+@Suite("Gmail morning and send safety — synthetic protocol evidence")
+@MainActor
+struct GmailMorningTests {
+    private let instant = Date(timeIntervalSince1970: 1_800_000_000)
+    private let client = "123456789-synthetic.apps.googleusercontent.com"
+    private let scheme = "com.googleusercontent.apps.123456789-synthetic"
+    private let state = String(repeating: "s", count: 43)
+
+    @Test func sendingRequiresExplicitScopeAndReadGrantCannotEscalate() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var mailRequests = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            mailRequests += 1; return response(request, [:])
+        }
+        let request = try attempt(.readAndSend)
+        let query = URLComponents(url: request.authorizationURL, resolvingAgainstBaseURL: false)!.queryItems!
+        #expect(query.first(where: { $0.name == "scope" })?.value == GmailConnectionService.readonlyScope + " " + GmailConnectionService.sendScope)
+        #expect(query.first(where: { $0.name == "prompt" })?.value == "consent")
+        let readonly = try await access(service, .readMessages)
+        #expect(readonly.canReadMessages && !readonly.canSendMessages)
+        await #expect(throws: GmailConnectionError.sendAccessRequired) {
+            try await service.sendReply(to: mail(), body: "Invented reply", operationID: "synthetic-operation", session: readonly, generation: nil)
+        }
+        #expect(mailRequests == 0)
+        let writable = try await access(service)
+        #expect(writable.canSendMessages)
+        try service.saveConnection(session: writable, generation: nil)
+        let restored = try #require(try await service.restoreConnection(generation: nil))
+        #expect(restored.canSendMessages && restored.canReadMessages)
+    }
+
+    @Test func mimeBindsRecipientAndThreadAndNeverCopiesBodyIntoHeaders() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var post: URLRequest?
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            post = request
+            return response(request, ["id": "sent123", "labelIds": ["SENT"]])
+        }
+        let session = try await access(service)
+        let source = mail(subject: "Invented café\r\nBcc: intruder@example.invalid")
+        let result = try await service.sendReply(to: source, body: "Invented text\nBcc: inert body text", operationID: "one", session: session, generation: nil)
+        #expect(result == .sent)
+        let request = try #require(post)
+        #expect(request.httpMethod == "POST" && request.url?.path.hasSuffix("/messages/send") == true)
+        let requestBody = try #require(request.httpBody)
+        let payload = try #require(try JSONSerialization.jsonObject(with: requestBody) as? [String: String])
+        #expect(payload["threadId"] == "thread1")
+        let mime = try decodeRaw(#require(payload["raw"]))
+        #expect(mime.contains("From: owner@example.invalid\r\nTo: sender@example.invalid\r\n"))
+        #expect(mime.contains("In-Reply-To: <source@example.invalid>\r\nReferences: <source@example.invalid>"))
+        #expect(!mime.contains("\r\nBcc:"))
+        #expect(mime.contains("Message-ID: <more.") && mime.contains("@morning.local>"))
+        let journal = try String(contentsOf: context.directory.appendingPathComponent("gmail-send-journal.json"), encoding: .utf8)
+        #expect(!journal.contains("sender@example") && !journal.contains("owner@example") && !journal.contains("Invented"))
+        #expect(!journal.contains("SYNTHETIC"))
+    }
+
+    @Test func ambiguousSendSurvivesRestartAndOnlyReconcilesNeverRetransmits() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0
+        var messageID = ""
+        var found = false
+        let route: GmailConnectionService.Transport = { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" {
+                posts += 1
+                let requestBody = try #require(request.httpBody)
+        let payload = try #require(try JSONSerialization.jsonObject(with: requestBody) as? [String: String])
+                let mime = try decodeRaw(#require(payload["raw"]))
+                messageID = try #require(mime.components(separatedBy: "\r\n").first(where: { $0.hasPrefix("Message-ID:") }))
+                    .replacingOccurrences(of: "Message-ID: ", with: "")
+                throw URLError(.timedOut)
+            }
+            if request.url?.path.hasSuffix("/messages") == true {
+                let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+                #expect(query.first(where: { $0.name == "q" })?.value == "in:sent rfc822msgid:" + messageID.dropFirst().dropLast())
+                return response(request, found ? ["messages": [["id": "sent123"]]] : ["resultSizeEstimate": 0])
+            }
+            return response(request, ["id": "sent123", "labelIds": ["SENT"], "payload": ["headers": [["name": "Message-ID", "value": messageID]]]])
+        }
+        let first = makeService(context, route)
+        let session = try await access(first)
+        #expect(try await first.sendReply(to: mail(), body: "Invented", operationID: "uncertain", session: session, generation: nil) == .uncertain)
+        let restarted = makeService(context, route)
+        #expect(try await restarted.sendReply(to: mail(), body: "Invented", operationID: "uncertain", session: session, generation: nil) == .uncertain)
+        #expect(posts == 1)
+        found = true
+        #expect(try await restarted.sendReply(to: mail(), body: "Invented", operationID: "uncertain", session: session, generation: nil) == .sent)
+        #expect(try await makeService(context, route).sendReply(to: mail(), body: "Invented", operationID: "uncertain", session: session, generation: nil) == .sent)
+        #expect(posts == 1)
+    }
+
+    @Test func unsafeRecipientAndForgetCannotStartSend() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.httpMethod == "POST" { posts += 1 }
+            return response(request, ["emailAddress": "owner@example.invalid"])
+        }
+        let session = try await access(service)
+        for address in ["sender@example.invalid\r\nBcc: other@example.invalid", "one@example.invalid,two@example.invalid", "missing"] {
+            await #expect(throws: GmailConnectionError.invalidRecipient) {
+                try await service.sendReply(to: mail(address: address), body: "Invented", operationID: "unsafe", session: session, generation: nil)
+            }
+        }
+        _ = try context.privacy.beginForget()
+        await #expect(throws: GmailConnectionError.sendJournalUnavailable) {
+            try await service.sendReply(to: mail(), body: "Invented", operationID: "forget", session: session, generation: nil)
+        }
+        #expect(posts == 0)
+    }
+
+    @Test func headerDecoderKeepsReplyToSeparateFromModelAndRejectsAmbiguity() throws {
+        var payload = object("a1", subject: "Invented", body: "Invented message")
+        var part = try #require(payload["payload"] as? [String: Any])
+        var headers = try #require(part["headers"] as? [[String: String]])
+        headers.append(["name": "Reply-To", "value": "Invented Reply <reply@example.invalid>"])
+        part["headers"] = headers; payload["payload"] = part
+        let decoded = try GmailMessageDecoder.message(from: JSONSerialization.data(withJSONObject: payload), expectedID: "a1", retrievedAt: instant)
+        #expect(decoded.replyAddress == "reply@example.invalid")
+        #expect(decoded.internetMessageID == "<source@example.invalid>" && decoded.threadID == "thread1")
+        #expect(GmailReplyAddress.parse("One <one@example.invalid>, Two <two@example.invalid>") == nil)
+        #expect(GmailReplyAddress.parse("One <one@example.invalid> trailing") == nil)
+        #expect(GmailReplyAddress.parse("One <one@example.invalid>\r\nBcc: hidden@example.invalid") == nil)
+    }
+
+    @Test func contextualConversationRequiresSendWordAndKeepsDraftForRevision() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" { posts += 1; return response(request, ["id": "sent123"]) }
+            if request.url?.path.hasSuffix("/messages") == true { return response(request, ["messages": [["id": "a1"], ["id": "b2"]]]) }
+            let id = request.url?.lastPathComponent ?? "a1"
+            return response(request, object(id, subject: id == "b2" ? "Urgent invented deadline" : "Invented hello", body: "Invented request for a meeting."))
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        var prompts: [String] = []
+        let drafts = GmailReplyDraftService(generator: { prompt in
+            prompts.append(prompt)
+            return prompts.count == 1 ? "Invented draft reply." : "Invented revised reply."
+        })
+        var spoken: [String] = []
+        let conversation = GmailMorningConversation(service: service, drafts: drafts, privacy: context.privacy, speak: { spoken.append($0) })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: id, generation: nil)
+        #expect(conversation.state == .askingToReply && conversation.recipient == "sender@example.invalid")
+        #expect(conversation.summary.range(of: "Urgent invented deadline")!.lowerBound < conversation.summary.range(of: "Invented hello")!.lowerBound)
+        await conversation.respond("oui", context: id)
+        #expect(conversation.state == .askingForIntention)
+        await conversation.respond("Dis que je suis disponible demain", context: id)
+        #expect(conversation.state == .reviewingReply && posts == 0)
+        await conversation.respond("oui", context: id)
+        #expect(posts == 0 && conversation.state == .reviewingReply)
+        await conversation.respond("change la dernière phrase", context: id)
+        #expect(prompts.count == 2 && prompts[1].contains("previousReply") && prompts[1].contains("Invented draft reply."))
+        await conversation.respond("n’envoie pas", context: id)
+        #expect(posts == 0)
+        await conversation.respond("envoyer", context: id)
+        #expect(posts == 1 && conversation.isCompleted)
+        #expect(spoken.last?.contains("confirme l’envoi") == true)
+        await conversation.respond("envoyer", context: id)
+        #expect(posts == 1)
+        conversation.clear()
+        #expect(conversation.draftText.isEmpty && conversation.recipient == nil && conversation.summary.isEmpty)
+    }
+
+    @Test func unavailableLocalModelStillAllowsVoiceDecline() async throws {
+        let context = Context(); defer { context.cleanup() }
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/messages") == true { return response(request, ["messages": [["id": "a1"]]]) }
+            return response(request, object("a1", subject: "Invented", body: "Invented message"))
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let drafts = GmailReplyDraftService(generator: { _ in "Never generated" }, availability: { "Synthetic unavailable" })
+        let conversation = GmailMorningConversation(service: service, drafts: drafts, privacy: context.privacy, speak: { _ in })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: id, generation: nil)
+        await conversation.respond("oui", context: id)
+        await conversation.respond("Invented intention", context: id)
+        #expect(conversation.isAwaitingResponse && conversation.state == .askingForIntention)
+        await conversation.respond("non", context: id)
+        #expect(conversation.isCompleted)
+    }
+
+    private func makeService(_ context: Context, _ transport: @escaping GmailConnectionService.Transport) -> GmailConnectionService {
+        GmailConnectionService(transport: transport, now: { instant }, credentialStorage: context.storage,
+            privacyControl: context.privacy, configurationProvider: {
+                try GmailOAuthConfiguration(clientID: client, registeredURLSchemes: [scheme])
+            }, installationID: { context.installation })
+    }
+    private func attempt(_ access: GmailAuthorizationAccess) throws -> GmailAuthorizationRequest {
+        try GmailAuthorizationRequest(configuration: GmailOAuthConfiguration(clientID: client, registeredURLSchemes: [scheme]),
+            verifier: String(repeating: "v", count: 43), state: state, access: access)
+    }
+    private func access(_ service: GmailConnectionService, _ access: GmailAuthorizationAccess = .readAndSend) async throws -> GmailAccessSession {
+        try await service.completeAuthorization(attempt(access), callbackURL: URL(string: "\(scheme):/oauth2redirect?state=\(state)&code=SYNTHETIC_CODE")!)
+    }
+    private func token() -> [String: Any] {
+        ["access_token": "SYNTHETIC_ACCESS", "refresh_token": "SYNTHETIC_REFRESH", "token_type": "Bearer", "expires_in": 3600,
+         "scope": GmailConnectionService.readonlyScope + " " + GmailConnectionService.sendScope]
+    }
+    private func response(_ request: URLRequest, _ object: [String: Any]) -> (Data, URLResponse) {
+        (try! JSONSerialization.data(withJSONObject: object), HTTPURLResponse(url: request.url!, statusCode: 200,
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!)
+    }
+    private func mail(subject: String = "Invented subject", address: String = "sender@example.invalid") -> GmailMessage {
+        GmailMessage(id: "a1", sender: "Invented Sender <sender@example.invalid>", subject: subject, receivedAt: instant,
+            plainTextBody: "Invented mail", bodyWasTruncated: false, bodyUnavailable: false, retrievedAt: instant,
+            replyAddress: address, internetMessageID: "<source@example.invalid>", threadID: "thread1")
+    }
+    private func object(_ id: String, subject: String, body: String) -> [String: Any] {
+        ["id": id, "threadId": "thread1", "internalDate": "1800000000000", "payload": ["mimeType": "text/plain",
+            "headers": [["name": "From", "value": "Invented Sender <sender@example.invalid>"], ["name": "Subject", "value": subject],
+                        ["name": "Message-ID", "value": "<source@example.invalid>"]],
+            "body": ["size": body.utf8.count, "data": Data(body.utf8).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")]]]
+    }
+    private func decodeRaw(_ value: String) throws -> String {
+        var encoded = value.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+        let data = try #require(Data(base64Encoded: encoded))
+        return try #require(String(data: data, encoding: .utf8))
+    }
+
+    private final class Storage: GmailCredentialStorage, Sendable {
+        let data = Mutex<Data?>(nil)
+        func load() throws -> Data? { data.withLock { $0 } }
+        func save(_ value: Data) throws { data.withLock { $0 = value } }
+        func remove() throws { data.withLock { $0 = nil } }
+    }
+    private struct Context {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("MORE-Gmail-Synthetic-\(UUID().uuidString)")
+        let storage = Storage()
+        let installation = UUID()
+        var privacy: LocalDataControl { LocalDataControl(directory: directory) }
+        func cleanup() { try? FileManager.default.removeItem(at: directory) }
+    }
+}

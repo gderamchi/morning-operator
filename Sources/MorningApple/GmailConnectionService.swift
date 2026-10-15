@@ -33,10 +33,14 @@ public struct GmailOAuthConfiguration: Sendable, Equatable {
 /// Explicit capabilities requested by this visible connection attempt. Reading is
 /// a separate user action; a count-only connection never silently upgrades itself.
 public enum GmailAuthorizationAccess: Sendable, Equatable {
-    case metadata, readMessages
+    case metadata, readMessages, readAndSend
 
     fileprivate var scope: String {
-        self == .metadata ? GmailConnectionService.metadataScope : GmailConnectionService.readonlyScope
+        switch self {
+        case .metadata: GmailConnectionService.metadataScope
+        case .readMessages: GmailConnectionService.readonlyScope
+        case .readAndSend: GmailConnectionService.readonlyScope + " " + GmailConnectionService.sendScope
+        }
     }
 }
 
@@ -80,7 +84,7 @@ public final class GmailAuthorizationRequest: CustomStringConvertible, CustomDeb
             URLQueryItem(name: "code_challenge", value: Self.base64URL(Data(SHA256.hash(data: Data(verifier.utf8))))),
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
-        if access == .readMessages {
+        if access != .metadata {
             url.queryItems?.append(contentsOf: [
                 .init(name: "access_type", value: "offline"),
                 .init(name: "prompt", value: "consent")
@@ -137,6 +141,7 @@ public struct GmailAccessSession: Sendable, CustomStringConvertible, CustomDebug
     fileprivate let savedCredentialID: UUID?
     public let expiresAt: Date
     public let canReadMessages: Bool
+    public let canSendMessages: Bool
     public var canStayConnected: Bool { canReadMessages && refreshToken != nil }
     public var description: String { "GmailAccessSession(redacted)" }
     public var debugDescription: String { description }
@@ -157,6 +162,7 @@ public enum GmailConnectionError: LocalizedError, Sendable, Equatable {
     case permissionDenied, sessionExpired, networkUnavailable, rateLimited, serviceUnavailable
     case invalidResponse, redirectRejected, readAccessRequired, messageUnavailable, messageTooLarge
     case credentialStorageUnavailable, savedConnectionInvalid, connectionChanged
+    case sendAccessRequired, invalidRecipient, sendUncertain, sendJournalUnavailable
 
     public var errorDescription: String? {
         switch self {
@@ -192,18 +198,27 @@ public enum GmailConnectionError: LocalizedError, Sendable, Equatable {
             String(localized: "Saved Gmail access is unavailable on this device. Unlock it and try again.", bundle: .module)
         case .savedConnectionInvalid:
             String(localized: "This saved Gmail connection needs to be connected again.", bundle: .module)
+        case .sendAccessRequired:
+            String(localized: "Enable reading and sending in Gmail settings before asking MORE to send a reply.", bundle: .module)
+        case .invalidRecipient:
+            String(localized: "This message has no single verified reply address. Your reply has not been sent.", bundle: .module)
+        case .sendUncertain:
+            String(localized: "Gmail has not confirmed whether this reply was sent. MORE will check Sent before any further send.", bundle: .module)
+        case .sendJournalUnavailable:
+            String(localized: "The reply safety record is unavailable. Nothing new will be sent.", bundle: .module)
         case .connectionChanged:
             String(localized: "The Gmail connection changed. Open Gmail again to continue.", bundle: .module)
         }
     }
 }
 
-/// Token exchange and explicit read-only INBOX/message GET requests. No send, label writes,
-/// background polling, mail persistence, telemetry, automatic retries or remote revocation.
+/// Explicit Gmail reads and owner-requested replies. No background polling, mail
+/// persistence, telemetry or automatic send retries. Send receipts contain no mail text.
 @MainActor
 public final class GmailConnectionService {
     public nonisolated static let metadataScope = "https://www.googleapis.com/auth/gmail.metadata"
     public nonisolated static let readonlyScope = "https://www.googleapis.com/auth/gmail.readonly"
+    public nonisolated static let sendScope = "https://www.googleapis.com/auth/gmail.send"
     public typealias Transport = @MainActor (URLRequest) async throws -> (Data, URLResponse)
     private let transport: Transport
     private let now: @MainActor () -> Date
@@ -251,15 +266,15 @@ public final class GmailConnectionService {
         let data = try await perform(request, exchangingCode: true)
         let token = try validatedToken(data, fallbackScope: nil)
         let scopes = Set(token.scope.split(separator: " ").map(String.init))
-        let hasRequiredScope = attempt.access == .readMessages
-            ? scopes.contains(Self.readonlyScope)
-            : scopes.contains(Self.metadataScope) || scopes.contains(Self.readonlyScope)
+        let hasRequiredScope = attempt.access == .metadata
+            ? scopes.contains(Self.metadataScope) || scopes.contains(Self.readonlyScope)
+            : scopes.contains(Self.readonlyScope) && (attempt.access != .readAndSend || scopes.contains(Self.sendScope))
         guard hasRequiredScope else { throw GmailConnectionError.permissionDenied }
         return GmailAccessSession(accessToken: token.accessToken,
-                                  refreshToken: attempt.access == .readMessages ? token.refreshToken : nil,
+                                  refreshToken: attempt.access != .metadata ? token.refreshToken : nil,
                                   authorizationClientID: attempt.configuration.clientID, savedCredentialID: nil,
                                   expiresAt: now().addingTimeInterval(TimeInterval(token.expiresIn)),
-                                  canReadMessages: attempt.access == .readMessages)
+                                  canReadMessages: attempt.access != .metadata, canSendMessages: attempt.access == .readAndSend)
     }
 
     /// Explicit authorization persistence. The privacy lock covers both generation
@@ -277,7 +292,8 @@ public final class GmailConnectionService {
                       saved.id == expectedID else { throw GmailConnectionError.connectionChanged }
             }
             let saved = GmailSavedCredential(clientID: configuration.clientID, refreshToken: refresh,
-                                            generation: generation, installationID: try installationID())
+                                            generation: generation, installationID: try installationID(),
+                                            scope: session.canSendMessages ? Self.readonlyScope + " " + Self.sendScope : Self.readonlyScope)
             try credentialStorage.save(JSONEncoder().encode(saved))
         }
     }
@@ -297,7 +313,9 @@ public final class GmailConnectionService {
             }
             guard saved.generation == generation else { throw GmailConnectionError.connectionChanged }
             let configuration = try configurationProvider()
-            guard saved.clientID == configuration.clientID, saved.scope == Self.readonlyScope,
+            let savedScopes = Set(saved.scope.split(separator: " ").map(String.init))
+            guard saved.clientID == configuration.clientID, savedScopes.contains(Self.readonlyScope),
+                  savedScopes.isSubset(of: [Self.readonlyScope, Self.sendScope]),
                   Self.validToken(saved.refreshToken) else { throw GmailConnectionError.savedConnectionInvalid }
             return (data, saved)
         }
@@ -332,14 +350,17 @@ public final class GmailConnectionService {
             try Task.checkCancellation()
             guard try credentialStorage.load() == original else { throw GmailConnectionError.connectionChanged }
             var current = saved
-            if let rotated = token.refreshToken, rotated != saved.refreshToken {
-                current = GmailSavedCredential(clientID: saved.clientID, refreshToken: rotated,
-                                               generation: generation, installationID: saved.installationID)
+            let retainedScopes = Set(saved.scope.split(separator: " ")).intersection(token.scope.split(separator: " "))
+            let retainedScope = [Self.readonlyScope, Self.sendScope].filter { retainedScopes.contains(Substring($0)) }.joined(separator: " ")
+            if token.refreshToken != nil && token.refreshToken != saved.refreshToken || retainedScope != saved.scope {
+                current = GmailSavedCredential(clientID: saved.clientID, refreshToken: token.refreshToken ?? saved.refreshToken,
+                                               generation: generation, installationID: saved.installationID, scope: retainedScope)
                 try credentialStorage.save(JSONEncoder().encode(current))
             }
             return GmailAccessSession(accessToken: token.accessToken, refreshToken: current.refreshToken,
                                       authorizationClientID: saved.clientID, savedCredentialID: current.id,
-                                      expiresAt: now().addingTimeInterval(TimeInterval(token.expiresIn)), canReadMessages: true)
+                                      expiresAt: now().addingTimeInterval(TimeInterval(token.expiresIn)), canReadMessages: true,
+                                      canSendMessages: current.scope.split(separator: " ").contains(Substring(Self.sendScope)))
         }
     }
 
@@ -455,11 +476,125 @@ public final class GmailConnectionService {
         try requireReading(session)
         guard GmailMessageDecoder.validID(id) else { throw GmailConnectionError.invalidResponse }
         let request = try messageRequest(path: "messages/\(id)", query: [
-            .init(name: "format", value: "full"), .init(name: "fields", value: "id,internalDate,payload")
+            .init(name: "format", value: "full"), .init(name: "fields", value: "id,threadId,internalDate,payload")
         ], session: session)
         let data = try await perform(request, maximumBytes: GmailMessageLimits.maximumWireBytes)
         try requireReading(session)
         return try GmailMessageDecoder.message(from: data, expectedID: id, retrievedAt: now())
+    }
+
+    /// Explicit owner instruction is enforced by GmailMorningConversation. The durable
+    /// claim is written before POST. A repeated/uncertain request only checks Sent.
+    public func sendReply(to message: GmailMessage, body: String, operationID: String,
+                          session: GmailAccessSession, generation: UUID?) async throws -> GmailSendOutcome {
+        try requireReading(session)
+        guard session.canSendMessages else { throw GmailConnectionError.sendAccessRequired }
+        guard let address = message.replyAddress, GmailReplyAddress.parse(address) == address else {
+            throw GmailConnectionError.invalidRecipient
+        }
+        guard !operationID.isEmpty, operationID.utf8.count <= 512,
+              !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              body.utf8.count <= 32_000, message.subject.utf8.count <= 2_048,
+              !body.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) && $0 != "\n" && $0 != "\r" && $0 != "\t" }) else {
+            throw GmailConnectionError.invalidResponse
+        }
+        let account = try await accountAddress(session: session)
+        try requireReading(session)
+        let journal = GmailSendJournal(control: privacyControl)
+        let (entry, isNew) = try journal.claim(operationID: operationID, account: account, generation: generation)
+        if entry.status == .sent { return .sent }
+        if !isNew {
+            if try await reconcileSent(messageID: entry.messageID, session: session) {
+                try journal.set(entry, status: .sent, generation: generation)
+                return .sent
+            }
+            // Gmail search can lag or Sent may have been deleted. Absence is not proof
+            // that an earlier ambiguous POST failed, so it never authorizes a retry.
+            return entry.status == .rejected ? .notSent : .uncertain
+        }
+        let subject = message.subject.lowercased().hasPrefix("re:") ? message.subject : "Re: " + message.subject
+        let encodedSubject = Self.encodedSubject(subject)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
+        var headers = ["From: \(account)", "To: \(address)", "Subject: \(encodedSubject)",
+                       "Message-ID: \(entry.messageID)", "Date: \(formatter.string(from: now()))", "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8",
+                       "Content-Transfer-Encoding: base64"]
+        if let internetID = message.internetMessageID, GmailReplyAddress.messageID(internetID) == internetID {
+            headers.append("In-Reply-To: \(internetID)"); headers.append("References: \(internetID)")
+        }
+        let encodedBody = Data(body.utf8).base64EncodedString(options: [.lineLength76Characters, .endLineWithCarriageReturn, .endLineWithLineFeed])
+        let mime = Data((headers.joined(separator: "\r\n") + "\r\n\r\n" + encodedBody + "\r\n").utf8)
+        let raw = mime.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        var payload = ["raw": raw]
+        if let threadID = message.threadID, message.internetMessageID != nil, GmailMessageDecoder.validID(threadID) { payload["threadId"] = threadID }
+        var request = try messageRequest(path: "messages/send", query: [], session: session)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(payload)
+        do {
+            let data = try await perform(request)
+            struct Response: Decodable { let id: String; let labelIds: [String]? }
+            guard let receipt = try? JSONDecoder().decode(Response.self, from: data), GmailMessageDecoder.validID(receipt.id) else {
+                return .uncertain
+            }
+            try journal.set(entry, status: .sent, generation: generation)
+            return .sent
+        } catch {
+            if let known = error as? GmailConnectionError, [.permissionDenied, .sessionExpired, .rateLimited].contains(known) {
+                try journal.set(entry, status: .rejected, generation: generation)
+                return .notSent
+            }
+            if error is CancellationError { throw CancellationError() }
+            return .uncertain
+        }
+    }
+
+    private static func encodedSubject(_ subject: String) -> String {
+        var parts: [String] = []
+        var chunk = ""
+        for character in subject {
+            if (chunk + String(character)).utf8.count > 42, !chunk.isEmpty {
+                parts.append("=?UTF-8?B?" + Data(chunk.utf8).base64EncodedString() + "?=")
+                chunk = ""
+            }
+            chunk.append(character)
+        }
+        if !chunk.isEmpty { parts.append("=?UTF-8?B?" + Data(chunk.utf8).base64EncodedString() + "?=") }
+        return parts.joined(separator: "\r\n ")
+    }
+
+    private func accountAddress(session: GmailAccessSession) async throws -> String {
+        let request = try messageRequest(path: "profile", query: [.init(name: "fields", value: "emailAddress")], session: session)
+        let data = try await perform(request)
+        struct Profile: Decodable { let emailAddress: String }
+        guard let profile = try? JSONDecoder().decode(Profile.self, from: data),
+              let address = GmailReplyAddress.parse(profile.emailAddress) else { throw GmailConnectionError.invalidResponse }
+        return address
+    }
+
+    private func reconcileSent(messageID: String, session: GmailAccessSession) async throws -> Bool {
+        try requireReading(session)
+        let query = "in:sent rfc822msgid:" + messageID.dropFirst().dropLast()
+        let request = try messageRequest(path: "messages", query: [
+            .init(name: "q", value: query), .init(name: "maxResults", value: "2"),
+            .init(name: "fields", value: "messages(id),nextPageToken,resultSizeEstimate")
+        ], session: session)
+        let listing = try GmailMessageDecoder.list(from: await perform(request))
+        guard listing.ids.count == 1, !listing.hasMore, let id = listing.ids.first else { return false }
+        let metadata = try messageRequest(path: "messages/\(id)", query: [
+            .init(name: "format", value: "metadata"), .init(name: "metadataHeaders", value: "Message-ID"),
+            .init(name: "fields", value: "id,labelIds,payload(headers)")
+        ], session: session)
+        let data = try await perform(metadata)
+        struct Header: Decodable { let name: String; let value: String }
+        struct Payload: Decodable { let headers: [Header] }
+        struct Sent: Decodable { let id: String; let labelIds: [String]; let payload: Payload }
+        guard let result = try? JSONDecoder().decode(Sent.self, from: data), result.id == id,
+              result.labelIds.contains("SENT") else { return false }
+        let matches = result.payload.headers.filter { $0.name.lowercased() == "message-id" }
+        return matches.count == 1 && matches[0].value == messageID
     }
 
     private func requireReading(_ session: GmailAccessSession) throws {
@@ -576,3 +711,5 @@ private final class GmailEphemeralTransport {
 
 private enum GmailRefreshError: Error { case revoked }
 private struct GmailRefreshFailure: Decodable { let error: String }
+
+public enum GmailSendOutcome: String, Sendable, Equatable { case sent, notSent, uncertain }

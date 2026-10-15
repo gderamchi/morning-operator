@@ -26,6 +26,10 @@ public final class SpeechCoordinator: NSObject {
     public private(set) var lastError: String?
     /// Identifies the current utterance so a preview cannot stop later routine speech.
     public private(set) var playbackID: UUID?
+    /// Session-only duplex ownership. The listener releases the shared session
+    /// after playback has stopped; ordinary speech keeps its existing ownership.
+    public var handsFreeAudioSessionIsOwned = false
+    public private(set) var currentText: String?
     /// A persisted choice may become unavailable after a system voice is removed.
     /// Nil, unknown, and unavailable choices use an available voice matching the system language.
     public var voiceIdentifier: String?
@@ -92,8 +96,13 @@ public final class SpeechCoordinator: NSObject {
     @ObservationIgnored private var interruptionTask: Task<Void, Never>?
     @ObservationIgnored private var activationTask: Task<Void, Never>?
     @ObservationIgnored private lazy var audioSession = SpeechAudioSessionGate(
-        activate: { try await Self.activateAudioSession() },
-        deactivate: { try await Self.deactivateAudioSession() }
+        activate: { [weak self] in
+            try await Self.activateAudioSession(handsFree: self?.handsFreeAudioSessionIsOwned == true)
+        },
+        deactivate: { [weak self] in
+            guard self?.handsFreeAudioSessionIsOwned != true else { return }
+            try await Self.deactivateAudioSession()
+        }
     )
 
     public override init() {
@@ -170,6 +179,7 @@ public final class SpeechCoordinator: NSObject {
             return
         }
         playbackID = requestID
+        currentText = text
         speechRequestID = requestID
         state = .preparing
         activationTask = Task { [weak self] in
@@ -247,6 +257,7 @@ public final class SpeechCoordinator: NSObject {
     private func stopPlayback() -> SpeechAudioSessionGate.Release {
         // Invalidate first, so a late callback from the previous utterance cannot stop a new one.
         currentUtterance = nil
+        currentText = nil
         playbackID = nil
         speechRequestID = nil
         activationTask?.cancel()
@@ -280,6 +291,7 @@ public final class SpeechCoordinator: NSObject {
 
     private func failBeforeSpeaking(_ error: SpeechPlaybackError) {
         lastError = error.localizedDescription
+        currentText = nil
         currentUtterance = nil
         playbackID = nil
         speechRequestID = nil
@@ -298,6 +310,7 @@ public final class SpeechCoordinator: NSObject {
         guard currentUtterance == utteranceID else { return }
         self.state = state
         if finished {
+            currentText = nil
             currentUtterance = nil
             playbackID = nil
             speechRequestID = nil
@@ -310,10 +323,15 @@ public final class SpeechCoordinator: NSObject {
         }
     }
 
-    private static func activateAudioSession() async throws {
+    private static func activateAudioSession(handsFree: Bool) async throws {
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        if handsFree {
+            try session.setCategory(.playAndRecord, mode: .voiceChat,
+                options: [.defaultToSpeaker, .allowBluetoothHFP])
+        } else {
+            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        }
         if #available(iOS 27.0, *) {
             // Xcode 27 AVAudioSession.h makes this public on iOS 27, not just watchOS.
             let activated = try await session.activate(options: [])
