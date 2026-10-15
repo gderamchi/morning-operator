@@ -123,3 +123,24 @@ The physical Calendar inventory check **passed in 14.640 seconds**, confirming t
 The following Reminders test skipped because the test cleanup did not recognize the redesigned back control and left the Gmail reader open. This is a test navigation precondition, not a provider or permission result. After an ordinary relaunch to the existing Home, the isolated Reminders check **passed at 20:38 UTC in 14.014 seconds: one test, zero failures, zero skips**. One normal Show my reminders tap returned real upcoming reminders and its Read at timestamp without a crash or native error. This confirms the `@Sendable` callback correction on the actual phone. No reminder was completed, added or edited.
 
 The three native read paths now have physical evidence. Actual writes, the single approved self-mail, acoustic behavior, authenticated websites and full routine execution remain separate acceptance items.
+
+## Composio MORE account and catalogue snapshot
+
+At **22:40 Paris / 20:40 UTC**, read-only checks of the existing MORE production backend returned health **HTTP 200**, the expected **16 configured services**, and **HTTP 200 for all 16 public tool catalogues**. Their **1,152 tool schemas** passed the structural check. These are catalogue/configuration checks, **not provider tool executions** or proof that all services have an authorized account.
+
+The complete MORE project account list was read through its final page (one page, one account total):
+
+- `gmail`: **1 ACTIVE** account, matching the configured MORE authentication configuration and MORE owner format. No identity, owner value or account identifier is retained here.
+- `calendly`, `discord`, `facebook`, `googlecalendar`, `googledocs`, `googledrive`, `googlesheets`, `instagram`, `linkedin`, `notion`, `outlook`, `reddit`, `slack`, `whatsapp`, `youtube`: **0 accounts each**. No pending, failed, expired or out-of-configuration account was observed.
+
+For the existing Composio Gmail account, scope metadata observed these booleans: **full-mail scope = true; mail reading covered = true; mail sending covered = true; contacts readonly scope = true**. The absence of the narrower exact Gmail readonly/send scopes does not imply missing read/send rights when the full-mail scope is present. This is scope metadata, not a newly verified provider action. See [Google's scope definitions](https://developers.google.com/workspace/gmail/api/auth/scopes).
+
+The saved native Google grant verified on the iPhone is **separate from this Composio grant**. Native phone authorization does not create a Composio account or transfer installation ownership. No newly ACTIVE Composio service was found compared with the preceding snapshot, so no new provider probe was run. This verification created **zero grants, zero installations and zero provider executions**, and changed no connection or configuration.
+
+## Reviewed ordinary routine started; real speech consent pending
+
+At **20:42 UTC**, the separately gated physical preparation check opened the routine directly from Home and reverified the existing eight moments, **45 planned minutes**, Mail at index 5 for seven minutes with native Gmail, and seven user-led operations. It approved that reviewed plan and pressed the ordinary Start once. No routine replacement, timing shortcut, other moment edit or simulated provider was used.
+
+iOS then presented its **real speech-recognition permission prompt**. The check stopped and left the ordinary session and prompt in place, without accepting it, advancing any moment, composing or sending mail. Its one skipped result is a pending owner permission, not a routine or acoustic pass. The owner was asked to allow speech recognition and the subsequent microphone request directly on the phone. The application listener requires supported on-device recognition and sets `requiresOnDeviceRecognition = true`; the generic iOS consent text does not substitute for evidence of actual recognition.
+
+Signed build-for-testing passed for two additional explicitly gated UI-test-only helpers. One continues that same existing morning to its Mail moment and prepares/reviews exactly the single authorized own-profile note without pressing Send; it preserves the ordinary app for the owner's real spoken confirmation. The other creates, freshly reads and completes only one uniquely named, dated QA reminder, with explicit screen review and at most one tap per write. Neither helper has run through its effect yet. The ordinary app has no XCTest phone-control code, test launch flags, fixtures or injected speech. Ambiguous writes must stop for reconciliation, never a fresh session or repeated send.

@@ -471,3 +471,378 @@ final class RealPhoneConnectionAcceptanceTests: XCTestCase {
         add(attachment)
     }
 }
+
+// Append this extension to RealPhoneConnectionAcceptanceTests.swift itself.
+// It uses that file's existing private helpers; do not add it as a separate target source.
+extension RealPhoneConnectionAcceptanceTests {
+    func testPrepareReviewedSelfNoteForOwnerWithoutSending() throws {
+        guard ProcessInfo.processInfo.environment["MO_REAL_PHONE_PREPARE_SELF_NOTE"] == "1" else {
+            throw XCTSkip("Requires MO_REAL_PHONE_PREPARE_SELF_NOTE=1; no app was activated.")
+        }
+        // Existing no-navigation handoff guard: teardown must leave this live session alone.
+        leaveGmailSignInPresented = true
+        try activateOrdinaryApp()
+        let homeControls = app.buttons["morning.actions"]
+        guard homeControls.waitForExistence(timeout: 10), homeControls.isHittable else {
+            throw XCTSkip("Leave ordinary MORE on Home before this reviewed-plan run.")
+        }
+        if ["Show controls", "Afficher les commandes"].contains(homeControls.label) { homeControls.tap() }
+        let plan = app.buttons["morning.review"]
+        try revealRoutineControl(plan)
+        plan.tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "routine.editor").firstMatch.waitForExistence(timeout: 10))
+        let inventory = try inspectRoutineRows(name: "real-phone-self-note-plan-preflight")
+        guard inventory.reachedEnd, Set(inventory.labels.keys) == Set(0..<8) else {
+            throw XCTSkip("Exactly eight existing moments were not verified. No approval or run was started.")
+        }
+        let regex = try NSRegularExpression(pattern: #"^(.+?)[,\s]+(\d+)\s+min\s*·\s*(.+)$"#)
+        var titles: [String] = []
+        var durations: [Int] = []
+        let manual = ["Moment personnel. Dites « suivant » lorsque vous avez terminé.", "Your own moment. Say “next” when you finish."]
+        let gmail = ["Gmail · Lire vos mails non lus, préparer et corriger une réponse. Envoyer seulement à votre demande.", "Gmail · Read unread mail, prepare and edit a reply. Send only when you ask."]
+        for index in 0..<8 {
+            let label = inventory.labels[index] ?? ""
+            guard let match = regex.firstMatch(in: label, range: NSRange(label.startIndex..., in: label)),
+                  let titleRange = Range(match.range(at: 1), in: label),
+                  let minutesRange = Range(match.range(at: 2), in: label),
+                  let minutes = Int(label[minutesRange]) else {
+                throw XCTSkip("A routine row could not be classified. No approval or run was started.")
+            }
+            titles.append(String(label[titleRange])); durations.append(minutes)
+            guard (index == 5 ? gmail : manual).contains(where: label.contains) else {
+                throw XCTSkip("An unexpected operation would run. The existing plan was not changed or started.")
+            }
+        }
+        guard titles[5] == "Mail", durations[5] == 7, durations.reduce(0, +) == 45 else {
+            throw XCTSkip("The expected Mail/seven-minute/45-minute plan was not verified.")
+        }
+        let approve = app.buttons["routine.approve"]
+        if inventory.draft {
+            try revealRoutineControl(approve)
+            guard approve.isEnabled else { throw XCTSkip("Approval is unavailable; no run was started.") }
+            approve.tap()
+            XCTAssertTrue(approve.waitForNonExistence(timeout: 10), "The reviewed plan was not confirmed approved.")
+        }
+
+        // The Home entry uses the ordinary routine sheet, preserving Home behind it.
+        if !inventory.draft {
+            let close = app.buttons["destination.close"]
+            guard close.exists && close.isHittable else { throw XCTSkip("The reviewed routine sheet cannot close normally.") }
+            close.tap()
+        }
+        let controls = app.buttons["morning.actions"]
+        guard controls.waitForExistence(timeout: 10), controls.isHittable else {
+            throw XCTSkip("Ordinary Home did not return. No run was started.")
+        }
+        if ["Show controls", "Afficher les commandes"].contains(controls.label) { controls.tap() }
+        let begin = app.buttons["morning.begin"]
+        try revealRoutineControl(begin)
+        guard begin.isEnabled else { throw XCTSkip("The approved morning is not ready to begin.") }
+        begin.tap()
+        try refusePermissionOrFixtureScreens()
+        try prepareSelfNoteInActiveMorning(titles: titles)
+    }
+
+    func testContinueExistingMorningAndPrepareSelfNoteWithoutSending() throws {
+        guard ProcessInfo.processInfo.environment["MO_REAL_PHONE_PREPARE_SELF_NOTE"] == "1" else {
+            throw XCTSkip("Requires the separate self-note preparation opt-in; no app was activated.")
+        }
+        leaveGmailSignInPresented = true
+        try activateOrdinaryApp()
+        let controls = app.buttons["morning.actions"]
+        guard controls.exists else { throw XCTSkip("The current ordinary session is not on Home.") }
+        if ["Show controls", "Afficher les commandes"].contains(controls.label) { controls.tap() }
+        XCTAssertTrue(app.staticTexts["morning.currentStep"].waitForExistence(timeout: 10), "No active morning was resumed; Start was not pressed.")
+        try prepareSelfNoteInActiveMorning(titles: ["Calendar & weather", "iMessage", "WhatsApp", "WhatsApp Business", "Messenger", "Mail", "Scroll a little", "A thought for later"])
+    }
+
+    private func prepareSelfNoteInActiveMorning(titles: [String]) throws {
+        let current = app.staticTexts["morning.currentStep"]
+        let startingTitle = current.label
+        guard startingTitle == titles[0] || startingTitle == "Mail" else {
+            throw XCTSkip("The existing active morning is not at its verified first or Mail moment. It was not advanced.")
+        }
+        for index in (startingTitle == "Mail" ? 5 : 0)..<5 {
+            XCTAssertTrue(selfNoteWait(current, predicate: NSPredicate(format: "exists == true AND label == %@", titles[index]), timeout: 15),
+                          "The next title did not match the reviewed moment at index \(index). No extra Next was pressed.")
+            try refusePermissionOrFixtureScreens()
+            let next = app.buttons["morning.next"]
+            try revealRoutineControl(next)
+            next.tap()
+        }
+        XCTAssertTrue(selfNoteWait(current, predicate: NSPredicate(format: "exists == true AND label == %@", "Mail"), timeout: 15),
+                      "Five Next actions did not reach the reviewed Mail moment.")
+        guard !app.textFields["mail.selfSubject"].exists else {
+            throw XCTSkip("A self-note already exists. It was not replaced or resent.")
+        }
+        let compose = app.buttons["mail.composeSelf"]
+        guard selfNoteWait(compose, predicate: NSPredicate(format: "exists == true AND enabled == true"), timeout: 45) else {
+            try refusePermissionOrFixtureScreens()
+            throw XCTSkip("The existing Gmail session did not offer self-note preparation. Session left in place.")
+        }
+        try revealRoutineControl(compose)
+        compose.tap()
+        let recipient = app.staticTexts["mail.selfRecipient"]
+        XCTAssertTrue(recipient.waitForExistence(timeout: 20), "The own-profile recipient did not load.")
+        let fixedRecipient = recipient.label
+        XCTAssertTrue((fixedRecipient.hasPrefix("À vous-même : ") || fixedRecipient.hasPrefix("To yourself: ")) && fixedRecipient.contains("@"),
+                      "A fixed own-profile recipient was not presented.")
+        XCTAssertFalse(app.textFields["mail.selfRecipient"].exists, "The self-recipient must not be editable.")
+        let subject = app.textFields["mail.selfSubject"]
+        let body = app.textViews["mail.selfBody"]
+        let send = app.buttons["mail.selfSend"]
+        let exactSubject = "Test MORE"
+        let exactBody = "Test d’automatisation MORE, vous pouvez ignorer ce message"
+        XCTAssertTrue(selfNoteWait(subject, predicate: NSPredicate(format: "exists == true AND enabled == true"), timeout: 20), "Self-note fields did not become editable.")
+        XCTAssertTrue(send.exists && !send.isEnabled, "Send was enabled before a reviewed draft existed.")
+        try revealRoutineControl(subject)
+        subject.tap(); subject.typeText(exactSubject)
+        try revealRoutineControl(body)
+        body.tap(); body.typeText(exactBody)
+        XCTAssertTrue(subject.value as? String == exactSubject && body.value as? String == exactBody,
+                      "The exact authorized subject and body were not entered. Nothing was sent.")
+        XCTAssertTrue(recipient.label == fixedRecipient && !send.isEnabled, "The recipient changed or Send enabled before review.")
+        let review = app.buttons["mail.selfReview"]
+        try revealRoutineControl(review)
+        review.tap()
+        let ready = selfNoteWait(send, predicate: NSPredicate(format: "exists == true AND enabled == true"), timeout: 45)
+        try refusePermissionOrFixtureScreens()
+        XCTAssertTrue(recipient.label == fixedRecipient && subject.value as? String == exactSubject && body.value as? String == exactBody,
+                      "The recipient or exact draft changed during review. Nothing was sent.")
+        let voice = app.staticTexts["morning.voiceStatus"]
+        let readiness = XCTAttachment(string: "Reviewed draft Send enabled: \(ready)\nVoice status: \(voice.exists ? String(voice.label.prefix(256)) : "not exposed")\nNo Send pressed. Ordinary app/session preserved for the owner.")
+        readiness.name = "real-phone-self-note-owner-handoff-readiness-only"
+        readiness.lifetime = .keepAlways
+        add(readiness)
+        guard ready else { throw XCTSkip("The exact draft is prepared, but completed review was not confirmed. Session left in place for the owner.") }
+        // STOP HERE. Do not tap Send, type a send command, advance, pause, stop or relaunch.
+        // The owner separately says “send” once for acoustic acceptance.
+    }
+
+    private func selfNoteWait(_ element: XCUIElement, predicate: NSPredicate, timeout: TimeInterval) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+}
+
+import XCTest
+
+/// Explicitly opted-in ordinary-phone acceptance; never use fixtures.
+/// This test creates and completes exactly its own dated QA item.
+/// No screenshots, attachments, mailbox data, or other reminder labels are logged.
+@MainActor
+final class RealPhoneDisposableReminderEffectTests: XCTestCase {
+    private let qaTitle = "MORE QA 2026-10-15 2244 8C6F1A"
+    private var app: XCUIApplication!
+    private var currentMoment: String?
+    private var additionTapped = false
+    private var completionTapped = false
+
+    func testOneDisposableReminderThroughExistingNativeMoment() throws {
+        continueAfterFailure = false
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["MO_REAL_PHONE_CONNECTIONS"] == "1",
+              environment["MO_REAL_PHONE_DISPOSABLE_REMINDER"] == "1" else {
+            throw XCTSkip("Explicit physical-phone and disposable-reminder opt-ins are required.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Requires the owner's existing ordinary physical-phone session.")
+        #else
+        guard let bundle = environment["MO_REAL_PHONE_BUNDLE_ID"],
+              bundle.hasPrefix("com.gibouu.morningoperator."),
+              !bundle.lowercased().contains("fixture"), !bundle.lowercased().contains(".qa") else {
+            throw XCTSkip("Requires the explicit installed personal MORE bundle.")
+        }
+        app = XCUIApplication(bundleIdentifier: bundle)
+        app.activate() // No launch, termination, launch arguments, or environment injection.
+        try require(app.wait(for: .runningForeground, timeout: 10), "Ordinary MORE did not become foreground.")
+        try guardOrdinaryState()
+        let moment = app.staticTexts["morning.currentStep"]
+        if moment.exists { currentMoment = moment.label } // Kept in memory; never printed.
+
+        // An existing web moment exposes this same native panel in a sheet. Do
+        // not close the browser, start a routine, advance a moment, or resume it.
+        if !native("nativeMoment.open").exists {
+            let open = app.buttons["web.nativeRequest"]
+            guard open.exists && open.isHittable else {
+                throw XCTSkip("Leave the existing active morning on Home or its native-request control.")
+            }
+            open.tap()
+            try require(native("nativeMoment.request").waitForExistence(timeout: 10), "The current native-request panel did not open.")
+        }
+        if !native("nativeMoment.request").exists {
+            let open = native("nativeMoment.open")
+            try revealInNativePanel(open)
+            open.tap()
+        }
+        try require(native("nativeMoment.request").waitForExistence(timeout: 10), "No active native-moment editor is available.")
+        try guardOrdinaryState()
+        // Never replace an owner's pending action, or retry a prior ambiguous QA
+        // action. Close/reconcile it manually before deliberately running again.
+        try require(!app.buttons["nativeMoment.cancel"].exists && !native("nativeMoment.status").exists,
+                    "A native request already exists. Stop and reconcile it; no new request was submitted.")
+
+        try prepare("Rappelle-moi de \(qaTitle) dans deux heures")
+        try require(native("nativeMoment.title").waitForExistence(timeout: 20), "No QA draft appeared; no addition was pressed.")
+        try require(native("nativeMoment.title").value as? String == qaTitle, "The proposed title is not exactly the unique QA title.")
+        let dated = app.switches.matching(NSPredicate(format: "label IN %@", ["Date et heure", "Date and time"])).firstMatch
+        try require(dated.exists && dated.value as? String == "1" && native("nativeMoment.date").exists,
+                    "The QA reminder is not visibly dated; no addition was pressed.")
+        try require(reviewMatchesQA(creation: true), "The QA date, alert, destination, and title review is incomplete.")
+        try acknowledgeAndConfirm(creation: true)
+        try waitForStatus(NSPredicate(format:
+            "label CONTAINS %@ AND (label CONTAINS %@ OR label CONTAINS %@)",
+            qaTitle, "a été ajouté dans Rappels Apple", "was added to Apple Reminders"),
+            failure: "Addition was pressed once but its receipt is unconfirmed. Check only this QA item manually; do not retry.")
+
+        try readReminders()
+        let qa = qaReminderButtons
+        try require(qa.count == 1,
+                    "The fresh first-five reading does not expose exactly one QA item. No completion was pressed; inspect this QA item manually.")
+        let selected = qa.firstMatch
+        try revealInNativePanel(selected)
+        try guardOrdinaryState()
+        // Re-evaluate the exact-title query immediately before selection.
+        try require(qaReminderButtons.count == 1 && selected.isHittable,
+                    "The unique QA selection changed; no completion was pressed.")
+        selected.tap()
+        try require(app.buttons["nativeMoment.confirm"].waitForExistence(timeout: 15), "No completion review appeared.")
+        try require(reviewMatchesQA(creation: false), "The completion review does not name exactly the QA item.")
+        try acknowledgeAndConfirm(creation: false)
+        try waitForStatus(NSPredicate(format:
+            "label CONTAINS %@ AND (label CONTAINS %@ OR label CONTAINS %@)",
+            qaTitle, "a été marqué comme terminé", "was marked complete"),
+            failure: "Completion was pressed once but its receipt is unconfirmed. Stop; do not retry or select another reminder.")
+
+        try readReminders()
+        try require(qaReminderButtons.count == 0, "The freshly read QA item is still incomplete. Do not retry completion.")
+        try guardOrdinaryState()
+        // Leave the same morning paused, with its fresh native reading. There is
+        // no cleanup loop, additional creation, deletion, routine edit, or resume.
+        #endif
+    }
+
+    private func native(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private var qaReminderButtons: XCUIElementQuery {
+        let exact = "^[1-5]\\. " + NSRegularExpression.escapedPattern(for: qaTitle) + "$"
+        return app.buttons.matching(NSPredicate(format:
+            "identifier BEGINSWITH %@ AND label MATCHES %@", "nativeMoment.reminder.", exact))
+    }
+
+    private func prepare(_ text: String) throws {
+        try guardOrdinaryState()
+        let field = native("nativeMoment.request")
+        try require(app.descendants(matching: .any).matching(identifier: "nativeMoment.request").count == 1,
+                    "The current native editor is ambiguous.")
+        try revealInNativePanel(field)
+        let value = field.value as? String ?? ""
+        try require(["", "Votre demande", "Your request"].contains(value), "An existing unsubmitted request must not be overwritten.")
+        field.tap()
+        field.typeText(text)
+        try require(field.value as? String == text, "The exact QA command was not entered; it was not submitted.")
+        let button = app.buttons["nativeMoment.prepare"]
+        try revealInNativePanel(button)
+        try require(button.isEnabled, "The native request is not ready to prepare.")
+        button.tap() // Preparation/read only: never a write confirmation.
+        try guardOrdinaryState()
+    }
+
+    private func readReminders() throws {
+        try prepare("lis mes rappels")
+        try waitForStatus(NSPredicate(format:
+            "label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@ OR label BEGINSWITH %@",
+            "Voici les cinq premiers rappels au maximum,", "Here are up to the first five reminders",
+            "Aucun rappel incomplet et daté dans les sept prochains jours", "No incomplete dated reminders in the next seven days"),
+            failure: "A fresh reminder reading was not confirmed. Stop without selecting any reminder.")
+        try require(!app.buttons["nativeMoment.confirm"].exists, "The reader unexpectedly still offers an old write confirmation.")
+    }
+
+    private func reviewMatchesQA(creation: Bool) -> Bool {
+        let status = native("nativeMoment.status")
+        guard status.exists else { return false }
+        let text = status.label
+        guard text.contains("« \(qaTitle) »") || text.contains("“\(qaTitle)”") else { return false }
+        if creation {
+            return (text.hasPrefix("Ajouter le rappel") || text.hasPrefix("Add reminder")) &&
+                (text.contains("Échéance ") || text.contains("Due ")) &&
+                (text.contains("fuseau ") || text.contains("time zone ")) &&
+                (text.contains("avec alerte") || text.contains("with alert")) &&
+                (text.contains(", compte ") || text.contains(", account "))
+        }
+        return (text.hasPrefix("Marquer ") || text.hasPrefix("Mark ")) &&
+            (text.contains("comme terminé") || text.contains("complete in")) &&
+            (text.contains(", compte ") || text.contains(", account "))
+    }
+
+    private func acknowledgeAndConfirm(creation: Bool) throws {
+        try guardOrdinaryState()
+        let confirm = app.buttons["nativeMoment.confirm"]
+        try require(confirm.waitForExistence(timeout: 15), "No explicit QA confirmation is available.")
+        if !confirm.isEnabled {
+            let reviewed = app.buttons["nativeMoment.reviewed"]
+            try require(reviewed.waitForExistence(timeout: 10), "The QA review has not completed and cannot be acknowledged.")
+            try revealInNativePanel(reviewed)
+            try require(reviewMatchesQA(creation: creation), "The reviewed QA action changed before screen acknowledgement.")
+            reviewed.tap() // Explicit screen review; no write yet.
+        }
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: confirm)
+        try require(XCTWaiter.wait(for: [ready], timeout: 10) == .completed, "The explicit QA confirmation stayed disabled.")
+        try revealInNativePanel(confirm)
+        try guardOrdinaryState()
+        try require(reviewMatchesQA(creation: creation), "The reviewed QA action changed before committing.")
+        let allowed = creation ? ["Confirmer l’ajout", "Confirm addition"] : ["Confirmer : marquer terminé", "Confirm: mark complete"]
+        try require(allowed.contains(confirm.label), "The confirmation is for the wrong effect.")
+        if creation {
+            try require(!additionTapped, "A second addition is forbidden.")
+            additionTapped = true
+        } else {
+            try require(additionTapped && !completionTapped, "Only one completion of this created QA item is permitted.")
+            completionTapped = true
+        }
+        confirm.tap() // Exactly one tap for this effect. No retry under any outcome.
+    }
+
+    private func waitForStatus(_ predicate: NSPredicate, failure: String) throws {
+        let observed = XCTNSPredicateExpectation(predicate: predicate, object: native("nativeMoment.status"))
+        try require(XCTWaiter.wait(for: [observed], timeout: 30) == .completed, failure)
+        try guardOrdinaryState()
+    }
+
+    /// Scroll only an ancestor of this native panel, never the app or an
+    /// unrelated first scroll view. No swipe can activate a write control.
+    private func revealInNativePanel(_ element: XCUIElement) throws {
+        for _ in 0..<8 {
+            if element.exists && element.isHittable { return }
+            let candidates = app.scrollViews.containing(.any, identifier: "nativeMoment.open").allElementsBoundByIndex
+            guard let panel = candidates.filter({ $0.exists && $0.frame.width > 0 && $0.frame.height > 0 })
+                .min(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else { break }
+            if element.exists && element.frame.midY < panel.frame.midY { panel.swipeDown() }
+            else { panel.swipeUp() }
+        }
+        try require(element.exists && element.isHittable, "The current native-panel control is not reachable; no global navigation was attempted.")
+    }
+
+    private func guardOrdinaryState() throws {
+        try require(app.state == .runningForeground, "MORE left the foreground; stop without retrying an effect.")
+        try require(app.alerts.count == 0 && XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.count == 0,
+                    "A permission or alert requires the owner. No alert control was pressed.")
+        try require(!native("qa.testWorkspace").exists && !native("nativeMoment.synthetic").exists,
+                    "Synthetic workspaces cannot establish a real Apple effect.")
+        if let currentMoment {
+            try require(app.staticTexts["morning.currentStep"].exists && app.staticTexts["morning.currentStep"].label == currentMoment,
+                        "The current moment changed; stop without advancing or creating another action.")
+        }
+    }
+
+    private func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
+        guard condition() else { throw ReminderEffectStopped(message: message) }
+    }
+}
+
+private struct ReminderEffectStopped: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
