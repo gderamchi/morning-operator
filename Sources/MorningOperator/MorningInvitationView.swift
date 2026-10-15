@@ -15,7 +15,7 @@ struct MorningInvitationView: View {
                                displayedComponents: [.date, .hourAndMinute])
                         .accessibilityIdentifier("invitation.date")
                     Text("One time · \(TimeZone.current.identifier)")
-                        .font(.footnote).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     Button {
                         Task { await service.schedule(at: selectedDate) }
                     } label: {
@@ -36,7 +36,7 @@ struct MorningInvitationView: View {
                     Text(service.statusText).accessibilityIdentifier("invitation.status")
                     if let invitation = service.invitation, invitation.disposition == .enabled {
                         Text(scheduledTime(invitation.scheduledAt, zone: invitation.timeZoneIdentifier))
-                        Text("Set in \(invitation.timeZoneIdentifier)").font(.footnote).foregroundStyle(MorningStyle.muted)
+                        Text("Set in \(invitation.timeZoneIdentifier)").font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         Button("Cancel invitation", role: .destructive) {
                             Task { await service.cancel() }
                         }.disabled(service.isBusy).accessibilityIdentifier("invitation.cancel")
@@ -50,7 +50,7 @@ struct MorningInvitationView: View {
                             Task { await service.cancel() }
                         }.disabled(service.isBusy).accessibilityIdentifier("invitation.reset")
                         Text("This resets only the invitation. Your routine and observations are kept.")
-                            .font(.footnote).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     }
                 } footer: {
                     Text("Focus and your notification settings can quiet the invitation. It isn't an alarm and doesn't start screen recording.")

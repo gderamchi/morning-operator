@@ -36,9 +36,11 @@ struct MorningDottedIcon: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        MorningDottedIconShape(pattern: pattern, strong: contrast == .increased)
-            .fill(.foreground)
-            .aspectRatio(1, contentMode: .fit)
+        // A plain SF Symbol now, as on Home: the dot-art glyphs are retired.
+        Image(systemName: systemName)
+            .resizable().scaledToFit()
+            .fontWeight(contrast == .increased ? .semibold : .regular)
+            .padding(2)
             .accessibilityHidden(true)
     }
 

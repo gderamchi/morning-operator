@@ -4,6 +4,8 @@ import MorningCore
 
 struct LearnView: View {
     @Bindable var store: MorningStore
+    /// Where to go when learning is done. Without it, Learn dismisses itself.
+    var onClose: (() -> Void)? = nil
     @ViewState<Bool> private var importing = false
     @ViewState<UUID?> private var importGeneration = nil
     @ViewState<Bool> private var recording = false
@@ -22,7 +24,13 @@ struct LearnView: View {
             PageHeading(eyebrow: String(localized: "Your rhythm"), title: String(localized: "Make your morning yours."))
 
             NavigationLink {
-                ScrollView { MorningScreenTimeView(store: store).padding(24) }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        MorningScreenTimeView(store: store)
+                        // Then show the morning itself: a recording or a file.
+                        showMorningCard
+                    }.padding(24)
+                }
                     .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
             } label: {
                 LinkRow(title: String(localized: "1 · See your rhythm"),
@@ -35,10 +43,10 @@ struct LearnView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Your recording needs attention", systemImage: "exclamationmark.circle")
-                            .font(.subheadline.weight(.medium))
-                        Text(issue).font(.footnote)
+                            .font(.raleway(.subheadline, .medium))
+                        Text(issue).font(.raleway(.footnote))
                         Text("Any text below belongs to the named saved observation; it may be from an earlier import.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("learn.observationIssue")
@@ -49,7 +57,7 @@ struct LearnView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 14) {
                         Label(store.analysisStatus, systemImage: "sparkles")
-                            .font(.subheadline.weight(.medium))
+                            .font(.raleway(.subheadline, .medium))
                             .fixedSize(horizontal: false, vertical: true)
                         if store.progress > 0 {
                             ProgressView(value: store.progress).tint(MorningStyle.accent)
@@ -62,22 +70,8 @@ struct LearnView: View {
                 }
             }
 
-            Card {
-                VStack(alignment: .leading, spacing: 18) {
-                    sectionTitle(String(localized: "2 · Show your morning"), symbol: "rectangle.on.rectangle")
-                    Text("Record a moment, or add a file.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    // Two compact actions side by side; VoiceOver keeps the full labels.
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) { learnActions }
-                        VStack(alignment: .leading, spacing: 12) { learnActions }
-                    }
-                }
-            }
-
             NavigationLink { MorningConnectionsView(store: store) } label: {
-                LinkRow(title: String(localized: "3 · Make yourself at home"),
+                LinkRow(title: String(localized: "2 · Make yourself at home"),
                         detail: String(localized: "Sign in to your websites, together"), symbol: "globe")
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
@@ -89,10 +83,10 @@ struct LearnView: View {
                     Text(store.hasImportedObservation
                          ? "Edit what we found. Your original stays saved."
                          : "What would make a good morning?")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     if let observation = store.selectedObservation {
-                        Text(observation.sourceLabel).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(observation.sourceLabel).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("learn.observationSource")
                     }
                     notesEditor
@@ -104,7 +98,7 @@ struct LearnView: View {
                     }
                     if let issue = store.observationSaveIssue {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(issue).font(.footnote).foregroundStyle(MorningStyle.muted)
+                            Text(issue).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .accessibilityIdentifier("learn.saveError")
                             Button("Retry saving this observation") { store.saveObservationEdits() }
@@ -114,7 +108,7 @@ struct LearnView: View {
                     }
                     if store.selectedObservationID != nil || !store.notes.isEmpty || store.observationVideoEvidence != nil {
                         Button("Clear this observation", role: .destructive) { store.clearObservation() }
-                            .buttonStyle(.borderless).font(.caption).disabled(store.busy || store.sessionActive)
+                            .buttonStyle(.borderless).font(.raleway(.caption)).disabled(store.busy || store.sessionActive)
                             .accessibilityIdentifier("learn.clear")
                     }
                     learningReviewControls
@@ -130,10 +124,10 @@ struct LearnView: View {
                         Text("Analysis uses Apple's on-device model when available. It doesn't run other apps or approve a routine for you.")
                         Button("Check availability again") { store.refreshCapabilities() }
                             .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
-                    }.font(.footnote).foregroundStyle(MorningStyle.muted)
+                    }.font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true).padding(.top, 10)
                 }
-                .font(.footnote.weight(.medium)).tint(MorningStyle.accent)
+                .font(.raleway(.footnote, .medium)).tint(MorningStyle.accent)
             }.padding(.horizontal, 4)
         }
     }
@@ -172,7 +166,7 @@ struct LearnView: View {
             }
         }
         .sheet(isPresented: $showingProposal, onDismiss: {
-            if closeAfterProposal { dismiss() }
+            if closeAfterProposal { close() }
         }) {
             RoutineEvidenceProposalView(store: store, onLearn: { showingProposal = false })
         }
@@ -180,7 +174,7 @@ struct LearnView: View {
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.routine?.id) { _, _ in
             if showingProposal { closeAfterProposal = true }
-            else if !store.busy, !awaitingSuggestion { dismiss() }
+            else if !store.busy, !awaitingSuggestion { close() }
         }
         .onChange(of: store.dataGeneration) { _, _ in
             importGeneration = nil
@@ -205,13 +199,13 @@ struct LearnView: View {
                 .accessibilityIdentifier("learn.observationDetails")
         }
         if let issue = store.currentObservationSuggestionIssue, !store.notes.isEmpty {
-            Text(issue).font(.footnote).foregroundStyle(MorningStyle.muted)
+            Text(issue).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("learn.suggestionIssue")
         }
         if store.usesSyntheticProposalFixture {
             Text("Synthetic suggestion test — no Apple model call")
-                .font(.caption).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 .accessibilityIdentifier("learn.fixtureMode")
         }
         ViewThatFits(in: .horizontal) {
@@ -227,7 +221,7 @@ struct LearnView: View {
         }
         if !store.canSuggestSavedObservations {
             Label(store.routinePreferencesIssue ?? String(localized: "On-device suggestions aren't ready here yet. You can build and edit your routine yourself."), systemImage: "info.circle")
-                .font(.footnote).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -236,11 +230,11 @@ struct LearnView: View {
         ZStack(alignment: .topLeading) {
             if store.notes.isEmpty {
                 Text("A little news, a few messages, time to think…")
-                    .font(.body).foregroundStyle(MorningStyle.muted.opacity(0.7))
+                    .font(.raleway(.body)).foregroundStyle(MorningStyle.muted.opacity(0.7))
                     .padding(12).allowsHitTesting(false)
             }
             TextEditor(text: Binding(get: { store.notes }, set: { store.updateObservationNotes($0) }))
-                .font(.body).scrollContentBackground(.hidden)
+                .font(.raleway(.body)).scrollContentBackground(.hidden)
                 .padding(6).frame(height: notesEditorHeight)
                 .accessibilityLabel("Describe your morning").accessibilityIdentifier("learn.notes")
                 .focused($notesFocused)
@@ -282,6 +276,10 @@ struct LearnView: View {
         finishSuggestionIfReady()
     }
 
+    private func close() {
+        if let onClose { onClose() } else { dismiss() }
+    }
+
     private func finishSuggestionIfReady() {
         guard awaitingSuggestion, !store.busy, scenePhase == .active else { return }
         awaitingSuggestion = false
@@ -316,6 +314,22 @@ struct LearnView: View {
         .accessibilityIdentifier("learn.import")
     }
 
+    private var showMorningCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 18) {
+                sectionTitle(String(localized: "Show your morning"), symbol: "rectangle.on.rectangle")
+                Text("Record a moment, or add a file.")
+                    .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                // Two compact actions side by side; VoiceOver keeps the full labels.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { learnActions }
+                    VStack(alignment: .leading, spacing: 12) { learnActions }
+                }
+            }
+        }
+    }
+
     private func sectionTitle(_ title: String, symbol: String) -> some View {
         Label { Text(title) } icon: {
             MorningDottedIcon(systemName: symbol).frame(width: 24, height: 24)
@@ -327,6 +341,8 @@ struct LearnView: View {
 
 struct SetupView: View {
     @Bindable var store: MorningStore
+    /// Opens the routine screen; nil hides its card.
+    var openRoutine: (() -> Void)? = nil
     @ViewState<Bool> private var choosingAlarm = false
     @ViewState<Bool> private var choosingVoice = false
     @ViewState<Bool> private var choosingInvitation = false
@@ -336,6 +352,13 @@ struct SetupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
+            if let openRoutine {
+                CardButton(action: openRoutine) {
+                    LinkRow(title: String(localized: "Your routine"),
+                            detail: store.routine.map { String(localized: "\($0.steps.count) moments · \($0.totalDurationMinutes) min") } ?? "",
+                            symbol: "list.bullet")
+                }.accessibilityIdentifier("setup.routine")
+            }
             NavigationLink {
                 ScrollView { MorningScreenTimeView(store: store).padding(24) }
                     .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
@@ -349,9 +372,6 @@ struct SetupView: View {
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("setup.connections")
-            CardButton { choosingAlarm = true } content: {
-                LinkRow(title: String(localized: "Morning alarm"), detail: "", symbol: "alarm")
-            }.accessibilityIdentifier("setup.alarm")
             NavigationLink { ShortcutTemplatesView() } label: {
                 LinkRow(title: String(localized: "Shortcuts & timers"), detail: "", symbol: "timer")
                     .padding(MorningTheme.Space.card)
@@ -362,7 +382,7 @@ struct SetupView: View {
                     MorningDottedIcon(systemName: "sun.horizon").frame(width: 28, height: 28)
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Your next morning").font(MorningTheme.Typography.heading)
-                        Text(store.invitation.statusText).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(store.invitation.statusText).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     Spacer()
                     MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
@@ -398,7 +418,7 @@ struct SetupView: View {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text("Voice").font(MorningTheme.Typography.heading)
                                 Text(store.speech.selectedVoiceSummary)
-                                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             }
                             Spacer()
                             MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
@@ -407,7 +427,7 @@ struct SetupView: View {
                         .accessibilityIdentifier("setup.voice")
                     Toggle(isOn: $store.readAloud) {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("Read each step aloud").font(.subheadline.weight(.medium))
+                            Text("Read each step aloud").font(.raleway(.subheadline, .medium))
                         }
                     }
                     .tint(MorningStyle.accent).accessibilityIdentifier("setup.readAloud")
@@ -416,7 +436,7 @@ struct SetupView: View {
                         VStack(alignment: .leading, spacing: 12) { voiceControls }
                     }
                     Text(store.speech.statusText)
-                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("setup.speechStatus")
                         .accessibilityValue(store.speech.state.rawValue)
@@ -426,17 +446,17 @@ struct SetupView: View {
                         #if os(iOS)
                         HStack(alignment: .top, spacing: 12) {
                             Text("Choose a speaker or HomePod.")
-                                .font(.footnote).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                             MorningAudioRoutePicker()
                         }
                         #else
                         Text(String(localized: "Choose a speaker or HomePod from your Mac's sound controls, then try the voice here."))
-                            .font(.footnote).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                             .fixedSize(horizontal: false, vertical: true)
                         #endif
                         Text("Speaker output doesn't connect a HomePod microphone. Room-to-room listening isn't available yet.")
-                            .font(.footnote).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                             .fixedSize(horizontal: false, vertical: true)
                         }.padding(.top, 8)
                     }
@@ -457,18 +477,18 @@ struct SetupView: View {
             DisclosureGroup("Availability & device details") {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Apple Intelligence", systemImage: "sparkles").font(.subheadline.weight(.semibold))
-                        Text(store.modelSummary).font(.footnote).foregroundStyle(MorningStyle.muted)
+                        Label("Apple Intelligence", systemImage: "sparkles").font(.raleway(.subheadline, .semibold))
+                        Text(store.modelSummary).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         Button("Check again") { store.refreshCapabilities() }.buttonStyle(SecondaryButtonStyle())
                     }
                     Divider()
                     Text("You can capture thoughts and dreams, edit a routine, and use spoken guidance even while the on-device model is unavailable.")
                     Text("MORE guides native app steps. Inside MORE’s browser, you can ask it to read supported pages or move to the next video.")
                 }
-                .font(.footnote).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 16)
             }
-            .font(.subheadline.weight(.medium)).tint(MorningStyle.accent)
+            .font(.raleway(.subheadline, .medium)).tint(MorningStyle.accent)
             .padding(.horizontal, 4)
         }.foregroundStyle(MorningStyle.ink)
         .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
@@ -518,7 +538,7 @@ struct StepEditor: View {
                     if step.automation == .savedObservation {
                         Text(step.detail).textSelection(.enabled)
                         Text("Choose a different excerpt from its observation in Review. Switching to Read this text aloud makes it an ordinary note.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     } else {
                         TextField("What would you like to do?", text: $step.detail, axis: .vertical)
                             .lineLimit(3...7).accessibilityLabel("Step details")

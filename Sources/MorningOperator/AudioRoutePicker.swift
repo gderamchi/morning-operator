@@ -14,7 +14,7 @@ struct MorningAudioRoutePicker: View {
             .accessibilityIdentifier("audio.chooseOutput")
         #else
         Label(String(localized: "Choose output in Control Center"), systemImage: "airplay.audio")
-            .font(.callout)
+            .font(.raleway(.callout))
             .foregroundStyle(MorningStyle.muted)
             .accessibilityIdentifier("audio.outputInstructions")
         #endif

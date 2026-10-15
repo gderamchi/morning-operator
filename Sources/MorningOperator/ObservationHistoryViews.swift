@@ -45,7 +45,7 @@ struct ObservationHistoryView: View {
                 Text(onlyUndated
                      ? "These observations need a day before they can appear in your morning history. The day a file was imported doesn't tell us when it was recorded."
                      : "Saved glimpses of your morning. Observations and routine runs stay separate; sampled screens don't measure complete phone use.")
-                    .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             }
             if store.pendingRoutineProposal != nil {
                 Section {
@@ -57,19 +57,19 @@ struct ObservationHistoryView: View {
             if choosingMornings {
                 Section {
                     Text("Choose dated observations from your own mornings, or a separate set of samples. Nothing is selected automatically.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     if store.usesSyntheticProposalFixture {
                         Text("Synthetic suggestion test — no Apple model call")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("observations.fixtureMode")
                     }
                     if !store.canSuggestSavedObservations {
                         Text("\(store.intelligence.capabilitySummary) Your saved observations remain available.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("observations.modelUnavailable")
                     }
                     if store.busy {
-                        ProgressView(store.analysisStatus).font(.subheadline)
+                        ProgressView(store.analysisStatus).font(.raleway(.subheadline))
                         Button("Stop analysis") { store.cancelAnalysis() }
                             .accessibilityIdentifier("observations.cancelAnalysis")
                     }
@@ -100,10 +100,10 @@ struct ObservationHistoryView: View {
                 }
             }
             if let notice = store.notice {
-                Section { Text(notice).font(.caption).foregroundStyle(MorningStyle.muted) }
+                Section { Text(notice).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
             }
         }
-        .scrollContentBackground(.hidden).background(MorningStyle.background)
+        .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
         .navigationTitle(onlyUndated ? "Date needed" : "Observations")
         .accessibilityIdentifier("observations.list")
         .toolbar {
@@ -151,7 +151,7 @@ struct ObservationHistoryView: View {
                 else { selectedIDs.insert(entry.id) }
             } label: {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3).frame(width: 44, height: 44).contentShape(Rectangle())
+                    .font(.serif(.title3)).frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .disabled(store.busy || store.sessionActive || (!selected && (issue != nil || selectedIDs.count >= 5)))
@@ -163,7 +163,7 @@ struct ObservationHistoryView: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     ObservationHistoryRow(entry: entry)
-                    if let issue { Text(issue).font(.caption).foregroundStyle(MorningStyle.muted) }
+                    if let issue { Text(issue).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
                 }
             }.accessibilityIdentifier("observation.row.\(entry.id.uuidString)")
         }
@@ -172,15 +172,15 @@ struct ObservationHistoryView: View {
     private var suggestionControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text(selectionSummary).font(.caption).foregroundStyle(MorningStyle.muted)
+                Text(selectionSummary).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     .accessibilityIdentifier("observations.selectionSummary")
                 Spacer()
                 if !selectedIDs.isEmpty {
                     Button("Clear selection") { selectedIDs.removeAll() }
-                        .font(.caption).disabled(store.busy).accessibilityIdentifier("observations.clearSelection")
+                        .font(.raleway(.caption)).disabled(store.busy).accessibilityIdentifier("observations.clearSelection")
                 }
             }
-            if let selectionIssue { Text(selectionIssue).font(.caption).foregroundStyle(MorningStyle.muted) }
+            if let selectionIssue { Text(selectionIssue).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
             Button {
                 proposalBeforeRequest = store.pendingRoutineProposal?.id
                 awaitingSuggestion = true
@@ -226,14 +226,14 @@ struct ObservationHistoryRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(entry.sourceLabel).font(.subheadline.weight(.medium)).lineLimit(2)
-            Text(observationDateLabel(entry)).font(.caption).foregroundStyle(MorningStyle.muted)
+            Text(entry.sourceLabel).font(.raleway(.subheadline, .medium)).lineLimit(2)
+            Text(observationDateLabel(entry)).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             if let zone = entry.observedDate?.timeZoneIdentifier {
                 Text(zone.replacingOccurrences(of: "_", with: " "))
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
             if entry.origin != .human {
-                Text(observationOriginLabel(entry.origin)).font(.caption).foregroundStyle(MorningStyle.muted)
+                Text(observationOriginLabel(entry.origin)).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
         }.padding(.vertical, 4)
     }
@@ -255,7 +255,7 @@ struct ObservationHistoryDetail: View {
         MorningList {
             if let entry {
                 Section {
-                    Text(entry.sourceLabel).font(.headline)
+                    Text(entry.sourceLabel).font(.serif(.headline))
                     LabeledContent("Observed day", value: observationDateLabel(entry))
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Observed day")
@@ -264,7 +264,7 @@ struct ObservationHistoryDetail: View {
                     if let date = entry.observedDate {
                         LabeledContent("Time zone", value: date.timeZoneIdentifier)
                         Text(date.provenance == .recordingSession ? "Day recorded by this recording session." : "Day assigned by you.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     LabeledContent("Origin", value: observationOriginLabel(entry.origin))
                         .accessibilityElement(children: .ignore)
@@ -294,7 +294,7 @@ struct ObservationHistoryDetail: View {
                             LabeledContent("Recording time zone", value: context.timeZoneIdentifier)
                                 .accessibilityIdentifier("observation.recordingTimeZone")
                             Text("Saved when recording began. Changing the observed day keeps this information. It doesn't measure time spent in apps.")
-                                .font(.caption).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         }
                     }
                 }
@@ -312,12 +312,12 @@ struct ObservationHistoryDetail: View {
                         .accessibilityIdentifier("observation.edit")
                     DisclosureGroup("Current notes") {
                         Text(entry.effectiveText.isEmpty ? String(localized: "No notes saved.") : entry.effectiveText)
-                            .textSelection(.enabled).font(.subheadline)
+                            .textSelection(.enabled).font(.raleway(.subheadline))
                             .accessibilityIdentifier("observation.currentText")
                     }
                     DisclosureGroup("Original extracted text") {
                         Text(entry.originalText.isEmpty ? String(localized: "No original text was retained.") : entry.originalText)
-                            .textSelection(.enabled).font(.subheadline)
+                            .textSelection(.enabled).font(.raleway(.subheadline))
                             .accessibilityIdentifier("observation.originalText")
                     }
                 } footer: {
@@ -333,7 +333,7 @@ struct ObservationHistoryDetail: View {
                 if !entry.warnings.isEmpty {
                     Section {
                         ForEach(entry.warnings, id: \.rawValue) { warning in
-                            Text(warning.message).font(.caption).foregroundStyle(MorningStyle.muted)
+                            Text(warning.message).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         }
                     }
                 }
@@ -342,13 +342,13 @@ struct ObservationHistoryDetail: View {
                     Button("Delete this observation", role: .destructive) { confirmingDelete = true }
                         .disabled(store.busy || store.sessionActive)
                         .accessibilityIdentifier("observation.delete")
-                    if let notice = store.notice { Text(notice).font(.caption).foregroundStyle(MorningStyle.muted) }
+                    if let notice = store.notice { Text(notice).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
                 }
             } else {
                 ContentUnavailableView("Observation removed", systemImage: "doc", description: Text("Your routines and saved runs are still available."))
             }
         }
-        .scrollContentBackground(.hidden).background(MorningStyle.background)
+        .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
         .navigationTitle("Observation")
         .accessibilityIdentifier("observation.detail")
         .onAppear { if managesEntryOccupancy { store.observationDetailPresented = true } }
@@ -425,7 +425,7 @@ struct ObservationDateEditor: View {
                             .accessibilityIdentifier("observation.removeDate")
                     } footer: { Text("Moves this observation to Date needed without deleting its evidence.") }
                 }
-                if let notice = store.notice { Section { Text(notice).font(.caption).foregroundStyle(MorningStyle.muted) } }
+                if let notice = store.notice { Section { Text(notice).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) } }
             }
             .navigationTitle("Observed day")
             .toolbar {

@@ -11,11 +11,11 @@ struct SavedRecordingRecoveryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(store.busy ? "Reading your recording" : "Your recording is saved", systemImage: "externaldrive.badge.checkmark")
-                .font(.subheadline.weight(.medium))
+                .font(.raleway(.subheadline, .medium))
             Text(store.busy ? store.analysisStatus : (store.observationIssue ?? String(localized: "Retry understanding it, or discard the recording.")))
-                .font(.caption).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             if store.sessionActive {
-                Text("Finish or stop the current morning before retrying.").font(.caption)
+                Text("Finish or stop the current morning before retrying.").font(.raleway(.caption))
             }
             HStack {
                 Button("Retry") { store.retryPendingRecording() }
@@ -30,7 +30,7 @@ struct SavedRecordingRecoveryView: View {
                     } message: { Text("The video is deleted from this device. Text already saved from it stays available.") }
             }
             if store.hasImportedObservation {
-                Button("Review text", action: onReview).buttonStyle(.borderless).font(.caption)
+                Button("Review text", action: onReview).buttonStyle(.borderless).font(.raleway(.caption))
             }
         }
         .padding(14).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius)).overlay(RoundedRectangle(cornerRadius: MorningTheme.Space.radius).strokeBorder(MorningStyle.line))
@@ -53,10 +53,10 @@ struct MorningRecordingStatus: View {
                     Image(systemName: "record.circle.fill").foregroundStyle(.red)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(recording.state == .recording ? "Recording your morning" : "Finishing your recording")
-                            .font(.subheadline.weight(.medium))
+                            .font(.raleway(.subheadline, .medium))
                         Text(recording.state == .recording
                              ? String(localized: "Stops in \(remainingTime) · visible screen only")
-                             : recording.message).font(.caption).foregroundStyle(MorningStyle.muted)
+                             : recording.message).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     Spacer(minLength: 4)
                     if recording.state == .recording || recording.needsStopRetry {
@@ -70,8 +70,8 @@ struct MorningRecordingStatus: View {
                 HStack(spacing: 12) {
                     ProgressView()
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Understanding your morning").font(.subheadline.weight(.medium))
-                        Text(store.analysisStatus).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text("Understanding your morning").font(.raleway(.subheadline, .medium))
+                        Text(store.analysisStatus).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     Spacer(minLength: 4)
                     Button("Stop") { store.cancelAnalysis() }.buttonStyle(.borderless)
@@ -82,7 +82,7 @@ struct MorningRecordingStatus: View {
                 SavedRecordingRecoveryView(store: store, onReview: onReview)
             } else if recording.hasRecordingToReview {
                 VStack(alignment: .leading, spacing: 8) {
-                    if let issue = store.observationIssue { Text(issue).font(.caption) }
+                    if let issue = store.observationIssue { Text(issue).font(.raleway(.caption)) }
                     Button("Your recording is ready · Review") {
                         transferAndProcessRecordingIfReady(store: store, sceneIsActive: scenePhase == .active, onReview: onReview)
                     }
@@ -91,16 +91,16 @@ struct MorningRecordingStatus: View {
             } else if recording.state == .failed {
                 HStack(alignment: .top) {
                     Image(systemName: "exclamationmark.circle")
-                    Text(recording.message).font(.caption)
+                    Text(recording.message).font(.raleway(.caption))
                     Spacer()
-                    Button("Dismiss") { recording.discard() }.font(.caption)
+                    Button("Dismiss") { recording.discard() }.font(.raleway(.caption))
                 }.padding(14).background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius)).overlay(RoundedRectangle(cornerRadius: MorningTheme.Space.radius).strokeBorder(MorningStyle.line))
                     .padding(.horizontal, 16).padding(.vertical, 6)
             } else if let issue = store.observationIssue {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Your observation needs attention", systemImage: "exclamationmark.circle")
-                        .font(.subheadline.weight(.medium))
-                    Text(issue).font(.caption).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline, .medium))
+                    Text(issue).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     HStack {
                         Button(store.hasImportedObservation ? "Review saved text" : "Open learning", action: onReview)
                             .buttonStyle(SecondaryButtonStyle())
@@ -112,7 +112,7 @@ struct MorningRecordingStatus: View {
             } else if store.hasImportedObservation {
                 Button(action: onReview) {
                     Label("Review your saved observation", systemImage: "text.viewfinder")
-                        .font(.caption.weight(.medium))
+                        .font(.raleway(.caption, .medium))
                 }.buttonStyle(SecondaryButtonStyle()).padding(8).accessibilityIdentifier("observation.review")
             }
         }

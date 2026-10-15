@@ -49,7 +49,7 @@ struct MorningConnectionsView: View {
                 VStack(spacing: 0) {
                     Text(text("\(ready.intersection(selected).count + 1) of \(selected.count)",
                               "\(ready.intersection(selected).count + 1) sur \(selected.count)"))
-                        .font(.caption.monospacedDigit()).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.caption).monospacedDigit()).foregroundStyle(MorningStyle.muted)
                         .padding(.top, 8)
                     WebMorningView(site: site, minutes: 1, isStepActive: false,
                                    onSignInReady: { markReady(site) }, onClose: { currentSite = nil; queue = [] })
@@ -78,7 +78,7 @@ struct MorningConnectionsView: View {
                         if !ready.isEmpty {
                             Text(text("Marked ready by you. Sites may ask you to sign in again.",
                                       "Vous les avez indiqués prêts. Un site peut redemander une connexion."))
-                                .font(.caption).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             ForEach(WebMorningSite.allCases.filter { ready.contains($0) }) { site in
                                 Button {
                                     learningSite = site
@@ -95,12 +95,12 @@ struct MorningConnectionsView: View {
                                     Text(nativeApps.map(\.displayName).joined(separator: ", "))
                                     Text(text("Sign in inside each app. Their sign-ins are separate from MORE’s browser.",
                                               "Connectez-vous dans chaque app. Leurs connexions restent distinctes du navigateur de MORE."))
-                                }.font(.footnote).foregroundStyle(MorningStyle.muted).padding(.top, 10)
+                                }.font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).padding(.top, 10)
                             }.tint(MorningStyle.accent)
                         }
                         Text(text("MORE never reads your password. Choose “I'm ready” after signing in, or close a page to leave it for later.",
                                   "MORE ne lit jamais votre mot de passe. Après connexion, choisissez « C’est prêt », ou fermez la page pour plus tard."))
-                            .font(.footnote).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     }.padding(24).frame(maxWidth: 600).frame(maxWidth: .infinity)
                 }
             }
@@ -130,11 +130,11 @@ struct MorningConnectionsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(site.displayName).font(MorningTheme.Typography.heading)
                     if routineSites.contains(site) {
-                        Text(text("In your routine", "Dans votre routine")).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(text("In your routine", "Dans votre routine")).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                 }
                 Spacer()
-                if ready.contains(site) { Text(text("Ready", "Prêt")).font(.caption).foregroundStyle(MorningStyle.muted) }
+                if ready.contains(site) { Text(text("Ready", "Prêt")).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
             }.padding(.vertical, 16).contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityAddTraits(selected.contains(site) ? .isSelected : [])
             .accessibilityIdentifier("connections.\(site.rawValue)")

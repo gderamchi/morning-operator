@@ -4,7 +4,7 @@ import MorningCore
 import MorningApple
 
 enum MorningTab: String, CaseIterable, Identifiable {
-    case today = "Morning", review = "Review", captures = "Notes", learn = "Learn", setup = "Settings"
+    case today = "Morning", review = "Review", captures = "Notes", learn = "Learn", setup = "Settings", routine = "Routine"
     var id: String { rawValue }
     var symbol: String {
         switch self {
@@ -13,6 +13,7 @@ enum MorningTab: String, CaseIterable, Identifiable {
         case .captures: "square.and.pencil"
         case .learn: "sparkles"
         case .setup: "slider.horizontal.3"
+        case .routine: "list.bullet"
         }
     }
 }

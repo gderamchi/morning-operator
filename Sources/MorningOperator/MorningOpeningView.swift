@@ -14,12 +14,12 @@ struct MorningOpeningView: View {
             if let opening = presentation.opening {
                 if presentation.phase == .brief, let brief = presentation.briefText {
                     // The recap being read, word for word.
-                    Text(verbatim: brief).font(.body).foregroundStyle(MorningStyle.ink)
+                    Text(verbatim: brief).font(.raleway(.body)).foregroundStyle(MorningStyle.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("opening.briefText")
                 } else {
                     // One string for the screen, VoiceOver and speech.
-                    Text(verbatim: opening.displayText).font(.body).foregroundStyle(MorningStyle.ink)
+                    Text(verbatim: opening.displayText).font(.raleway(.body)).foregroundStyle(MorningStyle.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("opening.text")
                         .accessibilityValue(store.openingSpeechObservation)
@@ -32,7 +32,7 @@ struct MorningOpeningView: View {
             } else {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
-                    Text("Preparing your day…").font(.subheadline).foregroundStyle(MorningStyle.muted)
+                    Text("Preparing your day…").font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityElement(children: .combine)
@@ -64,7 +64,7 @@ struct MorningOpeningView: View {
         ForEach(offered, id: \.self) { choice in
             let button = Button { store.chooseOpening(choice) } label: {
                 Label(title(choice), systemImage: symbol(choice))
-                    .font(.subheadline.weight(.semibold))
+                    .font(.raleway(.subheadline, .semibold))
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 28)
@@ -115,19 +115,19 @@ struct MorningWeatherAttributionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if synthetic {
-                Text("Synthetic weather attribution").font(.caption)
+                Text("Synthetic weather attribution").font(.raleway(.caption))
             } else {
                 AsyncImage(url: colorScheme == .dark ? attribution.combinedMarkDarkURL : attribution.combinedMarkLightURL) { phase in
                     switch phase {
                     case .success(let image): image.resizable().scaledToFit().frame(height: 18)
-                    case .failure: Text("Apple Weather mark unavailable").font(.caption)
+                    case .failure: Text("Apple Weather mark unavailable").font(.raleway(.caption))
                     default: ProgressView().accessibilityLabel("Loading Apple Weather mark")
                     }
                 }
                 .frame(maxWidth: 150, alignment: .leading)
                 .accessibilityLabel("Apple Weather")
             }
-            Link("Weather data sources", destination: attribution.legalURL).font(.caption)
+            Link("Weather data sources", destination: attribution.legalURL).font(.raleway(.caption))
                 .accessibilityIdentifier("weather.sources")
         }
     }

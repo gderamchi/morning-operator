@@ -27,7 +27,7 @@ struct MorningBriefingView: View {
                 }
                 if store.usesSyntheticBriefing {
                     Section { Text("Synthetic test sources · not your calendar or weather")
-                        .font(.caption).accessibilityIdentifier("briefing.synthetic") }
+                        .font(.raleway(.caption)).accessibilityIdentifier("briefing.synthetic") }
                 }
                 if let issue = controller.settingsRecoveryError {
                     Section {
@@ -42,15 +42,15 @@ struct MorningBriefingView: View {
                     routineSection
                 }
                 if let error = controller.errorMessage {
-                    Section { Text(error).font(.footnote).foregroundStyle(MorningStyle.muted)
+                    Section { Text(error).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         .accessibilityIdentifier("briefing.error") }
                 }
                 Section {
                     Text("MORE prepares this recap when you open the app and checks it again before speaking. Overnight preparation isn't guaranteed.")
                     Text("This recap uses your selected calendar and current weather. It doesn't change your events.")
-                }.font(.caption).foregroundStyle(MorningStyle.muted)
+                }.font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
-            .scrollContentBackground(.hidden).background(MorningStyle.background)
+            .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
             // Keep the city field and its suggestions above the keyboard.
             .onChange(of: cityFocused) { _, focused in if focused { scrollToCitySearch(proxy) } }
             .onChange(of: controller.citySuggestions) { _, _ in if cityFocused { scrollToCitySearch(proxy) } }
@@ -107,14 +107,14 @@ struct MorningBriefingView: View {
                     })) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(choice.title)
-                            Text(choice.sourceTitle).font(.caption).foregroundStyle(MorningStyle.muted)
+                            Text(choice.sourceTitle).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         }
                     }.accessibilityIdentifier("briefing.calendar.\(choice.id)")
                 }
             }
             if !controller.settings.calendarIDs.isSubset(of: Set(controller.calendarChoices.map(\.id))) {
                 Text("Some selected calendars aren't available. Choose them again or clear the selection.")
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 Button("Clear calendar selection") {
                     var settings = controller.settings; settings.calendarIDs = []; save(settings)
                 }
@@ -160,7 +160,7 @@ struct MorningBriefingView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(suggestion.title)
                             if !suggestion.subtitle.isEmpty {
-                                Text(suggestion.subtitle).font(.caption).foregroundStyle(MorningStyle.muted)
+                                Text(suggestion.subtitle).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             }
                         }
                     }
@@ -173,7 +173,7 @@ struct MorningBriefingView: View {
                controller.citySuggestions.isEmpty, controller.errorMessage == nil {
                 Text(outcome == .noMatch ? String(localized: "No matching cities. Try a nearby city or include the country.")
                      : WeatherObservationError.searchUnavailable.localizedDescription)
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
         } header: { Text("Weather · optional") } footer: {
             Text("Searches go to Apple Maps; the city you choose is sent to Apple Weather. MORE doesn't request your device location.")
@@ -216,7 +216,7 @@ struct MorningBriefingView: View {
             } else {
                 Text("Once you have a routine, add Your day as its opening moment.").foregroundStyle(MorningStyle.muted)
             }
-            if let savedMessage { Text(savedMessage).font(.caption).accessibilityIdentifier("briefing.saved") }
+            if let savedMessage { Text(savedMessage).font(.raleway(.caption)).accessibilityIdentifier("briefing.saved") }
         }
     }
 
@@ -294,9 +294,9 @@ struct MorningBriefingDocumentView: View {
                     .textSelection(.enabled).accessibilityIdentifier("briefing.text")
             }
             Text("Prepared \(document.preparedAt.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption).foregroundStyle(MorningStyle.muted).accessibilityIdentifier("briefing.preparedAt")
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted).accessibilityIdentifier("briefing.preparedAt")
             if !document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier) {
-                Text("This recap needs an update before playback.").font(.caption).foregroundStyle(MorningStyle.muted)
+                Text("This recap needs an update before playback.").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
             if document.calendar.status != .notConfigured { source(String(localized: "Calendar"), section: document.calendar, isCalendar: true) }
             if operation != .todayCalendar, document.weather.status != .notConfigured {
@@ -310,13 +310,13 @@ struct MorningBriefingDocumentView: View {
 
     private func source(_ name: String, section: MorningBriefingSection, isCalendar: Bool) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("\(name) · \(section.statusText)").font(.caption)
-            if !section.sourceLabels.isEmpty { Text(section.sourceLabels.joined(separator: " · ")).font(.caption2) }
+            Text("\(name) · \(section.statusText)").font(.raleway(.caption))
+            if !section.sourceLabels.isEmpty { Text(section.sourceLabels.joined(separator: " · ")).font(.raleway(.caption2)) }
             if let retrievedAt = section.retrievedAt {
-                Text(isCalendar ? "Local read at \(retrievedAt.formatted(date: .omitted, time: .standard))" : "Retrieved at \(retrievedAt.formatted(date: .omitted, time: .standard))").font(.caption2)
+                Text(isCalendar ? "Local read at \(retrievedAt.formatted(date: .omitted, time: .standard))" : "Retrieved at \(retrievedAt.formatted(date: .omitted, time: .standard))").font(.raleway(.caption2))
             }
             if let observedAt = section.observationAt {
-                Text("Conditions at \(observedAt.formatted(date: .omitted, time: .standard))").font(.caption2)
+                Text("Conditions at \(observedAt.formatted(date: .omitted, time: .standard))").font(.raleway(.caption2))
             }
         }.foregroundStyle(MorningStyle.muted)
     }

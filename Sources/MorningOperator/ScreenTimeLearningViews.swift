@@ -66,7 +66,7 @@ struct MorningScreenTimeView: View {
                 }.font(MorningTheme.Typography.note)
             }
             Text("Returned app use. Missing days stay unknown.")
-                .font(.caption).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
         }.accessibilityIdentifier("screenTime.daily.\(day.day.timeIntervalSinceReferenceDate)")
     }
 }
@@ -127,11 +127,11 @@ struct ScreenTimeProposalView: View {
             })) { Text(step.title).font(MorningTheme.Typography.heading) }
                 .accessibilityIdentifier("screenTimeProposal.include.\(index)")
             Text(step.minutesMeasured ? String(localized: "Minutes measured") : String(localized: "Minutes estimated"))
-                .font(.caption).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             if let target = step.suggestedTarget {
-                Text("Opens \(target.destination.displayName)").font(.caption).foregroundStyle(MorningStyle.muted)
+                Text("Opens \(target.destination.displayName)").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             } else {
-                Text("Choose an app or page in your routine.").font(.caption).foregroundStyle(MorningStyle.muted)
+                Text("Choose an app or page in your routine.").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
             if step.included {
                 Stepper("\(step.minutes) min planned", value: Binding(get: { step.minutes }, set: { value in

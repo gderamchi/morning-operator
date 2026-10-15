@@ -18,25 +18,25 @@ struct ObservationClipTimelineView: View {
         VStack(alignment: .leading, spacing: 14) {
             if let review, !review.rows.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(review.timelineOrderIsValid ? "Sampled moments" : "Saved samples").font(.headline)
+                    Text(review.timelineOrderIsValid ? "Sampled moments" : "Saved samples").font(.serif(.headline))
                     Text(summary(review))
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                         .accessibilityIdentifier("\(prefix).summary")
                     if review.timelineOrderIsValid {
                         Text(sequence(review))
-                            .font(.subheadline.weight(.medium)).lineLimit(3)
+                            .font(.raleway(.subheadline, .medium)).lineLimit(3)
                             .accessibilityIdentifier("\(prefix).sequence")
                         if review.rows.count > 6 {
                             Text("First 6 of \(review.rows.count) sampled moments")
-                                .font(.caption).foregroundStyle(MorningStyle.muted)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                         }
                     }
                     if review.timelineOrderIsValid, review.recognizedMomentCount > 0 {
-                        Text(returnSummary(review)).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(returnSummary(review)).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("\(prefix).returns")
                     }
                     if let message = interpretationMessage(review) {
-                        Text(message).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(message).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("\(prefix).status")
                     }
                 }
@@ -46,7 +46,7 @@ struct ObservationClipTimelineView: View {
                 DisclosureGroup(isExpanded: $showingSamples) {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(review.timelineOrderIsValid ? "Activity between these sampled moments is unknown." : "Original samples in extraction order")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .padding(.bottom, 4)
                         ForEach(review.rows) { moment in
                             Button { selection = .init(id: moment.id) } label: {
@@ -64,16 +64,16 @@ struct ObservationClipTimelineView: View {
                     }.padding(.top, 8)
                 } label: {
                     Text("View sampled screens")
-                        .font(.subheadline.weight(.medium))
+                        .font(.raleway(.subheadline, .medium))
                         .accessibilityIdentifier("\(prefix).samples")
                 }
                 .tint(MorningStyle.accent)
 
                 Text("Labels come from recognition or your review. Samples can miss activity and don't measure time spent, taps, reads or scrolls.")
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             } else {
                 Text(acquisition.videoEvidence == nil ? "No sampled recording is attached to this observation." : "The sampled interpretation can't be displayed. Original evidence remains available below.")
-                    .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -107,16 +107,16 @@ struct ObservationClipTimelineView: View {
     private func momentRow(_ moment: ObservationReviewMoment) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(observationSampleTime(moment.timeSeconds))
-                .font(.caption.monospacedDigit()).foregroundStyle(MorningStyle.muted)
+                .font(.raleway(.caption).monospacedDigit()).foregroundStyle(MorningStyle.muted)
                 .frame(minWidth: 52, alignment: .leading)
             VStack(alignment: .leading, spacing: 3) {
-                Text(momentLabel(moment)).font(.subheadline.weight(.medium)).foregroundStyle(MorningStyle.ink)
+                Text(momentLabel(moment)).font(.raleway(.subheadline, .medium)).foregroundStyle(MorningStyle.ink)
                 if let caveat = momentCaveat(moment) {
-                    Text(caveat).font(.caption).foregroundStyle(MorningStyle.muted)
+                    Text(caveat).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }
             }
             Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
+            Image(systemName: "chevron.right").font(.raleway(.caption2, .semibold))
                 .foregroundStyle(MorningStyle.muted).accessibilityHidden(true)
         }
         .padding(.vertical, 12).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -217,17 +217,17 @@ private struct ObservationSampleDetail: View {
         MorningList {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
-                Text(momentLabel(moment)).font(.headline)
-                Text(acquisition.sourceLabel).font(.subheadline).foregroundStyle(MorningStyle.muted)
-                if let caveat = momentCaveat(moment) { Text(caveat).font(.subheadline) }
+                Text(momentLabel(moment)).font(.serif(.headline))
+                Text(acquisition.sourceLabel).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                if let caveat = momentCaveat(moment) { Text(caveat).font(.raleway(.subheadline)) }
                 if !timelineOrderIsValid {
                     Text("Frame times aren't in order. This source's chronology remains unresolved.")
-                        .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                 }
                 Text("A visual label is a proposal about what's visible. It doesn't establish which app was open or what you did.")
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 Text("Times are offsets into this recording, rounded to a millisecond.")
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }.padding(.vertical, 4)
             }
             ForEach(Array(moment.samples.enumerated()), id: \.element.id) { index, sample in
@@ -247,32 +247,32 @@ private struct ObservationSampleDetail: View {
                         Text(userReview.label == nil
                              ? "You kept this screen unknown. It is left out of later activity suggestions."
                              : "Your description stays separate from the model's interpretation.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     if case .identified(let context, _) = originalDecision?.evidence {
                         LabeledContent(userReview == nil ? "Proposed visual label" : "Original proposed label", value: context.displayName)
                     } else if case .ambiguous = originalDecision?.evidence {
                         Text("The original interpretation supported more than one possible context.")
-                            .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     }
                     if let quote = originalDecision?.evidenceQuote ?? userReview?.evidenceQuote ?? sample.quote {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Exact evidence quote").font(.caption.weight(.semibold)).foregroundStyle(MorningStyle.muted)
-                            Text(quote).font(.subheadline).textSelection(.enabled)
+                            Text("Exact evidence quote").font(.raleway(.caption, .semibold)).foregroundStyle(MorningStyle.muted)
+                            Text(quote).font(.raleway(.subheadline)).textSelection(.enabled)
                                 .accessibilityIdentifier("observation.sample.quote.\(sample.id.uuidString)")
                         }
                         narrationAction(quote: quote, sampleID: sample.id,
                             identifier: "observation.sample.readMoment.\(sample.id.uuidString)")
                     } else {
                         Text("No original interpretation quote is attached to this sample.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     if let reviewedQuote = userReview?.evidenceQuote,
                        let originalQuote = originalDecision?.evidenceQuote,
                        !reviewedQuote.utf8.elementsEqual(originalQuote.utf8) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Excerpt you selected").font(.caption.weight(.semibold)).foregroundStyle(MorningStyle.muted)
-                            Text(reviewedQuote).font(.subheadline).textSelection(.enabled)
+                            Text("Excerpt you selected").font(.raleway(.caption, .semibold)).foregroundStyle(MorningStyle.muted)
+                            Text(reviewedQuote).font(.raleway(.subheadline)).textSelection(.enabled)
                                 .accessibilityIdentifier("observation.sample.userQuote.\(sample.id.uuidString)")
                         }
                         narrationAction(quote: reviewedQuote, sampleID: sample.id,
@@ -286,24 +286,24 @@ private struct ObservationSampleDetail: View {
                         .accessibilityIdentifier("observation.sample.correctLabel.\(sample.id.uuidString)")
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Original extracted text").font(.caption.weight(.semibold)).foregroundStyle(MorningStyle.muted)
+                        Text("Original extracted text").font(.raleway(.caption, .semibold)).foregroundStyle(MorningStyle.muted)
                         Text(sample.frame.text.isEmpty ? String(localized: "No readable text was retained.") : sample.frame.text)
-                            .font(.subheadline).textSelection(.enabled)
+                            .font(.raleway(.subheadline)).textSelection(.enabled)
                             .accessibilityIdentifier("observation.sample.originalText.\(sample.id.uuidString)")
                     }
                     if sample.frame.textWasTruncated {
                         Text("This text was limited during extraction and cannot support a screen identity.")
-                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     ForEach(Array(sample.frame.warnings.enumerated()), id: \.offset) { _, warning in
-                        Text(warning).font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(warning).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                 } header: {
                     Text(moment.samples.count == 1 ? "Source sample" : "Source sample \(index + 1)")
                 }
             }
         }
-        .scrollContentBackground(.hidden).background(MorningStyle.background)
+        .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
         .navigationTitle("Sampled moment")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
