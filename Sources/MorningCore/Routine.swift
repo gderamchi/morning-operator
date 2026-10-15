@@ -17,13 +17,15 @@ public enum StepKind: String, Codable, CaseIterable, Sendable {
 /// A concrete app-owned operation, separate from an inferred activity category.
 /// A nil operation remains manual, including routines decoded from older files.
 public enum RoutineStepAutomation: String, Codable, CaseIterable, Sendable {
-    case spokenNote, todayCalendar, morningBriefing, savedObservation
+    case spokenNote, todayCalendar, morningBriefing, savedObservation, timedMoment, gmailInbox
     public var displayName: String {
         switch self {
         case .spokenNote: String(localized: "Read this note aloud", bundle: .module)
         case .todayCalendar: String(localized: "Read today's calendar", bundle: .module)
         case .morningBriefing: String(localized: "Read today's briefing", bundle: .module)
         case .savedObservation: String(localized: "Read reviewed observation text", bundle: .module)
+        case .timedMoment: String(localized: "Keep this moment, then continue", bundle: .module)
+        case .gmailInbox: String(localized: "Read my mail and help me reply", bundle: .module)
         }
     }
 }
@@ -45,13 +47,18 @@ public struct RoutineStep: Codable, Sendable, Identifiable, Equatable {
     /// Where this step takes the person while its timer runs (an app, or a page in MORE).
     /// Nil keeps the step inside MORE, as every step was before targets existed.
     public var target: RoutineStepTarget?
+    /// Explicitly reviewed browser operations. Older plans remain manual until edited.
+    public var webBehavior: WebMorningBehavior?
+    public var webLikesAllowed: Bool?
     public init(id: UUID = UUID(), title: String, detail: String = "", kind: StepKind = .custom,
                 durationMinutes: Int = 5, isRequired: Bool = false, automation: RoutineStepAutomation? = nil,
-                observationReference: RoutineObservationReference? = nil, target: RoutineStepTarget? = nil) {
+                observationReference: RoutineObservationReference? = nil, target: RoutineStepTarget? = nil,
+                webBehavior: WebMorningBehavior? = nil, webLikesAllowed: Bool? = nil) {
         self.id = id; self.title = title; self.detail = detail; self.kind = kind
         self.durationMinutes = Self.bounded(durationMinutes); self.isRequired = isRequired
         self.automation = automation; self.observationReference = observationReference
         self.target = target
+        self.webBehavior = webBehavior; self.webLikesAllowed = webLikesAllowed
     }
 
     private static func bounded(_ minutes: Int) -> Int {
@@ -77,6 +84,8 @@ public struct RoutineStep: Codable, Sendable, Identifiable, Equatable {
         automation = try values.decodeIfPresent(RoutineStepAutomation.self, forKey: .automation)
         observationReference = try values.decodeIfPresent(RoutineObservationReference.self, forKey: .observationReference)
         target = try values.decodeIfPresent(RoutineStepTarget.self, forKey: .target)
+        webBehavior = try values.decodeIfPresent(WebMorningBehavior.self, forKey: .webBehavior)
+        webLikesAllowed = try values.decodeIfPresent(Bool.self, forKey: .webLikesAllowed)
     }
 }
 
@@ -140,6 +149,8 @@ public struct RoutineVersion: Codable, Sendable, Identifiable, Equatable {
             manual.automation = nil
             manual.observationReference = nil
             manual.target = nil
+            manual.webBehavior = nil
+            manual.webLikesAllowed = nil
             return manual
         }
         // The sample's required ritual demonstrates the control; it is not a personal

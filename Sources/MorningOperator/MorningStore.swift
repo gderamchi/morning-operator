@@ -78,6 +78,7 @@ private struct WorkspaceSnapshot: Codable, Sendable {
     var routinePreferences: RecoverableRoutinePreferences?
     /// Which morning sessions were already greeted (issue #28). Session identifiers only.
     var greeting: MorningGreetingState?
+    var executionRecords: [RoutineExecutionRecord]?
 }
 
 private extension WorkspaceSnapshot {
@@ -90,6 +91,7 @@ private extension WorkspaceSnapshot {
         history = try values.decodeIfPresent(MorningHistory.self, forKey: .history)
         captures = try values.decodeIfPresent([QuickCapture].self, forKey: .captures)
         receipts = try values.decodeIfPresent([String: String].self, forKey: .receipts)
+        executionRecords = try values.decodeIfPresent([RoutineExecutionRecord].self, forKey: .executionRecords)
         sessionTimeZone = try values.decodeIfPresent(String.self, forKey: .sessionTimeZone)
         automatic = try values.decodeIfPresent(Bool.self, forKey: .automatic)
         readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
@@ -223,6 +225,15 @@ final class MorningStore {
     @ObservationIgnored var connectedAPITask: Task<Void, Never>?
     @ObservationIgnored var nativeStepContext: (requestID: UUID, sessionID: UUID, stepID: UUID)?
     var connectedActionStatus: String?
+    var executionRecords: [RoutineExecutionRecord] = []
+    var webExecutionEvent: WebMorningExecutionEvent?
+    @ObservationIgnored var executionSpeechTask: Task<Void, Never>?
+    let handsFreeVoice = MorningHandsFreeVoiceCoordinator()
+    @ObservationIgnored var handsFreeUtteranceHandler: (@MainActor (String) async -> Bool)?
+    @ObservationIgnored lazy var mailMorning = GmailMorningConversation(speak: { [weak self] text in
+        guard let self else { throw CancellationError() }
+        try await self.speech.speakAndWait(text)
+    })
     let usesSyntheticBriefing: Bool
     private(set) var consumedMorningEntryIDs: [UUID] = []
     // The opening of a morning (issue #28). The logic is in MorningStore+Opening.swift;
@@ -347,6 +358,21 @@ final class MorningStore {
         let seedFixture = fixtureMode && !ProcessInfo.processInfo.arguments.contains("--ui-testing-empty-workspace")
         if seedFixture && !FileManager.default.fileExists(atPath: directory.appendingPathComponent("workspace.json").path) {
             routine = DemoFixtures.candidateRoutine
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-automation") {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic automation journey", steps: [
+                    RoutineStep(title: "A quiet moment", detail: "Take a breath.", durationMinutes: 1, automation: .timedMoment),
+                    RoutineStep(title: "Get ready", detail: "Your next moment.", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-live-news") {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — public news navigation test", steps: [
+                    RoutineStep(title: "Le Monde", kind: .briefing, durationMinutes: 1,
+                        target: .inAppWeb(site: WebMorningSite.news.table.startURL), webBehavior: .readHeadlines),
+                    RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
+            #endif
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-ten-moments") {
                 let titles = ["Your morning", "The weather", "Today's calendar", "Your reminders", "People and messages",
                               "A little reading", "Make some tea", "A moment to move", "A little time to play", "One thought for later"]
@@ -414,6 +440,11 @@ final class MorningStore {
                 savedRunEndings = runEndingsInMemory
                 captures = saved.captures ?? []
                 receipts = saved.receipts ?? [:]
+                executionRecords = Array((saved.executionRecords ?? []).suffix(256)).map {
+                    var record = $0
+                    if record.outcome == .running { record.outcome = .interrupted }
+                    return record
+                }
                 sessionTimeZone = saved.sessionTimeZone ?? TimeZone.current.identifier
                 automatic = saved.automatic ?? true
                 readAloud = saved.readAloud ?? true
@@ -794,6 +825,7 @@ final class MorningStore {
                 runCurrentIfEnabled()
             }
             synchronizeMorningActivity(allowStart: true)
+            startHandsFreeVoice()
             return true
         } catch { notice = error.localizedDescription; return false }
     }
@@ -840,6 +872,7 @@ final class MorningStore {
             try session?.resume(); notice = nil
             guard persist() else { pauseAfterSaveFailure(); return }
             runCurrentIfEnabled()
+            startHandsFreeVoice()
             synchronizeMorningActivity(allowStart: true)
         }
         catch { notice = error.localizedDescription }
@@ -848,6 +881,9 @@ final class MorningStore {
     func advance(skipping: Bool = false, commandID: UUID = UUID()) {
         guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
+        finishExecutionIfNeeded(skipping: skipping)
+        mailMorning.cancel()
+        executionSpeechTask?.cancel(); executionSpeechTask = nil
         // Pause, Next, Stop and Again take over from the opening. A changed listening
         // choice does not, except that a hands-free morning never waits for the answer.
         endOpening()
@@ -863,13 +899,16 @@ final class MorningStore {
             }
             archiveTerminalSession()
             guard persist() else { pauseAfterSaveFailure(); return }
-            if session?.status == .completed { queueCompletionInvitation() }
+            if session?.status == .completed { stopHandsFreeVoice(); queueCompletionInvitation() }
             else { runCurrentIfEnabled() }
         } catch { notice = error.localizedDescription }
     }
 
     func stop() {
         guard !privacyBlocksWork else { return }
+        stopHandsFreeVoice()
+        mailMorning.cancel()
+        executionSpeechTask?.cancel(); executionSpeechTask = nil
         cancelVoiceCommandTurn()
         endOpening()
         cancelStepPlayback()
@@ -2183,14 +2222,16 @@ final class MorningStore {
         guard openingPresentation == nil else { return }
         guard !voiceInputBlocksPlayback else { return }
         guard let session, session.status == .running else { return }
+        if currentStep?.automation == .gmailInbox { beginMailMorning(); return }
         if beginTargetStep() { return }
+        recordExecution(.running)
         if automatic {
             stepExecutor.spokenEnabled = readAloud
             automation.runCurrentStep(in: session) { [weak self] context in
                 guard let self, self.session?.id == context.executionID.sessionID,
                       self.session?.currentStep?.id == context.executionID.stepID,
                       self.session?.status == .running else { return }
-                self.advance(commandID: context.commandID)
+                self.completeAutomatedStep(sessionID: context.executionID.sessionID, stepID: context.executionID.stepID)
             }
         } else if readAloud { readCurrent() }
     }
@@ -2222,7 +2263,7 @@ final class MorningStore {
     }
 
     @discardableResult
-    private func persist() -> Bool {
+    func persist() -> Bool {
         guard !privacyBlocksWork else { return false }
         if let snapshotRecoveryError {
             morningActivitySaveBlocked = true
@@ -2258,7 +2299,7 @@ final class MorningStore {
                 pendingScreenTimeProposal: pendingScreenTimeProposal.flatMap { $0.baseRoutineID == routine?.id ? $0 : nil },
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences),
-                greeting: greetingState))
+                greeting: greetingState, executionRecords: executionRecords))
             }
             pendingRoutineProposal = validProposal
             if pendingScreenTimeProposal?.baseRoutineID != routine?.id { pendingScreenTimeProposal = nil }
@@ -2316,10 +2357,14 @@ final class MorningStore {
         cancelStepPlayback()
         speech.stop()
         cancelVoiceCommandTurn()
+        stopHandsFreeVoice()
+        mailMorning.clear()
+        executionSpeechTask?.cancel(); executionSpeechTask = nil
         cancelCompletionCapture()
         releaseVoiceInput()
         MorningIntentRouter.shared.resetPendingRequests()
         do {
+            try await handsFreeVoice.stopAndRelease()
             try await morningActivity.endAllForPrivacy()
             // SDK streams may ignore cancellation. Never report successful
             // removal while a private Screen Time query still owns its task.
@@ -2364,7 +2409,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "browser-action-journal.json", "gmail-send-journal.json"] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2434,6 +2479,8 @@ final class MorningStore {
         screenTimeDailyUsage = []; screenTimeLearning = nil
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
+        executionRecords = []; webExecutionEvent = nil
+        stopHandsFreeVoice(); mailMorning.clear()
         budgetAndFeedback = RoutineBudgetAndFeedback(); savedRunEndings = []
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
         pendingRecordingInterruption = nil; pendingRecordingContext = nil

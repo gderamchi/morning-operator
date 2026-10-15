@@ -300,6 +300,13 @@ struct RoutineReviewEditor: View {
             MorningList {
                 if let routine = store.routine {
                     Section {
+                        Text(AppLanguage.isFrench ? "Voici à quoi ressemble votre matin." : "Here is what your morning looks like.")
+                            .font(MorningTheme.Typography.heading)
+                        Text(AppLanguage.isFrench ? "MORE s’occupe des actions présentées ici. Vous pouvez l’interrompre, prolonger un moment ou arrêter à la voix." : "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice.")
+                            .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                            .accessibilityIdentifier("routine.delegation")
+                    }
+                    Section {
                         ForEach(Array(routine.steps.enumerated()), id: \.element.id) { index, step in
                             Button { editingStep = step } label: { stepRow(step) }
                                 .buttonStyle(.plain).disabled(store.busy || store.sessionActive)
@@ -377,7 +384,7 @@ struct RoutineReviewEditor: View {
                         dismiss()
                         store.tab = .today
                     } label: {
-                        Label { Text("Approve this routine") } icon: { MorningDottedIcon(systemName: "checkmark").frame(width: 22, height: 22) }.frame(maxWidth: .infinity)
+                        Label { Text(AppLanguage.isFrench ? "Confier mon matin à MORE" : "Let MORE take care of my morning") } icon: { MorningDottedIcon(systemName: "checkmark").frame(width: 22, height: 22) }.frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(store.busy || store.sessionActive || routine.steps.isEmpty || store.routinePreferencesIssue != nil)
@@ -405,7 +412,7 @@ struct RoutineReviewEditor: View {
                 .background(MorningStyle.selected, in: RoundedRectangle(cornerRadius: 11))
             VStack(alignment: .leading, spacing: 4) {
                 Text(step.title).font(.raleway(.subheadline, .medium))
-                Text(step.automation == nil ? "\(step.durationMinutes) min planned · Your own pace" : "\(step.durationMinutes) min planned · Spoken guidance")
+                Text("\(step.durationMinutes) min · \(step.executionDescription)")
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
             Spacer(minLength: 4)

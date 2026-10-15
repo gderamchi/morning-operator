@@ -561,6 +561,8 @@ struct StepEditor: View {
                         Text("Read this text aloud").tag(Optional(RoutineStepAutomation.spokenNote))
                         Text("Read today's calendar").tag(Optional(RoutineStepAutomation.todayCalendar))
                         Text("Read today's briefing").tag(Optional(RoutineStepAutomation.morningBriefing))
+                        Text(AppLanguage.isFrench ? "Prendre ce temps, puis continuer" : "Keep this time, then continue").tag(Optional(RoutineStepAutomation.timedMoment))
+                        Text(AppLanguage.isFrench ? "Lire mes mails et m’aider à répondre" : "Read my mail and help me reply").tag(Optional(RoutineStepAutomation.gmailInbox))
                         if step.observationReference != nil {
                             Text("Read saved excerpt").tag(Optional(RoutineStepAutomation.savedObservation))
                         }
@@ -572,6 +574,22 @@ struct StepEditor: View {
                     Text(automationExplanation)
                 }
                 StepTargetEditor(target: $step.target)
+                if case let .inAppWeb(url) = step.target, let site = WebMorningSite(url: url), site != .gmail {
+                    Section {
+                        Picker(AppLanguage.isFrench ? "Ce que MORE fait" : "What MORE does", selection: $step.webBehavior) {
+                            Text(AppLanguage.isFrench ? "Je navigue moi-même" : "I browse myself").tag(Optional<WebMorningBehavior>.none)
+                            ForEach(WebMorningBehavior.allCases, id: \.self) { behavior in
+                                Text(behavior.displayName).tag(Optional(behavior))
+                            }
+                        }.accessibilityIdentifier("step.webBehavior")
+                        if step.webBehavior != nil {
+                            Toggle(AppLanguage.isFrench ? "Aimer jusqu’à 3 contenus affichés" : "Like up to 3 displayed contents", isOn: Binding(
+                                get: { step.webLikesAllowed == true }, set: { step.webLikesAllowed = $0 }))
+                                .accessibilityIdentifier("step.webLikes")
+                            Text(step.executionDescription).font(.footnote).foregroundStyle(MorningStyle.muted)
+                        }
+                    } header: { Text(AppLanguage.isFrench ? "Pendant la navigation" : "While browsing") }
+                }
                 Section {
                     Button("Remove this step", role: .destructive) { choosingRemoval = true }
                         .accessibilityIdentifier("step.remove")
@@ -594,6 +612,8 @@ struct StepEditor: View {
                         catch { saveError = error.localizedDescription; return }
                         edited.title = edited.title.trimmingCharacters(in: .whitespacesAndNewlines)
                         if edited.automation != .savedObservation { edited.observationReference = nil }
+                        if edited.target != nil { edited.automation = nil }
+                        if case .inAppWeb = edited.target { } else { edited.webBehavior = nil; edited.webLikesAllowed = nil }
                         if onSave(edited, keepInSuggestions, keepDuration) { dismiss() }
                         else { saveError = failureMessage() }
                     }
@@ -602,6 +622,16 @@ struct StepEditor: View {
                 }
             }
             .onChange(of: step.durationMinutes) { _, _ in keepDuration = true }
+            .onChange(of: step.target) { _, target in
+                step.webLikesAllowed = false
+                if case let .inAppWeb(url) = target, let site = WebMorningSite(url: url) {
+                    step.webBehavior = WebMorningBehavior.defaultBehavior(for: site)
+                    step.automation = nil
+                } else { step.webBehavior = nil }
+            }
+            .onChange(of: step.automation) { _, operation in
+                if operation != nil { step.target = nil; step.webBehavior = nil; step.webLikesAllowed = nil }
+            }
             .confirmationDialog("Remove this moment?", isPresented: $choosingRemoval, titleVisibility: .visible) {
                 Button("Remove from this draft", role: .destructive) { remove(excluding: false) }
                     .accessibilityIdentifier("step.removeDraft")
@@ -634,6 +664,8 @@ struct StepEditor: View {
             String(localized: "Reads a current recap from the calendars and optional city you choose in Your day. Available sources are prepared before speech; no events are changed.")
         case .savedObservation:
             String(localized: "Reads the dated excerpt you selected. If the source changes or is deleted, playback stops for review. This is a saved observation, not a live inbox.")
+        case .timedMoment, .gmailInbox:
+            step.executionDescription
         }
     }
 }

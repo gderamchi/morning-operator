@@ -35,9 +35,7 @@ struct RoutineMomentRow: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(step.title).font(.subheadline.weight(.medium))
-                Text(step.automation == nil
-                     ? "\(step.durationMinutes) min planned · Your own pace"
-                     : "\(step.durationMinutes) min planned · Spoken guidance")
+                Text("\(step.durationMinutes) min · \(step.executionDescription)")
                     .font(.caption).foregroundStyle(MorningStyle.muted)
             }
             Spacer(minLength: 4)

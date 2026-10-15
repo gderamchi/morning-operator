@@ -93,6 +93,8 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
             try await speak(text)
         case nil:
             return .needsUser(String(localized: "Enjoy this moment. Tap Next when you're ready.", bundle: .module))
+        case .timedMoment, .gmailInbox:
+            return .needsUser(String(localized: "This moment is managed by your morning session.", bundle: .module))
         }
         try checkAttempt(token)
         return .completed

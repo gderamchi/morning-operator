@@ -76,13 +76,13 @@ struct MorningRootView: View {
                            needsSolarCity: store.briefing.settings.weatherLocation == nil, notice: store.notice,
                            session: store.session, currentStep: store.currentStep,
                            connectedActionStatus: store.connectedActionStatus,
+                           voiceStatus: store.sessionActive ? store.handsFreeVoiceStatus : nil,
+                           executionSummary: store.executionSummary,
                            begin: {
                                guard !store.sessionActive else { return }
                                // No routine yet: begin by learning the morning.
                                guard let routine = store.routine else { showingLearn = true; return }
-                               // A saved routine plays. Tapping Begin is the person's own approval
-                               // of a saved draft; if it can't be approved, show the routine and why.
-                               if !routine.isApproved, !store.approve() { showingRoutineEditor = true; return }
+                               guard routine.isApproved else { showingRoutineEditor = true; return }
                                // A refused start leaves its notice on Home; it never sends a person
                                // with a routine back to Learn.
                                _ = store.start()
@@ -209,9 +209,14 @@ struct MorningRootView: View {
         .routineWebStep(store: store)
         .onChange(of: store.speech.state) { store.handleSpeechInterruption() }
         .onChange(of: store.automation.status) { store.synchronizeMorningActivity() }
+        .onChange(of: store.automation.status) { _, status in
+            if status == .unavailable || status == .failed { store.recordExecution(.unavailable) }
+        }
         .onChange(of: scenePhase) { _, phase in
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
+                store.suspendHandsFreeVoice()
+                store.mailMorning.cancel()
                 showingActions = false
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
@@ -220,6 +225,7 @@ struct MorningRootView: View {
                 store.cancelVoiceCommandTurn()
                 if store.session?.status == .running, !store.keepsTimerInBackground { store.pause() }
             } else if phase == .active {
+                store.startHandsFreeVoice()
                 MorningThemeClock.shared.refresh()
                 store.armStepTimer()
                 #if DEBUG
@@ -744,6 +750,7 @@ struct TodayView: View {
         case .todayCalendar: return text("Hear what’s on your calendar today.", "Écoutez votre programme du jour.")
         case .morningBriefing: return text("Your day ahead, in a few words.", "Votre journée, en quelques mots.")
         case .savedObservation: return text("Listen back to the observation you saved.", "Réécoutez l’observation enregistrée.")
+        case .timedMoment, .gmailInbox: return step.executionDescription
         case nil:
             switch step.kind {
             case .messages:
@@ -1195,6 +1202,8 @@ private struct MorningSunHome: View {
     var session: RoutineSession?
     var currentStep: RoutineStep?
     var connectedActionStatus: String? = nil
+    var voiceStatus: String? = nil
+    var executionSummary: String? = nil
     /// Plays the saved routine, or opens the onboarding when there is none yet.
     var begin: () -> Void
     var pause: () -> Void
@@ -1283,6 +1292,9 @@ private struct MorningSunHome: View {
                 Text(step.title)
                     .font(.serif(.title)).accessibilityIdentifier("morning.currentStep")
                 Text("\(step.durationMinutes) min").font(.raleway(.subheadline)).opacity(0.7)
+                if let voiceStatus {
+                    Text(voiceStatus).font(.raleway(.caption)).accessibilityIdentifier("morning.voiceStatus")
+                }
                 if let connectedActionStatus {
                     Text(connectedActionStatus).font(.raleway(.subheadline)).textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1308,7 +1320,7 @@ private struct MorningSunHome: View {
                 Text(isFrench ? "on y va ?" : "ready to begin?")
                     .font(.serif(.title)).accessibilityIdentifier("morning.readyQuestion")
                 Button(action: begin) {
-                    Text(isFrench ? "Commencer" : "Begin")
+                    Text(isFrench ? "Commencer mon matin" : "Start my morning")
                         .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle())
@@ -1363,6 +1375,10 @@ private struct MorningSunHome: View {
             Text("\(moments) moment\(moments == 1 ? "" : "s") · \(minutes) min")
                 .font(.raleway(.subheadline)).opacity(0.7)
                 .accessibilityIdentifier("morning.completeSummary")
+            if let executionSummary {
+                Text(executionSummary).font(.raleway(.subheadline))
+                    .accessibilityIdentifier("morning.executionSummary")
+            }
             if offersReflection {
                 Button(action: speak) { Label(isFrench ? "Dire une pensée" : "Speak a thought", systemImage: "mic").frame(minHeight: 44).contentShape(Rectangle()) }
                     .disabled(voiceBlocked).accessibilityIdentifier("morning.speakReflection")

@@ -67,7 +67,7 @@ struct StepTargetEditor: View {
             Text("Choose an action from Apps & accounts, then add it to your routine.")
                 .font(.footnote).foregroundStyle(MorningStyle.muted)
         } header: { Text("During this moment") } footer: {
-            Text("One timer, in MORE or another app. Choose Next when you're ready.")
+            Text(AppLanguage.isFrench ? "Choisissez aussi ce que MORE fera dans la page. Les autres applications peuvent nécessiter vos gestes." : "Also choose what MORE will do in the page. Other apps may still need your actions.")
         }
     }
     private func prompt(_ kind: StepAppDetailKind) -> String {

@@ -20,6 +20,9 @@ private struct RoutineWebStepPresenter: ViewModifier {
                     stepEndsAt: timer.endsAt, timerPausedAt: timer.pausedAt,
                     onExtend: { Task { await store.extendStepTimer(expectedTimer: timer) } },
                     onNext: { store.nextTargetStep(sessionID: timer.sessionID, stepID: timer.stepID) },
+                    executionPlan: store.webExecutionPlan,
+                    onExecutionEvent: { store.receiveWebExecution($0) },
+                    onPause: { store.pause() }, onResume: { store.resume() },
                     onClose: { store.pendingWebTarget = nil })
                     .id(step.id)
             } else {

@@ -6,32 +6,46 @@ import UIKit
 extension MorningStore {
     var activeStepTimer: StepTimer? {
         _ = stepTimerRevision
-        guard sessionActive, let session, let step = currentStep, step.target != nil,
+        guard sessionActive, let session, let step = currentStep, step.target != nil || step.automation == .timedMoment,
               let timer = StepTimerFile.load(), timer.belongs(to: session.id, stepID: step.id) else { return nil }
         return timer
     }
 
     /// A target's budget keeps running while its app is in front. Ordinary MORE
     /// narration keeps its existing pause-on-background behavior.
-    var keepsTimerInBackground: Bool { session?.status == .running && activeStepTimer?.pausedAt == nil && activeStepTimer != nil }
+    var keepsTimerInBackground: Bool {
+        if currentStep?.webBehavior != nil { return false }
+        return session?.status == .running && activeStepTimer?.pausedAt == nil && activeStepTimer != nil
+    }
 
     @discardableResult
     func beginTargetStep() -> Bool {
-        guard let session, session.status == .running, let step = currentStep, let target = step.target else {
+        guard let session, session.status == .running, let step = currentStep,
+              step.target != nil || step.automation == .timedMoment else {
             endStepTimer(); return false
         }
         do {
-            try target.validateIntegration()
+            try step.target?.validateIntegration()
             var timer = activeStepTimer ?? StepTimer(sessionID: session.id, stepID: step.id,
                 minutes: step.durationMinutes, at: Date())
+            #if DEBUG
+            if activeStepTimer == nil, ProcessInfo.processInfo.arguments.contains("--ui-testing"),
+               ProcessInfo.processInfo.arguments.contains("--ui-testing-short-budgets"), step.automation == .timedMoment {
+                timer = StepTimer(sessionID: session.id, stepID: step.id, minutes: 1, at: Date().addingTimeInterval(-55))
+            }
+            #endif
             timer.resume(at: Date())
             let shouldOpen = timer.openedAt == nil
             if shouldOpen { timer.markOpened(at: Date()) }
             try StepTimerFile.save(timer)
             stepTimerRevision += 1
             armStepTimer()
+            if currentExecutionRecord == nil { guard recordExecution(.running) else { pause(); return true } }
+            if !shouldOpen, step.webBehavior != nil, case let .inAppWeb(url) = step.target {
+                pendingWebTarget = url
+            }
             if shouldOpen {
-                switch target {
+                switch step.target {
                 case let .externalApp(app, detail):
                     guard let url = app.url(detail: detail), UIApplication.shared.canOpenURL(url) else {
                         notice = String(localized: "This app couldn't open. You can continue in MORE or choose Next.")
@@ -62,6 +76,8 @@ extension MorningStore {
                 case let .connectedAPI(service, connectionID, tool, arguments):
                     runConnectedAction(service: service, connectionID: connectionID, tool: tool,
                         argumentsJSON: arguments, sessionID: session.id, stepID: step.id)
+                case nil:
+                    if readAloud { speech.speak("\(step.title). \(step.detail)") }
                 }
             }
             synchronizeMorningActivity()
@@ -90,6 +106,7 @@ extension MorningStore {
             let claimed = StepTimerFile.update(sessionID: timer.sessionID, stepID: timer.stepID) { $0.claimAlert(at: Date()) }
             guard let (alertedTimer, claimedAlert) = claimed, claimedAlert else { return }
             self.stepTimerRevision += 1
+            if self.finishAutomatedBudget(alertedTimer) { return }
             self.notice = String(localized: "Time's up. Choose +2 min or Next.")
             let nextLabel = self.nextStepTimerLabel
             await StepTimerActivity.publish(timer: alertedTimer, timeIsUp: true)

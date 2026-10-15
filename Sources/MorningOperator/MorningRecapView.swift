@@ -35,6 +35,9 @@ struct MorningRecapView: View {
                 }
             }
             saveState(recap.saveState)
+            if store.session?.id == session.id, let summary = store.executionSummary {
+                Text(summary).font(.raleway(.footnote)).accessibilityIdentifier("recap.execution")
+            }
             MorningRecapFeedback(store: store, session: session)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
