@@ -97,6 +97,22 @@ final class SunriseDockTests: XCTestCase {
         }
     }
 
+    func testLandscapeOrientationKeepsTheWholeSkyAndMenuReachable() {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = launch(weather: "partlyCloudy", extra: ["--ui-testing-reduce-motion"])
+        assertQuietArrival(in: app)
+        XCTAssertGreaterThan(app.frame.width, app.frame.height, app.debugDescription)
+        attach("weather-partlyCloudy-day-landscape", app)
+        reveal(in: app)
+        for identifier in ["morning.settings", "morning.review", "morning.begin", "morning.closeActions"] {
+            assertReachable(identifier, in: app)
+        }
+        attach("weather-partlyCloudy-day-landscape-controls", app)
+        app.buttons["morning.closeActions"].tap()
+        assertQuietArrival(in: app)
+    }
+
     func testEveryAppleWeatherConditionHasADayAndNightLandscape() {
         // Use Apple's SDK cases so a new supported condition cannot silently miss
         // the native visual matrix. The launch argument injects synthetic weather
@@ -142,15 +158,17 @@ final class SunriseDockTests: XCTestCase {
     }
 
     func testUnavailableWeatherDoesNotPretendToBeAClearForecast() {
-        for phase in ["day", "night"] {
-            let app = launch(phase: phase, weather: "unavailable")
-            assertQuietArrival(in: app)
-            let value = String(describing: app.buttons["morning.actions"].value ?? "").lowercased()
-            XCTAssertTrue(value.contains("unavailable"), app.debugDescription)
-            attach("weather-unavailable-\(phase)", app)
-            reveal(in: app)
-            assertReachable("morning.settings", in: app)
-            app.terminate()
+        for weather in ["unknown", "unavailable"] {
+            for phase in ["day", "night"] {
+                let app = launch(phase: phase, weather: weather)
+                assertQuietArrival(in: app)
+                let value = String(describing: app.buttons["morning.actions"].value ?? "").lowercased()
+                XCTAssertTrue(value.contains(weather), app.debugDescription)
+                attach("weather-\(weather)-\(phase)", app)
+                reveal(in: app)
+                assertReachable("morning.settings", in: app)
+                app.terminate()
+            }
         }
     }
 
@@ -190,6 +208,8 @@ final class SunriseDockTests: XCTestCase {
         }
         assertReachable("morning.review", in: app)
         attach("quiet-solar-night-fr-largest-footer", app)
+        assertReachable("morning.solarCity", in: app)
+        attach("quiet-solar-night-fr-largest-city", app)
         assertReachable("morning.begin", in: app)
         attach("quiet-solar-night-fr-largest-begin", app)
         attach("quiet-solar-night-fr-largest-controls", app)

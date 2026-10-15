@@ -1,8 +1,19 @@
 # MORE: implementation and verification
 
-**Current physical installation: MORE 0.1.0 (1519), app source `1b3be4c`, 15 October 2026, from PR [#170](https://github.com/gibouu/morning-operator/pull/170).** Signed iPhone build, deep/strict signature verification, in-place installation and ordinary foreground launch succeeded on the connected iPhone 17 / iOS 27.2. The installed app version and live process were queried afterward. No fixture arguments, uninstall or data reset were used. The PR is ready for review but remains unmerged: the authenticated GitHub account has read-only access to the upstream repository. This establishes delivery of the PR source to the phone, not a merged-main installation or owner acceptance of every flow.
+**Current physical installation: MORE 0.1.0 (1520), app source `7eb44bb`, 15 October 2026, from PR [#170](https://github.com/gibouu/morning-operator/pull/170).** Signed iPhone build, deep/strict signature verification and in-place installation succeeded on the connected iPhone 17 / iOS 27.2. A subsequent installed-app query confirmed build 1520. Ordinary launch was refused because the phone was locked; the updated app's foreground process and physical visual behavior have not yet been verified. No fixture arguments, uninstall or data reset were used. The PR targets `main`; integration with the latest connection changes is in progress.
 
-## Physical delivery of quiet solar Home — 15 October 2026
+## Full-screen weather-aware sky — 15 October 2026
+
+The sun and crescent are larger and cross a shallow arc around the middle of Home: approximately 61% of screen height at either end and 38% at the apex. The uniform paper has a fine dot texture over the whole screen; stars span the night sky, and the four dotted trees are slightly larger. Touch anywhere to reveal the existing controls, with Close/exposed-sky dismissal and an opaque scrollable menu for large text. Reading destinations retain their light appearance.
+
+Current Apple Weather conditions now select dotted clouds, distinct precipitation strengths/types, wind, fog/haze/smoke/dust, heat/frost and printed storm details. All 34 known WeatherKit conditions map explicitly; an unknown condition adds no invented effects. Day/night and seasonal sunrise/sunset remain driven by the selected city's offline solar calculation and the iPhone's clock/time zone. Weather reuses the existing selected-city provider and briefing cache; no device-location permission or new provider was added. Expired, wrong-city and privacy-blocked observations cannot drive the scene. The Home refresh loop runs only while active; provider failures use a five-minute passive Home retry interval. Explicit existing foreground/briefing refresh remains separate. Real weather displays the provider mark/legal link; DEBUG previews are labelled as samples.
+
+- **Shared logic:** the focused `MorningWeatherSceneTests`, `WeatherObservationServiceTests`, `HomeWeatherStateTests` and `MorningBriefingControllerTests` selection passed **39 tests**, covering condition mappings, invalid inputs, observation/retrieval/provider expiry, city changes, privacy, failure backoff and coalescing. Solar math is unchanged; the earlier 23-test solar selection below remains historical evidence.
+- **Native simulator:** final fixture-matrix and regression checks are recorded below after completion. Screenshots/result bundles stay local under ignored `work/weather-home-ui/`.
+- **Physical delivery:** the app and embedded widget both report build 1520; signature verification and in-place installation passed. The post-install app query confirms the new version. Automatic ordinary launch was refused by iOS because the phone was locked. Local records are in ignored `work/weather-home-iphone/`; no signing configuration, profiles or device records were committed.
+- **Remaining acceptance:** the existing personal provisioning still lacks WeatherKit and Screen Time. No live Apple Weather response, physical visual/VoiceOver session, listener acceptance, full-repository test suite or hosted CI pass is claimed. Live-provider setup is tracked in [#13](https://github.com/gibouu/morning-operator/issues/13), physical acceptance in [#171](https://github.com/gibouu/morning-operator/issues/171). PR #170 remains open; this installation uses its branch source directly.
+
+## Earlier physical delivery of quiet solar Home — 15 October 2026 (1519)
 
 At the owner's request, the ordinary personal MORE app was updated in place using its existing local signing/bundle configuration. The signed app and embedded widget both report build 1519. Install and ordinary launch returned success; the subsequent installed-app and running-process queries confirmed the new version was active. The source checkpoint is `1b3be4c`; later delivery-record changes are documentation and test-evidence only. Local command records are under the ignored `work/quiet-solar-iphone/` directory. Personal signing overrides, profiles, device identifiers and records were not committed.
 
@@ -10,7 +21,7 @@ The existing personal provisioning configuration does not enable WeatherKit or S
 
 **Remaining delivery blocker:** GitHub rejected the requested upstream merge because the current account lacks repository write permission. PR #170 is ready and conflict-free, but a maintainer must merge it. The installation above uses the PR branch directly and must not be described as merged-main delivery.
 
-## Quiet dotted solar Home candidate — 15 October 2026
+## Earlier quiet dotted solar Home candidate — 15 October 2026
 
 PR [#170](https://github.com/gibouu/morning-operator/pull/170), branch `guillaume/quiet-solar-home`, app source `e818f16`. This candidate was subsequently installed as MORE 0.1.0 (1519), as recorded above. It was developed in an isolated checkout to preserve the owner's parallel connection work.
 
