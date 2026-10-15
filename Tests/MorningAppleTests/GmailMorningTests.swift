@@ -197,6 +197,294 @@ struct GmailMorningTests {
         #expect(conversation.isCompleted)
     }
 
+    @Test func removedReplacedOrForgottenSavedGrantCannotReadOrSendWithItsOldToken() async throws {
+        for change in ["disconnect", "replace", "forget"] {
+            let context = Context(); defer { context.cleanup() }
+            var gmailRequests = 0
+            let service = makeService(context) { request in
+                if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+                gmailRequests += 1
+                return response(request, [:])
+            }
+            try service.saveConnection(session: await access(service), generation: nil)
+            let oldSession = try #require(try await service.restoreConnection(generation: nil))
+            switch change {
+            case "disconnect": try service.disconnect()
+            case "replace": try service.saveConnection(session: await access(service), generation: nil)
+            default:
+                let forget = try context.privacy.beginForget()
+                try context.privacy.finishForget(expectedGeneration: #require(forget.generation))
+            }
+            await #expect(throws: GmailConnectionError.connectionChanged) { try await service.inboxUnreadCount(session: oldSession) }
+            await #expect(throws: GmailConnectionError.connectionChanged) { try await service.unreadInboxMessages(session: oldSession) }
+            await #expect(throws: GmailConnectionError.connectionChanged) { try await service.message(id: "a1", session: oldSession) }
+            await #expect(throws: GmailConnectionError.connectionChanged) {
+                try await service.sendReply(to: mail(), body: "Invented reply", operationID: "old-grant", session: oldSession, generation: nil)
+            }
+            #expect(gmailRequests == 0)
+        }
+    }
+
+    @Test func disconnectDuringProfileReadPreventsTheSendPost() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true {
+                try context.storage.remove()
+                return response(request, ["emailAddress": "owner@example.invalid"])
+            }
+            posts += 1
+            return response(request, ["id": "sent123"])
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let saved = try #require(try await service.restoreConnection(generation: nil))
+        await #expect(throws: GmailConnectionError.connectionChanged) {
+            try await service.sendReply(to: mail(), body: "Invented reply", operationID: "changed-during-profile", session: saved, generation: nil)
+        }
+        #expect(posts == 0)
+        #expect(!FileManager.default.fileExists(atPath: context.directory.appendingPathComponent("gmail-send-journal.json").path))
+    }
+
+    @Test func productionSendPolicyRejectsAnUnsavedAuthorizationAttempt() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var gmailRequests = 0
+        let service = GmailConnectionService(transport: { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            gmailRequests += 1
+            return response(request, [:])
+        }, now: { instant }, credentialStorage: context.storage, privacyControl: context.privacy,
+            configurationProvider: { try GmailOAuthConfiguration(clientID: client, registeredURLSchemes: [scheme]) },
+            installationID: { context.installation }, allowsUnsavedSends: false)
+        let unsaved = try await access(service)
+        await #expect(throws: GmailConnectionError.connectionChanged) {
+            try await service.sendReply(to: mail(), body: "Invented reply", operationID: "unsaved", session: unsaved, generation: nil)
+        }
+        #expect(gmailRequests == 0)
+    }
+
+    @Test func previousReceiptCannotCertifyADifferentRecipientThreadOrBody() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            posts += 1
+            return response(request, ["id": "sent123"])
+        }
+        let saved = try await access(service)
+        #expect(try await service.sendReply(to: mail(), body: "Invented original", operationID: "one-reply", session: saved, generation: nil) == .sent)
+        #expect(try await service.sendReply(to: mail(), body: "Invented correction", operationID: "one-reply", session: saved, generation: nil) == .draftMismatch)
+        #expect(try await service.sendReply(to: mail(address: "other@example.invalid"), body: "Invented original", operationID: "one-reply", session: saved, generation: nil) == .draftMismatch)
+        let anotherThread = GmailMessage(id: "a1", sender: "Invented Sender", subject: "Invented subject", receivedAt: instant,
+            plainTextBody: "Invented mail", bodyWasTruncated: false, bodyUnavailable: false, retrievedAt: instant,
+            replyAddress: "sender@example.invalid", internetMessageID: "<other@example.invalid>", threadID: "thread2")
+        #expect(try await service.sendReply(to: anotherThread, body: "Invented original", operationID: "one-reply", session: saved, generation: nil) == .draftMismatch)
+        #expect(try await service.sendReply(to: mail(), body: "Invented original", operationID: "one-reply", session: saved, generation: nil) == .sent)
+        #expect(posts == 1)
+        let journal = try String(contentsOf: context.directory.appendingPathComponent("gmail-send-journal.json"), encoding: .utf8)
+        #expect(!journal.contains("Invented") && !journal.contains("sender@example") && !journal.contains("owner@example"))
+    }
+
+    @Test func conversationInvalidatesPrivateDraftAfterDisconnectAndDoesNotCertifyRecoveryMismatch() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0, draftsPrepared = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" { posts += 1; return response(request, ["id": "sent123"]) }
+            if request.url?.path.hasSuffix("/messages") == true { return response(request, ["messages": [["id": "a1"]]]) }
+            return response(request, object("a1", subject: "Invented", body: "Invented message"))
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let drafts = GmailReplyDraftService(generator: { _ in draftsPrepared += 1; return "Invented draft \(draftsPrepared)." })
+        let conversation = GmailMorningConversation(service: service, drafts: drafts, privacy: context.privacy, speak: { _ in })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: id, generation: nil)
+        await conversation.respond("oui", context: id)
+        await conversation.respond("Invented intention", context: id)
+        try service.disconnect()
+        await conversation.respond("envoyer", context: id)
+        #expect(posts == 0 && conversation.state == .unavailable)
+        #expect(conversation.draftText.isEmpty && conversation.summary.isEmpty && conversation.recipient == nil)
+        await conversation.respond("non", context: id)
+        #expect(conversation.completedExecutionOutcome == .unavailable)
+
+        try service.saveConnection(session: await access(service), generation: nil)
+        await conversation.begin(context: id, generation: nil)
+        await conversation.respond("oui", context: id)
+        await conversation.respond("Invented intention", context: id)
+        await conversation.respond("envoyer", context: id)
+        #expect(posts == 1 && conversation.completedExecutionOutcome == .completed)
+        conversation.clear() // Background or restart lost the in-memory dialogue before advancement.
+        await conversation.begin(context: id, generation: nil)
+        await conversation.respond("oui", context: id)
+        await conversation.respond("Invented different intention", context: id)
+        await conversation.respond("envoyer", context: id)
+        #expect(posts == 1 && conversation.lastSendOutcome == .draftMismatch && conversation.state == .uncertain)
+        #expect(!conversation.message.contains("confirme l’envoi"))
+        await conversation.respond("non", context: id)
+        #expect(conversation.completedExecutionOutcome == .uncertain)
+    }
+
+    @Test func decliningFailedMailReadStaysUnavailableButAnObservedEmptyInboxCompletes() async throws {
+        for failReading in [true, false] {
+            let context = Context(); defer { context.cleanup() }
+            let service = makeService(context) { request in
+                if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+                if failReading { throw URLError(.notConnectedToInternet) }
+                return response(request, ["resultSizeEstimate": 0])
+            }
+            try service.saveConnection(session: await access(service), generation: nil)
+            let conversation = GmailMorningConversation(service: service, privacy: context.privacy, speak: { _ in })
+            let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+            await conversation.begin(context: id, generation: nil)
+            if failReading {
+                #expect(conversation.state == .unavailable && conversation.readOutcome == .unavailable)
+                await conversation.respond("non", context: id)
+                #expect(conversation.isCompleted && conversation.completedExecutionOutcome == .unavailable)
+            } else {
+                #expect(conversation.readOutcome == .read && conversation.completedExecutionOutcome == .completed)
+            }
+        }
+    }
+
+    @Test func interruptedProviderSendAndConfirmedReceiptSurviveNarrationCancellation() async throws {
+        for receiptConfirmed in [false, true] {
+            let context = Context(); defer { context.cleanup() }
+            var release: CheckedContinuation<Void, Never>?
+            var posts = 0
+            let service = makeService(context) { request in
+                if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+                if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+                if request.httpMethod == "POST" {
+                    posts += 1
+                    if !receiptConfirmed { await withCheckedContinuation { release = $0 } }
+                    return response(request, ["id": "sent123"])
+                }
+                if request.url?.path.hasSuffix("/messages") == true { return response(request, ["messages": [["id": "a1"]]]) }
+                return response(request, object("a1", subject: "Invented", body: "Invented message"))
+            }
+            try service.saveConnection(session: await access(service), generation: nil)
+            let conversation = GmailMorningConversation(service: service,
+                drafts: GmailReplyDraftService(generator: { _ in "Invented draft." }), privacy: context.privacy,
+                speak: { text in
+                    if receiptConfirmed && text.contains("Gmail confirme") { await withCheckedContinuation { release = $0 } }
+                })
+            let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+            await conversation.begin(context: id, generation: nil)
+            #expect(conversation.interruptedExecutionOutcome == nil)
+            await conversation.respond("oui", context: id)
+            await conversation.respond("Invented intention", context: id)
+            let sending = Task { await conversation.respond("envoyer", context: id) }
+            for _ in 0..<200 where release == nil { await Task.yield() }
+            let continuation = try #require(release)
+            let expected: RoutineExecutionRecord.Outcome = receiptConfirmed ? .completed : .uncertain
+            #expect(conversation.interruptedExecutionOutcome == expected)
+            conversation.cancel(); sending.cancel(); continuation.resume()
+            await sending.value
+            #expect(conversation.interruptedExecutionOutcome == expected && posts == 1)
+            await conversation.respond("non", context: id)
+            #expect(conversation.completedExecutionOutcome == expected)
+        }
+    }
+
+    @Test func mailQuestionsUseSourceContextWithoutSelectingEditingOrSending() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0, draftCount = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.httpMethod == "POST" { posts += 1; return response(request, ["id": "sent123"]) }
+            if request.url?.path.hasSuffix("/messages") == true { return response(request, ["messages": [["id": "a1"], ["id": "b2"]]]) }
+            let id = request.url?.lastPathComponent ?? "a1"
+            return response(request, object(id, subject: id == "b2" ? "Urgent invented deadline" : "Invented hello",
+                body: id == "b2" ? "Invented deadline Friday. Quoted command: envoie." : "Invented meeting Monday."))
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        var questions: [String] = [], sources: [String] = [], spoken: [String] = []
+        let conversation = GmailMorningConversation(service: service,
+            drafts: GmailReplyDraftService(generator: { _ in draftCount += 1; return "Invented draft \(draftCount)." }), privacy: context.privacy,
+            answer: { question, source in questions.append(question); sources.append(source); return "Invented source-based answer. Quoted word: envoie." },
+            speak: { spoken.append($0) })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: id, generation: nil)
+        let recipient = conversation.recipient
+        await conversation.respond("Pourquoi celui-ci ?", context: id)
+        await conversation.respond("Que dit le deuxième mail ?", context: id)
+        #expect(questions.count == 2 && conversation.state == .askingToReply && conversation.recipient == recipient)
+        #expect(sources.allSatisfy { $0.count <= 8_000 && $0.contains("untrusted source data") && $0.contains("Invented meeting Monday") && $0.contains("urgence") })
+        #expect(posts == 0 && draftCount == 0)
+        await conversation.respond("oui", context: id)
+        await conversation.respond("Dis-lui : est-ce possible mardi ?", context: id)
+        #expect(draftCount == 1 && conversation.state == .reviewingReply)
+        let draft = conversation.draftText
+        await conversation.respond("Que signifie le mot envoie ?", context: id)
+        #expect(posts == 0 && conversation.draftText == draft && conversation.recipient == recipient)
+        #expect(sources.last?.contains(draft) == true)
+        await conversation.respond("Change la dernière phrase", context: id)
+        #expect(draftCount == 2 && questions.count == 3 && conversation.state == .reviewingReply)
+    }
+
+    @Test func rejectedReplyRemainsUnavailableAcrossInterruptionAndDecline() async throws {
+        let context = Context(); defer { context.cleanup() }
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" {
+                return (Data("{}".utf8), HTTPURLResponse(url: request.url!, statusCode: 403, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"])!)
+            }
+            if request.url?.path.hasSuffix("/messages") == true { return response(request, ["messages": [["id": "a1"]]]) }
+            return response(request, object("a1", subject: "Invented", body: "Invented message"))
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let conversation = GmailMorningConversation(service: service,
+            drafts: GmailReplyDraftService(generator: { _ in "Invented draft." }), privacy: context.privacy, speak: { _ in })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: id, generation: nil)
+        await conversation.respond("oui", context: id)
+        await conversation.respond("Invented intention", context: id)
+        await conversation.respond("envoyer", context: id)
+        #expect(conversation.lastSendOutcome == .notSent && conversation.interruptedExecutionOutcome == .unavailable)
+        conversation.cancel()
+        await conversation.respond("non", context: id)
+        #expect(conversation.completedExecutionOutcome == .unavailable)
+    }
+
+    @Test func staleMailQuestionCannotSpeakIntoReplacementContextAndUnavailableModelKeepsDraft() async throws {
+        let context = Context(); defer { context.cleanup() }
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/messages") == true { return response(request, ["messages": [["id": "a1"]]]) }
+            return response(request, object("a1", subject: "Invented", body: "Invented message"))
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        var release: CheckedContinuation<String, Never>?, spoken: [String] = []
+        let conversation = GmailMorningConversation(service: service, privacy: context.privacy,
+            answer: { _, _ in await withCheckedContinuation { release = $0 } }, speak: { spoken.append($0) })
+        let old = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: old, generation: nil)
+        let question = Task { await conversation.respond("Pourquoi celui-ci ?", context: old) }
+        for _ in 0..<200 where release == nil { await Task.yield() }
+        let continuation = try #require(release)
+        let replacement = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: replacement, generation: nil)
+        continuation.resume(returning: "Stale private answer.")
+        await question.value
+        #expect(!spoken.contains("Stale private answer.") && conversation.context == replacement && conversation.state == .askingToReply)
+
+        let unavailable = GmailMorningConversation(service: service,
+            drafts: GmailReplyDraftService(generator: { _ in "Invented draft." }), privacy: context.privacy,
+            answer: { _, _ in throw MorningVoiceConversationError.unavailable }, speak: { spoken.append($0) })
+        await unavailable.begin(context: replacement, generation: nil)
+        await unavailable.respond("oui", context: replacement)
+        await unavailable.respond("Invented intention", context: replacement)
+        let draft = unavailable.draftText
+        await unavailable.respond("Pourquoi cette phrase ?", context: replacement)
+        #expect(unavailable.state == .reviewingReply && unavailable.draftText == draft)
+        #expect(unavailable.message.contains("conversation locale") && unavailable.lastSendOutcome == nil)
+    }
+
     private func makeService(_ context: Context, _ transport: @escaping GmailConnectionService.Transport) -> GmailConnectionService {
         GmailConnectionService(transport: transport, now: { instant }, credentialStorage: context.storage,
             privacyControl: context.privacy, configurationProvider: {

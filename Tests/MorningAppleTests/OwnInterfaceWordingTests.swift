@@ -190,6 +190,16 @@ private enum OwnScreenFixtures {
         "Restore previous routine", "Export routine", "Learn from an observation",
         "Restoring a routine leaves your saved choices for future suggestions unchanged.", "Approve this routine"
     ]
+    static let delegatedRoutine = [
+        "Your daily routine", "%lld moments · %lld min planned", "Add a moment",
+        "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice.",
+        "Let MORE take care of my morning", "Let MORE do it"
+    ]
+    static let screenTimeReview = [
+        "Your morning, from Screen Time", "Keep current", "Minutes measured",
+        "Your current routine stays ready until you approve. Approving replaces it with the moments you keep here.",
+        "Let MORE take care of this morning"
+    ]
     static let recording = [
         "Confirm Apple's picker, then go through your morning. This screen closes when recording begins. We stop at your chosen limit and save the visible text for you to review when you return.",
         "Stop automatically after", "Start screen recording", "You're in control",
@@ -229,7 +239,8 @@ private enum OwnScreenFixtures {
         "Forget MORE’s local data"
     ]
     static let all = [("Learn", learn), ("Review", review), ("Settings", settings),
-                      ("Routine", routine), ("Recording", recording), ("Voice", voice),
+                      ("Routine", routine), ("Delegated routine", delegatedRoutine), ("Screen Time review", screenTimeReview),
+                      ("Recording", recording), ("Voice", voice),
                       ("Step", step), ("Privacy", privacy)]
 
     /// Recognized lines for a screen: each string on its own lines, long ones wrapped.
@@ -435,7 +446,7 @@ private enum OwnScreenFixtures {
     /// its first and last lines nothing identifies it but the title above and the buttons below.
     static let suggestedUpdate = ContentScreen(
         name: "Suggested update", top: [.shown("Suggested update"), .shown("Done")],
-        bottom: [.shown("Keep current"), .shown("Approve update")], body: [
+        bottom: [.shown("Keep current"), .shown("Let MORE take care of this morning")], body: [
             .shown("Your next morning"), .other("Selected: 2 observations across 2 dated days", "Sélection : 2 observations sur 2 jours datés"),
             .shown("Your current routine stays ready until you approve."), .shown("Compare with current routine")
         ] + suggestedStep(("Review today’s calendar", "Consulter le calendrier du jour"),
@@ -463,7 +474,7 @@ private enum OwnScreenFixtures {
     /// Scrolled into the quotations of one suggested step: no planned time, no sentence of MORE's.
     static let suggestedUpdateQuotations = ContentScreen(
         name: "Suggested update, quotations", top: [.shown("Suggested update"), .shown("Done")],
-        bottom: [.shown("Keep current"), .shown("Approve update")],
+        bottom: [.shown("Keep current"), .shown("Let MORE take care of this morning")],
         body: (9...12).flatMap { day -> [Piece] in
             [.other("“09:00 Team planning meeting with the design group. Discuss the release schedule.”",
                     "« 09:00 Réunion de planification avec l’équipe de design. Discuter du calendrier de sortie. »"),
@@ -628,7 +639,8 @@ struct OwnInterfaceWordingTests {
         for phrase in OwnInterfaceWording.all {
             guard let key = phrase.catalogKey else { continue }
             let expected = phrase.isPartOfCatalogString ? literal(phrase.wordings[0]) : "\"\(literal(key))\""
-            #expect(sources.contains(expected), "No view shows \(expected) any more.")
+            let isShown = sources.contains(expected)
+            #expect(isShown, "No view shows \(expected) any more.")
         }
         // The visible and spoken labels belong to the identified Record control.
         // A custom icon may use Label's closure form; recognition does not depend on it.
@@ -639,6 +651,20 @@ struct OwnInterfaceWordingTests {
         #expect(recordControl.contains(#""Record a little of my morning""#))
         // The table's own literals are not counted as the app showing them.
         #expect(!sources.contains("enum OwnInterfaceWording"))
+    }
+
+    @Test("Delegation wording keeps historical routine and suggestion screens excluded")
+    func earlierApprovalScreensRemainExcluded() {
+        for screen in [
+            "Suggested update\nKeep current\nApprove update\n09:00 Team planning meeting",
+            "Mise à jour suggérée\nGarder l’actuelle\nApprouver la mise à jour\n09:00 Réunion d’équipe",
+            "Your routine\n5 min planned · Your own pace\n10 min planned · Spoken guidance\nApprove this routine",
+            "Votre routine\n5 min prévues · À votre rythme\n10 min prévues · Guidage vocal\nApprouver cette routine"
+        ] {
+            #expect(isOwnInterface(screen))
+        }
+        // Ordinary updater buttons still cannot exclude another app's real content.
+        #expect(!isOwnInterface("Updates\nKeep current\nApprove update\n09:00 Team planning meeting"))
     }
 
     @Test("Sentences are specific enough to count; short labels are kept as controls")

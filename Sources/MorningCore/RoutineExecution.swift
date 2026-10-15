@@ -11,12 +11,16 @@ public struct RoutineExecutionRecord: Codable, Equatable, Sendable, Identifiable
     public var outcome: Outcome
     public var observedContents: Int
     public var confirmedLikes: Int
+    /// A provider receipt was observed even if presenting its result later failed.
+    /// No provider content is retained in the record.
+    public var confirmedExternalEffect: Bool?
     public var updatedAt: Date
 
     public init(sessionID: UUID, stepID: UUID, outcome: Outcome, observedContents: Int = 0,
-                confirmedLikes: Int = 0, updatedAt: Date = Date()) {
+                confirmedLikes: Int = 0, confirmedExternalEffect: Bool? = nil, updatedAt: Date = Date()) {
         self.sessionID = sessionID; self.stepID = stepID; self.outcome = outcome
         self.observedContents = max(0, observedContents); self.confirmedLikes = max(0, confirmedLikes)
+        self.confirmedExternalEffect = confirmedExternalEffect
         self.updatedAt = updatedAt
     }
 }

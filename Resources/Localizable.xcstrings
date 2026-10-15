@@ -6859,6 +6859,54 @@
         }
       }
     },
+    "Let MORE do it": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Let MORE do it"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confier à MORE"
+          }
+        }
+      }
+    },
+    "Let MORE take care of my morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Let MORE take care of my morning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confier mon matin à MORE"
+          }
+        }
+      }
+    },
+    "Let MORE take care of this morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Let MORE take care of this morning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confier ce matin à MORE"
+          }
+        }
+      }
+    },
     "Let's try that again.": {
       "localizations": {
         "fr": {
@@ -7046,6 +7094,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "MORE prépare ce récap à l’ouverture de l’app et le vérifie à nouveau avant de le lire. La préparation pendant la nuit n’est pas garantie."
+          }
+        }
+      }
+    },
+    "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE s’occupe des actions présentées ici. Vous pouvez l’interrompre, prolonger un moment ou arrêter à la voix."
           }
         }
       }
@@ -14599,6 +14663,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici."
+          }
+        }
+      }
+    },
+    "Your current routine stays ready until you approve. Approving replaces it with the moments you keep here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Your current routine stays ready until you approve. Approving replaces it with the moments you keep here."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les moments gardés ici."
           }
         }
       }

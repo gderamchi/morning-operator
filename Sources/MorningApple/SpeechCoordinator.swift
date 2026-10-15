@@ -30,6 +30,7 @@ public final class SpeechCoordinator: NSObject {
     /// after playback has stopped; ordinary speech keeps its existing ownership.
     public var handsFreeAudioSessionIsOwned = false
     public private(set) var currentText: String?
+    public var usesDuplexPlayback: Bool { duplexOutput != nil }
     /// A persisted choice may become unavailable after a system voice is removed.
     /// Nil, unknown, and unavailable choices use an available voice matching the system language.
     public var voiceIdentifier: String?
@@ -89,6 +90,7 @@ public final class SpeechCoordinator: NSObject {
     }
 
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
+    @ObservationIgnored private var duplexOutput: MorningDuplexSpeechOutput?
     @ObservationIgnored private var currentUtterance: ObjectIdentifier?
     @ObservationIgnored private var speechRequestID: UUID?
     @ObservationIgnored private var completion: CheckedContinuation<Void, any Error>?
@@ -145,7 +147,8 @@ public final class SpeechCoordinator: NSObject {
         beginSpeech(text, requestID: UUID())
     }
 
-    /// Returns only when AVSpeechSynthesizer reports didFinish for this exact utterance.
+    /// Returns after this exact utterance finishes, including actual player drain
+    /// when hands-free speech uses the shared voice-processing engine.
     /// Stop, replacement, cancellation or didCancel throws; pause alone keeps waiting.
     /// Completion proves synthesis finished, not that a listener heard the selected output.
     public func speakAndWait(_ text: String) async throws {
@@ -207,17 +210,54 @@ public final class SpeechCoordinator: NSObject {
             failBeforeSpeaking(.audioUnavailable(String(localized: "No supported system voice is available for this language. Choose an installed voice in Settings.", bundle: .module)))
             return
         }
-        currentUtterance = ObjectIdentifier(utterance)
-        synthesizer.speak(utterance)
+        if let duplexOutput, let requestID = speechRequestID, let voice = utterance.voice {
+            currentUtterance = nil
+            duplexOutput.play(text, voice: voice, onStarted: { [weak self] in
+                guard let self, speechRequestID == requestID else { return }
+                if state != .paused { state = .speaking }
+            }, completion: { [weak self] result in
+                guard let self, speechRequestID == requestID else { return }
+                switch result {
+                case .success:
+                    currentText = nil; playbackID = nil; speechRequestID = nil; state = .idle; lastError = nil
+                    let pending = completion; completion = nil
+                    audioSession.cancel(); pending?.resume()
+                case .failure(let error):
+                    failBeforeSpeaking(.audioUnavailable(error is CancellationError ? "Speech stopped." : "Duplex speech output could not finish safely."))
+                }
+            })
+        } else {
+            currentUtterance = ObjectIdentifier(utterance)
+            synthesizer.speak(utterance)
+        }
+    }
+
+    /// Attaches only inside the foreground session's microphone owner. Existing
+    /// ordinary speech is restarted through the shared output without completing
+    /// its caller early; teardown happens after stopAndRelease has drained owners.
+    func setHandsFreeOutput(_ output: MorningDuplexSpeechOutput?) {
+        guard duplexOutput !== output else { return }
+        let transferring = duplexOutput == nil && output != nil && currentUtterance != nil
+        let wasPaused = state == .paused
+        if transferring { currentUtterance = nil; synthesizer.stopSpeaking(at: .immediate) }
+        duplexOutput?.detach(); duplexOutput = output
+        if transferring, let text = currentText {
+            enqueueSpeech(text)
+            if wasPaused { _ = output?.pause() }
+        }
     }
 
     public func pause() {
+        if let duplexOutput {
+            if duplexOutput.pause() { state = .paused }
+            return
+        }
         guard currentUtterance != nil else { return }
         if synthesizer.isPaused || synthesizer.pauseSpeaking(at: .immediate) { state = .paused }
     }
 
     public func resume() {
-        guard state == .paused, currentUtterance != nil, let requestID = speechRequestID else { return }
+        guard state == .paused, currentUtterance != nil || duplexOutput != nil, let requestID = speechRequestID else { return }
         activationTask?.cancel()
         let activationID = UUID()
         lastError = nil
@@ -227,7 +267,10 @@ public final class SpeechCoordinator: NSObject {
             do {
                 let prepared = try await audioSession.prepare(for: activationID).value
                 guard prepared, !Task.isCancelled, speechRequestID == requestID else { return }
-                if synthesizer.continueSpeaking() { state = .speaking }
+                if let duplexOutput {
+                    if duplexOutput.resume() { state = .speaking }
+                    else { failBeforeSpeaking(.audioUnavailable("Duplex speech could not resume.")) }
+                } else if synthesizer.continueSpeaking() { state = .speaking }
                 else { failBeforeSpeaking(.audioUnavailable(String(localized: "This speech could not resume. Play it again when ready.", bundle: .module))) }
             } catch {
                 guard speechRequestID == requestID else { return }
@@ -264,6 +307,7 @@ public final class SpeechCoordinator: NSObject {
         activationTask = nil
         let pending = completion
         completion = nil
+        duplexOutput?.cancel()
         synthesizer.stopSpeaking(at: .immediate)
         state = .idle
         lastError = nil
@@ -299,6 +343,7 @@ public final class SpeechCoordinator: NSObject {
         activationTask = nil
         let pending = completion
         completion = nil
+        duplexOutput?.cancel()
         synthesizer.stopSpeaking(at: .immediate)
         state = .idle
         audioSession.cancel()

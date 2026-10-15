@@ -233,9 +233,9 @@ enum OwnInterfaceWording {
         // The suggested update, wherever it is scrolled, quotations included: the title and
         // both buttons of the bars that stay. Two of the three are what any updater shows.
         [shown("Suggested update", fr: "Mise à jour suggérée"), shown("Keep current", fr: "Garder l’actuelle"),
-         shown("Approve update", fr: "Approuver la mise à jour")],
+         shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour")],
         [shown("Suggested update", fr: "Mise à jour suggérée"), shown("Discard", fr: "Supprimer"),
-         shown("Approve update", fr: "Approuver la mise à jour")],
+         shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour")],
         // The list of saved observations: its title and the button beside it, and the two
         // buttons under it once some are chosen.
         [shown("Observations", fr: "Observations"), shown("Choose mornings", fr: "Choisir des matinées")],
@@ -290,9 +290,12 @@ enum OwnInterfaceWording {
         ]),
         Screen(name: "Screen Time review", copy: [
             shown("Your morning, from Screen Time", fr: "Votre matin, d’après Temps d’écran"),
-            shown("Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.", fr: "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici.")
+            shown("Your current routine stays ready until you approve. Approving replaces it with the moments you keep here.",
+                  fr: "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les moments gardés ici.",
+                  earlier: "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.",
+                  "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici.")
         ], controls: [
-            shown("Approve update", fr: "Approuver la mise à jour"),
+            shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour"),
             shown("Keep current", fr: "Garder l’actuelle"),
             shown("Minutes measured", fr: "Minutes mesurées"),
             shown("Minutes estimated", fr: "Minutes estimées")
@@ -476,8 +479,13 @@ enum OwnInterfaceWording {
             shown("Try the voice", fr: "Essayer la voix")
         ]),
         Screen(name: "Routine", copy: [
-            part("min planned · Your own pace", fr: "min prévues · À votre rythme", of: "%lld min planned · Your own pace"),
-            part("min planned · Spoken guidance", fr: "min prévues · Guidage vocal", of: "%lld min planned · Spoken guidance"),
+            earlier("min planned · Your own pace", "min prévues · À votre rythme"),
+            earlier("min planned · Spoken guidance", "min prévues · Guidage vocal"),
+            part("MORE takes care of the actions shown here", fr: "MORE s’occupe des actions présentées ici",
+                 of: "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice."),
+            part("You can interrupt, extend a moment or stop by voice",
+                 fr: "Vous pouvez l’interrompre, prolonger un moment ou arrêter à la voix",
+                 of: "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice."),
             earlier("Tap a moment to edit", "Touchez un moment pour le modifier"),
             earlier("Changes save as a draft and need your approval", "Les modifications sont enregistrées en brouillon et doivent être approuvées"),
             shown("Finish or end this morning before editing your routine.",
@@ -490,7 +498,8 @@ enum OwnInterfaceWording {
             shown("Routine", fr: "Routine"),
             shown("Your daily routine", fr: "Votre routine de chaque jour"),
             earlier("Your moments", "Vos moments"),
-            shown("Approve this routine", fr: "Approuver cette routine"),
+            shown("Let MORE take care of my morning", fr: "Confier mon matin à MORE", earlier: "Approve this routine", "Approuver cette routine"),
+            shown("Let MORE do it", fr: "Confier à MORE"),
             shown("Your routine", fr: "Votre routine"),
             earlier("Your approved routine", "Votre routine approuvée"),
             earlier("A draft for you to review", "Un brouillon à relire"),
@@ -826,7 +835,7 @@ enum OwnInterfaceWording {
                  of: "The observations or your routine may have changed. Choose the mornings again to make a fresh suggestion.")
         ], controls: [
             shown("Suggested update", fr: "Mise à jour suggérée"),
-            shown("Approve update", fr: "Approuver la mise à jour"),
+            shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour"),
             shown("Keep current", fr: "Garder l’actuelle"),
             shown("Why this suggestion?", fr: "Pourquoi cette suggestion ?"),
             // Headings a recommendation in any app could carry: they confirm, they do not count.

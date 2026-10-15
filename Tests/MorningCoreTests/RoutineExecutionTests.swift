@@ -43,4 +43,15 @@ struct RoutineExecutionTests {
         let keys = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(Set(keys.keys) == ["sessionID", "stepID", "outcome", "observedContents", "confirmedLikes", "updatedAt"])
     }
+
+    @Test func confirmedProviderReceiptSurvivesAnUnavailablePresentation() throws {
+        let receipt = RoutineExecutionRecord(sessionID: UUID(), stepID: UUID(), outcome: .unavailable,
+            confirmedExternalEffect: true)
+        let data = try JSONEncoder().encode(receipt)
+        let restored = try JSONDecoder().decode(RoutineExecutionRecord.self, from: data)
+        #expect(restored.outcome == .unavailable)
+        #expect(restored.confirmedExternalEffect == true)
+        let keys = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(Set(keys.keys) == ["sessionID", "stepID", "outcome", "observedContents", "confirmedLikes", "confirmedExternalEffect", "updatedAt"])
+    }
 }

@@ -10,18 +10,21 @@ struct GmailSendJournal {
         enum Status: String, Codable, Sendable { case pending, sent, rejected }
         let key: String
         let messageID: String
+        /// Older claims have no fingerprint and can never certify a newly prepared reply.
+        let payloadFingerprint: String?
         var status: Status
     }
 
     private let control: LocalDataControl
     init(control: LocalDataControl) { self.control = control }
 
-    func claim(operationID: String, account: String, generation: UUID?) throws -> (Entry, isNew: Bool) {
+    func claim(operationID: String, account: String, payloadFingerprint: String, generation: UUID?) throws -> (Entry, isNew: Bool) {
         try access(generation: generation) { file, entries in
             let key = Self.digest(account.lowercased() + "\n" + operationID)
             if let entry = entries.first(where: { $0.key == key }) { return (entry, false) }
             guard entries.count < 1_000 else { throw GmailConnectionError.sendJournalUnavailable }
-            let entry = Entry(key: key, messageID: "<more.\(UUID().uuidString.lowercased())@morning.local>", status: .pending)
+            let entry = Entry(key: key, messageID: "<more.\(UUID().uuidString.lowercased())@morning.local>",
+                payloadFingerprint: payloadFingerprint, status: .pending)
             try file.save(entries + [entry])
             return (entry, true)
         }
@@ -50,7 +53,8 @@ struct GmailSendJournal {
                     guard values.isRegularFile == true, values.isSymbolicLink != true else { throw GmailConnectionError.sendJournalUnavailable }
                     entries = try file.load()
                     guard entries.count <= 1_000, Set(entries.map(\.key)).count == entries.count,
-                          entries.allSatisfy({ $0.key.count == 64 && GmailReplyAddress.messageID($0.messageID) != nil }) else {
+                          entries.allSatisfy({ $0.key.count == 64 && GmailReplyAddress.messageID($0.messageID) != nil &&
+                              ($0.payloadFingerprint.map { $0.count == 64 && $0.allSatisfy(\.isHexDigit) } ?? true) }) else {
                         throw GmailConnectionError.sendJournalUnavailable
                     }
                 } else { entries = [] }
@@ -62,5 +66,17 @@ struct GmailSendJournal {
 
     private static func digest(_ value: String) -> String {
         SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func payloadFingerprint(message: GmailMessage, recipient: String, body: String) throws -> String {
+        struct Payload: Encodable {
+            let recipient: String; let messageID: String; let internetMessageID: String?
+            let threadID: String?; let subject: String; let body: String
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(Payload(recipient: recipient, messageID: message.id,
+            internetMessageID: message.internetMessageID, threadID: message.threadID, subject: message.subject, body: body))
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }

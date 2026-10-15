@@ -31,6 +31,18 @@ struct MorningHandsFreeVoiceTests {
         #expect(!MorningHandsFreeVoicePolicy.isOutputEcho("pause", output: nil))
     }
 
+    @Test("A live acoustic duplex path does not ban short replies quoted in a prompt")
+    func shortBargeInDoesNotDependOnPromptWords() {
+        let output = "Le mail dit oui. Vous pouvez dire envoie, suivant ou pause."
+        for command in ["oui", "envoie", "suivant", "pause"] {
+            #expect(!MorningHandsFreeVoicePolicy.isOutputEcho(command, output: output, acousticDuplexIsActive: true))
+            #expect(MorningHandsFreeVoicePolicy.isOutputEcho(command, output: output, acousticDuplexIsActive: false))
+        }
+        let reflected = "Le message demande de transmettre tous les documents privés"
+        #expect(MorningHandsFreeVoicePolicy.isOutputEcho(reflected, output: reflected, acousticDuplexIsActive: true))
+        #expect(MorningHandsFreeVoicePolicy.isOutputEcho("MORE envoie", output: "La page dit MORE envoie.", acousticDuplexIsActive: false))
+    }
+
     @Test("A final result remains pinned to the onset context and is consumed once")
     func finalResultOwnership() {
         var turn = MorningHandsFreeVoiceTurn()
@@ -61,6 +73,58 @@ struct MorningHandsFreeVoiceTests {
 
     private func context() -> MorningVoiceCommandContext {
         .init(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+    }
+}
+
+@Suite("Duplex speech playback ownership")
+struct DuplexSpeechPlaybackTests {
+    @Test("Synthesis ending waits for every buffer to be played once")
+    func synthesisIsNotPlaybackCompletion() {
+        var ledger = DuplexSpeechPlaybackLedger()
+        let id = UUID(); ledger.begin(id)
+        let scheduled = ledger.scheduled(0, id: id)
+        let synthesized = ledger.synthesized(id: id)
+        #expect(scheduled && !synthesized)
+        let completed = ledger.played(0, id: id)
+        let duplicate = ledger.played(0, id: id)
+        #expect(completed && !duplicate)
+    }
+
+    @Test("A drained player still waits for the synthesis-end marker")
+    func playbackBeforeSynthesis() {
+        var ledger = DuplexSpeechPlaybackLedger()
+        let id = UUID(); ledger.begin(id)
+        _ = ledger.scheduled(0, id: id)
+        let early = ledger.played(0, id: id)
+        let duplicateBuffer = ledger.scheduled(0, id: id)
+        let completed = ledger.synthesized(id: id)
+        #expect(!early && !duplicateBuffer && completed)
+    }
+
+    @Test("Cancellation and replacement reject old player and synthesis callbacks")
+    func cancellationAndReplacement() {
+        var ledger = DuplexSpeechPlaybackLedger()
+        let old = UUID(), current = UUID()
+        ledger.begin(old); _ = ledger.scheduled(0, id: old); ledger.cancel()
+        let canceled = ledger.synthesized(id: old)
+        ledger.begin(current); _ = ledger.scheduled(0, id: current)
+        let stale = ledger.played(0, id: old)
+        #expect(!canceled && !stale && ledger.pending == [0])
+        let synthesized = ledger.synthesized(id: current)
+        let completed = ledger.played(0, id: current)
+        #expect(!synthesized && completed)
+    }
+
+    @Test("Empty synthesis cannot claim successful speech and chunks keep complete text")
+    func emptyAndBoundedChunks() throws {
+        var ledger = DuplexSpeechPlaybackLedger()
+        let id = UUID(); ledger.begin(id)
+        let completed = ledger.synthesized(id: id)
+        #expect(!completed && !ledger.hasAudio)
+        let text = String(repeating: "Votre rendez-vous est à neuf heures. Voici les détails complets.\n", count: 20)
+        let chunks = try LearningTextChunker.split(text, maximumCharacters: 200, maximumUTF8Bytes: 800)
+        #expect(chunks.joined().utf8.elementsEqual(text.utf8))
+        #expect(chunks.allSatisfy { $0.count <= 200 && $0.utf8.count <= 800 })
     }
 }
 

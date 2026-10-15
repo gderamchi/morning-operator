@@ -139,6 +139,7 @@ public struct GmailAccessSession: Sendable, CustomStringConvertible, CustomDebug
     fileprivate let refreshToken: String?
     fileprivate let authorizationClientID: String
     fileprivate let savedCredentialID: UUID?
+    fileprivate let savedGeneration: UUID?
     public let expiresAt: Date
     public let canReadMessages: Bool
     public let canSendMessages: Bool
@@ -226,6 +227,7 @@ public final class GmailConnectionService {
     private let privacyControl: LocalDataControl
     private let configurationProvider: @MainActor () throws -> GmailOAuthConfiguration
     private let installationID: @MainActor () throws -> UUID
+    private let allowsUnsavedSends: Bool
 
     public convenience init() {
         let http = GmailEphemeralTransport()
@@ -236,20 +238,21 @@ public final class GmailConnectionService {
         self.init(transport: transport, now: now, credentialStorage: GmailKeychainCredentialStorage(),
                   privacyControl: LocalDataControl(directory: LocalDataControl.defaultDirectory),
                   configurationProvider: Self.bundleConfiguration,
-                  installationID: GmailInstallationIdentifier.current)
+                  installationID: GmailInstallationIdentifier.current, allowsUnsavedSends: false)
     }
 
     // Test-only injection avoids live credentials, preferences and app privacy state.
     init(transport: @escaping Transport, now: @escaping @MainActor () -> Date,
          credentialStorage: any GmailCredentialStorage, privacyControl: LocalDataControl,
          configurationProvider: @escaping @MainActor () throws -> GmailOAuthConfiguration,
-         installationID: @escaping @MainActor () throws -> UUID) {
+         installationID: @escaping @MainActor () throws -> UUID, allowsUnsavedSends: Bool = true) {
         self.transport = transport
         self.now = now
         self.credentialStorage = credentialStorage
         self.privacyControl = privacyControl
         self.configurationProvider = configurationProvider
         self.installationID = installationID
+        self.allowsUnsavedSends = allowsUnsavedSends
     }
 
     public func completeAuthorization(_ attempt: GmailAuthorizationRequest, callbackURL: URL) async throws -> GmailAccessSession {
@@ -272,7 +275,7 @@ public final class GmailConnectionService {
         guard hasRequiredScope else { throw GmailConnectionError.permissionDenied }
         return GmailAccessSession(accessToken: token.accessToken,
                                   refreshToken: attempt.access != .metadata ? token.refreshToken : nil,
-                                  authorizationClientID: attempt.configuration.clientID, savedCredentialID: nil,
+                                  authorizationClientID: attempt.configuration.clientID, savedCredentialID: nil, savedGeneration: nil,
                                   expiresAt: now().addingTimeInterval(TimeInterval(token.expiresIn)),
                                   canReadMessages: attempt.access != .metadata, canSendMessages: attempt.access == .readAndSend)
     }
@@ -358,7 +361,7 @@ public final class GmailConnectionService {
                 try credentialStorage.save(JSONEncoder().encode(current))
             }
             return GmailAccessSession(accessToken: token.accessToken, refreshToken: current.refreshToken,
-                                      authorizationClientID: saved.clientID, savedCredentialID: current.id,
+                                      authorizationClientID: saved.clientID, savedCredentialID: current.id, savedGeneration: current.generation,
                                       expiresAt: now().addingTimeInterval(TimeInterval(token.expiresIn)), canReadMessages: true,
                                       canSendMessages: current.scope.split(separator: " ").contains(Substring(Self.sendScope)))
         }
@@ -420,6 +423,7 @@ public final class GmailConnectionService {
 
     public func inboxUnreadCount(session: GmailAccessSession) async throws -> GmailInboxSnapshot {
         try Task.checkCancellation()
+        try requireCurrentConnection(session)
         guard session.expiresAt.timeIntervalSince(now()) > 30 else { throw GmailConnectionError.sessionExpired }
         var request = URLRequest(url: URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/labels/INBOX?fields=id,messagesUnread")!,
                                  cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
@@ -427,6 +431,7 @@ public final class GmailConnectionService {
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let data = try await perform(request)
+        try requireCurrentConnection(session)
         struct InboxLabel: Decodable { let id: String; let messagesUnread: Int }
         guard let label = try? JSONDecoder().decode(InboxLabel.self, from: data),
               label.id == "INBOX", label.messagesUnread >= 0 else { throw GmailConnectionError.invalidResponse }
@@ -461,7 +466,7 @@ public final class GmailConnectionService {
                 try Task.checkCancellation()
                 if error is CancellationError { throw CancellationError() }
                 if let error = error as? GmailConnectionError,
-                   [.permissionDenied, .sessionExpired, .readAccessRequired].contains(error) { throw error }
+                   [.permissionDenied, .sessionExpired, .readAccessRequired, .connectionChanged].contains(error) { throw error }
                 failed += 1
             }
         }
@@ -489,6 +494,7 @@ public final class GmailConnectionService {
                           session: GmailAccessSession, generation: UUID?) async throws -> GmailSendOutcome {
         try requireReading(session)
         guard session.canSendMessages else { throw GmailConnectionError.sendAccessRequired }
+        guard session.savedCredentialID != nil || allowsUnsavedSends else { throw GmailConnectionError.connectionChanged }
         guard let address = message.replyAddress, GmailReplyAddress.parse(address) == address else {
             throw GmailConnectionError.invalidRecipient
         }
@@ -501,7 +507,10 @@ public final class GmailConnectionService {
         let account = try await accountAddress(session: session)
         try requireReading(session)
         let journal = GmailSendJournal(control: privacyControl)
-        let (entry, isNew) = try journal.claim(operationID: operationID, account: account, generation: generation)
+        let fingerprint = try GmailSendJournal.payloadFingerprint(message: message, recipient: address, body: body)
+        let (entry, isNew) = try journal.claim(operationID: operationID, account: account,
+            payloadFingerprint: fingerprint, generation: generation)
+        guard entry.payloadFingerprint == fingerprint else { return .draftMismatch }
         if entry.status == .sent { return .sent }
         if !isNew {
             if try await reconcileSent(messageID: entry.messageID, session: session) {
@@ -534,7 +543,9 @@ public final class GmailConnectionService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(payload)
         do {
+            try requireReading(session)
             let data = try await perform(request)
+            try requireCurrentConnection(session)
             struct Response: Decodable { let id: String; let labelIds: [String]? }
             guard let receipt = try? JSONDecoder().decode(Response.self, from: data), GmailMessageDecoder.validID(receipt.id) else {
                 return .uncertain
@@ -599,11 +610,13 @@ public final class GmailConnectionService {
 
     private func requireReading(_ session: GmailAccessSession) throws {
         try Task.checkCancellation()
+        try requireCurrentConnection(session)
         guard session.canReadMessages else { throw GmailConnectionError.readAccessRequired }
         guard session.expiresAt.timeIntervalSince(now()) > 30 else { throw GmailConnectionError.sessionExpired }
     }
 
     private func messageRequest(path: String, query: [URLQueryItem], session: GmailAccessSession) throws -> URLRequest {
+        try requireCurrentConnection(session)
         var components = URLComponents(string: "https://gmail.googleapis.com/gmail/v1/users/me/\(path)")!
         components.queryItems = query
         guard let url = components.url else { throw GmailConnectionError.invalidResponse }
@@ -612,6 +625,24 @@ public final class GmailConnectionService {
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         return request
+    }
+
+    /// A restored access token remains usable only while its exact saved grant is current.
+    /// Unsaved authorization attempts remain readable for the explicit connection UI;
+    /// only injected component tests may send with them.
+    func requireCurrentConnection(_ session: GmailAccessSession) throws {
+        try Task.checkCancellation()
+        guard let expectedID = session.savedCredentialID else { return }
+        try withCurrentGeneration(session.savedGeneration) {
+            guard let data = try credentialStorage.load(), data.count <= 16_384,
+                  let saved = try? JSONDecoder().decode(GmailSavedCredential.self, from: data),
+                  saved.schemaVersion == 1, saved.id == expectedID,
+                  saved.generation == session.savedGeneration,
+                  saved.clientID == session.authorizationClientID,
+                  saved.installationID == (try installationID()) else {
+                throw GmailConnectionError.connectionChanged
+            }
+        }
     }
 
     private func perform(_ request: URLRequest, exchangingCode: Bool = false, refreshing: Bool = false, maximumBytes: Int = 65_536) async throws -> Data {
@@ -712,4 +743,4 @@ private final class GmailEphemeralTransport {
 private enum GmailRefreshError: Error { case revoked }
 private struct GmailRefreshFailure: Decodable { let error: String }
 
-public enum GmailSendOutcome: String, Sendable, Equatable { case sent, notSent, uncertain }
+public enum GmailSendOutcome: String, Sendable, Equatable { case sent, notSent, uncertain, draftMismatch }

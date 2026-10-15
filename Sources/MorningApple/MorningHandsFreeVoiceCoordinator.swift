@@ -147,6 +147,7 @@ public final class MorningHandsFreeVoiceCoordinator {
                 if output?.handsFreeAudioSessionIsOwned == true { try await output?.stopAndRelease() }
                 try await release.task.value
                 guard runID == nil else { return }
+                output?.setHandsFreeOutput(nil)
                 output?.handsFreeAudioSessionIsOwned = false
                 needsAudioRelease = false
             } catch {
@@ -194,11 +195,15 @@ public final class MorningHandsFreeVoiceCoordinator {
         // Without voice processing, synthesized output could be recognized as the
         // user's own authorization. Fail closed if duplex echo cancellation fails.
         try input.setVoiceProcessingEnabled(true)
+        guard input.isVoiceProcessingEnabled, !input.isVoiceProcessingBypassed else {
+            throw MorningVoiceListeningError.unavailable
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.channelCount > 0, format.sampleRate > 0 else { throw MorningVoiceListeningError.unavailable }
         let sink = sink
         input.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in sink.append(buffer) }
         hasTap = true
+        speech?.setHandsFreeOutput(MorningDuplexSpeechOutput(engine: engine))
         engine.prepare()
         try engine.start()
     }
@@ -254,7 +259,10 @@ public final class MorningHandsFreeVoiceCoordinator {
         guard let text, !text.isEmpty else { return }
         if let output = speech?.currentText { echoOutput = output; echoOutputAt = Date() }
         let echo = Date().timeIntervalSince(echoOutputAt) < 1.5 ? echoOutput : nil
-        if turn.context == nil, MorningHandsFreeVoicePolicy.isOutputEcho(text, output: echo) {
+        let acousticDuplex = engine.isRunning && engine.inputNode.isVoiceProcessingEnabled &&
+            !engine.inputNode.isVoiceProcessingBypassed && speech?.usesDuplexPlayback == true
+        if turn.context == nil, MorningHandsFreeVoicePolicy.isOutputEcho(text, output: echo,
+            acousticDuplexIsActive: acousticDuplex) {
             if isFinal { finishTurn(nil, id: id, recognitionID: recognitionID) }
             return
         }

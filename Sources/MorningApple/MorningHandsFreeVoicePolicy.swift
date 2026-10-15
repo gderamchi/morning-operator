@@ -26,12 +26,23 @@ public enum MorningHandsFreeVoicePolicy {
         }
     }
 
-    /// The voice-processing input supplies acoustic echo cancellation; this extra
-    /// guard rejects a transcription copied from MORE's own recent output.
-    public static func isOutputEcho(_ text: String, output: String?) -> Bool {
+    /// Short replies must remain interruptible even when MORE mentioned the same
+    /// words. Their protection is the shared acoustic path plus execution policy,
+    /// not a substring ban. Long reflected source passages still fail closed.
+    public static func isOutputEcho(_ text: String, output: String?, acousticDuplexIsActive: Bool = false) -> Bool {
         let candidate = normalized(text)
         guard candidate.count >= 3, let output else { return false }
+        if acousticDuplexIsActive, isShortInterruption(candidate) { return false }
         return (" " + normalized(output) + " ").contains(" " + candidate + " ")
+    }
+
+    private static func isShortInterruption(_ candidate: String) -> Bool {
+        if control(in: candidate) != nil { return true }
+        return ["oui", "oui merci", "yes", "yes please", "non", "non merci", "no", "no thanks",
+                "envoie", "envoyer", "envoie la reponse", "send", "send it", "send reply",
+                "reponds lui", "repondre", "reply", "relis", "read it", "first", "first message",
+                "second", "second message", "third", "third message", "le premier", "premier",
+                "le deuxieme", "deuxieme", "le troisieme", "troisieme", "1", "2", "3"].contains(candidate)
     }
 
     public static func normalized(_ text: String) -> String {
