@@ -72,7 +72,7 @@ final class MorningHomePlaybackTests: XCTestCase {
         XCTAssertTrue(app.buttons["web.close"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "web.page").firstMatch.exists)
         XCTAssertTrue(app.buttons["connections.confirmReady"].exists)
-        attach("connections-website-sign-in-destination-only", app)
+        attach("connections-website-destination-only", app)
         app.buttons["web.close"].tap()
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["connections.instagram"].label.contains("Website · Sign in"))
@@ -95,14 +95,49 @@ final class MorningHomePlaybackTests: XCTestCase {
         XCTAssertTrue(limits.waitForExistence(timeout: 5))
         XCTAssertTrue(limits.label.contains("WhatsApp requires a Business Cloud account"))
         XCTAssertTrue(limits.label.contains("Facebook uses your Pages"))
-        for service in ["instagram", "whatsapp", "facebook"] {
-            let row = connectionControl("connections.account.\(service)", in: app)
-            XCTAssertTrue(row.label.contains("Account · Sign in"))
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "connections-synthetic-professional-accessibility"
+        tree.lifetime = .keepAlways
+        add(tree)
+        for name in ["Instagram professional", "WhatsApp Business Cloud", "Facebook Pages"] {
+            // DisclosureGroup gives its links the same accessibility identifier.
+            let row = app.staticTexts[name]
+            scrollConnectionControl(row, in: app)
             assertFitsOnScreen(row, in: app)
         }
         attach("connections-synthetic-professional-limits-and-rows", app)
+        for (name, service) in [("Instagram professional", "instagram"), ("WhatsApp Business Cloud", "whatsapp"), ("Facebook Pages", "facebook")] {
+            let row = app.staticTexts[name]
+            scrollConnectionControl(row, in: app)
+            row.tap()
+            XCTAssertTrue(app.navigationBars[service.capitalized].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["accounts.connect.\(service)"].waitForExistence(timeout: 5))
+            attach("connections-synthetic-professional-\(service)-destination", app)
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(title.waitForExistence(timeout: 5))
+        }
         app.navigationBars.buttons.element(boundBy: 0).tap()
         assertSettingsAppearance("day", in: app)
+    }
+
+    func testFrenchLargestNightProfessionalConnectionsKeepTheirTitlesReachable() {
+        let app = launch(["--ui-testing-connections-catalog", "--ui-testing-reduce-motion",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true, night: true)
+        defer { app.terminate() }
+        openIdleSettings(app)
+        settingsButton("setup.connections", in: app).tap()
+        let professional = app.staticTexts["Comptes professionnels"]
+        for _ in 0..<20 where !professional.exists || !professional.isHittable { app.swipeUp(velocity: .fast) }
+        scrollConnectionControl(professional, in: app)
+        professional.tap()
+        for (index, name) in ["Instagram professionnel", "WhatsApp Business Cloud", "Facebook Pages"].enumerated() {
+            let row = app.staticTexts[name]
+            scrollConnectionControl(row, in: app)
+            assertFitsOnScreen(row, in: app)
+            attach("connections-french-largest-night-professional-\(index)", app)
+        }
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("night", in: app)
     }
 
     func testFrenchLargestNightConnectionsExplainUnavailableAccountsAndKeepRetryReachable() {
@@ -120,7 +155,7 @@ final class MorningHomePlaybackTests: XCTestCase {
         XCTAssertTrue(retry.isEnabled)
         assertFitsOnScreen(retry, in: app)
         retry.tap()
-        XCTAssertTrue(issue.waitForExistence(timeout: 5))
+        scrollConnectionControl(issue, in: app)
         XCTAssertFalse(app.buttons["connections.account.slack"].exists)
         attach("connections-french-largest-night-unavailable-retry", app)
         app.navigationBars.buttons.element(boundBy: 0).tap()
@@ -366,7 +401,18 @@ final class MorningHomePlaybackTests: XCTestCase {
     }
 
     private func scrollConnectionControl(_ control: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<20 where !control.exists || !control.isHittable { app.swipeUp() }
+        let top = app.navigationBars.firstMatch.frame.maxY
+        for attempt in 0..<20 {
+            let frame = control.exists ? control.frame : .zero
+            let fits = frame.height > app.frame.maxY - top ||
+                (frame.minY >= top && frame.maxY <= app.frame.maxY)
+            if control.exists && control.isHittable && fits { return }
+            if frame.height > 0 {
+                if frame.midY < (top + app.frame.maxY) / 2 { app.swipeDown() }
+                else { app.swipeUp() }
+            } else if attempt < 10 { app.swipeUp() }
+            else { app.swipeDown() }
+        }
         XCTAssertTrue(control.exists && control.isHittable)
     }
 
