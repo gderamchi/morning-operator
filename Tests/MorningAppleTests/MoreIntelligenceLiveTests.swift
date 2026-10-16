@@ -42,7 +42,11 @@ struct MoreIntelligenceLiveTests {
         await first.remember(fromOwnerUtterance: "J’ai une trottinette électrique.")
         #expect(first.facts.contains { $0.key == .electricScooter && $0.value == "yes" })
         await first.remember(fromOwnerUtterance: "Je n’ai pas de trottinette, je prends les transports.")
+        await first.remember(fromOwnerUtterance: "Je ne bois pas de café.")
+        await first.remember(fromOwnerUtterance: "Je bois un café le matin.")
         let restored = memory()
+        #expect(restored.facts.filter { $0.key.rawValue == "coffeePreference" }.count == 1)
+        #expect(restored.facts.contains { $0.key.rawValue == "coffeePreference" && $0.value.contains("Je bois un café le matin") })
         #expect(restored.facts.contains { $0.key == .electricScooter && $0.value == "no" })
         #expect(restored.facts.contains { $0.key == .usualTransport && $0.value == "publicTransport" })
         let conversation = MorningVoiceConversation(generator: { prompt in
