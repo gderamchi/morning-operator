@@ -292,6 +292,33 @@ final class JuryDemoJourneyTests: XCTestCase {
         #endif
     }
 
+    func testStopPreparedRehearsalThroughOrdinaryUI() throws {
+        guard ProcessInfo.processInfo.environment["MORE_JURY_STOP_REHEARSAL_PHONE"] == "1" else {
+            throw XCTSkip("Set MORE_JURY_STOP_REHEARSAL_PHONE=1 only to stop the authorized demo rehearsal.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Rehearsal cleanup runs only on the physical demo iPhone.")
+        #else
+        continueAfterFailure = false
+        let app = try demoApplication()
+        app.launchArguments = ["-AppleLanguages", "(fr)"]
+        app.launch()
+        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
+        if app.scrollViews["morning.captions"].waitForExistence(timeout: 5) {
+            openLiveSettings(app)
+        } else {
+            openSettings(app)
+        }
+        let stop = app.buttons["morning.stop"]
+        if stop.exists { stop.tap(); XCTAssertTrue(stop.waitForNonExistence(timeout: 10)) }
+        returnToLiveHome(app)
+        XCTAssertFalse(app.staticTexts["morning.caption"].exists)
+        XCTAssertFalse(app.buttons["morning.playback"].exists)
+        XCTAssertTrue(app.buttons["morning.actions"].exists)
+        attachLive("jury-rehearsal-cleanup-idle", app)
+        #endif
+    }
+
     /// Diagnostics only: numeric device logs establish whether raw input has a
     /// signal. This makes no ASR, acoustic recognition or acceptance claim.
     func testLivePhysicalPhoneRawMicrophoneDiagnostic() async throws {
