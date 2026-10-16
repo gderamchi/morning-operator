@@ -101,7 +101,7 @@ test('mail is drafted, revised freely and only explicitly sent to the pinned rec
   const again = await turn(session.sessionID, 'Envoie');
   assert.match(again.payload.text, /déjà été envoyé/); assert.equal(state.sendCount, 1);
   const social = await turn(session.sessionID, 'oui'); assert.equal(social.payload.action.type, 'openURL');
-  assert.match(social.payload.text, /navigation en main/);
+  assert.match(social.payload.text, /connecter/);
   const end = await turn(session.sessionID, 'continue'); assert.equal(end.payload.completed, true); assert.equal(end.payload.stage, 'complete');
 });
 
@@ -224,12 +224,80 @@ test('negated or conditional send language never causes a dispatch', async t => 
   assert.equal(state.sendCount, 0);
 });
 
-test('rappel unavailable and prepared facts never claim fabricated external success', async t => {
+test('a question about reminders and prepared facts never claims fabricated external success', async t => {
   const { state, start, turn } = await fixture(t);
   const session = await start();
-  state.model = () => model('reminder'); assert.match((await turn(session.sessionID, 'rappelle-moi')).payload.text, /pas de rappel connecté/);
+  state.model = () => model('reminder'); const reminder = await turn(session.sessionID, 'Est-ce que tu gères les rappels ?');
+  assert.equal(reminder.payload.action, undefined); assert.equal(reminder.payload.receipt, undefined);
   state.model = () => model('question', '', 'calendar'); assert.match((await turn(session.sessionID, 'suis-je libre ?')).payload.text, /pas lu ton agenda réel/);
   assert.equal(state.sendCount, 0);
+});
+
+test('an explicit reminder request prepares a pinned native action and claims nothing before acknowledgement', async t => {
+  const { state, start, turn, call } = await fixture(t);
+  const session = await start(); state.model = () => model('reminder');
+  const result = await turn(session.sessionID, 'Rappelle-moi vingt minutes avant le rendez-vous.');
+  const action = result.payload.action;
+  assert.deepEqual({ ...action, requestID: 'opaque' }, { type: 'createReminder', requestID: 'opaque', title: 'Point produit', minutesBefore: 20, meetingHour: 15, meetingMinute: 0 });
+  assert.match(action.requestID, /^[a-f0-9-]{36}$/); assert.equal(result.payload.receipt, undefined); assert.doesNotMatch(result.payload.text, /est créé/);
+  const confirmed = await call('/v1/jury/action-result', { sessionID: session.sessionID, requestID: action.requestID, status: 'confirmed', receiptID: 'native-reminder-1' });
+  assert.equal(confirmed.status, 200); assert.equal(confirmed.payload.receipt.type, 'reminder'); assert.equal(confirmed.payload.receipt.status, 'created'); assert.match(confirmed.payload.text, /est créé/);
+  const another = await turn(session.sessionID, 'Crée un rappel'); assert.equal(another.payload.action, undefined); assert.equal(another.payload.receipt.id, 'native-reminder-1');
+  assert.equal(state.sendCount, 0);
+});
+
+test('duplicate reminder acknowledgements are idempotent and conflicting acknowledgements are refused', async t => {
+  const { state, start, turn, call } = await fixture(t);
+  const session = await start(); state.model = () => model('reminder');
+  const action = (await turn(session.sessionID, 'Mets un rappel')).payload.action;
+  const input = { sessionID: session.sessionID, requestID: action.requestID, status: 'confirmed', receiptID: 'native-reminder-1' };
+  const first = await call('/v1/jury/action-result', input); assert.deepEqual(await call('/v1/jury/action-result', input), first);
+  assert.equal((await call('/v1/jury/action-result', { ...input, receiptID: 'different-reminder' })).status, 409);
+  assert.equal((await call('/v1/jury/action-result', { sessionID: session.sessionID, requestID: action.requestID, status: 'unavailable' })).status, 409);
+});
+
+test('unknown, unbound, invalid and stale reminder acknowledgements cannot claim creation', async t => {
+  const { state, start, turn, call } = await fixture(t);
+  const session = await start(); state.model = () => model('reminder');
+  const unbound = { sessionID: session.sessionID, requestID: randomUUID(), status: 'confirmed', receiptID: 'invented' };
+  assert.equal((await call('/v1/jury/action-result', unbound)).status, 404);
+  const action = (await turn(session.sessionID, 'Rappelle-moi')).payload.action;
+  assert.equal((await call('/v1/jury/action-result', { ...unbound, requestID: action.requestID, receiptID: undefined })).status, 400);
+  assert.equal((await call('/v1/jury/action-result', { ...unbound, requestID: action.requestID, title: 'Changed action' })).status, 400);
+  await call(`/v1/jury/session/${session.sessionID}`, {}, { method: 'DELETE' });
+  const stopped = await call('/v1/jury/action-result', { ...unbound, requestID: action.requestID });
+  assert.equal(stopped.status, 409); assert.equal(stopped.payload.error.code, 'stale_action_result');
+});
+
+test('unavailable reminder acknowledgement stays truthful and never emits another write', async t => {
+  const { state, start, turn, call } = await fixture(t);
+  const session = await start(); state.model = () => model('reminder');
+  const action = (await turn(session.sessionID, 'Crée un rappel')).payload.action;
+  const input = { sessionID: session.sessionID, requestID: action.requestID, status: 'unavailable' };
+  const result = await call('/v1/jury/action-result', input);
+  assert.match(result.payload.text, /n’a pas été créé/); assert.equal(result.payload.receipt, undefined);
+  assert.deepEqual(await call('/v1/jury/action-result', input), result);
+  assert.equal((await turn(session.sessionID, 'Crée un rappel')).payload.action, undefined);
+});
+
+test('reminder GET and duplicate voice requests never replay a pending native write after restart', async t => {
+  const { state, start, turn, call, config, fetchImpl } = await fixture(t);
+  const session = await start(); state.model = () => model('reminder');
+  const requestID = randomUUID();
+  const prepared = await turn(session.sessionID, 'Rappelle-moi', requestID);
+  const duplicate = await turn(session.sessionID, 'Rappelle-moi', requestID);
+  assert.equal(duplicate.payload.action, undefined); assert.match(duplicate.payload.text, /reste à vérifier/);
+  const restarted = await createRequestHandler(config, { fetchImpl });
+  const resumed = await restarted(new Request(`http://localhost/v1/jury/session/${session.sessionID}`, { headers: { Authorization: `Bearer ${token}` } }));
+  assert.equal(resumed.payload.action, undefined); assert.equal(resumed.payload.receipt, undefined); assert.match(resumed.payload.text, /reste à vérifier/);
+  const recovered = await call('/v1/jury/action-result', { sessionID: session.sessionID, requestID: prepared.payload.action.requestID, status: 'confirmed', receiptID: 'verified-native-reminder' });
+  assert.equal(recovered.payload.receipt.status, 'created');
+});
+
+test('a reminder classification never turns negated or conditional language into a native write', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start(); state.model = () => model('reminder');
+  for (const text of ['Ne crée pas de rappel', 'Rappelle-moi si je confirme', 'C’est quoi un rappel ?', 'Rappelle-moi dix minutes avant']) assert.equal((await turn(session.sessionID, text)).payload.action, undefined);
 });
 
 test('speech returns MP3 bytes and rejects provider JSON or missing voice', async t => {

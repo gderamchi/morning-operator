@@ -13,6 +13,7 @@ mkdir -p "$derived_data"
 destination='generic/platform=iOS'
 [[ -z "$device_id" ]] || destination="platform=iOS,id=$device_id"
 build_log="$derived_data/build.log"
+demo_swift_flags='$(inherited) -j1'
 if ! xcodebuild -quiet -jobs "${MORE_DEMO_JOBS:-2}" -project "$repo_dir/MorningOperatorDemo.xcodeproj" \
     -scheme MorningOperatorDemo -configuration Debug -destination "$destination" \
     -derivedDataPath "$derived_data" -allowProvisioningUpdates build >"$build_log" 2>&1; then

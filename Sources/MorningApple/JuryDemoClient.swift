@@ -38,13 +38,14 @@ public struct JuryDemoConfiguration: Sendable {
 }
 
 public enum JuryDemoError: Error, LocalizedError, Equatable {
-    case configuration, invalidResponse, unauthorized, serviceUnavailable, speechUnavailable, localVoiceUnavailable
+    case configuration, invalidResponse, unauthorized, serviceUnavailable, sessionUnavailable, speechUnavailable, localVoiceUnavailable
     public var errorDescription: String? {
         switch self {
         case .configuration: "La connexion de cette version de MORE n’est pas configurée."
         case .invalidResponse: "MORE a reçu une réponse incomplète. L’action ne sera pas répétée automatiquement."
         case .unauthorized: "La connexion à MORE a expiré."
         case .serviceUnavailable: "La connexion à MORE est indisponible. L’action ne sera pas répétée automatiquement."
+        case .sessionUnavailable: "Ce matin ne peut pas être repris. Vérifiez les actions déjà réalisées, puis arrêtez-le avant d’en commencer un nouveau."
         case .speechUnavailable: "La voix de MORE est momentanément indisponible."
         case .localVoiceUnavailable: "Le microphone ou la reconnaissance vocale locale est indisponible. Préparez la voix dans les réglages de MORE."
         }
@@ -59,7 +60,12 @@ public struct JuryDemoResponse: Decodable, Sendable, Equatable {
     }
     public struct Action: Decodable, Sendable, Equatable {
         public let type: String
-        public let url: String
+        public let url: String?
+        public let requestID: String?
+        public let title: String?
+        public let minutesBefore: Int?
+        public let meetingHour: Int?
+        public let meetingMinute: Int?
     }
     public let sessionID: String
     public let stage: String
@@ -72,10 +78,22 @@ public struct JuryDemoResponse: Decodable, Sendable, Equatable {
         guard !sessionID.isEmpty, sessionID.count <= 128,
               sessionID.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_-" )).contains($0) }),
               ["morning", "mail", "draft", "social", "complete", "stopped"].contains(stage),
-              !text.isEmpty, text.count <= 8_000 else { throw JuryDemoError.invalidResponse }
+              !text.isEmpty, text.count <= 8_000,
+              completed == (stage == "complete" || stage == "stopped") else { throw JuryDemoError.invalidResponse }
         if let action {
-            guard action.type == "openURL", let url = URL(string: action.url), url.scheme == "https",
-                  url.host != nil, url.user == nil, url.password == nil else { throw JuryDemoError.invalidResponse }
+            guard !completed else { throw JuryDemoError.invalidResponse }
+            switch action.type {
+            case "openURL":
+                guard let value = action.url, let url = URL(string: value), url.scheme == "https",
+                      url.host != nil, url.user == nil, url.password == nil else { throw JuryDemoError.invalidResponse }
+            case "createReminder":
+                guard let requestID = action.requestID, UUID(uuidString: requestID) != nil,
+                      let title = action.title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, title.count <= 160,
+                      let minutes = action.minutesBefore, (0...1_440).contains(minutes),
+                      let hour = action.meetingHour, (0...23).contains(hour),
+                      let minute = action.meetingMinute, (0...59).contains(minute) else { throw JuryDemoError.invalidResponse }
+            default: throw JuryDemoError.invalidResponse
+            }
         }
         return self
     }
@@ -129,6 +147,18 @@ public struct JuryDemoClient: Sendable {
         return data
     }
 
+    public func actionResult(sessionID: String, requestID: String, status: String, receiptID: String? = nil) async throws -> JuryDemoResponse {
+        guard UUID(uuidString: requestID) != nil, ["confirmed", "unavailable", "uncertain"].contains(status),
+              status != "confirmed" || receiptID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            throw JuryDemoError.invalidResponse
+        }
+        var body = ["sessionID": sessionID, "requestID": requestID, "status": status]
+        if let receiptID { body["receiptID"] = receiptID }
+        let value = try await response(path: "v1/jury/action-result", body: body)
+        guard value.sessionID == sessionID else { throw JuryDemoError.invalidResponse }
+        return value
+    }
+
     public func stop(sessionID: String) async throws {
         _ = try await request(path: "v1/jury/session/\(sessionID)", method: "DELETE", body: nil)
     }
@@ -147,6 +177,7 @@ public struct JuryDemoClient: Sendable {
 
     private func request(path: String, method: String = "POST", body: [String: String]?) async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: configuration.baseURL.appendingPathComponent(path))
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.httpMethod = method; request.timeoutInterval = 30
         request.setValue("Bearer \(configuration.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -155,6 +186,7 @@ public struct JuryDemoClient: Sendable {
         let (data, response) = try await transport(request)
         guard (200..<300).contains(response.statusCode) else {
             if response.statusCode == 401 || response.statusCode == 403 { throw JuryDemoError.unauthorized }
+            if method == "GET", response.statusCode == 404 { throw JuryDemoError.sessionUnavailable }
             throw JuryDemoError.serviceUnavailable
         }
         return (data, response)

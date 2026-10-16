@@ -292,8 +292,10 @@ final class MorningStore {
     @ObservationIgnored var executionSpeechTask: Task<Void, Never>?
     #if MORE_JURY_DEMO
     let juryDemoVoice = JuryDemoVoiceSession()
+    let juryDemoBrowser = JuryDemoBrowser()
     var juryDemoCaption = ""
     var juryDemoWebURL: URL?
+    var juryDemoPendingWebURL: URL?
     #endif
     let handsFreeVoice = MorningHandsFreeVoiceCoordinator()
     let voiceAccess = MorningVoiceAccess()
@@ -697,8 +699,13 @@ final class MorningStore {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let enabled = self.showMorningOnLockScreen && self.storageIsAvailable && !self.morningActivitySaveBlocked
+            #if MORE_JURY_DEMO
+            let needsAttention = self.juryDemoVoice.state == .failed
+            #else
+            let needsAttention = self.automation.status != .executing
+            #endif
             let snapshot = MorningActivityProjection.snapshot(session: self.session,
-                needsAttention: self.automation.status != .executing, timer: self.activeStepTimer)
+                needsAttention: needsAttention, timer: self.activeStepTimer)
             let generation = self.dataGeneration
             do {
                 try await self.morningActivity.synchronize(snapshot: snapshot, enabled: enabled,
@@ -1098,6 +1105,9 @@ final class MorningStore {
     func stop() {
         #if MORE_JURY_DEMO
         juryDemoVoice.stop()
+        juryDemoBrowser.close()
+        juryDemoWebURL = nil
+        juryDemoPendingWebURL = nil
         #endif
         guard !privacyBlocksWork else { return }
         preserveMailExecutionBeforeInterruption()
@@ -2726,8 +2736,10 @@ final class MorningStore {
     func forgetLocalData() async {
         #if MORE_JURY_DEMO
         juryDemoVoice.stop()
+        juryDemoBrowser.close()
         juryDemoCaption = ""
         juryDemoWebURL = nil
+        juryDemoPendingWebURL = nil
         #endif
         guard !privacyIsForgetting else { return }
         let control: LocalDataControlState
@@ -2738,6 +2750,16 @@ final class MorningStore {
             return
         }
         guard let generation = control.generation else { return }
+        #if MORE_JURY_DEMO
+        dataGeneration = generation
+        do { try JuryDemoReminder.forget(directory: LocalDataControl.defaultDirectory) }
+        catch {
+            privacyNeedsCleanup = true
+            privacyHasInterruptedRemoval = true
+            privacyStatus = "Les reçus des rappels n’ont pas pu être supprimés. Réessayez pour terminer l’oubli."
+            return
+        }
+        #endif
         permissionSetup.cancelForPrivacy()
         privacyIsForgetting = true
         privacyHasInterruptedRemoval = true
@@ -3008,11 +3030,21 @@ extension MorningStore {
             guard let self, !privacyBlocksWork, sessionActive else { return }
             juryDemoCaption = text
         }
+        juryDemoBrowser.onClose = { [weak self] in self?.juryDemoWebURL = nil }
+        juryDemoVoice.onUserRequest = { [weak self] text in
+            guard let self, !privacyBlocksWork, session?.status == .running else { return false }
+            let context = juryDemoVoice.sessionID, generation = dataGeneration
+            return juryDemoBrowser.handle(text) { [weak self] answer in
+                guard let self, !privacyBlocksWork, dataGeneration == generation,
+                      juryDemoVoice.sessionID == context else { return }
+                juryDemoVoice.announce(answer)
+            }
+        }
         juryDemoVoice.onStateChange = { [weak self] _ in
             Task { @MainActor [weak self] in self?.juryDemoVoiceStateChanged() }
         }
         juryDemoVoice.onResponse = { [weak self] response in
-            guard let self, !privacyBlocksWork, sessionActive else { return }
+            guard let self, !privacyBlocksWork, sessionActive, response.stage != "stopped" else { return }
             let index: Int
             switch response.stage {
             case "morning": index = 0
@@ -3031,16 +3063,33 @@ extension MorningStore {
             if let receipt = response.receipt, receipt.status == "sent" {
                 connectedActionStatus = response.text
             }
-            if let action = response.action, action.type == "openURL",
-               let url = URL(string: action.url), ["www.instagram.com", "www.tiktok.com"].contains(url.host ?? ""),
-               UIApplication.shared.applicationState == .active {
-                juryDemoWebURL = url
+            if let action = response.action, action.type == "createReminder" {
+                let generation = dataGeneration
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let result = await JuryDemoReminder.perform(action, service: reminders,
+                        directory: LocalDataControl.defaultDirectory) { [weak self] in
+                            guard let self else { return false }
+                            return !privacyBlocksWork && dataGeneration == generation &&
+                                juryDemoVoice.sessionID == response.sessionID && session?.status == .running
+                        }
+                    guard !privacyBlocksWork, dataGeneration == generation,
+                          juryDemoVoice.sessionID == response.sessionID, let requestID = action.requestID else { return }
+                    juryDemoVoice.acknowledgeAction(requestID: requestID, status: result.status, receiptID: result.receiptID)
+                }
+            }
+            if let action = response.action, action.type == "openURL", let address = action.url,
+               let url = URL(string: address), ["www.instagram.com", "www.tiktok.com"].contains(url.host ?? "") {
+                if UIApplication.shared.applicationState == .active { presentJuryDemoBrowser(url) }
+                else { juryDemoPendingWebURL = url }
             }
             synchronizeMorningActivity()
         }
         juryDemoVoice.onCompleted = { [weak self] in
             guard let self, !privacyBlocksWork, sessionActive else { return }
+            juryDemoBrowser.close()
             juryDemoWebURL = nil
+            juryDemoPendingWebURL = nil
             if session?.status == .paused { try? session?.resume() }
             while session?.status == .running { try? session?.advance() }
             archiveTerminalSession()
@@ -3058,6 +3107,12 @@ extension MorningStore {
             }
             return true
         }
+    }
+
+    func presentJuryDemoBrowser(_ url: URL) {
+        guard !privacyBlocksWork, sessionActive else { return }
+        juryDemoBrowser.open(url)
+        juryDemoWebURL = url
     }
 
     func juryDemoVoiceStateChanged() {

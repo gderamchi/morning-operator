@@ -221,7 +221,8 @@ struct MorningRootView: View {
         .fullScreenCover(isPresented: Binding(get: { store.juryDemoWebURL != nil }, set: { if !$0 { store.juryDemoWebURL = nil } })) {
             if let url = store.juryDemoWebURL, let site = WebMorningSite(url: url) {
                 WebMorningView(site: site, minutes: 1, initialURL: url,
-                    onClose: { store.juryDemoWebURL = nil })
+                    retainedController: store.juryDemoBrowser.controller,
+                    onClose: { store.juryDemoBrowser.close() })
             }
         }
         #endif
@@ -272,7 +273,13 @@ struct MorningRootView: View {
                 #endif
             } else if phase == .active {
                 #if MORE_JURY_DEMO
-                if store.session?.status == .running { store.beginJuryDemo() }
+                if store.session?.status == .running {
+                    store.beginJuryDemo()
+                    if let url = store.juryDemoPendingWebURL {
+                        store.juryDemoPendingWebURL = nil
+                        store.presentJuryDemoBrowser(url)
+                    }
+                }
                 #endif
                 let departure = externalAppDeparture
                 externalAppDeparture = nil

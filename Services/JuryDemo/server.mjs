@@ -27,7 +27,7 @@ export function configFromEnv(env = process.env) {
   if (!/^[A-Za-z0-9_-]{32,160}$/.test(env.JURY_DEMO_TOKEN ?? '')) throw new Error('JURY_DEMO_TOKEN needs 32-160 random URL-safe characters.');
   const port = Number(env.PORT ?? 8791), timeout = Number(env.JURY_DEMO_TIMEOUT_MS ?? 15000);
   if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isInteger(timeout) || timeout < 100 || timeout > 30000) throw new Error('Invalid port or timeout.');
-  const socialURL = new URL(env.JURY_DEMO_SOCIAL_URL ?? 'https://www.instagram.com/');
+  const socialURL = new URL(env.JURY_DEMO_SOCIAL_URL ?? 'https://www.instagram.com/reels/');
   if (socialURL.protocol !== 'https:' || socialURL.username || socialURL.password || !['www.instagram.com', 'www.tiktok.com'].includes(socialURL.hostname)) throw new Error('Use an HTTPS Instagram or TikTok URL.');
   const recipient = env.JURY_DEMO_RECIPIENT?.trim().toLowerCase(), sender = env.JURY_DEMO_SENDER?.trim().toLowerCase();
   for (const address of [recipient, sender]) if (address && (!email(address) || reservedEmail(address))) throw new Error('Use a real, configured sender and consenting recipient.');
@@ -74,12 +74,16 @@ function publicError(error) {
 
 export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
   for (const name of ['sessions', 'effects', 'requests']) await mkdir(join(config.dataDir, name), { recursive: true, mode: 0o700 });
-  const sessions = new Map(), busy = new Set(), controllers = new Map(), schemas = new Map();
+  const sessions = new Map(), busy = new Set(), controllers = new Map(), schemas = new Map(), saves = new Map();
   const deadlines = new AsyncLocalStorage();
   const sessionPath = id => join(config.dataDir, 'sessions', `${id}.json`);
   const effectPath = id => join(config.dataDir, 'effects', `${id}.json`);
   const requestPath = (id, requestID) => join(config.dataDir, 'requests', `${id}-${requestID}.json`);
-  const save = session => durable(sessionPath(session.id), session);
+  const save = session => {
+    const pending = (saves.get(session.id) ?? Promise.resolve()).catch(() => {}).then(() => durable(sessionPath(session.id), session));
+    saves.set(session.id, pending);
+    return pending.finally(() => { if (saves.get(session.id) === pending) saves.delete(session.id); });
+  };
   const ready = () => !!(config.openAIKey && config.composioKey && config.accountID && config.userID && config.sender && config.recipient && config.recipientName);
 
   async function remote(url, { method = 'POST', payload, auth, signal, audio = false } = {}) {
@@ -148,7 +152,13 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
     if (session.stage === 'stopped' || session.generation !== generation) fail(409, 'session_stopped', 'Le matin a été arrêté. Aucune nouvelle action ne sera lancée.');
   }
   const mailPrompt = () => `${config.recipientName} te propose un point produit à ${config.meetingTime} cet après-midi.${config.calendarConflict ? ` Ton agenda préparé indique : ${config.calendarConflict}.` : ''} Tu veux que je lui réponde ?`;
-  const social = session => { session.stage = 'social'; session.draft = null; return speechReceipt(session, 'On passe à ton moment Instagram ou TikTok. Je peux ouvrir la page ; tu gardes la navigation en main dans cette version.', { action: { type: 'openURL', url: config.socialURL } }); };
+  const social = session => { session.stage = 'social'; session.draft = null; return speechReceipt(session, 'On passe à tes vidéos. Si la page te demande de te connecter, on reprend une fois la connexion prête.', { action: { type: 'openURL', url: config.socialURL } }); };
+  const reminderText = session => session.reminder?.state === 'confirmed'
+    ? 'Le rappel est créé, vingt minutes avant le point produit prévu à 15 h.'
+    : session.reminder?.state === 'unavailable'
+      ? 'Le rappel n’a pas été créé sur cet iPhone. Tu peux continuer ton matin.'
+      : 'Le résultat du rappel reste à vérifier sur ton iPhone. Je ne le crée pas une deuxième fois.';
+  const conclusion = session => `${session.mailReceipt ? 'Ton message est envoyé. ' : 'Aucun mail n’a été envoyé. '}${session.reminder ? `${reminderText(session)} ` : ''}Ton matin est terminé.`;
 
   async function propose(session, text, signal) {
     const schema = { type: 'object', additionalProperties: false, properties: {
@@ -273,7 +283,7 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
     if (session.draft && /^(?:oui|ouais|ok|d accord|c est bon|parfait)$/.test(normalized)) return speechReceipt(session, 'Le brouillon attend ton ordre. Dis « envoie » pour l’envoyer, ou indique une correction.');
     if (session.stage === 'social' && /^(?:oui|ouais|ok|continue|suivant|termine|c est bon|on continue)$/.test(normalized)) {
       session.stage = 'complete'; session.draft = null;
-      return speechReceipt(session, session.mailReceipt ? 'Ton message est envoyé. Ton matin est terminé ; bonne préparation.' : 'Ton matin est terminé. Aucun mail n’a été envoyé.');
+      return speechReceipt(session, conclusion(session));
     }
     if (!session.draft && session.mailReceipt && /^(?:oui|ouais|ok|continue|suivant|on continue)$/.test(normalized)) return social(session);
     const controller = new AbortController(); controllers.set(session.id, controller);
@@ -288,10 +298,18 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
     }
     if (proposal.intent === 'next') {
       if (session.stage === 'morning') { session.stage = 'mail'; return speechReceipt(session, mailPrompt()); }
-      return session.stage === 'social' ? (session.stage = 'complete', speechReceipt(session, session.mailReceipt ? 'Ton message est envoyé. Ton matin est terminé.' : 'Ton matin est terminé. Aucun mail n’a été envoyé.')) : social(session);
+      return session.stage === 'social' ? (session.stage = 'complete', speechReceipt(session, conclusion(session))) : social(session);
     }
     if (proposal.intent === 'repeat') return speechReceipt(session, session.draft ? `Le brouillon : ${session.draft} Tu peux le corriger ou me dire « envoie ».` : mailPrompt());
-    if (proposal.intent === 'reminder') return speechReceipt(session, 'Je n’ai pas de rappel connecté dans cette version. Je peux continuer ton matin ou revenir à ton message.');
+    if (proposal.intent === 'reminder') {
+      if (!/\b(?:rappelle moi|rappelle le moi|(?:cree|creer|mets|met|ajoute|ajouter|programme|programmer|fais|faire)(?: moi)? (?:un |le |ce )?rappel)\b/.test(normalized) || /\b(?:pas|jamais|non|si|quand)\b/.test(normalized)) return speechReceipt(session, 'Tu peux me demander de créer un rappel vingt minutes avant le point produit prévu à 15 h.');
+      const duration = normalized.match(/\b(\d+|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|quinze|vingt|trente|quarante|soixante)\s*(?:minutes?|mn|min)\b/);
+      if (duration && !['20', 'vingt'].includes(duration[1])) return speechReceipt(session, 'Dans ce matin préparé, je peux créer un rappel vingt minutes avant le point produit de 15 h. Pour une autre durée, utilise Rappels directement.');
+      if (session.reminder) return speechReceipt(session, reminderText(session), session.reminderReceipt ? { receipt: session.reminderReceipt } : {});
+      const action = { type: 'createReminder', requestID: randomUUID(), title: 'Point produit', minutesBefore: 20, meetingHour: 15, meetingMinute: 0 };
+      session.reminder = { ...action, state: 'prepared', generation: session.generation };
+      return speechReceipt(session, 'Je prépare un rappel sur ton iPhone, vingt minutes avant le point produit prévu à 15 h.', { action });
+    }
     // Facts and effect claims come from policy; only draft wording comes from the model.
     const answers = {
       sleep: `Le sommeil préparé pour ce matin indique ${config.sleep}.`, weather: `La météo préparée : ${config.weather}`,
@@ -319,17 +337,20 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
           uncertain = !(await reconcile(session, effect).catch(() => null));
         }
         if (session.mailReceipt) { session.draft = null; if (session.stage === 'draft') session.stage = 'mail'; }
+        if (session.reminder?.state === 'prepared') session.reminder.state = 'uncertain';
         let text;
         if (session.stage === 'stopped') text = uncertain ? 'Ton matin est arrêté. Le résultat du dernier envoi reste à vérifier dans Gmail ; il ne sera pas répété.' : 'Ton matin est arrêté.';
         else if (uncertain) text = 'Le résultat du dernier envoi reste incertain. Vérifie Gmail ; aucun nouvel envoi ne sera lancé.';
         else if (session.paused) text = 'Ton matin est en pause. Dis « reprends » pour continuer.';
         else if (session.draft) text = `Le brouillon actuel : ${session.draft} Tu peux le corriger ou me dire « envoie ».`;
-        else if (session.stage === 'complete') text = session.mailReceipt ? 'Ton matin est terminé. Le message est vérifié dans les éléments envoyés de Gmail.' : 'Ton matin est terminé. Aucun mail n’a été envoyé.';
+        else if (session.stage === 'complete') text = conclusion(session);
+        else if (session.reminder?.state === 'uncertain') text = reminderText(session);
         else if (session.stage === 'social') text = 'Ton moment réseaux est en cours. Tu peux continuer ou terminer ton matin.';
         else if (session.mailReceipt) text = 'Ton message a été vérifié dans les éléments envoyés de Gmail. On passe à tes réseaux ?';
         else text = session.transcript.at(-1)?.text ?? mailPrompt();
         await save(session);
-        return reply(200, speechReceipt(session, text, session.mailReceipt ? { receipt: session.mailReceipt } : {}));
+        const receipt = session.mailReceipt ?? session.reminderReceipt;
+        return reply(200, speechReceipt(session, text, receipt ? { receipt } : {}));
       }
       if (request.method === 'DELETE' && /^\/v1\/jury\/session\/[a-f0-9-]+$/i.test(url.pathname)) {
         const session = await getSession(url.pathname.split('/').at(-1));
@@ -337,7 +358,7 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
         await save(session);
         return reply(200, speechReceipt(session, 'Ton matin est arrêté.'));
       }
-      if (request.method !== 'POST' || !['/v1/jury/session', '/v1/jury/turn', '/v1/jury/speech'].includes(url.pathname)) fail(404, 'not_found', 'Cette fonction n’est pas disponible.');
+      if (request.method !== 'POST' || !['/v1/jury/session', '/v1/jury/turn', '/v1/jury/speech', '/v1/jury/action-result'].includes(url.pathname)) fail(404, 'not_found', 'Cette fonction n’est pas disponible.');
       if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') ?? '')) fail(415, 'json_required', 'Une demande JSON est nécessaire.');
       if (Number(request.headers.get('content-length')) > 16000) fail(413, 'body_too_large', 'La demande est trop longue.');
       const chunks = []; let size = 0;
@@ -349,6 +370,23 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
         if (!config.elevenKey || !config.voiceID) fail(503, 'voice_not_configured', 'La voix ElevenLabs n’est pas encore connectée.');
         const audio = await remote(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(config.voiceID)}?output_format=mp3_44100_128`, { auth: { 'xi-api-key': config.elevenKey }, payload: { text: input.text, model_id: config.voiceModel }, audio: true });
         return reply(200, audio, { 'Content-Type': 'audio/mpeg' });
+      }
+      if (url.pathname === '/v1/jury/action-result') {
+        exact(input, ['sessionID', 'requestID', 'status', 'receiptID']);
+        if (!uuid.test(input.requestID ?? '') || !['confirmed', 'unavailable', 'uncertain'].includes(input.status) || (input.receiptID !== undefined && (!textValue(input.receiptID, 512) || /[\r\n]/.test(input.receiptID))) || (input.status === 'confirmed' && !input.receiptID) || (input.status === 'unavailable' && input.receiptID !== undefined)) fail(400, 'invalid_action_result', 'Le résultat du rappel doit être vérifié sur cet iPhone.');
+        const session = await getSession(input.sessionID), action = session.reminder;
+        if (!action || action.requestID !== input.requestID) fail(404, 'action_not_found', 'Ce rappel ne correspond pas à la demande préparée.');
+        if (['confirmed', 'unavailable'].includes(action.state)) {
+          if (action.state !== input.status || action.receiptID !== input.receiptID) fail(409, 'action_result_changed', 'Le rappel possède déjà un résultat différent. Vérifie-le sur ton iPhone.');
+          return reply(200, speechReceipt(session, reminderText(session), session.reminderReceipt ? { receipt: session.reminderReceipt } : {}));
+        }
+        if (action.generation !== session.generation || ['stopped', 'complete'].includes(session.stage)) fail(409, 'stale_action_result', 'Le matin a été arrêté ou terminé. Vérifie le rappel sur ton iPhone.');
+        action.state = input.status;
+        if (input.receiptID !== undefined) action.receiptID = input.receiptID;
+        else if (input.status === 'unavailable') delete action.receiptID;
+        if (input.status === 'confirmed') session.reminderReceipt = { type: 'reminder', id: input.receiptID, status: 'created' };
+        await save(session);
+        return reply(200, speechReceipt(session, reminderText(session), session.reminderReceipt ? { receipt: session.reminderReceipt } : {}));
       }
       if (!ready()) fail(503, 'demo_not_configured', 'Le matin dédié attend la connexion du modèle et du compte Gmail, et le choix du destinataire.');
       if (url.pathname === '/v1/jury/session') {
@@ -368,6 +406,10 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
       if (previous) {
         if (previous.fingerprint !== requestFingerprint) fail(409, 'request_reused', 'Cette demande a déjà un autre contenu.');
         if (session.stage === 'stopped') return reply(200, speechReceipt(session, 'Le matin est arrêté.'));
+        if (previous.response?.payload?.action?.type === 'createReminder') {
+          if (session.reminder?.state === 'prepared') { session.reminder.state = 'uncertain'; await save(session); }
+          return reply(200, speechReceipt(session, reminderText(session), session.reminderReceipt ? { receipt: session.reminderReceipt } : {}));
+        }
         if (previous.response) return previous.response;
         fail(409, 'request_uncertain', 'Cette demande est déjà en cours ou son résultat reste à vérifier. Aucun envoi n’est répété.');
       }
@@ -378,7 +420,7 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
         const result = await processTurn(session, input);
         if (session.stage !== 'stopped') session.transcript = [...session.transcript, { role: 'user', text: input.text }, { role: 'assistant', text: result.text }].slice(-16);
         await save(session);
-        const response = reply(200, result);
+        const response = reply(200, session.stage === 'stopped' ? speechReceipt(session, 'Le matin est arrêté.') : result);
         await durable(requestPath(session.id, input.requestID), { fingerprint: requestFingerprint, state: 'complete', response });
         return response;
       } catch (error) {

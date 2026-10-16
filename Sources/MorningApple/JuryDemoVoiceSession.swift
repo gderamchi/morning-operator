@@ -28,6 +28,7 @@ public final class JuryDemoVoiceSession {
     public var onText: (@MainActor (String) -> Void)?
     public var onCompleted: (@MainActor () -> Void)?
     public var onStateChange: (@MainActor (JuryDemoVoiceState) -> Void)?
+    public var onUserRequest: (@MainActor (String) -> Bool)?
 
     @ObservationIgnored private let client: JuryDemoClient?
     @ObservationIgnored private let preferences: UserDefaults
@@ -37,6 +38,7 @@ public final class JuryDemoVoiceSession {
     @ObservationIgnored private var speechOperation: Task<Void, Never>?
     @ObservationIgnored private var latestResponse: JuryDemoResponse?
     @ObservationIgnored private var queuedText: String?
+    @ObservationIgnored private var pendingAcknowledgement: (requestID: String, status: String, receiptID: String?)?
     @ObservationIgnored private var language: MorningVoiceCommandLanguage = .french
     #if os(iOS)
     @ObservationIgnored private let engine = AVAudioEngine()
@@ -93,7 +95,7 @@ public final class JuryDemoVoiceSession {
         let id = UUID(); runID = id
         let retainedID = sessionID
         state = .preparing; message = "Connexion à MORE…"; transcript = ""
-        latestResponse = nil; queuedText = nil; recognitionFailures = 0
+        latestResponse = nil; queuedText = nil; pendingAcknowledgement = nil; recognitionFailures = 0
         operation = Task { [weak self] in
             guard let self else { return }
             do {
@@ -121,6 +123,8 @@ public final class JuryDemoVoiceSession {
         if case .session(.pause) = MorningHandsFreeVoicePolicy.control(in: text) { pause(); return }
         if case .session(.stop) = MorningHandsFreeVoicePolicy.control(in: text) { stop(); return }
         interruptSpeech()
+        if operation == nil, onUserRequest?(text) == true { return }
+        guard runID == id, isActive else { return }
         // An in-flight effect must finish before a later instruction can change
         // its context. Never cancel/retry an ambiguous mail send.
         guard operation == nil else { queuedText = text; return }
@@ -130,6 +134,35 @@ public final class JuryDemoVoiceSession {
             guard let self else { return }
             do {
                 let response = try await client.turn(sessionID: sessionID, requestID: requestID, text: text)
+                try requireCurrent(id)
+                operation = nil
+                apply(response, run: id)
+            } catch is CancellationError { }
+            catch { if runID == id { fail(error) } }
+        }
+    }
+
+    /// Verified browser/native actions use the same voice and landscape captions.
+    public func announce(_ text: String) {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isActive, let runID, let sessionID, !text.isEmpty, text.count <= 8_000 else { return }
+        speak(JuryDemoResponse(sessionID: sessionID, stage: stage, text: text, completed: false,
+                               receipt: nil, action: nil), run: runID)
+    }
+
+    /// The native executor acknowledges only an effect it has actually read back.
+    /// An ambiguous result is reported once and reconciled without re-execution.
+    public func acknowledgeAction(requestID: String, status: String, receiptID: String? = nil) {
+        guard let id = runID, let sessionID, let client, isActive || state == .paused else { return }
+        guard operation == nil else {
+            pendingAcknowledgement = (requestID, status, receiptID); return
+        }
+        interruptSpeech()
+        if state != .paused { state = .thinking; message = "MORE vérifie le résultat…" }
+        operation = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let response = try await client.actionResult(sessionID: sessionID, requestID: requestID, status: status, receiptID: receiptID)
                 try requireCurrent(id)
                 operation = nil
                 apply(response, run: id)
@@ -166,6 +199,10 @@ public final class JuryDemoVoiceSession {
                 guard state == .preparing else { return }
                 beginRecognition(run: id)
                 if operation != nil { state = .thinking; message = "MORE termine votre demande…" }
+                else if let pendingAcknowledgement {
+                    self.pendingAcknowledgement = nil
+                    acknowledgeAction(requestID: pendingAcknowledgement.requestID, status: pendingAcknowledgement.status, receiptID: pendingAcknowledgement.receiptID)
+                }
                 else if let queuedText { self.queuedText = nil; send(text: queuedText) }
                 else if let latestResponse { speak(latestResponse, run: id) }
             } catch is CancellationError { }
@@ -177,7 +214,7 @@ public final class JuryDemoVoiceSession {
     /// Invalidates callbacks synchronously. A late response cannot restart voice.
     public func stop() {
         let stoppedSession = sessionID
-        runID = nil; forgetSession(); queuedText = nil; latestResponse = nil
+        runID = nil; forgetSession(); queuedText = nil; latestResponse = nil; pendingAcknowledgement = nil
         operation?.cancel(); operation = nil
         interruptSpeech(); transcript = ""; state = .idle; message = "Votre matin est arrêté."
         #if os(iOS)
@@ -201,6 +238,12 @@ public final class JuryDemoVoiceSession {
         guard runID == id else { return }
         latestResponse = response; stage = response.stage
         onResponse?(response)
+        if response.stage == "stopped" { receiveStoppedSession(response); return }
+        if let pendingAcknowledgement {
+            self.pendingAcknowledgement = nil
+            acknowledgeAction(requestID: pendingAcknowledgement.requestID, status: pendingAcknowledgement.status, receiptID: pendingAcknowledgement.receiptID)
+            return
+        }
         guard state != .paused else { return }
         if let queuedText {
             self.queuedText = nil
@@ -225,7 +268,7 @@ public final class JuryDemoVoiceSession {
                     guard let self, runID == id, state != .paused else { return }
                     captionTask?.cancel(); captionTask = nil
                     outputFinishedAt = Date(); state = .listening; message = "Je vous écoute."
-                    if response.completed { finish() }
+                    if response.stage == "complete", response.completed { finish() }
                 }
                 guard output != nil else { throw JuryDemoError.speechUnavailable }
                 outputText = response.text
@@ -262,16 +305,27 @@ public final class JuryDemoVoiceSession {
         onCompleted?()
     }
 
-    private func fail(_ error: any Error) {
-        let oldSession = sessionID
-        runID = nil; operation?.cancel(); operation = nil; queuedText = nil
+    func fail(_ error: any Error) {
+        runID = nil; operation?.cancel(); operation = nil; queuedText = nil; pendingAcknowledgement = nil
         interruptSpeech(); transcript = ""; state = .failed
         message = (error as? JuryDemoError)?.localizedDescription ?? JuryDemoError.serviceUnavailable.localizedDescription
         onText?(message)
         #if os(iOS)
         releaseAudio()
         #endif
-        if let oldSession, let client { Task { try? await client.stop(sessionID: oldSession) } }
+        // A transport/voice failure is not a user request to stop the backend.
+        // Retain its ID so reopening can reconcile a possibly completed effect.
+    }
+
+    func receiveStoppedSession(_ response: JuryDemoResponse) {
+        guard response.stage == "stopped", response.completed else { return }
+        runID = nil; operation?.cancel(); operation = nil; queuedText = nil; pendingAcknowledgement = nil
+        interruptSpeech(); transcript = ""; state = .idle; stage = "stopped"
+        message = response.text
+        onText?(JuryDemoCaptionTiming.passages(response.text).first ?? "Votre matin est arrêté.")
+        #if os(iOS)
+        releaseAudio()
+        #endif
     }
 
     private func rememberSession(_ id: String) {
@@ -384,13 +438,22 @@ public final class JuryDemoVoiceSession {
             return
         }
         guard let text, !text.isEmpty else { return }
+        guard text.count <= 4_000 else {
+            beginRecognition(run: id)
+            message = "Votre demande est trop longue. Dites-la en quelques mots."
+            onText?(message)
+            return
+        }
         let recentOutput = isPlaying || Date().timeIntervalSince(outputFinishedAt) < 1.2 ? outputText : nil
-        if transcript.isEmpty, MorningHandsFreeVoicePolicy.isOutputEcho(text, output: recentOutput, acousticDuplexIsActive: true) {
+        let duplex = engine.isRunning && engine.inputNode.isVoiceProcessingEnabled &&
+            !engine.inputNode.isVoiceProcessingBypassed && output != nil
+        guard duplex else { fail(JuryDemoError.localVoiceUnavailable); return }
+        if transcript.isEmpty, MorningHandsFreeVoicePolicy.isOutputEcho(text, output: recentOutput, acousticDuplexIsActive: duplex) {
             if final { beginRecognition(run: id) }
             return
         }
         if transcript.isEmpty { interruptSpeech(); recognitionFailures = 0 }
-        transcript = String(text.prefix(4_000))
+        transcript = text
         if final {
             let utterance = transcript
             beginRecognition(run: id)

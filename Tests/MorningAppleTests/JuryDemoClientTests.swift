@@ -53,6 +53,16 @@ struct JuryDemoClientTests {
         #expect(await probe.requests.count == 1)
     }
 
+    @Test("An oversized instruction is rejected whole rather than truncated into an authorization")
+    func oversizedTurn() async throws {
+        let probe = JuryDemoTransportProbe(body: Self.response)
+        let client = try makeClient(probe)
+        await #expect(throws: JuryDemoError.invalidResponse) {
+            try await client.turn(sessionID: "known-session", requestID: UUID(), text: String(repeating: "a", count: 4_001))
+        }
+        #expect(await probe.requests.isEmpty)
+    }
+
     @Test("A response from another session cannot advance the current morning")
     func rejectsWrongSession() async throws {
         let probe = JuryDemoTransportProbe(body: Self.response)
@@ -104,10 +114,43 @@ struct JuryDemoClientTests {
     func expiredSession() async throws {
         let probe = JuryDemoTransportProbe(body: Data(), status: 404)
         let client = try makeClient(probe)
-        await #expect(throws: JuryDemoError.serviceUnavailable) { try await client.resume(sessionID: "expired-session") }
+        await #expect(throws: JuryDemoError.sessionUnavailable) { try await client.resume(sessionID: "expired-session") }
         let requests = await probe.requests
         #expect(requests.count == 1)
         #expect(requests.first?.httpMethod == "GET")
+    }
+
+    @Test("Native reminder intent is typed and cannot be confirmed without a real receipt")
+    func nativeReminderContract() async throws {
+        let requestID = UUID().uuidString
+        let body = Data("""
+            {"sessionID":"known-session","stage":"mail","text":"Je prépare votre rappel.","completed":false,
+            "action":{"type":"createReminder","requestID":"\(requestID)","title":"Point produit","minutesBefore":20,"meetingHour":15,"meetingMinute":0}}
+            """.utf8)
+        let probe = JuryDemoTransportProbe(body: body)
+        let client = try makeClient(probe)
+        let response = try await client.start()
+        #expect(response.action?.url == nil)
+        #expect(response.action?.requestID == requestID)
+        #expect(response.action?.meetingHour == 15)
+        await #expect(throws: JuryDemoError.invalidResponse) {
+            try await client.actionResult(sessionID: "known-session", requestID: requestID, status: "confirmed")
+        }
+        #expect(await probe.requests.count == 1)
+    }
+
+    @Test("A verified native result is acknowledged once without executing another effect")
+    func nativeReminderAcknowledgement() async throws {
+        let probe = JuryDemoTransportProbe(body: Self.response)
+        let client = try makeClient(probe)
+        let requestID = UUID().uuidString
+        _ = try await client.actionResult(sessionID: "known-session", requestID: requestID, status: "confirmed", receiptID: "eventkit-verified-id")
+        let requests = await probe.requests
+        #expect(requests.count == 1)
+        let request = try #require(requests.first)
+        #expect(request.url?.path == "/v1/jury/action-result")
+        let body = try JSONDecoder().decode([String: String].self, from: #require(request.httpBody))
+        #expect(body == ["sessionID": "known-session", "requestID": requestID, "status": "confirmed", "receiptID": "eventkit-verified-id"])
     }
 
     @Test("Captions stay short even for a long word and preserve every non-whitespace character")
@@ -133,6 +176,33 @@ struct JuryDemoClientTests {
         #expect(session.transcript.isEmpty)
         session.stop()
         #expect(preferences.string(forKey: key) == nil)
+    }
+
+    @Test("Voice failure retains reconciliation and a stopped backend never completes the routine")
+    @MainActor func failedAndStoppedLifecycle() async throws {
+        let suiteName = "JuryDemoClientTests-\(UUID().uuidString)"
+        let preferences = try #require(UserDefaults(suiteName: suiteName))
+        defer { preferences.removePersistentDomain(forName: suiteName) }
+        let configuration = try JuryDemoConfiguration(baseURL: #require(URL(string: "http://127.0.0.1:8788")), token: "local-secret")
+        let key = "MorningJuryDemoSession:\(Bundle.main.bundleIdentifier ?? "MORE"):\(configuration.baseURL.absoluteString)"
+        preferences.set("known-session", forKey: key)
+        let probe = JuryDemoTransportProbe(body: Data(), status: 204)
+        let session = JuryDemoVoiceSession(configuration: configuration, preferences: preferences, client: try makeClient(probe))
+        var completed = false
+        session.onCompleted = { completed = true }
+        session.fail(JuryDemoError.speechUnavailable)
+        await Task.yield()
+        #expect(session.state == .failed)
+        #expect(session.sessionID == "known-session")
+        #expect(await probe.requests.isEmpty)
+        let stopped = try JSONDecoder().decode(JuryDemoResponse.self, from: Data("""
+            {"sessionID":"known-session","stage":"stopped","text":"Votre matin est arrêté.","completed":true}
+            """.utf8)).validated()
+        session.receiveStoppedSession(stopped)
+        #expect(session.state == .idle)
+        #expect(!completed)
+        #expect(session.sessionID == "known-session")
+        #expect(preferences.string(forKey: key) == "known-session")
     }
 
     @Test("Startup failure and stop synchronize the existing session controls exactly once")

@@ -9,8 +9,10 @@ Le déroulement est maîtrisé ; la formulation de l'utilisateur et le brouillon
 Node 22.9 ou supérieur. Copier `.env.example` dans un fichier privé, remplir les valeurs puis lancer, depuis ce dossier :
 
 ```sh
-node --env-file=/chemin/prive/more-jury.env server.mjs
+./run-local.sh /chemin/prive/more-jury.env
 ```
+
+Sans argument, le script utilise le `.env` privé situé à côté de lui. Il vérifie Node, ne lance aucune installation et respecte `HOST`, `PORT` et les autres valeurs de ce fichier.
 
 Ne pas afficher ce fichier dans les logs ou l'enregistrer dans Git.
 
@@ -31,6 +33,12 @@ Ne pas afficher ce fichier dans les logs ou l'enregistrer dans Git.
 
 Le service démarre aussi avec les connexions absentes afin de signaler leur état ; il refuse de créer une fausse session. Pour exposer le service au téléphone, choisir explicitement l'interface réseau et protéger son accès. Garder une connexion HTTPS sur tout réseau non maîtrisé. Ne pas exposer ce serveur personnel directement sur Internet.
 
+## Rejouer à côté du Mac
+
+Cette configuration **dépend du Mac allumé**, du service lancé et d'une connexion Internet pour les trois fournisseurs. Le téléphone et le Mac doivent rejoindre le même Wi-Fi avec communication locale autorisée. Pour le jury, `HOST=0.0.0.0` permet à l'iPhone de joindre le Mac ; `127.0.0.1` reste limité au Mac lui-même. Une origine telle que `http://nom-du-mac.local:8791` utilise la résolution Bonjour du réseau local, sans déployer le service dans le cloud. Préparer cette origine et le token dans la configuration privée du doublon iPhone avant la présentation.
+
+Le doublon iOS doit déclarer son accès au réseau local et autoriser cette origine locale dans sa configuration ATS ; ces réglages ne rendent pas un serveur distant accessible. Si le Wi-Fi du jury isole ses clients ou bloque Bonjour, utiliser un réseau local maîtrisé et vérifier la connexion depuis le téléphone avant de commencer. Garder le Mac éveillé pendant la démo. Aucun hébergement cloud ni fonctionnement autonome loin du Mac n'est établi par cette installation.
+
 ## Contrat iPhone
 
 Toutes les routes sauf `/health` exigent `Authorization: Bearer <JURY_DEMO_TOKEN>`. Les POST exigent `Content-Type: application/json` ; les réponses ne sont pas mises en cache.
@@ -41,6 +49,7 @@ Toutes les routes sauf `/health` exigent `Authorization: Bearer <JURY_DEMO_TOKEN
 | `POST /v1/jury/session` | `{}` | `201` puis un `Turn` avec une identité de session opaque et le premier court passage. Vérifie d'abord le vrai compte Gmail. |
 | `GET /v1/jury/session/{sessionID}` | — | Reprend la même session sans progression ni action externe. Réconcilie un envoi incertain en lecture seule ; ne prétend jamais l'avoir envoyé à nouveau. |
 | `POST /v1/jury/turn` | `{sessionID,requestID,text}` | `Turn`. `requestID` est un UUID neuf par nouvelle prise de parole ; le conserver pour une reprise de cette même demande. |
+| `POST /v1/jury/action-result` | `{sessionID,requestID,status,receiptID?}` | Résultat d'un rappel natif préparé par cette même session. `status` vaut `confirmed`, `unavailable` ou `uncertain`. `confirmed` exige un identifiant de rappel relu sur l'iPhone. |
 | `DELETE /v1/jury/session/{sessionID}` | — | `Turn` arrêté. Invalide la génération en cours, annule OpenAI et empêche de nouveaux dispatchs. Une action déjà partie ne peut pas être annulée rétroactivement. |
 | `POST /v1/jury/speech` | `{text}` | Bytes `audio/mpeg` provenant d'ElevenLabs. Aucun repli silencieux sur une voix système. |
 
@@ -55,7 +64,26 @@ Toutes les routes sauf `/health` exigent `Authorization: Bearer <JURY_DEMO_TOKEN
 }
 ```
 
-`stage` vaut `morning`, `mail`, `draft`, `social`, `complete` ou `stopped`. Une confirmation de mail comprend `receipt: {type: "email", id: "Gmail message ID", status: "sent"}`. Le passage aux réseaux peut comprendre `action: {type: "openURL", url: "https://www.instagram.com/"}`. Une URL ouverte ne certifie ni stories lues ni scroll effectué.
+`stage` vaut `morning`, `mail`, `draft`, `social`, `complete` ou `stopped`. Une confirmation de mail comprend `receipt: {type: "email", id: "Gmail message ID", status: "sent"}`. Le passage aux réseaux peut comprendre `action: {type: "openURL", url: "https://www.instagram.com/reels/"}`. Une URL ouverte ne certifie ni stories lues ni scroll effectué ; la connexion peut encore être nécessaire.
+
+Une demande explicite de rappel peut retourner :
+
+```json
+{
+  "type": "createReminder",
+  "requestID": "UUID opaque propre à cette action",
+  "title": "Point produit",
+  "minutesBefore": 20,
+  "meetingHour": 15,
+  "meetingMinute": 0
+}
+```
+
+Cette action appartient au contexte préparé de 15 h : un nouvel horaire proposé par mail ne constitue pas une nouvelle réunion acceptée. La variante prend en charge vingt minutes, et l'annonce clairement ; elle refuse de substituer cette durée à une autre demandée explicitement.
+
+L'iPhone utilise son fuseau et la date d'aujourd'hui, refuse un horaire déjà passé, demande la permission système normale, crée le rappel puis relit son identifiant et ses données avant l'ack `confirmed`. Le serveur n'annonce aucune création avant cet ack. Un refus de permission ou un horaire passé donne `unavailable` ; une sauvegarde dont le résultat est inconnu donne `uncertain` et exige une vérification locale, sans nouvelle création.
+
+L'action est persistée et un seul rappel peut être préparé par session. GET et les doublons de la requête vocale ne renvoient jamais cette écriture une seconde fois. Un rappel sans ack lors de la reprise reste incertain ; seul un résultat natif réconcilié peut ensuite le confirmer. Les acks inconnus, supplémentaires, incohérents ou après arrêt sont refusés ; un résultat final identique déjà accepté reste idempotent. Une confirmation de rappel comprend `receipt: {type: "reminder", id: "identifiant natif", status: "created"}`.
 
 Une erreur prend la forme `{error:{code,message}}` avec un statut HTTP 4xx/5xx. Ne pas répéter automatiquement une action à la suite d'un timeout. Un `requestID` réutilisé avec un texte différent est refusé.
 
@@ -70,7 +98,7 @@ Chaque demande dispose d'un budget total de 25 secondes, partagé entre les appe
 5. Le service vérifie compte, utilisateur Composio, adresse Gmail et révision de connexion, réserve un journal durable, puis utilise uniquement `GMAIL_SEND_EMAIL`. La vérification finale exige le label `SENT`, l'expéditeur et le destinataire exacts, le sujet de cette session et le corps du brouillon.
 6. Une coupure, un résultat incomplet ou un échec de vérification donne un état **incertain**, jamais « envoyé ». Un nouvel ordre d'envoi cherche ce même message dans les éléments envoyés et vérifie son contenu. Il ne relance pas le send. Le marqueur de sujet distingue les répétitions du scénario.
 7. « Pause », « reprends », « arrête la routine » fonctionnent sans appel au modèle. Pause invalide le contexte d'envoi ; reprise relit le brouillon avant un nouvel ordre explicite. Stop invalide toute réponse tardive.
-8. Les réseaux ouvrent la vraie URL configurée dans le navigateur MORE. Le serveur annonce que la navigation reste manuelle. Les rappels restent explicitement indisponibles tant qu'aucune route réelle ne les prend en charge.
+8. Les réseaux ouvrent la vraie URL configurée dans le navigateur MORE. Le pilotage et la vérification de la navigation appartiennent au client iPhone. Les rappels utilisent les permissions et le stockage natifs de l'iPhone ; le serveur attend leur confirmation vérifiée.
 
 **Un seul processus doit servir un même répertoire de données.** Les réservations d'effets utilisent une création atomique de fichier et les écritures sont synchronisées sur disque, mais les sessions actives et leurs interruptions sont coordonnées en mémoire. Ne pas multiplier les workers. Conserver le journal persistant entre redémarrages et ne pas l'effacer pour tenter à nouveau un envoi incertain.
 
