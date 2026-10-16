@@ -14,7 +14,7 @@ Apple selects the requested language and available gender, prioritizing installe
 
 ## Combined source
 
-The task branch includes current main's approved dotted-sun icon/model corrections, pending startup cancellation guards and physical language harness (`29e54d1`), and connection support-code/SSO changes (`8f3fc32`). Merge conflicts retained both the new speech renderer/locale handling and the existing cancellation guards. No primary-checkout edits were included.
+The task branch includes current main's approved dotted-sun icon/model corrections and onboarding acceptance (#215), pending startup cancellation guards and physical language harness (`82aab35`), and connection support-code/SSO changes plus denied-Reminders recovery (`07c3dbf`). Merge conflicts retained both the new speech renderer/locale handling and the existing cancellation guards. No primary-checkout edits were included.
 
 ## Verified evidence
 
@@ -26,4 +26,8 @@ The task branch includes current main's approved dotted-sun icon/model correctio
 
 ## Native and physical acceptance
 
-Native compilation, simulator journeys and the final ordinary-phone installation are recorded here after execution. Provider connectivity and synthetic audio alone do not establish audible phone playback, recognition or naturalness. Personal Health sharing and microphone permission remain the owner's explicit decisions.
+Frozen native iOS `build-for-testing` passed on `bcb9c85`. Four simulator journeys passed: language changes pause the same session, both genders persist across relaunch/language changes without audio, day Settings retain their appearance, and French night Settings remain readable at the largest text size. The initial seven-test run retained three failures in test navigation (a partly covered language selector, disclosure-content lookup and hidden Settings controls); targeted corrections and reruns are recorded after execution, not counted as passed here.
+
+The ordinary-phone installation is coordinated with the other native acceptance tasks to avoid concurrent replacement or audio. The phone's existing installation was subsequently activated through its displayed support code; backend version `35e47ab2` changed only the allowlist, preserving the tested TTS runtime. The physical harness distinguishes primary speech from the visible Apple-backup message; a speaking callback alone is insufficient to claim ElevenLabs playback.
+
+Provider connectivity and synthetic audio alone do not establish audible phone playback, recognition or perceived naturalness. Personal Health sharing and microphone permission remain the owner's explicit decisions.
