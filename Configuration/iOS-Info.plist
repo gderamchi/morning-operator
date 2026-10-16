@@ -87,6 +87,8 @@
 	<string>MORE schedules your morning alarm and opens your approved morning when you stop it.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>MORE uses your current location while open for local weather and a sky that follows the sun. An approximate location is enough.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>MORE reads your recorded sleep duration and its time window from Apple Health when you choose to include sleep in your morning recap. It never writes health data.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>MORE listens on this device during your hands-free morning so you can interrupt, pause or request an action. Listening stops when you end the morning or leave the app.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

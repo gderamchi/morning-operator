@@ -6,6 +6,40 @@ import XCTest
 /// let the routine progress on its own, from the speech coordinator's completion.
 @MainActor
 final class MorningBriefingTests: XCTestCase {
+    func testSleepStartsOffAndUnavailableReaderDoesNotEnableIt() {
+        let app = launchFixture()
+        openBriefing(app)
+        let sleep = app.switches["briefing.healthIncluded"].firstMatch
+        reveal(sleep, app)
+        XCTAssertEqual(sleep.value as? String, "0")
+        attach("synthetic-sleep-off-by-default", app)
+        let nativeSwitch = sleep.switches.firstMatch
+        if nativeSwitch.exists { nativeSwitch.tap() } else { sleep.tap() }
+        let issue = app.staticTexts["briefing.healthError"]
+        XCTAssertTrue(issue.waitForExistence(timeout: 5))
+        XCTAssertEqual(sleep.value as? String, "0", "An unavailable reader never saves an enabled choice.")
+        XCTAssertEqual(app.alerts.count, 0, "The isolated fixture has no HealthKit reader.")
+        attach("synthetic-sleep-reader-unavailable-choice-remains-off", app)
+    }
+
+    func testYourDayPreviewShowsSelectedFactsWhileSleepRemainsOff() {
+        let app = launchFixture()
+        openBriefing(app)
+        let sleep = app.switches["briefing.healthIncluded"].firstMatch
+        reveal(sleep, app)
+        XCTAssertEqual(sleep.value as? String, "0")
+        configureSources(app)
+        let text = app.staticTexts["briefing.text"]
+        reveal(text, app)
+        let facts = XCTNSPredicateExpectation(predicate: NSPredicate(format:
+            "label CONTAINS %@ AND label CONTAINS %@ AND label CONTAINS %@",
+            "Synthetic quiet reading", "Synthetic clear skies", "18 degrees Celsius"), object: text)
+        XCTAssertEqual(XCTWaiter.wait(for: [facts], timeout: 10), .completed)
+        XCTAssertFalse(text.label.contains("Sleep recorded:"), "An excluded Health reader contributes no sleep fact.")
+        attach("synthetic-your-day-selected-calendar-weather-preview", app)
+        XCTAssertEqual(app.alerts.count, 0, "Preparing the preview never requests Health access.")
+    }
+
     func testSelectedSourcesPrepareRecapAndAddingItRequiresApprovalAfterRelaunch() {
         let app = launchFixture()
         MorningUITestNavigation.openRoutine(in: app)
@@ -206,8 +240,17 @@ final class MorningBriefingTests: XCTestCase {
     }
 
     private func openBriefing(_ app: XCUIApplication) {
-        MorningUITestNavigation.reviewAction("navigation.setup", in: app)
-        MorningUITestNavigation.tapButton("setup.briefing", in: app)
+        // The ordinary Home now reveals Settings from its landscape. It has no
+        // Review/date control or tab bar to navigate through.
+        let settings = app.buttons["morning.settings"]
+        if !settings.exists || !settings.isHittable {
+            let landscape = app.buttons["morning.actions"]
+            XCTAssertTrue(landscape.waitForExistence(timeout: 10), app.debugDescription)
+            landscape.tap()
+        }
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
+        settings.tap()
+        tap("setup.briefing", app)
         XCTAssertTrue(app.navigationBars["Your day"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["briefing.synthetic"].waitForExistence(timeout: 5))
     }

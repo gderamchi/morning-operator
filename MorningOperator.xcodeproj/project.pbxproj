@@ -130,6 +130,7 @@
 		CD3F1E802A61F825BE343107 /* InterfaceTourTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C92D40B6EFA01488AD3742 /* InterfaceTourTests.swift */; };
 		CF6A5D29F31EAB8B56B5CA38 /* OutlookInboxUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C616F28C7176120988082BE5 /* OutlookInboxUITestFixture.swift */; };
 		D2924EFEFC17BE0B652F9216 /* RoutineTimeBudgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7473723C675D8D6B48B5EAFC /* RoutineTimeBudgetView.swift */; };
+		D35D9E0A4F718DEBF9D76994 /* MorningHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 0BB633FF32AB49511665A80F /* MorningHealth */; };
 		D3E9DB5BEC04C3AE555CACB2 /* MorningStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D556BEEB3AC9A6AC02E433A /* MorningStore.swift */; };
 		D49EB76F7142553F92549FB9 /* MorningRoutineIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DAAAD8D21BA096895F76203 /* MorningRoutineIntents.swift */; };
 		D649518285D0541C54F70927 /* ObservationFixtureApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AB59F7870CD63CA5EE2920 /* ObservationFixtureApp.swift */; };
@@ -383,6 +384,7 @@
 			files = (
 				3E8251A48B7A61848C80FF10 /* MorningCore in Frameworks */,
 				5680C59276CBE799A48EED85 /* MorningApple in Frameworks */,
+				D35D9E0A4F718DEBF9D76994 /* MorningHealth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -733,6 +735,7 @@
 			packageProductDependencies = (
 				9BCA4BB59BEA5A48B77C4A6C /* MorningCore */,
 				B7FD4DEE56FB0CA68AC509D1 /* MorningApple */,
+				0BB633FF32AB49511665A80F /* MorningHealth */,
 			);
 			productName = MorningOperator;
 			productReference = 823DC3878AEC67AE33FE7B03 /* MorningOperator.app */;
@@ -1535,6 +1538,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0BB633FF32AB49511665A80F /* MorningHealth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MorningHealth;
+		};
 		3B87B9B3E049028B83894AA2 /* MorningCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MorningCore;

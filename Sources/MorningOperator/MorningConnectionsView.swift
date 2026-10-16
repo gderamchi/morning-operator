@@ -44,8 +44,8 @@ struct MorningConnectionsView: View {
 
                 connectionSection(text("Your day", "Votre journée")) {
                     Button { choosingBriefing = true } label: {
-                        connectionRow(title: text("Calendar & weather", "Calendrier et météo"),
-                            detail: text("Your schedule and the weather where you are going.", "Votre agenda et la météo de la ville de votre choix."),
+                        connectionRow(title: text("Calendar, weather & sleep", "Calendrier, météo et sommeil"),
+                            detail: text("Your schedule, local weather and optional sleep from Apple Health.", "Votre agenda, la météo locale et le sommeil facultatif de Santé Apple."),
                             symbol: "sun.max", action: text("Choose", "Choisir"))
                     }.accessibilityIdentifier("connections.calendar")
                     NavigationLink {

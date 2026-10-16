@@ -62,13 +62,16 @@ public enum MorningBriefingControllerError: Error, LocalizedError, Sendable, Equ
     /// limit. Nothing was written and the choices in effect are unchanged.
     case settingsTooLarge
 
-    public var errorDescription: String? {
-        switch self {
-        case .invalidSettings: String(localized: "Choose valid calendars and a city for the briefing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .unreadableSettings: String(localized: "Saved briefing settings couldn't be read. Reset them to choose sources again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .staleGeneration: String(localized: "Local data changed. Reopen briefing settings before continuing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .timedOut: String(localized: "The source took too long to respond. Your morning can continue without it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .settingsTooLarge: String(localized: "These briefing choices are too large to save. Your previous choices are unchanged. Choose fewer calendars.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+    public var errorDescription: String? { message(locale: AppLanguage.locale) }
+
+    func message(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        return switch self {
+        case .invalidSettings: String(localized: "Choose valid calendars and a city for the briefing.", bundle: bundle, locale: locale)
+        case .unreadableSettings: String(localized: "Saved briefing settings couldn't be read. Reset them to choose sources again.", bundle: bundle, locale: locale)
+        case .staleGeneration: String(localized: "Local data changed. Reopen briefing settings before continuing.", bundle: bundle, locale: locale)
+        case .timedOut: String(localized: "The source took too long to respond. Your morning can continue without it.", bundle: bundle, locale: locale)
+        case .settingsTooLarge: String(localized: "These briefing choices are too large to save. Your previous choices are unchanged. Choose fewer calendars.", bundle: bundle, locale: locale)
         }
     }
 }
@@ -90,6 +93,10 @@ public final class MorningBriefingController {
     public private(set) var prepared: PreparedMorningBriefing?
     public private(set) var isPreparing = false
     public private(set) var isConnectingCalendar = false
+    public private(set) var isConnectingHealth = false
+    /// A connection error is not a read-permission verdict. HealthKit keeps that private.
+    public var healthConnectionIssue: String? { healthConnectionError.map { healthMessage($0) } }
+    public var isHealthReaderConnected: Bool { sleep.isConnected }
     public private(set) var isSearchingCities = false
     public private(set) var errorMessage: String?
     public private(set) var settingsRecoveryError: String?
@@ -141,6 +148,9 @@ public final class MorningBriefingController {
                 // A document prepared with health must not play once health is excluded,
                 // and one prepared without it is out of date once health is included.
                 guard (document.sleep.status != .notConfigured) == settings.includesHealth else { return false }
+                if settings.includesHealth {
+                    guard sleepPlaybackAdmissions[document.id]?.revision == sleepPlaybackRevision else { return false }
+                }
                 return true
             }
         } catch { return false }
@@ -150,6 +160,7 @@ public final class MorningBriefingController {
     @ObservationIgnored private let deviceLocation: any WeatherDeviceLocationProviding
     private var resolvedLocation: WeatherLocation?
     private var locationError: (any Error)?
+    private var healthConnectionError: (any Error)?
     @ObservationIgnored private var locationResolvedAt: Date?
     @ObservationIgnored private var locationTask: Task<Void, Never>?
     @ObservationIgnored private var locationAttempt: UUID?
@@ -171,6 +182,8 @@ public final class MorningBriefingController {
     @ObservationIgnored private var refreshTask: Task<PreparedMorningBriefing?, Never>?
     @ObservationIgnored private var accessAttempt: UUID?
     @ObservationIgnored private var accessTask: Task<Void, Never>?
+    @ObservationIgnored private var healthAccessAttempt: UUID?
+    @ObservationIgnored private var healthAccessTask: Task<Bool, Never>?
     @ObservationIgnored private var searchAttempt: UUID?
     @ObservationIgnored private var searchTask: Task<WeatherLocation?, Never>?
     @ObservationIgnored private var cityQuery = ""
@@ -183,6 +196,9 @@ public final class MorningBriefingController {
     @ObservationIgnored private var weatherInput: MorningBriefingInput<WeatherObservationSnapshot> = .notConfigured
     @ObservationIgnored private var lastWeatherAttemptAt: Date?
     @ObservationIgnored private var sleepInput: SleepBriefingInput = .excluded
+    /// An empty/failed reread or a return from Settings must not reauthorize older sleep text.
+    @ObservationIgnored private var sleepPlaybackRevision = UUID()
+    @ObservationIgnored private var sleepPlaybackAdmissions: [UUID: SleepPlaybackAdmission] = [:]
     @ObservationIgnored private var preparingKey: PreparationKey?
 
     public init(directory: URL = LocalDataControl.defaultDirectory,
@@ -222,7 +238,9 @@ public final class MorningBriefingController {
             resolvedLocation = try? WeatherLocation(latitude: location.latitude, longitude: location.longitude,
                 displayName: WeatherDeviceLocation.currentLocationName(locale: locale))
         }
+        let healthFailure = healthConnectionError
         invalidateWork(clearChoices: false)
+        healthConnectionError = healthFailure
         if settingsRecoveryError != nil {
             settingsRecoveryError = MorningBriefingControllerError.unreadableSettings.moreDescription
             errorMessage = settingsRecoveryError
@@ -391,6 +409,66 @@ public final class MorningBriefingController {
         }
         accessTask = task
         await task.value
+    }
+
+    /// The explicit Health action, after its purpose has been explained in the UI.
+    /// A handled prompt saves the person's inclusion choice; it never claims that
+    /// HealthKit allowed the read. Only a later sample can establish a recorded night.
+    @discardableResult public func enableHealth() async -> Bool {
+        guard prepareForAccess() else { return false }
+        if let task = healthAccessTask { return await task.value }
+        let attempt = UUID(), expectedRevision = revision
+        healthAccessAttempt = attempt; isConnectingHealth = true; healthConnectionError = nil
+        let task = Task { @MainActor [weak self] () -> Bool in
+            guard let self else { return false }
+            defer {
+                if healthAccessAttempt == attempt {
+                    healthAccessAttempt = nil; healthAccessTask = nil; isConnectingHealth = false
+                }
+            }
+            do {
+                try Task.checkCancellation()
+                guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
+                try await sleep.requestReadAccess()
+                try Task.checkCancellation()
+                guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
+                try withCurrentAccess { }
+                // No suspension between privacy/revision validation and the save.
+                var next = settings; next.includesHealth = true
+                try updateSettings(next)
+                return true
+            } catch {
+                guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
+                if !(error is CancellationError) { healthConnectionError = error }
+                return false
+            }
+        }
+        healthAccessTask = task
+        return await task.value
+    }
+
+    /// Cancels an outstanding prompt even when the saved choice was already off.
+    /// A late native completion can neither save a choice nor restore cleared data.
+    public func disableHealth() throws {
+        cancelHealthConnection()
+        var next = settings; next.includesHealth = false
+        try updateSettings(next)
+    }
+
+    /// Call on background/foreground transitions, never for an inactive permission
+    /// sheet. Apple exposes no read-permission status: discard sleep while away and
+    /// require a new read before any previous Health text can play again.
+    public func invalidateHealthForForeground() {
+        if isConnectingHealth { cancelHealthConnection() }
+        guard settings.includesHealth else { return }
+        refreshAttempt = nil; refreshTask?.cancel(); refreshTask = nil; preparingKey = nil; isPreparing = false
+        prepared = nil; sleepInput = .excluded
+        sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]
+    }
+
+    private func cancelHealthConnection() {
+        healthAccessAttempt = nil; healthAccessTask?.cancel(); healthAccessTask = nil
+        isConnectingHealth = false; healthConnectionError = nil
     }
 
     /// Explicit query only; no device-location request or inferred city.
@@ -639,6 +717,13 @@ public final class MorningBriefingController {
                     calendarPlaybackAdmissions[document.id] = .init(changeRevision: snapshot.changeRevision,
                         validUntil: validUntil)
                 }
+                if !sameSleepRead(sleepInput, nextSleep) {
+                    sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]
+                }
+                sleepPlaybackAdmissions = sleepPlaybackAdmissions.filter { $0.value.validUntil > completedAt }
+                if key.settings.includesHealth, let validUntil = document.validUntil {
+                    sleepPlaybackAdmissions[document.id] = .init(revision: sleepPlaybackRevision, validUntil: validUntil)
+                }
                 calendarInput = nextCalendar; weatherInput = nextWeather; sleepInput = nextSleep; prepared = document
                 if !document.hasUsableFacts { errorMessage = String(localized: "No current briefing facts are available. Review your sources or try refreshing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
                 return document
@@ -706,8 +791,16 @@ public final class MorningBriefingController {
         return snapshot.changeRevision == calendar.changeRevision
     }
 
+    /// Reading the same sample values again preserves still-current pinned prose.
+    /// A read that is now empty or failed invalidates the earlier observation.
+    private func sameSleepRead(_ first: SleepBriefingInput, _ second: SleepBriefingInput) -> Bool {
+        if case .snapshot(let lhs) = first, case .snapshot(let rhs) = second { return lhs.samples == rhs.samples }
+        return first == second
+    }
+
     private func invalidateWork(clearChoices: Bool) {
         revision = UUID()
+        cancelHealthConnection()
         refreshAttempt = nil; accessAttempt = nil; searchAttempt = nil; suggestionAttempt = nil
         refreshTask?.cancel(); accessTask?.cancel(); searchTask?.cancel(); suggestionTask?.cancel()
         refreshTask = nil; accessTask = nil; searchTask = nil; suggestionTask = nil; preparingKey = nil
@@ -715,6 +808,7 @@ public final class MorningBriefingController {
         prepared = nil; calendarInput = .notConfigured; weatherInput = .notConfigured; sleepInput = .excluded
         lastWeatherAttemptAt = nil
         calendarPlaybackAdmissions = [:]
+        sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]
         cityQuery = ""; cityResults = []; citySuggestions = []; citySearchOutcome = nil
         if clearChoices { calendarChoices = []; weather.forgetCitySuggestions() }
     }
@@ -759,6 +853,20 @@ public final class MorningBriefingController {
         return String(localized: "Briefing data is unavailable. Check your sources and local privacy settings.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     }
 
+    private func healthMessage(_ error: any Error) -> String {
+        let locale = Locale(identifier: localeIdentifier)
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        if let error = error as? MorningBriefingControllerError { return error.message(locale: locale) }
+        return switch error as? SleepObservationError {
+        case .unavailableOnDevice:
+            String(localized: "Health data is not available on this device.", bundle: bundle, locale: locale)
+        case .notConnected, .missingUsageDescription:
+            String(localized: "Sleep reading is not available in this version.", bundle: bundle, locale: locale)
+        case nil:
+            String(localized: "Health access could not be prepared. Try again in Settings.", bundle: bundle, locale: locale)
+        }
+    }
+
     private struct PreparationKey: Equatable {
         let settings: MorningBriefingSettings
         let weatherLocation: WeatherLocation?
@@ -768,6 +876,11 @@ public final class MorningBriefingController {
 
     private struct CalendarPlaybackAdmission {
         let changeRevision: UInt64
+        let validUntil: Date
+    }
+
+    private struct SleepPlaybackAdmission {
+        let revision: UUID
         let validUntil: Date
     }
 }

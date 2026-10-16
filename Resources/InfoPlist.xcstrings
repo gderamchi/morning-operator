@@ -144,6 +144,24 @@
           }
         }
       }
+    },
+    "NSHealthShareUsageDescription": {
+      "comment": "Read-only sleep, requested only after an explicit choice.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE reads your recorded sleep duration and its time window from Apple Health when you choose to include sleep in your morning recap. It never writes health data."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE lit la durée et la période de sommeil enregistrées dans Santé Apple quand vous choisissez de les inclure dans votre récapitulatif du matin. MORE ne modifie aucune donnée de santé."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

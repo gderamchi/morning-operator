@@ -7145,6 +7145,57 @@
           }
         }
       }
+    },
+    "Sleep reading is not available in this version.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep reading is not available in this version."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture du sommeil n’est pas disponible dans cette version."
+          }
+        }
+      }
+    },
+    "Health access could not be prepared. Try again in Settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health access could not be prepared. Try again in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès à Santé n’a pas pu être préparé. Réessayez dans les réglages."
+          }
+        }
+      }
+    },
+    "Health data is not available on this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health data is not available on this device."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données de Santé ne sont pas disponibles sur cet appareil."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
