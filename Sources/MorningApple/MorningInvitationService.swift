@@ -97,6 +97,12 @@ public final class MorningInvitationService {
     public private(set) var statusText = String(localized: "No invitation is scheduled.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     public var needsRecovery: Bool { !storageAvailable }
 
+    private enum StatusPresentation {
+        case message(String.LocalizationValue, isError: Bool)
+        case failure(any Error)
+    }
+    @ObservationIgnored private var statusPresentation: StatusPresentation = .message("No invitation is scheduled.", isError: false)
+
     @ObservationIgnored private let storage: any MorningInvitationStorage
     @ObservationIgnored private let notifications: any MorningInvitationNotificationClient
     @ObservationIgnored private let now: @MainActor () -> Date
@@ -204,7 +210,7 @@ public final class MorningInvitationService {
             throw error
         }
         errorMessage = nil
-        statusText = String(localized: "No invitation is scheduled.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        setStatus("No invitation is scheduled.")
     }
 
     /// Consume only after the app's foreground/busy policy says it can accept the entry.
@@ -291,9 +297,9 @@ public final class MorningInvitationService {
                 guard revision == id else { return }
                 isScheduled = false
                 switch invitation?.disposition {
-                case .consumed: statusText = String(localized: "Invitation used. Open Morning to continue.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-                case .expired: statusText = String(localized: "This invitation has expired. Choose another time.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-                default: statusText = String(localized: "No invitation is scheduled.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                case .consumed: setStatus("Invitation used. Open Morning to continue.")
+                case .expired: setStatus("This invitation has expired. Choose another time.")
+                default: setStatus("No invitation is scheduled.")
                 }
                 return
             }
@@ -316,9 +322,9 @@ public final class MorningInvitationService {
                 guard revision == id else { return }
                 isScheduled = false
                 switch latestSettings.authorization {
-                case .notDetermined: statusText = String(localized: "Allow notifications to schedule this invitation.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-                case .provisional: statusText = String(localized: "Notifications are quiet. Allow alerts for a morning invitation.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-                default: statusText = String(localized: "Notifications are off. Your chosen time is saved but is not scheduled.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                case .notDetermined: setStatus("Allow notifications to schedule this invitation.")
+                case .provisional: setStatus("Notifications are quiet. Allow alerts for a morning invitation.")
+                default: setStatus("Notifications are off. Your chosen time is saved but is not scheduled.")
                 }
                 return
             }
@@ -326,7 +332,7 @@ public final class MorningInvitationService {
             // or remove it until consumed, cancelled or expired.
             guard current.scheduledAt > now() else {
                 isScheduled = false
-                statusText = String(localized: "The invitation time has passed. Open Morning when you are ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                setStatus("The invitation time has passed. Open Morning when you are ready.")
                 return
             }
             let pending = await notifications.pendingInvitation()
@@ -346,12 +352,11 @@ public final class MorningInvitationService {
             isScheduled = registered?.matches(current) == true
             if isScheduled {
                 errorMessage = nil
-                statusText = String(localized: "One-time invitation scheduled. Delivery follows your notification settings.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                setStatus("One-time invitation scheduled. Delivery follows your notification settings.")
             } else if current.scheduledAt <= now() {
-                statusText = String(localized: "The invitation time has passed. Open Morning when you are ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                setStatus("The invitation time has passed. Open Morning when you are ready.")
             } else {
-                errorMessage = String(localized: "The invitation could not be confirmed. Try scheduling it again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-                statusText = errorMessage!
+                setStatus("The invitation could not be confirmed. Try scheduling it again.", isError: true)
             }
         } catch {
             // A replacement waits for this job, so cleanup cannot remove its newer add.
@@ -395,10 +400,32 @@ public final class MorningInvitationService {
         }
     }
 
+    /// Presentation only: no permission prompt, scheduling, reconciliation or storage access.
+    public func appLanguageDidChange() {
+        refreshStatusPresentation(locale: AppLanguage.locale)
+    }
+
+    func refreshStatusPresentation(locale: Locale) {
+        switch statusPresentation {
+        case .message(let key, let isError):
+            statusText = String(localized: key,
+                bundle: AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier), locale: locale)
+            if isError { errorMessage = statusText }
+        case .failure(let error):
+            statusText = error.moreDescription
+            errorMessage = statusText
+        }
+    }
+
+    private func setStatus(_ key: String.LocalizationValue, isError: Bool = false) {
+        statusPresentation = .message(key, isError: isError)
+        appLanguageDidChange()
+    }
+
     private func report(_ error: any Error) {
         isScheduled = false
-        errorMessage = error.moreDescription
-        statusText = error.moreDescription
+        statusPresentation = .failure(error)
+        appLanguageDidChange()
     }
 }
 
