@@ -143,6 +143,27 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
         outcome.append("ANIMATION_FRAMES_RECORDED: visual review must relate movement to the measured weather; frame differences alone do not prove wind.")
     }
 
+    func test03RecordExistingLiveSky() throws {
+        try launchOrdinaryApp()
+        defer { attachText(outcome.joined(separator: "\n"), named: "ordinary-acceptance-outcome") }
+        XCTAssertFalse(app.buttons["permissions.allow"].waitForExistence(timeout: 2),
+            "The existing app must have completed access preparation before this read-only smoke.")
+        XCTAssertFalse(app.buttons["permissions.finish"].exists)
+        let admitted = waitUntil(25) {
+            let value = self.app.buttons["morning.actions"].value as? String ?? ""
+            return value.contains("Current location:") || value.contains("Position actuelle:")
+        }
+        attach("ordinary-existing-sky-weather-admission")
+        XCTAssertTrue(admitted,
+            "Fresh native current-location weather is not admitted: \(app.buttons["morning.actions"].value ?? "not exposed")")
+        for index in 0...4 {
+            if index > 0 { Thread.sleep(forTimeInterval: 3) }
+            XCTAssertEqual(app.state, .runningForeground, "The ordinary app must remain foreground throughout animation capture.")
+            attach("ordinary-existing-live-sky-\(index * 3)s")
+            outcome.append("SKY_\(index * 3)s: \(app.buttons["morning.actions"].value ?? "not exposed")")
+        }
+    }
+
     private var currentPermission: String? {
         permissions.first { app.staticTexts["permissions.title.\($0)"].exists }
     }
