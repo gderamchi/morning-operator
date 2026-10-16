@@ -153,6 +153,7 @@
 		EF2A3AA8C02606DEA5DC111A /* PhoneLoopRunnerIntake.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65D1B139754329BEAA236124 /* PhoneLoopRunnerIntake.swift */; };
 		F012A4EC056AAC206151DE87 /* WebMorningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FCCE997427B67A2581A70FF /* WebMorningView.swift */; };
 		F06B5D5C1C818E66BEA66724 /* MorningPermissionSetupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DF39928A4BB5F4C01159D31 /* MorningPermissionSetupTests.swift */; };
+		F15B5A427D18932160D05019 /* RealPhoneConnectionAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31FD8F97A2B305E1B4964E1E /* RealPhoneConnectionAcceptanceTests.swift */; };
 		F3C83B1588CAB1A5CF137586 /* ObservationScreenReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BFF5EF3C2F41BB0D40C2C18 /* ObservationScreenReviewTests.swift */; };
 		F595041F5E281180E8DB629E /* MorningActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5DA36C0D75D5473FADCFD1 /* MorningActivityWidget.swift */; };
 		F5D5FAFF3581561C478474ED /* ObservedMorningOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE7EA194BD74767684257499 /* ObservedMorningOverviewView.swift */; };
@@ -241,6 +242,7 @@
 		31A115980B5BD98DC6D7FA73 /* ObservationArchiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationArchiveTests.swift; sourceTree = "<group>"; };
 		31A5C9CA593B1E638B9CA840 /* MorningVoicePreparationPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningVoicePreparationPresenter.swift; sourceTree = "<group>"; };
 		31C92D40B6EFA01488AD3742 /* InterfaceTourTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterfaceTourTests.swift; sourceTree = "<group>"; };
+		31FD8F97A2B305E1B4964E1E /* RealPhoneConnectionAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealPhoneConnectionAcceptanceTests.swift; sourceTree = "<group>"; };
 		34EDFEF90F8F7152F8BBF814 /* RoutineWebStepPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineWebStepPresenter.swift; sourceTree = "<group>"; };
 		35191AAE6C75EE39494AC52A /* RecordedObservationImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordedObservationImportTests.swift; sourceTree = "<group>"; };
 		3879EF0AE67267B2D4FFAD10 /* RisoThemeSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RisoThemeSnapshotTests.swift; sourceTree = "<group>"; };
@@ -474,6 +476,7 @@
 				698E5DD30A2CEC29D8BD5C75 /* PlanBSystemDeviceTests.swift */,
 				289B9292F55FE9F36E473EFE /* PrivacyTests.swift */,
 				4B3F3A89763BAB2B46F3EEDC /* QuietMorningTests.swift */,
+				31FD8F97A2B305E1B4964E1E /* RealPhoneConnectionAcceptanceTests.swift */,
 				35191AAE6C75EE39494AC52A /* RecordedObservationImportTests.swift */,
 				02C6CF87FDCFB10E818EADD0 /* RecordedObservationModelTests.swift */,
 				1F84B24064F307F7E5025342 /* RecordingLearningTests.swift */,
@@ -929,6 +932,7 @@
 				451BF1167D169184EAA7F0C4 /* PlanBSystemDeviceTests.swift in Sources */,
 				FC6E0DE31197E46226CAFF30 /* PrivacyTests.swift in Sources */,
 				3D25D7E50AB57A74D84B2009 /* QuietMorningTests.swift in Sources */,
+				F15B5A427D18932160D05019 /* RealPhoneConnectionAcceptanceTests.swift in Sources */,
 				8706D4C28912FC25A45E3D1E /* RecordedObservationImportTests.swift in Sources */,
 				E4884A1EFD481B4607714D76 /* RecordedObservationModelTests.swift in Sources */,
 				B9CA3F9A24974695EE25E264 /* RecordingLearningTests.swift in Sources */,
