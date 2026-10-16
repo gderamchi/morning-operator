@@ -236,7 +236,7 @@ final class LocalizationJourneyTests: XCTestCase {
 
     private func launch(workspace: UUID, initialLanguage: String? = nil, systemLanguage: String = "en", extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved", "--light-preview",
+        app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved", "--light-preview", "--ui-testing-reduce-motion",
                                "--ui-testing-workspace=\(workspace.uuidString)", "-AppleLanguages", "(\(systemLanguage))",
                                "-AppleLocale", systemLanguage == "fr" ? "fr_FR" : "en_US"]
         app.launchArguments += extraArguments
