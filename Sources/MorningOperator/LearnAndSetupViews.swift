@@ -491,10 +491,6 @@ struct SetupView: View {
                 }.buttonStyle(.plain).disabled(store.sessionActive || store.privacyBlocksWork)
                     .accessibilityIdentifier("setup.voiceAccess")
                 Toggle("Read each step aloud", isOn: $store.readAloud).tint(.green).accessibilityIdentifier("setup.readAloud")
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) { voiceControls }
-                    VStack(alignment: .leading, spacing: 12) { voiceControls }
-                }
                 Text(store.speech.statusText).font(.footnote).foregroundStyle(MorningStyle.muted)
                     .accessibilityIdentifier("setup.speechStatus").accessibilityValue(store.speech.statusText)
                 DisclosureGroup("Audio output") {
@@ -607,11 +603,6 @@ struct SetupView: View {
         }
     }
 
-    @ViewBuilder private var voiceControls: some View {
-        Button("Try the voice") { store.speech.speak(store.speech.previewText) }
-            .buttonStyle(PrimaryButtonStyle()).disabled(store.sessionActive).accessibilityIdentifier("setup.testVoice")
-        Button("Stop") { store.speech.stop() }.buttonStyle(SecondaryButtonStyle()).disabled(store.sessionActive)
-    }
 }
 
 struct StepEditor: View {
