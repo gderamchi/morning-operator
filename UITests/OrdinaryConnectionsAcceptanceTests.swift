@@ -280,6 +280,173 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
         add(note)
     }
 
+    func test07RequestNativeCalendarAccessAndReadFreshSelectedDay() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MORE_PHYSICAL_REQUEST_NATIVE_ACCESS"] == "1",
+                          "Requires explicit permission-request acceptance opt-in.")
+        let previousFailurePolicy = continueAfterFailure
+        defer { continueAfterFailure = previousFailurePolicy }
+        let app = try ordinaryApp()
+        try enterDeveloperAccessIfRequested(app)
+        try openConnections(app)
+        let calendar = app.buttons["connections.calendar"]
+        try reveal(calendar, in: app)
+        calendar.tap()
+        XCTAssertFalse(app.staticTexts["briefing.synthetic"].exists)
+        let calendars = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "briefing.calendar."))
+        if !calendars.firstMatch.exists {
+            let connect = app.buttons["briefing.calendarConnect"]
+            try reveal(connect, in: app)
+            XCTAssertTrue(connect.exists && connect.isHittable)
+            connect.tap()
+        }
+        try waitForNativePermissionAndRead(app, permission: .calendar) { calendars.firstMatch.exists }
+        XCTAssertFalse(app.staticTexts["briefing.error"].exists)
+
+        // Only one known-off switch may change. Other saved selections stay untouched.
+        let hasSelection = calendars.allElementsBoundByIndex.contains { ($0.value as? String) == "1" }
+        var temporaryCalendar: XCUIElement?
+        continueAfterFailure = true
+        defer {
+            var selectionRestored = true
+            if let temporaryCalendar {
+                try? reveal(temporaryCalendar, in: app)
+                if temporaryCalendar.exists && temporaryCalendar.isHittable,
+                   temporaryCalendar.value as? String == "1" { temporaryCalendar.tap() }
+                selectionRestored = temporaryCalendar.exists && temporaryCalendar.value as? String == "0"
+                try? requirePhysicalNative(selectionRestored,
+                    "The temporarily selected calendar must return to its original off state.")
+            }
+            let done = app.navigationBars.buttons.matching(NSPredicate(format: "label IN %@", ["Done", "Terminé"])).firstMatch
+            if selectionRestored && done.exists && done.isHittable { done.tap() }
+        }
+        if !hasSelection {
+            let first = calendars.element(boundBy: 0)
+            try reveal(first, in: app)
+            try requirePhysicalNative(first.exists && first.isHittable && first.value as? String == "0",
+                "A known-off native calendar selection was not available.")
+            temporaryCalendar = first
+            first.tap()
+            try requirePhysicalNative(first.value as? String == "1", "The native calendar selection did not save.")
+        }
+        let refresh = app.buttons["briefing.refresh"]
+        try reveal(refresh, in: app)
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: refresh)
+        try requirePhysicalNative(XCTWaiter.wait(for: [enabled], timeout: 15) == .completed,
+            "The ordinary recap was still preparing before the explicit refresh.")
+        try requirePhysicalNative(refresh.exists && refresh.isHittable && refresh.isEnabled,
+            "The ordinary recap could not be refreshed.")
+        refresh.tap()
+        let readAt = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@",
+            "Local read at ", "Lu localement à ")).firstMatch
+        try reveal(readAt, in: app)
+        try requirePhysicalNative(readAt.exists, "No fresh native Calendar read timestamp appeared.")
+        let fresh = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@",
+            "Read from your selected calendars.", "Lu depuis les calendriers sélectionnés.")).firstMatch
+        try requirePhysicalNative(fresh.exists, "The selected-calendar result was not admitted as fresh.")
+        try requirePhysicalNative(!app.staticTexts["briefing.error"].exists, "The native Calendar read reported an error.")
+        let note = XCTAttachment(string: "Native Calendar permission path completed; real inventory, selected-calendar fresh status and local-read timestamp appeared. Calendar names, event contents and identifiers were not exported. Temporary selection is restored in defer.")
+        note.name = "ordinary-native-calendar-permission-and-read"
+        note.lifetime = .keepAlways
+        add(note)
+    }
+
+    func test08RequestNativeRemindersAccessAndReadFreshInventory() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MORE_PHYSICAL_REQUEST_NATIVE_ACCESS"] == "1",
+                          "Requires explicit permission-request acceptance opt-in.")
+        let app = try ordinaryApp()
+        try enterDeveloperAccessIfRequested(app)
+        try openConnections(app)
+        let reminders = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@",
+            "Find your upcoming reminders", "Retrouvez vos prochains rappels")).firstMatch
+        try reveal(reminders, in: app)
+        reminders.tap()
+        let read = app.buttons["native.remindersRead"]
+        try reveal(read, in: app)
+        XCTAssertTrue(read.exists && read.isHittable && read.isEnabled)
+        read.tap()
+        let timestamp = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@",
+            "Read at ", "Lus à ")).firstMatch
+        try waitForNativePermissionAndRead(app, permission: .reminders) { timestamp.exists }
+        XCTAssertTrue(timestamp.exists, "No fresh native Reminders read timestamp appeared.")
+        XCTAssertFalse(app.staticTexts["native.remindersMessage"].exists)
+        let note = XCTAttachment(string: "Native Reminders permission path completed and a fresh local-store read timestamp appeared. Empty results are valid; no reminder titles, counts, completion changes or synthetic items were exported or created.")
+        note.name = "ordinary-native-reminders-permission-and-read"
+        note.lifetime = .keepAlways
+        add(note)
+    }
+
+    func test12ReadPrivateInstallationSupportCodeFromOrdinaryApp() throws {
+        let app = try ordinaryApp()
+        try enterDeveloperAccessIfRequested(app)
+        try openConnections(app)
+        let notion = app.buttons["connections.account.notion"]
+        try reveal(notion, in: app)
+        notion.tap()
+        let refresh = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label IN %@",
+            "accounts.refresh", ["Refresh my accounts", "Actualiser mes comptes"])).firstMatch
+        XCTAssertTrue(refresh.waitForExistence(timeout: 45), "No fresh ordinary Worker account state appeared.")
+        let shared = app.buttons.matching(NSPredicate(format: "label IN %@", ["Shared data", "Données partagées"])).firstMatch
+        try reveal(shared, in: app)
+        shared.tap()
+        let details = app.buttons.matching(NSPredicate(format: "label IN %@", ["Connection details", "Détails de connexion"])).firstMatch
+        try reveal(details, in: app)
+        details.tap()
+        let show = app.buttons["accounts.installationCode.show"]
+        try reveal(show, in: app)
+        XCTAssertTrue(show.exists && show.isHittable && show.isEnabled)
+        show.tap()
+        let codeElement = app.staticTexts["accounts.installationCode"]
+        XCTAssertTrue(codeElement.waitForExistence(timeout: 15), "The ordinary installation support code did not appear.")
+        let code = codeElement.label
+        XCTAssertTrue(code.range(of: "^[a-f0-9]{24}$", options: .regularExpression) != nil,
+                      "The private installation support code has an unexpected format.")
+        let attachment = XCTAttachment(string: code)
+        attachment.name = "ordinary-installation-support-code"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private enum NativeReadPermission: Equatable { case calendar, reminders }
+
+    private func waitForNativePermissionAndRead(_ app: XCUIApplication, permission: NativeReadPermission,
+                                                ready: () -> Bool) throws {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let purpose = permission == .calendar ? ["calendar", "calendrier"] : ["reminder", "rappel"]
+        let allowLabels = ["Allow Full Access", "Allow Full Access to Calendars", "Allow",
+                           "Autoriser l’accès complet", "Autoriser l'accès complet", "Accès complet", "Autoriser"]
+        let deadline = Date().addingTimeInterval(45)
+        repeat {
+            if ready() { return }
+            let systemAlert = springboard.alerts.firstMatch
+            let alert = systemAlert.exists ? systemAlert : app.alerts.firstMatch
+            if alert.exists {
+                let text = ([alert.label] + alert.staticTexts.allElementsBoundByIndex.map(\.label))
+                    .joined(separator: " ").lowercased()
+                try requirePhysicalNative((text.contains("more") || text.contains("morningoperator")) &&
+                    purpose.contains(where: text.contains),
+                    "An unrecognized or authentication prompt needs owner action; no control was pressed.")
+                let matches = alert.buttons.matching(NSPredicate(format: "label IN %@", allowLabels))
+                    .allElementsBoundByIndex.filter(\.isHittable)
+                guard let allow = matches.first,
+                      matches.allSatisfy({ $0.label == allow.label && $0.identifier == allow.identifier && $0.frame == allow.frame }) else {
+                    try requirePhysicalNative(false, "The matching native access prompt exposed no unambiguous known Allow action.")
+                    return
+                }
+                allow.tap()
+            }
+            Thread.sleep(forTimeInterval: 0.3)
+        } while Date() < deadline
+        try requirePhysicalNative(ready(), "Native permission/read did not complete; inspect the local result for the required owner or provider action.")
+    }
+
+    private func requirePhysicalNative(_ condition: Bool, _ message: String) throws {
+        guard condition else {
+            XCTFail(message)
+            throw NSError(domain: "OrdinaryConnectionsAcceptanceTests", code: 7,
+                userInfo: [NSLocalizedDescriptionKey: "Required ordinary native-access check failed."])
+        }
+    }
+
     private func ordinaryApp() throws -> XCUIApplication {
         continueAfterFailure = false
         try XCTSkipUnless(ProcessInfo.processInfo.environment["MORE_PHYSICAL_CONNECTIONS_ACCEPTANCE"] == "1",
