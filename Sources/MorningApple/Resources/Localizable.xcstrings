@@ -7660,6 +7660,38 @@
           }
         }
       }
+    },
+    "I'm listening.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je vous écoute."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I'm listening."
+          }
+        }
+      }
+    },
+    "Your morning has stopped.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre matin est arrêté."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your morning has stopped."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

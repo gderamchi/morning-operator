@@ -3,6 +3,8 @@ import MorningCore
 import Observation
 #if os(iOS)
 import AVFAudio
+import AudioToolbox
+import Darwin
 import OSLog
 import Speech
 import UIKit
@@ -62,6 +64,8 @@ public final class JuryDemoVoiceSession {
     @ObservationIgnored private var captionTask: Task<Void, Never>?
     #if DEBUG
     @ObservationIgnored private var configurationObservation: JuryDemoAudioConfigurationObservation?
+    @ObservationIgnored private var recorderDiagnostic: JuryDemoRecorderMicrophoneDiagnostic?
+    @ObservationIgnored private var recorderAutostart: Task<Void, Never>?
     #endif
     @ObservationIgnored private lazy var audioSession = SpeechAudioSessionGate(
         activate: { try await Self.activateAudio() }, deactivate: { try await Self.deactivateAudio() }
@@ -79,6 +83,25 @@ public final class JuryDemoVoiceSession {
             "MorningJuryDemoSession:\(Bundle.main.bundleIdentifier ?? "MORE"):\($0.baseURL.absoluteString)"
         }
         sessionID = sessionStorageKey.flatMap { preferences.string(forKey: $0) }
+        #if DEBUG && os(iOS)
+        JuryDemoRecorderMicrophoneDiagnostic.removeOrphansOnLaunch()
+        if Self.recorderMicrophoneDiagnostic {
+            JuryDemoRecorderMicrophoneDiagnostic.beginReport()
+            recorderAutostart = Task { @MainActor [weak self] in
+                for _ in 0..<100 {
+                    guard !Task.isCancelled else { return }
+                    if UIApplication.shared.applicationState == .active {
+                        guard let self, state == .idle else { return }
+                        startRecorderDiagnostic(language: AppLanguage.isFrench ? .french : .english)
+                        return
+                    }
+                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                }
+                self?.recorderAutostart = nil
+                JuryDemoRecorderMicrophoneDiagnostic.writeFailure(code: -2, state: 5)
+            }
+        }
+        #endif
     }
 
     deinit {
@@ -87,11 +110,20 @@ public final class JuryDemoVoiceSession {
         silence?.cancel(); recognitionDeadline?.cancel(); finalDeadline?.cancel()
         captionTask?.cancel()
         for observer in observers { observer.cancel() }
+        #if DEBUG
+        recorderAutostart?.cancel()
+        #endif
         #endif
     }
 
     public func start(language: MorningVoiceCommandLanguage = .french) {
         guard !isActive, state != .paused else { return }
+        #if DEBUG && os(iOS)
+        if Self.recorderMicrophoneDiagnostic {
+            startRecorderDiagnostic(language: language)
+            return
+        }
+        #endif
         if let operation {
             let retainedID = sessionID
             Task { [weak self] in
@@ -131,7 +163,7 @@ public final class JuryDemoVoiceSession {
 
     public func send(text: String) {
         #if DEBUG && os(iOS)
-        guard !Self.rawMicrophoneDiagnostic else { return }
+        guard !Self.rawMicrophoneDiagnostic, !Self.recorderMicrophoneDiagnostic else { return }
         #endif
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.count <= 4_000, !text.isEmpty, isActive else { return }
@@ -161,6 +193,9 @@ public final class JuryDemoVoiceSession {
 
     /// Verified browser/native actions use the same voice and landscape captions.
     public func announce(_ text: String) {
+        #if DEBUG && os(iOS)
+        guard !Self.recorderMicrophoneDiagnostic else { return }
+        #endif
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isActive, let runID, let sessionID, !text.isEmpty, text.count <= 8_000 else { return }
         speak(JuryDemoResponse(sessionID: sessionID, stage: stage, text: text, completed: false,
@@ -170,6 +205,9 @@ public final class JuryDemoVoiceSession {
     /// The native executor acknowledges only an effect it has actually read back.
     /// An ambiguous result is reported once and reconciled without re-execution.
     public func acknowledgeAction(requestID: String, status: String, receiptID: String? = nil) {
+        #if DEBUG && os(iOS)
+        guard !Self.recorderMicrophoneDiagnostic else { return }
+        #endif
         guard let sessionID, let client, isActive || state == .paused || state == .failed else { return }
         let voiceRun = runID
         guard operation == nil else {
@@ -222,6 +260,12 @@ public final class JuryDemoVoiceSession {
         guard UIApplication.shared.applicationState == .active else {
             message = "Ouvrez MORE pour reprendre le microphone."; return
         }
+        #if DEBUG
+        if Self.recorderMicrophoneDiagnostic {
+            startRecorderDiagnostic(language: self.language)
+            return
+        }
+        #endif
         if sessionID == nil, operation == nil {
             runID = nil; state = .idle; start(language: self.language); return
         }
@@ -248,6 +292,20 @@ public final class JuryDemoVoiceSession {
 
     /// Invalidates callbacks synchronously. A late response cannot restart voice.
     public func stop() {
+        #if DEBUG && os(iOS)
+        if Self.recorderMicrophoneDiagnostic {
+            let awaitingAutostart = recorderAutostart != nil
+            recorderAutostart?.cancel(); recorderAutostart = nil
+            if awaitingAutostart, recorderDiagnostic == nil { JuryDemoRecorderMicrophoneDiagnostic.writeFailure(code: -999, state: 3) }
+            runID = nil; operation?.cancel(); operation = nil
+            queuedText = nil; latestResponse = nil; pendingAcknowledgement = nil
+            transcript = ""; state = .idle
+            message = AppLanguage.localized("Your morning has stopped.", bundle: .module,
+                                            locale: Locale(identifier: language.localeIdentifier))
+            releaseAudio()
+            return
+        }
+        #endif
         let stoppedSession = sessionID
         runID = nil; forgetSession(); queuedText = nil; latestResponse = nil; pendingAcknowledgement = nil
         operation?.cancel(); operation = nil
@@ -449,6 +507,13 @@ public final class JuryDemoVoiceSession {
     }
 
     private func releaseAudio() {
+        #if DEBUG
+        if Self.recorderMicrophoneDiagnostic {
+            recorderDiagnostic?.stop()
+            recorderDiagnostic = nil
+            return
+        }
+        #endif
         JuryDemoAudioDiagnostic.log.info("release_begin engineRunning=\(self.engine.isRunning, privacy: .public)")
         audioPreparationID = nil
         #if DEBUG
@@ -595,6 +660,33 @@ public final class JuryDemoVoiceSession {
         #endif
     }
 
+    #if DEBUG
+    private static var recorderMicrophoneDiagnostic: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "MorningJuryDemo") as? Bool == true &&
+            ProcessInfo.processInfo.arguments.contains("--jury-recorder-microphone-diagnostic")
+    }
+
+    private func startRecorderDiagnostic(language: MorningVoiceCommandLanguage) {
+        guard UIApplication.shared.applicationState == .active else { return }
+        recorderAutostart?.cancel(); recorderAutostart = nil
+        self.language = language
+        runID = UUID(); transcript = ""; state = .preparing
+        do {
+            guard AVAudioApplication.shared.recordPermission == .granted else {
+                JuryDemoRecorderMicrophoneDiagnostic.writeFailure(code: -1)
+                throw JuryDemoError.localVoiceUnavailable
+            }
+            recorderDiagnostic?.stop()
+            recorderDiagnostic = nil
+            recorderDiagnostic = try JuryDemoRecorderMicrophoneDiagnostic { [weak self] in self?.pause() }
+            state = .listening
+            message = AppLanguage.localized("I'm listening.", bundle: .module,
+                                            locale: Locale(identifier: language.localeIdentifier))
+            onText?(message)
+        } catch { fail(error) }
+    }
+    #endif
+
     private static func activateAudio() async throws {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: rawMicrophoneDiagnostic ? .measurement : .voiceChat,
@@ -619,6 +711,189 @@ private enum JuryDemoAudioDiagnostic {
 }
 
 #if DEBUG
+/// An explicit capture-control experiment. Its private, protected temporary file
+/// exists only while recording; no data or transcript leaves this helper.
+private final class JuryDemoRecorderMicrophoneDiagnostic: NSObject, AVAudioRecorderDelegate, @unchecked Sendable {
+    private struct Report: Codable {
+        // 0 waiting, 1 preparing, 2 recording, 3 stopped, 4 failed, 5 activation timeout.
+        var state: Int
+        var startedAt = Date().timeIntervalSince1970
+        var duration = 0.0
+        var recordedDuration = 0.0
+        var recordedFrames: Int64 = 0
+        var meterCount = 0
+        var maxPeakDB = -160.0
+        var audioCleanup = false
+        var errorCode: Int?
+    }
+
+    private static var reportURL: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("jury-recorder-measurement.json")
+    }
+
+    static func beginReport() {
+        try? FileManager.default.removeItem(at: reportURL)
+        write(Report(state: 0))
+    }
+
+    static func writeFailure(code: Int, state: Int = 4) {
+        var report = Report(state: state)
+        report.errorCode = code; report.audioCleanup = true
+        write(report)
+    }
+
+    private static func write(_ report: Report) {
+        let temporary = reportURL.deletingLastPathComponent().appendingPathComponent(".jury-recorder-report-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        do {
+            let data = try JSONEncoder().encode(report)
+            guard FileManager.default.createFile(atPath: temporary.path, contents: data,
+                attributes: [.posixPermissions: 0o600, .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            guard Darwin.rename(temporary.path, reportURL.path) == 0 else {
+                throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+            }
+        } catch {
+            JuryDemoAudioDiagnostic.log.error("recorder_report_failed code=\((error as NSError).code, privacy: .public)")
+        }
+    }
+
+    private static let orphanCleanup: Void = {
+        let prefix = "jury-mic-"
+        let entries = (try? FileManager.default.contentsOfDirectory(at: FileManager.default.temporaryDirectory,
+                                                                  includingPropertiesForKeys: nil)) ?? []
+        var removed = 0
+        for entry in entries where entry.lastPathComponent.hasPrefix(prefix) {
+            guard UUID(uuidString: String(entry.lastPathComponent.dropFirst(prefix.count))) != nil else { continue }
+            do { try FileManager.default.removeItem(at: entry); removed += 1 } catch { }
+        }
+        JuryDemoAudioDiagnostic.log.info("recorder_orphan_cleanup removed=\(removed, privacy: .public)")
+    }()
+
+    static func removeOrphansOnLaunch() { _ = orphanCleanup }
+
+    private let directory: URL
+    private let previousCategory: AVAudioSession.Category
+    private let previousMode: AVAudioSession.Mode
+    private let previousOptions: AVAudioSession.CategoryOptions
+    private var recorder: AVAudioRecorder?
+    private var meters: Task<Void, Never>?
+    private var restored = false
+    private var report = Report(state: 1)
+    private var recordingStartedAt: Date?
+
+    init(onExpired: @escaping @MainActor @Sendable () -> Void) throws {
+        let session = AVAudioSession.sharedInstance()
+        previousCategory = session.category; previousMode = session.mode; previousOptions = session.categoryOptions
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("jury-mic-\(UUID().uuidString)", isDirectory: true)
+        super.init()
+        Self.beginReport()
+        Self.write(report)
+        JuryDemoAudioDiagnostic.log.info("recorder_prepare")
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                attributes: [.posixPermissions: 0o700, .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
+            try session.setCategory(.record, mode: .measurement, options: [])
+            try session.setActive(true)
+            let url = directory.appendingPathComponent("capture.caf")
+            let recorder = try AVAudioRecorder(url: url, settings: [
+                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false
+            ])
+            self.recorder = recorder
+            recorder.delegate = self
+            recorder.isMeteringEnabled = true
+            guard recorder.prepareToRecord() else { throw JuryDemoError.localVoiceUnavailable }
+            try FileManager.default.setAttributes([.posixPermissions: 0o600,
+                .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: url.path)
+            guard recorder.record(forDuration: 30) else { throw JuryDemoError.localVoiceUnavailable }
+            recordingStartedAt = Date(); report.state = 2
+            Self.write(report)
+            JuryDemoAudioDiagnostic.log.info("recorder_ready recording=\(recorder.isRecording, privacy: .public) sampleRate=\(recorder.format.sampleRate, privacy: .public) channels=\(recorder.format.channelCount, privacy: .public)")
+            meters = Task { @MainActor [weak self] in
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                    guard let self, let recorder = self.recorder else { return }
+                    recorder.updateMeters()
+                    self.report.meterCount += 1
+                    self.report.duration = Date().timeIntervalSince(self.recordingStartedAt ?? Date())
+                    self.report.recordedDuration = max(self.report.recordedDuration, recorder.currentTime)
+                    let peak = Double(recorder.peakPower(forChannel: 0))
+                    if peak.isFinite { self.report.maxPeakDB = max(self.report.maxPeakDB, peak) }
+                    Self.write(self.report)
+                    JuryDemoAudioDiagnostic.log.info("recorder_meter recording=\(recorder.isRecording, privacy: .public) elapsed=\(recorder.currentTime, privacy: .public) averageDB=\(recorder.averagePower(forChannel: 0), privacy: .public) peakDB=\(recorder.peakPower(forChannel: 0), privacy: .public)")
+                    if self.report.duration >= 30 || self.report.state == 4 || !recorder.isRecording {
+                        self.stop(); onExpired(); return
+                    }
+                }
+            }
+        } catch {
+            let failure = error as NSError
+            report.state = 4; report.errorCode = failure.code
+            JuryDemoAudioDiagnostic.log.error("recorder_failed domain=\(failure.domain, privacy: .public) code=\(failure.code, privacy: .public)")
+            stop()
+            throw error
+        }
+    }
+
+    deinit { stop() }
+
+    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: (any Error)?) {
+        recordFailure((error as NSError?)?.code ?? -3)
+    }
+
+    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        if !flag { recordFailure(-3) }
+    }
+
+    private func recordFailure(_ code: Int) {
+        Task { @MainActor [weak self] in
+            guard let self, !restored else { return }
+            report.state = 4; report.errorCode = code
+        }
+    }
+
+    func stop() {
+        meters?.cancel(); meters = nil
+        if !restored {
+            if let recorder { report.recordedDuration = max(report.recordedDuration, recorder.currentTime) }
+            if let recordingStartedAt { report.duration = Date().timeIntervalSince(recordingStartedAt) }
+        }
+        recorder?.stop(); recorder = nil
+        let audioURL = directory.appendingPathComponent("capture.caf")
+        if FileManager.default.fileExists(atPath: audioURL.path) {
+            do { report.recordedFrames = try AVAudioFile(forReading: audioURL).length }
+            catch { report.state = 4; report.errorCode = (error as NSError).code }
+        }
+        var fileRemoved = false
+        do {
+            if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
+            fileRemoved = true
+        } catch {
+            let failure = error as NSError
+            report.errorCode = failure.code
+            JuryDemoAudioDiagnostic.log.error("recorder_cleanup_failed domain=\(failure.domain, privacy: .public) code=\(failure.code, privacy: .public)")
+        }
+        report.audioCleanup = fileRemoved
+        if report.state != 4 { report.state = 3 }
+        guard !restored else { Self.write(report); return }
+        restored = true
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setActive(false, options: .notifyOthersOnDeactivation)
+            try session.setCategory(previousCategory, mode: previousMode, options: previousOptions)
+            JuryDemoAudioDiagnostic.log.info("recorder_restored fileRemoved=\(fileRemoved, privacy: .public)")
+        } catch {
+            let failure = error as NSError
+            report.errorCode = failure.code
+            JuryDemoAudioDiagnostic.log.error("recorder_restore_failed domain=\(failure.domain, privacy: .public) code=\(failure.code, privacy: .public)")
+        }
+        Self.write(report)
+    }
+}
+
 private final class JuryDemoAudioConfigurationObservation: @unchecked Sendable {
     private let token: any NSObjectProtocol
 
