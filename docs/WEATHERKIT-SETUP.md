@@ -1,5 +1,7 @@
 # Enable real Apple Weather on an iPhone
 
+Latest physical checkpoint: ordinary MORE **0.1.0 (1540)** fetched attributed Apple Weather from the native current location on iPhone. Signed-capability checks, live measurements and the exact acceptance limits are recorded in [location/weather QA](LOCATION-WEATHER-QA.md#physical-iphone-acceptance--16-october-2026).
+
 The app calls native WeatherKit for an authorized current position or a deliberately selected city. A paid Apple Developer Program team must authorize and sign that app; a Personal Team cannot enable WeatherKit. This guide prepares a WeatherKit-only build without requiring the unrelated Screen Time capabilities. It does not establish a successful live weather response.
 
 ## Paid-team owner
