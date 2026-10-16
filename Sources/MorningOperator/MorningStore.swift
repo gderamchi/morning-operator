@@ -295,7 +295,7 @@ final class MorningStore {
     var handsFreeListeningSuppressedSessionID: UUID?
     @ObservationIgnored var handsFreePauseRevision = UUID()
     @ObservationIgnored var handsFreeUtteranceHandler: (@MainActor (String) async -> Bool)?
-    @ObservationIgnored lazy var mailMorning = GmailMorningConversation(speak: { [weak self] text in
+    @ObservationIgnored lazy var mailMorning = GmailMorningConversation(attention: GmailAttentionService(), speak: { [weak self] text in
         guard let self else { throw CancellationError() }
         if self.readAloud { try await self.speech.speakAndWait(text) }
     })
@@ -2754,7 +2754,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "browser-action-journal.json", "gmail-send-journal.json", "gmail-attention-preferences.json", "native-moment-journal.json", "slack-reply-journal.json"] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
