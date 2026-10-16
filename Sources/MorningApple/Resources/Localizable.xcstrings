@@ -7469,6 +7469,23 @@
           }
         }
       }
+    },
+    "Health data is not available on this device.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health data is not available on this device."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données de Santé ne sont pas disponibles sur cet appareil."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -5175,6 +5175,12 @@
             "state": "translated",
             "value": "Apple demande une seule fois (Continuer, puis Face ID). Une seule app de cet iPhone peut avoir cet accès. Rien ne change avant votre accord."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple asks once (Continue, then Face ID). Only one app on this iPhone can hold this access. Nothing changes until you approve."
+          }
         }
       }
     },
@@ -10335,6 +10341,12 @@
             "state": "translated",
             "value": "Gardez au moins une app pour approuver cette suggestion."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep at least one app to approve this suggestion."
+          }
         }
       }
     },
@@ -10605,6 +10617,12 @@
             "state": "translated",
             "value": "Apprendre à nouveau"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learn again"
+          }
         }
       }
     },
@@ -10614,6 +10632,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apprendre avec Temps d’écran"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learn from Screen Time"
           }
         }
       }
@@ -10672,6 +10696,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apprendre avec Temps d’écran demande iOS 26.4 ou plus récent."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Learning from Screen Time needs iOS 26.4 or later."
           }
         }
       }
@@ -11079,6 +11109,12 @@
             "state": "translated",
             "value": "Long défilement : vous pourriez l’écourter"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Long scroll: you could keep this one shorter"
+          }
         }
       }
     },
@@ -11120,6 +11156,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "MORE regarde les minutes passées dans chaque app la semaine dernière et retrouve vos matins. Seuls les noms d’apps et les minutes sont gardés, sur cet iPhone. Aucun message, aucun écran, aucun site web."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE looks at the minutes you spent in each app over the last week and finds your mornings. Only app names and minutes are kept, on this iPhone. No messages, no screens, no websites."
           }
         }
       }
@@ -11324,6 +11366,12 @@
             "state": "translated",
             "value": "Mesuré ou estimé ?"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Measured or estimated?"
+          }
         }
       }
     },
@@ -11333,6 +11381,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mesuré : Temps d’écran a compté ces minutes pendant votre matin. Estimé : une heure dépassait la fin de votre matin, ses minutes ont donc été réparties."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Measured: Screen Time counted these minutes inside your morning. Estimated: an hour ran past the end of your morning, so its minutes were shared out."
           }
         }
       }
@@ -11408,6 +11462,12 @@
             "state": "translated",
             "value": "Minutes estimées"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes estimated"
+          }
         }
       }
     },
@@ -11417,6 +11477,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Minutes mesurées"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes measured"
           }
         }
       }
@@ -14549,6 +14615,12 @@
             "state": "translated",
             "value": "Lecture de vos derniers matins…"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading your last mornings…"
+          }
         }
       }
     },
@@ -16235,6 +16307,12 @@
             "state": "translated",
             "value": "Voir la suggestion"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review suggestion"
+          }
         }
       }
     },
@@ -16260,6 +16338,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vérifiez les apps, puis approuvez quand vous êtes prêt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review the apps, then approve when ready."
           }
         }
       }
@@ -17817,6 +17901,12 @@
             "state": "translated",
             "value": "L’accès à Temps d’écran n’a pas été donné. Vous pouvez l’autoriser dans Réglages → Temps d’écran, puis réessayer."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Time access wasn't given. You can allow it in Settings → Screen Time, then try again."
+          }
         }
       }
     },
@@ -17826,6 +17916,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Temps d’écran n’a pas répondu cette fois. Réessayez dans un instant."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Time didn't answer this time. Try again in a moment."
           }
         }
       }
@@ -17837,6 +17933,12 @@
             "state": "translated",
             "value": "Temps d’écran donne des minutes par heure, pas l’ordre dans l’heure. L’ordre est donc estimé : l’app que vous ouvrez le plus souvent depuis l’écran verrouillé vient d’abord, puis les autres par heure, puis par minutes."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Time gives minutes per hour, not the order inside an hour. So the order is estimated: the app you open most often from the Lock Screen comes first, then the others by hour, then by minutes."
+          }
         }
       }
     },
@@ -17847,6 +17949,12 @@
             "state": "translated",
             "value": "Temps d’écran avait %lld jours, mais aucun matin complet avec des apps n’a encore été trouvé. Réessayez demain."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Time had %lld days, but no complete morning with app use was found yet. Try again tomorrow."
+          }
         }
       }
     },
@@ -17856,6 +17964,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Temps d’écran n’a encore aucune minute d’app sur cet iPhone. Réessayez demain matin."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen Time has no app minutes on this iPhone yet. Try again tomorrow morning."
           }
         }
       }
@@ -20960,6 +21074,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "La suggestion n’a pas pu être enregistrée. Votre routine n’a pas changé."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The suggestion couldn't be saved. Your routine is unchanged."
           }
         }
       }
@@ -24122,6 +24242,12 @@
             "state": "translated",
             "value": "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here."
+          }
         }
       }
     },
@@ -24510,6 +24636,12 @@
             "state": "translated",
             "value": "Votre matin, d’après Temps d’écran"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your morning, from Screen Time"
+          }
         }
       }
     },
@@ -24535,6 +24667,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos matins commencent en général vers %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your mornings usually start around %@."
           }
         }
       }
@@ -24912,6 +25050,12 @@
             "state": "translated",
             "value": "Votre routine a changé depuis cette suggestion. Apprenez à nouveau avec Temps d’écran pour en avoir une à jour."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your routine changed since this suggestion was made. Learn from Screen Time again for a fresh one."
+          }
         }
       }
     },
@@ -24963,6 +25107,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre routine a peut-être changé. Apprenez à nouveau avec Temps d’écran pour une suggestion à jour."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your routine may have changed. Learn from Screen Time again for a fresh suggestion."
           }
         }
       }

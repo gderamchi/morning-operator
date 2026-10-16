@@ -10,10 +10,10 @@ enum NativeConnectionNotice {
         let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
         switch self {
         case .failure(let error): return error.moreDescription
-        case .shortcutCouldNotOpen: return String(localized: "Shortcuts couldn't open. Check that it is installed and the shortcut name is correct.", bundle: bundle, locale: locale)
-        case .stoppedWaiting: return String(localized: "MORE stopped waiting. The shortcut may still be running; check its outcome before running it again.", bundle: bundle, locale: locale)
-        case .remindersTimedOut: return String(localized: "Reminders didn't answer in time. Try reading them again.", bundle: bundle, locale: locale)
-        case .reminderCompleted: return String(localized: "Marked complete in Apple Reminders.", bundle: bundle, locale: locale)
+        case .shortcutCouldNotOpen: return AppLanguage.localized("Shortcuts couldn't open. Check that it is installed and the shortcut name is correct.", bundle: bundle, locale: locale)
+        case .stoppedWaiting: return AppLanguage.localized("MORE stopped waiting. The shortcut may still be running; check its outcome before running it again.", bundle: bundle, locale: locale)
+        case .remindersTimedOut: return AppLanguage.localized("Reminders didn't answer in time. Try reading them again.", bundle: bundle, locale: locale)
+        case .reminderCompleted: return AppLanguage.localized("Marked complete in Apple Reminders.", bundle: bundle, locale: locale)
         }
     }
 }

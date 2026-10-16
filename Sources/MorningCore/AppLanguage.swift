@@ -11,11 +11,10 @@ public enum AppLanguage {
     public static var code: String { preference.code }
     public static var isFrench: Bool { code == "fr" }
 
-    /// Resolve the first system language only; unsupported languages start in French.
+    /// A saved choice wins; first launch follows French primary language or English otherwise.
     public static func resolve(saved: String?, preferredLanguages: [String]) -> String {
         if let saved, supportedCodes.contains(saved) { return saved }
-        let system = preferredLanguages.first.flatMap { Locale(identifier: $0).language.languageCode?.identifier }
-        return system == "en" ? "en" : "fr"
+        return resolvedCode(preferredLanguages: preferredLanguages)
     }
 
     public static func initialize() { setChosenLanguage(code) }
@@ -29,10 +28,9 @@ public enum AppLanguage {
         UserDefaults.standard.set([code], forKey: "AppleLanguages")
     }
 
+    /// Keep regional formats and explicit calendar/number preferences in the selected language.
     public static var locale: Locale {
-        let current = Locale.current
-        return current.language.languageCode?.identifier == code
-            ? current : Locale(identifier: code == "fr" ? "fr_FR" : "en_US")
+        resolvedLocale(saved: code, preferredLanguages: Locale.preferredLanguages, current: .current)
     }
     public static var localeIdentifier: String { locale.identifier }
 
@@ -42,6 +40,33 @@ public enum AppLanguage {
         guard let path = source.path(forResource: languageCode ?? code, ofType: "lproj"),
               let localized = Bundle(path: path) else { return source }
         return localized
+    }
+
+    public static func localized(_ value: String.LocalizationValue, table: String? = nil,
+                                 bundle: Bundle = .main, comment: StaticString? = nil) -> String {
+        localized(value, table: table, bundle: bundle, locale: locale, comment: comment)
+    }
+
+    /// Explicit locale supports deterministic composers and extension-owned snapshots.
+    public static func localized(_ value: String.LocalizationValue, table: String? = nil,
+                                 bundle: Bundle = .main, locale: Locale, comment: StaticString? = nil) -> String {
+        let selectedBundle = self.bundle(for: bundle, languageCode: locale.language.languageCode?.identifier)
+        return String(localized: LocalizedStringResource(value, table: table, locale: locale,
+            bundle: .atURL(selectedBundle.bundleURL), comment: comment))
+    }
+
+    static func resolvedCode(preferredLanguages: [String]) -> String {
+        guard let primary = preferredLanguages.first else { return "en" }
+        return Locale.Language(identifier: primary).languageCode?.identifier == "fr" ? "fr" : "en"
+    }
+
+    static func resolvedLocale(saved: String? = nil, preferredLanguages: [String], current: Locale) -> Locale {
+        let language = resolve(saved: saved, preferredLanguages: preferredLanguages)
+        guard current.language.languageCode?.identifier != language else { return current }
+        var components = Locale.Components(locale: current)
+        components.languageComponents.languageCode = Locale.LanguageCode(language)
+        components.languageComponents.script = nil
+        return Locale(components: components)
     }
 }
 

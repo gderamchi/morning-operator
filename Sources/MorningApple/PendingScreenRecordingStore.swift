@@ -10,10 +10,10 @@ public enum PendingScreenRecordingError: LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .appOwnedRecordingRequired: String(localized: "Only a recording created by this app can enter recording recovery.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .anotherRecordingPending: String(localized: "Retry or discard the saved recording before adding another one.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .unreadableRecording: String(localized: "The saved recording cannot be opened. It has not been overwritten.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .unreadableMetadata: String(localized: "The saved recording's metadata cannot be read. The recording and metadata have been kept unchanged.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .appOwnedRecordingRequired: AppLanguage.localized("Only a recording created by this app can enter recording recovery.", bundle: .module)
+        case .anotherRecordingPending: AppLanguage.localized("Retry or discard the saved recording before adding another one.", bundle: .module)
+        case .unreadableRecording: AppLanguage.localized("The saved recording cannot be opened. It has not been overwritten.", bundle: .module)
+        case .unreadableMetadata: AppLanguage.localized("The saved recording's metadata cannot be read. The recording and metadata have been kept unchanged.", bundle: .module)
         }
     }
 }

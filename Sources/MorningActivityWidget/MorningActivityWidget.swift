@@ -17,6 +17,7 @@ struct MorningActivityWidget: Widget {
             MorningActivityLockScreen(state: context.state, isStale: context.isStale,
                                       sessionID: context.attributes.sessionID)
                 .environment(\.locale, context.state.locale)
+                .environment(\.layoutDirection, .leftToRight)
                 .widgetURL(MorningActivityPresentation.destination)
         } dynamicIsland: { context in
             let presentation = MorningActivityPresentation(state: context.state, isStale: context.isStale)
@@ -34,6 +35,8 @@ struct MorningActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     MorningActivityIslandDetail(presentation: presentation,
                                                 sessionID: context.attributes.sessionID)
+                        .environment(\.locale, context.state.locale)
+                        .environment(\.layoutDirection, .leftToRight)
                 }
             } compactLeading: {
                 HStack(spacing: 0) {
@@ -48,6 +51,8 @@ struct MorningActivityWidget: Widget {
                         .accessibilityLabel(activityText("Update needed. Open MORE.", locale: context.state.locale))
                 } else if let timer = context.state.stepTimer {
                     StepCountdown(timer: timer, state: context.state)
+                        .environment(\.locale, context.state.locale)
+                        .environment(\.layoutDirection, .leftToRight)
                         .font(.caption2.monospacedDigit()).foregroundStyle(.white)
                         .frame(maxWidth: 52)
                 } else {
@@ -405,6 +410,6 @@ private struct MorningWidgetProgressDots: Shape {
 /// The extension has its own defaults container; the app publishes the selected
 /// language with the activity instead of creating another preference.
 private func activityText(_ value: String.LocalizationValue, locale: Locale) -> String {
-    String(localized: value, bundle: AppLanguage.bundle(for: .main,
+    AppLanguage.localized(value, bundle: AppLanguage.bundle(for: .main,
         languageCode: locale.language.languageCode?.identifier), locale: locale)
 }

@@ -1215,7 +1215,7 @@ final class MorningStore {
     func addBriefingToRoutine() -> Bool {
         guard let routine, !sessionActive, !privacyBlocksWork else { return false }
         if routine.steps.contains(where: { $0.automation == .morningBriefing }) { return true }
-        let step = RoutineStep(title: String(localized: "Your day", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: String(localized: "Hear the recap from the sources you choose in Your day.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+        let step = RoutineStep(title: AppLanguage.localized( "Your day", bundle: .main), detail: AppLanguage.localized( "Hear the recap from the sources you choose in Your day.", bundle: .main),
             kind: .briefing, durationMinutes: 2, automation: .morningBriefing)
         return updateSteps([step] + routine.steps)
     }

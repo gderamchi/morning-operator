@@ -67,10 +67,10 @@ public enum CaptureRequestParser {
             else { return unresolved(original, classification: classification) }
             proposed = calendar.date(bySettingHour: morningHour, minute: 0, second: 0, of: tomorrow,
                 matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
-            explanation = String(localized: "Suggested \(String(format: "%02d:00", morningHour)) on the next calendar day in \(calendar.timeZone.identifier). Review the time before saving.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            explanation = AppLanguage.localized("Suggested \(String(format: "%02d:00", morningHour)) on the next calendar day in \(calendar.timeZone.identifier). Review the time before saving.", bundle: .module)
         case .relative(let seconds):
             proposed = now.addingTimeInterval(seconds)
-            explanation = String(localized: "Calculated from capture time using \(Int(seconds / 60)) elapsed minutes. Review the date and time before saving.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            explanation = AppLanguage.localized( "Calculated from capture time using \(Int(seconds / 60)) elapsed minutes. Review the date and time before saving.", bundle: .module)
         case .clock(let hour, let minute, let meridiem, let exact):
             proposed = nextClockTime(hour: hour, minute: minute, meridiem: meridiem, exact: exact, after: now, calendar: calendar)
             // The explanation names the resolved time, not the spoken token: "5 pm" is 17:00.
@@ -78,7 +78,7 @@ public enum CaptureRequestParser {
                 let parts = calendar.dateComponents([.hour, .minute], from: date)
                 return String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
             } ?? ""
-            explanation = String(localized: "Suggested the next \(resolved) in \(calendar.timeZone.identifier). Review the time before saving.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            explanation = AppLanguage.localized( "Suggested the next \(resolved) in \(calendar.timeZone.identifier). Review the time before saving.", bundle: .module)
         }
         guard let proposed, proposed.timeIntervalSinceReferenceDate.isFinite else {
             return unresolved(original, classification: classification)
@@ -214,7 +214,7 @@ public enum CaptureRequestParser {
     private static func unresolved(_ original: String, classification: Classification) -> ParsedCaptureRequest {
         ParsedCaptureRequest(originalText: original, content: classification.content,
             destination: classification.destination, suggestedDate: nil, matchedDatePhrase: nil,
-            dateExplanation: String(localized: "No single supported date was resolved. Choose a date and time, or save a reminder without a date.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale),
+            dateExplanation: AppLanguage.localized("No single supported date was resolved. Choose a date and time, or save a reminder without a date.", bundle: .module),
             needsDateReview: true)
     }
 }

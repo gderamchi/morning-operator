@@ -30,7 +30,6 @@ struct MorningWelcomeFlow: View {
     var developerAccess: (() -> Void)? = nil
     #endif
     @State private var page = 0
-    @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -38,13 +37,12 @@ struct MorningWelcomeFlow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @AccessibilityFocusState private var headingFocused: Bool
 
-    private var french: Bool { locale.language.languageCode?.identifier == "fr" }
+    private var french: Bool { AppLanguage.isFrench }
     private func text(_ fr: String, _ en: String) -> String { french ? fr : en }
     private var clock: MorningThemeClock { .shared }
     private var night: Bool { clock.celestial.moon.opacity > 0.57 }
     private var ink: Color { MorningStyle.ink }
     private var muted: Color { contrast == .increased ? MorningStyle.ink : MorningStyle.muted }
-    private var surface: Color { MorningStyle.surface }
     private var isPaywall: Bool { page == 3 }
     private var hasDeveloperAccessButton: Bool {
         #if DEBUG
@@ -89,7 +87,7 @@ struct MorningWelcomeFlow: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
-                MorningStyle.background.ignoresSafeArea()
+                MorningEntryBackdrop()
                 VStack(spacing: 0) {
                     navigation
                     ScrollView {
@@ -98,10 +96,10 @@ struct MorningWelcomeFlow: View {
                                                   active: scenePhase == .active,
                                                   strongInk: strongInk)
                                 .frame(height: isPaywall ? 100 : 110)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .clipShape(RoundedRectangle(cornerRadius: 24))
                             VStack(alignment: .leading, spacing: 16) {
                                 Text(heading)
-                                    .font(MorningTheme.Typography.display)
+                                    .font(.system(.largeTitle, weight: .semibold))
                                     .fixedSize(horizontal: false, vertical: true)
                                     .accessibilityAddTraits(.isHeader)
                                     .accessibilityFocused($headingFocused)
@@ -136,14 +134,16 @@ struct MorningWelcomeFlow: View {
         HStack(spacing: 16) {
             if page > 0 {
                 Button { move(to: page - 1) } label: {
-                    Image(systemName: "arrow.left").font(.system(size: 20, weight: .medium)).frame(width: 44, height: 44)
+                    Image(systemName: "arrow.left").font(.system(size: 18, weight: .medium)).frame(width: 44, height: 44)
+                        .glassEffect(.regular.interactive(), in: .circle)
                 }
                 .accessibilityLabel(text("Retour", "Back"))
                 .accessibilityIdentifier("onboarding.back")
+            } else if hasDeveloperAccessButton {
+                MorningBrandMark().frame(width: 24, height: 24).frame(width: 44, height: 44)
+                    .accessibilityLabel("MORE")
             } else {
-                Text(verbatim: "MORE").font(.system(.subheadline, weight: .semibold)).tracking(4)
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge).fixedSize()
-                    .frame(minHeight: 44)
+                wordmark
             }
             Spacer()
             HStack(spacing: 7) {
@@ -163,8 +163,7 @@ struct MorningWelcomeFlow: View {
                         .fixedSize(horizontal: true, vertical: false)
                         .accessibilityIdentifier("onboarding.offer")
                 } else if !hasDeveloperAccessButton {
-                    Text(verbatim: "MORE").font(.system(.caption, weight: .semibold)).tracking(3)
-                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge).fixedSize()
+                    wordmark
                 }
                 #if DEBUG
                 if let developerAccess {
@@ -186,21 +185,30 @@ struct MorningWelcomeFlow: View {
         .frame(maxWidth: .infinity)
     }
 
+    private var wordmark: some View {
+        HStack(spacing: 7) {
+            MorningBrandMark().frame(width: 24, height: 24)
+            Text(verbatim: "MORE").font(.system(.subheadline, weight: .semibold)).tracking(1.5)
+        }
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge).fixedSize().frame(minHeight: 44)
+        .accessibilityElement(children: .ignore).accessibilityLabel("MORE")
+    }
+
     private var illustration: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(text("UN APERÇU DE VOTRE MATIN", "A GLIMPSE OF YOUR MORNING"))
                 .font(.system(.caption2, weight: .medium)).tracking(1.4).foregroundStyle(muted)
             if page == 0 {
                 sourceRow("chart.bar.xaxis", text("Temps d’écran", "Screen Time"), text("Vos habitudes prennent forme", "Your habits take shape"))
-                dottedRule
+                separator
                 sourceRow("play.rectangle", text("Vos vidéos", "Your videos"), text("Les moments qui comptent pour vous", "The moments that matter to you"))
-                dottedRule
+                separator
                 sourceRow("globe", text("Le navigateur MORE", "The MORE browser"), text("Vos gestes précisent la routine", "Your actions refine your routine"))
             } else if page == 1 {
                 routineRow("01", text("Prendre des nouvelles", "Catch up"), "5 min")
-                dottedRule
+                separator
                 routineRow("02", text("Regarder ma journée", "See my day"), "2 min")
-                dottedRule
+                separator
                 routineRow("03", text("Un moment pour moi", "A moment for me"), "8 min")
             } else {
                 Image(systemName: "waveform").font(.system(size: 34, weight: .ultraLight))
@@ -215,8 +223,7 @@ struct MorningWelcomeFlow: View {
                 .font(.system(.caption)).foregroundStyle(muted)
         }
         .padding(22).frame(maxWidth: .infinity, alignment: .leading)
-        .background(surface, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(MorningStyle.line, lineWidth: 0.5))
+        .modifier(MorningEntrySurface(prefersOpaque: strongInk))
     }
 
     private func sourceRow(_ symbol: String, _ title: String, _ detail: String) -> some View {
@@ -239,9 +246,8 @@ struct MorningWelcomeFlow: View {
         }
     }
 
-    private var dottedRule: some View {
-        MorningDottedFrame(cornerRadius: 0, spacing: 6, dotRadius: 0.7)
-            .fill(ink.opacity(0.3)).frame(height: 1).accessibilityHidden(true)
+    private var separator: some View {
+        Divider().overlay(MorningStyle.line.opacity(0.3)).accessibilityHidden(true)
     }
 
     private var subscriptionDetails: some View {
@@ -258,7 +264,7 @@ struct MorningWelcomeFlow: View {
                         Text(text("\(offer.monthlyPrice) par mois", "\(offer.monthlyPrice) per month"))
                             .font(MorningTheme.Typography.title).accessibilityIdentifier("paywall.price")
                     }
-                    dottedRule
+                    separator
                     benefit("checkmark", text("Une routine qui vous ressemble", "A routine that feels like you"))
                     benefit("checkmark", text("Vos matins délégués à MORE", "Your mornings entrusted to MORE"))
                     benefit("checkmark", text("La liberté d’interrompre à tout moment", "The freedom to interrupt anytime"))
@@ -270,8 +276,7 @@ struct MorningWelcomeFlow: View {
                 }
             }
             .padding(22).frame(maxWidth: .infinity, alignment: .leading)
-            .background(surface, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(ink.opacity(0.5), lineWidth: 1))
+            .modifier(MorningEntrySurface(prefersOpaque: strongInk))
 
             if let offer, offer.includesFreeTrial {
                 VStack(alignment: .leading, spacing: 14) {
@@ -323,7 +328,7 @@ struct MorningWelcomeFlow: View {
                 .font(MorningTheme.Typography.control)
                 .frame(maxWidth: .infinity, minHeight: 26)
             }
-            .buttonStyle(PrimaryButtonStyle())
+            .modifier(MorningEntryPrimaryStyle(prefersOpaque: strongInk))
             .disabled(isPaywall && (purchaseState.isBusy || purchaseState == .pending))
             .accessibilityIdentifier(isPaywall ? "paywall.subscribe" : "onboarding.next")
             Text(isPaywall ? paymentSummary
@@ -341,8 +346,11 @@ struct MorningWelcomeFlow: View {
         .padding(.horizontal, typeSize.isAccessibilitySize ? 0 : 28).padding(.top, 16).padding(.bottom, 12)
         .frame(maxWidth: .infinity)
         .background {
-            // Reading and purchasing controls stay opaque over the landscape.
-            MorningStyle.background.ignoresSafeArea(edges: .bottom)
+            if strongInk {
+                MorningStyle.background.ignoresSafeArea(edges: .bottom)
+            } else {
+                Rectangle().fill(.regularMaterial).ignoresSafeArea(edges: .bottom)
+            }
         }
     }
 

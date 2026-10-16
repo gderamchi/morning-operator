@@ -67,13 +67,16 @@ public enum MorningBriefingControllerError: Error, LocalizedError, Sendable, Equ
     /// limit. Nothing was written and the choices in effect are unchanged.
     case settingsTooLarge
 
-    public var errorDescription: String? {
-        switch self {
-        case .invalidSettings: String(localized: "Choose valid calendars and a city for the briefing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .unreadableSettings: String(localized: "Saved briefing settings couldn't be read. Reset them to choose sources again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .staleGeneration: String(localized: "Local data changed. Reopen briefing settings before continuing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .timedOut: String(localized: "The source took too long to respond. Your morning can continue without it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .settingsTooLarge: String(localized: "These briefing choices are too large to save. Your previous choices are unchanged. Choose fewer calendars.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+    public var errorDescription: String? { message(locale: AppLanguage.locale) }
+
+    func message(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        return switch self {
+        case .invalidSettings: AppLanguage.localized("Choose valid calendars and a city for the briefing.", bundle: bundle, locale: locale)
+        case .unreadableSettings: AppLanguage.localized("Saved briefing settings couldn't be read. Reset them to choose sources again.", bundle: bundle, locale: locale)
+        case .staleGeneration: AppLanguage.localized("Local data changed. Reopen briefing settings before continuing.", bundle: bundle, locale: locale)
+        case .timedOut: AppLanguage.localized("The source took too long to respond. Your morning can continue without it.", bundle: bundle, locale: locale)
+        case .settingsTooLarge: AppLanguage.localized("These briefing choices are too large to save. Your previous choices are unchanged. Choose fewer calendars.", bundle: bundle, locale: locale)
         }
     }
 }
@@ -97,7 +100,7 @@ public final class MorningBriefingController {
     public private(set) var isConnectingCalendar = false
     public private(set) var isConnectingHealth = false
     /// A connection error is not a read-permission verdict. HealthKit keeps that private.
-    public private(set) var healthConnectionIssue: String?
+    public var healthConnectionIssue: String? { healthConnectionError.map { healthMessage($0) } }
     public var isHealthReaderConnected: Bool { sleep.isConnected }
     public private(set) var isSearchingCities = false
     public private(set) var errorMessage: String?
@@ -163,6 +166,7 @@ public final class MorningBriefingController {
     @ObservationIgnored private let deviceLocation: any WeatherDeviceLocationProviding
     private var resolvedLocation: WeatherLocation?
     private var locationError: (any Error)?
+    private var healthConnectionError: (any Error)?
     @ObservationIgnored private var locationResolvedAt: Date?
     @ObservationIgnored private var locationTask: Task<Void, Never>?
     @ObservationIgnored private var locationAttempt: UUID?
@@ -243,7 +247,9 @@ public final class MorningBriefingController {
             resolvedLocation = try? WeatherLocation(latitude: location.latitude, longitude: location.longitude,
                 displayName: WeatherDeviceLocation.currentLocationName(locale: locale))
         }
+        let healthFailure = healthConnectionError
         invalidateWork(clearChoices: false)
+        healthConnectionError = healthFailure
         if settingsRecoveryError != nil {
             settingsRecoveryError = MorningBriefingControllerError.unreadableSettings.moreDescription
             errorMessage = settingsRecoveryError
@@ -421,7 +427,7 @@ public final class MorningBriefingController {
         guard prepareForAccess() else { return false }
         if let task = healthAccessTask { return await task.value }
         let attempt = UUID(), expectedRevision = revision
-        healthAccessAttempt = attempt; isConnectingHealth = true; healthConnectionIssue = nil
+        healthAccessAttempt = attempt; isConnectingHealth = true; healthConnectionError = nil
         let task = Task { @MainActor [weak self] () -> Bool in
             guard let self else { return false }
             defer {
@@ -444,7 +450,7 @@ public final class MorningBriefingController {
                 return true
             } catch {
                 guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
-                if !(error is CancellationError) { healthConnectionIssue = healthMessage(error) }
+                if !(error is CancellationError) { healthConnectionError = error }
                 return false
             }
         }
@@ -474,7 +480,7 @@ public final class MorningBriefingController {
 
     private func cancelHealthConnection() {
         healthAccessAttempt = nil; healthAccessTask?.cancel(); healthAccessTask = nil
-        isConnectingHealth = false; healthConnectionIssue = nil
+        isConnectingHealth = false; healthConnectionError = nil
     }
 
     /// Explicit query only; no device-location request or inferred city.
@@ -748,7 +754,7 @@ public final class MorningBriefingController {
                 }
                 calendarInput = nextCalendar; weatherInput = nextWeather; sleepInput = nextSleep; prepared = document
                 healthMetricsInput = nextMetrics
-                if !document.hasUsableFacts { errorMessage = String(localized: "No current briefing facts are available. Review your sources or try refreshing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
+                if !document.hasUsableFacts { errorMessage = AppLanguage.localized("No current briefing facts are available. Review your sources or try refreshing.", bundle: .module) }
                 return document
             } catch {
                 guard revision == expectedRevision, refreshAttempt == attempt else { return nil }
@@ -909,18 +915,20 @@ public final class MorningBriefingController {
         if let error = error as? MorningBriefingError { return error.moreDescription }
         if let error = error as? CalendarObservationError { return error.moreDescription }
         if let error = error as? WeatherObservationError { return error.moreDescription }
-        return String(localized: "Briefing data is unavailable. Check your sources and local privacy settings.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        return AppLanguage.localized("Briefing data is unavailable. Check your sources and local privacy settings.", bundle: .module)
     }
 
     private func healthMessage(_ error: any Error) -> String {
-        if error is MorningBriefingControllerError { return safeMessage(error) }
+        let locale = Locale(identifier: localeIdentifier)
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        if let error = error as? MorningBriefingControllerError { return error.message(locale: locale) }
         return switch error as? SleepObservationError {
         case .unavailableOnDevice:
-            String(localized: "Health data is not available on this device.", bundle: .module)
+            AppLanguage.localized("Health data is not available on this device.", bundle: bundle, locale: locale)
         case .notConnected, .missingUsageDescription:
-            String(localized: "Sleep reading is not available in this version.", bundle: .module)
+            AppLanguage.localized("Sleep reading is not available in this version.", bundle: bundle, locale: locale)
         case nil:
-            String(localized: "Health access could not be prepared. Try again in Settings.", bundle: .module)
+            AppLanguage.localized("Health access could not be prepared. Try again in Settings.", bundle: bundle, locale: locale)
         }
     }
 

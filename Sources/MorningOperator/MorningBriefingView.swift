@@ -153,7 +153,7 @@ struct MorningBriefingView: View {
                 .accessibilityIdentifier("briefing.hear")
             if store.routine != nil {
                 let alreadyAdded = store.routine?.steps.contains(where: { $0.automation == .morningBriefing }) == true
-                Button(alreadyAdded ? "Already in your morning" : "Add to my morning") {
+                Button(alreadyAdded ? String(localized: "Already in your morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Add to my morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
                     addedToMorning = store.addBriefingToRoutine()
                 }.disabled(store.sessionActive || alreadyAdded).accessibilityIdentifier("briefing.addToRoutine")
                 if addedToMorning { Text("Added as a draft. Review and approve your routine.").accessibilityIdentifier("briefing.saved") }
@@ -417,7 +417,7 @@ struct MorningSleepDetailsView: View {
                     .font(.caption).accessibilityIdentifier("briefing.sleepSources")
             }
             if let readAt = section.retrievedAt {
-                Text(MorningPermissionSetup.text("Read locally: ", "Lecture locale : ") + readAt.formatted(date: .abbreviated, time: .shortened))
+                Text(MorningPermissionSetup.text("Read locally: ", "Lecture locale : ") + readAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(AppLanguage.locale)))
                     .font(.caption2)
             }
             Text(MorningPermissionSetup.text("Overlapping records count once. The union can differ from Apple Health’s source priority.", "Les enregistrements qui se chevauchent sont comptés une seule fois. Le total peut différer de Santé Apple, qui applique sa priorité de sources."))
