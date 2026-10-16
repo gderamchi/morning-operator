@@ -435,18 +435,31 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
                                "The selected voice did not begin physical playback.")
                 let backup = app.staticTexts.matching(NSPredicate(format: "label IN %@",
                     ["La voix de secours est activée.", "Backup voice is active."])).firstMatch.exists
-                if requirePrimary {
-                    XCTAssertFalse(backup, "The primary voice failed; Apple backup playback is not a primary-provider pass.")
-                }
-                let route = playbackObserved ? (backup ? "apple-backup" : "primary") : "unconfirmed"
-                let report = XCTAttachment(string: "language=\(language == "Français" ? "fr" : "en"); gender=\(gender); playback=\(route); primaryRequired=\(requirePrimary)")
-                report.name = "physical-voice-route"
-                report.lifetime = .keepAlways
-                add(report)
                 let capture = XCTAttachment(screenshot: app.screenshot())
                 capture.name = "physical-\(language == "Français" ? "fr" : "en")-voice-\(gender)"
                 capture.lifetime = .keepAlways
                 add(capture)
+                let ready = language == "Français" ? "Prêt à parler" : "Ready to speak"
+                let completion = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    preview.value as? String == ready && !app.buttons["voice.stopPreview"].exists
+                }, object: nil)
+                let finished = XCTWaiter.wait(for: [completion], timeout: 45) == .completed
+                XCTAssertTrue(finished, "The sample did not finish through its ordinary playback callback.")
+                XCTAssertEqual(app.state, .runningForeground)
+                let backupAfterPlayback = app.staticTexts.matching(NSPredicate(format: "label IN %@",
+                    ["La voix de secours est activée.", "Backup voice is active."])).firstMatch.exists
+                let unavailable = app.staticTexts.matching(NSPredicate(format: "label IN %@",
+                    ["L’exemple vocal est indisponible. Réessayez.", "The voice sample is unavailable. Try again."])).firstMatch.exists
+                XCTAssertFalse(unavailable, "The voice sample reported a playback failure.")
+                if requirePrimary {
+                    XCTAssertFalse(backup || backupAfterPlayback,
+                                   "The primary voice failed; Apple backup playback is not a primary-provider pass.")
+                }
+                let route = playbackObserved ? (backup || backupAfterPlayback ? "apple-backup" : "primary") : "unconfirmed"
+                let report = XCTAttachment(string: "language=\(language == "Français" ? "fr" : "en"); gender=\(gender); playback=\(route); finished=\(finished); primaryRequired=\(requirePrimary)")
+                report.name = "physical-voice-route"
+                report.lifetime = .keepAlways
+                add(report)
                 app.buttons["voice.done"].tap()
 
                 try relaunchAndOpenSettings(app)
