@@ -8,7 +8,7 @@ struct MorningCaptureVoiceView: View {
     @Bindable var store: MorningStore
     @Environment(\.dismiss) private var dismiss
     @ViewState<MorningVoiceCommandLanguage> private var language =
-        Locale.current.language.languageCode?.identifier == "fr" ? .french : .english
+        AppLanguage.isFrench ? .french : .english
     @ViewState<Bool> private var began = false
 
     var body: some View {

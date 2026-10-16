@@ -156,7 +156,7 @@ struct VoicePickerView: View {
     }
 
     private func languageName(_ code: String) -> String {
-        Locale.current.localizedString(forIdentifier: code) ?? code
+        AppLanguage.locale.localizedString(forIdentifier: code) ?? code
     }
 
     private func stopPreview() {

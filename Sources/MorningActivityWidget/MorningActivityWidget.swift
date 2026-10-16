@@ -16,6 +16,8 @@ struct MorningActivityWidget: Widget {
         ActivityConfiguration(for: MorningActivityAttributes.self) { context in
             MorningActivityLockScreen(state: context.state, isStale: context.isStale,
                                       sessionID: context.attributes.sessionID)
+                .environment(\.locale, AppLanguage.locale)
+                .environment(\.layoutDirection, .leftToRight)
                 .widgetURL(MorningActivityPresentation.destination)
         } dynamicIsland: { context in
             let presentation = MorningActivityPresentation(state: context.state, isStale: context.isStale)
@@ -33,6 +35,8 @@ struct MorningActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     MorningActivityIslandDetail(presentation: presentation,
                                                 sessionID: context.attributes.sessionID)
+                        .environment(\.locale, AppLanguage.locale)
+                        .environment(\.layoutDirection, .leftToRight)
                 }
             } compactLeading: {
                 HStack(spacing: 0) {
@@ -44,9 +48,11 @@ struct MorningActivityWidget: Widget {
             } compactTrailing: {
                 if context.isStale {
                     Text("!").font(.caption.weight(.semibold)).foregroundStyle(.white)
-                        .accessibilityLabel("Update needed. Open MORE.")
+                        .accessibilityLabel(AppLanguage.localized("Update needed. Open MORE."))
                 } else if let timer = context.state.stepTimer {
                     StepCountdown(timer: timer, state: context.state)
+                        .environment(\.locale, AppLanguage.locale)
+                        .environment(\.layoutDirection, .leftToRight)
                         .font(.caption2.monospacedDigit()).foregroundStyle(.white)
                         .frame(maxWidth: 52)
                 } else {
