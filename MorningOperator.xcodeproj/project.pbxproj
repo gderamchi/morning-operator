@@ -14,6 +14,7 @@
 		067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */; };
 		06E46596DA50049E51AAAE76 /* MorningPrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25987AA3F93570E4CED0B631 /* MorningPrivacyView.swift */; };
 		08F2920020CE53509B8178D1 /* GmailMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A810C8149FA0ADB203403E /* GmailMessageView.swift */; };
+		0B3CB519FA43C003457E06CB /* LocalizationJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D494EE3CCAD57763076ED57 /* LocalizationJourneyTests.swift */; };
 		0CE520513564C2856C889BC2 /* RecordingProvenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B07E2228630BD1678C3BD3 /* RecordingProvenanceTests.swift */; };
 		0D77BBB7DD301095D55793D3 /* MorningHomePlaybackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95846B664CABA2FF92608E74 /* MorningHomePlaybackView.swift */; };
 		10ADCA569D6E0BF06003BACC /* MorningStore+Calendly.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63F6AC73F5F57FFE8AA5C818 /* MorningStore+Calendly.swift */; };
@@ -282,6 +283,7 @@
 		86B12EF7D60AB60D6F04CA6C /* MorningOperatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningOperatorApp.swift; sourceTree = "<group>"; };
 		8814239D71C55071D657DCCB /* MorningLiveActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningLiveActivityTests.swift; sourceTree = "<group>"; };
 		88FFCA6CADABADA36EAE231D /* MorningStore+NativeMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+NativeMoment.swift"; sourceTree = "<group>"; };
+		8D494EE3CCAD57763076ED57 /* LocalizationJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationJourneyTests.swift; sourceTree = "<group>"; };
 		8E59C8B614136CA85666B795 /* MorningStore+Budget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Budget.swift"; sourceTree = "<group>"; };
 		8F32518AD6A5C1556F1A6498 /* MorningStore+Opening.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Opening.swift"; sourceTree = "<group>"; };
 		7E7342CD149147718D218B55 /* GmailAttentionJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GmailAttentionJourneyTests.swift; sourceTree = "<group>"; };
@@ -427,6 +429,7 @@
 				57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */,
 				129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */,
 				31C92D40B6EFA01488AD3742 /* InterfaceTourTests.swift */,
+				8D494EE3CCAD57763076ED57 /* LocalizationJourneyTests.swift */,
 				B90072D117F6AB3DF784AC2F /* MorningBriefingTests.swift */,
 				72E79F26B162E0A475EA179A /* MorningEntryTests.swift */,
 				B05B450759EB33E8114C1F64 /* MorningHomePlaybackTests.swift */,
@@ -854,6 +857,7 @@
 				655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */,
 				9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */,
 				CD3F1E802A61F825BE343107 /* InterfaceTourTests.swift in Sources */,
+				0B3CB519FA43C003457E06CB /* LocalizationJourneyTests.swift in Sources */,
 				613C8FFC0E2ACE7A6276D961 /* MorningBriefingTests.swift in Sources */,
 				81408D1A55F959D74EF5D631 /* MorningEntryTests.swift in Sources */,
 				2791917410CC55912CD69F2E /* MorningHomePlaybackTests.swift in Sources */,

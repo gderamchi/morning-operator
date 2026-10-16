@@ -104,6 +104,7 @@ final class MorningHomePlaybackTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
             "--ui-testing-automation", "--ui-testing-hands-free", "--ui-testing-workspace=\(workspace)",
             night ? "--dark-preview" : "--light-preview", night ? "--theme-phase=night" : "--theme-phase=morning",
+            "-more.appLanguage", french ? "fr" : "en",
             "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"] + flags
         app.launch()
         let marker = app.staticTexts["qa.testWorkspace"]

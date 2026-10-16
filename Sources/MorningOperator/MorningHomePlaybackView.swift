@@ -5,6 +5,7 @@ import MorningApple
 /// The landscape remains Home. Only spoken passages and a few controls sit over it.
 struct MorningHomePlaybackView: View {
     @Bindable var store: MorningStore
+    var openSettings: () -> Void
     @State private var displayedCaption: String?
     @State private var displayedCaptionBoundary: String?
     @State private var showingDetails = false
@@ -124,6 +125,10 @@ struct MorningHomePlaybackView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: toggleControls)
                 .accessibilityIdentifier("morning.captions")
+                #if DEBUG
+                .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--ui-testing")
+                    ? "\(store.session?.id.uuidString ?? "")|\(store.currentStep?.id.uuidString ?? "")" : "")
+                #endif
                 .accessibilityAction(named: Text(controlsLabel), toggleControls)
 
                 if controlsVisible {
@@ -149,6 +154,7 @@ struct MorningHomePlaybackView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; controlsVisible = false; captionScrolling = false; showingDetails = false }
         }
+        .onChange(of: AppLanguage.code) { _, _ in displayedCaption = nil; showingDetails = false }
         .onChange(of: showingDetails) { _, presented in
             store.morningDetailPresented = presented
             if presented { store.pause() } else { keepControlsVisible() }
@@ -215,6 +221,8 @@ struct MorningHomePlaybackView: View {
                     Button(french ? "Interagir" : "Interact") {
                         keepControlsVisible(); showingDetails = true
                     }.accessibilityIdentifier("morning.details")
+                    Button(String(localized: "Settings", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), action: openSettings)
+                        .accessibilityIdentifier("morning.settings")
                     Button(french ? "Arrêter mon matin" : "Stop my morning", role: .destructive) { store.stop() }
                         .accessibilityIdentifier("morning.stop")
                 } label: {
@@ -244,7 +252,7 @@ struct MorningHomePlaybackView: View {
                     if store.currentOutlookInboxContext != nil { OutlookInboxMomentView(store: store) }
                     if store.session?.status == .paused,
                        store.currentStep?.automation == .todayCalendar || store.currentStep?.automation == .morningBriefing {
-                        Button("Update this recap") { store.updateCurrentBriefing() }
+                        Button(String(localized: "Update this recap", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) { store.updateCurrentBriefing() }
                             .disabled(store.nativeMoment.isActive || store.voiceInputBlocksPlayback)
                             .accessibilityIdentifier("briefing.updateCurrent")
                     }

@@ -61,7 +61,7 @@ final class MorningBriefingTests: XCTestCase {
         let state = app.staticTexts["run.state"]
         let step = app.staticTexts["run.step"]
         XCTAssertTrue(step.waitForExistence(timeout: 5))
-        XCTAssertEqual(state.value as? String, "running")
+        XCTAssertTrue(MorningUITestState.labels(for: "running").contains(state.value as? String ?? ""))
         let before = step.label
         XCTAssertEqual(before, "Your morning")
 
@@ -78,7 +78,7 @@ final class MorningBriefingTests: XCTestCase {
         MorningUITestNavigation.selectTab("Morning", in: app)
         XCTAssertTrue(step.waitForExistence(timeout: 5))
         XCTAssertEqual(step.label, before)
-        XCTAssertEqual(state.value as? String, "running")
+        XCTAssertTrue(MorningUITestState.labels(for: "running").contains(state.value as? String ?? ""))
         attach("synthetic-preview-refresh-preserves-active-moment", app)
         MorningUITestNavigation.tapButton("run.controls", in: app)
         MorningUITestNavigation.tapButton("run.stop", in: app)
@@ -117,7 +117,7 @@ final class MorningBriefingTests: XCTestCase {
         // The recap may already have ended and handed over to the routine.
         if app.buttons["opening.routine"].exists { MorningUITestNavigation.chooseRoutineAtOpening(in: app) }
         XCTAssertTrue(opening.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["run.state"].value as? String, "running")
+        XCTAssertTrue(MorningUITestState.labels(for: "running").contains(app.staticTexts["run.state"].value as? String ?? ""))
         XCTAssertEqual(app.staticTexts["run.step"].label, "Your morning")
         MorningUITestNavigation.tapButton("run.controls", in: app)
         MorningUITestNavigation.tapButton("run.stop", in: app)

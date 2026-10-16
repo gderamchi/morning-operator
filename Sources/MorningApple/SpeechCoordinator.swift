@@ -1,6 +1,7 @@
 import AVFAudio
 import Foundation
 import Observation
+import MorningCore
 
 public enum SpeechPlaybackState: String, Sendable, Equatable {
     case idle, preparing, speaking, paused
@@ -12,8 +13,8 @@ public enum SpeechPlaybackError: LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .emptyText: String(localized: "There is no text to read.", bundle: .module)
-        case .audioUnavailable(let reason): String(localized: "Audio output is unavailable: \(reason)", bundle: .module)
+        case .emptyText: String(localized: "There is no text to read.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .audioUnavailable(let reason): String(localized: "Audio output is unavailable: \(reason)", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }
@@ -127,19 +128,30 @@ public final class SpeechCoordinator: NSObject {
         captionProgress.caption(omittingInitialPrefix: prefix)
     }
     public var usesDuplexPlayback: Bool { duplexOutput != nil }
-    /// A persisted choice may become unavailable after a system voice is removed.
-    /// Nil, unknown, and unavailable choices use an available voice matching the system language.
-    public var voiceIdentifier: String?
+    /// Only an installed voice in the app's language can become a persisted choice.
+    /// This also repairs a saved English voice when the app is opened in French.
+    public var voiceIdentifier: String? {
+        get { chosenVoiceIdentifier }
+        set {
+            chosenVoiceIdentifier = SpeechVoicePolicy.validatedIdentifier(newValue,
+                from: availableVoices, language: preferredLanguage)
+        }
+    }
+    private var chosenVoiceIdentifier: String?
     public var isSpeaking: Bool { state == .speaking }
-    public var preferredLanguage: String { AVSpeechSynthesisVoice.currentLanguageCode() }
+    public var preferredLanguage: String { AppLanguage.localeIdentifier }
+
+    public func repairVoiceSelection() {
+        voiceIdentifier = chosenVoiceIdentifier
+    }
 
     public var statusText: String {
         if let lastError { return lastError }
         switch state {
-        case .idle: return String(localized: "Ready to speak", bundle: .module)
-        case .preparing: return String(localized: "Preparing audio…", bundle: .module)
-        case .speaking: return String(localized: "Speaking…", bundle: .module)
-        case .paused: return String(localized: "Paused", bundle: .module)
+        case .idle: return String(localized: "Ready to speak", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .preparing: return String(localized: "Preparing audio…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .speaking: return String(localized: "Speaking…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .paused: return String(localized: "Paused", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 
@@ -150,13 +162,13 @@ public final class SpeechCoordinator: NSObject {
 
     public var selectedVoice: SpeechVoiceDescriptor? {
         let voices = availableVoices
-        if let voiceIdentifier, let selected = voices.first(where: { $0.id == voiceIdentifier }) { return selected }
+        if let voiceIdentifier, let selected = voices.first(where: { $0.id == voiceIdentifier && matchesPreferredLanguage($0.language) }) { return selected }
         return SpeechVoicePolicy.recommended(from: voices, language: preferredLanguage,
             systemVoiceID: AVSpeechSynthesisVoice(language: preferredLanguage)?.identifier)
     }
 
     public var selectedVoiceSummary: String {
-        guard let voice = selectedVoice else { return String(localized: "Device language", bundle: .module) }
+        guard let voice = selectedVoice else { return String(localized: "No compatible installed voice", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
         return "\(voice.name) · \(voice.quality.displayName)"
     }
 
@@ -170,7 +182,7 @@ public final class SpeechCoordinator: NSObject {
 
     public var availableVoices: [SpeechVoiceDescriptor] {
         AVSpeechSynthesisVoice.speechVoices()
-            .filter { Self.isBuiltInVoice($0) }
+            .filter { Self.isBuiltInVoice($0) && matchesPreferredLanguage($0.language) }
             .map { SpeechVoiceDescriptor(id: $0.identifier, name: $0.name, language: $0.language,
                 quality: SpeechVoiceQuality(rawValue: $0.quality.rawValue) ?? .standard) }
             .sorted {
@@ -272,6 +284,7 @@ public final class SpeechCoordinator: NSObject {
     }
 
     private func beginSpeech(_ text: String, requestID: UUID) {
+        repairVoiceSelection()
         lastError = nil
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
@@ -291,7 +304,7 @@ public final class SpeechCoordinator: NSObject {
                 enqueueSpeech(text)
             } catch {
                 guard speechRequestID == requestID else { return }
-                failBeforeSpeaking(SpeechPlaybackError.audioUnavailable(error.localizedDescription))
+                failBeforeSpeaking(SpeechPlaybackError.audioUnavailable(error.moreDescription))
             }
         }
     }
@@ -301,11 +314,11 @@ public final class SpeechCoordinator: NSObject {
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         if let selected = selectedVoice, let voice = AVSpeechSynthesisVoice(identifier: selected.id), Self.isBuiltInVoice(voice) {
             utterance.voice = voice
-        } else if let voice = AVSpeechSynthesisVoice(language: preferredLanguage), Self.isBuiltInVoice(voice) {
+        } else if let voice = AVSpeechSynthesisVoice(language: preferredLanguage), Self.isBuiltInVoice(voice), matchesPreferredLanguage(voice.language) {
             // No foreign-language or novelty fallback is chosen by our ranking policy.
             utterance.voice = voice
         } else {
-            failBeforeSpeaking(.audioUnavailable(String(localized: "No supported system voice is available for this language. Choose an installed voice in Settings.", bundle: .module)))
+            failBeforeSpeaking(.audioUnavailable(String(localized: "No supported system voice is available for this language. Choose an installed voice in Settings.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)))
             return
         }
         if let duplexOutput, let requestID = speechRequestID, let voice = utterance.voice {
@@ -323,7 +336,7 @@ public final class SpeechCoordinator: NSObject {
                     let pending = completion; completion = nil
                     audioSession.cancel(); pending?.resume()
                 case .failure(let error):
-                    failBeforeSpeaking(.audioUnavailable(error is CancellationError ? "Speech stopped." : "Duplex speech output could not finish safely."))
+                    failBeforeSpeaking(.audioUnavailable(error is CancellationError ? String(localized: "Speech stopped.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) : String(localized: "Duplex speech output could not finish safely.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)))
                 }
             })
         } else {
@@ -369,12 +382,12 @@ public final class SpeechCoordinator: NSObject {
                 guard prepared, !Task.isCancelled, speechRequestID == requestID else { return }
                 if let duplexOutput {
                     if duplexOutput.resume() { state = .speaking }
-                    else { failBeforeSpeaking(.audioUnavailable("Duplex speech could not resume.")) }
+                    else { failBeforeSpeaking(.audioUnavailable(String(localized: "Duplex speech could not resume.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))) }
                 } else if synthesizer.continueSpeaking() { state = .speaking }
-                else { failBeforeSpeaking(.audioUnavailable(String(localized: "This speech could not resume. Play it again when ready.", bundle: .module))) }
+                else { failBeforeSpeaking(.audioUnavailable(String(localized: "This speech could not resume. Play it again when ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))) }
             } catch {
                 guard speechRequestID == requestID else { return }
-                failBeforeSpeaking(.audioUnavailable(error.localizedDescription))
+                failBeforeSpeaking(.audioUnavailable(error.moreDescription))
             }
         }
     }
@@ -425,17 +438,17 @@ public final class SpeechCoordinator: NSObject {
         if state == .preparing { stop() }
         else { pause() }
         if state == .paused {
-            lastError = outputChanged ? String(localized: "Audio output changed. Resume when you are ready to listen.", bundle: .module)
-                : String(localized: "Speech was interrupted. Resume when you are ready.", bundle: .module)
+            lastError = outputChanged ? String(localized: "Audio output changed. Resume when you are ready to listen.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                : String(localized: "Speech was interrupted. Resume when you are ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         } else {
             stop()
-            lastError = outputChanged ? String(localized: "Audio output changed. Play the voice again when ready.", bundle: .module)
-                : String(localized: "Speech stopped during an interruption. Play it again when ready.", bundle: .module)
+            lastError = outputChanged ? String(localized: "Audio output changed. Play the voice again when ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                : String(localized: "Speech stopped during an interruption. Play it again when ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 
     private func failBeforeSpeaking(_ error: SpeechPlaybackError) {
-        lastError = error.localizedDescription
+        lastError = error.moreDescription
         currentText = nil
         captionProgress.reset()
         currentUtterance = nil
@@ -488,7 +501,7 @@ public final class SpeechCoordinator: NSObject {
         if #available(iOS 27.0, *) {
             // Xcode 27 AVAudioSession.h makes this public on iOS 27, not just watchOS.
             let activated = try await session.activate(options: [])
-            guard activated else { throw SpeechPlaybackError.audioUnavailable(String(localized: "The audio session did not activate.", bundle: .module)) }
+            guard activated else { throw SpeechPlaybackError.audioUnavailable(String(localized: "The audio session did not activate.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)) }
         } else {
             try session.setActive(true)
         }
@@ -501,7 +514,7 @@ public final class SpeechCoordinator: NSObject {
         if #available(iOS 27.0, *) {
             let deactivated = try await session.deactivate(options: .notifyOthersOnDeactivation)
             guard deactivated else {
-                throw SpeechPlaybackError.audioUnavailable(String(localized: "The audio session could not be released. Try again before listening.", bundle: .module))
+                throw SpeechPlaybackError.audioUnavailable(String(localized: "The audio session could not be released. Try again before listening.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
             }
         } else {
             try session.setActive(false, options: .notifyOthersOnDeactivation)

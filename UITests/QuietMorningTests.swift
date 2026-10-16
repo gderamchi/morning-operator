@@ -271,7 +271,7 @@ final class QuietMorningTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Your rhythm, at your pace"].exists)
         XCTAssertFalse(app.staticTexts["planned"].exists)
         XCTAssertFalse(app.buttons["run.pause"].exists)
-        XCTAssertEqual(app.staticTexts["morning.heading"].value as? String, "stopped")
+        XCTAssertTrue(MorningUITestState.labels(for: "stopped").contains(app.staticTexts["morning.heading"].value as? String ?? ""))
         XCTAssertTrue(app.buttons["morning.step.0"].isHittable)
         attach("more-compact-stopped-morning", app)
         MorningUITestNavigation.revealMorningAction("run.start", in: app)

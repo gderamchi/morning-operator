@@ -81,7 +81,7 @@ struct MorningRootView: View {
                            weatherSynthetic: store.usesSyntheticBriefing,
                            needsSolarCity: store.briefing.settings.weatherLocation == nil, notice: store.notice,
                            session: store.session,
-                           playback: store.sessionActive && !store.privacyBlocksWork ? AnyView(MorningHomePlaybackView(store: store).id(store.currentStep?.id)) : nil,
+                           playback: store.sessionActive && !store.privacyBlocksWork ? AnyView(MorningHomePlaybackView(store: store, openSettings: { showingActions = false; showingSettings = true }).id(store.currentStep?.id)) : nil,
                            executionSummary: store.executionSummary,
                            begin: {
                                guard !store.sessionActive else { return }
@@ -102,7 +102,7 @@ struct MorningRootView: View {
                 .navigationDestination(for: HomeRoute.self) { route in
                     switch route {
                     case .settings:
-                        destinationContent(String(localized: "Settings")) { SetupView(store: store, openRoutine: { showingRoutineEditor = true }) }
+                        destinationContent(String(localized: "Settings", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) { SetupView(store: store, openRoutine: { showingRoutineEditor = true }) }
                             .toolbar {
                                 ToolbarItem(placement: .topBarTrailing) {
                                     Button { showingRoutineEditor = true } label: {
@@ -114,7 +114,7 @@ struct MorningRootView: View {
                     case .routine:
                         RoutineReviewEditor(store: store, onLearn: { showingLearn = true }, showsClose: false)
                     case .learn:
-                        destinationContent(String(localized: "Learn my morning"), displayTitle: String(localized: "Learn")) {
+                        destinationContent(String(localized: "Learn my morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), displayTitle: String(localized: "Learn", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
                             LearnView(store: store, onClose: { learnPushed = false; if store.routine != nil { showingRoutineEditor = true } })
                         }
                     case .history:
@@ -453,14 +453,14 @@ struct MorningRootView: View {
                 storageIsAvailable: store.storageIsAvailable, hasRoutine: store.routine != nil,
                 routineIsApproved: store.routine?.isApproved == true, sessionStatus: store.session?.status),
             consumedIDs: store.consumedMorningEntryIDs)
-        let waitingNotice = String(localized: "Your morning is waiting. Finish what you're doing here, then MORE can begin.")
+        let waitingNotice = String(localized: "Your morning is waiting. Finish what you're doing here, then MORE can begin.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         guard destination != .wait else {
             if scenePhase == .active, store.notice == nil { store.notice = waitingNotice }
             return
         }
         if store.notice == waitingNotice { store.notice = nil }
         if Date.now >= request.expiresAt {
-            store.notice = String(localized: "Your morning is ready when you are. Tap Start to begin.")
+            store.notice = String(localized: "Your morning is ready when you are. Tap Start to begin.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
         if let payload = router.invitationPayload {
             do {
@@ -470,7 +470,7 @@ struct MorningRootView: View {
                 if used == nil || used?.learningTarget != nil { destination = .revealMorning }
             } catch {
                 destination = .revealMorning
-                store.notice = String(localized: "Your invitation couldn't be saved. Start your morning when you're ready.")
+                store.notice = String(localized: "Your invitation couldn't be saved. Start your morning when you're ready.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             }
         }
         // Acknowledge before navigation changes trigger another view update. The
@@ -735,7 +735,7 @@ struct TodayView: View {
         HStack {
             Button(action: showReview) {
                 HStack(spacing: 8) {
-                    Text(Date.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                    Text(Date.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(AppLanguage.locale)))
                         .font(.raleway(.caption, .medium))
                     MorningDottedIcon(systemName: "chevron.down").frame(width: 16, height: 16).font(.raleway(.caption2, .regular))
                 }.foregroundStyle(MorningStyle.ink).frame(minHeight: 44).contentShape(Rectangle())
@@ -771,7 +771,7 @@ struct TodayView: View {
             Text(isFrench ? "bonjour" : "good morning").font(MorningTheme.Typography.title)
                 .background(MorningStyle.background)
                 .accessibilityIdentifier("morning.heading")
-                .accessibilityValue(store.session?.status == .stopped ? "stopped" : "")
+                .accessibilityValue(store.session?.status == .stopped ? String(localized: "Stopped", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : "")
             morningInvitationButton
             if !routine.isApproved {
                 Text("Draft").font(.raleway(.caption2)).foregroundStyle(MorningStyle.muted)
@@ -797,19 +797,19 @@ struct TodayView: View {
                 HStack(spacing: 4) {
                     MorningDottedIcon(systemName: "clock").frame(width: 18, height: 18)
                     if let upcoming {
-                        Text(upcoming.formatted(date: .omitted, time: .shortened)).monospacedDigit()
+                        Text(upcoming.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: AppLanguage.locale))).monospacedDigit()
                     }
                 }.font(.raleway(.caption2)).foregroundStyle(MorningStyle.muted).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                     .background(MorningStyle.background)
             }.buttonStyle(.plain)
-                .accessibilityLabel(upcoming == nil ? "Set morning invitation" : "Edit morning invitation")
-                .accessibilityValue(upcoming?.formatted(date: .complete, time: .shortened) ?? String(localized: "No upcoming invitation"))
+                .accessibilityLabel(upcoming == nil ? String(localized: "Set morning invitation", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Edit morning invitation", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                .accessibilityValue(upcoming?.formatted(Date.FormatStyle(date: .complete, time: .shortened, locale: AppLanguage.locale)) ?? String(localized: "No upcoming invitation", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 .accessibilityIdentifier("morning.invitation")
                 .disabled(!canEditInvitation || !store.storageIsAvailable)
         }
     }
 
-    private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
+    private var isFrench: Bool { AppLanguage.isFrench }
 
     private func purpose(for step: RoutineStep) -> String {
         func text(_ english: String, _ french: String) -> String { isFrench ? french : english }
@@ -939,8 +939,8 @@ struct TodayView: View {
         .buttonStyle(.plain)
         .background(current ? MorningStyle.selected : MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
         .overlay(MorningDottedFrame(cornerRadius: MorningTheme.Space.radius).fill(current ? MorningStyle.ink : MorningStyle.line))
-        .accessibilityLabel(complete ? "\(index + 1). \(step.title), \(step.durationMinutes) minutes, completed" : skipped ? "\(index + 1). \(step.title), \(step.durationMinutes) minutes, skipped" : "\(index + 1). \(step.title), \(step.durationMinutes) minutes")
-        .accessibilityHint(canArrange ? "Opens details. Hold to move this moment." : "Opens details")
+        .accessibilityLabel(complete ? String(localized: "\(index + 1). \(step.title), \(step.durationMinutes) minutes, completed", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : skipped ? String(localized: "\(index + 1). \(step.title), \(step.durationMinutes) minutes, skipped", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "\(index + 1). \(step.title), \(step.durationMinutes) minutes", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+        .accessibilityHint(canArrange ? String(localized: "Opens details. Hold to move this moment.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Opens details", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
         .accessibilityIdentifier("morning.step.\(index)")
         .accessibilityActions {
             if canArrange {
@@ -964,12 +964,12 @@ struct TodayView: View {
                 HStack(spacing: 6) {
                     MorningDottedIcon(systemName: store.session?.status == .paused ? "pause.fill" : "waveform").frame(width: 18, height: 18)
                         .accessibilityHidden(true)
-                    Text(store.session?.status == .paused ? "Paused" : "Now")
+                    Text(store.session?.status == .paused ? String(localized: "Paused", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Now", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                         .accessibilityIdentifier("run.state").accessibilityValue(store.stateLabel)
                 }.font(.raleway(.caption, .medium)).foregroundStyle(MorningStyle.accent)
                 Spacer()
             }
-            Text(store.currentStep?.title ?? String(localized: "Your morning"))
+            Text(store.currentStep?.title ?? String(localized: "Your morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 .font(.serif(.headline)).accessibilityIdentifier("run.step")
                 .accessibilityValue(store.openingRoutineStartObservation)
             if compact {
@@ -985,7 +985,7 @@ struct TodayView: View {
 
     private var closingMoment: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(store.shouldOfferCompletionReflection ? "Save a thought?" : "Morning complete.")
+            Text(store.shouldOfferCompletionReflection ? String(localized: "Save a thought?", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Morning complete.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 .font(.serif(.headline)).accessibilityIdentifier("run.step")
             Text(store.stateLabel).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 .accessibilityIdentifier("run.state").accessibilityValue(store.stateLabel)
@@ -1093,7 +1093,7 @@ private struct MorningActionDock: View {
                 }
                 .buttonStyle(SunriseTouchStyle())
                 .accessibilityLabel("Morning")
-                .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+                .accessibilityValue(expanded ? String(localized: "Expanded", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Collapsed", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 .accessibilityHint("Opens playback controls")
                 .accessibilityIdentifier("morning.actions")
                 .disabled(store.privacyBlocksWork || transitionPending)
@@ -1132,7 +1132,7 @@ private struct MorningActionDock: View {
     @ViewBuilder private var actionItems: some View {
         if let session = store.session, store.sessionActive {
             let intendsResume = session.status == .paused
-            action(intendsResume ? String(localized: "Continue") : String(localized: "Pause"), symbol: intendsResume ? .play : .pause,
+            action(intendsResume ? String(localized: "Continue", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Pause", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: intendsResume ? .play : .pause,
                    id: "morning.playback") {
                 // Honor the displayed command and original session, never toggle
                 // whatever state an interruption may have produced meanwhile.
@@ -1147,7 +1147,7 @@ private struct MorningActionDock: View {
             }
         } else if let routine = store.routine {
             let generation = store.dataGeneration
-            action(routine.isApproved ? String(localized: "Play") : String(localized: "Review"),
+            action(routine.isApproved ? String(localized: "Play", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Review", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
                    symbol: routine.isApproved ? .play : .review,
                    id: routine.isApproved ? "run.start" : "morning.reviewDraft",
                    keepsExpanded: routine.isApproved) {
@@ -1158,7 +1158,7 @@ private struct MorningActionDock: View {
                 } else { edit() }
             }
         } else {
-            action(String(localized: "Sample"), symbol: .play, id: "morning.sample") { store.loadSample() }
+            action(String(localized: "Sample", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: .play, id: "morning.sample") { store.loadSample() }
         }
     }
 
@@ -1188,7 +1188,7 @@ private struct MorningActionDock: View {
     private func readyBar(_ routine: RoutineVersion) -> some View {
         // The question sits above its two answers so neither has to squeeze the other.
         return VStack(spacing: 2) {
-            Text(routine.isSynthetic ? "Ready for this sample morning?" : "Ready for your morning?")
+            Text(routine.isSynthetic ? String(localized: "Ready for this sample morning?", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Ready for your morning?", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 .font(.raleway(.caption, .medium)).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
@@ -1285,7 +1285,7 @@ private struct MorningSunHome: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
-    private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
+    private var isFrench: Bool { AppLanguage.isFrench }
     private var finishedToday: Bool {
         guard let done = session?.completedAt else { return false }
         return Calendar.current.isDateInToday(done)

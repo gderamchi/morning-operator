@@ -1,3 +1,4 @@
+import MorningCore
 import Foundation
 
 public enum SpeechVoiceQuality: Int, Sendable, Equatable {
@@ -5,9 +6,9 @@ public enum SpeechVoiceQuality: Int, Sendable, Equatable {
 
     public var displayName: String {
         switch self {
-        case .standard: String(localized: "Standard", bundle: .module)
-        case .enhanced: String(localized: "Enhanced", bundle: .module)
-        case .premium: String(localized: "Premium", bundle: .module)
+        case .standard: String(localized: "Standard", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .enhanced: String(localized: "Enhanced", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .premium: String(localized: "Premium", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }
@@ -40,6 +41,11 @@ enum SpeechVoicePolicy {
             if (lhs.id == systemVoiceID) != (rhs.id == systemVoiceID) { return lhs.id == systemVoiceID }
             return lhs.id < rhs.id
         }.first
+    }
+
+    static func validatedIdentifier(_ id: String?, from voices: [SpeechVoiceDescriptor], language: String) -> String? {
+        guard let id, voices.contains(where: { $0.id == id && languageMatch($0.language, language) > 0 }) else { return nil }
+        return id
     }
 
     static func languageMatch(_ candidate: String, _ preferred: String) -> Int {

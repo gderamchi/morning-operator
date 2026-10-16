@@ -74,7 +74,7 @@ struct MorningRoutineDataView: View {
             importGeneration = nil
             switch result {
             case .success(let urls): if let url = urls.first { openRoutineFile(url, generation: pickerGeneration) }
-            case .failure(let error): importError = error.localizedDescription
+            case .failure(let error): importError = error.moreDescription
             }
         }
         .onChange(of: importing) { _, presenting in if !presenting { presentLoadedImport() } }
@@ -123,7 +123,7 @@ struct MorningRoutineDataView: View {
             } catch {
                 guard !Task.isCancelled, importAttempt == attempt, store.dataGeneration == generation, !store.privacyBlocksWork else { return }
                 importLoading = false
-                importError = String(localized: "This file couldn't be opened: \(error.localizedDescription) Your current routine is unchanged.")
+                importError = String(localized: "This file couldn't be opened: \(error.moreDescription) Your current routine is unchanged.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             }
             importTask = nil
         }

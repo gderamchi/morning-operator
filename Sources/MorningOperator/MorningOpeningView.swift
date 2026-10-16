@@ -1,3 +1,4 @@
+import MorningCore
 import SwiftUI
 import MorningApple
 
@@ -88,9 +89,9 @@ struct MorningOpeningView: View {
 
     private func title(_ choice: MorningOpeningChoice) -> String {
         switch choice {
-        case .brief: String(localized: "Hear my recap")
-        case .ritual: String(localized: "Start my routine")
-        case .stop: String(localized: "Stop")
+        case .brief: String(localized: "Hear my recap", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .ritual: String(localized: "Start my routine", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .stop: String(localized: "Stop", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
 

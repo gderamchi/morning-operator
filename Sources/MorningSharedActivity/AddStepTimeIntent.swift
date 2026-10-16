@@ -27,7 +27,7 @@ struct AddStepTimeIntent: LiveActivityIntent {
               // end. Older/malformed bound requests must not become unguarded
               // voice requests merely because their token is missing.
               session == nil ? expectedEndToken == nil : expectedEnd != nil else {
-            return .result(dialog: "This step timer is unavailable.")
+            return .result(dialog: IntentDialog(stringLiteral: String(localized: "This step timer is unavailable.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
         }
         let result = await StepTimerExtension.addTwoMinutes(sessionID: sessionID,
             stepID: stepID, expectedEnd: expectedEnd)
@@ -46,10 +46,10 @@ struct AddStepTimeIntent: LiveActivityIntent {
         }
         #endif
         switch result {
-        case .extended: return .result(dialog: "Two minutes added.")
-        case .duplicate: return .result(dialog: "This timer already changed.")
-        case .limitReached: return .result(dialog: "This step has reached its extension limit.")
-        case nil: return .result(dialog: "There is no current step timer.")
+        case .extended: return .result(dialog: IntentDialog(stringLiteral: String(localized: "Two minutes added.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
+        case .duplicate: return .result(dialog: IntentDialog(stringLiteral: String(localized: "This timer already changed.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
+        case .limitReached: return .result(dialog: IntentDialog(stringLiteral: String(localized: "This step has reached its extension limit.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
+        case nil: return .result(dialog: IntentDialog(stringLiteral: String(localized: "There is no current step timer.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
         }
     }
 }

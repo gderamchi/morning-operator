@@ -115,7 +115,7 @@ import UserNotifications
         let interval = timer.endsAt.timeIntervalSinceNow
         guard interval > 1 else { return }
         let content = UNMutableNotificationContent()
-        content.title = String(localized: "Time's up", bundle: .module)
+        content.title = String(localized: "Time's up", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         if let nextLabel { content.body = nextLabel }
         content.sound = .default
         content.interruptionLevel = .timeSensitive
@@ -164,7 +164,7 @@ import UserNotifications
         let staleDate = timeIsUp ? Date().addingTimeInterval(MorningLiveActivityCoordinator.staleAfter * 15)
             : state.staleDate(staleAfter: MorningLiveActivityCoordinator.staleAfter)
         let alert = timeIsUp ? AlertConfiguration(
-            title: LocalizedStringResource(stringLiteral: String(localized: "Time's up", bundle: .module)),
+            title: LocalizedStringResource(stringLiteral: String(localized: "Time's up", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)),
             body: LocalizedStringResource(stringLiteral: stepTimer.nextLabel), sound: .default) : nil
         await Self.update(id: activity.id, content: ActivityContent(state: state, staleDate: staleDate), alert: alert, expectedTimer: timer)
         #endif

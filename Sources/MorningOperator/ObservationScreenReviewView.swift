@@ -53,13 +53,13 @@ struct ObservationScreenReviewView: View {
                         Button("Remove my correction", role: .destructive) {
                             labelFocused = false
                             if store.removeFrameReview(sampleID: sampleID, expected: acquisition) { dismiss() }
-                            else { message = store.notice ?? String(localized: "The change could not be saved. Try again.") }
+                            else { message = store.notice ?? String(localized: "The change could not be saved. Try again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
                         }.disabled(blocked).accessibilityIdentifier("sampleLabel.reset")
                     }
                 } footer: {
                     Text(existing == nil
-                         ? "Unknown screens stay visible in your review and are left out of new activity suggestions."
-                         : "Removing your correction restores the original interpretation, if one is available.")
+                         ? String(localized: "Unknown screens stay visible in your review and are left out of new activity suggestions.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                         : String(localized: "Removing your correction restores the original interpretation, if one is available.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 }
                 Section {
                     if quotes.isEmpty {
@@ -116,7 +116,7 @@ struct ObservationScreenReviewView: View {
                 label: unknown ? nil : label.trimmingCharacters(in: .whitespacesAndNewlines),
                 evidenceQuote: unknown ? nil : quote, reviewedAt: Date())
             if store.saveFrameReview(review, expected: acquisition) { dismiss() }
-            else { message = store.notice ?? String(localized: "The change could not be saved. Try again.") }
-        } catch { message = error.localizedDescription }
+            else { message = store.notice ?? String(localized: "The change could not be saved. Try again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        } catch { message = error.moreDescription }
     }
 }

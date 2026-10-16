@@ -23,14 +23,14 @@ struct MorningPrivacyView: View {
             }
             Section("Saved in MORE") {
                 if store.privacyInventoryIsReadable {
-                    LabeledContent("Current routine", value: store.routine == nil ? String(localized: "None") : "1")
-                    LabeledContent("Previous routine", value: store.previousRoutine == nil ? String(localized: "None") : "1")
+                    LabeledContent("Current routine", value: store.routine == nil ? String(localized: "None", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : "1")
+                    LabeledContent("Previous routine", value: store.previousRoutine == nil ? String(localized: "None", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : "1")
                     LabeledContent("Saved mornings", value: String(store.history.runs.count))
-                    countRow(String(localized: "Observations"), value: String(store.observationArchive.entries.count), identifier: "privacy.observations")
-                    countRow(String(localized: "Saved thoughts & ideas"), value: String(store.captures.count), identifier: "privacy.captures")
-                    countRow(String(localized: "Saved choices"), value: store.routinePreferencesIssue == nil ? String(store.routinePreferences.entries.count) : String(localized: "Unavailable"), identifier: "privacy.choices")
+                    countRow(String(localized: "Observations", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: String(store.observationArchive.entries.count), identifier: "privacy.observations")
+                    countRow(String(localized: "Saved thoughts & ideas", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: String(store.captures.count), identifier: "privacy.captures")
+                    countRow(String(localized: "Saved choices", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: store.routinePreferencesIssue == nil ? String(store.routinePreferences.entries.count) : String(localized: "Unavailable", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), identifier: "privacy.choices")
                 } else {
-                    Text(store.privacyBlocksWork ? "Saved data is unavailable while removal needs attention." : "Saved data couldn’t be read. You can still choose to remove it.")
+                    Text(store.privacyBlocksWork ? String(localized: "Saved data is unavailable while removal needs attention.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Saved data couldn’t be read. You can still choose to remove it.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 }
                 Text("This also includes observation text and corrections, retained quotations, suggestions, recording recovery copies, app activity, invitation settings, your chosen calendars and weather city, and local Apple-app save receipts.")
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
@@ -124,7 +124,7 @@ struct MorningPrivacyView: View {
                     ProgressView("Removing local data…")
                         .accessibilityIdentifier("privacy.removing")
                 } else {
-                    Button(store.privacyHasInterruptedRemoval ? "Retry removing local data" : "Forget MORE’s local data", role: .destructive) {
+                    Button(store.privacyHasInterruptedRemoval ? String(localized: "Retry removing local data", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Forget MORE’s local data", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), role: .destructive) {
                         confirmingRemoval = true
                     }.accessibilityIdentifier("privacy.forget")
                 }

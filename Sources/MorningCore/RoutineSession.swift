@@ -1,6 +1,17 @@
 import Foundation
 
-public enum SessionStatus: String, Codable, Sendable { case ready, running, paused, completed, stopped }
+public enum SessionStatus: String, Codable, Sendable {
+    case ready, running, paused, completed, stopped
+    public var displayName: String {
+        switch self {
+        case .ready: String(localized: "Ready", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .running: String(localized: "In progress", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .paused: String(localized: "Paused", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .completed: String(localized: "Complete", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .stopped: String(localized: "Stopped", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        }
+    }
+}
 public enum SessionEventKind: String, Codable, Sendable { case started, paused, resumed, stepCompleted, stepSkipped, completed, stopped }
 public struct SessionEvent: Codable, Sendable, Identifiable, Equatable {
     public let id: UUID
@@ -15,10 +26,10 @@ public enum SessionError: Error, LocalizedError, Equatable, Sendable {
     case routineNeedsApproval, emptyRoutine, invalidRoutine, invalidTransition
     public var errorDescription: String? {
         switch self {
-        case .routineNeedsApproval: String(localized: "Review and approve this routine before starting.", bundle: .module)
-        case .emptyRoutine: String(localized: "Add at least one step before starting your routine.", bundle: .module)
-        case .invalidRoutine: String(localized: "Each routine step needs a unique identity, a title and a positive duration.", bundle: .module)
-        case .invalidTransition: String(localized: "That command is not available in the current session state.", bundle: .module)
+        case .routineNeedsApproval: String(localized: "Review and approve this routine before starting.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .emptyRoutine: String(localized: "Add at least one step before starting your routine.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidRoutine: String(localized: "Each routine step needs a unique identity, a title and a positive duration.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidTransition: String(localized: "That command is not available in the current session state.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }

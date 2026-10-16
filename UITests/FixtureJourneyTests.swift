@@ -391,10 +391,10 @@ final class FixtureJourneyTests: XCTestCase {
         let state = app.staticTexts["run.state"]
         XCTAssertTrue(state.waitForExistence(timeout: 5), file: file, line: line)
         let deadline = Date().addingTimeInterval(5)
-        while accessibleText(state) != expected, Date() < deadline {
+        while !MorningUITestState.labels(for: expected).contains(accessibleText(state)), Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        XCTAssertEqual(accessibleText(state), expected, file: file, line: line)
+        XCTAssertTrue(MorningUITestState.labels(for: expected).contains(accessibleText(state)), accessibleText(state), file: file, line: line)
     }
 
     private func stepTitle(in app: XCUIApplication) -> String {
@@ -605,5 +605,20 @@ enum MorningUITestNavigation {
         XCTAssertTrue(routine.isHittable, app.debugDescription, file: file, line: line)
         routine.tap()
         XCTAssertTrue(routine.waitForNonExistence(timeout: 5), app.debugDescription, file: file, line: line)
+    }
+}
+
+/// Lifecycle tests accept the human state in either supported app language.
+/// LocalizationJourneyTests separately enforce the selected language.
+enum MorningUITestState {
+    static func labels(for state: String) -> [String] {
+        switch state {
+        case "ready": ["Ready", "Prêt"]
+        case "running": ["In progress", "En cours"]
+        case "paused": ["Paused", "En pause"]
+        case "completed": ["Complete", "Terminé"]
+        case "stopped": ["Stopped", "Arrêté"]
+        default: [state]
+        }
     }
 }

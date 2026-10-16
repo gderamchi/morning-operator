@@ -210,7 +210,7 @@ struct APIConnectionsView: View {
             catch {
                 guard expected == revision, !Task.isCancelled, !privacyBlocked else { return }
                 message = APIConnectionPresentation.failureMessage(error, french: locale.language.languageCode?.identifier == "fr")
-                technicalMessage = error.localizedDescription
+                technicalMessage = error.moreDescription
             }
         }
     }
@@ -244,6 +244,9 @@ private struct APIActionPickerView: View {
                 PageHeading(eyebrow: accountName, title: text("What MORE can do", "Ce que MORE peut faire"),
                     subtitle: text("Choose an action, complete its details, then review it before running.",
                                    "Choisissez une action, complétez ses détails, puis vérifiez-la avant de la lancer."))
+                Text(text("Action names, field options and technical descriptions are supplied by the service and may use its language.",
+                          "Les noms d’actions, options des champs et descriptions techniques sont fournis par le service et peuvent utiliser sa langue."))
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 if loading { ProgressView(text("Finding your available actions…", "Recherche des actions disponibles…")) }
                 if let message {
                     Card {
@@ -411,7 +414,7 @@ private struct APIActionForm: View {
             Text(review).font(MorningTheme.Typography.body).textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            Text(ConnectedActionReviewError.unreadable.localizedDescription)
+            Text(ConnectedActionReviewError.unreadable.moreDescription)
                 .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
         }
     }
@@ -429,15 +432,22 @@ private struct APIActionForm: View {
                 } else if type == "string" && !options.isEmpty {
                     Picker(label, selection: Binding(get: { values[key] ?? "" }, set: { values[key] = $0 })) {
                         Text(text("Choose", "Choisir")).tag("")
-                        ForEach(options, id: \.self) { Text($0).tag($0) }
+                        ForEach(options, id: \.self) { Text(verbatim: $0).tag($0) }
                     }
+                    Text(text("Options from the service, shown in its original language.",
+                              "Options fournies par le service, affichées dans leur langue d’origine."))
+                        .font(.raleway(.caption)).foregroundStyle(.secondary)
                 } else if ["string", "number", "integer"].contains(type) {
                     TextField(label, text: Binding(get: { values[key] ?? "" }, set: { values[key] = $0 }), axis: .vertical)
                         .autocorrectionDisabled().textInputAutocapitalization(.never)
                 } else {
                     Text(label + text(" — describe this in your request above; MORE will prepare it for review.", " — décrivez ce détail dans votre demande ci-dessus ; MORE le préparera pour vérification.")).font(.raleway(.footnote))
                 }
-                if let description = definition["description"]?.stringValue { Text(description).font(.raleway(.caption)).foregroundStyle(.secondary) }
+                if let description = definition["description"]?.stringValue {
+                    DisclosureGroup(text("Service description (original language)", "Description du service (langue d’origine)")) {
+                        Text(verbatim: description).font(.raleway(.caption)).foregroundStyle(.secondary)
+                    }.font(.raleway(.caption))
+                }
             }
         }.padding(.vertical, 3)
     }
@@ -451,7 +461,7 @@ private struct APIActionForm: View {
             message = nil; result = nil
         } catch {
             reviewedArguments = nil
-            message = (error as? ConnectedActionReviewError)?.localizedDescription
+            message = (error as? ConnectedActionReviewError)?.moreDescription
                 ?? APIConnectionPresentation.failureMessage(error, french: locale.language.languageCode?.identifier == "fr")
         }
     }
@@ -520,7 +530,7 @@ private struct APIActionForm: View {
                     case .invalidProposal: message = text("MORE couldn't prepare valid details. Add more detail to your request, or use the available fields.", "MORE n’a pas pu préparer des détails valides. Précisez votre demande ou utilisez les champs disponibles.")
                     }
                 } else {
-                    message = (error as? ConnectedActionReviewError)?.localizedDescription
+                    message = (error as? ConnectedActionReviewError)?.moreDescription
                         ?? APIConnectionPresentation.failureMessage(error, french: locale.language.languageCode?.identifier == "fr")
                 }
             }

@@ -19,9 +19,9 @@ public enum AppTransitionError: LocalizedError, Sendable, Equatable {
     case invalidDate, invalidTimeZone, conflictingEventID
     public var errorDescription: String? {
         switch self {
-        case .invalidDate: String(localized: "The app transition has an invalid timestamp.", bundle: .module)
-        case .invalidTimeZone: String(localized: "The app transition has an invalid time zone.", bundle: .module)
-        case .conflictingEventID: String(localized: "That event identifier already belongs to a different app transition.", bundle: .module)
+        case .invalidDate: String(localized: "The app transition has an invalid timestamp.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidTimeZone: String(localized: "The app transition has an invalid time zone.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .conflictingEventID: String(localized: "That event identifier already belongs to a different app transition.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }
@@ -87,7 +87,9 @@ public struct AppTransitionDaySummary: Sendable, Equatable {
     public var observedReturnCount: Int? { returns?.count }
     public var hasEvents: Bool { eventCount > 0 }
     /// Only configured automations contribute; an empty log does not prove zero device usage.
-    public let coverageDescription = "Observed Shortcuts events for configured apps only. These are not pickups or a complete device-usage log."
+    public var coverageDescription: String {
+        String(localized: "Observed Shortcuts events for configured apps only. These are not pickups or a complete device-usage log.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+    }
 }
 
 public struct AppTransitionHistory: Codable, Sendable, Equatable {
