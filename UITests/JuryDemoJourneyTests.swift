@@ -139,6 +139,15 @@ final class JuryDemoJourneyTests: XCTestCase {
 
         XCUIDevice.shared.press(.home)
         try await Task.sleep(for: .seconds(9))
+        let systemScreen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        systemScreen.name = "jury-live-background-system-screen"
+        systemScreen.lifetime = .keepAlways
+        add(systemScreen)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let systemHierarchy = XCTAttachment(string: springboard.debugDescription)
+        systemHierarchy.name = "jury-live-background-springboard-hierarchy"
+        systemHierarchy.lifetime = .keepAlways
+        add(systemHierarchy)
         app.activate()
         let playback = revealLivePlayback(app)
         XCTAssertEqual(playback.label, "Pause", "The same morning must still run after backgrounding.")
@@ -165,22 +174,14 @@ final class JuryDemoJourneyTests: XCTestCase {
         returnToLiveHome(app)
 
         let resume = revealLivePlayback(app)
+        let captionBeforeResume = app.staticTexts["morning.caption"].label
         XCTAssertEqual(resume.label, "Continuer"); resume.tap()
         let running = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Pause"), object: resume)
         let resumeResult = await XCTWaiter.fulfillment(of: [running], timeout: 10)
         XCTAssertEqual(resumeResult, .completed)
-        await waitForLiveSpokenPassage(app)
-        openLiveSettings(app)
-        let resumedDetails = app.buttons["morning.details"]
-        XCTAssertTrue(resumedDetails.waitForExistence(timeout: 5)); resumedDetails.tap()
-        let resumedVoice = app.staticTexts["morning.voiceStatus"]
-        let resumedAudio = XCTNSPredicateExpectation(predicate: NSPredicate(format:
-            "label CONTAINS[cd] %@", "interrompre"), object: resumedVoice)
-        let resumedAudioResult = await XCTWaiter.fulfillment(of: [resumedAudio], timeout: 10)
-        XCTAssertEqual(resumedAudioResult, .completed,
-                       "Resume must start actual decoded audio, beyond the local Play label.")
+        await waitForLiveSpokenPassage(app, replacing: captionBeforeResume)
         attachLive("jury-live-resumed-real-audio", app)
-        app.buttons["morning.closeDetails"].tap()
+        openLiveSettings(app)
         let stop = app.buttons["morning.stop"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5)); stop.tap()
         XCTAssertTrue(stop.waitForNonExistence(timeout: 10))
@@ -260,6 +261,22 @@ final class JuryDemoJourneyTests: XCTestCase {
                        "A real acoustic answer must reach the backend and advance to its mail conversation.")
         attachLive("jury-acoustic-mail-response-after-real-input", app)
 
+        if ProcessInfo.processInfo.environment["MORE_JURY_NATIVE_REMINDER_PHONE"] == "1" {
+            // The external speaker supplies a real reminder request; only the
+            // app's EventKit readback/ACK can produce this confirmed passage.
+            print("JURY_ACOUSTIC_READY_FOR_REMINDER")
+            let reminderCreated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                guard caption.exists else { return false }
+                let value = caption.label.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_FR"))
+                return value.hasPrefix("le rappel est cree") &&
+                    !value.contains("pas ete cree") && !value.contains("a verifier")
+            }, object: caption)
+            let reminderResult = await XCTWaiter.fulfillment(of: [reminderCreated], timeout: 45)
+            XCTAssertEqual(reminderResult, .completed,
+                           "A real spoken request must create and reread the native reminder before the backend confirms it.")
+            attachLive("jury-acoustic-native-reminder-confirmed-after-readback", app)
+        }
+
         openLiveSettings(app)
         let details = app.buttons["morning.details"]
         XCTAssertTrue(details.waitForExistence(timeout: 5)); details.tap()
@@ -273,6 +290,207 @@ final class JuryDemoJourneyTests: XCTestCase {
         returnToLiveHome(app)
         XCTAssertTrue(app.buttons["morning.actions"].exists)
         #endif
+    }
+
+    func testStopPreparedRehearsalThroughOrdinaryUI() throws {
+        guard ProcessInfo.processInfo.environment["MORE_JURY_STOP_REHEARSAL_PHONE"] == "1" else {
+            throw XCTSkip("Set MORE_JURY_STOP_REHEARSAL_PHONE=1 only to stop the authorized demo rehearsal.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Rehearsal cleanup runs only on the physical demo iPhone.")
+        #else
+        continueAfterFailure = false
+        let app = try demoApplication()
+        app.launchArguments = ["-AppleLanguages", "(fr)"]
+        app.launch()
+        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
+        if app.scrollViews["morning.captions"].waitForExistence(timeout: 5) {
+            openLiveSettings(app)
+        } else {
+            openSettings(app)
+        }
+        let stop = app.buttons["morning.stop"]
+        if stop.exists { stop.tap(); XCTAssertTrue(stop.waitForNonExistence(timeout: 10)) }
+        returnToLiveHome(app)
+        XCTAssertFalse(app.staticTexts["morning.caption"].exists)
+        XCTAssertFalse(app.buttons["morning.playback"].exists)
+        XCTAssertTrue(app.buttons["morning.actions"].exists)
+        attachLive("jury-rehearsal-cleanup-idle", app)
+        #endif
+    }
+
+    /// Diagnostics only: numeric device logs establish whether raw input has a
+    /// signal. This makes no ASR, acoustic recognition or acceptance claim.
+    func testLivePhysicalPhoneRawMicrophoneDiagnostic() async throws {
+        guard ProcessInfo.processInfo.environment["MORE_JURY_RAW_MIC_PHONE"] == "1" else {
+            throw XCTSkip("Set MORE_JURY_RAW_MIC_PHONE=1 only for the authorized raw microphone diagnosis.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Raw microphone diagnosis requires a physical iPhone.")
+        #else
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = try demoApplication()
+        app.launchArguments = ["-AppleLanguages", "(fr)", "--jury-raw-microphone-diagnostic"]
+        defer { app.terminate() }
+        app.launch()
+        if app.buttons["permissions.allow"].waitForExistence(timeout: 3) {
+            finishRealPermissionSetup(app)
+            returnToLiveHome(app)
+        }
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
+        assertNoSpecialPresentation(app)
+        openSettings(app)
+        let previousStop = app.buttons["morning.stop"]
+        if previousStop.exists { previousStop.tap(); XCTAssertTrue(previousStop.waitForNonExistence(timeout: 10)) }
+        let listening = app.buttons["setup.voiceAccess"]
+        reveal(listening, in: app); listening.tap()
+        if app.buttons["voice.access.prepare"].waitForExistence(timeout: 3) {
+            app.buttons["voice.access.prepare"].tap()
+            handleRealSystemGrants()
+        }
+        app.buttons["voice.access.close"].tap()
+        returnToLiveHome(app)
+        app.buttons["morning.actions"].tap()
+        let begin = app.buttons["morning.begin"]
+        XCTAssertTrue(begin.waitForExistence(timeout: 5)); begin.tap()
+        handleRealSystemGrants()
+        await waitForLiveSpokenPassage(app)
+        attachLive("jury-raw-mic-diagnostic-real-audio-started", app)
+        print("JURY_RAW_MIC_READY")
+        try await Task.sleep(for: .seconds(25))
+        attachLive("jury-raw-mic-diagnostic-after-acoustic-window", app)
+        openLiveSettings(app)
+        let stop = app.buttons["morning.stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5)); stop.tap()
+        XCTAssertTrue(stop.waitForNonExistence(timeout: 10))
+        returnToLiveHome(app)
+        XCTAssertTrue(app.buttons["morning.actions"].exists)
+        XCTAssertFalse(app.staticTexts["morning.caption"].exists)
+        #endif
+    }
+
+    /// The compact activity is opened only by its observed MORE accessibility
+    /// label. Every action then requires a demo-only control identifier.
+    func testLivePhysicalPhoneDynamicIslandPauseResumeAndStop() async throws {
+        guard ProcessInfo.processInfo.environment["MORE_JURY_ISLAND_PHONE"] == "1" else {
+            throw XCTSkip("Set MORE_JURY_ISLAND_PHONE=1 only for the authorized Dynamic Island iPhone check.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Dynamic Island acceptance requires a physical iPhone.")
+        #else
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = try demoApplication()
+        app.launchArguments = ["-AppleLanguages", "(fr)"]
+        defer { app.terminate() }
+        app.launch()
+        if app.buttons["permissions.allow"].waitForExistence(timeout: 3) {
+            finishRealPermissionSetup(app)
+            returnToLiveHome(app)
+        }
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
+        assertNoSpecialPresentation(app)
+
+        openSettings(app)
+        let previousStop = app.buttons["morning.stop"]
+        if previousStop.exists {
+            previousStop.tap()
+            XCTAssertTrue(previousStop.waitForNonExistence(timeout: 10))
+        }
+        let listening = app.buttons["setup.voiceAccess"]
+        reveal(listening, in: app); listening.tap()
+        let access = app.staticTexts["voice.access.status"].firstMatch
+        XCTAssertTrue(access.waitForExistence(timeout: 5))
+        if app.buttons["voice.access.prepare"].exists {
+            app.buttons["voice.access.prepare"].tap()
+            handleRealSystemGrants()
+        }
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let value = access.label
+            return value.contains("Reconnaissance vocale : autorisée.") &&
+                value.contains("Microphone : autorisé.") && value.contains("Reconnaissance locale disponible")
+        }, object: access)
+        let accessResult = await XCTWaiter.fulfillment(of: [ready], timeout: 20)
+        XCTAssertEqual(accessResult, .completed, "The Island check requires real iOS voice authorization.")
+        app.buttons["voice.access.close"].tap()
+        returnToLiveHome(app)
+
+        app.buttons["morning.actions"].tap()
+        let begin = app.buttons["morning.begin"]
+        XCTAssertTrue(begin.waitForExistence(timeout: 5)); begin.tap()
+        handleRealSystemGrants()
+        await waitForLiveSpokenPassage(app)
+        let captionBeforePause = app.staticTexts["morning.caption"].label
+        attachLive("jury-island-real-audio-started", app)
+
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        XCUIDevice.shared.press(.home)
+        try await Task.sleep(for: .seconds(9))
+        let pause = expandedJuryIslandControl("jury.demo.island.pause", in: springboard)
+        pause.tap()
+        let resume = expandedJuryIslandControl("jury.demo.island.resume", in: springboard)
+        XCTAssertFalse(springboard.descendants(matching: .any)
+            .matching(identifier: "jury.demo.island.pause").firstMatch.exists,
+                       "The demo activity must publish its paused state before resuming.")
+        resume.tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10),
+                      "The Island resume link must bring the app to the foreground itself.")
+        let playback = revealLivePlayback(app)
+        XCTAssertEqual(playback.label, "Pause")
+        await waitForLiveSpokenPassage(app, replacing: captionBeforePause)
+        attachLive("jury-island-foreground-resume-real-audio", app)
+
+        XCUIDevice.shared.press(.home)
+        try await Task.sleep(for: .seconds(9))
+        let stop = expandedJuryIslandControl("jury.demo.island.stop", in: springboard)
+        stop.tap()
+        app.activate()
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10),
+                      "The demo Island Stop must end the actual morning.")
+        XCTAssertFalse(app.staticTexts["morning.caption"].exists)
+        XCTAssertFalse(app.buttons["morning.playback"].exists)
+        attachLive("jury-island-stopped-through-live-activity", app)
+        #endif
+    }
+
+    private func expandedJuryIslandControl(_ identifier: String, in springboard: XCUIApplication) -> XCUIElement {
+        let control = springboard.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if !control.waitForExistence(timeout: 5) || !control.isHittable {
+            let compact = springboard.otherElements.matching(identifier: "regular.view")
+                .containing(NSPredicate(format: "label BEGINSWITH[c] %@", "MORE."))
+            let compactAppeared = compact.firstMatch.waitForExistence(timeout: 10)
+            if !compactAppeared || compact.count != 1 {
+                let hierarchy = XCTAttachment(string: springboard.debugDescription)
+                hierarchy.name = "jury-island-missing-or-ambiguous-compact"
+                hierarchy.lifetime = .keepAlways
+                add(hierarchy)
+                let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                screenshot.name = "jury-island-before-compact-assertion"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+            }
+            XCTAssertTrue(compactAppeared,
+                          "The observed compact MORE activity must be present; no coordinate fallback is allowed.")
+            XCTAssertEqual(compact.count, 1, "An ambiguous MORE activity is not safe to open automatically.")
+            compact.firstMatch.press(forDuration: 1.2)
+        }
+        let expanded = control.waitForExistence(timeout: 10)
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = identifier
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        if !expanded {
+            let hierarchy = XCTAttachment(string: springboard.debugDescription)
+            hierarchy.name = "jury-island-missing-demo-controls"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        XCTAssertTrue(expanded && control.isHittable,
+                      "Only the demo-specific Island control may be tapped; the ordinary MORE activity is never controlled.")
+        return control
     }
 
     private func launchDemo() throws -> XCUIApplication {
@@ -345,13 +563,14 @@ final class JuryDemoJourneyTests: XCTestCase {
         }
     }
 
-    private func waitForLiveSpokenPassage(_ app: XCUIApplication) async {
+    private func waitForLiveSpokenPassage(_ app: XCUIApplication, replacing previous: String? = nil) async {
         let caption = app.staticTexts["morning.caption"]
         XCTAssertTrue(caption.waitForExistence(timeout: 10))
         let spoken = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let text = caption.label.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_FR"))
             let isPreparedPassage = ["bonjour", "matin prepare", "tu as dormi", "on regarde le message"].contains { text.contains($0) }
-            return isPreparedPassage && !["indisponible", "connexion", "configuree", "autorisation"].contains { text.contains($0) }
+            return (previous == nil || caption.label != previous) && isPreparedPassage &&
+                !["indisponible", "connexion", "configuree", "autorisation"].contains { text.contains($0) }
         }, object: caption)
         let result = await XCTWaiter.fulfillment(of: [spoken], timeout: 45)
         XCTAssertEqual(result, .completed,

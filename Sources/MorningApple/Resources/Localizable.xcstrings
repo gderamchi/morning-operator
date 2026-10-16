@@ -756,6 +756,12 @@
             "state": "translated",
             "value": "Le modèle local d’Apple ne sait pas lire la langue de ces observations. Votre routine n’a pas changé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple's local model cannot read the language of these observations. Your routine is unchanged."
+          }
         }
       }
     },
@@ -765,6 +771,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le modèle local d’Apple n’a pas pu terminer la lecture de ces observations. Votre routine n’a pas changé. Réessayez, ou écrivez votre routine vous-même."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple's local model could not finish reading these observations. Your routine is unchanged. Try again, or write your routine yourself."
           }
         }
       }
@@ -776,6 +788,12 @@
             "state": "translated",
             "value": "Le modèle local d’Apple a refusé de lire ces observations. Votre routine n’a pas changé. Vous pouvez choisir d’autres observations ou écrire votre routine vous-même."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple's local model declined to read these observations. Your routine is unchanged. You can choose other observations or write your routine yourself."
+          }
         }
       }
     },
@@ -785,6 +803,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le modèle local d’Apple est occupé. Votre routine n’a pas changé. Réessayez dans un instant."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple's local model is busy. Your routine is unchanged. Try again in a moment."
           }
         }
       }
@@ -811,6 +835,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le modèle local d’Apple n’est pas encore prêt sur cet appareil. Votre routine n’a pas changé. Réessayez plus tard, ou écrivez votre routine vous-même."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple's local model is not ready on this device yet. Your routine is unchanged. Try again later, or write your routine yourself."
           }
         }
       }
@@ -1750,6 +1780,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tout le reste est restauré. Ce qui n’a pas pu être lu est conservé dans votre fichier enregistré, sans être supprimé."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything else is restored. What couldn’t be read is kept in your saved file, not deleted."
           }
         }
       }
@@ -3189,6 +3225,12 @@
             "state": "translated",
             "value": "Une partie de votre espace enregistré n’a pas pu être lue."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One part of your saved workspace couldn’t be read."
+          }
         }
       }
     },
@@ -4065,6 +4107,12 @@
             "state": "translated",
             "value": "Certains jours d’utilisation des apps n’ont pas pu être lus et ne figurent pas dans votre historique."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some days of app use couldn’t be read and are left out of your history."
+          }
         }
       }
     },
@@ -4091,6 +4139,12 @@
             "state": "translated",
             "value": "Certains avis sur des matins passés n’ont pas pu être lus et sont laissés de côté."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some feedback on past mornings couldn’t be read and is left out."
+          }
         }
       }
     },
@@ -4101,6 +4155,12 @@
             "state": "translated",
             "value": "Certaines matinées passées n’ont pas pu être lues et ne figurent pas dans votre historique."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some past mornings couldn’t be read and are left out of your history."
+          }
         }
       }
     },
@@ -4110,6 +4170,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Certaines pensées et idées enregistrées n’ont pas pu être lues et sont laissées de côté."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some saved thoughts and ideas couldn’t be read and are left out."
           }
         }
       }
@@ -4793,6 +4859,12 @@
             "state": "translated",
             "value": "La liste des matinées lancées depuis un raccourci n’a pas pu être lue."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The list of mornings started from a shortcut couldn’t be read."
+          }
         }
       }
     },
@@ -5251,6 +5323,12 @@
             "state": "translated",
             "value": "Le fichier enregistré n’a pas pu être ouvert."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved file couldn’t be opened."
+          }
         }
       }
     },
@@ -5261,6 +5339,12 @@
             "state": "translated",
             "value": "Le fichier enregistré est endommagé dans son ensemble : aucune partie n’a pu être lue."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved file is damaged as a whole, so none of it could be read."
+          }
         }
       }
     },
@@ -5270,6 +5354,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le fichier enregistré a été écrit par une version plus récente de MORE."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved file was written by a newer version of MORE."
           }
         }
       }
@@ -5648,6 +5738,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ces observations sont trop longues pour le modèle local d’Apple. Votre routine n’a pas changé. Choisissez moins d’observations et réessayez."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These observations are too long for Apple's local model. Your routine is unchanged. Choose fewer observations and try again."
           }
         }
       }
@@ -7107,6 +7203,12 @@
             "state": "translated",
             "value": "Votre routine approuvée n’a pas pu être lue."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your approved routine couldn’t be read."
+          }
         }
       }
     },
@@ -7132,6 +7234,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre choix de garder un plan plus long n’a pas pu être lu, il n’est donc pas appliqué."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your choice to keep a longer plan couldn’t be read, so it is not applied."
           }
         }
       }
@@ -7239,6 +7347,12 @@
             "state": "translated",
             "value": "Votre fichier est conservé tel quel et les nouvelles modifications ne sont pas enregistrées. Une mise à jour de MORE pourra peut-être le lire. Pour repartir de zéro maintenant, oubliez les données locales de MORE dans Confidentialité."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your file is kept unchanged and new changes are not saved. An update of MORE may be able to read it. To start again now, forget MORE’s local data in Privacy."
+          }
         }
       }
     },
@@ -7298,6 +7412,12 @@
             "state": "translated",
             "value": "Votre matinée en cours n’a pas pu être lue, elle n’a donc pas été reprise."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your morning in progress couldn’t be read, so it was not resumed."
+          }
         }
       }
     },
@@ -7307,6 +7427,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos matinées passées n’ont pas pu être lues."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your past mornings couldn’t be read."
           }
         }
       }
@@ -7318,6 +7444,12 @@
             "state": "translated",
             "value": "Votre routine précédente n’a pas pu être lue, le retour à celle-ci n’est donc pas proposé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your previous routine couldn’t be read, so going back to it is not offered."
+          }
         }
       }
     },
@@ -7327,6 +7459,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le suivi des éléments envoyés à Calendrier et Rappels n’a pas pu être lu."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your record of items sent to Calendar and Reminders couldn’t be read."
           }
         }
       }
@@ -7386,6 +7524,12 @@
             "state": "translated",
             "value": "Vos choix enregistrés ou une suggestion enregistrée n’ont pas pu être lus."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved choices or a saved suggestion couldn’t be read."
+          }
         }
       }
     },
@@ -7396,6 +7540,12 @@
             "state": "translated",
             "value": "Vos observations enregistrées n’ont pas pu être lues."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved observations couldn’t be read."
+          }
         }
       }
     },
@@ -7405,6 +7555,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos pensées et idées enregistrées n’ont pas pu être lues."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved thoughts and ideas couldn’t be read."
           }
         }
       }
@@ -7448,6 +7604,12 @@
             "state": "translated",
             "value": "Vos réglages n’ont pas pu être lus."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your settings couldn’t be read."
+          }
         }
       }
     },
@@ -7490,6 +7652,12 @@
             "state": "translated",
             "value": "Votre durée cible et vos avis sur des matins passés n’ont pas pu être lus et sont laissés de côté."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your time target and feedback on past mornings couldn’t be read and are left out."
+          }
         }
       }
     },
@@ -7499,6 +7667,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre durée cible n’a pas pu être lue, aucune cible n’est donc fixée."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your time target couldn’t be read, so no target is set."
           }
         }
       }

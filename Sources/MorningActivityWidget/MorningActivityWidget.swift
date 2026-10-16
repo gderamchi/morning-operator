@@ -433,17 +433,21 @@ private struct JuryDemoIslandControls: View {
                 Link(destination: URL(string: "more-demo://resume?session=\(sessionID.uuidString)")!) {
                     Image(systemName: "play.fill")
                 }.accessibilityLabel("Reprendre dans MORE")
+                    .accessibilityIdentifier("jury.demo.island.resume")
             } else {
                 Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "pause")) {
                     Image(systemName: "pause.fill")
                 }.accessibilityLabel("Pause")
+                    .accessibilityIdentifier("jury.demo.island.pause")
             }
             Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "next")) {
                 Image(systemName: "forward.end.fill")
             }.accessibilityLabel("Suivant")
+                .accessibilityIdentifier("jury.demo.island.next")
             Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "stop")) {
                 Image(systemName: "stop.fill")
             }.accessibilityLabel("Arrêter")
+                .accessibilityIdentifier("jury.demo.island.stop")
         }
         .buttonStyle(.plain).font(.title3).frame(maxWidth: .infinity)
         .padding(.vertical, 8)
