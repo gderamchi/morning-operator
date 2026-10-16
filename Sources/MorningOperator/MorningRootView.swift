@@ -216,6 +216,16 @@ struct MorningRootView: View {
         workspaceContent
         .modifier(MorningHaptics(store: store))
         .routineWebStep(store: store)
+        #if MORE_JURY_DEMO
+        .onChange(of: store.juryDemoVoice.state) { store.juryDemoVoiceStateChanged() }
+        .fullScreenCover(isPresented: Binding(get: { store.juryDemoWebURL != nil }, set: { if !$0 { store.juryDemoWebURL = nil } })) {
+            if let url = store.juryDemoWebURL, let site = WebMorningSite(url: url) {
+                WebMorningView(site: site, minutes: 1, initialURL: url,
+                    retainedController: store.juryDemoBrowser.controller,
+                    onClose: { store.juryDemoBrowser.close() })
+            }
+        }
+        #endif
         .modifier(MorningVoicePreparationPresenter(store: store))
         .onChange(of: store.speech.state) { store.handleSpeechInterruption() }
         .onChange(of: store.automation.status) { store.synchronizeMorningActivity() }
@@ -226,6 +236,9 @@ struct MorningRootView: View {
             updateScreenAwake()
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
+                #if MORE_JURY_DEMO
+                store.juryDemoVoice.sceneDidEnterBackground()
+                #else
                 if store.briefing.settings.includesHealth { store.speech.stop() }
                 store.briefing.invalidateHealthForForeground()
                 store.briefing.cancelLocationRequest()
@@ -257,7 +270,17 @@ struct MorningRootView: View {
                 store.discardCompletionReflection()
                 store.cancelVoiceCommandTurn()
                 if store.session?.status == .running, !store.keepsTimerInBackground { store.pause() }
+                #endif
             } else if phase == .active {
+                #if MORE_JURY_DEMO
+                if store.session?.status == .running {
+                    store.beginJuryDemo()
+                    if let url = store.juryDemoPendingWebURL {
+                        store.juryDemoPendingWebURL = nil
+                        store.presentJuryDemoBrowser(url)
+                    }
+                }
+                #endif
                 let departure = externalAppDeparture
                 externalAppDeparture = nil
                 if let departure { store.returnedFromExternalApp(departure) }
@@ -287,6 +310,16 @@ struct MorningRootView: View {
         .onChange(of: observationReviewCanPresent) { _, ready in if ready { processPendingEntries() } }
         .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
         .onOpenURL { url in
+            #if MORE_JURY_DEMO
+            if url.scheme == "more-demo", url.host == "resume",
+               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+               let sessionID = components.queryItems?.first(where: { $0.name == "session" })?.value,
+               store.session?.id.uuidString == sessionID {
+                store.tab = .today
+                store.resume()
+                return
+            }
+            #endif
             #if DEBUG
             let ownSchemes = ((Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]]) ?? [])
                 .flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }

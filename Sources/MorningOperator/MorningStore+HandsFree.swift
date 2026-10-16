@@ -4,13 +4,25 @@ import MorningApple
 import UIKit
 
 extension MorningStore {
-    var handsFreeVoiceActive: Bool { handsFreeVoice.isActive }
+    var handsFreeVoiceActive: Bool {
+        #if MORE_JURY_DEMO
+        return juryDemoVoice.isActive
+        #else
+        return handsFreeVoice.isActive
+        #endif
+    }
     var canHearHandsFreeCommands: Bool {
+        #if MORE_JURY_DEMO
+        return sessionActive && juryDemoVoice.isActive
+        #endif
         guard sessionActive, automatic, let session,
               handsFreeListeningSuppressedSessionID != session.id else { return false }
         return handsFreeVoice.isActive
     }
     var handsFreeVoiceStatus: String {
+        #if MORE_JURY_DEMO
+        return juryDemoVoice.message
+        #endif
         if let session, handsFreeListeningSuppressedSessionID == session.id {
             return AppLanguage.isFrench ? "Écoute désactivée pour ce matin. Les boutons restent disponibles."
                 : "Listening is off for this morning. The buttons remain available."
@@ -29,6 +41,9 @@ extension MorningStore {
     /// No extra turn button: the approved morning owns listening until it ends,
     /// leaves the foreground, or the person switches it off.
     func startHandsFreeVoice() {
+        #if MORE_JURY_DEMO
+        return
+        #endif
         if cloudVoice.isActive {
             guard !privacyBlocksWork, sessionActive,
                   cloudVoiceConsentGeneration == dataGeneration,

@@ -225,6 +225,13 @@ final class MorningStore {
     var executionRecords: [RoutineExecutionRecord] = []
     var webExecutionEvent: WebMorningExecutionEvent?
     @ObservationIgnored var executionSpeechTask: Task<Void, Never>?
+    #if MORE_JURY_DEMO
+    let juryDemoVoice = JuryDemoVoiceSession()
+    let juryDemoBrowser = JuryDemoBrowser()
+    var juryDemoCaption = ""
+    var juryDemoWebURL: URL?
+    var juryDemoPendingWebURL: URL?
+    #endif
     let handsFreeVoice = MorningHandsFreeVoiceCoordinator()
     let voiceAccess = MorningVoiceAccess()
     var voiceStartRequest: MorningVoiceStartRequest?
@@ -615,6 +622,9 @@ final class MorningStore {
         refreshNativeActionCount()
         // A confirmed removal interrupted before it finished (#8).
         resumeEvidenceRemovalIfNeeded()
+        #if MORE_JURY_DEMO
+        configureJuryDemo()
+        #endif
     }
 
     /// Unsaved typed notes have no archive entry yet and are never imported evidence.
@@ -703,8 +713,13 @@ final class MorningStore {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let enabled = self.showMorningOnLockScreen && self.storageIsAvailable && !self.morningActivitySaveBlocked
+            #if MORE_JURY_DEMO
+            let needsAttention = self.juryDemoVoice.state == .failed
+            #else
+            let needsAttention = self.automation.status != .executing
+            #endif
             let snapshot = MorningActivityProjection.snapshot(session: self.session,
-                needsAttention: self.automation.status != .executing, timer: self.activeStepTimer)
+                needsAttention: needsAttention, timer: self.activeStepTimer)
             let generation = self.dataGeneration
             do {
                 try await self.morningActivity.synchronize(snapshot: snapshot, enabled: enabled,
@@ -992,7 +1007,12 @@ final class MorningStore {
             // (issue #99). A resumed one continues.
             if beginsMorning {
                 morningStartCount += 1
+                #if MORE_JURY_DEMO
+                _ = mayGreet
+                beginJuryDemo()
+                #else
                 beginOpening(mayGreet: mayGreet)
+                #endif
             } else {
                 runCurrentIfEnabled()
             }
@@ -1025,6 +1045,9 @@ final class MorningStore {
     }
 
     func pause() {
+        #if MORE_JURY_DEMO
+        juryDemoVoice.pause()
+        #endif
         handsFreePauseRevision = UUID()
         guard !privacyBlocksWork else { return }
         preserveMailExecutionBeforeInterruption()
@@ -1063,6 +1086,10 @@ final class MorningStore {
 
     func advance(skipping: Bool = false, commandID: UUID = UUID()) {
         guard !privacyBlocksWork else { return }
+        #if MORE_JURY_DEMO
+        juryDemoVoice.send(text: skipping ? "Passe cette étape" : "Suivant")
+        return
+        #endif
         guard !voiceInputBlocksPlayback else { return }
         preserveMailExecutionBeforeInterruption()
         finishExecutionIfNeeded(skipping: skipping)
@@ -1091,6 +1118,12 @@ final class MorningStore {
     }
 
     func stop() {
+        #if MORE_JURY_DEMO
+        juryDemoVoice.stop()
+        juryDemoBrowser.close()
+        juryDemoWebURL = nil
+        juryDemoPendingWebURL = nil
+        #endif
         guard !privacyBlocksWork else { return }
         preserveMailExecutionBeforeInterruption()
         if sessionActive, currentExecutionRecord?.outcome == .running || currentExecutionRecord == nil {
@@ -1112,6 +1145,11 @@ final class MorningStore {
     /// Reading again never advances the session. A sourced moment reuses its
     /// pinned text, while a moment not yet prepared goes through freshness checks.
     func readCurrent() {
+        #if MORE_JURY_DEMO
+        guard !privacyBlocksWork else { return }
+        juryDemoVoice.send(text: "Répète")
+        return
+        #endif
         guard !privacyBlocksWork, !voiceInputBlocksPlayback,
               let session, let step = currentStep else { return }
         endOpening()
@@ -2694,6 +2732,11 @@ final class MorningStore {
 
     func executionPreferencesChanged() {
         guard !privacyBlocksWork else { return }
+        #if MORE_JURY_DEMO
+        if !automatic || !readAloud { juryDemoVoice.pause() }
+        guard persist() else { pauseAfterSaveFailure(); return }
+        return
+        #endif
         if automatic { startHandsFreeVoice() } else { stopHandsFreeVoice() }
         cancelStepPlayback()
         speech.stop()
@@ -2797,6 +2840,11 @@ final class MorningStore {
     var weekSummary: SevenDaySummary? { try? history.sevenDaySummary(endingOn: Date()) }
 
     func runCurrentIfEnabled() {
+        #if MORE_JURY_DEMO
+        guard !privacyBlocksWork, session?.status == .running else { return }
+        beginJuryDemo()
+        return
+        #endif
         guard !privacyBlocksWork else { return }
         guard openingPresentation == nil else { return }
         guard !voiceInputBlocksPlayback else { return }
@@ -2912,6 +2960,13 @@ final class MorningStore {
     /// removal stays closed on launch and is retried; old snapshots are never
     /// restored as a rollback after any deletion has begun.
     func forgetLocalData() async {
+        #if MORE_JURY_DEMO
+        juryDemoVoice.stop()
+        juryDemoBrowser.close()
+        juryDemoCaption = ""
+        juryDemoWebURL = nil
+        juryDemoPendingWebURL = nil
+        #endif
         guard !privacyIsForgetting else { return }
         let control: LocalDataControlState
         do {
@@ -2921,6 +2976,16 @@ final class MorningStore {
             return
         }
         guard let generation = control.generation else { return }
+        #if MORE_JURY_DEMO
+        dataGeneration = generation
+        do { try JuryDemoReminder.forget(directory: LocalDataControl.defaultDirectory) }
+        catch {
+            privacyNeedsCleanup = true
+            privacyHasInterruptedRemoval = true
+            privacyStatus = "Les reçus des rappels n’ont pas pu être supprimés. Réessayez pour terminer l’oubli."
+            return
+        }
+        #endif
         permissionSetup.cancelForPrivacy()
         privacyIsForgetting = true
         privacyHasInterruptedRemoval = true
@@ -3177,3 +3242,133 @@ final class MorningStore {
     #endif
 
 }
+
+#if MORE_JURY_DEMO
+extension MorningStore {
+    /// The prepared routine belongs only to this bundle's container. It is never
+    /// presented as a learned observation or installed in ordinary MORE.
+    private func configureJuryDemo() {
+        guard storageIsAvailable else { return }
+        if routine == nil {
+            routine = RoutineVersion(sourceLabel: "Routine de démonstration préparée", steps: [
+                RoutineStep(title: "Mon réveil", detail: "Sommeil et météo préparés pour cette démonstration.", kind: .wellbeing, durationMinutes: 1),
+                RoutineStep(title: "Mes messages", detail: "Conversation et réponse Gmail réelle au destinataire configuré.", kind: .messages, durationMinutes: 2),
+                RoutineStep(title: "Mon moment Instagram", detail: "Mon compte dans le navigateur de MORE.", kind: .entertainment, durationMinutes: 1),
+                RoutineStep(title: "Prêt à partir", detail: "Retrouver les actions réellement confirmées.", kind: .calendar, durationMinutes: 1)
+            ], isApproved: true)
+            persist()
+        }
+        juryDemoVoice.onText = { [weak self] text in
+            guard let self, !privacyBlocksWork, sessionActive else { return }
+            juryDemoCaption = text
+        }
+        juryDemoBrowser.onClose = { [weak self] in self?.juryDemoWebURL = nil }
+        juryDemoVoice.onUserRequest = { [weak self] text in
+            guard let self, !privacyBlocksWork, session?.status == .running else { return false }
+            let context = juryDemoVoice.sessionID, generation = dataGeneration
+            return juryDemoBrowser.handle(text) { [weak self] answer in
+                guard let self, !privacyBlocksWork, dataGeneration == generation,
+                      juryDemoVoice.sessionID == context else { return }
+                juryDemoVoice.announce(answer)
+            }
+        }
+        juryDemoVoice.onStateChange = { [weak self] _ in
+            Task { @MainActor [weak self] in self?.juryDemoVoiceStateChanged() }
+        }
+        juryDemoVoice.onResponse = { [weak self] response in
+            guard let self, !privacyBlocksWork, sessionActive, response.stage != "stopped" else { return }
+            let index: Int
+            switch response.stage {
+            case "morning": index = 0
+            case "mail", "draft": index = 1
+            case "social": index = 2
+            default: index = 3
+            }
+            // Stage projection records progress; it never dispatches a second action.
+            if session?.status == .running {
+                while session?.status == .running, let current = session?.currentStepIndex,
+                      current < min(index, max(0, (session?.routine.steps.count ?? 1) - 1)) {
+                    try? session?.advance()
+                }
+                persist()
+            }
+            if let receipt = response.receipt, receipt.status == "sent" {
+                connectedActionStatus = response.text
+            }
+            if let action = response.action, action.type == "createReminder" {
+                let generation = dataGeneration
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let result = await JuryDemoReminder.perform(action, service: reminders,
+                        directory: LocalDataControl.defaultDirectory) { [weak self] in
+                            guard let self else { return false }
+                            return !privacyBlocksWork && dataGeneration == generation &&
+                                juryDemoVoice.sessionID == response.sessionID && session?.status == .running
+                        }
+                    guard !privacyBlocksWork, dataGeneration == generation,
+                          juryDemoVoice.sessionID == response.sessionID, let requestID = action.requestID else { return }
+                    juryDemoVoice.acknowledgeAction(requestID: requestID, status: result.status, receiptID: result.receiptID)
+                }
+            }
+            if let action = response.action, action.type == "openURL", let address = action.url,
+               let url = URL(string: address), ["www.instagram.com", "www.tiktok.com"].contains(url.host ?? "") {
+                if UIApplication.shared.applicationState == .active { presentJuryDemoBrowser(url) }
+                else { juryDemoPendingWebURL = url }
+            }
+            synchronizeMorningActivity()
+        }
+        juryDemoVoice.onCompleted = { [weak self] in
+            guard let self, !privacyBlocksWork, sessionActive else { return }
+            juryDemoBrowser.close()
+            juryDemoWebURL = nil
+            juryDemoPendingWebURL = nil
+            if session?.status == .paused { try? session?.resume() }
+            while session?.status == .running { try? session?.advance() }
+            archiveTerminalSession()
+            persist()
+            synchronizeMorningActivity()
+        }
+        JuryDemoPlaybackControls.receive = { [weak self] sessionID, command in
+            guard let self, self.session?.id.uuidString == sessionID, sessionActive else { return false }
+            switch command {
+            case "pause": pause()
+            case "resume": resume()
+            case "stop": stop()
+            case "next": advance()
+            default: return false
+            }
+            return true
+        }
+    }
+
+    func presentJuryDemoBrowser(_ url: URL) {
+        guard !privacyBlocksWork, sessionActive else { return }
+        juryDemoBrowser.open(url)
+        juryDemoWebURL = url
+    }
+
+    func juryDemoVoiceStateChanged() {
+        guard !privacyBlocksWork, sessionActive else { return }
+        switch juryDemoVoice.state {
+        case .paused, .failed:
+            if session?.status == .running { pause() }
+        case .idle:
+            if session?.status == .running { stop() }
+        default: break
+        }
+        synchronizeMorningActivity()
+    }
+
+    func beginJuryDemo() {
+        guard !privacyBlocksWork, session?.status == .running else { return }
+        guard handsFreeListeningSuppressedSessionID != session?.id, automatic, readAloud else {
+            juryDemoCaption = "L’écoute ou la lecture est désactivée pour ce matin. Vous pouvez les préparer dans les paramètres."
+            return
+        }
+        if juryDemoVoice.state == .paused { juryDemoVoice.resume() }
+        else if !juryDemoVoice.isActive {
+            juryDemoVoice.start(language: AppLanguage.isFrench ? .french : .english)
+        }
+    }
+}
+#endif

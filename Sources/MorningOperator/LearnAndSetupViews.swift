@@ -460,9 +460,11 @@ struct SetupView: View {
                 .accessibilityIdentifier("setup.language")
             }
             Section(french ? "Voix et lecture" : "Voice & playback") {
+                #if !MORE_JURY_DEMO
                 settingsButton(french ? "Parler avec MORE" : "Talk with MORE",
                                detail: "ElevenLabs", symbol: "sparkles") { choosingConversation = true }
                     .accessibilityIdentifier("setup.conversation")
+                #endif
                 settingsButton(String(localized: "Voice", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: store.speech.selectedVoiceSummary,
                                symbol: "waveform") { choosingVoice = true }
                     .disabled(store.sessionActive).accessibilityIdentifier("setup.voice")

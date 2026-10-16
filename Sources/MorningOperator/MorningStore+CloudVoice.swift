@@ -11,6 +11,12 @@ extension MorningStore {
 
     /// Consent belongs to this morning and privacy generation, never a saved global opt-in.
     func startCloudVoice() async {
+        #if MORE_JURY_DEMO
+        cloudVoiceStartIssue = AppLanguage.isFrench
+            ? "Cette démo utilise sa propre conversation."
+            : "This demo uses its own conversation."
+        return
+        #else
         guard !privacyBlocksWork, !cloudVoiceReleasing,
               UIApplication.shared.applicationState == .active else { return }
         cloudVoiceStartIssue = nil
@@ -67,6 +73,7 @@ extension MorningStore {
             stopCloudVoice()
             notice = AppLanguage.isFrench ? "Le micro n’a pas pu être libéré. Réessayez." : "The microphone could not be released. Try again."
         }
+        #endif
     }
 
     func stopCloudVoice() {

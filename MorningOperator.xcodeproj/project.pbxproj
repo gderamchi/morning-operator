@@ -69,11 +69,13 @@
 		5A96EBE9FCC942921C823C14 /* MorningDottedArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F1FCFC06E0928B165AEA8ED /* MorningDottedArtwork.swift */; };
 		5DA7D6BB986484E459EF28AC /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = CE01CE6509D574082266C8EB /* Localizable.xcstrings */; };
 		5DAF9F414272282E32378655 /* MorningStore+Execution.swift in Sources */ = {isa = PBXBuildFile; fileRef = E65E4E1818884015F76D1273 /* MorningStore+Execution.swift */; };
+		5DF0CD6F8F6B7518F5A6F339 /* JuryDemoBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8EC20338B5D532C62D26A99 /* JuryDemoBrowser.swift */; };
 		5E40933188691C5EAA5A47E4 /* MorningOperatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B12EF7D60AB60D6F04CA6C /* MorningOperatorApp.swift */; };
 		613C8FFC0E2ACE7A6276D961 /* MorningBriefingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B90072D117F6AB3DF784AC2F /* MorningBriefingTests.swift */; };
 		6158EC91F25FB59F4C380817 /* MorningDockGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAE1F21130C564BAC195962C /* MorningDockGlyph.swift */; };
 		623A0FCF695C67D2BBD16792 /* StepTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC755247843C4509320356A /* StepTimerView.swift */; };
 		62CE4D61413169A270AA5DE5 /* MorningApple in Frameworks */ = {isa = PBXBuildFile; productRef = 5C35898D7B3E250DC02EF8B0 /* MorningApple */; };
+		631A45B08AE871B2D3BB9119 /* JuryDemoPlaybackIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C92AD1C5CD25171A7A37CAE /* JuryDemoPlaybackIntent.swift */; };
 		647B27017C21B1D8DE16868C /* ObservationReviewJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBCD13C76AC1673A5ABB265 /* ObservationReviewJourneyTests.swift */; };
 		64F00673A20D02EDE87DEC1C /* MorningActivityWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6421A7C6E0C7191E7A400BDA /* MorningActivityWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */; };
@@ -132,12 +134,14 @@
 		B59C3EB4B1C5696D87656036 /* HorizonDesignPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D99A776B4C20FF3895E3BA89 /* HorizonDesignPreview.swift */; };
 		B5F957E38B222EAC94D2C90E /* MorningStore+GoogleCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF591750E21B49095FA36846 /* MorningStore+GoogleCalendar.swift */; };
 		B709AC13A3A2679D50FD7523 /* MorningVoicePreparationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABA4119FD9F6B0CDF4FA097 /* MorningVoicePreparationView.swift */; };
+		B7C0CBCDF1DCED65784FACDB /* JuryDemoPlaybackIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C92AD1C5CD25171A7A37CAE /* JuryDemoPlaybackIntent.swift */; };
 		B9CA3F9A24974695EE25E264 /* RecordingLearningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F84B24064F307F7E5025342 /* RecordingLearningTests.swift */; };
 		BA19D8D71012CE0A14F61918 /* RisoThemeSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3879EF0AE67267B2D4FFAD10 /* RisoThemeSnapshotTests.swift */; };
 		BB54B9C368EB20EC7A70A705 /* PlanBSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1DA39ECB4DB4D344A67FD89 /* PlanBSettingsViews.swift */; };
 		BC03B0A17545825849E082F4 /* GmailConnectionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A4E32627DA271ED0E49A94 /* GmailConnectionController.swift */; };
 		BC67016209498589093FA638 /* RoutineReviewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E6ADF52C122F1C6A7F8B68 /* RoutineReviewComponents.swift */; };
 		BD762E7FB3BC8C8CCF4D5D41 /* RoutineWebStepPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34EDFEF90F8F7152F8BBF814 /* RoutineWebStepPresenter.swift */; };
+		BDB165420E5EC9A37A77D406 /* JuryDemoJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251A37DEC0CE09849428BA12 /* JuryDemoJourneyTests.swift */; };
 		BF4BCBC13775223D50E313FE /* RoutineEvidenceProposalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3765EFB295A6146697D4D03 /* RoutineEvidenceProposalView.swift */; };
 		C1370990D840D3FE1656BB2F /* MorningStore+Slack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AEB1AA029C61D6798CD902C /* MorningStore+Slack.swift */; };
 		C2C11F3D62BD2E61A4A92900 /* RecordMorningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93DDD575BBAE60C4911CB3B3 /* RecordMorningView.swift */; };
@@ -154,6 +158,7 @@
 		D49EB76F7142553F92549FB9 /* MorningRoutineIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DAAAD8D21BA096895F76203 /* MorningRoutineIntents.swift */; };
 		D649518285D0541C54F70927 /* ObservationFixtureApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AB59F7870CD63CA5EE2920 /* ObservationFixtureApp.swift */; };
 		D6DF55F9166190D2CD5D2C9C /* GoogleCalendarDayUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 854C4F108C989A6041806EFF /* GoogleCalendarDayUITestFixture.swift */; };
+		D7CAACD79897A3CBF460F48A /* JuryDemoReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E74945878E794DA3E24D382 /* JuryDemoReminder.swift */; };
 		D811F98768A06DD40497FCD6 /* MorningLiveActivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8814239D71C55071D657DCCB /* MorningLiveActivityTests.swift */; };
 		D81288817F8AA73709A15AF5 /* ClockObservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E606BC30A53C585226160F40 /* ClockObservationTests.swift */; };
 		D8331B6EF0EE1D8DE0AAFCA5 /* MorningInvitationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAC4FD4EC1EF1E812AA6D55 /* MorningInvitationView.swift */; };
@@ -257,6 +262,7 @@
 		2463896AFD47FCF94B53C233 /* MorningStore+StepTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+StepTimer.swift"; sourceTree = "<group>"; };
 		2491FFBC2ACFD04646271C6D /* MorningStore+Mail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Mail.swift"; sourceTree = "<group>"; };
 		24F5E80A4E3FEC576BDAA690 /* ObservationReviewUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationReviewUITestFixture.swift; sourceTree = "<group>"; };
+		251A37DEC0CE09849428BA12 /* JuryDemoJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JuryDemoJourneyTests.swift; sourceTree = "<group>"; };
 		25987AA3F93570E4CED0B631 /* MorningPrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPrivacyView.swift; sourceTree = "<group>"; };
 		289B9292F55FE9F36E473EFE /* PrivacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyTests.swift; sourceTree = "<group>"; };
 		2BFF5EF3C2F41BB0D40C2C18 /* ObservationScreenReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationScreenReviewTests.swift; sourceTree = "<group>"; };
@@ -284,6 +290,7 @@
 		4B67C7C877C0AB06BE88AD5F /* MorningStore+CloudVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+CloudVoice.swift"; sourceTree = "<group>"; };
 		4BAC4FD4EC1EF1E812AA6D55 /* MorningInvitationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningInvitationView.swift; sourceTree = "<group>"; };
 		4E416448902A76CCD6A6C1F0 /* SlackSetupUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlackSetupUITestFixture.swift; sourceTree = "<group>"; };
+		4E74945878E794DA3E24D382 /* JuryDemoReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JuryDemoReminder.swift; sourceTree = "<group>"; };
 		4F1A4DDE271AE7DE15330EEF /* MorningActivityDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningActivityDiagnostics.swift; sourceTree = "<group>"; };
 		4F1FCFC06E0928B165AEA8ED /* MorningDottedArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningDottedArtwork.swift; sourceTree = "<group>"; };
 		4FCCA38E7BB64C8611DBC315 /* MorningConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningConversationView.swift; sourceTree = "<group>"; };
@@ -345,6 +352,7 @@
 		9BCC013E335B6F8E5AC6A814 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		9C157A20523AAA3E23DE7525 /* MorningIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningIntents.swift; sourceTree = "<group>"; };
 		9C33655B5A2707AED22ABE69 /* DMSerifDisplay.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = DMSerifDisplay.ttf; sourceTree = "<group>"; };
+		9C92AD1C5CD25171A7A37CAE /* JuryDemoPlaybackIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JuryDemoPlaybackIntent.swift; sourceTree = "<group>"; };
 		9C9BB326B1E3EA1DCA47CF87 /* MorningMailMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningMailMomentView.swift; sourceTree = "<group>"; };
 		9D2FA2C64FBF1A704B0DB453 /* ObservedMorningOverviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservedMorningOverviewTests.swift; sourceTree = "<group>"; };
 		A03C43CE77A0A32D752CCDF5 /* MorningBenchmarkInbox.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MorningBenchmarkInbox.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -362,6 +370,7 @@
 		B57EE791E72A2CEAA9060FB2 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		B72BCC24DAA442D01E99761D /* MORE.storekit */ = {isa = PBXFileReference; path = MORE.storekit; sourceTree = "<group>"; };
 		B780FD89BDE5B8EBE0D1FA2F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B8EC20338B5D532C62D26A99 /* JuryDemoBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JuryDemoBrowser.swift; sourceTree = "<group>"; };
 		B90072D117F6AB3DF784AC2F /* MorningBriefingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningBriefingTests.swift; sourceTree = "<group>"; };
 		B96B476C99E00452D515C48B /* MorningBriefingFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningBriefingFixture.swift; sourceTree = "<group>"; };
 		BA6BF52226B552A07B4ACD44 /* MorningPaperSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPaperSurface.swift; sourceTree = "<group>"; };
@@ -498,6 +507,7 @@
 				CC12572B5ED86682F797C645 /* EvidenceRetentionTests.swift */,
 				129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */,
 				31C92D40B6EFA01488AD3742 /* InterfaceTourTests.swift */,
+				251A37DEC0CE09849428BA12 /* JuryDemoJourneyTests.swift */,
 				E7A3FB65E6F23F27BCD2036A /* LiveMorningDemoTests.swift */,
 				8D494EE3CCAD57763076ED57 /* LocalizationJourneyTests.swift */,
 				B90072D117F6AB3DF784AC2F /* MorningBriefingTests.swift */,
@@ -550,6 +560,7 @@
 			isa = PBXGroup;
 			children = (
 				C5E00F7E37441A95A894E9C5 /* AddStepTimeIntent.swift */,
+				9C92AD1C5CD25171A7A37CAE /* JuryDemoPlaybackIntent.swift */,
 			);
 			path = MorningSharedActivity;
 			sourceTree = "<group>";
@@ -595,6 +606,8 @@
 				20ED51885B716B717985D371 /* GoogleCalendarDaySetupView.swift */,
 				854C4F108C989A6041806EFF /* GoogleCalendarDayUITestFixture.swift */,
 				D99A776B4C20FF3895E3BA89 /* HorizonDesignPreview.swift */,
+				B8EC20338B5D532C62D26A99 /* JuryDemoBrowser.swift */,
+				4E74945878E794DA3E24D382 /* JuryDemoReminder.swift */,
 				AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */,
 				E429B30505A893512B98524C /* LiveDemoVoiceHost.swift */,
 				4F1A4DDE271AE7DE15330EEF /* MorningActivityDiagnostics.swift */,
@@ -945,6 +958,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				83694FFB1D487DA12331A735 /* AddStepTimeIntent.swift in Sources */,
+				631A45B08AE871B2D3BB9119 /* JuryDemoPlaybackIntent.swift in Sources */,
 				F595041F5E281180E8DB629E /* MorningActivityWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -977,6 +991,7 @@
 				7833055F72DC68A9D6E63846 /* EvidenceRetentionTests.swift in Sources */,
 				9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */,
 				CD3F1E802A61F825BE343107 /* InterfaceTourTests.swift in Sources */,
+				BDB165420E5EC9A37A77D406 /* JuryDemoJourneyTests.swift in Sources */,
 				AFDC8BC6FB5AD1FBCC4F66A0 /* LiveMorningDemoTests.swift in Sources */,
 				0B3CB519FA43C003457E06CB /* LocalizationJourneyTests.swift in Sources */,
 				613C8FFC0E2ACE7A6276D961 /* MorningBriefingTests.swift in Sources */,
@@ -1037,6 +1052,9 @@
 				B36A9BCC86DF500674FB45C2 /* GoogleCalendarDaySetupView.swift in Sources */,
 				D6DF55F9166190D2CD5D2C9C /* GoogleCalendarDayUITestFixture.swift in Sources */,
 				B59C3EB4B1C5696D87656036 /* HorizonDesignPreview.swift in Sources */,
+				5DF0CD6F8F6B7518F5A6F339 /* JuryDemoBrowser.swift in Sources */,
+				B7C0CBCDF1DCED65784FACDB /* JuryDemoPlaybackIntent.swift in Sources */,
+				D7CAACD79897A3CBF460F48A /* JuryDemoReminder.swift in Sources */,
 				067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */,
 				3BBA2A1278F0B71F4586F3D1 /* LiveDemoVoiceHost.swift in Sources */,
 				4DE3FED32FD66348C7B86B91 /* MorningActivityDiagnostics.swift in Sources */,
