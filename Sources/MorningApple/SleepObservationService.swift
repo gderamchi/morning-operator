@@ -216,7 +216,7 @@ public final class SleepObservationService {
 
     private let provider: (any SleepObservationProviding)?
 
-    /// No reader. Every read answers `notConnected`. This is what the app has today.
+    /// No reader. Every read answers `notConnected`; native apps inject their reader.
     public init() { provider = nil }
 
     /// Inject a reader; construction never calls it.
