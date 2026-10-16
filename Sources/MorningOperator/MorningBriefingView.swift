@@ -211,9 +211,9 @@ struct MorningBriefingView: View {
                     }
                 }
             }.disabled(store.sessionActive)
-            if let snapshot = controller.currentWeatherSnapshot { currentWeatherDetails(snapshot) }
-            if let attribution = controller.currentWeatherSnapshot?.attribution {
-                MorningWeatherAttributionView(attribution: attribution, synthetic: store.usesSyntheticBriefing)
+            if let snapshot = controller.currentWeatherSnapshot {
+                currentWeatherDetails(snapshot)
+                MorningWeatherAttributionView(attribution: snapshot.attribution, synthetic: store.usesSyntheticBriefing)
             }
         } header: { Text("Weather · optional") } footer: {
             VStack(alignment: .leading, spacing: 8) {

@@ -131,10 +131,15 @@ struct MorningRootView: View {
         .foregroundStyle(MorningStyle.ink)
         .font(MorningTheme.Typography.body)
         .fullScreenCover(isPresented: Binding(get: { store.permissionSetup.isPresented }, set: { store.permissionSetup.isPresented = $0 }), onDismiss: {
-            processPendingEntries()
+            if store.permissionSetup.takeLearningRequest(), !store.privacyBlocksWork {
+                showingLearn = true
+            } else {
+                processPendingEntries()
+            }
             Task { await store.prepareDayIfConfigured(); synchronizeHomeWeather() }
         }) {
             MorningPermissionSetupView(store: store)
+                .preferredColorScheme(nightAppearance ? .dark : .light)
                 .onAppear { store.suspendHandsFreeVoice() }
         }
         .sheet(isPresented: $showingInvitation, onDismiss: {

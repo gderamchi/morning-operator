@@ -19,7 +19,8 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
         if currentPermission == nil, visibleAlert != nil {
             throw XCTSkip("An existing system prompt has no matching access explanation; owner action is required.")
         }
-        if currentPermission == nil {
+        let revisiting = currentPermission == nil
+        if revisiting {
             outcome.append("EXISTING_PERMISSION_PROGRESS: reviewing the same explanations; first-opening presentation is not re-proved.")
             if app.buttons["permissions.finish"].exists { try tap("permissions.finish") }
             try openSettings()
@@ -62,6 +63,14 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
             outcome.append("\(permission): native prompt accepted=\(acceptedPrompt); \(last.exists ? last.label : "see next-screen attachment")")
         }
         try tap("permissions.finish")
+        if revisiting {
+            XCTAssertTrue(app.buttons["setup.permissions"].waitForExistence(timeout: 10),
+                "Reviewing existing access must return to Settings.")
+            XCTAssertFalse(app.buttons["permissions.learn"].exists)
+            let back = app.navigationBars.buttons.element(boundBy: 0)
+            try reveal(back)
+            back.tap()
+        }
         XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
         app.terminate()
         app.launch()

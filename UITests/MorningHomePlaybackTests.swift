@@ -83,6 +83,23 @@ final class MorningHomePlaybackTests: XCTestCase {
         assertSettingsAppearance("night", in: app)
     }
 
+    func testNightSettingsPermissionsKeepDarkAppearance() {
+        let app = launch(night: true)
+        defer { app.terminate() }
+        openIdleSettings(app)
+        assertSettingsAppearance("night", in: app)
+        settingsButton("setup.permissions", in: app).tap()
+        XCTAssertTrue(app.staticTexts["permissions.title.location"].waitForExistence(timeout: 5))
+        for identifier in ["permissions.allow", "permissions.skip"] {
+            let button = app.buttons[identifier]
+            XCTAssertTrue(button.isHittable)
+            XCTAssertTrue(button.isEnabled)
+            assertFitsOnScreen(button, in: app)
+        }
+        XCTAssertEqual(app.alerts.count, 0)
+        attach("settings-night-standard-iphone-permissions", app)
+    }
+
     func testIdleTapShowsOnlyPlayAndSettingsThenHidesAndOpensRoutineThroughSettings() {
         let app = launch()
         defer { app.terminate() }

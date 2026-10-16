@@ -460,7 +460,6 @@ struct SetupView: View {
                                symbol: "sun.horizon") { choosingInvitation = true }
                     .accessibilityIdentifier("setup.invitation")
                 settingsButton(MorningPermissionSetup.text("iPhone permissions", "Accès iPhone"),
-                               detail: MorningPermissionSetup.text("Review location, voice and other access", "Revoir la localisation, la voix et les autres accès"),
                                symbol: "hand.raised") { store.permissionSetup.revisit() }
                     .accessibilityIdentifier("setup.permissions")
                 settingsButton(String(localized: "Privacy & data", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "lock.shield") { showingPrivacy = true }
