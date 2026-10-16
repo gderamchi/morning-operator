@@ -203,8 +203,11 @@ import MorningCore
     private func reveal(_ app: XCUIApplication) {
         if app.buttons["morning.settings"].isHittable { return }
         let caption = app.scrollViews["morning.captions"]
-        XCTAssertTrue(caption.exists && caption.isHittable)
-        caption.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.25)).tap()
+        let surface = caption.exists ? caption : app.buttons["morning.actions"]
+        guard surface.exists && surface.isHittable else {
+            fail("exact-reminder-home-surface-unreachable", app); return
+        }
+        surface.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.25)).tap()
         XCTAssertTrue(app.buttons["morning.settings"].waitForExistence(timeout: 5))
     }
     private func home(_ app: XCUIApplication) {

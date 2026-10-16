@@ -67,7 +67,7 @@ extension MorningStore {
     #if DEBUG
     var exactReminderUITestDiagnostic: String? {
         guard !privacyBlocksWork,
-              NativeMomentUITestProvider.exactWorkspace(directory: snapshot.url.deletingLastPathComponent()) != nil,
+              nativeUITestProvider.exactDiagnosticEnabled,
               sessionActive, let session, let step = currentStep else { return nil }
         let context = MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
         var proof = nativeUITestProvider.diagnostic
@@ -109,6 +109,7 @@ extension MorningStore {
     var diagnostic: [String: String] {
         var result = received; result["simulatedWrites"] = String(writes); return result
     }
+    var exactDiagnosticEnabled: Bool { exactRequested && exactEnabled }
     func clear() { received = [:]; writes = 0 }
     func destination(for kind: CaptureDestination) throws -> NativeMomentDestination {
         guard !exactRequested || exactEnabled && kind == .reminder else { throw NativeMomentError.destinationChanged }
