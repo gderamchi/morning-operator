@@ -176,7 +176,7 @@ public final class JuryDemoVoiceSession {
                 try Task.checkCancellation()
                 guard self.sessionID == sessionID else { throw CancellationError() }
                 operation = nil
-                if let voiceRun, runID == voiceRun { apply(response, run: voiceRun) }
+                if let voiceRun, runID == voiceRun, state != .failed { apply(response, run: voiceRun) }
                 else {
                     latestResponse = response; stage = response.stage
                     onResponse?(response)
@@ -214,7 +214,7 @@ public final class JuryDemoVoiceSession {
             do {
                 try await prepareAudio(id: id)
                 try requireCurrent(id)
-                guard state == .preparing else { return }
+                guard isActive else { return }
                 beginRecognition(run: id)
                 if operation != nil { state = .thinking; message = "MORE termine votre demande…" }
                 else if let pendingAcknowledgement {
@@ -270,7 +270,9 @@ public final class JuryDemoVoiceSession {
     }
 
     private func speak(_ response: JuryDemoResponse, run id: UUID) {
-        guard runID == id, state != .paused, let client else { return }
+        guard runID == id, isActive, let client else { return }
+        // A response can arrive while resume is still activating audio.
+        if state == .preparing { latestResponse = response; return }
         interruptSpeech()
         state = .thinking
         #if os(iOS)
