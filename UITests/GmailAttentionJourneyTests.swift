@@ -68,7 +68,7 @@ import XCTest
         let app = XCUIApplication(), workspace = UUID().uuidString
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-workspace=\(workspace)",
             "--ui-testing-gmail-attention", "--ui-testing-approved", "--ui-testing-hands-free", "--light-preview", "--theme-phase=morning",
-            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"] + extra
+            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US", "-more.appLanguage", french ? "fr" : "en"] + extra
         app.launch()
         if !app.staticTexts["qa.testWorkspace"].waitForExistence(timeout: 5) { app.terminate(); app.launch() }
         XCTAssertEqual(app.staticTexts["qa.testWorkspace"].value as? String, workspace)
@@ -84,9 +84,11 @@ import XCTest
     }
     private func start(_ app: XCUIApplication) {
         reveal(app); tap("morning.begin", app)
-        XCTAssertTrue(app.buttons["morning.playback"].waitForExistence(timeout: 10))
-        if app.buttons["morning.actionDetails"].exists { tap("morning.actionDetails", app) }
-        else { tap("morning.more", app); tap("morning.details", app) }
+        let captions = app.scrollViews["morning.captions"]
+        XCTAssertTrue(captions.waitForExistence(timeout: 10))
+        if !app.buttons["morning.more"].exists { captions.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap() }
+        XCTAssertTrue(app.buttons["morning.playback"].waitForExistence(timeout: 5))
+        tap("morning.more", app); tap("morning.details", app)
         XCTAssertTrue(app.buttons["morning.closeDetails"].waitForExistence(timeout: 5))
     }
     private func field(_ identifier: String, _ app: XCUIApplication) -> XCUIElement {
