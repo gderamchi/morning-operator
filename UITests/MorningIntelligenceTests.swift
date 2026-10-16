@@ -6,6 +6,7 @@ final class MorningIntelligenceTests: XCTestCase {
     func testFrenchLargestTextKeepsControlsReachable() { check(french: true, large: true) }
 
     private func check(french: Bool, large: Bool) {
+        continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
             "--ui-testing-workspace=\(UUID().uuidString)", "--theme-phase=night",
@@ -21,26 +22,33 @@ final class MorningIntelligenceTests: XCTestCase {
         find(app.buttons["intelligence.forgetKey"], in: app).tap()
         let field = find(app.secureTextFields["intelligence.apiKey"], in: app)
         field.tap()
-        field.typeText("sk-unit-test-synthetic-credential")
+        field.typeText("sk-unit-test-synthetic-credential\n")
         // No provider call is made by configuring this synthetic key.
         let consent = find(app.switches["intelligence.consent"], in: app)
+        XCTAssertFalse(app.staticTexts["intelligence.issue"].exists)
         XCTAssertFalse(app.buttons["intelligence.enable"].isEnabled)
         consent.tap()
         find(app.buttons["intelligence.enable"], in: app).tap()
-        XCTAssertFalse(app.switches["intelligence.consent"].exists)
+        XCTAssertFalse(app.staticTexts["intelligence.issue"].exists)
         let local = find(app.buttons["intelligence.local"], in: app)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = french ? "intelligence-french-largest-text" : "intelligence-openai-explicit"
         screenshot.lifetime = .keepAlways
         add(screenshot)
         local.tap()
-        XCTAssertTrue(app.switches["intelligence.consent"].exists)
+        _ = find(app.switches["intelligence.consent"], in: app)
         find(app.buttons["intelligence.forgetKey"], in: app).tap()
     }
 
     private func find(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
-        for _ in 0..<6 where !element.exists || !element.isHittable { app.swipeUp() }
-        for _ in 0..<12 where !element.exists || !element.isHittable { app.swipeDown() }
+        for _ in 0..<30 {
+            if element.exists && element.isHittable { return element }
+            app.swipeDown()
+        }
+        for _ in 0..<40 {
+            if element.exists && element.isHittable { return element }
+            app.swipeUp()
+        }
         XCTAssertTrue(element.exists && element.isHittable)
         return element
     }

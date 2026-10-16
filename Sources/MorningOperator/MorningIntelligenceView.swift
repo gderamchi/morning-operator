@@ -9,6 +9,7 @@ struct MorningIntelligenceView: View {
     @State private var apiKey = ""
     @State private var allowsSharing = false
     @State private var issue: String?
+    @FocusState private var keyIsFocused: Bool
     private var french: Bool { AppLanguage.isFrench }
 
     var body: some View {
@@ -23,6 +24,8 @@ struct MorningIntelligenceView: View {
             Section {
                 SecureField(french ? "Clé API personnelle" : "Personal API key", text: $apiKey)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .focused($keyIsFocused).submitLabel(.done)
+                    .onSubmit { keyIsFocused = false }
                     .accessibilityIdentifier("intelligence.apiKey")
                 if !model.usesOpenAI || !apiKey.isEmpty {
                     Toggle(french ? "J’accepte ce partage pour activer OpenAI" : "I agree to this sharing to enable OpenAI", isOn: $allowsSharing)
@@ -37,6 +40,7 @@ struct MorningIntelligenceView: View {
                     update {
                         try model.configureOpenAI(apiKey: apiKey, enabled: true)
                         apiKey = ""
+                        keyIsFocused = false
                         allowsSharing = false
                     }
                 }.disabled(!allowsSharing || apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -50,7 +54,10 @@ struct MorningIntelligenceView: View {
                 Button(french ? "Effacer la clé OpenAI" : "Remove OpenAI key", role: .destructive) {
                     update { try model.forget() }
                 }.accessibilityIdentifier("intelligence.forgetKey")
-                if let issue { Text(issue).font(.footnote).foregroundStyle(.secondary) }
+                if let issue {
+                    Text(issue).font(.footnote).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("intelligence.issue")
+                }
             } header: {
                 Text("OpenAI")
             } footer: {
@@ -88,7 +95,8 @@ struct MorningIntelligenceView: View {
             issue = nil
             store.refreshCapabilities()
         } catch {
-            issue = french ? "Ce réglage n’a pas pu être enregistré. Réessayez." : "This setting could not be saved. Try again."
+            issue = (error as? MoreLanguageModelError)?.localizedDescription
+                ?? (french ? "Ce réglage n’a pas pu être enregistré. Réessayez." : "This setting could not be saved. Try again.")
         }
     }
 }
