@@ -39,6 +39,8 @@ Cette configuration **dépend du Mac allumé**, du service lancé et d'une conne
 
 Le doublon iOS doit déclarer son accès au réseau local et autoriser cette origine locale dans sa configuration ATS ; ces réglages ne rendent pas un serveur distant accessible. Si le Wi-Fi du jury isole ses clients ou bloque Bonjour, utiliser un réseau local maîtrisé et vérifier la connexion depuis le téléphone avant de commencer. Garder le Mac éveillé pendant la démo. Aucun hébergement cloud ni fonctionnement autonome loin du Mac n'est établi par cette installation.
 
+Les diagnostics microphone de la variante DEBUG restent distincts de ce service : le contrôle `AVAudioRecorder` n’appelle aucune route et ne modifie pas une ancienne session serveur. Son état, les résultats physiques et les prérequis USB des essais sont consignés dans [le parcours jury](../../docs/JURY-DEMO.md). Une compilation ou un lancement du diagnostic ne prouve pas une capture audible.
+
 ## Contrat iPhone
 
 Toutes les routes sauf `/health` exigent `Authorization: Bearer <JURY_DEMO_TOKEN>`. Les POST exigent `Content-Type: application/json` ; les réponses ne sont pas mises en cache.
@@ -130,7 +132,7 @@ Vérifications réelles du 16 octobre 2026 :
 - **Dernier lot physique non isolé :** trois contrôles UI échouent pendant qu'un autre runner utilise le même téléphone. L'app ordinaire reprend le premier plan lors des taps observés. Ces échecs ne permettent pas d'attribuer une régression à la démo ; obtenir l'exclusivité puis relancer avant de modifier les sélecteurs. La concurrence constatée ne démontre pas à elle seule la cause unique du silence microphone.
 - **Limites actuelles :** voix interactive complète non validée ; aucun rappel natif réellement créé, le parcours n'ayant jamais atteint cette étape ; connexion Instagram et vidéo suivante non validées. La réussite des fournisseurs, du harnais numérique et des commandes de lecture ne certifie pas une démo vocale complète prête pour le jury. L'acceptation physique reste suivie dans [l'issue 205](https://github.com/gibouu/morning-operator/issues/205).
 
-Apple indique que [le microphone est indisponible avec iPhone Mirroring](https://support.apple.com/en-us/120421). Mirroring n'était pas actif au contrôle : on ne lui attribue donc pas le silence observé. Le prochain essai requis consiste à parler directement au téléphone physique déverrouillé, hors Mirroring.
+Apple indique que [le microphone est indisponible avec iPhone Mirroring](https://support.apple.com/en-us/120421). Mirroring n'était pas actif au contrôle : on ne lui attribue donc pas le silence observé. Le nouvel essai physique confirmé conserve le silence numérique ; la personne rapporte une voix audible dans Dictaphone. La comparaison suivante porte sur une capture AVAudioRecorder indépendante. Le [mode opératoire jury](../../docs/JURY-DEMO.md) conserve le statut exact de ces vérifications.
 
 L'option `--jury-raw-microphone-diagnostic` est uniquement DEBUG et explicitement activée pour le diagnostic. Elle coupe la reconnaissance et les tours externes ; elle ne conserve aucun enregistrement audio et ne produit que des compteurs numériques. La validation du parcours normal doit se faire sans cet argument.
 
