@@ -60,6 +60,46 @@ final class MorningHomePlaybackTests: XCTestCase {
         assertSettingsAppearance("night", in: app)
     }
 
+    func testNightSettingsAndWeatherSheetUseDarkAppearanceAtStandardTextSize() {
+        let app = launch(["--ui-testing-briefing-fixture"], night: true)
+        defer { app.terminate() }
+        openIdleSettings(app)
+        assertSettingsAppearance("night", in: app)
+        attach("settings-night-standard-text", app)
+        settingsButton("setup.briefing", in: app).tap()
+        let done = app.navigationBars["Your day"].buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertTrue(done.isHittable)
+        let location = app.descendants(matching: .any).matching(identifier: "briefing.locationSource").firstMatch
+        for _ in 0..<6 where !(location.exists && location.isHittable) {
+            let form = app.collectionViews.firstMatch
+            let container = form.exists ? form : app.scrollViews.firstMatch
+            container.swipeUp()
+        }
+        XCTAssertTrue(location.exists && location.isHittable)
+        XCTAssertEqual(app.alerts.count, 0)
+        attach("settings-night-standard-weather-sheet", app)
+        done.tap()
+        assertSettingsAppearance("night", in: app)
+    }
+
+    func testNightSettingsPermissionsKeepDarkAppearance() {
+        let app = launch(night: true)
+        defer { app.terminate() }
+        openIdleSettings(app)
+        assertSettingsAppearance("night", in: app)
+        settingsButton("setup.permissions", in: app).tap()
+        XCTAssertTrue(app.staticTexts["permissions.title.location"].waitForExistence(timeout: 5))
+        for identifier in ["permissions.allow", "permissions.skip"] {
+            let button = app.buttons[identifier]
+            XCTAssertTrue(button.isHittable)
+            XCTAssertTrue(button.isEnabled)
+            assertFitsOnScreen(button, in: app)
+        }
+        XCTAssertEqual(app.alerts.count, 0)
+        attach("settings-night-standard-iphone-permissions", app)
+    }
+
     func testIdleTapShowsOnlyPlayAndSettingsThenHidesAndOpensRoutineThroughSettings() {
         let app = launch()
         defer { app.terminate() }

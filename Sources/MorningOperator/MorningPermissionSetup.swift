@@ -247,7 +247,7 @@ struct MorningPermissionSetupView: View {
         }
         .id(setup.current)
         .background(MorningPaper(showsSun: false)).foregroundStyle(MorningStyle.ink)
-        .font(MorningTheme.Typography.body).preferredColorScheme(.light)
+        .font(MorningTheme.Typography.body)
         .interactiveDismissDisabled()
         .onChange(of: scenePhase) { _, phase in if phase == .background { setup.cancelForBackground() } }
         .transaction { $0.animation = nil; $0.disablesAnimations = true }
