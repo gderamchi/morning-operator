@@ -4,7 +4,17 @@ import XCTest
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
     func testSyntheticSlackUncertainSendReplacesTheOldInstructionOnHome() {
-        let app = launch(["--ui-testing-slack-reply", "--ui-testing-slack-uncertain-send", "--ui-testing-approved", "--ui-testing-hands-free"])
+        checkSyntheticSlackUncertainSendOnHome()
+    }
+
+    func testFrenchLargestSyntheticSlackUncertainSendKeepsHomeControlsReachable() {
+        checkSyntheticSlackUncertainSendOnHome(french: true, largestText: true)
+    }
+
+    private func checkSyntheticSlackUncertainSendOnHome(french: Bool = false, largestText: Bool = false) {
+        var flags = ["--ui-testing-slack-reply", "--ui-testing-slack-uncertain-send", "--ui-testing-approved", "--ui-testing-hands-free"]
+        if largestText { flags += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
+        let app = launch(flags, french: french)
         defer { app.terminate() }
         reveal(app); app.buttons["morning.begin"].tap()
         openHomeInteraction(app)
@@ -20,7 +30,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         tapVisible("slackMoment.reviewed", in: app)
         enabledVisibleButton("slackMoment.send", in: app).tap()
         let status = app.staticTexts["slackMoment.status"]
-        let uncertain = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Slack post is unconfirmed"), object: status)
+        let uncertain = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", french ? "La publication Slack n’est pas confirmée" : "Slack post is unconfirmed"), object: status)
         let result = XCTWaiter.wait(for: [uncertain], timeout: 10)
         if result != .completed { captureFailure("synthetic-slack-uncertain-not-shown", app) }
         XCTAssertEqual(result, .completed)
@@ -28,16 +38,19 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         tapVisible("morning.closeDetails", in: app)
         let homeStatus = app.staticTexts["morning.actionStatus"]
         XCTAssertTrue(homeStatus.waitForExistence(timeout: 5))
-        XCTAssertTrue(homeStatus.label.contains("Slack post is unconfirmed"))
-        XCTAssertTrue(homeStatus.label.contains("will not retry"))
+        XCTAssertTrue(homeStatus.label.contains(french ? "La publication Slack n’est pas confirmée" : "Slack post is unconfirmed"))
+        XCTAssertTrue(homeStatus.label.contains(french ? "ne la relance pas" : "will not retry"))
         XCTAssertFalse(app.staticTexts["morning.caption"].exists)
         XCTAssertFalse(app.staticTexts["morning.previousCaption"].exists)
-        attach("automation-synthetic-slack-uncertain-state-on-home", app)
+        for id in ["morning.actionDetails", "morning.playback", "morning.next", "morning.more"] {
+            XCTAssertTrue(app.buttons[id].isHittable, "The Home control must remain reachable at this text size: \(id)")
+        }
+        attach(largestText ? "automation-synthetic-slack-uncertain-french-largest-home" : "automation-synthetic-slack-uncertain-state-on-home", app)
         enabledVisibleButton("morning.actionDetails", in: app).tap()
         XCTAssertTrue(status.waitForExistence(timeout: 5))
-        XCTAssertTrue(status.label.contains("Slack post is unconfirmed"))
+        XCTAssertTrue(status.label.contains(french ? "La publication Slack n’est pas confirmée" : "Slack post is unconfirmed"))
         XCTAssertFalse(app.buttons["slackMoment.send"].exists)
-        attach("automation-synthetic-slack-uncertain-reopened-without-retry", app)
+        attach(largestText ? "automation-synthetic-slack-uncertain-french-largest-reopened" : "automation-synthetic-slack-uncertain-reopened-without-retry", app)
     }
 
     func testFrenchLargestScreenTimeOverflowKeepsTheSourceAndLetsMeChooseEightApps() {
