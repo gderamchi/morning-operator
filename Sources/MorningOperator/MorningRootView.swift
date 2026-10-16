@@ -1367,8 +1367,11 @@ private struct MorningSunHome: View {
                     .scrollDismissesKeyboard(.interactively)
                     .padding(.horizontal, 20).padding(.bottom, 20)
                     .transition(still ? .opacity : .opacity.combined(with: .offset(y: 12)))
-                } else if finishedToday, let session {
-                    finished(session).padding(28).frame(maxWidth: 640, alignment: .leading)
+                } else if finishedToday {
+                    Text(isFrench ? "bonne journée" : "have a good day")
+                        .font(.raleway(.title2)).padding(28)
+                        .frame(maxWidth: 640, maxHeight: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("morning.complete")
                 } else if let attribution = clock.weatherAttribution, !weatherSynthetic {
                     weatherCredit(attribution, night: night)
                         .frame(maxWidth: .infinity, alignment: .leading)

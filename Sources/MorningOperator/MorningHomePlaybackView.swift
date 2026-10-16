@@ -27,7 +27,15 @@ struct MorningHomePlaybackView: View {
         }
         return store.connectedActionStatus ?? store.currentStep?.detail ?? ""
     }
-    private var caption: String { displayedCaption ?? fallback }
+    private var caption: String {
+        if let notice = store.notice, !notice.isEmpty { return notice }
+        if let displayedCaption { return displayedCaption }
+        let text = fallback.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count > 110 else { return text }
+        let preview = text.prefix(110)
+        let end = preview.lastIndex(where: { $0.isWhitespace }) ?? preview.endIndex
+        return String(preview[..<end]) + "…"
+    }
     private var controlsLabel: String {
         controlsVisible ? (french ? "Masquer les commandes" : "Hide controls")
             : (french ? "Afficher les commandes" : "Show controls")
@@ -65,13 +73,19 @@ struct MorningHomePlaybackView: View {
         .onChange(of: store.speech.captionRevision, initial: true) { _, _ in
             guard let text = store.speech.currentCaption, !text.isEmpty else { return }
             // The spoken step label is metadata; Home shows only its content.
-            let prefix = (store.currentStep?.title ?? "") + ". "
-            displayedCaption = text.hasPrefix(prefix) ? String(text.dropFirst(prefix.count)) : text
+            let prefix = (store.currentStep?.title ?? "") + "."
+            displayedCaption = text.hasPrefix(prefix)
+                ? String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines) : text
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { displayedCaption = nil; controlsVisible = false; showingDetails = false }
         }
-        .onChange(of: showingDetails) { _, presented in if !presented { keepControlsVisible() } }
+        .onChange(of: showingDetails) { _, presented in
+            store.morningDetailPresented = presented
+            if presented { store.pause() } else { keepControlsVisible() }
+        }
+        .onDisappear { store.morningDetailPresented = false }
+        .onChange(of: voiceOverEnabled) { _, _ in if controlsVisible { controlsInteraction = UUID() } }
         .task(id: controlsInteraction) {
             guard controlsVisible, !voiceOverEnabled, !showingDetails else { return }
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
@@ -149,8 +163,9 @@ struct MorningHomePlaybackView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    if let status = store.connectedActionStatus {
-                        Text(status).textSelection(.enabled).accessibilityIdentifier("moment.connectedResult")
+                    if !fallback.isEmpty {
+                        Text(fallback).textSelection(.enabled)
+                            .accessibilityIdentifier(store.connectedActionStatus == nil ? "moment.instructions" : "moment.connectedResult")
                     }
                     if store.currentStep?.automation == .gmailInbox { MorningMailMomentView(store: store) }
                     NativeMomentReviewView(store: store)
