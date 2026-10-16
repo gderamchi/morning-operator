@@ -34,6 +34,16 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     private(set) var loadFailed = false
     private(set) var displayedHost = ""
     private(set) var isClearing = false
+    private(set) var newsSnapshot: WebNewsSnapshot?
+    private(set) var articleText: WebArticleText?
+    private(set) var articleMessage: String?
+    private(set) var articleBusy = false
+    var needsArticleReturn: Bool { articleReturnPoint != nil }
+    @ObservationIgnored private let routineContext: MorningVoiceCommandContext?
+    @ObservationIgnored private var articleReturnPoint: (item: WKBackForwardListItem, offset: CGPoint)?
+    @ObservationIgnored private var articleOperation: UUID?
+    @ObservationIgnored private var articleExpectedDestination: URL?
+    @ObservationIgnored private var articleResponse: (url: URL, status: Int)?
     /// The presenting view revokes this whenever it leaves the foreground.
     var actionsEnabled = false {
         didSet {
@@ -100,8 +110,9 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         return true
     }
 
-    init(site: WebMorningSite, initialURL: URL? = nil) {
+    init(site: WebMorningSite, initialURL: URL? = nil, routineContext: MorningVoiceCommandContext? = nil) {
         self.site = site
+        self.routineContext = routineContext
         startURL = initialURL.flatMap { WebMorningSite(url: $0) == site ? $0 : nil } ?? site.table.startURL
         privacyAtCreation = try? LocalDataControl(directory: LocalDataControl.defaultDirectory).status()
         Self.excludeWebDataFromBackup()
@@ -125,6 +136,138 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         hasStarted = true
         let destination = startURL == site.table.startURL ? (executionPlan.flatMap { WebMorningExecutionPolicy.entryURL(site: site, behavior: $0.behavior) } ?? startURL) : startURL
         webView.load(URLRequest(url: destination))
+    }
+
+    private func articleAccess(context: MorningVoiceCommandContext, privacy: UUID, allowFailed: Bool = false, authorized: @MainActor () -> Bool) -> Bool {
+        privacyIsCurrent && site == .news && routineContext == context && privacyAtCreation?.generation == privacy &&
+            UIApplication.shared.applicationState == .active && !isClearing && (allowFailed || !loadFailed) && authorized() &&
+            ((try? WebMorningLikeJournal(directory: LocalDataControl.defaultDirectory).unresolvedKeys().isEmpty) == true)
+    }
+
+    private func retainNewsSnapshot(_ observation: WebMorningPageObservation) {
+        guard site == .news, let context = routineContext, let privacy = privacyAtCreation?.generation,
+              let page = webView.url, let fingerprint = observation.fingerprint, let links = observation.articles else {
+            newsSnapshot = nil; return
+        }
+        newsSnapshot = WebNewsSnapshot(context: context, privacyGeneration: privacy, pageGeneration: pageGeneration,
+            pageURL: page, fingerprint: fingerprint, links: links)
+        if !needsArticleReturn && !articleBusy { articleMessage = nil }
+    }
+
+    func cancelArticleWork() {
+        articleOperation = nil; articleBusy = false; articleText = nil
+        articleExpectedDestination = nil; articleResponse = nil
+        if needsArticleReturn { articleMessage = AppLanguage.isFrench ? "Lecture interrompue. Dites retour aux titres ou reprends."
+            : "Reading interrupted. Say back to headlines or resume." }
+    }
+
+    /// Selection and the immediate recheck use the observed DOM; a transcript
+    /// never supplies a URL. The same WKWebView retains sign-in and list history.
+    func openNewsArticle(ordinal: Int, context: MorningVoiceCommandContext, privacy: UUID,
+        authorized: @MainActor () -> Bool) async -> WebArticleText? {
+        if needsArticleReturn || articleBusy {
+            articleMessage = AppLanguage.isFrench ? "Dites retour aux titres avant de choisir un autre article."
+                : "Say back to headlines before choosing another article."
+            return nil
+        }
+        guard !articleBusy, !needsArticleReturn, articleAccess(context: context, privacy: privacy, authorized: authorized),
+              webView.window != nil, !webView.isLoading, let snapshot = newsSnapshot,
+              snapshot.matches(context: context, privacyGeneration: privacy, pageGeneration: pageGeneration, pageURL: webView.url),
+              let selected = snapshot.select(ordinal), let listItem = webView.backForwardList.currentItem else {
+            articleMessage = AppLanguage.isFrench ? "Je n’ai pas ce numéro dans les titres actuels. Reprenez les titres ou dites suivant."
+                : "That number is not available in the current headlines. Resume the headlines or say next."
+            return nil
+        }
+        let operation = UUID(); articleOperation = operation; articleBusy = true
+        defer { if articleOperation == operation { articleBusy = false; articleOperation = nil } }
+        let value = try? await webView.evaluateJavaScript(WebMorningExecutionPolicy.script(site: .news, behavior: .readHeadlines), contentWorld: .defaultClient)
+        guard articleOperation == operation, articleAccess(context: context, privacy: privacy, authorized: authorized),
+              snapshot.matches(context: context, privacyGeneration: privacy, pageGeneration: pageGeneration, pageURL: webView.url),
+              let current = WebMorningPageObservation.parse(value), current.status == .ready,
+              current.fingerprint == snapshot.fingerprint, current.articles == snapshot.links else {
+            newsSnapshot = nil
+            articleMessage = AppLanguage.isFrench ? "Les titres ont changé ou ne sont plus accessibles. Reprenez pour entendre la liste actuelle."
+                : "The headlines changed or are no longer accessible. Resume to hear the current list."
+            return nil
+        }
+        articleReturnPoint = (listItem, webView.scrollView.contentOffset)
+        articleExpectedDestination = selected.href; articleResponse = nil
+        articleText = nil; articleMessage = AppLanguage.isFrench ? "Ouverture de l’article observé…" : "Opening the observed article…"
+        webView.load(URLRequest(url: selected.href))
+        guard await waitForArticleNavigation(operation, context: context, privacy: privacy, authorized: authorized,
+            destination: selected.href, requireResponse: true), let page = webView.url,
+            let response = articleResponse,
+            WebArticlePolicy.permitsResponse(selected: selected.href, observed: response.url, status: response.status),
+            WebArticlePolicy.matchesDestination(page, selected: selected.href) else { return nil }
+        let generation = pageGeneration
+        let body = try? await webView.evaluateJavaScript(WebArticleScript.body(pageURL: page, expiresAt: Date().addingTimeInterval(2)), contentWorld: .defaultClient)
+        guard articleOperation == operation, articleAccess(context: context, privacy: privacy, authorized: authorized),
+              generation == pageGeneration, webView.url == page,
+              let latestResponse = articleResponse,
+              WebArticlePolicy.permitsResponse(selected: selected.href, observed: latestResponse.url, status: latestResponse.status) else { return nil }
+        guard let text = WebArticleText.parse(body) else {
+            articleMessage = AppLanguage.isFrench ? "Je ne peux pas lire un corps d’article fiable ici. Une connexion, un abonnement ou un choix dans la page peut être nécessaire. Dites retour aux titres ou suivant."
+                : "A reliable article body is not available here. This page may need sign-in, a subscription or a choice. Say back to headlines or next."
+            return nil
+        }
+        articleText = text
+        articleMessage = AppLanguage.isFrench ? "Article ouvert dans MORE. Le matin reste en pause."
+            : "Article opened in MORE. Your morning remains paused."
+        return text
+    }
+
+    private func waitForArticleNavigation(_ operation: UUID, context: MorningVoiceCommandContext, privacy: UUID,
+        authorized: @MainActor () -> Bool, destination: URL?, requireResponse: Bool = false) async -> Bool {
+        for _ in 0..<40 {
+            guard articleOperation == operation, articleAccess(context: context, privacy: privacy, allowFailed: destination != nil, authorized: authorized) else { return false }
+            if !loadFailed, !webView.isLoading, let page = webView.url,
+               destination.map({ WebArticlePolicy.matchesDestination(page, selected: $0) }) ?? (page != articleReturnPoint?.item.url), WebArticlePolicy.isPage(page) {
+                if !requireResponse { return true }
+                if let response = articleResponse, let destination,
+                   WebArticlePolicy.permitsResponse(selected: destination, observed: response.url, status: response.status) { return true }
+            }
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return false }
+        }
+        articleMessage = AppLanguage.isFrench ? "Le chargement n’est pas confirmé. Dites retour aux titres ou suivant."
+            : "Loading could not be confirmed. Say back to headlines or next."
+        return false
+    }
+
+    func returnToNewsList(context: MorningVoiceCommandContext, privacy: UUID,
+        authorized: @MainActor () -> Bool) async -> Bool {
+        guard articleAccess(context: context, privacy: privacy, allowFailed: true, authorized: authorized) else { return false }
+        guard let point = articleReturnPoint else { return !articleBusy }
+        let operation = UUID(); articleOperation = operation; articleBusy = true; articleText = nil; newsSnapshot = nil
+        articleExpectedDestination = point.item.url; articleResponse = nil
+        defer { if articleOperation == operation { articleBusy = false; articleOperation = nil } }
+        webView.stopLoading()
+        if webView.backForwardList.currentItem === point.item, webView.url != point.item.url || loadFailed {
+            webView.load(URLRequest(url: point.item.url))
+            guard await waitForArticleNavigation(operation, context: context, privacy: privacy,
+                authorized: authorized, destination: point.item.url) else { return false }
+        } else if webView.backForwardList.currentItem !== point.item {
+            guard webView.backForwardList.backList.contains(where: { $0 === point.item }) else {
+                articleMessage = AppLanguage.isFrench ? "La liste précédente ne peut pas être rétablie. Rechargez la page ou dites suivant."
+                    : "The previous list cannot be restored. Reload the page or say next."
+                return false
+            }
+            webView.go(to: point.item)
+            guard await waitForArticleNavigation(operation, context: context, privacy: privacy,
+                authorized: authorized, destination: point.item.url) else { return false }
+        }
+        guard articleOperation == operation, articleAccess(context: context, privacy: privacy, authorized: authorized),
+              webView.url == point.item.url else { return false }
+        webView.scrollView.setContentOffset(point.offset, animated: false)
+        articleReturnPoint = nil
+        articleExpectedDestination = nil; articleResponse = nil
+        articleMessage = AppLanguage.isFrench ? "Retour aux titres. Le temps restant est conservé. Dites reprends pour continuer."
+            : "Back at the headlines. Your remaining time is preserved. Say resume to continue."
+        let generation = pageGeneration, page = webView.url
+        let value = try? await webView.evaluateJavaScript(WebMorningExecutionPolicy.script(site: .news, behavior: .readHeadlines), contentWorld: .defaultClient)
+        guard articleOperation == operation, articleAccess(context: context, privacy: privacy, authorized: authorized),
+              generation == pageGeneration, page == webView.url else { return false }
+        if let observation = WebMorningPageObservation.parse(value), observation.status == .ready { retainNewsSnapshot(observation) }
+        return true
     }
 
     @discardableResult
@@ -310,6 +453,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     /// Closing a retained routine page suspends its worker without discarding the
     /// live page, viewport, spoken-content identity or observed-content set.
     func suspendPresentation() {
+        newsSnapshot = nil; articleText = nil; cancelArticleWork()
         actionsEnabled = false
         learningAllowed = false
         onExecutionEvent = nil
@@ -320,11 +464,14 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     /// Clear private snapshot text on backgrounding, preserving content-free
     /// deduplication keys and the actual browser position for a coherent resume.
     func discardSourceContext() {
+        newsSnapshot = nil; articleText = nil; cancelArticleWork()
         actionsEnabled = false
         clearSourceText()
     }
 
     private func clearSourceText() {
+        newsSnapshot = nil; articleText = nil
+        articleResponse = nil
         executionContextText = []
         outcome = nil
         if let plan = executionPlan, let event = executionEvent {
@@ -348,6 +495,8 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         discardLearning(); stopExecution()
         executionPlan = nil; executionHistoryPlan = nil; executionContextText = []
         executionEvent = nil; outcome = nil; contentProgress = .init()
+        articleOperation = nil; articleBusy = false; articleReturnPoint = nil; articleText = nil; newsSnapshot = nil; articleMessage = nil
+        articleExpectedDestination = nil; articleResponse = nil
         lastSpokenFingerprint = nil
         webView.stopLoading()
         webView.navigationDelegate = nil; webView.uiDelegate = nil
@@ -367,7 +516,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     private func resumeExecutionIfNeeded() {
         guard let plan = executionPlan, actionsEnabled, !isClearing, !isLearning,
-              !executionFinished, executionTask == nil, privacyIsCurrent else { return }
+              !executionFinished, executionTask == nil, privacyIsCurrent, !articleBusy, !needsArticleReturn else { return }
         if executionEvent?.state == .needsChoice { executionEvent = nil }
         let nonce = UUID(); executionNonce = nonce
         executionTask = Task { [weak self] in
@@ -538,6 +687,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             }
             guard let fingerprint = observation.fingerprint else { publishExecution(.unavailable); return }
             executionContextText = observation.text ?? []
+            if site == .news { retainNewsSnapshot(observation) }
             do {
                 let isNew = try contentProgress.observe(site: site, fingerprint: fingerprint)
                 observedContentCount = contentProgress.observedCount
@@ -548,7 +698,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
                 return
             }
             let spoken = (plan.behavior == .readHeadlines || plan.behavior == .readUnread) && lastSpokenFingerprint != fingerprint
-                ? observation.text ?? [] : []
+                ? (newsSnapshot?.numberedTitles ?? observation.text ?? []) : []
             if !spoken.isEmpty { lastSpokenFingerprint = fingerprint }
             if !hasUnresolved { publishExecution(.running, text: spoken) }
             guard executionIsCurrent(nonce) else { return }
@@ -651,6 +801,19 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         // Do not launch native social apps, custom schemes, insecure pages or downloads.
         guard privacyIsCurrent, let url = navigationAction.request.url, url.scheme?.lowercased() == "https",
               url.user == nil, url.password == nil else { decisionHandler(.cancel); return }
+        if navigationAction.targetFrame?.isMainFrame != false, let point = articleReturnPoint,
+           (!WebArticlePolicy.isPage(url) || url.host?.lowercased() != point.item.url.host?.lowercased() || navigationAction.shouldPerformDownload ||
+            articleExpectedDestination.map({ !WebArticlePolicy.matchesDestination(url, selected: $0) }) == true) {
+            articleOperation = nil; articleBusy = false; articleText = nil
+            articleMessage = AppLanguage.isFrench ? "La destination ne correspond pas à la page choisie ou demande une connexion. Je ne l’ai pas lue. Dites retour aux titres ou suivant."
+                : "The destination does not match the selected page or needs sign-in. I did not read it. Say back to headlines or next."
+            decisionHandler(.cancel); return
+        }
+        if articleReturnPoint != nil, !articleBusy, navigationAction.targetFrame?.isMainFrame != false {
+            articleText = nil
+            articleMessage = AppLanguage.isFrench ? "La page a changé. Dites retour aux titres ou suivant."
+                : "The page changed. Say back to headlines or next."
+        }
         if navigationAction.targetFrame?.isMainFrame != false {
             stopLearning()
             clearSourceText()
@@ -659,6 +822,28 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             isSignInPage = true
             outcome = nil
             loadFailed = false
+        }
+        decisionHandler(privacyIsCurrent ? .allow : .cancel)
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
+                 decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
+        if needsArticleReturn, navigationResponse.isForMainFrame {
+            guard let selected = articleExpectedDestination, let response = navigationResponse.response as? HTTPURLResponse,
+                  let url = response.url, WebArticlePolicy.permitsResponse(selected: selected, observed: url, status: response.statusCode) else {
+                articleOperation = nil; articleBusy = false; articleText = nil; articleResponse = nil
+                articleMessage = AppLanguage.isFrench ? "Le site n’a pas fourni l’article choisi ou a renvoyé une erreur. Je ne l’ai pas lu. Dites retour aux titres ou suivant."
+                    : "The site did not provide the selected article or returned an error. I did not read it. Say back to headlines or next."
+                decisionHandler(.cancel); return
+            }
+            articleResponse = (url, response.statusCode)
+        }
+        if needsArticleReturn, navigationResponse.isForMainFrame,
+           !["text/html", "application/xhtml+xml"].contains(navigationResponse.response.mimeType?.lowercased() ?? "") {
+            articleOperation = nil; articleBusy = false; articleText = nil
+            articleMessage = AppLanguage.isFrench ? "Ce contenu n’est pas une page d’article lisible. Dites retour aux titres ou suivant."
+                : "This content is not a readable article page. Say back to headlines or next."
+            decisionHandler(.cancel); return
         }
         decisionHandler(privacyIsCurrent ? .allow : .cancel)
     }
@@ -708,6 +893,11 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         outcome = nil
         loadFailed = true
         isSignInPage = true
+        if needsArticleReturn {
+            cancelArticleWork()
+            articleMessage = AppLanguage.isFrench ? "L’article est indisponible. Dites retour aux titres ou suivant."
+                : "The article is unavailable. Say back to headlines or next."
+        }
     }
 
     private static func record(_ line: String) {
@@ -744,12 +934,16 @@ final class RoutineWebMomentRetainer {
             return retained.controller
         }
         clear()
-        let controller = WebMorningController(site: site, initialURL: initialURL)
+        let controller = WebMorningController(site: site, initialURL: initialURL,
+            routineContext: .init(sessionID: executionID.sessionID, routineVersionID: executionID.routineVersionID, stepID: executionID.stepID))
         retained = (executionID, site, initialURL, controller)
         return controller
     }
 
     func hasController(for executionID: MorningExecutionID) -> Bool { retained?.executionID == executionID }
+    func existingController(for executionID: MorningExecutionID) -> WebMorningController? {
+        retained?.executionID == executionID ? retained?.controller : nil
+    }
 
     func discardSourceContext() { retained?.controller.discardSourceContext() }
 

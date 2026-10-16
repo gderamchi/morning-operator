@@ -1027,6 +1027,7 @@ final class MorningStore {
     func resume() {
         guard !privacyBlocksWork else { return }
         guard !voiceInputBlocksPlayback else { return }
+        if resumeWebArticleIfNeeded() { return }
         guard !slackReply.isActive else {
             notice = AppLanguage.isFrench ? "Terminez la réponse Slack ou fermez cette demande avant de reprendre."
                 : "Finish the Slack reply or close this request before resuming."

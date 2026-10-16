@@ -42,6 +42,9 @@ private struct RoutineWebStepPresenter: ViewModifier {
                         showingNativeRequest = true
                     },
                     retainedController: controller,
+                    onNewsArticle: { ordinal in Task { await store.handleWebReadingUtterance("read article \(ordinal)") } },
+                    onNewsReturn: { Task { await store.handleWebReadingUtterance("back to headlines") } },
+                    onNewsRepeat: { Task { await store.handleWebReadingUtterance("repeat the article") } },
                     onClose: closePage)
                     .id(step.id)
                     .sheet(isPresented: nativeRequestBinding(for: executionID)) { nativeRequestSheet }
