@@ -18,7 +18,7 @@ extension MorningStore {
             notice = AppLanguage.isFrench ? "Boîte Outlook ajoutée au brouillon. Relisez et validez votre routine."
                 : "Outlook Inbox added to your draft. Review and approve your routine."
             return true
-        } catch { notice = OutlookInboxError.invalidIdentity.localizedDescription; return false }
+        } catch { notice = OutlookInboxError.invalidIdentity.moreDescription; return false }
     }
 
     var currentOutlookInboxContext: MorningExecutionID? {
@@ -260,7 +260,7 @@ extension MorningStore {
               connectedMoment.matches(attempt, executionID: context) else { return }
         connectedMoment.fail(attempt, executionID: context)
         if session?.status == .running { pause() }
-        let reason = (error as? OutlookInboxError)?.localizedDescription ?? OutlookInboxError.unavailable.localizedDescription
+        let reason = (error as? OutlookInboxError)?.moreDescription ?? OutlookInboxError.unavailable.moreDescription
         connectedActionStatus = reason + (AppLanguage.isFrench ? " Votre matin est en pause. " : " Your morning is paused. ") + outlookRefreshInstruction
         recordExecution(.unavailable)
         if readAloud, let connectedActionStatus { speech.speak(connectedActionStatus) }

@@ -73,7 +73,7 @@ extension MorningStore {
         guard try self.destination(for: destination.kind) == destination else { throw NativeMomentError.destinationChanged }
     }
     func upcomingReminders() async throws -> [ReminderSummary] {
-        [.init(id: "synthetic-reminder", title: "SYNTHETIC appeler le garage", notes: "", dueDate: Date().addingTimeInterval(3_600), listTitle: "SYNTHETIC QA", listID: "synthetic-list", sourceID: "synthetic-account", sourceTitle: "SYNTHETIC local fixture")]
+        [.init(id: "synthetic-reminder", title: (AppLanguage.isFrench ? "EXEMPLE SIMULÉ : appeler le garage" : "SYNTHETIC: call the garage"), notes: "", dueDate: Date().addingTimeInterval(3_600), listTitle: "SYNTHETIC QA", listID: "synthetic-list", sourceID: "synthetic-account", sourceTitle: "SYNTHETIC local fixture")]
     }
     func perform(_ action: NativeMomentAction) throws -> String {
         writes += 1

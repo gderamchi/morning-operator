@@ -12,7 +12,7 @@ struct RoutineReviewSummary: View {
             Text("Your daily routine").font(.headline).foregroundStyle(MorningStyle.ink)
             Text("\(routine.steps.count) moments · \(routine.totalDurationMinutes) min planned")
                 .font(.subheadline).foregroundStyle(MorningStyle.muted)
-            Label(routine.isApproved ? "Approved" : "Draft · review before approval",
+            Label(routine.isApproved ? String(localized: "Approved", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Draft · review before approval", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
                   systemImage: routine.isApproved ? "checkmark.circle" : "pencil")
                 .font(.caption).foregroundStyle(MorningStyle.muted)
             if sessionActive {
@@ -40,7 +40,7 @@ struct RoutineMomentRow: View {
                     .font(.caption).foregroundStyle(MorningStyle.muted)
                 if let target = step.target, target.integrationRoute == .api {
                     Text(step.detail).font(.footnote).foregroundStyle(MorningStyle.muted)
-                    Text(RoutineConnectedReview.summary(for: target) ?? "Review unavailable")
+                    Text(RoutineConnectedReview.summary(for: target) ?? String(localized: "Review unavailable", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                         .font(.footnote).fixedSize(horizontal: false, vertical: true)
                 }
             }

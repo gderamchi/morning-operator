@@ -76,7 +76,7 @@ final class PrivacyTests: XCTestCase {
         // Relaunch then follows the production pending-marker recovery path.
         app.terminate()
         app.launchArguments.append("--ui-testing-privacy-repair")
-        app.launch()
+        MorningUITestNavigation.launch(app)
         assertEmptyMorning(app)
         relaunch(app)
         assertEmptyMorning(app)
@@ -90,7 +90,7 @@ final class PrivacyTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
             "--ui-testing-workspace=\(workspace)", "--ui-testing-observation-archive",
             "--ui-testing-privacy-fixture"] + extra
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 
@@ -133,7 +133,7 @@ final class PrivacyTests: XCTestCase {
     private func relaunch(_ app: XCUIApplication) {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-observation-archive" || $0 == "--ui-testing-privacy-delayed-analysis" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
     }
 
     private func attach(_ name: String, _ app: XCUIApplication) {

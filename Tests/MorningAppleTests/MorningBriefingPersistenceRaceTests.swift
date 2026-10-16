@@ -241,23 +241,23 @@ struct MorningBriefingPersistenceRaceTests {
         let controller = makeController(directory: directory,
             suggestions: { _ in try await gate.value() }, clock: clock)
         let first = Task { await controller.suggestCities("Pa") }
-        try await until { gate.calls == 1 }
+        try await gate.waitForCalls(1)
         await clock.waitForSleepers()
         clock.advance(by: .seconds(10))
         await first.value
         #expect(controller.citySearchOutcome == .unavailable)
 
         let retry = Task { await controller.suggestCities("Pa") }
-        try await until { gate.calls == 2 }
+        try await gate.waitForCalls(2)
         let fresh = CitySuggestion(title: "Synthetic current answer", subtitle: "France")
         gate.release(call: 1, [fresh])
         await retry.value
         #expect(controller.citySuggestions == [fresh] && controller.citySearchOutcome == nil)
         gate.release(call: 0, [CitySuggestion(title: "Synthetic expired answer", subtitle: "France")])
-        try await until { gate.returnedCalls.contains(0) }
+        try await gate.waitForReturn(0)
         // Queue and await another same-query result after the expired provider has returned.
         let confirm = Task { await controller.suggestCities("Pa") }
-        try await until { gate.calls == 3 }
+        try await gate.waitForCalls(3)
         #expect(controller.citySuggestions == [fresh] && controller.citySearchOutcome == nil)
         gate.release(call: 2, [fresh])
         await confirm.value
@@ -273,14 +273,14 @@ struct MorningBriefingPersistenceRaceTests {
         let old = try WeatherLocation(latitude: 48.86, longitude: 2.35, displayName: "Synthetic Paris")
         let new = try WeatherLocation(latitude: 35.68, longitude: 139.69, displayName: "Synthetic Tokyo")
         let first = Task { await controller.chooseCity(.init(title: old.displayName, subtitle: "")) }
-        try await until { gate.calls == 1 }
+        try await gate.waitForCalls(1)
         let second = Task { await controller.chooseCity(.init(title: new.displayName, subtitle: "")) }
-        try await until { gate.calls == 2 }
+        try await gate.waitForCalls(2)
         gate.release(call: 1, [new])
         #expect(await second.value == new)
         gate.release(call: 0, [old])
         #expect(await first.value == nil)
-        try await until { gate.returnedCalls.count == 2 }
+        try await gate.waitForReturns(2)
         #expect(controller.settings.weatherLocation == new)
         #expect(!controller.isSearchingCities)
         #expect(makeController(directory: directory).settings.weatherLocation == new)
@@ -296,7 +296,7 @@ struct MorningBriefingPersistenceRaceTests {
                                       reset: { resets += 1 })
         try oldOwner.updateSettings(.init(calendarIDs: ["synthetic-forgotten"], includesHealth: true))
         let pending = Task { await oldOwner.chooseCity(.init(title: "Synthetic forgotten city", subtitle: "")) }
-        try await until { gate.calls == 1 }
+        try await gate.waitForCalls(1)
         let resetCount = resets
         oldOwner.cancelAndClear()
         let control = LocalDataControl(directory: directory)
@@ -312,7 +312,7 @@ struct MorningBriefingPersistenceRaceTests {
         let old = try WeatherLocation(latitude: 10, longitude: 20, displayName: "Synthetic forgotten city")
         gate.release(call: 0, [old])
         #expect(await pending.value == nil)
-        try await until { gate.returnedCalls.contains(0) }
+        try await gate.waitForReturn(0)
         #expect(try Data(contentsOf: file) == saved)
         #expect(resets == resetCount + 1)
         oldOwner.reloadSettings()
@@ -354,19 +354,59 @@ struct MorningBriefingPersistenceRaceTests {
 @MainActor
 private final class NumberedCallGate<Value: Sendable> {
     private var waiting: [Int: CheckedContinuation<Value, any Error>] = [:]
+    private struct Milestone {
+        let reached: @MainActor () -> Bool
+        let continuation: CheckedContinuation<Void, any Error>
+    }
+    private var milestones: [UUID: Milestone] = [:]
     private(set) var calls = 0
     private(set) var returnedCalls = Set<Int>()
     func value() async throws -> Value {
         let call = calls
         calls += 1
-        defer { returnedCalls.insert(call) }
+        releaseReachedMilestones()
+        defer { returnedCalls.insert(call); releaseReachedMilestones() }
         return try await withCheckedThrowingContinuation { waiting[call] = $0 }
+    }
+    // Provider registration/return is the barrier. A busy MainActor cannot expire
+    // a wall-clock polling window before these causal fixture events get a turn.
+    func waitForCalls(_ count: Int, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try await waitForMilestone { self.calls >= count }
+        try #require(calls == count, sourceLocation: sourceLocation)
+    }
+    func waitForReturn(_ call: Int) async throws {
+        try await waitForMilestone { self.returnedCalls.contains(call) }
+    }
+    func waitForReturns(_ count: Int, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        try await waitForMilestone { self.returnedCalls.count >= count }
+        try #require(returnedCalls.count == count, sourceLocation: sourceLocation)
+    }
+    private func waitForMilestone(_ reached: @escaping @MainActor () -> Bool) async throws {
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                if reached() { continuation.resume() }
+                else { milestones[id] = .init(reached: reached, continuation: continuation) }
+            }
+        } onCancel: {
+            Task { @MainActor in
+                self.milestones.removeValue(forKey: id)?.continuation.resume(throwing: CancellationError())
+            }
+        }
+    }
+    private func releaseReachedMilestones() {
+        let ready = milestones.filter { $0.value.reached() }.map(\.key)
+        for id in ready { milestones.removeValue(forKey: id)?.continuation.resume() }
     }
     func release(call: Int, _ value: Value) { waiting.removeValue(forKey: call)?.resume(returning: value) }
     func cancelAll() {
         let held = waiting.values
         waiting.removeAll()
         for continuation in held { continuation.resume(throwing: CancellationError()) }
+        let observers = milestones.values
+        milestones.removeAll()
+        for observer in observers { observer.continuation.resume(throwing: CancellationError()) }
     }
 }
 

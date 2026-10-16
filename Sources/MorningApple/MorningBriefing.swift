@@ -136,7 +136,7 @@ public enum MorningBriefingComposer {
         weather inputWeather: MorningBriefingInput<WeatherObservationSnapshot>,
         sleep inputSleep: SleepBriefingInput = .excluded,
         for day: Date, at now: Date, timeZoneIdentifier: String,
-        localeIdentifier: String = "en_US",
+        localeIdentifier: String = AppLanguage.localeIdentifier,
         temperatureUnit: MorningBriefingTemperatureUnit = .celsius,
         policy: MorningBriefingFreshnessPolicy = .standard
     ) throws -> PreparedMorningBriefing {
@@ -299,7 +299,7 @@ public enum MorningBriefingComposer {
         number.minimumFractionDigits = 0; number.maximumFractionDigits = 0
         guard let formatted = number.string(from: NSNumber(value: temperature)) else { return invalid(.invalidSnapshot) }
         let text = endingSentence(phrases.weather(boundedTitle(snapshot.location.displayName, phrases: phrases),
-            boundedTitle(snapshot.conditionDescription, phrases: phrases), formatted, unit))
+            boundedTitle(snapshot.localizedConditionDescription(locale: locale), phrases: phrases), formatted, unit))
         return .init(status: .fresh, issue: nil, statusText: phrases.weatherStatus(snapshot.attribution.serviceName),
             retrievedAt: snapshot.retrievedAt, observationAt: snapshot.observationAt, sourceLabels: labels,
             omissionCount: 0, segments: [.init(id: "weather.0", source: .weather, text: text)], validUntil: expiry)

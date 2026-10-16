@@ -192,7 +192,7 @@ public struct NativeMomentActionCounts: Sendable, Equatable {
         } catch {
             guard attempt == turn, self.context == context, (try? checkPrivacy()) != nil, !Task.isCancelled else { return true }
             phase = .unavailable; action = nil; reviewedID = nil
-            message = error.localizedDescription; await say(); return true
+            message = error.moreDescription; await say(); return true
         }
     }
 
@@ -203,14 +203,14 @@ public struct NativeMomentActionCounts: Sendable, Equatable {
         pendingInput = (input.kind, title, date, date == nil, durationMinutes)
         action = nil; reviewedID = nil
         do { try checkPrivacy(); try prepareInput(); await presentPrepared() }
-        catch { phase = .unavailable; message = error.localizedDescription }
+        catch { phase = .unavailable; message = error.moreDescription }
     }
 
     public func selectReminder(id: String, context: MorningExecutionID) async {
         guard !Task.isCancelled, self.context == context, let item = observedReminders.first(where: { $0.id == id }), phase != .writing, phase != .uncertain else { return }
         attempt = UUID()
         do { try checkPrivacy(); try validateObserved(item); operationID = UUID(); action = .complete(item); pendingInput = nil; await review() }
-        catch { phase = .unavailable; message = error.localizedDescription; await say() }
+        catch { phase = .unavailable; message = error.moreDescription; await say() }
     }
 
     public func review() async {
@@ -222,7 +222,7 @@ public struct NativeMomentActionCounts: Sendable, Equatable {
             if case .complete(let item) = action { try validateObserved(item) }
         } catch {
             guard self.context == context else { return }
-            reviewedID = nil; phase = .unavailable; message = error.localizedDescription; await say(); return
+            reviewedID = nil; phase = .unavailable; message = error.moreDescription; await say(); return
         }
         message = reviewText(action)
         do {
@@ -251,6 +251,16 @@ public struct NativeMomentActionCounts: Sendable, Equatable {
         return try NativeMomentJournal(control: control).counts(contexts: session.routine.steps.map {
             MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: $0.id)
         }, generation: current.generation)
+    }
+
+    /// Language changes revoke review, never an action or its reconciliation state.
+    public func appLanguageDidChange() {
+        reviewID = UUID(); reviewedID = nil
+        if phase == .uncertain || phase == .writing { message = Self.uncertainMessage }
+        else if let action { message = reviewText(action); phase = .reviewing }
+        else if phase != .idle {
+            message = Self.localized("Votre demande est conservée. Relisez ses détails avant de continuer.", "Your request is preserved. Review its details before continuing.")
+        }
     }
 
     public func clear() {
@@ -330,7 +340,7 @@ public struct NativeMomentActionCounts: Sendable, Equatable {
             self.action = nil; pendingInput = nil; reviewedID = nil; await say()
         } catch {
             if phase == .writing { phase = .uncertain; message = Self.uncertainMessage }
-            else { phase = .unavailable; message = error.localizedDescription; reviewedID = nil }
+            else { phase = .unavailable; message = error.moreDescription; reviewedID = nil }
             await say()
         }
     }
@@ -339,7 +349,7 @@ public struct NativeMomentActionCounts: Sendable, Equatable {
         try? await speak(message + cue)
     }
     private func reviewText(_ action: NativeMomentAction) -> String {
-        let format = Date.FormatStyle(date: .complete, time: .shortened, locale: Locale(identifier: AppLanguage.isFrench ? "fr_FR" : "en_US"), calendar: calendar, timeZone: calendar.timeZone)
+        let format = Date.FormatStyle(date: .complete, time: .shortened, locale: AppLanguage.locale, calendar: calendar, timeZone: calendar.timeZone)
         switch action {
         case .reminder(let draft, let destination):
             return Self.localized("Ajouter le rappel « \(draft.title) » dans \(destination.title), compte \(destination.sourceTitle). ", "Add reminder “\(draft.title)” to \(destination.title), account \(destination.sourceTitle). ") +
@@ -351,7 +361,7 @@ public struct NativeMomentActionCounts: Sendable, Equatable {
         }
     }
     private func confirmedText(_ action: NativeMomentAction) -> String {
-        let format = Date.FormatStyle(date: .complete, time: .shortened, locale: Locale(identifier: AppLanguage.isFrench ? "fr_FR" : "en_US"), calendar: calendar, timeZone: calendar.timeZone)
+        let format = Date.FormatStyle(date: .complete, time: .shortened, locale: AppLanguage.locale, calendar: calendar, timeZone: calendar.timeZone)
         switch action {
         case .reminder(let draft, let target):
             return Self.localized("Le rappel « \(draft.title) » a été ajouté dans Rappels Apple, liste \(target.title), compte \(target.sourceTitle). ", "Reminder “\(draft.title)” was added to Apple Reminders, list \(target.title), account \(target.sourceTitle). ") +

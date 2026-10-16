@@ -15,7 +15,7 @@ final class RecordedObservationImportTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode",
             "--ui-testing-workspace=\(workspaceID.uuidString)", "--ui-testing-import-recorded-video"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearn(in: app)
         let editor = app.textViews["learn.notes"]
         let loaded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
@@ -34,7 +34,7 @@ final class RecordedObservationImportTests: XCTestCase {
 
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-import-recorded-video" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearn(in: app)
         XCTAssertEqual(editor.value as? String, original)
         reveal(summary, in: app)
@@ -49,7 +49,7 @@ final class RecordedObservationImportTests: XCTestCase {
         if app.buttons["input.done"].exists { app.buttons["input.done"].tap() }
         app.navigationBars["Learn my morning"].buttons["Done"].tap()
         app.terminate()
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearn(in: app)
         XCTAssertEqual(editor.value as? String, edited)
         XCTAssertFalse(summary.exists)
@@ -57,7 +57,7 @@ final class RecordedObservationImportTests: XCTestCase {
         reveal(clear, in: app)
         clear.tap()
         app.terminate()
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearn(in: app)
         XCTAssertEqual(editor.value as? String ?? "", "")
         XCTAssertFalse(summary.exists)

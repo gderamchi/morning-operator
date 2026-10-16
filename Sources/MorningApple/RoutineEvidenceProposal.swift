@@ -22,12 +22,8 @@ public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equat
         case .ownInterfaceLeftNoEvidence: AppLanguage.localized("A selected recording has no usable activity evidence. Some of its samples were left out because MORE itself was in front when they were taken. Use your other apps while a recording runs, or choose another observation.", bundle: .module)
         case .inputBudgetExceeded: AppLanguage.localized("These saved observations exceed the bounded local workload or contain a text unit too large to send safely. Your complete saved source is unchanged; nothing was silently shortened.", bundle: .module)
         case .outputBudgetExceeded: AppLanguage.localized("The combined suggestion contains more distinct supporting text than can fit in one reviewable plan. Your complete observations are still saved; choose a smaller set of observations. Nothing was silently shortened.", bundle: .module)
-        case .tooManySteps: AppLanguage.isFrench
-            ? "Cette proposition dépasse dix moments, y compris vos rituels gardés. Réduisez les observations choisies ou ajustez les rituels à garder. Aucun rituel gardé n’a été retiré automatiquement."
-            : "This proposal exceeds ten moments, including your kept rituals. Select fewer observations or adjust which rituals to keep. No kept ritual was removed automatically."
-        case .screenTimeSelectionRequired(let slots): AppLanguage.isFrench
-            ? "Ce plan peut accueillir encore \(slots) moment(s) d’app Screen Time. Choisissez les apps à ajouter dans la sélection d’observations. Les séquences observées et vos rituels gardés sont conservés."
-            : "This plan has room for \(slots) additional Screen Time app moment(s). Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained."
+        case .tooManySteps: AppLanguage.localized("This proposal exceeds ten moments, including your kept rituals. Select fewer observations or adjust which rituals to keep. No kept ritual was removed automatically.", bundle: .module)
+        case .screenTimeSelectionRequired(let slots): AppLanguage.localized("This plan has room for \(slots) additional Screen Time app moments. Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained.", bundle: .module)
         case .invalidCitation: AppLanguage.localized("A proposed step could not be tied to the exact supplied evidence. Your current routine is unchanged.", bundle: .module)
         case .invalidProposal: AppLanguage.localized("This proposal is incomplete or inconsistent with its saved evidence. Create another proposal.", bundle: .module)
         }
@@ -698,7 +694,7 @@ public enum LearningEvidencePreparation {
         // newly selected source is personal. Preserve that provenance on the
         // whole plan before approval, export or run aggregation can use it.
         if routine.isSynthetic && !routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
-            routine.sourceLabel = "Demo fixture — includes a synthetic saved observation"
+            routine.sourceLabel = AppLanguage.localized("Demo fixture — includes a synthetic saved observation", bundle: .module)
         }
         guard !routine.steps.isEmpty else { throw RoutineEvidenceProposalError.insufficientEvidence }
         let keptIDs = legacyKeptIDs.union(reconciled.retainedStepIDs)

@@ -1091,7 +1091,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         let app = XCUIApplication()
         let workspace = UUID().uuidString
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-workspace=\(workspace)",
-            "--light-preview", "--theme-phase=morning", "-AppleLanguages", french ? "(fr)" : "(en)",
+            "--light-preview", "--theme-phase=morning", "-more.appLanguage", french ? "fr" : "en", "-AppleLanguages", french ? "(fr)" : "(en)",
             "-AppleLocale", french ? "fr_FR" : "en_US"] + flags
         app.launch()
         let marker = app.staticTexts["qa.testWorkspace"]

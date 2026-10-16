@@ -9,7 +9,7 @@ final class WebRoutineJourneyTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
             "--ui-testing-briefing-fixture", "--ui-testing-workspace=\(UUID().uuidString)",
-            "--light-preview", "--theme-phase=morning", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            "--light-preview", "--theme-phase=morning", "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         defer { app.terminate() }
         MorningUITestNavigation.openRoutine(in: app)
