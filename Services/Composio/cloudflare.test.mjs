@@ -18,7 +18,8 @@ const toolkits = {
 
 // Every outbound request is intercepted. These tests exercise workerd, the actual
 // native Fetch router and D1 SQL, with synthetic provider accounts and effects only.
-async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase = true, slack = false } = {}) {
+// Gated success paths need headroom; only deliberate timeout fixtures use 100 ms.
+async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase = true, slack = false, timeout = 2000 } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'more-worker-test-'));
   const configured = { ...toolkits, ...(slack ? { slack: { authConfigID: 'ac_synthetic_slack', name: 'Slack', version: '20261014_00' } } : {}) };
   const state = { accounts: new Map(), calls: [], executions: 0, mode: 'success', executionGate: null, executionStarted: null,
@@ -80,7 +81,7 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
       modules: ['cloudflare/worker.mjs', 'server.mjs', 'cloudflare/storage.mjs'].map(path => ({ type: 'ESModule', path: join(root, path) })),
       compatibilityDate: '2026-10-15',
       compatibilityFlags: ['nodejs_compat', 'enable_nodejs_http_server_modules'],
-      bindings: { COMPOSIO_API_KEY: 'synthetic-worker-key', COMPOSIO_TOOLKITS_JSON: JSON.stringify(configured), MORE_PUBLIC_BASE_URL: 'https://connector.example', MORE_AUTH_CALLBACK_URL: callbacks[0], MORE_CALLBACK_URLS_JSON: JSON.stringify(callbacks), COMPOSIO_TIMEOUT_MS: '100' },
+      bindings: { COMPOSIO_API_KEY: 'synthetic-worker-key', COMPOSIO_TOOLKITS_JSON: JSON.stringify(configured), MORE_PUBLIC_BASE_URL: 'https://connector.example', MORE_AUTH_CALLBACK_URL: callbacks[0], MORE_CALLBACK_URLS_JSON: JSON.stringify(callbacks), COMPOSIO_TIMEOUT_MS: String(timeout) },
       ...(withDatabase ? { d1Databases: { DB: 'synthetic-shared-database' } } : {}),
       ...(limiters ? { ratelimits: {
         ENROLLMENT_LIMITER: { namespace_id: '1001', simple: { limit: enrollmentLimit, period: 60 } },
@@ -185,6 +186,7 @@ test('independent Worker isolates dispatch one effect and only replay a content-
   const data = { tool: 'GMAIL_SEND_EMAIL', arguments: { recipient: 'private-recipient-sentinel@example.com' }, connectionID: account.id, requestID: randomUUID() };
   const first = f.api('/v1/execute', { method: 'POST', bearer, data });
   await f.state.executionStarted.promise;
+  await new Promise(resolve => setTimeout(resolve, 150));
   const concurrent = await f.api('/v1/execute', { method: 'POST', bearer, data, worker: 'secondary' });
   assert.equal(concurrent.status, 409);
   assert.equal(concurrent.data.error.code, 'execution_uncertain');
@@ -209,7 +211,7 @@ test('independent Worker isolates dispatch one effect and only replay a content-
 });
 
 test('Worker timeout and malformed acknowledgements persist uncertainty without repeating effects', async t => {
-  const f = await fixture(t); const bearer = await f.install(); const account = await f.addAccount(bearer);
+  const f = await fixture(t, { timeout: 100 }); const bearer = await f.install(); const account = await f.addAccount(bearer);
   for (const mode of ['malformed', 'timeout']) {
     f.state.mode = mode;
     const data = { tool: 'GMAIL_SEND_EMAIL', arguments: { recipient: 'never-persist-this@example.com' }, connectionID: account.id, requestID: randomUUID() };
@@ -248,6 +250,7 @@ test('Worker Slack guard checks live identity and grant revision before one dura
   f.state.executionGate = Promise.withResolvers(); f.state.executionStarted = Promise.withResolvers();
   const first = f.api('/v1/slack/replies', { method: 'POST', bearer, data: sending });
   await f.state.executionStarted.promise;
+  await new Promise(resolve => setTimeout(resolve, 150));
   const concurrent = await f.api('/v1/slack/replies', { method: 'POST', bearer, data: sending, worker: 'secondary' });
   assert.equal(concurrent.status, 409); assert.equal(concurrent.data.error.code, 'execution_uncertain');
   f.state.executionGate.resolve();
@@ -269,7 +272,7 @@ test('Worker Slack guard checks live identity and grant revision before one dura
 });
 
 test('Worker Slack missing revision refuses without dispatch and lost or mismatched receipts stay uncertain after restart', async t => {
-  const f = await fixture(t, { slack: true }); const bearer = await f.install(); const account = await f.addAccount(bearer, 'ca_slack', 'slack');
+  const f = await fixture(t, { slack: true, timeout: 100 }); const bearer = await f.install(); const account = await f.addAccount(bearer, 'ca_slack', 'slack');
   const identity = (await f.api(`/v1/slack/reply-identity?connectionID=${account.id}`, { bearer })).data;
   const expectedIdentity = { revision: identity.revision, teamID: identity.teamID, userID: identity.userID, botID: identity.botID };
   const data = { connectionID: account.id, requestID: randomUUID(), expectedIdentity, channelID: 'C12345678', threadTS: '1792058300.000001', body: 'never-persist-slack-body' };
