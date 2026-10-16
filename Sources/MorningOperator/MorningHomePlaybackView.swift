@@ -28,6 +28,7 @@ struct MorningHomePlaybackView: View {
         return store.connectedActionStatus ?? store.currentStep?.detail ?? ""
     }
     private var caption: String {
+        if store.cloudVoice.isActive, let text = store.cloudVoice.caption, !text.isEmpty { return text }
         if let notice = store.notice, !notice.isEmpty { return notice }
         if let displayedCaption { return displayedCaption }
         let text = fallback.trimmingCharacters(in: .whitespacesAndNewlines)

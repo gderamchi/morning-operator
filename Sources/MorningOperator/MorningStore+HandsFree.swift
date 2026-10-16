@@ -29,6 +29,11 @@ extension MorningStore {
     /// No extra turn button: the approved morning owns listening until it ends,
     /// leaves the foreground, or the person switches it off.
     func startHandsFreeVoice() {
+        if cloudVoice.isActive {
+            Task { await cloudVoice.updateContext(cloudVoiceContext) }
+            return
+        }
+        guard !cloudVoiceReleasing else { return }
         guard !privacyBlocksWork, !permissionSetup.isPresented, !permissionSetup.needsInitialSetup,
               automatic, sessionActive, !voiceInputBlocksPlayback,
               !voiceCommandPresented, !captureVoicePresented,
@@ -62,12 +67,14 @@ extension MorningStore {
         })
     }
 
-    func stopHandsFreeVoice() { handsFreeVoice.stop() }
-    func suspendHandsFreeVoice() { handsFreeVoice.stop() }
+    func stopHandsFreeVoice() { handsFreeVoice.stop(); stopCloudVoice() }
+    func suspendHandsFreeVoice() { handsFreeVoice.stop(); stopCloudVoice() }
 
     /// Await this inside the existing manual command/capture Task before it
     /// activates its microphone. Merely presenting a sheet is not a release barrier.
     func prepareForManualVoiceInput() async throws {
+        stopCloudVoice()
+        await cloudVoice.stopAndRelease()
         try await handsFreeVoice.stopAndRelease()
         try Task.checkCancellation()
     }

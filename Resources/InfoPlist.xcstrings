@@ -62,13 +62,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE listens on this device during your hands-free morning so you can interrupt, pause or request an action. Listening stops when you end the morning or leave the app."
+            "value": "MORE listens during your morning so you can interrupt or ask a question. Local listening stays on this iPhone. If you choose ElevenLabs conversation, your microphone audio is sent to ElevenLabs. Listening stops when you end the morning or leave the app."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE écoute sur cet appareil pendant votre matin mains libres pour vous permettre de l’interrompre, de mettre en pause ou de demander une action. L’écoute s’arrête quand vous terminez votre matin ou quittez l’app."
+            "value": "MORE vous écoute pendant votre matin pour répondre à vos questions et interruptions. L’écoute locale reste sur cet iPhone. Si vous choisissez la conversation ElevenLabs, votre voix est transmise à ElevenLabs. L’écoute s’arrête en quittant l’app ou en arrêtant le matin."
           }
         }
       }
@@ -152,13 +152,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE reads your recorded sleep duration and its time window from Apple Health when you choose to include sleep in your morning recap. It never writes health data."
+            "value": "MORE reads sleep, resting heart rate, heart rate variability and breathing rate from Apple Health when you choose to include them in your morning. It never writes health data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE lit la durée et la période de sommeil enregistrées dans Santé Apple quand vous choisissez de les inclure dans votre récapitulatif du matin. MORE ne modifie aucune donnée de santé."
+            "value": "MORE lit le sommeil, la fréquence cardiaque au repos, sa variabilité et la fréquence respiratoire dans Santé Apple lorsque vous choisissez de les inclure dans votre matin. MORE ne modifie aucune donnée Santé."
           }
         }
       }

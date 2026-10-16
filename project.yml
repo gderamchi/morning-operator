@@ -7,6 +7,9 @@ options:
   generateEmptyDirectories: true
   xcodeVersion: "26.0"
 packages:
+  ElevenLabs:
+    url: https://github.com/elevenlabs/elevenlabs-swift-sdk.git
+    exactVersion: 3.4.0
   MorningOperatorShared:
     path: .
 settings:
@@ -55,6 +58,8 @@ targets:
         product: MorningApple
       - package: MorningOperatorShared
         product: MorningHealth
+      - package: ElevenLabs
+        product: ElevenLabs
       - target: MorningActivityWidget
         embed: true
         link: false

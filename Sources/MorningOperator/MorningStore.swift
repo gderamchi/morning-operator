@@ -373,6 +373,23 @@ final class MorningStore {
     var privacyBlocksWork: Bool { privacyIsForgetting || privacyNeedsCleanup }
     var privacyInventoryIsReadable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
 
+    @ObservationIgnored lazy var cloudVoice = MorningCloudVoiceSession(
+        tokenProvider: { [weak self] in
+            guard let self else { throw CancellationError() }
+            return try await self.composio.morningVoiceToken()
+        }, makeTransport: { ElevenLabsMorningVoiceTransport() },
+        control: { [weak self] action, binding in
+            guard let self else { throw CancellationError() }
+            return try await self.applyCloudVoiceControl(action, binding: binding)
+        }, request: { [weak self] request, binding in
+            self?.acceptCloudVoiceRequest(request, binding: binding) ?? false
+        })
+    @ObservationIgnored var cloudVoiceRequestTask: Task<Void, Never>?
+    @ObservationIgnored var cloudVoiceConsentGeneration: UUID?
+    @ObservationIgnored var cloudVoiceConsentSession: UUID?
+    var cloudVoiceReleasing = false
+    var cloudVoiceStartIssue: String?
+
     init() {
         let fixtureMode = ProcessInfo.processInfo.arguments.contains("--ui-testing")
         let directory = LocalDataControl.defaultDirectory
@@ -385,11 +402,13 @@ final class MorningStore {
         let testBriefing = MorningBriefingFixture.makeController(directory: directory)
         usesSyntheticBriefing = testBriefing != nil
         briefing = testBriefing ?? MorningBriefingController(directory: directory,
-            sleep: SleepObservationService(provider: HealthKitSleepReader()))
+            sleep: SleepObservationService(provider: HealthKitSleepReader()),
+            healthMetrics: HealthMetricsObservationService(provider: HealthKitMetricsReader()))
         #else
         usesSyntheticBriefing = false
         briefing = MorningBriefingController(directory: directory,
-            sleep: SleepObservationService(provider: HealthKitSleepReader()))
+            sleep: SleepObservationService(provider: HealthKitSleepReader()),
+            healthMetrics: HealthMetricsObservationService(provider: HealthKitMetricsReader()))
         #endif
         #if DEBUG
         repairPrivacyFixtureIfRequested(directory: directory)
@@ -2734,6 +2753,7 @@ final class MorningStore {
         releaseVoiceInput()
         MorningIntentRouter.shared.resetPendingRequests()
         do {
+            await cloudVoice.stopAndRelease()
             try await handsFreeVoice.stopAndRelease()
             try await morningActivity.endAllForPrivacy()
             // SDK streams may ignore cancellation. Never report successful
