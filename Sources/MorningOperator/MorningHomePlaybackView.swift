@@ -113,19 +113,15 @@ struct MorningHomePlaybackView: View {
                 else if store.session?.status == .paused { store.resume() }
                 else { store.pause() }
             } label: {
-                MorningNavigationSurface {
-                    Image(systemName: offersPlay ? "play.fill" : "pause.fill")
-                        .font(.system(size: 28, weight: .medium)).frame(width: 88, height: 88)
-                }
+                MorningFloatingGlassSymbol(symbol: offersPlay ? .play : .pause, size: 48)
+                    .frame(width: 88, height: 88).contentShape(Rectangle())
             }
             .accessibilityLabel(offersPlay ? (french ? "Continuer" : "Continue") : "Pause")
             .accessibilityIdentifier("morning.playback")
 
             Button(action: openSettings) {
-                MorningNavigationSurface {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 20, weight: .medium)).frame(width: 48, height: 48)
-                }
+                MorningFloatingGlassSymbol(symbol: .settings, size: 28)
+                    .frame(width: 48, height: 48).contentShape(Rectangle())
             }
             .accessibilityLabel(french ? "Paramètres" : "Settings")
             .accessibilityIdentifier("morning.settings")
@@ -237,6 +233,5 @@ struct MorningRoutineControlsView: View {
                     .accessibilityIdentifier("morning.closeDetails")
             } }
         }
-        .preferredColorScheme(.light)
     }
 }

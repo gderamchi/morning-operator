@@ -10,14 +10,18 @@ final class LocalizationJourneyTests: XCTestCase {
         openSettings(app)
         choose("Français", in: app)
         XCTAssertTrue(app.staticTexts["Langue"].exists)
-        XCTAssertTrue(app.staticTexts["Aucune invitation n’est programmée."].exists)
         attach("localization-fr-settings", app)
+        let frenchInvitation = app.staticTexts["Aucune invitation n’est programmée."]
+        scrollTo(frenchInvitation, in: app)
+        XCTAssertTrue(frenchInvitation.exists)
         verifyVoices(app, french: true)
 
         choose("English", in: app)
         XCTAssertTrue(app.staticTexts["Language"].exists)
-        XCTAssertTrue(app.staticTexts["No invitation is scheduled."].exists)
         attach("localization-en-settings", app)
+        let englishInvitation = app.staticTexts["No invitation is scheduled."]
+        scrollTo(englishInvitation, in: app)
+        XCTAssertTrue(englishInvitation.exists)
         verifyVoices(app, french: false)
         app.terminate()
 

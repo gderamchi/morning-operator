@@ -192,18 +192,16 @@ struct MorningTheme {
 
     // MARK: Type
 
-    /// One native sans-serif family for titles, reading, dates and controls.
-    /// Semantic styles keep the hierarchy and follow Dynamic Type.
-    /// Two typefaces, as on Home: DM Serif Display for titles, Raleway for everything else.
+    /// Utility screens use native type; Home keeps its explicit Raleway reading face.
     enum Typography {
-        static let display = Font.serif(.largeTitle)
-        static let title = Font.serif(.title)
-        static let heading = Font.serif(.headline)
-        static let body = Font.raleway(.body)
-        static let note = Font.raleway(.subheadline)
-        static let label = Font.raleway(.caption, .medium)
-        static let number = Font.raleway(.caption).monospacedDigit()
-        static let control = Font.raleway(.body, .semibold)
+        static let display = Font.system(.largeTitle, weight: .bold)
+        static let title = Font.system(.title, weight: .semibold)
+        static let heading = Font.system(.headline)
+        static let body = Font.system(.body)
+        static let note = Font.system(.subheadline)
+        static let label = Font.system(.caption, weight: .medium)
+        static let number = Font.system(.caption).monospacedDigit()
+        static let control = Font.system(.body, weight: .semibold)
     }
 
     // MARK: Space
@@ -290,67 +288,46 @@ struct MorningHalftoneSun: View {
 
 // MARK: - Controls
 
-/// A printed paper ticket. The dotted edge and offset ink impression belong to
-/// MORE; no system capsule or glass is involved.
+/// Flat utility controls follow the native foreground and surface palette.
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        let theme = MorningTheme.current
         configuration.label.font(MorningTheme.Typography.control)
-            .padding(.horizontal, 22).padding(.vertical, 12)
-            .frame(minHeight: 48)
-            .foregroundStyle(theme.ink)
-            .background(theme.selected, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(MorningDottedFrame(cornerRadius: 8, spacing: 5, dotRadius: 1.15).fill(theme.ink))
-            .offset(y: configuration.isPressed ? 2 : 0)
-            .contentShape(RoundedRectangle(cornerRadius: 8))
-            .opacity(isEnabled ? 1 : 0.4)
+            .padding(.horizontal, 22).padding(.vertical, 12).frame(minHeight: 48)
+            .foregroundStyle(MorningStyle.onControl)
+            .background(MorningStyle.controlTint, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
     }
 }
-/// The same printed ticket at a smaller size, for the case where two actions must
-/// sit side by side (record / choose).
 struct CompactPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        let theme = MorningTheme.current
         configuration.label.font(MorningTheme.Typography.control)
-            .padding(.horizontal, 18).padding(.vertical, 12)
-            .frame(minHeight: 44)
-            .foregroundStyle(theme.ink)
-            .background(theme.selected, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(MorningDottedFrame(cornerRadius: 8, spacing: 5, dotRadius: 1).fill(theme.ink))
-            .offset(y: configuration.isPressed ? 2 : 0)
-            .contentShape(RoundedRectangle(cornerRadius: 8))
-            .opacity(isEnabled ? 1 : 0.4)
+            .padding(.horizontal, 18).padding(.vertical, 12).frame(minHeight: 44)
+            .foregroundStyle(MorningStyle.onControl)
+            .background(MorningStyle.controlTint, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
     }
 }
-/// Secondary actions read like an ink annotation with a dotted underline.
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        let theme = MorningTheme.current
         configuration.label.font(MorningTheme.Typography.control)
-            .padding(.horizontal, 18).padding(.vertical, 12)
-            .frame(minHeight: 44)
-            .foregroundStyle(theme.ink)
-            .background(theme.surface.opacity(configuration.isPressed ? 0.65 : 1), in: RoundedRectangle(cornerRadius: 4))
-            .overlay(alignment: .bottom) {
-                MorningDottedFrame(cornerRadius: 0, spacing: 6, dotRadius: 0.9)
-                    .fill(theme.ink.opacity(0.7)).frame(height: 3).padding(.horizontal, 10)
-            }
-            .contentShape(Rectangle())
-            .opacity(isEnabled ? 1 : 0.4)
+            .padding(.horizontal, 18).padding(.vertical, 12).frame(minHeight: 44)
+            .foregroundStyle(MorningStyle.ink)
+            .background(MorningStyle.selected, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
     }
 }
-/// A quiet text action in the accent ink; for the third choice, never the first.
 struct QuietButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(MorningTheme.Typography.control)
-            .foregroundStyle(MorningTheme.current.accentText)
-            .padding(.vertical, 8)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
+            .foregroundStyle(MorningStyle.accent)
+            .padding(.vertical, 8).frame(minHeight: 44).contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.6 : isEnabled ? 1 : 0.4)
     }
 }
