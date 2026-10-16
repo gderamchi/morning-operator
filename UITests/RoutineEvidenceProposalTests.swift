@@ -667,12 +667,27 @@ final class RoutineEvidenceProposalTests: XCTestCase {
     private func createProposal(from ids: [String], expectedFirstTitle: String = "A morning to review", in app: XCUIApplication) {
         openArchive(in: app)
         tap("observations.choose", in: app)
-        for id in ids {
+        for (index, id) in ids.enumerated() {
             let choice = app.buttons["observation.select.\(id)"]
             XCTAssertTrue(choice.waitForExistence(timeout: 5))
             XCTAssertTrue(choice.isEnabled)
             if (choice.value as? String) != "Selected" { tap(choice.identifier, in: app) }
+            // Wait for the actual AX state after the single native tap. Never
+            // tap again to hide a failed selection or accidental navigation.
+            let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format:
+                "exists == true AND value == %@", "Selected"), object: choice)
+            let result = XCTWaiter.wait(for: [selected], timeout: 5)
+            if result != .completed {
+                attach("synthetic-selection-did-not-change-\(index)", app)
+                let state = XCTAttachment(string: app.debugDescription)
+                state.name = "synthetic-selection-did-not-change-\(index)-accessibility"
+                state.lifetime = .keepAlways; add(state)
+            }
+            XCTAssertEqual(result, .completed, "The one native selection tap must select its source.")
             XCTAssertEqual(choice.value as? String, "Selected")
+            XCTAssertTrue(app.navigationBars["Observations"].exists,
+                          "Selecting a source must not open its detail.")
+            XCTAssertTrue(app.staticTexts["observations.selectionSummary"].label.hasPrefix("Sample update · \(index + 1) observation"))
         }
         let fixture = app.descendants(matching: .any).matching(identifier: "observations.fixtureMode").firstMatch
         XCTAssertTrue(fixture.exists)
