@@ -45,6 +45,8 @@ Les deux runners précédents ont expiré avant le premier test sur « Timed out
 
 Le service local sur le port 8791 fonctionne actuellement dans un processus détaché. Cette installation dépend du Mac éveillé et du même réseau local ; elle ne constitue pas un déploiement cloud ni une preuve de fonctionnement loin du Mac.
 
+Le candidat corrigé porte le numéro **2** dans le bundle Démo uniquement, pour le distinguer du premier doublon installé (build 1). La signature, le build réellement installé et les contrôles physiques de ce candidat doivent rester des preuves séparées.
+
 ## Parcours visé de deux à trois minutes
 
 Répéter d’abord les passages vocaux sur le téléphone. Garder les options Rappels et Instagram seulement après leur validation réelle ; les tests du serveur ne suffisent pas à les certifier.
