@@ -158,6 +158,69 @@ final class LocalizationJourneyTests: XCTestCase {
         }
     }
 
+    func testSleepStaysOffAndItsUnavailableReaderErrorFollowsThePersistedLanguage() {
+        continueAfterFailure = false
+        let workspace = UUID()
+        let fixture = ["--ui-testing-briefing-fixture"]
+        var app = launch(workspace: workspace, initialLanguage: "en", extraArguments: fixture)
+        defer { app.terminate() }
+        openSettings(app)
+        let sources = app.buttons["setup.briefing"]
+        scrollTo(sources, in: app, upward: false)
+        XCTAssertEqual(sources.label, "Calendar, weather & sleep")
+        sources.tap()
+        XCTAssertTrue(app.staticTexts["briefing.synthetic"].waitForExistence(timeout: 5), app.debugDescription)
+        let sleep = app.switches["briefing.healthIncluded"].firstMatch
+        scrollTo(sleep, in: app)
+        XCTAssertEqual(sleep.label, "Include recorded sleep")
+        XCTAssertEqual(sleep.value as? String, "0")
+        let issue = app.staticTexts["briefing.healthError"]
+        XCTAssertFalse(issue.exists)
+        attach("localization-en-sleep-off-default", app)
+
+        // This fixture has no HealthKit reader. One attempted inclusion cannot prompt or read Health.
+        let nativeSwitch = sleep.switches.firstMatch
+        if nativeSwitch.exists { nativeSwitch.tap() } else { sleep.tap() }
+        XCTAssertTrue(issue.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(issue.label, "Sleep reading is not available in this version.")
+        XCTAssertEqual(sleep.value as? String, "0")
+        XCTAssertEqual(app.alerts.count, 0)
+        attach("localization-en-sleep-unavailable", app)
+        app.navigationBars["Your day"].buttons["Done"].tap()
+
+        choose("Français", in: app)
+        scrollTo(sources, in: app, upward: false)
+        XCTAssertEqual(sources.label, "Calendrier, météo et sommeil")
+        sources.tap()
+        XCTAssertTrue(app.navigationBars["Votre journée"].waitForExistence(timeout: 5), app.debugDescription)
+        scrollTo(sleep, in: app)
+        XCTAssertEqual(sleep.label, "Inclure le sommeil enregistré")
+        XCTAssertEqual(sleep.value as? String, "0")
+        XCTAssertTrue(issue.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(issue.label, "La lecture du sommeil n’est pas disponible dans cette version.")
+        XCTAssertEqual(app.alerts.count, 0)
+        attach("localization-fr-sleep-retained-error-off", app)
+        app.terminate()
+
+        // The saved French choice must win over English system preferences; no second Health action.
+        app = launch(workspace: workspace, systemLanguage: "en", extraArguments: fixture)
+        openSettings(app)
+        let picker = app.segmentedControls["setup.language"]
+        scrollTo(picker, in: app)
+        XCTAssertTrue(picker.buttons["Français"].isSelected, app.debugDescription)
+        let restoredSources = app.buttons["setup.briefing"]
+        scrollTo(restoredSources, in: app, upward: false)
+        XCTAssertEqual(restoredSources.label, "Calendrier, météo et sommeil")
+        restoredSources.tap()
+        let restoredSleep = app.switches["briefing.healthIncluded"].firstMatch
+        scrollTo(restoredSleep, in: app)
+        XCTAssertEqual(restoredSleep.label, "Inclure le sommeil enregistré")
+        XCTAssertEqual(restoredSleep.value as? String, "0")
+        XCTAssertFalse(app.staticTexts["briefing.healthError"].exists, "Connection failures stay transient across relaunch.")
+        XCTAssertEqual(app.alerts.count, 0)
+        attach("localization-fr-sleep-off-after-relaunch", app)
+    }
+
     func testUnsupportedSystemLanguageStartsInFrench() {
         continueAfterFailure = false
         let app = launch(workspace: UUID(), initialLanguage: "unsupported", systemLanguage: "de")
