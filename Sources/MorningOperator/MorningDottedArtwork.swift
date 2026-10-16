@@ -521,12 +521,12 @@ struct MorningQuietLandscape: View {
                     MorningDottedDisc(cells: 37).fill(sunlight)
                         .frame(width: diameter, height: diameter)
                 }
-                .position(position(scene.sun, in: size))
+                .position(position(scene.sun, in: size, radius: diameter * 0.72))
                 .opacity(scene.sun.opacity * visibility)
                 MorningDottedDisc(kind: .moon, cells: 37)
                     .fill(Color(red: 0.92, green: 0.91, blue: 0.81))
                     .frame(width: diameter * 0.88, height: diameter * 0.88)
-                    .position(position(scene.moon, in: size))
+                    .position(position(scene.moon, in: size, radius: diameter * 0.44))
                     .opacity(night * visibility)
                 if let weather {
                     // The expensive dot grids are traced once, outside the timeline.
@@ -566,10 +566,11 @@ struct MorningQuietLandscape: View {
         }
     }
 
-    private func position(_ body: MorningCelestialPosition, in size: CGSize) -> CGPoint {
+    private func position(_ body: MorningCelestialPosition, in size: CGSize, radius: CGFloat) -> CGPoint {
         let progress = min(1, max(0, (body.centerX - 0.12) / 0.76))
         let height = min(1, max(0, (0.76 - body.centerY) / 0.58))
-        return CGPoint(x: size.width * (0.16 + 0.68 * progress), y: size.height * (0.61 - 0.23 * height))
+        let inset = max(size.width * 0.16, radius)
+        return CGPoint(x: inset + (size.width - 2 * inset) * progress, y: size.height * (0.61 - 0.23 * height))
     }
 
     private func dot(_ path: inout Path, x: Double, y: Double, radius: Double) {
