@@ -1333,7 +1333,7 @@ private struct MorningSunHome: View {
                 }
                 .buttonStyle(.plain)
                 .ignoresSafeArea()
-                .disabled(playback != nil)
+                .allowsHitTesting(playback == nil)
                 .accessibilityHidden(playback != nil)
                 .accessibilityIdentifier("morning.actions")
                 .accessibilityLabel(actionsShown

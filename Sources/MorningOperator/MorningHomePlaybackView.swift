@@ -58,7 +58,7 @@ struct MorningHomePlaybackView: View {
                                     VStack(alignment: .leading, spacing: 0) {
                                         Color.clear.frame(height: 1).id(passage.id.uuidString).accessibilityHidden(true)
                                         Text(verbatim: passage.text)
-                                            .opacity(passage.id == passages.last?.id ? 1 : 0.45)
+                                            .opacity(passage.id == passages.last?.id ? 1 : 0.65)
                                             .accessibilityIdentifier(passage.id == passages.last?.id ? "morning.caption" : "morning.previousCaption")
                                     }
                                 }
