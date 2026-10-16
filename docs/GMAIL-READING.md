@@ -1,16 +1,25 @@
 # Gmail reading and local replies
 
+## Contextual routine revision — 15 October 2026
+
+The standalone reader below remains available. A routine can also use **Read my mail and help me reply**: MORE reads a bounded unread selection, explains its selection, then supports yes/no, reply intention, local drafting, corrections and an explicit spoken Send. The visible Gmail setup offers optional read-and-send consent; readonly grants remain readonly. A durable content-free Message-ID journal reconciles uncertain sends before any further action. Generic unattended email-send routine tools are refused. [Execution details and current evidence](ROUTINE-AUTOMATION.md).
+
+Native compilation and synthetic Gmail tests pass. A dedicated iOS Google client, test audience and Gmail API are configured outside Git. In ordinary personal build1530, the owner completed native read/send consent; a fresh Inbox reading and saved-connection restoration after an ordinary restart passed a bounded physical test (14.65 seconds). Actual spoken provider sending remains unverified. Do not infer a send pass from consent, an authorized test or an injected HTTP receipt.
+
+
 The owner confirmed real Google sign-in and the unread Inbox count in ordinary MORE build 1516 on 15 October 2026, then confirmed reading messages in build 1517. Local reply generation and the complete morning remain unconfirmed. The owner rejected the repeated per-screen sign-ins; #151 replaces that first credential design with a securely saved connection.
 
 ## Normal iPhone flow
 
-Open **Settings → Your websites → Connect Gmail** once. Google's system sign-in sheet requests `gmail.readonly` and offline authorization. MORE keeps only the refresh credential in this iPhone's non-syncing Keychain. Opening the reader again renews access without a sign-in sheet. **Retry Gmail** handles temporary network/storage failures without discarding the saved connection. A missing, revoked or expired Google grant can require Connect again.
+Open **Settings → Apps & accounts → Read Gmail in MORE → Connect Gmail** once. Google's system sign-in sheet requests read access and offline authorization. **Enable sending during my morning** separately requests sending access; an existing readonly grant never upgrades silently. MORE keeps only the refresh credential in this iPhone's non-syncing Keychain. Opening the reader again renews access without a sign-in sheet. **Retry Gmail** handles temporary network/storage failures without discarding the saved connection. A missing, revoked or expired Google grant can require Connect again.
 
 **Disconnect Gmail** forgets this iPhone's saved login. It does not revoke Google's account grant; manage or remove that separately in your Google Account, as the reader's Connection details explain.
 
 MORE lists up to five unread messages in Inbox. Open a message to read its text; **Read full message** expands the five-line preview. Add optional reply guidance, choose **Prepare reply**, then review and edit the result. **Copy reply** copies the text to a local-only clipboard entry that expires after five minutes. No mail is sent, marked read, modified, or saved as a Gmail draft.
 
-The same reader opens for an approved routine moment configured as **Open → In MORE → Gmail**. It uses that moment's existing timer and Next / +2 controls. It does not add mail to the spoken briefing or routine-learning evidence.
+For the interactive routine dialogue, edit a moment's **Action → Read my mail and help me reply**, review it and explicitly delegate the routine. Its persistent budget and Next / +2 controls retain a prepared draft or uncertain send safely. The moment also offers an explicit new message to the connected account's own address, with editable subject/body, full review and separate Send. No existing self-thread or seed message is needed.
+
+The standalone reader also opens for a moment configured as **Open → In MORE → Gmail**. It keeps its existing timer and Next / +2 controls. Inbox content does not become routine-learning evidence.
 
 ## Boundaries
 
@@ -22,7 +31,9 @@ The same reader opens for an approved routine moment configured as **Open → In
 
 ## Developer setup and manual acceptance
 
-The one-time Google setup uses an iOS OAuth client matching the signed bundle, Gmail API enablement, both declared Gmail scopes, and eligible test users while in Testing mode. Actual mailbox access still requires the owner's Google consent. The canonical public configuration location and local Xcode override names are recorded in `AGENTS.md`; no client secret is used.
+The one-time Google setup uses an iOS OAuth client matching the signed bundle, Gmail API enablement, declared `gmail.metadata`, `gmail.readonly` and optional `gmail.send` scopes, and eligible test users while in Testing mode. Actual mailbox access still requires the owner's Google consent. The canonical public configuration location and local Xcode override names are recorded in `AGENTS.md`; no client secret is used.
+
+Google's external Testing mode expires Gmail refresh tokens after seven days, so this prototype can require renewed consent. A production OAuth configuration is a separate setup decision; the app must handle expired grants visibly. [Google refresh-token expiration](https://developers.google.com/identity/protocols/oauth2#expiration).
 
 Check the ordinary signed app manually: Connect Gmail, leave and reopen the reader without signing in again, open a real message, prepare/edit a reply, and test Copy. Do not copy mailbox contents into issue reports. Then run one approved morning normally, including Gmail, and record where MORE itself stops or fails. Package tests and native compilation do not establish provider, model, or complete routine success.
 

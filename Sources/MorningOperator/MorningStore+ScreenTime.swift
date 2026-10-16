@@ -1,10 +1,12 @@
 import Foundation
 import MorningCore
+import MorningApple
 
 /// Learn from Screen Time (docs/SCREEN-TIME-INTEGRATION.md): one approval, then one read of the
 /// last week's hourly minutes, turned into a suggestion that waits for review. Its app
 /// identifiers, labels, planned minutes and coverage stay in the local workspace; no raw
-/// activity stream is logged. Returned daily summaries remain in memory for this launch.
+/// activity stream is logged. Bounded dated aggregates join the local observation archive;
+/// the daily display summaries remain in memory for this launch.
 extension MorningStore {
     /// Days asked for. How far back the system really answers is measured on each read.
     static let screenTimeDaysRequested = 7
@@ -57,6 +59,14 @@ extension MorningStore {
                 guard !Task.isCancelled, self.dataGeneration == generation, !self.privacyBlocksWork else { return }
                 var own: Set<String> = []
                 if let id = Bundle.main.bundleIdentifier { own.insert(id) }
+                let evidence = try ScreenTimeObservationEvidence.make(hours: hours, queryStart: queryStart,
+                    now: end, calendar: calendar, ownBundleIdentifiers: own)
+                guard self.saveScreenTimeEvidence(evidence) else {
+                    self.screenTimeMessage = AppLanguage.isFrench
+                        ? "Les agrégats n’ont pas pu être enregistrés. Les sources et la routine précédentes sont conservées."
+                        : "The aggregates could not be saved. Your previous sources and routine are retained."
+                    return
+                }
                 self.screenTimeDailyUsage = ScreenTimeDailyUsage.summarize(hours: hours, calendar: calendar, ownBundleIdentifiers: own)
                 let learning = ScreenTimeMorningLearner.learn(hours: hours, queryStart: queryStart, now: end,
                                                               calendar: calendar, ownBundleIdentifiers: own)
@@ -71,8 +81,10 @@ extension MorningStore {
                     // no morning qualifies. Preserve it only if the removal cannot save.
                     if self.pendingScreenTimeProposal != nil,
                        !self.discardPendingScreenTimeProposal() { return }
-                    self.screenTimeMessage = learning.earliestData == nil
-                        ? String(localized: "Screen Time has no app minutes on this iPhone yet. Try again tomorrow morning.")
+                    self.screenTimeMessage = hours.isEmpty
+                        ? (AppLanguage.isFrench
+                            ? "Screen Time n’a fourni aucune donnée d’usage pour cette période. Vous pouvez aussi ajouter vos vidéos ou apprendre dans le navigateur."
+                            : "Screen Time returned no app-use data for this period. You can also add your videos or learn in the browser.")
                         : String(localized: "Screen Time returned app use, but no complete morning could be identified yet.")
                     return
                 }

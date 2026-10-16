@@ -190,6 +190,20 @@ private enum OwnScreenFixtures {
         "Restore previous routine", "Export routine", "Learn from an observation",
         "Restoring a routine leaves your saved choices for future suggestions unchanged.", "Approve this routine"
     ]
+    static let delegatedRoutine = [
+        "Your daily routine", "%lld moments · %lld min planned", "Add a moment",
+        "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice.",
+        "Let MORE take care of my morning", "Let MORE do it"
+    ]
+    static let screenTimeReview = [
+        "Your morning, from Screen Time", "Keep current", "Minutes measured",
+        "Your current routine stays ready until you approve. Approving replaces it with the moments you keep here.",
+        "Let MORE take care of this morning"
+    ]
+    static let browserLearningResult = [
+        "Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval.",
+        "Save to Learn"
+    ]
     static let recording = [
         "Confirm Apple's picker, then go through your morning. This screen closes when recording begins. We stop at your chosen limit and save the visible text for you to review when you return.",
         "Stop automatically after", "Start screen recording", "You're in control",
@@ -229,7 +243,9 @@ private enum OwnScreenFixtures {
         "Forget MORE’s local data"
     ]
     static let all = [("Learn", learn), ("Review", review), ("Settings", settings),
-                      ("Routine", routine), ("Recording", recording), ("Voice", voice),
+                      ("Routine", routine), ("Delegated routine", delegatedRoutine), ("Screen Time review", screenTimeReview),
+                      ("Browser learning result", browserLearningResult),
+                      ("Recording", recording), ("Voice", voice),
                       ("Step", step), ("Privacy", privacy)]
 
     /// Recognized lines for a screen: each string on its own lines, long ones wrapped.
@@ -435,7 +451,7 @@ private enum OwnScreenFixtures {
     /// its first and last lines nothing identifies it but the title above and the buttons below.
     static let suggestedUpdate = ContentScreen(
         name: "Suggested update", top: [.shown("Suggested update"), .shown("Done")],
-        bottom: [.shown("Keep current"), .shown("Approve update")], body: [
+        bottom: [.shown("Adjust this suggestion"), .shown("Keep current"), .shown("Let MORE take care of this morning")], body: [
             .shown("Your next morning"), .other("Selected: 2 observations across 2 dated days", "Sélection : 2 observations sur 2 jours datés"),
             .shown("Your current routine stays ready until you approve."), .shown("Compare with current routine")
         ] + suggestedStep(("Review today’s calendar", "Consulter le calendrier du jour"),
@@ -463,7 +479,7 @@ private enum OwnScreenFixtures {
     /// Scrolled into the quotations of one suggested step: no planned time, no sentence of MORE's.
     static let suggestedUpdateQuotations = ContentScreen(
         name: "Suggested update, quotations", top: [.shown("Suggested update"), .shown("Done")],
-        bottom: [.shown("Keep current"), .shown("Approve update")],
+        bottom: [.shown("Keep current"), .shown("Let MORE take care of this morning")],
         body: (9...12).flatMap { day -> [Piece] in
             [.other("“09:00 Team planning meeting with the design group. Discuss the release schedule.”",
                     "« 09:00 Réunion de planification avec l’équipe de design. Discuter du calendrier de sortie. »"),
@@ -628,7 +644,8 @@ struct OwnInterfaceWordingTests {
         for phrase in OwnInterfaceWording.all {
             guard let key = phrase.catalogKey else { continue }
             let expected = phrase.isPartOfCatalogString ? literal(phrase.wordings[0]) : "\"\(literal(key))\""
-            #expect(sources.contains(expected), "No view shows \(expected) any more.")
+            let isShown = sources.contains(expected)
+            #expect(isShown, "No view shows \(expected) any more.")
         }
         // The visible and spoken labels belong to the identified Record control.
         // A custom icon may use Label's closure form; recognition does not depend on it.
@@ -639,6 +656,133 @@ struct OwnInterfaceWordingTests {
         #expect(recordControl.contains(#""Record a little of my morning""#))
         // The table's own literals are not counted as the app showing them.
         #expect(!sources.contains("enum OwnInterfaceWording"))
+    }
+
+    @Test("The compact learned-proposal bars still exclude source quotations at large text sizes")
+    func compactProposalExcludesItsQuotedContent() {
+        #expect(isOwnInterface("Suggested update\nLet MORE do it\n09:00 Team planning meeting"))
+        #expect(isOwnInterface("Mise à jour suggérée\nConfier à MORE\n09:00 Réunion de planification"))
+        #expect(!isOwnInterface("Suggested update\nApprove\n09:00 Team planning meeting"))
+    }
+
+    @Test("Delegation wording keeps historical routine and suggestion screens excluded")
+    func earlierApprovalScreensRemainExcluded() {
+        for screen in [
+            "Suggested update\nKeep current\nApprove update\n09:00 Team planning meeting",
+            "Mise à jour suggérée\nGarder l’actuelle\nApprouver la mise à jour\n09:00 Réunion d’équipe",
+            "Your routine\n5 min planned · Your own pace\n10 min planned · Spoken guidance\nApprove this routine",
+            "Votre routine\n5 min prévues · À votre rythme\n10 min prévues · Guidage vocal\nApprouver cette routine"
+        ] {
+            #expect(isOwnInterface(screen))
+        }
+        // Ordinary updater buttons still cannot exclude another app's real content.
+        #expect(!isOwnInterface("Updates\nKeep current\nApprove update\n09:00 Team planning meeting"))
+    }
+
+    @Test("Earlier browser-learning recordings remain excluded after semantic preview wording")
+    func earlierBrowserLearningRemainsExcluded() {
+        #expect(isOwnInterface("Learning your scroll and tap rhythm\nOnly this page. This estimate does not replay your gestures.\nSave to Learn"))
+        #expect(isOwnInterface("Apprentissage du rythme de vos gestes\nCette page seulement. Cette estimation ne reproduit pas vos gestes.\nGarder pour apprendre"))
+    }
+
+    @Test("Slack setup and source-bound reply panels exclude their quotations in both languages", arguments: ["en", "fr"])
+    func slackScreensExcludeTheirSourceText(language: String) throws {
+        let catalogs = try ShippedCatalogs.load()
+        let screens = [
+            ["Slack in your morning", "Choose a workspace and channel. MORE can read its messages and prepare a reply for your review."],
+            ["Reply in Slack", "Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction."]
+        ]
+        for keys in screens {
+            let lines = try OwnScreenFixtures.lines(keys, language, from: catalogs, width: 26)
+            let screen = (lines + ["09:00 Team planning meeting", "Can we meet tomorrow?"]).joined(separator: "\n")
+            #expect(isOwnInterface(screen))
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+            }
+            // An ordinary external Slack heading and real content remain usable evidence.
+            let heading = try catalogs.text(keys[0], language)
+            #expect(!isOwnInterface(heading + "\n09:00 Team planning meeting\nCan we meet tomorrow?"))
+        }
+    }
+
+    @Test("Daily calendar setup and listening preparation are MORE screens, not new activity evidence", arguments: ["en", "fr"])
+    func calendarAndListeningSetupExcludeTheirQuotedContent(language: String) throws {
+        let catalogs = try ShippedCatalogs.load()
+        let screens = [
+            ["Your Calendly appointments, each morning", "Choose an account. MORE reads appointments starting today in this iPhone’s time zone."],
+            ["Your calendar, each morning", "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning."],
+            ["Prepare listening", "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices."],
+            ["Prepare listening", "Local recognition availability will be checked after your permission. Listening has not started."]
+        ]
+        for keys in screens {
+            let lines = try OwnScreenFixtures.lines(keys, language, from: catalogs, width: 26)
+            let screen = (lines + ["09:00 Team planning meeting", "Personal calendar"]).joined(separator: "\n")
+            #expect(isOwnInterface(screen))
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+            }
+            let heading = try catalogs.text(keys[0], language)
+            #expect(!isOwnInterface(heading + "\n09:00 Team planning meeting\nPersonal calendar"))
+            let explanation = try catalogs.text(keys[1], language)
+            #expect(!isOwnInterface("Messages\n" + explanation + "\n09:00 Team planning meeting"))
+        }
+    }
+
+    @Test("Outlook setup and reading require their paired live copy, never mail content alone", arguments: ["en", "fr"])
+    func outlookScreensExcludeTheirQuotedMailWithoutExcludingOrdinaryOutlookContent(language: String) throws {
+        let sources = try ShippedCatalogs.appSources(), index = language == "fr" ? 1 : 0
+        let mail = language == "fr" ? "Merci de vérifier le devis avant la réunion de demain." : "Please check the quote before tomorrow’s planning meeting."
+        for pair in OwnInterfaceWording.outlookPairs {
+            #expect(pair.count == 2)
+            for phrase in pair {
+                // These app-owned views select literals directly; both live
+                // translations must stay aligned even without catalog entries.
+                #expect(phrase.wordings.count == 2)
+                for wording in phrase.wordings { #expect(sources.contains("\"\(wording)\""), "Outlook view no longer shows this literal: \(wording)") }
+            }
+            let wording = pair.map { $0.wordings[index] }
+            for width in [18, 26, 38] {
+                let screen = (wording.flatMap { OwnScreenFixtures.wrapped($0, width: width) } + [mail]).joined(separator: "\n")
+                #expect(isOwnInterface(screen))
+                #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                    try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+                }
+            }
+            for lonePhrase in wording {
+                let external = "Outlook\n\(lonePhrase)\n\(mail)"
+                #expect(!isOwnInterface(external))
+                #expect(try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + external, as: .recording).count == 1)
+            }
+        }
+        let ordinary = "Outlook\nInbox\nUnread messages\nRead this again\n\(mail)"
+        #expect(!isOwnInterface(ordinary))
+        #expect(try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + ordinary, as: .recording).count == 1)
+    }
+
+    @Test("Screen Time app choices are MORE only with their two exact live anchors", arguments: ["en", "fr"])
+    func screenTimePickerNeedsItsPairedCopy(language: String) throws {
+        let pair = OwnInterfaceWording.screenTimePickerPair, index = language == "fr" ? 1 : 0
+        let sources = try ShippedCatalogs.appSources()
+        #expect(pair.count == 2)
+        for phrase in pair {
+            #expect(phrase.wordings.count == 2)
+            for wording in phrase.wordings { #expect(sources.contains("\"\(wording)\""), "Screen Time picker no longer shows this literal: \(wording)") }
+        }
+        let copy = pair.map { $0.wordings[index] }
+        let activity = language == "fr" ? "Instagram · 8 minutes\n09:00 Réunion de planification de l’équipe" : "Instagram · 8 minutes\n09:00 Team planning meeting"
+        for width in [18, 26, 38] {
+            let screen = (copy.flatMap { OwnScreenFixtures.wrapped($0, width: width) } + [activity]).joined(separator: "\n")
+            #expect(isOwnInterface(screen))
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+            }
+        }
+        for lonePhrase in copy {
+            let external = "Screen Time\n\(lonePhrase)\n\(activity)"
+            #expect(!isOwnInterface(external))
+            #expect(try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + external, as: .recording).count == 1)
+        }
+        #expect(!isOwnInterface("Screen Time\nApp usage\n\(activity)"))
     }
 
     @Test("Sentences are specific enough to count; short labels are kept as controls")

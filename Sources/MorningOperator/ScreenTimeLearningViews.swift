@@ -1,11 +1,18 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 /// The same normal Screen Time path appears in Learn and Settings. It never swaps
 /// in samples when access is unavailable. The read and daily results stay local.
 struct MorningScreenTimeView: View {
     @Bindable var store: MorningStore
+    var returnsToLearn = false
+    var onEdit: (() -> Void)? = nil
     @State private var showingReview = false
+    @State private var showingObservations = false
+    @State private var learnAfterObservations = false
+    @State private var editAfterObservations = false
+    @Environment(\.dismiss) private var dismiss
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 16) {
@@ -37,6 +44,17 @@ struct MorningScreenTimeView: View {
                         .buttonStyle(SecondaryButtonStyle()).disabled(store.busy || store.screenTimeBusy)
                         .accessibilityIdentifier("learn.screenTime.review")
                 }
+                if store.observationArchive.entries.contains(where: { $0.screenTimeEvidence != nil }) {
+                    Button(AppLanguage.isFrench ? "Réunir les observations choisies" : "Combine selected observations") {
+                        showingObservations = true
+                    }.buttonStyle(SecondaryButtonStyle())
+                        .disabled(store.busy || store.screenTimeBusy || store.sessionActive)
+                        .accessibilityIdentifier("learn.screenTime.observations")
+                    Text(AppLanguage.isFrench
+                        ? "Les agrégats enregistrés sont disponibles avec vos vidéos et leçons navigateur. Choisissez les sources avant de demander une proposition commune."
+                        : "Saved aggregates are available beside your videos and browser lessons. Choose the sources before requesting a combined suggestion.")
+                        .font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted)
+                }
                 if let message = store.screenTimeMessage {
                     Text(message).font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted)
                         .accessibilityIdentifier("learn.screenTime.message")
@@ -52,7 +70,25 @@ struct MorningScreenTimeView: View {
         }
         .onAppear { store.refreshScreenTimeAccess() }
         .fullScreenCover(isPresented: $showingReview) { ScreenTimeProposalView(store: store) }
-        .onChange(of: store.dataGeneration) { _, _ in showingReview = false }
+        .sheet(isPresented: $showingObservations, onDismiss: {
+            if editAfterObservations {
+                editAfterObservations = false
+                if let onEdit { onEdit() } else { store.tab = .routine }
+            } else if learnAfterObservations {
+                learnAfterObservations = false
+                if returnsToLearn { dismiss() } else { store.tab = .learn }
+            }
+        }) {
+            NavigationStack {
+                ObservationHistoryView(store: store, onLearn: {
+                    learnAfterObservations = true; showingObservations = false
+                }, onEdit: {
+                    editAfterObservations = true; showingObservations = false
+                })
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingObservations = false } } }
+            }
+        }
+        .onChange(of: store.dataGeneration) { _, _ in showingReview = false; showingObservations = false }
     }
 
     private func dailyUse(_ day: ScreenTimeDailyUsage) -> some View {
@@ -91,7 +127,8 @@ struct ScreenTimeProposalView: View {
                     Section {
                         Text("Measured minutes come from complete hourly segments inside the detected morning. Other minutes are estimated from a partial hour.")
                         Text("Long app use does not prove scrolling. Choose the budget you want.")
-                        Text("Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.")
+                        Text("Your current routine stays ready until you approve. Approving replaces it with the moments you keep here.")
+                        Text(AppLanguage.isFrench ? "MORE s’occupe des actions présentées ici. Vous pouvez l’interrompre à tout moment." : "MORE takes care of the actions shown here. You can interrupt at any time.")
                     }.font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted)
                 } else {
                     Text("Your routine may have changed. Learn from Screen Time again for a fresh suggestion.")
@@ -109,11 +146,11 @@ struct ScreenTimeProposalView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 if let proposal = store.pendingScreenTimeProposal {
-                    Button("Approve update") {
+                    Button(AppLanguage.isFrench ? "Confier ce matin à MORE" : "Let MORE take care of this morning") {
                         if store.approvePendingScreenTimeProposal() { dismiss(); store.tab = .today }
                     }.buttonStyle(PrimaryButtonStyle()).padding(20).frame(maxWidth: .infinity)
                         .background(MorningStyle.background)
-                        .disabled(store.busy || store.screenTimeBusy || store.sessionActive || !store.storageIsAvailable || proposal.includedSteps.isEmpty)
+                        .disabled(store.busy || store.screenTimeBusy || store.sessionActive || !store.storageIsAvailable || proposal.includedSteps.isEmpty || !proposal.isCurrent(preferences: store.routinePreferences))
                         .accessibilityIdentifier("screenTimeProposal.approve")
                 }
             }
@@ -124,19 +161,28 @@ struct ScreenTimeProposalView: View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle(isOn: Binding(get: { step.included }, set: { value in
                 store.editPendingScreenTimeProposal { $0.setIncluded(value, stepID: step.id) }
-            })) { Text(step.title).font(MorningTheme.Typography.heading) }
+            })) { Text(step.suggestedStep.title).font(MorningTheme.Typography.heading) }
                 .accessibilityIdentifier("screenTimeProposal.include.\(index)")
-            Text(step.minutesMeasured ? String(localized: "Minutes measured") : String(localized: "Minutes estimated"))
-                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            if step.retainedStep != nil {
+                Text(AppLanguage.isFrench ? "Gardé selon votre choix" : "Kept by your choice")
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                if !step.suggestedStep.detail.isEmpty {
+                    Text(step.suggestedStep.detail).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                }
+            } else { Text(step.minutesMeasured ? String(localized: "Minutes measured") : String(localized: "Minutes estimated"))
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
+            Text(step.suggestedStep.executionDescription).font(.raleway(.subheadline))
+                .accessibilityIdentifier("screenTimeProposal.execution.\(index)")
+            if let explanation = step.executionExplanation {
+                Text(explanation).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            }
             if let target = step.suggestedTarget {
                 Text("Opens \(target.destination.displayName)").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-            } else {
-                Text("Choose an app or page in your routine.").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
             if step.included {
                 Stepper("\(step.minutes) min planned", value: Binding(get: { step.minutes }, set: { value in
                     store.editPendingScreenTimeProposal { $0.setMinutes(value, stepID: step.id) }
-                }), in: ScreenTimeRoutineProposal.minutesRange)
+                }), in: step.allowedMinutesRange)
                     .font(MorningTheme.Typography.note).accessibilityIdentifier("screenTimeProposal.minutes.\(index)")
             }
         }.padding(.vertical, 8)

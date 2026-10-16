@@ -13,6 +13,7 @@ struct MorningConnectionsView: View {
     @State private var loading = false
     @State private var loadFailed = false
     @State private var whatsAppUnavailable = false
+    @State private var choosingBriefing = false
     @Environment(\.locale) private var locale
     @Environment(\.openURL) private var openURL
 
@@ -42,11 +43,11 @@ struct MorningConnectionsView: View {
                 }
 
                 connectionSection(text("Your day", "Votre journée")) {
-                    NavigationLink { MorningBriefingView(store: store) } label: {
+                    Button { choosingBriefing = true } label: {
                         connectionRow(title: text("Calendar & weather", "Calendrier et météo"),
                             detail: text("Your schedule and the weather where you are going.", "Votre agenda et la météo de la ville de votre choix."),
                             symbol: "sun.max", action: text("Choose", "Choisir"))
-                    }
+                    }.accessibilityIdentifier("connections.calendar")
                     NavigationLink {
                         NativeConnectionsView(store: store, service: store.nativeConnections, focus: .reminders)
                     } label: {
@@ -134,6 +135,7 @@ struct MorningConnectionsView: View {
         .navigationTitle(text("Apps & accounts", "Apps et comptes"))
         .navigationBarTitleDisplayMode(.inline)
         .disabled(store.privacyBlocksWork)
+        .sheet(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
         .navigationDestination(item: $website) { site in
             WebMorningView(site: site, minutes: 1, isStepActive: false,
                 onSignInReady: learningWebsite ? nil : {
@@ -145,11 +147,18 @@ struct MorningConnectionsView: View {
                 .id("\(site.rawValue).\(learningWebsite)")
         }
         .task(id: store.dataGeneration) { await refresh() }
+        .onChange(of: website) { _, _ in
+            // Independent setup shares website cookies with the routine. An
+            // account switch must never resume the old account's DOM or speech.
+            if store.currentStep?.webBehavior != nil, store.session?.status == .running { store.pause() }
+            store.routineWebMoment.clear()
+            store.webExecutionEvent = nil
+        }
         .onChange(of: store.dataGeneration) { _, _ in
-            website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false
+            website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false; choosingBriefing = false
         }
         .onChange(of: store.privacyBlocksWork) { _, blocked in
-            if blocked { website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false }
+            if blocked { website = nil; learningWebsite = false; readySites = []; services = []; connections = []; whatsAppUnavailable = false; choosingBriefing = false }
         }
     }
 
@@ -219,10 +228,20 @@ struct MorningConnectionsView: View {
         let info = providerInfo(id)
         let connected = connections.contains { $0.service == id && $0.isActive }
         return NavigationLink {
-            APIConnectionsView(service: store.composio, serviceID: id, privacyBlocked: store.privacyBlocksWork,
-                privacyGeneration: store.dataGeneration, onAddToRoutine: { connection, tool, arguments in
-                    store.addAPIAction(connection: connection, tool: tool, argumentsJSON: arguments)
-                })
+            if id == "slack" {
+                SlackRoutineSetupView(store: store)
+            } else if id == "googlecalendar" {
+                GoogleCalendarDaySetupView(store: store)
+            } else if id == "calendly" {
+                CalendlyDaySetupView(store: store)
+            } else if id == "outlook" {
+                OutlookInboxSetupView(store: store)
+            } else {
+                APIConnectionsView(service: store.composio, serviceID: id, privacyBlocked: store.privacyBlocksWork,
+                    privacyGeneration: store.dataGeneration, onAddToRoutine: { connection, tool, arguments in
+                        store.addAPIAction(connection: connection, tool: tool, argumentsJSON: arguments)
+                    })
+            }
         } label: {
             connectionRow(title: connected ? info.name : text("Connect \(info.name)", "Connecter \(info.name)"),
                 detail: info.detail, symbol: info.symbol,

@@ -18,9 +18,11 @@ const toolkits = {
 
 // Every outbound request is intercepted. These tests exercise workerd, the actual
 // native Fetch router and D1 SQL, with synthetic provider accounts and effects only.
-async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase = true } = {}) {
+async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase = true, slack = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'more-worker-test-'));
-  const state = { accounts: new Map(), calls: [], executions: 0, mode: 'success', executionGate: null, executionStarted: null };
+  const configured = { ...toolkits, ...(slack ? { slack: { authConfigID: 'ac_synthetic_slack', name: 'Slack', version: '20261014_00' } } : {}) };
+  const state = { accounts: new Map(), calls: [], executions: 0, mode: 'success', executionGate: null, executionStarted: null,
+    slackSends: 0, slackAuth: { ok: true, team_id: 'T12345678', user_id: 'U12345678', bot_id: 'B12345678', team: 'Synthetic team', user: 'synthetic-user' }, changeSlackOnSendMetadata: false };
   const json = (status, data) => new MiniflareResponse(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
   const tool = { slug: 'GMAIL_SEND_EMAIL', toolkit: { slug: 'gmail' }, name: 'Send email', description: 'Synthetic email action', version: '20261001_00', input_parameters: { recipient: { type: 'string', required: true } } };
   async function upstream(request) {
@@ -46,6 +48,22 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
     }
     if (url.pathname === '/api/v3.1/tools') return state.redirectCatalog ? new MiniflareResponse(null, { status: 302, headers: { Location: 'https://untrusted.example/collect' } }) : json(200, { items: [tool], next_cursor: null });
     if (url.pathname === '/api/v3.1/tools/GMAIL_SEND_EMAIL') return json(200, tool);
+    if (['/api/v3.1/tools/SLACK_TEST_AUTH', '/api/v3.1/tools/SLACK_SEND_MESSAGE'].includes(url.pathname)) {
+      if (url.pathname.endsWith('SLACK_SEND_MESSAGE') && state.changeSlackOnSendMetadata) {
+        [...state.accounts.values()].find(account => account.toolkit.slug === 'slack').updated_at = '2026-10-15T10:01:00.000Z';
+      }
+      return json(200, { ...tool, slug: url.pathname.split('/').at(-1), toolkit: { slug: 'slack' }, version: configured.slack.version });
+    }
+    if (url.pathname === '/api/v3.1/tools/execute/SLACK_TEST_AUTH') return json(200, { successful: true, data: state.slackAuth });
+    if (url.pathname === '/api/v3.1/tools/execute/SLACK_SEND_MESSAGE') {
+      state.executions++; state.slackSends++; state.executionStarted?.resolve();
+      if (state.executionGate) await state.executionGate.promise;
+      if (state.mode === 'timeout') await new Promise(resolve => setTimeout(resolve, 250));
+      const args = input.arguments, ts = '1792058400.000123';
+      return json(200, { successful: true, data: { ok: true, channel: args.channel, ts, message: { ts,
+        user: state.slackAuth.user_id, bot_id: state.slackAuth.bot_id, thread_ts: args.thread_ts,
+        blocks: state.mode === 'wrongMarker' ? [{ ...args.blocks[0], block_id: 'unrelated-block' }] : args.blocks } } });
+    }
     if (url.pathname.startsWith('/api/v3.1/tools/execute/')) {
       state.executions++;
       state.executionStarted?.resolve();
@@ -62,7 +80,7 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
       modules: ['cloudflare/worker.mjs', 'server.mjs', 'cloudflare/storage.mjs'].map(path => ({ type: 'ESModule', path: join(root, path) })),
       compatibilityDate: '2026-10-15',
       compatibilityFlags: ['nodejs_compat', 'enable_nodejs_http_server_modules'],
-      bindings: { COMPOSIO_API_KEY: 'synthetic-worker-key', COMPOSIO_TOOLKITS_JSON: JSON.stringify(toolkits), MORE_PUBLIC_BASE_URL: 'https://connector.example', MORE_AUTH_CALLBACK_URL: callbacks[0], MORE_CALLBACK_URLS_JSON: JSON.stringify(callbacks), COMPOSIO_TIMEOUT_MS: '100' },
+      bindings: { COMPOSIO_API_KEY: 'synthetic-worker-key', COMPOSIO_TOOLKITS_JSON: JSON.stringify(configured), MORE_PUBLIC_BASE_URL: 'https://connector.example', MORE_AUTH_CALLBACK_URL: callbacks[0], MORE_CALLBACK_URLS_JSON: JSON.stringify(callbacks), COMPOSIO_TIMEOUT_MS: '100' },
       ...(withDatabase ? { d1Databases: { DB: 'synthetic-shared-database' } } : {}),
       ...(limiters ? { ratelimits: {
         ENROLLMENT_LIMITER: { namespace_id: '1001', simple: { limit: enrollmentLimit, period: 60 } },
@@ -98,11 +116,12 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
     assert.equal(result.status, 201);
     return result.data.token;
   }
-  async function addAccount(bearer, id = 'ca_mine') {
-    const link = await api('/v1/connections', { method: 'POST', bearer, data: { service: 'gmail', callbackURL: callbacks[0] } });
+  async function addAccount(bearer, id = 'ca_mine', service = 'gmail') {
+    const link = await api('/v1/connections', { method: 'POST', bearer, data: { service, callbackURL: callbacks[0] } });
     assert.equal(link.status, 201, JSON.stringify({ response: link.data, calls: state.calls, mockError: state.mockError }));
     const call = state.calls.findLast(item => item.url.pathname.endsWith('/link'));
-    const account = { id, toolkit: { slug: 'gmail' }, auth_config: { id: toolkits.gmail.authConfigID }, status: 'ACTIVE', user_id: call.input.user_id, alias: 'Synthetic account', state: { access_token: 'private-provider-token-sentinel' } };
+    const account = { id, toolkit: { slug: service }, auth_config: { id: configured[service].authConfigID }, status: 'ACTIVE', user_id: call.input.user_id, alias: 'Synthetic account', state: { access_token: 'private-provider-token-sentinel' },
+      ...(service === 'slack' ? { created_at: '2026-10-14T10:00:00.000Z', updated_at: '2026-10-15T10:00:00.000Z' } : {}) };
     state.accounts.set(id, account);
     return account;
   }
@@ -206,6 +225,70 @@ test('Worker timeout and malformed acknowledgements persist uncertainty without 
   const stored = await f.rows('executions');
   assert.ok(stored.every(row => row.state === 'uncertain' && row.receipt_json === null));
   assert.ok(!JSON.stringify(stored).includes('never-persist-this'));
+});
+
+test('Worker Slack guard checks live identity and grant revision before one durable cross-isolate send', async t => {
+  const f = await fixture(t, { slack: true }); const bearer = await f.install(); const account = await f.addAccount(bearer, 'ca_slack', 'slack');
+  assert.equal((await f.api(`/v1/slack/reply-identity?connectionID=${account.id}`)).status, 401);
+  const identity = await f.api(`/v1/slack/reply-identity?connectionID=${account.id}`, { bearer });
+  assert.equal(identity.status, 200, JSON.stringify(identity.data));
+  assert.equal(identity.data.protocolVersion, 1); assert.match(identity.data.revision, /^[a-f0-9]{64}$/);
+  const expectedIdentity = { revision: identity.data.revision, teamID: identity.data.teamID, userID: identity.data.userID, botID: identity.data.botID };
+  const data = { connectionID: account.id, requestID: randomUUID(), expectedIdentity,
+    channelID: 'C12345678', threadTS: '1792058300.000001', body: 'private-worker-slack-body-sentinel' };
+  f.state.slackAuth.user_id = 'U87654321';
+  const changed = await f.api('/v1/slack/replies', { method: 'POST', bearer, data });
+  assert.equal(changed.data.error.code, 'slack_identity_changed'); assert.equal(f.state.slackSends, 0);
+  f.state.slackAuth.user_id = expectedIdentity.userID;
+  f.state.changeSlackOnSendMetadata = true;
+  const replaced = await f.api('/v1/slack/replies', { method: 'POST', bearer, data: { ...data, requestID: randomUUID() } });
+  assert.equal(replaced.data.error.code, 'slack_identity_changed'); assert.equal(f.state.slackSends, 0);
+  f.state.changeSlackOnSendMetadata = false; account.updated_at = '2026-10-15T10:00:00.000Z';
+  const sending = { ...data, requestID: randomUUID() };
+  f.state.executionGate = Promise.withResolvers(); f.state.executionStarted = Promise.withResolvers();
+  const first = f.api('/v1/slack/replies', { method: 'POST', bearer, data: sending });
+  await f.state.executionStarted.promise;
+  const concurrent = await f.api('/v1/slack/replies', { method: 'POST', bearer, data: sending, worker: 'secondary' });
+  assert.equal(concurrent.status, 409); assert.equal(concurrent.data.error.code, 'execution_uncertain');
+  f.state.executionGate.resolve();
+  const complete = await first;
+  assert.equal(complete.status, 200); assert.equal(complete.data.data.message.blocks[0].text.text, data.body);
+  assert.equal(f.state.slackSends, 1);
+  const send = f.state.calls.find(item => item.url.pathname.endsWith('/execute/SLACK_SEND_MESSAGE'));
+  assert.equal(send.input.version, '20261014_00'); assert.equal(send.input.user_id, account.user_id);
+  assert.deepEqual(send.input.arguments, { channel: data.channelID, thread_ts: data.threadTS,
+    blocks: [{ type: 'section', block_id: `more-reply-v1-${sending.requestID}`, text: { type: 'plain_text', text: data.body, emoji: false } }],
+    fallback_text: data.body, reply_broadcast: false, unfurl_links: false, unfurl_media: false });
+  const stored = JSON.stringify(await f.rows('executions'));
+  for (const raw of [data.body, data.channelID, data.threadTS, identity.data.userName]) assert.ok(!stored.includes(raw));
+  await f.restart();
+  const replay = await f.api('/v1/slack/replies', { method: 'POST', bearer, data: sending, worker: 'secondary' });
+  assert.deepEqual(replay.data, { requestID: sending.requestID, successful: true, resultAvailable: false });
+  const mismatch = await f.api('/v1/slack/replies', { method: 'POST', bearer, data: { ...sending, body: 'changed body' } });
+  assert.equal(mismatch.data.error.code, 'request_mismatch'); assert.equal(f.state.slackSends, 1);
+});
+
+test('Worker Slack missing revision refuses without dispatch and lost or mismatched receipts stay uncertain after restart', async t => {
+  const f = await fixture(t, { slack: true }); const bearer = await f.install(); const account = await f.addAccount(bearer, 'ca_slack', 'slack');
+  const identity = (await f.api(`/v1/slack/reply-identity?connectionID=${account.id}`, { bearer })).data;
+  const expectedIdentity = { revision: identity.revision, teamID: identity.teamID, userID: identity.userID, botID: identity.botID };
+  const data = { connectionID: account.id, requestID: randomUUID(), expectedIdentity, channelID: 'C12345678', threadTS: '1792058300.000001', body: 'never-persist-slack-body' };
+  delete account.updated_at;
+  const unavailable = await f.api('/v1/slack/replies', { method: 'POST', bearer, data });
+  assert.equal(unavailable.data.error.code, 'slack_identity_unavailable'); assert.equal(f.state.slackSends, 0);
+  account.updated_at = '2026-10-15T10:00:00.000Z';
+  for (const mode of ['wrongMarker', 'timeout']) {
+    f.state.mode = mode;
+    const sending = { ...data, requestID: randomUUID() }, before = f.state.slackSends;
+    const result = await f.api('/v1/slack/replies', { method: 'POST', bearer, data: sending });
+    assert.equal(result.status, 409); assert.equal(result.data.error.code, 'execution_uncertain');
+    await f.restart();
+    const replay = await f.api('/v1/slack/replies', { method: 'POST', bearer, data: sending, worker: 'secondary' });
+    assert.equal(replay.data.error.code, 'execution_uncertain'); assert.equal(f.state.slackSends, before + 1);
+  }
+  const stored = await f.rows('executions');
+  assert.equal(stored.filter(row => row.state === 'uncertain').length, 2);
+  assert.ok(!JSON.stringify(stored).includes(data.body));
 });
 
 test('Worker callback completion and account access remain bound to the authenticated installation', async t => {

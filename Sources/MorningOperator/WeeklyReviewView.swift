@@ -293,12 +293,22 @@ struct RoutineReviewEditor: View {
     /// Off when the editor is a tab of its own rather than a cover over Home.
     var showsClose = true
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ViewState<RoutineStep?> private var editingStep = nil
 
     var body: some View {
         OptionalNavigationStack(enabled: showsClose) {
             MorningList {
                 if let routine = store.routine {
+                    Section {
+                        Text(dynamicTypeSize.isAccessibilitySize
+                            ? (AppLanguage.isFrench ? "Votre matin" : "Your morning")
+                            : (AppLanguage.isFrench ? "Voici à quoi ressemble votre matin." : "Here is what your morning looks like."))
+                            .font(MorningTheme.Typography.heading)
+                        Text(AppLanguage.isFrench ? "MORE s’occupe des actions présentées ici. Vous pouvez l’interrompre, prolonger un moment ou arrêter à la voix." : "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice.")
+                            .font(.subheadline).foregroundStyle(MorningStyle.muted)
+                            .accessibilityIdentifier("routine.delegation")
+                    }
                     Section {
                         ForEach(Array(routine.steps.enumerated()), id: \.element.id) { index, step in
                             Button { editingStep = step } label: { stepRow(step) }
@@ -377,7 +387,10 @@ struct RoutineReviewEditor: View {
                         dismiss()
                         store.tab = .today
                     } label: {
-                        Label { Text("Approve this routine") } icon: { MorningDottedIcon(systemName: "checkmark").frame(width: 22, height: 22) }.frame(maxWidth: .infinity)
+                        Label { Text(dynamicTypeSize.isAccessibilitySize
+                            ? (AppLanguage.isFrench ? "Confier à MORE" : "Let MORE do it")
+                            : (AppLanguage.isFrench ? "Confier mon matin à MORE" : "Let MORE take care of my morning"))
+                        } icon: { MorningDottedIcon(systemName: "checkmark").frame(width: 22, height: 22) }.frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(store.busy || store.sessionActive || routine.steps.isEmpty || store.routinePreferencesIssue != nil)
@@ -405,8 +418,13 @@ struct RoutineReviewEditor: View {
                 .background(MorningStyle.selected, in: RoundedRectangle(cornerRadius: 11))
             VStack(alignment: .leading, spacing: 4) {
                 Text(step.title).font(.raleway(.subheadline, .medium))
-                Text(step.automation == nil ? "\(step.durationMinutes) min planned · Your own pace" : "\(step.durationMinutes) min planned · Spoken guidance")
+                Text("\(step.durationMinutes) min · \(step.executionDescription)")
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                if let target = step.target, target.integrationRoute == .api {
+                    Text(step.detail).font(.footnote).foregroundStyle(MorningStyle.muted)
+                    Text(RoutineConnectedReview.summary(for: target) ?? "Review unavailable")
+                        .font(.footnote).fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 4)
             MorningDottedIcon(systemName: "chevron.right").frame(width: 16, height: 16).font(.raleway(.caption2)).foregroundStyle(.tertiary)

@@ -7,13 +7,18 @@ struct ObservationHistoryView: View {
     @Bindable var store: MorningStore
     var onlyUndated = false
     var onLearn: () -> Void
+    var onEdit: (() -> Void)? = nil
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ViewState<Bool> private var confirmingClear = false
     @ViewState<Bool> private var choosingMornings = false
     @ViewState<Set<UUID>> private var selectedIDs = []
     @ViewState<Bool> private var showingProposal = false
     @ViewState<Bool> private var learnAfterProposalDismissal = false
+    @ViewState<Bool> private var editAfterProposalDismissal = false
     @ViewState<Bool> private var awaitingSuggestion = false
     @ViewState<UUID?> private var proposalBeforeRequest = nil
+    @ViewState<Date> private var screenTimeReferenceDate = Date()
+    @ViewState<Set<String>?> private var includedScreenTimeApps = nil
 
     private var entries: [ObservationAcquisition] {
         store.observationArchive.entries
@@ -22,7 +27,15 @@ struct ObservationHistoryView: View {
     }
 
     private var selectedEntries: [ObservationAcquisition] { entries.filter { selectedIDs.contains($0.id) } }
-    private var holdsEntry: Bool { choosingMornings || confirmingClear || learnAfterProposalDismissal }
+    private var screenTimeSelection: ScreenTimeMomentSelection? {
+        guard selectedEntries.contains(where: { $0.correctedText == nil && $0.screenTimeEvidence != nil }) else { return nil }
+        return try? .init(referenceDate: screenTimeReferenceDate, includedBundleIdentifiers: includedScreenTimeApps)
+    }
+    private var screenTimeChoices: [ScreenTimeAppMomentChoice] {
+        guard let screenTimeSelection else { return [] }
+        return (try? LearningEvidencePreparation.screenTimeAppChoices(acquisitions: selectedEntries, selection: screenTimeSelection)) ?? []
+    }
+    private var holdsEntry: Bool { choosingMornings || confirmingClear || learnAfterProposalDismissal || editAfterProposalDismissal }
     private var selectionIssue: String? {
         guard !selectedIDs.isEmpty else { return String(localized: "Choose one to five observations.") }
         guard selectedIDs.count <= 5 else { return String(localized: "Choose at most five observations for one update.") }
@@ -58,6 +71,10 @@ struct ObservationHistoryView: View {
                 Section {
                     Text("Choose dated observations from your own mornings, or a separate set of samples. Nothing is selected automatically.")
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                    Text(AppLanguage.isFrench ? "Vous pouvez réunir les agrégats Screen Time, vidéos et leçons navigateur sélectionnés."
+                        : "You can combine the selected Screen Time aggregates, videos and browser lessons.")
+                        .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
+                    if dynamicTypeSize.isAccessibilitySize { selectionDetails }
                     if store.usesSyntheticProposalFixture {
                         Text("Synthetic suggestion test — no Apple model call")
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
@@ -92,6 +109,7 @@ struct ObservationHistoryView: View {
                     }
                 }
             }
+            if choosingMornings, !screenTimeChoices.isEmpty { screenTimeAppChoices }
             if !onlyUndated, !entries.isEmpty, !choosingMornings {
                 Section {
                     Button("Delete all observations", role: .destructive) { confirmingClear = true }
@@ -100,7 +118,8 @@ struct ObservationHistoryView: View {
                 }
             }
             if let notice = store.notice {
-                Section { Text(notice).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
+                Section { Text(notice).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                    .accessibilityIdentifier("observations.notice") }
             }
         }
         .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
@@ -123,14 +142,25 @@ struct ObservationHistoryView: View {
         .onDisappear { if holdsEntry { store.observationSelectionPresented = false } }
         .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
+        .onChange(of: selectedIDs) { _, _ in
+            screenTimeReferenceDate = Date()
+            includedScreenTimeApps = nil
+        }
         .sheet(isPresented: $showingProposal, onDismiss: {
-            if learnAfterProposalDismissal {
+            if editAfterProposalDismissal {
+                editAfterProposalDismissal = false
+                choosingMornings = false
+                if let onEdit { onEdit() } else { store.tab = .routine }
+            } else if learnAfterProposalDismissal {
                 onLearn()
                 learnAfterProposalDismissal = false
             }
         }) {
             RoutineEvidenceProposalView(store: store, onLearn: {
                 learnAfterProposalDismissal = true
+                showingProposal = false
+            }, onEdit: {
+                editAfterProposalDismissal = true
                 showingProposal = false
             })
         }
@@ -171,6 +201,27 @@ struct ObservationHistoryView: View {
 
     private var suggestionControls: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if !dynamicTypeSize.isAccessibilitySize { selectionDetails }
+            Button {
+                proposalBeforeRequest = store.pendingRoutineProposal?.id
+                awaitingSuggestion = true
+                screenTimeReferenceDate = Date()
+                store.suggestRoutine(from: selectedIDs, screenTimeSelection: screenTimeSelection)
+                finishSuggestionIfReady()
+            } label: {
+                Label(dynamicTypeSize.isAccessibilitySize
+                      ? (AppLanguage.isFrench ? "Proposer" : "Suggest") : String(localized: "Suggest an update"), systemImage: "sparkles")
+                    .frame(maxWidth: .infinity)
+            }
+            .accessibilityLabel("Suggest an update")
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(selectionIssue != nil || store.busy || store.sessionActive || !store.storageIsAvailable || !store.canSuggestSavedObservations)
+            .accessibilityIdentifier("observations.suggestUpdate")
+        }.padding(20).background(.regularMaterial)
+    }
+
+    private var selectionDetails: some View {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text(selectionSummary).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     .accessibilityIdentifier("observations.selectionSummary")
@@ -181,18 +232,47 @@ struct ObservationHistoryView: View {
                 }
             }
             if let selectionIssue { Text(selectionIssue).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
-            Button {
-                proposalBeforeRequest = store.pendingRoutineProposal?.id
-                awaitingSuggestion = true
-                store.suggestRoutine(from: selectedIDs)
-                finishSuggestionIfReady()
-            } label: {
-                Label("Suggest an update", systemImage: "sparkles").frame(maxWidth: .infinity)
+        }
+    }
+
+    private var screenTimeAppChoices: some View {
+        Section {
+            Text(AppLanguage.isFrench
+                ? "Choisissez les apps à ajouter comme moments distincts. Les séquences observées et vos rituels gardés restent dans le plan. Jusqu’à huit moments d’app peuvent être ajoutés."
+                : "Choose apps to add as separate moments. Observed sequences and your kept rituals stay in the plan. Up to eight app moments can be added.")
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            ForEach(screenTimeChoices.filter(\.isEligible)) { choice in
+                Toggle(isOn: Binding(get: { choice.isIncluded }, set: { included in
+                    var ids = includedScreenTimeApps ?? Set(screenTimeChoices.filter { $0.isEligible && !$0.isAmbiguous }.map(\.id))
+                    if included { ids.insert(choice.id) } else { ids.remove(choice.id) }
+                    includedScreenTimeApps = ids
+                })) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(choice.name).font(.raleway(.subheadline))
+                        Text(AppLanguage.isFrench ? "\(choice.plannedMinutes ?? 0) min prévues · ordre estimé" : "\(choice.plannedMinutes ?? 0) min planned · estimated order")
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                        if choice.isAmbiguous {
+                            Text(AppLanguage.isFrench ? "Ces apps portent le même nom. Relisez leurs sources ou ajoutez une vidéo ou une leçon navigateur pour les distinguer."
+                                : "These apps share the same name. Review their sources or add a video or browser lesson to distinguish them.")
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                        }
+                    }
+                }.disabled(store.busy || store.sessionActive || choice.isAmbiguous)
+                    .accessibilityIdentifier("observations.screenTime.app.\(choice.id)")
             }
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(selectionIssue != nil || store.busy || store.sessionActive || !store.storageIsAvailable || !store.canSuggestSavedObservations)
-            .accessibilityIdentifier("observations.suggestUpdate")
-        }.padding(20).background(.regularMaterial)
+            if screenTimeChoices.contains(where: { !$0.isEligible }) {
+                DisclosureGroup(AppLanguage.isFrench ? "Apps conservées comme sources uniquement" : "Apps kept as sources only") {
+                    Text(ScreenTimeAppMomentChoice.policyExplanation)
+                    ForEach(screenTimeChoices.filter { !$0.isEligible }) { choice in Text(choice.name) }
+                }.font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            }
+            Text(AppLanguage.isFrench
+                ? "Ce choix concerne les nouveaux moments. Les agrégats peuvent toujours éclairer une séquence observée de la même app ; aucun total n’est réparti entre les gestes."
+                : "This choice concerns new moments. Aggregates may still support an observed sequence of the same app; no total is divided between gestures.")
+                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+        } header: {
+            Text(AppLanguage.isFrench ? "Moments d’app depuis Screen Time" : "App moments from Screen Time")
+        }
     }
 
     private func eligibilityIssue(_ entry: ObservationAcquisition) -> String? {
@@ -235,6 +315,12 @@ struct ObservationHistoryRow: View {
             if entry.origin != .human {
                 Text(observationOriginLabel(entry.origin)).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
+            if let evidence = entry.screenTimeEvidence {
+                Text(evidence.hasMorningEvidence
+                    ? (AppLanguage.isFrench ? "Agrégats du matin · ordre estimé" : "Morning aggregates · estimated order")
+                    : (AppLanguage.isFrench ? "Fenêtre du matin inconnue" : "Morning window unknown"))
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            }
         }.padding(.vertical, 4)
     }
 }
@@ -263,7 +349,9 @@ struct ObservationHistoryDetail: View {
                         .accessibilityIdentifier("observation.observedDate")
                     if let date = entry.observedDate {
                         LabeledContent("Time zone", value: date.timeZoneIdentifier)
-                        Text(date.provenance == .recordingSession ? "Day recorded by this recording session." : "Day assigned by you.")
+                        Text(date.provenance == .screenTimeReport
+                             ? (AppLanguage.isFrench ? "Jour et fuseau du rapport Screen Time." : "Day and time zone of the Screen Time report.")
+                             : String(localized: date.provenance == .recordingSession ? "Day recorded by this recording session." : "Day assigned by you."))
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     LabeledContent("Origin", value: observationOriginLabel(entry.origin))
@@ -276,11 +364,33 @@ struct ObservationHistoryDetail: View {
                         .accessibilityLabel("Imported")
                         .accessibilityValue(observationImportDateLabel(entry))
                         .accessibilityIdentifier("observation.importedDate")
-                    Button(entry.observedDate == nil ? "Set observed day" : "Change day or origin") { assigningDate = true }
-                        .disabled(store.busy || store.sessionActive)
-                        .accessibilityIdentifier("observation.setDate")
+                    if entry.screenTimeEvidence == nil {
+                        Button(entry.observedDate == nil ? "Set observed day" : "Change day or origin") { assigningDate = true }
+                            .disabled(store.busy || store.sessionActive)
+                            .accessibilityIdentifier("observation.setDate")
+                    }
                 } footer: {
                     Text("Import time is separate from the day you observed. These dates don't establish how long you used your phone.")
+                }
+
+                if let evidence = entry.screenTimeEvidence {
+                    Section {
+                        Text(evidence.hasMorningEvidence
+                            ? (AppLanguage.isFrench ? "Fenêtre du matin retenue ; ordre des apps estimé." : "Retained morning window; app order is estimated.")
+                            : (AppLanguage.isFrench ? "Fenêtre du matin inconnue. Ces agrégats ne proposent aucune habitude ; vous pouvez les choisir avec une vidéo ou une leçon valide." : "Morning window unknown. These aggregates propose no habit; you can select them beside a valid video or lesson."))
+                            .accessibilityIdentifier("observation.screenTime.coverage")
+                        Text(AppLanguage.isFrench ? "Les périodes absentes restent inconnues. Aucun contenu, geste ni usage continu n’est établi." : "Missing periods remain unknown. No content, gesture or continuous use is established.")
+                        DisclosureGroup(AppLanguage.isFrench ? "Couverture du rapport" : "Report coverage") {
+                            Text((AppLanguage.isFrench ? "Intervalle demandé : " : "Requested interval: ")
+                                + reportIntervalLabel(evidence.requestedWindow, zone: evidence.timeZoneIdentifier))
+                            Text((AppLanguage.isFrench ? "Intervalles renvoyés : " : "Returned intervals: ") + "\(evidence.returnedIntervals.count)")
+                            ForEach(Array(evidence.returnedIntervals.enumerated()), id: \.offset) { _, interval in
+                                Text(reportIntervalLabel(interval, zone: evidence.timeZoneIdentifier))
+                            }
+                            Text((AppLanguage.isFrench ? "Dernière lecture : " : "Last read: ")
+                                + reportIntervalLabel(.init(start: evidence.retrievedAt, duration: 0), zone: evidence.timeZoneIdentifier))
+                        }
+                    }.font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                 }
 
                 if let context = entry.recordingContext {
@@ -300,11 +410,13 @@ struct ObservationHistoryDetail: View {
                 }
 
                 Section {
-                    Button { preparingNarration = true } label: {
-                        Label("Read a saved moment", systemImage: "speaker.wave.2")
+                    if entry.screenTimeEvidence == nil || entry.correctedText != nil {
+                        Button { preparingNarration = true } label: {
+                            Label("Read a saved moment", systemImage: "speaker.wave.2")
+                        }
+                        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable)
+                        .accessibilityIdentifier("observation.prepareNarration")
                     }
-                    .disabled(store.busy || store.sessionActive || !store.storageIsAvailable)
-                    .accessibilityIdentifier("observation.prepareNarration")
                     Button {
                         if store.selectObservation(id: observationID) { onLearn() }
                     } label: { Label("Edit in Learn", systemImage: "pencil") }
@@ -367,6 +479,15 @@ struct ObservationHistoryDetail: View {
         } message: {
             Text("This removes this observation's original text, corrections, sampled frame evidence and screen interpretation. Routines and saved runs keep their existing content.")
         }
+    }
+
+    private func reportIntervalLabel(_ interval: DateInterval, zone: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.timeZone = TimeZone(identifier: zone)
+        formatter.dateFormat = "d MMM yyyy HH:mm"
+        let start = formatter.string(from: interval.start)
+        return interval.duration == 0 ? start : start + " – " + formatter.string(from: interval.end)
     }
 }
 

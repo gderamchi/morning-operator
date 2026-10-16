@@ -70,6 +70,7 @@ public final class MorningAutomationCoordinator {
     @discardableResult
     public func runCurrentStep(
         in session: RoutineSession,
+        onFailure: @escaping @MainActor (MorningStepContext, String) -> Void = { _, _ in },
         onCompletion: @escaping @MainActor (MorningStepContext) -> Void
     ) -> Bool {
         guard session.status == .running, session.routine.isApproved, let step = session.currentStep else {
@@ -118,6 +119,7 @@ public final class MorningAutomationCoordinator {
                 case .unavailable(let reason):
                     self.status = .unavailable
                     self.message = reason
+                    onFailure(next, reason)
                 }
             } catch {
                 guard !Task.isCancelled, let self,
@@ -129,7 +131,8 @@ public final class MorningAutomationCoordinator {
                     self.message = String(localized: "This step stopped before completion. Continue when you are ready.", bundle: .module)
                 } else {
                     self.status = .failed
-                    self.message = String(localized: "This step could not finish: \(error.localizedDescription)", bundle: .module)
+                    self.message = String(localized: "This moment could not finish. You can retry or continue your morning.", bundle: .module)
+                    onFailure(next, self.message)
                 }
             }
         }

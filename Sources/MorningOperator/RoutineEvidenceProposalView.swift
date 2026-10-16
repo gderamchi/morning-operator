@@ -7,13 +7,22 @@ struct RoutineEvidenceProposalView: View {
     @Bindable var store: MorningStore
     /// The presenting view dismisses this sheet before opening the existing Learn sheet.
     var onLearn: () -> Void
+    var onEdit: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
             MorningList {
                 if let proposal = store.pendingRoutineProposal {
                     summary(proposal)
+                    if dynamicTypeSize.isAccessibilitySize {
+                        Section {
+                            delegationExplanation
+                            editButton
+                            keepCurrentButton
+                        }
+                    }
                     if proposal.baseRoutineID != nil, let current = store.routine {
                         Section {
                             DisclosureGroup("Compare with current routine") {
@@ -51,6 +60,34 @@ struct RoutineEvidenceProposalView: View {
                             }
                         }
                     }
+                    if let selection = proposal.screenTimeSelection {
+                        let sources = proposal.sourceSnapshots.compactMap { store.observationArchive.entry(id: $0.acquisitionID) }
+                        let choices = (try? LearningEvidencePreparation.screenTimeAppChoices(acquisitions: sources, selection: selection)) ?? []
+                        let omitted = choices.filter { !$0.isEligible || !$0.isIncluded }
+                        Section {
+                            Text(ScreenTimeAppMomentChoice.policyExplanation)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                            if !omitted.isEmpty {
+                                DisclosureGroup(AppLanguage.isFrench ? "Apps sans nouveau moment distinct (\(omitted.count))" : "Apps without a new separate moment (\(omitted.count))") {
+                                    ForEach(omitted) { choice in
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(choice.name).font(.raleway(.subheadline))
+                                            Text(choice.isAmbiguous
+                                                ? (AppLanguage.isFrench ? "Nom d’app ambigu ; source conservée sans nouveau moment." : "Ambiguous app name; source retained without a new moment.")
+                                                : choice.isEligible
+                                                ? (AppLanguage.isFrench ? "Écartée des nouveaux moments selon votre sélection." : "Left out of new moments by your selection.")
+                                                : (AppLanguage.isFrench ? "Ne remplit pas la règle commune de sélection d’apps." : "Does not meet the shared app-selection rule."))
+                                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                        }
+                                    }
+                                    Text(AppLanguage.isFrench
+                                        ? "Les agrégats restent dans les sources et peuvent soutenir une séquence observée de la même app. Aucun geste observé ni rituel gardé n’a été retiré."
+                                        : "Aggregates remain in the sources and may support an observed sequence of the same app. No observed gesture or kept ritual was removed.")
+                                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                }.accessibilityIdentifier("proposal.screenTime.omissions")
+                            }
+                        } header: { Text("Screen Time") }
+                    }
                     ForEach(Array(proposal.routine.steps.enumerated()), id: \.element.id) { index, step in
                         Section {
                             VStack(alignment: .leading, spacing: 8) {
@@ -61,6 +98,11 @@ struct RoutineEvidenceProposalView: View {
                                 if !briefDetail(step).isEmpty { Text(briefDetail(step)).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted) }
                                 Text("\(step.durationMinutes) minutes planned")
                                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                Text(step.executionDescription).font(.raleway(.subheadline))
+                                if let target = step.target, target.integrationRoute == .api {
+                                    Text(RoutineConnectedReview.summary(for: target) ?? "Review unavailable")
+                                        .font(.footnote).fixedSize(horizontal: false, vertical: true)
+                                }
                             }.padding(.vertical, 3)
                             if let support = proposal.support.first(where: { $0.stepID == step.id }) {
                                 if support.reason == .preservedUserDecision {
@@ -99,6 +141,12 @@ struct RoutineEvidenceProposalView: View {
                                     Text(source.sourceLabel).font(.raleway(.subheadline))
                                     Text("\(proposalDateLabel(source.observedDate)) · \(source.sourceLayer.displayName)")
                                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                    if let report = store.observationArchive.entry(id: source.acquisitionID)?.screenTimeEvidence {
+                                        Text(report.hasMorningEvidence
+                                            ? (AppLanguage.isFrench ? "Fenêtre du matin retenue ; ordre estimé. Les gestes viennent uniquement d’autres sources citées." : "Retained morning window; estimated order. Gestures come only from other cited sources.")
+                                            : (AppLanguage.isFrench ? "Fenêtre du matin inconnue : aucune habitude proposée depuis cette source." : "Morning window unknown: no habit proposed from this source."))
+                                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                    }
                                 }
                             }.accessibilityIdentifier("proposal.source.\(source.acquisitionID.uuidString)")
                         }
@@ -109,7 +157,9 @@ struct RoutineEvidenceProposalView: View {
                         DisclosureGroup("About this suggestion") {
                             Text("Minutes are planned, not measured averages. Visible words don't prove an action or a repeated habit.")
                                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                            Text("Done saves this suggestion for later. You can edit your current routine under Review → Your routine.")
+                            Text(AppLanguage.isFrench
+                                ? "Ajustez cette proposition avant de la confier à MORE. Vos observations sources restent inchangées."
+                                : "Adjust this suggestion before delegating it. Your saved source observations stay unchanged.")
                                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             if proposal.sourceSnapshots.first?.origin == .synthetic {
                                 Text("Sample observations stay separate from your personal habit history.")
@@ -136,28 +186,15 @@ struct RoutineEvidenceProposalView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if let proposal = store.pendingRoutineProposal {
                     VStack(alignment: .leading, spacing: 10) {
-                        if store.sessionActive {
-                            Text("Finish or end your current morning before approving an update.")
-                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                        }
-                        HStack(spacing: 12) {
-                            Button(store.routine == nil ? "Discard" : "Keep current") {
-                                if store.discardPendingRoutineProposal() { dismiss() }
+                        if dynamicTypeSize.isAccessibilitySize {
+                            approveButton(proposal, compact: true)
+                        } else {
+                            delegationExplanation
+                            editButton
+                            HStack(spacing: 12) {
+                                keepCurrentButton
+                                approveButton(proposal, compact: false)
                             }
-                            .buttonStyle(SecondaryButtonStyle())
-                            .disabled(store.busy || !store.storageIsAvailable)
-                            .accessibilityIdentifier("proposal.keepCurrent")
-                            Button {
-                                if store.approvePendingRoutineProposal() {
-                                    dismiss()
-                                    store.tab = .today
-                                }
-                            } label: {
-                                Label("Approve update", systemImage: "checkmark").frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil || proposal.routine.steps.isEmpty)
-                            .accessibilityIdentifier("proposal.approve")
                         }
                     }.padding(20).background(.regularMaterial)
                 }
@@ -165,6 +202,52 @@ struct RoutineEvidenceProposalView: View {
         }
         .onAppear { store.routineProposalPresented = true }
         .onDisappear { store.routineProposalPresented = false }
+    }
+
+    private var delegationExplanation: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(AppLanguage.isFrench ? "MORE s’occupe des actions présentées ici. Vous pouvez l’interrompre à tout moment." : "MORE takes care of the actions shown here. You can interrupt at any time.")
+                .font(.footnote).fixedSize(horizontal: false, vertical: true)
+            if store.sessionActive {
+                Text("Finish or end your current morning before approving an update.")
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            }
+        }
+    }
+
+    private var editButton: some View {
+        Button {
+            if store.editPendingRoutineProposal() { onEdit(); dismiss() }
+        } label: {
+            Label(AppLanguage.isFrench ? "Ajuster cette proposition" : "Adjust this suggestion", systemImage: "slider.horizontal.3")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil)
+        .accessibilityIdentifier("proposal.edit")
+    }
+
+    private var keepCurrentButton: some View {
+        Button(store.routine == nil ? "Discard" : "Keep current") {
+            if store.discardPendingRoutineProposal() { dismiss() }
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .disabled(store.busy || !store.storageIsAvailable)
+        .accessibilityIdentifier("proposal.keepCurrent")
+    }
+
+    private func approveButton(_ proposal: EvidenceRoutineProposal, compact: Bool) -> some View {
+        Button {
+            if store.approvePendingRoutineProposal() { dismiss(); store.tab = .today }
+        } label: {
+            Label(compact ? (AppLanguage.isFrench ? "Confier à MORE" : "Let MORE do it")
+                  : (AppLanguage.isFrench ? "Confier ce matin à MORE" : "Let MORE take care of this morning"), systemImage: "checkmark")
+                .frame(maxWidth: .infinity)
+        }
+        .accessibilityLabel(AppLanguage.isFrench ? "Confier ce matin à MORE" : "Let MORE take care of this morning")
+        .buttonStyle(PrimaryButtonStyle())
+        .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.routinePreferencesIssue != nil || proposal.routine.steps.isEmpty)
+        .accessibilityIdentifier("proposal.approve")
     }
 
     private func summary(_ proposal: EvidenceRoutineProposal) -> some View {

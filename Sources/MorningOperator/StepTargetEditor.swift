@@ -1,8 +1,10 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 struct StepTargetEditor: View {
     @Binding var target: RoutineStepTarget?
+    var reviewedDetail: String? = nil
     private var selectedApp: StepApp? {
         guard case let .externalApp(app, _) = target else { return nil }; return app
     }
@@ -14,7 +16,7 @@ struct StepTargetEditor: View {
         case let .externalApp(app, _): "app.\(app.rawValue)"
         case let .inAppWeb(url): WebMorningSite(url: url).map { "web.\($0.rawValue)" } ?? "web.saved"
         case .shortcut: "shortcut"
-        case .connectedAPI: "api.saved"
+        case .connectedAPI, .googleCalendarDay, .calendlyDay, .outlookInbox: "api.saved"
         case nil: "none"
         }
     }
@@ -57,17 +59,58 @@ struct StepTargetEditor: View {
                 Text("Add and authorize the shortcut in Shortcuts first. Its name alone does not verify a connection.")
                     .font(.footnote).foregroundStyle(MorningStyle.muted)
             }
-            if case let .connectedAPI(service, _, tool, arguments) = target {
+            if case let .connectedAPI(service, _, _, _) = target, let target {
                 Text(service.capitalized).font(.subheadline)
-                DisclosureGroup("Saved action details") {
-                    Text(tool).font(.caption)
-                    Text(arguments).font(.caption.monospaced()).textSelection(.enabled)
+                if let details = RoutineConnectedReview.summary(for: target) {
+                    if let reviewedDetail, !reviewedDetail.isEmpty, reviewedDetail != details {
+                        Text(AppLanguage.isFrench ? "Description et compte enregistrés" : "Saved account and description")
+                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                        Text(reviewedDetail).font(.subheadline).textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text(AppLanguage.isFrench ? "Détails que MORE utilisera" : "Details MORE will use")
+                        .font(.caption).foregroundStyle(MorningStyle.muted)
+                    Text(details).font(.subheadline).textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(ConnectedActionReviewError.unreadable.localizedDescription)
+                        .font(.footnote).foregroundStyle(MorningStyle.muted)
                 }
+            }
+            if case let .googleCalendarDay(calendar) = target {
+                Text("Google Calendar").font(.subheadline)
+                Text(calendar.sourceLabel()).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                if let target, let details = RoutineConnectedReview.summary(for: target) {
+                    Text(details).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                }
+                Text(AppLanguage.isFrench ? "Pour choisir un autre calendrier, ajoutez un moment depuis Apps et comptes."
+                     : "To choose another calendar, add a moment from Apps & accounts.")
+                    .font(.footnote).foregroundStyle(MorningStyle.muted)
+            }
+            if case let .calendlyDay(account) = target {
+                Text("Calendly").font(.subheadline)
+                Text(account.userName).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                if let target, let details = RoutineConnectedReview.summary(for: target) {
+                    Text(details).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                }
+                Text(AppLanguage.isFrench ? "Pour choisir un autre compte, ajoutez un moment depuis Apps et comptes."
+                     : "To choose another account, add a moment from Apps & accounts.")
+                    .font(.footnote).foregroundStyle(MorningStyle.muted)
+            }
+            if case let .outlookInbox(account) = target {
+                Text("Outlook").font(.subheadline)
+                Text(account.sourceLabel()).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                if let target, let details = RoutineConnectedReview.summary(for: target) {
+                    Text(details).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                }
+                Text(AppLanguage.isFrench ? "Pour choisir une autre boîte de réception, ajoutez un moment depuis Apps et comptes."
+                     : "To choose another Inbox, add a moment from Apps & accounts.")
+                    .font(.footnote).foregroundStyle(MorningStyle.muted)
             }
             Text("Choose an action from Apps & accounts, then add it to your routine.")
                 .font(.footnote).foregroundStyle(MorningStyle.muted)
         } header: { Text("During this moment") } footer: {
-            Text("One timer, in MORE or another app. Choose Next when you're ready.")
+            Text(AppLanguage.isFrench ? "Choisissez aussi ce que MORE fera dans la page. Les autres applications peuvent nécessiter vos gestes." : "Also choose what MORE will do in the page. Other apps may still need your actions.")
         }
     }
     private func prompt(_ kind: StepAppDetailKind) -> String {
@@ -79,5 +122,40 @@ struct StepTargetEditor: View {
         case .place: String(localized: "Place (optional)")
         case .webAddress: String(localized: "Web address")
         }
+    }
+}
+
+/// Presentation only: a configured Slack read has one fixed operation. Its
+/// saved names describe the owner's choice; execution still verifies IDs and
+/// fresh provider identity, then reviews the actual destination before sending.
+enum RoutineConnectedReview {
+    static func summary(for target: RoutineStepTarget) -> String? {
+        if case let .googleCalendarDay(calendar) = target {
+            return AppLanguage.isFrench
+                ? "Google Calendar : lire « \(calendar.sourceLabel(french: true)) » pour le jour courant, dans le fuseau de cet iPhone. Les dates sont recalculées à chaque matin et à chaque actualisation. Au plus 25 événements ; toute lecture partielle est annoncée. Aucune modification du calendrier."
+                : "Google Calendar: read “\(calendar.sourceLabel(french: false))” for today in this iPhone’s time zone. Dates are recalculated each morning and on refresh. Up to 25 events; a partial reading is disclosed. No calendar changes."
+        }
+        if case let .calendlyDay(account) = target {
+            return AppLanguage.isFrench
+                ? "Calendly : lire les rendez-vous de « \(account.userName) » qui commencent le jour courant, dans le fuseau de cet iPhone. Les dates sont recalculées à chaque matin et à chaque actualisation. Au plus 25 rendez-vous ; toute lecture partielle est annoncée. Aucun rendez-vous n’est créé ou annulé."
+                : "Calendly: read bookings for “\(account.userName)” starting today in this iPhone’s time zone. Dates are recalculated each morning and on refresh. Up to 25 bookings; a partial reading is disclosed. No booking is created or cancelled."
+        }
+        if case let .outlookInbox(account) = target {
+            return AppLanguage.isFrench
+                ? "Outlook : présenter jusqu’à trois messages non lus de « \(account.sourceLabel()) », y compris des messages plus anciens. La boîte est vérifiée et relue à chaque matin ou actualisation. Les aperçus sont distincts du contenu du message, lu seulement à votre demande. Aucun message n’est envoyé, modifié ou marqué comme lu."
+                : "Outlook: present up to three unread messages from “\(account.sourceLabel())”, including older mail. The Inbox is verified and read each morning or on refresh. Previews are distinct from message content, read only when you ask. No message is sent, changed or marked as read."
+        }
+        guard case let .connectedAPI(service, _, tool, json) = target else { return nil }
+        if service == "slack", tool == "SLACK_FETCH_CONVERSATION_HISTORY",
+           let arguments = try? ComposioJSONValue.parseObject(json),
+           Set(arguments.keys) == ["channel", "limit"], arguments["limit"] == .number(3),
+           let channel = arguments["channel"]?.stringValue,
+           (3...80).contains(channel.count), channel.first.map({ "CG".contains($0) }) == true,
+           channel.allSatisfy({ $0.isASCII && ($0.isUppercase || $0.isNumber) }) {
+            return AppLanguage.isFrench
+                ? "Slack : lire les trois derniers messages du canal choisi. Le compte et le canal enregistrés seront revérifiés pendant la lecture ; toute réponse demande une relecture et votre instruction d’envoi."
+                : "Slack: read the latest three messages in the chosen channel. The saved account and channel will be checked again during reading; any reply requires review and your instruction to send."
+        }
+        return try? ConnectedActionReview.summary(argumentsJSON: json)
     }
 }

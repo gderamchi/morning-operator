@@ -132,6 +132,12 @@ enum OwnInterfaceWording {
         Phrase(catalogKey: nil, isPart: false, wordings)
     }
 
+    /// These views choose FR/EN literals directly. Their exact live source text is
+    /// checked by tests rather than by a String Catalog entry that they do not use.
+    private static func sourceLiteral(_ en: String, fr: String) -> Phrase {
+        Phrase(catalogKey: nil, isPart: false, [en, fr])
+    }
+
     // MARK: - Wording
 
     /// Titles and controls distinctive enough that one complete line identifies the screen.
@@ -201,8 +207,43 @@ enum OwnInterfaceWording {
     static let playbackPaused = shown("Paused", fr: "En pause")
     static let playbackContinue = shown("Continue", fr: "Reprendre")
 
+    /// An Outlook title or an ordinary email mentioning Outlook is insufficient.
+    /// The matching explanation must also be present in that same visible frame.
+    static let outlookPairs: [[Phrase]] = [
+        [sourceLiteral("Your Outlook Inbox, each morning", fr: "Votre boîte Outlook, chaque matin"),
+         sourceLiteral("Choose an account and review its identity. MORE reads up to three previews of unread Inbox messages, including older unread messages.",
+               fr: "Choisissez un compte et vérifiez son identité. MORE lit au plus trois aperçus de messages non lus de la boîte de réception, même anciens.")],
+        [sourceLiteral("Your Outlook messages", fr: "Vos messages Outlook"),
+         sourceLiteral("Up to three unread previews, including older messages. No importance ranking. Choose a message to read its body; attachments and remote resources are not opened.",
+               fr: "Au plus trois aperçus de non lus, même anciens. Aucun classement d’importance. Choisissez un message pour lire son corps ; aucune pièce jointe ni ressource distante ne sera ouverte.")]
+    ]
+    static let screenTimePickerPair: [Phrase] = [
+        sourceLiteral("App moments from Screen Time", fr: "Moments d’app depuis Screen Time"),
+        sourceLiteral("Choose apps to add as separate moments. Observed sequences and your kept rituals stay in the plan. Up to eight app moments can be added.",
+            fr: "Choisissez les apps à ajouter comme moments distincts. Les séquences observées et vos rituels gardés restent dans le plan. Jusqu’à huit moments d’app peuvent être ajoutés.")
+    ]
+
     /// Screens without a heading of their own: both pieces must be present.
-    static let pairs: [[Phrase]] = [
+    static let pairs: [[Phrase]] = outlookPairs + [screenTimePickerPair] + [
+        [shown("Your Calendly appointments, each morning", fr: "Vos rendez-vous Calendly, chaque matin"),
+         shown("Choose an account. MORE reads appointments starting today in this iPhone’s time zone.",
+               fr: "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone.")],
+        [shown("Your calendar, each morning", fr: "Votre calendrier, chaque matin"),
+         shown("Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning.",
+               fr: "Choisissez un calendrier. MORE lit le jour courant dans le fuseau de cet iPhone à chaque matin.")],
+        [shown("Prepare listening", fr: "Préparer l’écoute"),
+         shown("This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices.",
+               fr: "Cette préparation n’enregistre aucun son et ne teste pas le microphone. La lecture à voix haute et l’enchaînement de votre routine restent des choix distincts.")],
+        [shown("Prepare listening", fr: "Préparer l’écoute"),
+         shown("Local recognition availability will be checked after your permission. Listening has not started.",
+               fr: "La disponibilité de la reconnaissance locale sera vérifiée après votre autorisation. Aucune écoute n’a commencé.")],
+        // A Slack heading alone can belong to Slack; MORE's own explanation must accompany it.
+        [shown("Slack in your morning", fr: "Slack dans votre matin"),
+         shown("Choose a workspace and channel. MORE can read its messages and prepare a reply for your review.",
+               fr: "Choisissez un espace et un canal. MORE pourra lire ses messages et préparer une réponse à relire.")],
+        [shown("Reply in Slack", fr: "Répondre dans Slack"),
+         shown("Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction.",
+               fr: "Choisissez un message et dites ce que vous souhaitez répondre. MORE relit le compte, le canal, le message et la réponse avant votre instruction d’envoi.")],
         [earlier("Start my morning"), earlier("Update my morning")],
         [earlier("A little perspective."), shown("Settings & connections", fr: "Réglages et connexions")],
         [earlier("More room for your day."), earlier("Anything you’d like to remember?")],
@@ -233,9 +274,11 @@ enum OwnInterfaceWording {
         // The suggested update, wherever it is scrolled, quotations included: the title and
         // both buttons of the bars that stay. Two of the three are what any updater shows.
         [shown("Suggested update", fr: "Mise à jour suggérée"), shown("Keep current", fr: "Garder l’actuelle"),
-         shown("Approve update", fr: "Approuver la mise à jour")],
+         shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour")],
         [shown("Suggested update", fr: "Mise à jour suggérée"), shown("Discard", fr: "Supprimer"),
-         shown("Approve update", fr: "Approuver la mise à jour")],
+         shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour")],
+        // At accessibility sizes only MORE's compact branded approval stays pinned.
+        [shown("Suggested update", fr: "Mise à jour suggérée"), shown("Let MORE do it", fr: "Confier à MORE")],
         // The list of saved observations: its title and the button beside it, and the two
         // buttons under it once some are chosen.
         [shown("Observations", fr: "Observations"), shown("Choose mornings", fr: "Choisir des matinées")],
@@ -290,9 +333,12 @@ enum OwnInterfaceWording {
         ]),
         Screen(name: "Screen Time review", copy: [
             shown("Your morning, from Screen Time", fr: "Votre matin, d’après Temps d’écran"),
-            shown("Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.", fr: "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici.")
+            shown("Your current routine stays ready until you approve. Approving replaces it with the moments you keep here.",
+                  fr: "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les moments gardés ici.",
+                  earlier: "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.",
+                  "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici.")
         ], controls: [
-            shown("Approve update", fr: "Approuver la mise à jour"),
+            shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour"),
             shown("Keep current", fr: "Garder l’actuelle"),
             shown("Minutes measured", fr: "Minutes mesurées"),
             shown("Minutes estimated", fr: "Minutes estimées")
@@ -332,7 +378,11 @@ enum OwnInterfaceWording {
         ]),
         Screen(name: "Browser learning", copy: [
             shown("Learning your scroll and tap rhythm", fr: "Apprentissage du rythme de vos gestes"),
-            shown("Only this page. This estimate does not replay your gestures.", fr: "Cette page seulement. Cette estimation ne reproduit pas vos gestes.")
+            earlier("Only this page. This estimate does not replay your gestures.", "Cette page seulement. Cette estimation ne reproduit pas vos gestes."),
+            part("Only known page categories and gestures here", fr: "Uniquement les catégories de pages connues et vos gestes ici",
+                 of: "Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval."),
+            part("Review MORE’s proposed actions in Learn before approval", fr: "Examinez les actions proposées dans Apprendre avant de les valider",
+                 of: "Only known page categories and gestures here. Review MORE’s proposed actions in Learn before approval.")
         ], controls: [
             shown("Stop learning", fr: "Arrêter l’apprentissage"),
             shown("Save to Learn", fr: "Garder pour apprendre")
@@ -476,8 +526,13 @@ enum OwnInterfaceWording {
             shown("Try the voice", fr: "Essayer la voix")
         ]),
         Screen(name: "Routine", copy: [
-            part("min planned · Your own pace", fr: "min prévues · À votre rythme", of: "%lld min planned · Your own pace"),
-            part("min planned · Spoken guidance", fr: "min prévues · Guidage vocal", of: "%lld min planned · Spoken guidance"),
+            earlier("min planned · Your own pace", "min prévues · À votre rythme"),
+            earlier("min planned · Spoken guidance", "min prévues · Guidage vocal"),
+            part("MORE takes care of the actions shown here", fr: "MORE s’occupe des actions présentées ici",
+                 of: "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice."),
+            part("You can interrupt, extend a moment or stop by voice",
+                 fr: "Vous pouvez l’interrompre, prolonger un moment ou arrêter à la voix",
+                 of: "MORE takes care of the actions shown here. You can interrupt, extend a moment or stop by voice."),
             earlier("Tap a moment to edit", "Touchez un moment pour le modifier"),
             earlier("Changes save as a draft and need your approval", "Les modifications sont enregistrées en brouillon et doivent être approuvées"),
             shown("Finish or end this morning before editing your routine.",
@@ -490,7 +545,8 @@ enum OwnInterfaceWording {
             shown("Routine", fr: "Routine"),
             shown("Your daily routine", fr: "Votre routine de chaque jour"),
             earlier("Your moments", "Vos moments"),
-            shown("Approve this routine", fr: "Approuver cette routine"),
+            shown("Let MORE take care of my morning", fr: "Confier mon matin à MORE", earlier: "Approve this routine", "Approuver cette routine"),
+            shown("Let MORE do it", fr: "Confier à MORE"),
             shown("Your routine", fr: "Votre routine"),
             earlier("Your approved routine", "Votre routine approuvée"),
             earlier("A draft for you to review", "Un brouillon à relire"),
@@ -818,6 +874,10 @@ enum OwnInterfaceWording {
             earlier("After approval, edit your plan in Routine", "Après approbation, modifiez votre plan dans Routine"),
             earlier("You can edit your current routine under Review → Your routine",
                     "Vous pouvez modifier votre routine actuelle dans Historique → Votre routine"),
+            part("Adjust this suggestion before delegating it", fr: "Ajustez cette proposition avant de la confier à MORE",
+                 of: "Adjust this suggestion before delegating it. Your saved source observations stay unchanged."),
+            part("Your saved source observations stay unchanged", fr: "Vos observations sources restent inchangées",
+                 of: "Adjust this suggestion before delegating it. Your saved source observations stay unchanged."),
             shown("Sample observations stay separate from your personal habit history.",
                   fr: "Les observations d’exemple restent séparées de votre historique personnel."),
             shown("Finish or end your current morning before approving an update.",
@@ -826,7 +886,8 @@ enum OwnInterfaceWording {
                  of: "The observations or your routine may have changed. Choose the mornings again to make a fresh suggestion.")
         ], controls: [
             shown("Suggested update", fr: "Mise à jour suggérée"),
-            shown("Approve update", fr: "Approuver la mise à jour"),
+            shown("Adjust this suggestion", fr: "Ajuster cette proposition"),
+            shown("Let MORE take care of this morning", fr: "Confier ce matin à MORE", earlier: "Approve update", "Approuver la mise à jour"),
             shown("Keep current", fr: "Garder l’actuelle"),
             shown("Why this suggestion?", fr: "Pourquoi cette suggestion ?"),
             // Headings a recommendation in any app could carry: they confirm, they do not count.

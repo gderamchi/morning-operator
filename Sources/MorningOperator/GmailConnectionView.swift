@@ -1,4 +1,5 @@
 import MorningApple
+import MorningCore
 import SwiftUI
 
 /// One saved readonly Gmail connection, restored silently when this reader opens.
@@ -77,6 +78,17 @@ struct GmailConnectionView: View {
                 ProgressView().accessibilityLabel("Reading Gmail")
             }
             if let snapshot = controller.unreadMessages { inboxMessages(snapshot) }
+            if !controller.hasSendAccess {
+                Button {
+                    controller.connect(access: .readAndSend)
+                } label: {
+                    Text(AppLanguage.isFrench ? "Autoriser l’envoi pendant mon matin" : "Enable sending during my morning")
+                }
+                .disabled(!canRead || controller.isBusy)
+                .accessibilityIdentifier("gmail.enableSending")
+                Text(AppLanguage.isFrench ? "Google demandera aussi le droit d’envoyer. MORE n’envoie un message préparé et relu qu’après votre demande explicite d’envoi." : "Google will also ask for sending access. MORE sends a prepared, reviewed message only after your explicit request to send it.")
+                    .font(.caption).foregroundStyle(MorningStyle.muted)
+            }
             if controller.hasSession || controller.hasSavedConnection || controller.canRetryConnection {
                 Button("Disconnect Gmail") { controller.disconnect() }
                     .font(.footnote).frame(minHeight: 44).disabled(!canRead)

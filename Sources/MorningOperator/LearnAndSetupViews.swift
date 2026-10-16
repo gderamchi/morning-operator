@@ -14,6 +14,7 @@ struct LearnView: View {
     @ViewState<Bool> private var awaitingSuggestion = false
     @ViewState<UUID?> private var proposalBeforeRequest = nil
     @ViewState<Bool> private var closeAfterProposal = false
+    @ViewState<Bool> private var showingSavedObservations = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var notesFocused: Bool
@@ -26,7 +27,7 @@ struct LearnView: View {
             NavigationLink {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        MorningScreenTimeView(store: store)
+                        MorningScreenTimeView(store: store, returnsToLearn: true, onEdit: { close() })
                         // Then show the morning itself: a recording or a file.
                         showMorningCard
                     }.padding(24)
@@ -76,6 +77,13 @@ struct LearnView: View {
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("learn.connections")
+
+            Button { showingSavedObservations = true } label: {
+                LinkRow(title: String(localized: "Saved observations"),
+                        detail: AppLanguage.isFrench ? "Réunir les matinées que vous avez enregistrées" : "Bring your saved mornings together", symbol: "doc.text.image")
+                    .padding(MorningTheme.Space.card)
+                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
+            }.buttonStyle(.plain).accessibilityIdentifier("learn.savedObservations")
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
@@ -155,6 +163,9 @@ struct LearnView: View {
             else { finishSuggestionIfReady() }
         }
         .onDisappear { store.saveObservationEdits() }
+        .navigationDestination(isPresented: $showingSavedObservations) {
+            ObservationHistoryView(store: store, onLearn: { showingSavedObservations = false }, onEdit: { close() })
+        }
         .sheet(isPresented: $recording) {
             RecordMorningView(canStartRecording: store.canStartRecording) { url in
                 store.importObservation(url)
@@ -168,13 +179,16 @@ struct LearnView: View {
         .sheet(isPresented: $showingProposal, onDismiss: {
             if closeAfterProposal { close() }
         }) {
-            RoutineEvidenceProposalView(store: store, onLearn: { showingProposal = false })
+            RoutineEvidenceProposalView(store: store, onLearn: { showingProposal = false }, onEdit: {
+                closeAfterProposal = true
+                showingProposal = false
+            })
         }
         .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.routine?.id) { _, _ in
             if showingProposal { closeAfterProposal = true }
-            else if !store.busy, !awaitingSuggestion { close() }
+            else if !showingSavedObservations, !store.busy, !awaitingSuggestion { close() }
         }
         .onChange(of: store.dataGeneration) { _, _ in
             importGeneration = nil
@@ -343,14 +357,46 @@ struct SetupView: View {
     @Bindable var store: MorningStore
     /// Opens the routine screen; nil hides its card.
     var openRoutine: (() -> Void)? = nil
+    var openHistory: (() -> Void)? = nil
     @ViewState<Bool> private var choosingAlarm = false
     @ViewState<Bool> private var choosingVoice = false
+    @ViewState<Bool> private var preparingVoiceAccess = false
     @ViewState<Bool> private var choosingInvitation = false
     @ViewState<Bool> private var showingPrivacy = false
     @ViewState<Bool> private var choosingBriefing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
+            if store.sessionActive {
+                MorningRoutineControlsView(store: store)
+            }
+            if let completed = store.session?.completedAt, Calendar.current.isDateInToday(completed),
+               let session = store.session {
+                Card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(AppLanguage.isFrench ? "Votre matin" : "Your morning")
+                            .font(MorningTheme.Typography.heading)
+                        let elapsed = MorningStyle.duration(session.activeDuration(until: completed))
+                        Text(AppLanguage.isFrench
+                             ? "\(session.completedStepIDs.count) moments · temps écoulé : \(elapsed)"
+                             : "\(session.completedStepIDs.count) moments · elapsed: \(elapsed)")
+                            .accessibilityIdentifier("morning.completeSummary")
+                        if let summary = store.executionSummary {
+                            Text(summary).accessibilityIdentifier("morning.executionSummary")
+                        }
+                        if store.shouldOfferCompletionReflection {
+                            Button { store.openCompletionCapture() } label: {
+                                Label(AppLanguage.isFrench ? "Dire une pensée" : "Speak a thought", systemImage: "mic")
+                                    .frame(minHeight: 44)
+                            }
+                            .disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
+                            Button(AppLanguage.isFrench ? "Plus tard" : "Not now") { store.discardCompletionReflection() }
+                                .frame(minHeight: 44).accessibilityIdentifier("morning.dismissReflection")
+                        }
+                    }
+                    .font(.raleway(.subheadline))
+                }
+            }
             if let openRoutine {
                 CardButton(action: openRoutine) {
                     LinkRow(title: String(localized: "Your routine"),
@@ -358,8 +404,16 @@ struct SetupView: View {
                             symbol: "list.bullet")
                 }.accessibilityIdentifier("setup.routine")
             }
+            if let openHistory {
+                CardButton(action: openHistory) {
+                    LinkRow(title: String(localized: "History"), detail: "", symbol: "clock.arrow.circlepath")
+                }.accessibilityIdentifier("setup.history")
+            }
+            CardButton { store.openCapture() } content: {
+                LinkRow(title: AppLanguage.isFrench ? "Noter une pensée" : "Note a thought", detail: "", symbol: "square.and.pencil")
+            }.accessibilityIdentifier("morning.reflect")
             NavigationLink {
-                ScrollView { MorningScreenTimeView(store: store).padding(24) }
+                ScrollView { MorningScreenTimeView(store: store, onEdit: openRoutine).padding(24) }
                     .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
             } label: {
                 LinkRow(title: String(localized: "Screen Time"), detail: "", symbol: "clock")
@@ -413,6 +467,28 @@ struct SetupView: View {
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(store.sessionActive)
                         .accessibilityIdentifier("setup.voice")
+                    Toggle(isOn: $store.automatic) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Hands free").font(.raleway(.subheadline, .medium))
+                            Text(AppLanguage.isFrench
+                                ? "MORE enchaîne votre routine. Préparez l’écoute ci-dessous pour l’interrompre à la voix pendant que l’app reste ouverte."
+                                : "MORE continues your routine. Prepare listening below to interrupt it by voice while the app stays open.")
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .tint(MorningStyle.accent).accessibilityIdentifier("setup.handsFree")
+                    Button {
+                        store.voiceAccess.refresh(language: store.voicePreparationLanguage)
+                        preparingVoiceAccess = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(AppLanguage.isFrench ? "Préparer l’écoute" : "Prepare listening")
+                                .font(.raleway(.subheadline, .medium))
+                            MorningVoiceAccessStatusView(access: store.voiceAccess)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }.buttonStyle(.plain).disabled(store.sessionActive || store.privacyBlocksWork)
+                        .accessibilityIdentifier("setup.voiceAccess")
                     Toggle(isOn: $store.readAloud) {
                         VStack(alignment: .leading, spacing: 5) {
                             Text("Read each step aloud").font(.raleway(.subheadline, .medium))
@@ -484,6 +560,8 @@ struct SetupView: View {
         .fullScreenCover(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
         .fullScreenCover(isPresented: $choosingAlarm) { MorningAlarmView() }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
+        .sheet(isPresented: $preparingVoiceAccess) { MorningVoicePreparationView(store: store) }
+        .onAppear { store.voiceAccess.refresh(language: store.voicePreparationLanguage) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
     }
 
@@ -522,7 +600,9 @@ struct StepEditor: View {
                 Section {
                     TextField("Give this step a name", text: $step.title)
                         .accessibilityLabel("Step name")
-                    if step.automation == .savedObservation {
+                    if step.target?.integrationRoute == .api {
+                        Text(step.detail).textSelection(.enabled)
+                    } else if step.automation == .savedObservation {
                         Text(step.detail).textSelection(.enabled)
                         Text("Choose a different excerpt from its observation in Review. Switching to Read this text aloud makes it an ordinary note.")
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
@@ -562,10 +642,14 @@ struct StepEditor: View {
                 }
                 Section {
                     Picker("Action", selection: $step.automation) {
-                        Text("User-led moment").tag(Optional<RoutineStepAutomation>.none)
+                        Text(step.target == nil ? String(localized: "User-led moment")
+                             : (AppLanguage.isFrench ? "Action choisie ci-dessous" : "Action chosen below"))
+                            .tag(Optional<RoutineStepAutomation>.none)
                         Text("Read this text aloud").tag(Optional(RoutineStepAutomation.spokenNote))
                         Text("Read today's calendar").tag(Optional(RoutineStepAutomation.todayCalendar))
                         Text("Read today's briefing").tag(Optional(RoutineStepAutomation.morningBriefing))
+                        Text(AppLanguage.isFrench ? "Prendre ce temps, puis continuer" : "Keep this time, then continue").tag(Optional(RoutineStepAutomation.timedMoment))
+                        Text(AppLanguage.isFrench ? "Lire mes mails et m’aider à répondre" : "Read my mail and help me reply").tag(Optional(RoutineStepAutomation.gmailInbox))
                         if step.observationReference != nil {
                             Text("Read saved excerpt").tag(Optional(RoutineStepAutomation.savedObservation))
                         }
@@ -576,7 +660,25 @@ struct StepEditor: View {
                 } footer: {
                     Text(automationExplanation)
                 }
-                StepTargetEditor(target: $step.target)
+                StepTargetEditor(target: $step.target, reviewedDetail: step.detail)
+                if case let .inAppWeb(url) = step.target, let site = WebMorningSite(url: url), site != .gmail {
+                    Section {
+                        Picker(AppLanguage.isFrench ? "Ce que MORE fait" : "What MORE does", selection: $step.webBehavior) {
+                            Text(AppLanguage.isFrench ? "Je navigue moi-même" : "I browse myself").tag(Optional<WebMorningBehavior>.none)
+                            ForEach(WebMorningBehavior.availableBehaviors(for: site), id: \.self) { behavior in
+                                Text(behavior.displayName).tag(Optional(behavior))
+                            }
+                        }.accessibilityIdentifier("step.webBehavior")
+                        if step.webBehavior != nil {
+                            if let behavior = step.webBehavior, WebMorningBehavior.permitsLikes(for: site, behavior: behavior) {
+                                Toggle(AppLanguage.isFrench ? "Aimer jusqu’à 3 contenus affichés" : "Like up to 3 displayed contents", isOn: Binding(
+                                    get: { step.webLikesAllowed == true }, set: { step.webLikesAllowed = $0 }))
+                                    .accessibilityIdentifier("step.webLikes")
+                            }
+                            Text(step.executionDescription).font(.footnote).foregroundStyle(MorningStyle.muted)
+                        }
+                    } header: { Text(AppLanguage.isFrench ? "Pendant la navigation" : "While browsing") }
+                }
                 Section {
                     Button("Remove this step", role: .destructive) { choosingRemoval = true }
                         .accessibilityIdentifier("step.remove")
@@ -599,6 +701,14 @@ struct StepEditor: View {
                         catch { saveError = error.localizedDescription; return }
                         edited.title = edited.title.trimmingCharacters(in: .whitespacesAndNewlines)
                         if edited.automation != .savedObservation { edited.observationReference = nil }
+                        if edited.target != nil { edited.automation = nil }
+                        if case let .inAppWeb(url) = edited.target, let site = WebMorningSite(url: url), let behavior = edited.webBehavior {
+                            guard WebMorningBehavior.availableBehaviors(for: site).contains(behavior) else {
+                                saveError = AppLanguage.isFrench ? "Choisissez un comportement disponible pour ce site." : "Choose an available behavior for this site."; return
+                            }
+                            if !WebMorningBehavior.permitsLikes(for: site, behavior: behavior) { edited.webLikesAllowed = false }
+                        }
+                        if case .inAppWeb = edited.target { } else { edited.webBehavior = nil; edited.webLikesAllowed = nil }
                         if onSave(edited, keepInSuggestions, keepDuration) { dismiss() }
                         else { saveError = failureMessage() }
                     }
@@ -607,6 +717,16 @@ struct StepEditor: View {
                 }
             }
             .onChange(of: step.durationMinutes) { _, _ in keepDuration = true }
+            .onChange(of: step.target) { _, target in
+                step.webLikesAllowed = false
+                if case let .inAppWeb(url) = target, let site = WebMorningSite(url: url) {
+                    step.webBehavior = WebMorningBehavior.defaultBehavior(for: site)
+                    step.automation = nil
+                } else { step.webBehavior = nil }
+            }
+            .onChange(of: step.automation) { _, operation in
+                if operation != nil { step.target = nil; step.webBehavior = nil; step.webLikesAllowed = nil }
+            }
             .confirmationDialog("Remove this moment?", isPresented: $choosingRemoval, titleVisibility: .visible) {
                 Button("Remove from this draft", role: .destructive) { remove(excluding: false) }
                     .accessibilityIdentifier("step.removeDraft")
@@ -628,7 +748,8 @@ struct StepEditor: View {
     }
 
     private var automationExplanation: String {
-        switch step.automation {
+        if step.target != nil { return step.executionDescription }
+        return switch step.automation {
         case .none:
             String(localized: "Take this moment at your own pace, then tap Next when you're ready.")
         case .spokenNote:
@@ -639,6 +760,8 @@ struct StepEditor: View {
             String(localized: "Reads a current recap from the calendars and optional city you choose in Your day. Available sources are prepared before speech; no events are changed.")
         case .savedObservation:
             String(localized: "Reads the dated excerpt you selected. If the source changes or is deleted, playback stops for review. This is a saved observation, not a live inbox.")
+        case .timedMoment, .gmailInbox:
+            step.executionDescription
         }
     }
 }

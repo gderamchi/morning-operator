@@ -247,6 +247,119 @@ public final class ComposioService {
         let response: Tools = try await request("GET", path: "tools", query: [URLQueryItem(name: "service", value: service)])
         return response.tools
     }
+
+    /// These fixed Slack reads have no provider effect. A failed read can be retried
+    /// with a fresh request ID; it never releases or bypasses an effect reservation.
+    public func readSlack(tool: String, arguments: [String: ComposioJSONValue], connectionID: String) async throws -> ComposioExecutionResult {
+        guard Self.validIdentifier(connectionID), SlackReplyContract.validRead(tool, arguments) else { throw ComposioServiceError.invalidArguments }
+        let id = UUID()
+        let result: ComposioExecutionResult = try await request("POST", path: "execute", body: .object([
+            "tool": .string(tool), "arguments": .object(arguments), "connectionID": .string(connectionID), "requestID": .string(id.uuidString)]))
+        guard result.requestID == id, result.successful || result.error != nil else { throw ComposioServiceError.invalidResponse }
+        return result
+    }
+
+    /// Only the two fixed, bounded Calendar reads. Read retries get a new request
+    /// ID and never inspect, release or bypass any local effect reservation.
+    public func readGoogleCalendar(tool: String, arguments: [String: ComposioJSONValue], connectionID: String) async throws -> ComposioExecutionResult {
+        guard Self.validIdentifier(connectionID), GoogleCalendarReadContract.validRead(tool, arguments) else { throw ComposioServiceError.invalidArguments }
+        try Task.checkCancellation()
+        let id = UUID()
+        let result: ComposioExecutionResult = try await request("POST", path: "execute", body: .object([
+            "tool": .string(tool), "arguments": .object(arguments), "connectionID": .string(connectionID), "requestID": .string(id.uuidString)]))
+        try Task.checkCancellation()
+        guard result.requestID == id, result.successful || result.error != nil else { throw ComposioServiceError.invalidResponse }
+        return result
+    }
+
+    /// Only fixed current-identity and bounded personal-day Calendly reads.
+    /// A fresh read ID never consumes or releases a local write reservation.
+    public func readCalendly(tool: String, arguments: [String: ComposioJSONValue], connectionID: String) async throws -> ComposioExecutionResult {
+        guard Self.validIdentifier(connectionID), CalendlyDayReadContract.validRead(tool, arguments) else { throw ComposioServiceError.invalidArguments }
+        try Task.checkCancellation()
+        let id = UUID()
+        let result: ComposioExecutionResult = try await request("POST", path: "execute", body: .object([
+            "tool": .string(tool), "arguments": .object(arguments), "connectionID": .string(connectionID), "requestID": .string(id.uuidString)]))
+        try Task.checkCancellation()
+        guard result.requestID == id, result.successful || result.error != nil else { throw ComposioServiceError.invalidResponse }
+        return result
+    }
+
+    /// Only current Outlook identity, three unread Inbox previews, and a selected
+    /// message read. These reads never consume or release a write reservation.
+    public func readOutlook(tool: String, arguments: [String: ComposioJSONValue], connectionID: String) async throws -> ComposioExecutionResult {
+        guard Self.validIdentifier(connectionID), OutlookInboxReadContract.validRead(tool, arguments) else { throw ComposioServiceError.invalidArguments }
+        try Task.checkCancellation()
+        let id = UUID()
+        let result: ComposioExecutionResult = try await request("POST", path: "execute", body: .object([
+            "tool": .string(tool), "arguments": .object(arguments), "connectionID": .string(connectionID), "requestID": .string(id.uuidString)]))
+        try Task.checkCancellation()
+        guard result.requestID == id, result.successful || result.error != nil else { throw ComposioServiceError.invalidResponse }
+        return result
+    }
+
+    /// The dedicated route verifies the current provider subject and account metadata.
+    /// Its revision is a preflight check, not a conditional Composio credential lease.
+    /// An old server is unavailable, never a reason to fall back to a generic send.
+    public func slackReplyIdentity(connectionID: String) async throws -> SlackReplyIdentity {
+        guard Self.validIdentifier(connectionID) else { throw SlackReplyError.accountChanged }
+        do {
+            let identity: SlackReplyIdentity = try await request("GET", path: "slack/reply-identity",
+                query: [URLQueryItem(name: "connectionID", value: connectionID)])
+            try identity.validate()
+            guard identity.connectionID == connectionID else { throw SlackReplyError.accountChanged }
+            return identity
+        } catch ComposioServiceError.backend(let failure) where ["not_found", "slack_identity_unavailable"].contains(failure.code) {
+            throw SlackReplyError.serverBindingUnavailable
+        } catch ComposioServiceError.invalidResponse {
+            throw SlackReplyError.serverBindingUnavailable
+        }
+    }
+
+    public func sendSlackReply(_ reply: SlackPreparedReply, operationID: UUID) async throws -> ComposioExecutionResult {
+        let identity = reply.destination.identity
+        try identity.validate()
+        let expected: ComposioJSONValue = .object([
+            "revision": .string(identity.revision), "teamID": .string(identity.teamID), "userID": .string(identity.userID)
+        ].merging(identity.botID.map { ["botID": .string($0)] } ?? [:]) { _, new in new })
+        let fields: [String: ComposioJSONValue] = ["expectedIdentity": expected, "channelID": .string(reply.source.channelID),
+            "threadTS": .string(reply.source.threadTS), "body": .string(try SlackReplyContract.reply(reply.body))]
+        let token: String
+        do {
+            token = try await installationToken()
+            try Task.checkCancellation()
+            let key = try executionKey(tool: "SLACK_SEND_MESSAGE", arguments: fields, connectionID: identity.connectionID)
+            var ledger = try pendingExecutions()
+            if let previous = ledger[key] { throw ComposioServiceError.executionUncertain(previous) }
+            ledger[key] = operationID; try saveExecutions(ledger)
+        } catch {
+            if case ComposioServiceError.executionUncertain = error { throw error }
+            throw SlackReplyDispatchError.notDispatched(.journalUnavailable)
+        }
+        var dispatched = false
+        do {
+            let response: ComposioExecutionResult = try await request("POST", path: "slack/replies", body: .object(fields.merging([
+                "connectionID": .string(identity.connectionID), "requestID": .string(operationID.uuidString)
+            ]) { _, new in new }), token: token, onDispatch: { dispatched = true })
+            guard response.requestID == operationID, response.successful || response.error != nil else { throw ComposioServiceError.invalidResponse }
+            // The conversation's own claim remains until the exact Slack receipt is validated.
+            if response.successful { try removePendingExecution(operationID) }
+            return response
+        } catch ComposioServiceError.backend(let failure) where ["not_found", "slack_identity_unavailable", "slack_identity_changed", "invalid_slack_reply", "unsupported_service", "invalid_json", "json_required", "body_too_large", "unexpected_field", "connection_inactive", "connection_not_found", "tool_account_mismatch"].contains(failure.code) {
+            try removePendingExecution(operationID)
+            throw SlackReplyDispatchError.notDispatched(failure.code == "not_found" || failure.code == "slack_identity_unavailable" ? .serverBindingUnavailable : (failure.code == "invalid_slack_reply" ? .invalidReply : .accountChanged))
+        } catch ComposioServiceError.notAuthorized {
+            try removePendingExecution(operationID)
+            throw SlackReplyDispatchError.notDispatched(.accountChanged)
+        } catch {
+            if !dispatched {
+                try removePendingExecution(operationID)
+                throw SlackReplyDispatchError.notDispatched(.unavailable)
+            }
+            throw ComposioServiceError.executionUncertain(operationID)
+        }
+    }
+
     /// A failed transport after dispatch is never evidence that an external action did not happen.
     public func execute(tool: String, arguments: [String: ComposioJSONValue], connectionID: String,
                         requestID: UUID = UUID()) async throws -> ComposioExecutionResult {
@@ -351,15 +464,17 @@ public final class ComposioService {
     }
 
     private func request<Response: Decodable>(_ method: String, path: String,
-        body: ComposioJSONValue? = nil, query: [URLQueryItem] = [], token: String? = nil) async throws -> Response {
-        let data = try await send(method, path: path, body: body, query: query, token: token)
+        body: ComposioJSONValue? = nil, query: [URLQueryItem] = [], token: String? = nil,
+        onDispatch: (@MainActor () -> Void)? = nil) async throws -> Response {
+        let data = try await send(method, path: path, body: body, query: query, token: token, onDispatch: onDispatch)
         guard let response = try? JSONDecoder().decode(Response.self, from: data) else {
             throw ComposioServiceError.invalidResponse
         }
         return response
     }
     private func send(_ method: String, path: String, body: ComposioJSONValue? = nil,
-                      query: [URLQueryItem] = [], authenticated: Bool = true, token: String? = nil) async throws -> Data {
+                      query: [URLQueryItem] = [], authenticated: Bool = true, token: String? = nil,
+                      onDispatch: (@MainActor () -> Void)? = nil) async throws -> Data {
         guard let baseURL else { throw ComposioServiceError.notConfigured }
         try Self.validateURL(baseURL)
         guard baseURL.query == nil, baseURL.fragment == nil else { throw ComposioServiceError.insecureURL }
@@ -383,6 +498,7 @@ public final class ComposioService {
         }
         let id = UUID()
         let transport = transport
+        onDispatch?()
         let task = Task { try await transport(request) }
         pending[id] = task
         defer { pending[id] = nil }

@@ -1,5 +1,6 @@
 import AuthenticationServices
 import MorningApple
+import MorningCore
 import SwiftUI
 import UIKit
 
@@ -305,8 +306,9 @@ private struct APIActionForm: View {
     @ViewState private var values: [String: String] = [:]
     @ViewState private var included: Set<String> = []
     @ViewState private var reviewedArguments: String?
-    @ViewState private var advancedJSON = "{}"
-    @ViewState private var useAdvanced = false
+    @ViewState private var intention = ""
+    @ViewState private var planning = false
+    @ViewState private var planner = ConnectedActionPlanner()
     @ViewState private var message: String?
     @ViewState private var result: String?
     @ViewState private var busy = false
@@ -318,6 +320,9 @@ private struct APIActionForm: View {
     private var properties: [String: ComposioJSONValue] { tool.inputSchema.objectValue?["properties"]?.objectValue ?? [:] }
     private var required: Set<String> { Set(tool.inputSchema.objectValue?["required"]?.arrayValue?.compactMap(\.stringValue) ?? []) }
     private var keys: [String] { properties.keys.sorted { (required.contains($0) ? 0 : 1, $0) < (required.contains($1) ? 0 : 1, $1) } }
+    private var needsPreparedDetails: Bool {
+        keys.contains { (required.contains($0) || included.contains($0)) && !["string", "number", "integer", "boolean"].contains(fieldType(properties[$0]?.objectValue ?? [:])) }
+    }
 
     var body: some View {
         MorningForm {
@@ -326,32 +331,34 @@ private struct APIActionForm: View {
                 Text(accountName).font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !useAdvanced {
-                Section(text("Action details", "Détails de l’action")) {
-                    if required.isEmpty { Text(text("You can review this action now. More options are available below.", "Vous pouvez vérifier cette action maintenant. D’autres options sont disponibles ci-dessous.")).font(MorningTheme.Typography.note) }
-                    ForEach(keys.filter { required.contains($0) }, id: \.self) { key in field(key) }
-                }
+            Section(text("What would you like MORE to do?", "Que souhaitez-vous confier à MORE ?")) {
+                TextField(text("Describe your request in your own words", "Décrivez votre demande avec vos mots"), text: $intention, axis: .vertical)
+                    .lineLimit(3...8).disabled(busy)
+                    .accessibilityIdentifier("accounts.action.intention")
+                Text(text("MORE prepares the details on this device. You review them before anything runs or joins your routine.",
+                          "MORE prépare les détails sur cet appareil. Vous les vérifiez avant toute action ou tout ajout à votre routine."))
+                    .font(.raleway(.caption)).foregroundStyle(.secondary)
+                Button(text("Prepare for review", "Préparer pour vérification")) { prepareFromIntention() }
+                    .buttonStyle(PrimaryButtonStyle()).disabled(busy || outcomeUncertain || intention.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityIdentifier("accounts.action.prepare")
             }
-            Section {
-                DisclosureGroup(text("Advanced settings", "Réglages avancés")) {
-                    if !useAdvanced {
+            Section(text("Or complete the details yourself", "Ou précisez les détails vous-même")) {
+                if required.isEmpty { Text(text("You can review this action now. Add any options you need below.", "Vous pouvez vérifier cette action maintenant. Ajoutez les options utiles ci-dessous.")).font(MorningTheme.Typography.note) }
+                ForEach(keys.filter { required.contains($0) }, id: \.self) { key in field(key) }
+                if keys.contains(where: { !required.contains($0) }) {
+                    DisclosureGroup(text("More options", "Autres options")) {
                         ForEach(keys.filter { !required.contains($0) }, id: \.self) { key in field(key) }
                     }
-                    Toggle(text("Edit all parameters as JSON", "Modifier tous les paramètres en JSON"), isOn: $useAdvanced)
-                    if useAdvanced {
-                        TextEditor(text: $advancedJSON).font(.system(.footnote, design: .monospaced)).frame(minHeight: 140)
-                            .autocorrectionDisabled().textInputAutocapitalization(.never)
-                    } else {
-                        Text(text("Use this for nested fields and lists. Required complex fields need valid JSON before review.", "Utilisez cette option pour les champs imbriqués et les listes. Les champs complexes obligatoires nécessitent un JSON valide avant vérification."))
-                            .font(.raleway(.caption)).foregroundStyle(.secondary)
-                    }
-                    Text(tool.description).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Section {
                 Button(text("Review action", "Vérifier l’action")) { review() }
-                    .buttonStyle(PrimaryButtonStyle()).disabled(busy || outcomeUncertain)
+                    .buttonStyle(PrimaryButtonStyle()).disabled(busy || outcomeUncertain || needsPreparedDetails)
+                if needsPreparedDetails {
+                    Text(text("This action needs the details prepared from your request above before it can run.",
+                              "Cette action nécessite les détails préparés à partir de votre demande ci-dessus avant de pouvoir être lancée."))
+                        .font(.raleway(.caption)).foregroundStyle(.secondary)
+                }
             }
             if let reviewedArguments {
                 Section(text("Ready to run", "Prêt à exécuter")) {
@@ -362,7 +369,9 @@ private struct APIActionForm: View {
                         .font(.raleway(.caption)).foregroundStyle(.secondary)
                     Button(text("Run this action", "Lancer cette action")) { execute(reviewedArguments) }
                         .buttonStyle(PrimaryButtonStyle()).disabled(busy || outcomeUncertain)
-                    if let onAddToRoutine {
+                    if ConnectedRoutineActionPolicy.requiresSpokenMailSend(service: connection.service, tool: tool.slug) {
+                        Text(ConnectedRoutineActionPolicy.spokenMailSendExplanation).font(.footnote)
+                    } else if let onAddToRoutine {
                         Button(text("Add to my routine", "Ajouter à ma routine")) {
                             message = onAddToRoutine(connection, tool, reviewedArguments)
                                 ? text("Added to your routine draft. Review and approve it before starting.", "Ajouté au brouillon de votre routine. Vérifiez et approuvez-la avant de démarrer.")
@@ -371,7 +380,7 @@ private struct APIActionForm: View {
                     }
                 }
             }
-            if busy { Section { ProgressView(); Button(text("Cancel waiting", "Arrêter l’attente")) { operation?.cancel() }.buttonStyle(SecondaryButtonStyle()) } }
+            if busy { Section { ProgressView(planning ? text("Preparing your request…", "Préparation de votre demande…") : text("Waiting for your account…", "En attente de votre compte…")); Button(text("Cancel waiting", "Arrêter l’attente")) { operation?.cancel() }.buttonStyle(SecondaryButtonStyle()) } }
             if let message { Section { Text(message).font(.raleway(.footnote)).textSelection(.enabled) } }
             if let uncertainRequestID {
                 Section(text("Check this action in your account", "Vérifiez cette action dans votre compte")) {
@@ -387,54 +396,29 @@ private struct APIActionForm: View {
                     Button(text("I checked: no action happened", "J’ai vérifié : aucune action n’a eu lieu")) { reconcile(uncertainRequestID, occurred: false) }.buttonStyle(SecondaryButtonStyle())
                 }
             }
-            if let result { Section { DisclosureGroup(text("Response details", "Détails de la réponse")) { Text(result).font(.system(.footnote, design: .monospaced)).textSelection(.enabled) } } }
+            if let result { Section(text("Your result", "Votre résultat")) { Text(result).font(MorningTheme.Typography.body).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) } }
         }
         .foregroundStyle(MorningStyle.ink).tint(MorningStyle.accent)
         .navigationTitle(text("Prepare the action", "Préparer l’action")).navigationBarTitleDisplayMode(.inline)
         .onChange(of: values) { _, _ in reviewedArguments = nil }
         .onChange(of: included) { _, _ in reviewedArguments = nil }
-        .onChange(of: advancedJSON) { _, _ in reviewedArguments = nil }
-        .onChange(of: useAdvanced) { _, _ in reviewedArguments = nil }
+        .onChange(of: intention) { _, _ in reviewedArguments = nil }
         .onDisappear { operation?.cancel(); operation = nil; result = nil; message = nil }
     }
     @ViewBuilder private func reviewedValues(_ json: String) -> some View {
-        if let arguments = try? ComposioJSONValue.parseObject(json) {
-            if arguments.isEmpty {
-                Text(text("No extra details to send.", "Aucun détail supplémentaire à transmettre.")).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
-            }
-            ForEach(arguments.keys.sorted(), id: \.self) { key in
-                if let value = arguments[key] {
-                    let definition = properties[key]?.objectValue ?? [:]
-                    let label = definition["title"]?.stringValue ?? key.replacingOccurrences(of: "_", with: " ").capitalized
-                    if value.objectValue != nil || value.arrayValue != nil {
-                        DisclosureGroup(label) {
-                            Text((try? value.prettyPrintedJSON()) ?? "").font(.footnote.monospaced()).textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    } else {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(label).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                            Text(readableValue(value)).font(MorningTheme.Typography.body).textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
-        }
-    }
-    private func readableValue(_ value: ComposioJSONValue) -> String {
-        switch value {
-        case .string(let value): return value.isEmpty ? text("Empty text", "Texte vide") : value
-        case .bool(let value): return value ? text("Yes", "Oui") : text("No", "Non")
-        case .number(let value): return NSDecimalNumber(decimal: value).stringValue
-        case .null: return text("No value", "Aucune valeur")
-        case .array, .object: return ""
+        if let review = try? ConnectedActionReview.summary(argumentsJSON: json, schema: tool.inputSchema,
+            french: locale.language.languageCode?.identifier == "fr") {
+            Text(review).font(MorningTheme.Typography.body).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text(ConnectedActionReviewError.unreadable.localizedDescription)
+                .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
         }
     }
     @ViewBuilder private func field(_ key: String) -> some View {
         let definition = properties[key]?.objectValue ?? [:]
-        let label = definition["title"]?.stringValue ?? key.replacingOccurrences(of: "_", with: " ").capitalized
-        let type = definition["type"]?.stringValue ?? "string"
+        let label = ConnectedActionReview.label(for: key, definition: .object(definition))
+        let type = fieldType(definition)
         let options = definition["enum"]?.arrayValue?.compactMap(\.stringValue) ?? []
         let enabled = required.contains(key) || included.contains(key)
         VStack(alignment: .leading, spacing: 6) {
@@ -451,7 +435,7 @@ private struct APIActionForm: View {
                     TextField(label, text: Binding(get: { values[key] ?? "" }, set: { values[key] = $0 }), axis: .vertical)
                         .autocorrectionDisabled().textInputAutocapitalization(.never)
                 } else {
-                    Text(label + text(" — complete in Advanced settings", " — à remplir dans Réglages avancés")).font(.raleway(.footnote))
+                    Text(label + text(" — describe this in your request above; MORE will prepare it for review.", " — décrivez ce détail dans votre demande ci-dessus ; MORE le préparera pour vérification.")).font(.raleway(.footnote))
                 }
                 if let description = definition["description"]?.stringValue { Text(description).font(.raleway(.caption)).foregroundStyle(.secondary) }
             }
@@ -459,36 +443,88 @@ private struct APIActionForm: View {
     }
     private func review() {
         do {
-            var arguments: [String: ComposioJSONValue] = [:]
-            if useAdvanced { arguments = try ComposioJSONValue.parseObject(advancedJSON) }
-            else {
-                for key in keys where required.contains(key) || included.contains(key) {
-                    let type = properties[key]?.objectValue?["type"]?.stringValue ?? "string"
-                    let value = values[key] ?? ""
-                    switch type {
-                    case "boolean": arguments[key] = .bool(value == "true")
-                    case "number", "integer":
-                        guard let number = try? JSONDecoder().decode(Decimal.self, from: Data(value.utf8)) else {
-                            throw ComposioServiceError.invalidArguments
-                        }
-                        var original = number
-                        var rounded = Decimal()
-                        NSDecimalRound(&rounded, &original, 0, .plain)
-                        guard type != "integer" || rounded == number else { throw ComposioServiceError.invalidArguments }
-                        arguments[key] = .number(number)
-                    case "string":
-                        guard !required.contains(key) || !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ComposioServiceError.invalidArguments }
-                        let options = properties[key]?.objectValue?["enum"]?.arrayValue?.compactMap(\.stringValue) ?? []
-                        guard options.isEmpty || options.contains(value) else { throw ComposioServiceError.invalidArguments }
-                        arguments[key] = .string(value)
-                    default: throw ComposioServiceError.invalidArguments
+            let arguments = try simpleArguments(requireAll: true)
+            guard required.isSubset(of: Set(arguments.keys)) else { throw ComposioServiceError.invalidArguments }
+            let json = try ComposioJSONValue.object(arguments).prettyPrintedJSON()
+            _ = try ConnectedActionReview.summary(argumentsJSON: json, schema: tool.inputSchema)
+            reviewedArguments = json
+            message = nil; result = nil
+        } catch {
+            reviewedArguments = nil
+            message = (error as? ConnectedActionReviewError)?.localizedDescription
+                ?? APIConnectionPresentation.failureMessage(error, french: locale.language.languageCode?.identifier == "fr")
+        }
+    }
+    private func simpleArguments(requireAll: Bool) throws -> [String: ComposioJSONValue] {
+        var arguments: [String: ComposioJSONValue] = [:]
+        for key in keys where required.contains(key) || included.contains(key) {
+            let type = fieldType(properties[key]?.objectValue ?? [:])
+            let value = values[key] ?? ""
+            if !requireAll, value.isEmpty { continue }
+            switch type {
+            case "boolean": arguments[key] = .bool(value == "true")
+            case "number", "integer":
+                guard let number = try? JSONDecoder().decode(Decimal.self, from: Data(value.utf8)) else { throw ComposioServiceError.invalidArguments }
+                var original = number, rounded = Decimal()
+                NSDecimalRound(&rounded, &original, 0, .plain)
+                guard type != "integer" || rounded == number else { throw ComposioServiceError.invalidArguments }
+                arguments[key] = .number(number)
+            case "string":
+                guard !required.contains(key) || !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ComposioServiceError.invalidArguments }
+                let options = properties[key]?.objectValue?["enum"]?.arrayValue?.compactMap(\.stringValue) ?? []
+                guard options.isEmpty || options.contains(value) else { throw ComposioServiceError.invalidArguments }
+                arguments[key] = .string(value)
+            default:
+                if requireAll { throw ComposioServiceError.invalidArguments }
+            }
+        }
+        return arguments
+    }
+    private func fieldType(_ definition: [String: ComposioJSONValue]) -> String {
+        if let type = definition["type"]?.stringValue { return type }
+        if let type = definition["type"]?.arrayValue?.compactMap(\.stringValue).first(where: { $0 != "null" }) { return type }
+        if definition["properties"] != nil { return "object" }
+        if definition["items"] != nil { return "array" }
+        if ["$ref", "anyOf", "oneOf", "allOf"].contains(where: { definition[$0] != nil }) { return "complex" }
+        return "string"
+    }
+    private func prepareFromIntention() {
+        guard !busy, !outcomeUncertain else { return }
+        let entered: [String: ComposioJSONValue]
+        do { entered = try simpleArguments(requireAll: false) }
+        catch { message = APIConnectionPresentation.failureMessage(error, french: locale.language.languageCode?.identifier == "fr"); return }
+        let requested = intention, expectedValues = values, expectedIncluded = included
+        busy = true; planning = true; message = nil; reviewedArguments = nil; result = nil
+        operation = Task { @MainActor in
+            defer { busy = false; planning = false; operation = nil }
+            do {
+                let proposed = try await planner.propose(intention: requested, tool: tool, enteredArguments: entered)
+                try Task.checkCancellation()
+                guard intention == requested, values == expectedValues, included == expectedIncluded else { return }
+                _ = try ConnectedActionReview.summary(argumentsJSON: proposed, schema: tool.inputSchema)
+                reviewedArguments = proposed
+                message = text("Details prepared on this device. Check every value below before running or adding the action.",
+                               "Détails préparés sur cet appareil. Vérifiez chaque valeur ci-dessous avant de lancer ou d’ajouter l’action.")
+            } catch is CancellationError {
+                message = text("Preparation cancelled. No action ran.", "Préparation annulée. Aucune action n’a été lancée.")
+            } catch {
+                guard !Task.isCancelled else { return }
+                if let error = error as? ConnectedActionPlanningError {
+                    switch error {
+                    case .needsDetails(let question): message = question
+                    case .unavailable:
+                        message = needsPreparedDetails
+                            ? text("This action needs local preparation, which is unavailable on this device right now. Choose another action or come back when it is ready.", "Cette action nécessite une préparation locale, indisponible sur cet appareil pour le moment. Choisissez une autre action ou revenez lorsqu’elle sera prête.")
+                            : text("The local model is unavailable here. You can complete the fields below and review the action yourself.", "Le modèle local n’est pas disponible ici. Vous pouvez compléter les champs ci-dessous et vérifier vous-même l’action.")
+                    case .tooLarge: message = text("This action is too complex to prepare locally. Choose a simpler action.", "Cette action est trop complexe pour être préparée localement. Choisissez une action plus simple.")
+                    case .invalidProposal: message = text("MORE couldn't prepare valid details. Add more detail to your request, or use the available fields.", "MORE n’a pas pu préparer des détails valides. Précisez votre demande ou utilisez les champs disponibles.")
                     }
+                } else {
+                    message = (error as? ConnectedActionReviewError)?.localizedDescription
+                        ?? APIConnectionPresentation.failureMessage(error, french: locale.language.languageCode?.identifier == "fr")
                 }
             }
-            guard required.isSubset(of: Set(arguments.keys)) else { throw ComposioServiceError.invalidArguments }
-            reviewedArguments = try ComposioJSONValue.object(arguments).prettyPrintedJSON()
-            message = nil; result = nil
-        } catch { reviewedArguments = nil; message = APIConnectionPresentation.failureMessage(error, french: locale.language.languageCode?.identifier == "fr") }
+        }
     }
     private func execute(_ json: String) {
         guard !busy, !outcomeUncertain else { return }
@@ -500,11 +536,17 @@ private struct APIActionForm: View {
                 guard fresh.contains(where: { $0.id == connection.id && $0.isActive }) else { throw ComposioServiceError.notAuthorized }
                 let arguments = try ComposioJSONValue.parseObject(json)
                 let receipt = try await service.execute(tool: tool.slug, arguments: arguments, connectionID: connection.id)
-                result = try receipt.data?.prettyPrintedJSON()
                 if receipt.resultAvailable == false {
                     message = text("Receipt recovered. Response content is not retained by the service.", "Confirmation récupérée. Le contenu de la réponse n’est pas conservé par le service.")
                 } else {
                     message = receipt.successful ? text("Your account service confirmed the request. You can check its response below.", "Le service de votre compte a confirmé la demande. Vous pouvez consulter sa réponse ci-dessous.") : text("The service reported a failure. Check the account before another attempt.", "Le service signale un échec. Vérifiez le compte avant un nouvel essai.")
+                }
+                if receipt.successful, receipt.resultAvailable != false {
+                    do { result = try await ConnectedResultNarrator().summarize(receipt.data, service: connection.name) }
+                    catch {
+                        result = text("The service replied, but MORE couldn't prepare a readable summary. Check the result in your account.",
+                                      "Le service a répondu, mais MORE n’a pas pu préparer de résumé lisible. Consultez le résultat dans votre compte.")
+                    }
                 }
                 if !receipt.successful { outcomeUncertain = true; uncertainRequestID = receipt.requestID; uncertainArguments = json }
                 reviewedArguments = nil

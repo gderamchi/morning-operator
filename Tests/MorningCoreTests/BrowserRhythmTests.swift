@@ -103,7 +103,9 @@ struct BrowserRhythmScriptTests {
         context.evaluateScript("event('pointerdown',nested);clock=100;nested.scrollTop=120;event('scroll',nested);event('click',nested);flush();")
         #expect(context.evaluateScript("messages[0].distance")?.toDouble() == 120)
         #expect(context.evaluateScript("messages[0].clicks")?.toInt32() == 1)
-        #expect(context.evaluateScript("Object.keys(messages[0]).sort().join(',')")?.toString() == "clicks,distance,movingSeconds,nonce,scrollBursts")
+        #expect(context.evaluateScript("messages[0].segments[0].behavior")?.toString() == "watchVideos")
+        #expect(context.evaluateScript("Object.keys(messages[0].segments[0]).sort().join(',')")?.toString() == "behavior,endSeconds,gestures,startSeconds")
+        #expect(context.evaluateScript("Object.keys(messages[0]).sort().join(',')")?.toString() == "clicks,distance,movingSeconds,nonce,scrollBursts,segments")
         context.evaluateScript("globalThis.__moreRhythm.stop('\(nonce.uuidString)')")
         #expect(context.evaluateScript("Object.keys(hooks).length")?.toInt32() == 0)
         #expect(context.exception == nil)
@@ -184,9 +186,41 @@ struct BrowserRhythmScriptTests {
             #expect(context.evaluateScript(BrowserRhythmPolicy.script(site: site, nonce: nonce))?.toBool() == true)
             context.evaluateScript("event('pointerdown',nested);clock=100;nested.scrollTop=120;event('scroll',nested);flush();")
             #expect(context.evaluateScript("messages[0].distance")?.toDouble() == 120)
-            #expect(context.evaluateScript("Object.keys(messages[0]).sort().join(',')")?.toString() == "clicks,distance,movingSeconds,nonce,scrollBursts")
+            #expect(context.evaluateScript("Object.keys(messages[0]).sort().join(',')")?.toString() == "clicks,distance,movingSeconds,nonce,scrollBursts,segments")
             #expect(context.exception == nil)
         }
+    }
+
+    @Test("SPA categories retain observed order, bounded gesture times and no page data")
+    func semanticRouteSequence() throws {
+        let context = try page()
+        context.evaluateScript(BrowserRhythmPolicy.script(site: .instagram, nonce: nonce))
+        context.evaluateScript("clock=100;event('click',root);clock=200;location.pathname='/stories/person/private-id/';event('click',root);clock=300;location.pathname='/direct/inbox/';event('click',root);clock=400;location.pathname='/';event('click',root);")
+        #expect(context.evaluateScript("messages.at(-1).segments.map(s=>s.behavior).join(',')")?.toString() == "watchVideos,watchStories,browseFeed")
+        #expect(context.evaluateScript("messages.at(-1).segments[1].startSeconds")?.toDouble() == 0.2)
+        #expect(context.evaluateScript("JSON.stringify(messages.at(-1)).includes('private-id')")?.toBool() == false)
+        #expect(context.exception == nil)
+    }
+
+    @Test("Retargeted shadow inputs and synthetic controls establish no semantic behavior")
+    func shadowInputsExcluded() throws {
+        let context = try page()
+        context.evaluateScript(BrowserRhythmPolicy.script(site: .instagram, nonce: nonce))
+        context.evaluateScript("hooks.click({target:root,isTrusted:true,composedPath:()=>[inputField,root]});event('click',root,false);flush();")
+        #expect(context.evaluateScript("messages.length")?.toInt32() == 0)
+        #expect(context.exception == nil)
+    }
+
+    @Test("A long lesson preserves its first sixteen segments instead of evicting evidence")
+    func boundedSemanticSequence() throws {
+        let context = try page()
+        context.evaluateScript(BrowserRhythmPolicy.script(site: .instagram, nonce: nonce))
+        context.evaluateScript("for(let i=0;i<20;i++){clock=100*(i+1);location.pathname=i%2?'/stories/person/':'/';event('click',root);}")
+        #expect(context.evaluateScript("messages.at(-1).segments.length")?.toInt32() == 16)
+        #expect(context.evaluateScript("messages.at(-1).segments[0].startSeconds")?.toDouble() == 0.1)
+        #expect(context.evaluateScript("messages.at(-1).segments[15].endSeconds")?.toDouble() == 1.6)
+        #expect(context.evaluateScript("messages.at(-1).clicks")?.toInt32() == 20)
+        #expect(context.exception == nil)
     }
 }
 #endif

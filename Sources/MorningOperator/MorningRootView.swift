@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import MorningCore
 import MorningApple
+import UIKit
 
 struct MorningRootView: View {
     @Bindable var store: MorningStore
@@ -17,6 +18,7 @@ struct MorningRootView: View {
     private enum EntryPresentation: Hashable { case settings, learn, routine, invitation }
     @ViewState<Set<EntryPresentation>> private var activeEntryPresentations = []
     @ViewState<CGFloat> private var dockWidth = 430
+    @ViewState<StepTimer?> private var externalAppDeparture: StepTimer? = nil
     @Environment(\.scenePhase) private var scenePhase
 
     // No tab bar: Home is the root, and every other destination is a screen pushed on
@@ -71,46 +73,31 @@ struct MorningRootView: View {
         NavigationStack(path: Binding(get: { path }, set: { path = $0 })) {
             MorningSunHome(actionsShown: $showingActions,
                            openSettings: { showingActions = false; showingSettings = true },
-                           openRoutine: {
-                               showingActions = false
-                               if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true }
-                           },
                            motionAllowed: homeSkyIsVisible,
                            weatherSynthetic: store.usesSyntheticBriefing,
-                           needsSolarCity: store.briefing.currentWeatherLocation == nil, notice: store.notice,
-                           session: store.session, currentStep: store.currentStep,
-                           connectedActionStatus: store.connectedActionStatus,
+                           notice: store.notice,
+                           session: store.session,
+                           playback: store.sessionActive ? AnyView(MorningHomePlaybackView(store: store, openSettings: { showingSettings = true }).id(store.currentStep?.id)) : nil,
                            begin: {
                                guard !store.sessionActive else { return }
                                // No routine yet: begin by learning the morning.
                                guard let routine = store.routine else { showingLearn = true; return }
-                               // A saved routine plays. Tapping Begin is the person's own approval
-                               // of a saved draft; if it can't be approved, show the routine and why.
-                               if !routine.isApproved, !store.approve() { showingRoutineEditor = true; return }
+                               guard routine.isApproved else { showingRoutineEditor = true; return }
                                // A refused start leaves its notice on Home; it never sends a person
                                // with a routine back to Learn.
-                               _ = store.start()
-                           },
-                           pause: { store.pause() }, resume: { store.resume() }, next: { store.advance() },
-                           offersReflection: store.shouldOfferCompletionReflection,
-                           voiceBlocked: store.voiceInputBlocksPlayback,
-                           speak: { store.openCompletionCapture() }, write: { store.openCapture() },
-                           notNow: { store.discardCompletionReflection() })
+                               if store.start() { showingActions = false }
+                           })
                 // Light status bar text over the night sky.
                 .toolbarColorScheme(nightHomeAppearance ? .dark : .light, for: .navigationBar)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeRoute.self) { route in
                     switch route {
                     case .settings:
-                        destinationContent(String(localized: "Settings")) { SetupView(store: store, openRoutine: { showingRoutineEditor = true }) }
-                            .toolbar {
-                                ToolbarItem(placement: .topBarTrailing) {
-                                    Button { showingRoutineEditor = true } label: {
-                                        Image(systemName: "list.bullet").frame(width: 44, height: 44)
-                                    }
-                                    .accessibilityLabel("Your routine").accessibilityIdentifier("morning.review")
-                                }
-                            }
+                        destinationContent(String(localized: "Settings")) {
+                            SetupView(store: store,
+                                      openRoutine: { if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true } },
+                                      openHistory: { historyPushed = true })
+                        }
                     case .routine:
                         RoutineReviewEditor(store: store, onLearn: { showingLearn = true }, showsClose: false)
                     case .learn:
@@ -148,7 +135,10 @@ struct MorningRootView: View {
         .fullScreenCover(isPresented: Binding(get: { store.permissionSetup.isPresented }, set: { store.permissionSetup.isPresented = $0 }), onDismiss: {
             processPendingEntries()
             Task { await store.prepareDayIfConfigured(); synchronizeHomeWeather() }
-        }) { MorningPermissionSetupView(store: store) }
+        }) {
+            MorningPermissionSetupView(store: store)
+                .onAppear { store.suspendHandsFreeVoice() }
+        }
         .sheet(isPresented: $showingInvitation, onDismiss: {
             activeEntryPresentations.remove(.invitation)
             processPendingEntries()
@@ -173,6 +163,7 @@ struct MorningRootView: View {
     private var workspaceContent: some View {
         presentedContent
         .onChange(of: store.dataGeneration) { _, _ in
+            externalAppDeparture = nil
             showingActions = false
             actionTransitionPending = false
             showingLearn = false; showingRoutineEditor = false; showingInvitation = false
@@ -210,20 +201,50 @@ struct MorningRootView: View {
         }
         .onChange(of: store.speech.voiceIdentifier) { store.saveVoicePreference() }
         .onChange(of: store.readAloud) { store.executionPreferencesChanged() }
-        .onChange(of: store.automatic) { store.executionPreferencesChanged() }
+        .onChange(of: store.automatic) { store.executionPreferencesChanged(); updateScreenAwake() }
+        .onChange(of: store.session?.status, initial: true) { _, _ in
+            if store.sessionActive { showingActions = false }
+            updateScreenAwake()
+        }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
     }
 
     var body: some View {
         workspaceContent
         .modifier(MorningHaptics(store: store))
         .routineWebStep(store: store)
+        .modifier(MorningVoicePreparationPresenter(store: store))
         .onChange(of: store.speech.state) { store.handleSpeechInterruption() }
         .onChange(of: store.automation.status) { store.synchronizeMorningActivity() }
+        .onChange(of: store.automation.status) { _, status in
+            if status == .unavailable || status == .failed { store.recordExecution(.unavailable) }
+        }
         .onChange(of: scenePhase) { _, phase in
+            updateScreenAwake()
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
                 store.briefing.cancelLocationRequest()
                 store.permissionSetup.cancelForBackground()
+                externalAppDeparture = store.externalAppDeparture
+                store.suspendHandsFreeVoice()
+                store.clearNativeMoment()
+                store.clearSlackReply()
+                store.clearGoogleCalendarDay()
+                store.clearCalendlyDay()
+                store.clearOutlookInbox()
+                store.routineWebMoment.discardSourceContext()
+                store.webExecutionEvent = nil
+                store.preserveMailExecutionBeforeInterruption()
+                store.mailMorning.clear()
+                store.connectedMoment.discardContent()
+                let clearsConnectedResult: Bool = {
+                    if store.currentStep?.target?.integrationRoute == .api { return true }
+                    return store.currentStep?.target == nil
+                }()
+                if clearsConnectedResult {
+                    store.connectedAPITask?.cancel(); store.connectedAPITask = nil
+                    store.connectedActionStatus = nil
+                }
                 showingActions = false
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--ui-testing") { testObservedBackground = true }
@@ -232,6 +253,10 @@ struct MorningRootView: View {
                 store.cancelVoiceCommandTurn()
                 if store.session?.status == .running, !store.keepsTimerInBackground { store.pause() }
             } else if phase == .active {
+                let departure = externalAppDeparture
+                externalAppDeparture = nil
+                if let departure { store.returnedFromExternalApp(departure) }
+                store.startHandsFreeVoice()
                 MorningThemeClock.shared.refresh()
                 store.armStepTimer()
                 #if DEBUG
@@ -274,6 +299,7 @@ struct MorningRootView: View {
             synchronizeHomeWeather()
         }
         .onChange(of: store.privacyBlocksWork) { _, blocked in
+            updateScreenAwake()
             synchronizeHomeWeather()
         }
         .onChange(of: store.briefing.prepared) { _, _ in synchronizeHomeWeather() }
@@ -287,6 +313,11 @@ struct MorningRootView: View {
                 try? await Task.sleep(for: .seconds(60))
             }
         }
+    }
+
+    private func updateScreenAwake() {
+        UIApplication.shared.isIdleTimerDisabled = store.automatic && store.sessionActive
+            && scenePhase == .active && !store.privacyBlocksWork
     }
 
     private func synchronizeHomeWeather() {
@@ -561,6 +592,24 @@ struct TodayView: View {
                             Text(status).font(.raleway(.subheadline)).textSelection(.enabled)
                                 .accessibilityIdentifier("moment.connectedResult")
                         }
+                        if store.currentStep?.id == step.id, step.automation == .gmailInbox, store.sessionActive {
+                            MorningMailMomentView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.sessionActive, store.pendingWebTarget == nil {
+                            NativeMomentReviewView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.currentSlackContext != nil {
+                            SlackMomentReplyView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.currentGoogleCalendarDayContext != nil {
+                            GoogleCalendarDayMomentView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.currentCalendlyDayContext != nil {
+                            CalendlyDayMomentView(store: store)
+                        }
+                        if store.currentStep?.id == step.id, store.currentOutlookInboxContext != nil {
+                            OutlookInboxMomentView(store: store)
+                        }
                         if store.session?.status == .paused,
                            store.currentStep?.id == step.id,
                            step.automation == .morningBriefing || step.automation == .todayCalendar {
@@ -770,6 +819,7 @@ struct TodayView: View {
         case .todayCalendar: return text("Hear what’s on your calendar today.", "Écoutez votre programme du jour.")
         case .morningBriefing: return text("Your day ahead, in a few words.", "Votre journée, en quelques mots.")
         case .savedObservation: return text("Listen back to the observation you saved.", "Réécoutez l’observation enregistrée.")
+        case .timedMoment, .gmailInbox: return step.executionDescription
         case nil:
             switch step.kind {
             case .messages:
@@ -1215,32 +1265,21 @@ private struct MorningHaptics: ViewModifier {
 private struct MorningSunHome: View {
     @Binding var actionsShown: Bool
     var openSettings: () -> Void
-    var openRoutine: () -> Void
     var motionAllowed: Bool
     var weatherSynthetic: Bool
-    var needsSolarCity: Bool
     var notice: String?
     var session: RoutineSession?
-    var currentStep: RoutineStep?
-    var connectedActionStatus: String? = nil
+    var playback: AnyView? = nil
     /// Plays the saved routine, or opens the onboarding when there is none yet.
     var begin: () -> Void
-    var pause: () -> Void
-    var resume: () -> Void
-    var next: () -> Void
-    var offersReflection = false
-    var voiceBlocked = false
-    var speak: () -> Void = {}
-    var write: () -> Void = {}
-    var notNow: () -> Void = {}
+    @State private var controlsInteraction = UUID()
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
     private var isFrench: Bool { locale.language.languageCode?.identifier == "fr" }
-    private var running: Bool { session?.status == .running || session?.status == .paused }
     private var finishedToday: Bool {
         guard let done = session?.completedAt else { return false }
         return Calendar.current.isDateInToday(done)
@@ -1259,6 +1298,17 @@ private struct MorningSunHome: View {
         return reduceTransparency || contrast == .increased
     }
 
+    private var sessionAccessibilityStatus: String {
+        switch session?.status {
+        case .ready: isFrench ? "Matin prêt" : "Morning ready"
+        case .running: isFrench ? "Matin en cours" : "Morning running"
+        case .paused: isFrench ? "Matin en pause" : "Morning paused"
+        case .completed: isFrench ? "Matin terminé" : "Morning complete"
+        case .stopped: isFrench ? "Matin arrêté" : "Morning stopped"
+        case nil: isFrench ? "Matin non commencé" : "Morning not started"
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let clock = MorningThemeClock.shared
@@ -1268,6 +1318,7 @@ private struct MorningSunHome: View {
                     withAnimation(still ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22)) {
                         actionsShown.toggle()
                     }
+                    controlsInteraction = UUID()
                 } label: {
                     MorningQuietLandscape(scene: clock.celestial, weather: clock.weatherScene,
                                           animated: !still, active: motionAllowed && scenePhase == .active,
@@ -1277,147 +1328,102 @@ private struct MorningSunHome: View {
                 }
                 .buttonStyle(.plain)
                 .ignoresSafeArea()
+                .allowsHitTesting(playback == nil)
+                .accessibilityHidden(playback != nil)
                 .accessibilityIdentifier("morning.actions")
                 .accessibilityLabel(actionsShown
                     ? (isFrench ? "Masquer les commandes" : "Hide controls")
                     : (isFrench ? "Afficher les commandes" : "Show controls"))
-                .accessibilityValue(clock.skyAccessibilityDescription)
+                .accessibilityValue("\(sessionAccessibilityStatus). \(clock.skyAccessibilityDescription)")
                 .accessibilityHint(isFrench ? "Le paysage suit l’heure de votre iPhone." : "The landscape follows your iPhone’s time.")
 
-                if actionsShown {
-                    ScrollView {
-                        controls
-                            .padding(22)
-                            .frame(maxWidth: 360)
-                            .background(night > 0.5 ? Color(red: 0.086, green: 0.114, blue: 0.204) : MorningStyle.surface,
-                                        in: RoundedRectangle(cornerRadius: 14))
-                            .frame(maxWidth: .infinity)
+                if let playback {
+                    VStack(spacing: 0) {
+                        playback
+                            .shadow(color: night > 0.5 ? .black.opacity(0.65) : .clear, radius: 2, y: 1)
+                        if let attribution = clock.weatherAttribution, !weatherSynthetic {
+                            weatherCredit(attribution, night: night)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 28)
+                        }
                     }
-                    .frame(maxHeight: geometry.size.height * (dynamicTypeSize.isAccessibilitySize ? 0.78 : 0.68))
-                    .defaultScrollAnchor(.bottom, for: .alignment)
-                    .scrollBounceBehavior(.basedOnSize)
-                    .padding(.horizontal, 20).padding(.bottom, 20)
-                    .transition(still ? .opacity : .opacity.combined(with: .offset(y: 12)))
+                } else if actionsShown {
+                    Button {
+                        actionsShown = false
+                        begin()
+                    } label: {
+                        MorningNavigationSurface(prefersOpaque: strongInk) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 30, weight: .medium))
+                                .frame(width: 88, height: 88)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isFrench ? "Commencer mon matin" : "Start my morning")
+                    .accessibilityIdentifier("morning.begin")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
+
+                    Button {
+                        actionsShown = false
+                        openSettings()
+                    } label: {
+                        MorningNavigationSurface(prefersOpaque: strongInk) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 20, weight: .medium))
+                                .frame(width: 48, height: 48)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isFrench ? "Paramètres" : "Settings")
+                    .accessibilityIdentifier("morning.settings")
+                    .padding(20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .transition(.opacity)
+                } else if finishedToday {
+                    Text(isFrench ? "bonne journée" : "have a good day")
+                        .font(.raleway(.title2)).padding(28)
+                        .frame(maxWidth: 640, maxHeight: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("morning.complete")
+                }
+                if playback == nil, let attribution = clock.weatherAttribution, !weatherSynthetic {
+                    weatherCredit(attribution, night: night)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24).padding(.bottom, 8)
+                }
+                if playback == nil, let notice, !notice.isEmpty {
+                    Text(notice).font(.raleway(.subheadline))
+                        .padding(28).frame(maxWidth: 540)
+                        .accessibilityIdentifier("app.notice")
                 }
             }
             .foregroundStyle(night > 0.5 ? Color(red: 0.91, green: 0.91, blue: 0.96) : MorningStyle.ink)
         }
-    }
-
-    private var controls: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Spacer()
-                Button {
-                    withAnimation(still ? .easeOut(duration: 0.12) : .easeOut(duration: 0.18)) { actionsShown = false }
-                } label: {
-                    Image(systemName: "xmark").font(.system(size: 16)).frame(width: 44, height: 44).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(isFrench ? "Fermer" : "Close")
-                .accessibilityIdentifier("morning.closeActions")
-            }
-            if running, let step = currentStep {
-                Text(step.title)
-                    .font(.serif(.title)).accessibilityIdentifier("morning.currentStep")
-                Text("\(step.durationMinutes) min").font(.raleway(.subheadline)).opacity(0.7)
-                if let connectedActionStatus {
-                    Text(connectedActionStatus).font(.raleway(.subheadline)).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityIdentifier("moment.connectedResult")
-                }
-                HStack(spacing: 16) {
-                    Button(action: session?.status == .paused ? resume : pause) {
-                        Label(session?.status == .paused ? (isFrench ? "Continuer" : "Continue") : "Pause",
-                              systemImage: session?.status == .paused ? "play.fill" : "pause.fill")
-                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                    }
-                    .accessibilityIdentifier("morning.playback")
-                    Spacer(minLength: 0)
-                    Button(action: next) {
-                        Text(isFrench ? "Suivant" : "Next").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                    }
-                    .accessibilityIdentifier("morning.next")
-                }
-                .buttonStyle(.plain)
-            } else if finishedToday, let session {
-                finished(session)
-            } else {
-                Text(isFrench ? "on y va ?" : "ready to begin?")
-                    .font(.serif(.title)).accessibilityIdentifier("morning.readyQuestion")
-                Button(action: begin) {
-                    Text(isFrench ? "Commencer" : "Begin")
-                        .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .accessibilityIdentifier("morning.begin")
-            }
-            if let notice {
-                Text(notice).font(.raleway(.subheadline)).accessibilityIdentifier("app.notice")
-            }
-            destinationLayout {
-                Button(action: openSettings) {
-                    Label(isFrench ? "Réglages" : "Settings", systemImage: "gearshape")
-                        .frame(minHeight: 48).contentShape(Rectangle())
-                }
-                .accessibilityIdentifier("morning.settings")
-                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                Button(action: openRoutine) {
-                    Label(isFrench ? "Ma routine" : "My routine", systemImage: "list.bullet")
-                        .frame(minHeight: 48).contentShape(Rectangle())
-                }
-                .accessibilityIdentifier("morning.review")
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.raleway(.subheadline))
-            .buttonStyle(.plain)
-            if !needsSolarCity || MorningThemeClock.shared.usesWeatherFixture {
-                Text(MorningThemeClock.shared.weatherStatusDescription)
-                    .font(.raleway(.caption))
-                    .accessibilityIdentifier("morning.weatherStatus")
-            }
-            if let attribution = MorningThemeClock.shared.weatherAttribution {
-                MorningWeatherAttributionView(attribution: attribution, synthetic: weatherSynthetic)
-            }
-            if needsSolarCity {
-                Button(action: openSettings) {
-                    Text(isFrench ? "Autorisez la localisation ou choisissez une ville dans Votre journée pour adapter le ciel à la météo locale."
-                                  : "Allow location or choose a city in Your day for local daylight and weather.")
-                        .font(.raleway(.caption)).multilineTextAlignment(.leading).opacity(0.75)
-                        .frame(minHeight: 44, alignment: .leading).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("morning.solarCity")
-            }
+        .onChange(of: actionsShown) { _, _ in controlsInteraction = UUID() }
+        .onChange(of: voiceOverEnabled) { _, _ in controlsInteraction = UUID() }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { actionsShown = false } }
+        .task(id: controlsInteraction) {
+            guard actionsShown, !voiceOverEnabled else { return }
+            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            guard !Task.isCancelled, !voiceOverEnabled else { return }
+            withAnimation(.easeOut(duration: 0.15)) { actionsShown = false }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("morning.heading")
     }
 
-    private var destinationLayout: AnyLayout {
-        dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
-            : AnyLayout(HStackLayout(spacing: 20))
-    }
-
-    private func finished(_ session: RoutineSession) -> some View {
-        let moments = session.completedStepIDs.count
-        let minutes = max(1, Int(((session.activeDuration(until: session.completedAt ?? .now) ?? 0) / 60).rounded()))
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(isFrench ? "bonne journée" : "have a good day")
-                .font(.serif(.title)).accessibilityIdentifier("morning.complete")
-            Text("\(moments) moment\(moments == 1 ? "" : "s") · \(minutes) min")
-                .font(.raleway(.subheadline)).opacity(0.7)
-                .accessibilityIdentifier("morning.completeSummary")
-            if offersReflection {
-                Button(action: speak) { Label(isFrench ? "Dire une pensée" : "Speak a thought", systemImage: "mic").frame(minHeight: 44).contentShape(Rectangle()) }
-                    .disabled(voiceBlocked).accessibilityIdentifier("morning.speakReflection")
-                Button(action: write) { Text(isFrench ? "Noter une pensée" : "Note a thought").frame(minHeight: 44).contentShape(Rectangle()) }
-                    .accessibilityIdentifier("morning.reflect")
-                Button(action: notNow) { Text(isFrench ? "Plus tard" : "Not now").frame(minHeight: 44).contentShape(Rectangle()) }
-                    .accessibilityIdentifier("morning.dismissReflection")
+    private func weatherCredit(_ attribution: WeatherAttributionInfo, night: Double) -> some View {
+        Link(destination: attribution.legalURL) {
+            AsyncImage(url: night > 0.5 ? attribution.combinedMarkDarkURL : attribution.combinedMarkLightURL) { phase in
+                if let image = phase.image {
+                    image.resizable().scaledToFit().frame(width: 100, height: 18)
+                } else {
+                    Text(attribution.serviceName).font(.raleway(.caption))
+                }
             }
+            .frame(minWidth: 100, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .accessibilityLabel(attribution.serviceName)
+        .accessibilityIdentifier("morning.weatherCredit")
     }
+
 }

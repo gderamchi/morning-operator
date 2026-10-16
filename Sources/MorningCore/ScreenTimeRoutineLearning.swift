@@ -74,6 +74,151 @@ public struct ScreenTimeLearning: Equatable, Sendable {
     public let daysWithoutMorning: Int
 }
 
+/// A saved day of system-returned hourly aggregates. A missing detected window
+/// keeps the day unknown; it does not turn all-day use into a morning routine.
+public struct ScreenTimeObservationEvidence: Codable, Equatable, Sendable {
+    public struct App: Codable, Equatable, Sendable {
+        public let bundleIdentifier: String
+        /// Presentation only, retained in the source's language. Identity always
+        /// comes from the exact bundle identifier, never from this name.
+        public let displayName: String
+        public let seconds: TimeInterval
+        public let secondsMeasured: Bool
+        public let firstHourIndex: Int
+        public init(bundleIdentifier: String, displayName: String? = nil, seconds: TimeInterval, secondsMeasured: Bool, firstHourIndex: Int) {
+            self.bundleIdentifier = bundleIdentifier; self.seconds = seconds
+            self.displayName = displayName ?? ScreenTimeAppCatalog.entry(for: bundleIdentifier).name
+            self.secondsMeasured = secondsMeasured; self.firstHourIndex = firstHourIndex
+        }
+    }
+    public let day: Date
+    public let timeZoneIdentifier: String
+    public let requestedWindow: DateInterval
+    public let retrievedAt: Date
+    public let returnedIntervals: [DateInterval]
+    public let morningWindow: DateInterval?
+    public let apps: [App]
+    public var sourceKey: String { "this-iPhone|\(timeZoneIdentifier)|\(day.timeIntervalSince1970)" }
+    public var hasMorningEvidence: Bool { morningWindow != nil && !apps.isEmpty }
+
+    public init(day: Date, timeZoneIdentifier: String, requestedWindow: DateInterval, retrievedAt: Date,
+                returnedIntervals: [DateInterval], morningWindow: DateInterval?, apps: [App]) throws {
+        self.day = day; self.timeZoneIdentifier = timeZoneIdentifier; self.requestedWindow = requestedWindow
+        self.retrievedAt = retrievedAt; self.returnedIntervals = returnedIntervals
+        self.morningWindow = morningWindow; self.apps = apps
+        try validate()
+    }
+
+    public func validate() throws {
+        guard let zone = TimeZone(identifier: timeZoneIdentifier), day.timeIntervalSince1970.isFinite,
+              retrievedAt.timeIntervalSince1970.isFinite, requestedWindow.start.timeIntervalSince1970.isFinite,
+              requestedWindow.duration > 0, requestedWindow.duration <= 9 * 86_400,
+              requestedWindow.end <= retrievedAt, (1...26).contains(returnedIntervals.count), apps.count <= 128,
+              Set(apps.map(\.bundleIdentifier)).count == apps.count else { throw ScreenTimeObservationError.invalidEvidence }
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
+        guard let localDay = calendar.dateInterval(of: .day, for: day), localDay.start == day,
+              localDay.end > requestedWindow.start, localDay.start < requestedWindow.end,
+              returnedIntervals.allSatisfy({ interval in
+                  interval.start.timeIntervalSince1970.isFinite && interval.duration > 0 && interval.duration <= 3_600 &&
+                  interval.start >= max(localDay.start, requestedWindow.start) && interval.end <= min(localDay.end, requestedWindow.end)
+              }) else { throw ScreenTimeObservationError.invalidEvidence }
+        guard zip(returnedIntervals, returnedIntervals.dropFirst()).allSatisfy({ $0.end <= $1.start }) else {
+            throw ScreenTimeObservationError.invalidEvidence
+        }
+        if let morningWindow {
+            guard !returnedIntervals.isEmpty, morningWindow.duration > 0, morningWindow.start >= max(localDay.start, requestedWindow.start),
+                  morningWindow.end <= min(localDay.end, requestedWindow.end),
+                  apps.allSatisfy({ app in
+                      !app.bundleIdentifier.isEmpty && app.bundleIdentifier.count <= 255 &&
+                      !app.displayName.isEmpty && app.displayName.count <= 60 && !app.displayName.contains(where: \.isNewline) &&
+                      app.bundleIdentifier.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || ".-_".contains($0)) }) &&
+                      app.seconds.isFinite && app.seconds > 0 && app.seconds <= morningWindow.duration &&
+                      (0...25).contains(app.firstHourIndex)
+                  }) else { throw ScreenTimeObservationError.invalidEvidence }
+        } else if !apps.isEmpty { throw ScreenTimeObservationError.invalidEvidence }
+    }
+
+    public static func make(hours: [ScreenTimeHour], queryStart: Date, now: Date, calendar: Calendar,
+                            ownBundleIdentifiers: Set<String> = []) throws -> [Self] {
+        guard hours.count <= 208, queryStart.timeIntervalSince1970.isFinite, now.timeIntervalSince1970.isFinite,
+              queryStart < now, now.timeIntervalSince(queryStart) <= 9 * 86_400,
+              hours.allSatisfy({ hour in
+                  hour.interval.start.timeIntervalSince1970.isFinite && hour.interval.duration > 0 &&
+                  hour.interval.duration <= 3_600 && hour.apps.count <= 128 && hour.apps.allSatisfy {
+                      $0.seconds.isFinite && $0.seconds >= 0 && $0.seconds <= hour.interval.duration && $0.pickups >= 0
+                  }
+              }) else {
+            throw ScreenTimeObservationError.invalidEvidence
+        }
+        let relevant = hours.filter { $0.interval.end > queryStart && $0.interval.start < now }
+        let learning = ScreenTimeMorningLearner.learn(hours: relevant, queryStart: queryStart, now: now,
+            calendar: calendar, ownBundleIdentifiers: ownBundleIdentifiers)
+        // Only dates with an actually returned interval become saved sources.
+        // Requested but unanswered days are unknown, not new observations.
+        var days = Set<Date>()
+        for hour in relevant {
+            var day = calendar.startOfDay(for: max(queryStart, hour.interval.start))
+            let stop = min(now, hour.interval.end)
+            while day < stop {
+                days.insert(day)
+                guard let following = calendar.date(byAdding: .day, value: 1, to: day), following > day else {
+                    throw ScreenTimeObservationError.invalidEvidence
+                }
+                day = following
+            }
+        }
+        return try days.sorted().map { day in
+            let end = calendar.date(byAdding: .day, value: 1, to: day)!
+            let intervals = relevant.compactMap { hour -> DateInterval? in
+                    let start = max(day, queryStart, hour.interval.start), stop = min(end, now, hour.interval.end)
+                    return stop > start ? DateInterval(start: start, end: stop) : nil
+                }
+                .reduce(into: [DateInterval]()) { if !$0.contains($1) { $0.append($1) } }
+                .sorted { $0.start < $1.start }
+            let morning = learning.mornings.first { calendar.isDate($0.start, inSameDayAs: day) }
+            let window = morning.flatMap { value -> DateInterval? in
+                guard value.end > value.start, value.start >= queryStart, value.end <= now,
+                      value.end <= end else { return nil }
+                return DateInterval(start: value.start, end: value.end)
+            }
+            let apps = window == nil ? [] : (morning?.apps ?? []).map {
+                App(bundleIdentifier: $0.bundleIdentifier, seconds: $0.seconds,
+                    secondsMeasured: $0.secondsMeasured, firstHourIndex: $0.firstHourIndex)
+            }
+            return try Self(day: day, timeZoneIdentifier: calendar.timeZone.identifier,
+                requestedWindow: DateInterval(start: queryStart, end: now), retrievedAt: now,
+                returnedIntervals: intervals, morningWindow: window, apps: apps)
+        }
+    }
+
+    public func appText(at index: Int, french: Bool = AppLanguage.isFrench) -> String {
+        let app = apps[index], name = app.displayName
+        let measure = app.secondsMeasured ? (french ? "mesurées" : "measured") : (french ? "estimées sur heures partielles" : "estimated from partial hours")
+        return french ? "\(name) : \(Int(app.seconds.rounded())) s \(measure) dans la fenêtre matinale retenue. Ordre estimé ; aucun geste ni contenu établi."
+            : "\(name): \(Int(app.seconds.rounded())) s \(measure) in the retained morning window. Estimated order; no gesture or content established."
+    }
+    public func renderedText(french: Bool = AppLanguage.isFrench) -> String {
+        let interval = morningWindow.map { "\($0.start.ISO8601Format()) – \($0.end.ISO8601Format())" }
+        let header = french
+            ? "Screen Time — agrégats horaires renvoyés pour \(day.ISO8601Format()), \(timeZoneIdentifier). \(returnedIntervals.count) intervalles renvoyés ; aucune couverture continue n’est établie. Fenêtre du matin : \(interval ?? "inconnue"). Les périodes absentes restent inconnues."
+            : "Screen Time — returned hourly aggregates for \(day.ISO8601Format()), \(timeZoneIdentifier). \(returnedIntervals.count) returned intervals; continuous coverage is not established. Morning window: \(interval ?? "unknown"). Missing periods remain unknown."
+        return ([header] + apps.indices.map { appText(at: $0, french: french) }).joined(separator: "\n")
+    }
+    private enum CodingKeys: String, CodingKey { case day, timeZoneIdentifier, requestedWindow, retrievedAt, returnedIntervals, morningWindow, apps }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(day: c.decode(Date.self, forKey: .day), timeZoneIdentifier: c.decode(String.self, forKey: .timeZoneIdentifier),
+            requestedWindow: c.decode(DateInterval.self, forKey: .requestedWindow), retrievedAt: c.decode(Date.self, forKey: .retrievedAt),
+            returnedIntervals: c.decode([DateInterval].self, forKey: .returnedIntervals), morningWindow: c.decodeIfPresent(DateInterval.self, forKey: .morningWindow),
+            apps: c.decode([App].self, forKey: .apps))
+    }
+}
+
+public enum ScreenTimeObservationError: Error, LocalizedError {
+    case invalidEvidence
+    public var errorDescription: String? { AppLanguage.isFrench ? "Les agrégats Screen Time ne peuvent pas être conservés avec une couverture vérifiable." : "The Screen Time aggregates could not be saved with verifiable coverage." }
+}
+
 public enum ScreenTimeMorningLearner {
     /// Splits hourly data into local days and finds each day's morning with the owner's rule
     /// (`MorningStartDetector`). Rows from MORE itself, test runners and system sheets are
@@ -311,8 +456,8 @@ public extension ScreenTimeAppCatalog {
 /// routine and changes nothing until the owner approves it; he can leave steps out and
 /// change minutes first.
 public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifiable {
-    public static let maximumSteps = 8
-    public static let minutesRange = 1...240
+    public static let maximumSteps = ScreenTimeRoutineSelection.maximumSuggestedApps
+    public static let minutesRange = ScreenTimeRoutineSelection.plannedMinutesRange
     /// Minutes from which a social, video or game app gets a long-use budget prompt.
     /// Duration does not establish scrolling, scroll speed or what was viewed.
     public static let attentionSinkMinutes = 15
@@ -335,9 +480,26 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
         /// Owner's edits before approval.
         public var included: Bool
         public var minutes: Int
+        /// A complete explicit Keep, shown in this proposal before approval.
+        public fileprivate(set) var retainedStep: RoutineStep? = nil
 
         public var isMeasured: Bool { minutesMeasured }
-        public var suggestedTarget: RoutineStepTarget? { ScreenTimeAppCatalog.routineTarget(for: bundleIdentifier) }
+        public var allowedMinutesRange: ClosedRange<Int> {
+            retainedStep == nil ? ScreenTimeRoutineProposal.minutesRange : RoutineStep.durationMinutesRange
+        }
+        public var suggestedStep: RoutineStep {
+            if var retainedStep { retainedStep.durationMinutes = minutes; return retainedStep }
+            var candidate = RoutineExecutionSuggestion.applying(to: RoutineStep(id: id, title: title,
+                kind: kind.stepKind, durationMinutes: minutes), bundleIdentifier: bundleIdentifier)
+            if candidate.automation == nil, candidate.target == nil {
+                candidate.target = ScreenTimeAppCatalog.routineTarget(for: bundleIdentifier)
+            }
+            return candidate
+        }
+        public var suggestedTarget: RoutineStepTarget? { suggestedStep.target }
+        public var executionExplanation: String? {
+            retainedStep == nil ? RoutineExecutionSuggestion.explanation(bundleIdentifier: bundleIdentifier) : nil
+        }
     }
 
     public let id: UUID
@@ -352,87 +514,70 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
     /// How far back Screen Time returned data, in local days.
     public let daysOfData: Int
     public private(set) var steps: [Step]
+    public private(set) var preferenceSnapshot: RoutinePreferenceJournal?
+
+    /// A changed standing choice requires a fresh, visibly reviewed proposal.
+    public func isCurrent(preferences: RoutinePreferenceJournal) -> Bool {
+        preferenceSnapshot.map { $0 == preferences } ?? preferences.entries.isEmpty
+    }
 
     public var includedSteps: [Step] { steps.filter(\.included) }
 
     /// Builds the suggestion from mornings of the same kind as `nextMorning` (weekday or
     /// weekend) when at least two exist, otherwise from all of them. Apps used on at least
-    /// half of those mornings are kept, with their median minutes; apps under a minute are dropped.
+    /// half of those mornings qualify after a 30-second per-window filter; their
+    /// median minutes are rounded to the nearest minute.
     /// Returns nil when no morning or no app qualifies.
     public static func make(from learning: ScreenTimeLearning, nextMorning: Date, baseRoutineID: UUID?,
                             calendar: Calendar = .current, now: Date = .now) -> ScreenTimeRoutineProposal? {
-        let all = learning.mornings.filter { !$0.apps.isEmpty }
-        guard !all.isEmpty else { return nil }
-        let weekend = calendar.isDateInWeekend(nextMorning)
-        let sameKind = all.filter { morning in
-            var local = calendar
-            local.timeZone = morning.timeZone
-            return local.isDateInWeekend(morning.start) == weekend
-        }
-        let mornings = sameKind.count >= 2 ? sameKind : all
-        let needed = max(1, (mornings.count + 1) / 2)
-
-        struct Seen { var seconds: [TimeInterval] = []; var hours: [Int] = []; var first = 0; var measured = true; var category: String? }
-        var seen: [String: Seen] = [:]
-        for morning in mornings {
-            for app in morning.apps where app.seconds >= 30 {
-                var item = seen[app.bundleIdentifier] ?? Seen()
-                item.seconds.append(app.seconds)
-                item.hours.append(app.firstHourIndex)
-                if app.isFirstPickupApp { item.first += 1 }
-                item.measured = item.measured && app.secondsMeasured
-                item.category = item.category ?? app.categoryName
-                seen[app.bundleIdentifier] = item
-            }
-        }
-        struct Candidate { let id: String; let minutes: Int; let hour: Double; let first: Int; let item: Seen }
-        let candidates = seen.compactMap { id, item -> Candidate? in
-            guard item.seconds.count >= needed else { return nil }
-            let minutes = Int((median(item.seconds) / 60).rounded())
-            guard minutes >= 1 else { return nil }
-            return Candidate(id: id, minutes: min(minutes, minutesRange.upperBound), hour: median(item.hours.map(Double.init)), first: item.first, item: item)
-        }
-        guard !candidates.isEmpty else { return nil }
-        // The app opened first on the most mornings leads; ties keep hourly order.
-        let leader = candidates.filter { $0.first > 0 }.max { $0.first != $1.first ? $0.first < $1.first : $0.hour > $1.hour }?.id
-        let ordered = candidates.sorted { lhs, rhs in
-            if (lhs.id == leader) != (rhs.id == leader) { return lhs.id == leader }
-            if lhs.hour != rhs.hour { return lhs.hour < rhs.hour }
-            if lhs.minutes != rhs.minutes { return lhs.minutes > rhs.minutes }
-            return lhs.id < rhs.id
-        }.prefix(maximumSteps)
-        let steps = ordered.map { candidate in
-            let entry = ScreenTimeAppCatalog.entry(for: candidate.id, categoryName: candidate.item.category)
-            return Step(id: UUID(), bundleIdentifier: candidate.id, title: entry.name, kind: entry.kind,
-                        medianMinutes: candidate.minutes, morningsSeen: candidate.item.seconds.count,
-                        minutesMeasured: candidate.item.measured,
-                        orderMeasured: false,
+        let selection = ScreenTimeRoutineSelection.from(mornings: learning.mornings, nextMorning: nextMorning, calendar: calendar)
+        guard !selection.candidates.isEmpty else { return nil }
+        let steps = selection.candidates.prefix(maximumSteps).map { candidate in
+            let entry = ScreenTimeAppCatalog.entry(for: candidate.bundleIdentifier, categoryName: candidate.categoryName)
+            return Step(id: UUID(), bundleIdentifier: candidate.bundleIdentifier, title: entry.name, kind: entry.kind,
+                        medianMinutes: candidate.minutes, morningsSeen: candidate.morningsSeen,
+                        minutesMeasured: candidate.minutesMeasured, orderMeasured: false,
                         isAttentionSink: entry.kind.isAttentionSink && candidate.minutes >= attentionSinkMinutes,
                         included: true, minutes: candidate.minutes)
         }
-        let starts = mornings.map { Double($0.startMinuteOfDay) }
         return ScreenTimeRoutineProposal(id: UUID(), createdAt: now, baseRoutineID: baseRoutineID,
-            typicalStartMinuteOfDay: Int(median(starts).rounded()) % (24 * 60),
-            timeZoneIdentifier: calendar.timeZone.identifier, morningsUsed: mornings.count,
-            morningsFound: all.count, daysOfData: learning.daysOfData, steps: Array(steps))
+            typicalStartMinuteOfDay: selection.typicalStartMinuteOfDay,
+            timeZoneIdentifier: calendar.timeZone.identifier, morningsUsed: selection.morningsUsed,
+            morningsFound: selection.morningsFound, daysOfData: learning.daysOfData, steps: Array(steps))
     }
 
-    /// Applies the owner's saved choices: an app he excluded from suggestions is removed and
-    /// a saved duration becomes the starting minutes. Matching is by title and kind, as the
-    /// journal matches, and every step that matches gets the choice. Keep choices add nothing:
-    /// the review shows only what Screen Time found. Returns false when nothing is left.
+    /// Reconcile before review. Kept moments remain complete and visible; exclusions
+    /// and timing choices are never applied as hidden changes at approval time.
     public mutating func applyPreferences(_ journal: RoutinePreferenceJournal) -> Bool {
-        for entry in journal.entries {
-            let matches = { (step: Step) in
-                step.kind.stepKind == entry.targetKind && preferenceTitleKey(step.title) == entry.normalizedTitle
+        do {
+            try journal.validate()
+            var next: [Step] = [], matched = Set<UUID>()
+            for var item in steps where !item.bundleIdentifier.isEmpty {
+                item.retainedStep = nil
+                if let preference = try journal.matchingPreference(for: item.suggestedStep) {
+                    if preference.presence == .keep, matched.contains(preference.id) { return false }
+                    matched.insert(preference.id)
+                    if preference.presence == .exclude { continue }
+                    if let retained = preference.retainedStep {
+                        item.retainedStep = retained
+                        item.minutes = preference.durationMinutes ?? retained.durationMinutes
+                    } else if let minutes = preference.durationMinutes { item.minutes = minutes }
+                }
+                next.append(item)
             }
-            if entry.presence == .exclude { steps.removeAll(where: matches); continue }
-            guard let minutes = entry.durationMinutes else { continue }
-            for index in steps.indices where matches(steps[index]) {
-                steps[index].minutes = min(max(minutes, Self.minutesRange.lowerBound), Self.minutesRange.upperBound)
+            for preference in journal.entries where preference.presence == .keep && !matched.contains(preference.id) {
+                guard let retained = preference.retainedStep else { return false }
+                var item = Step(id: retained.id, bundleIdentifier: "", title: retained.title,
+                    kind: .other, medianMinutes: retained.durationMinutes, morningsSeen: 0,
+                    minutesMeasured: false, orderMeasured: false, isAttentionSink: false,
+                    included: true, minutes: preference.durationMinutes ?? retained.durationMinutes)
+                item.retainedStep = retained
+                next.append(item)
             }
-        }
-        return !steps.isEmpty
+            guard !next.isEmpty, next.count <= Self.maximumSteps + RoutinePreferenceJournal.maximumEntries else { return false }
+            steps = next; preferenceSnapshot = journal
+            return true
+        } catch { return false }
     }
 
     public mutating func setIncluded(_ included: Bool, stepID: UUID) {
@@ -442,15 +587,20 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
 
     public mutating func setMinutes(_ minutes: Int, stepID: UUID) {
         guard let index = steps.firstIndex(where: { $0.id == stepID }) else { return }
-        steps[index].minutes = min(max(minutes, Self.minutesRange.lowerBound), Self.minutesRange.upperBound)
+        let range = steps[index].allowedMinutesRange
+        steps[index].minutes = min(max(minutes, range.lowerBound), range.upperBound)
     }
 
     /// The draft routine: exactly the included steps, in order, with the reviewed minutes.
     /// What the owner approves is what he saw; nothing is added, removed or retimed after review.
     public func draft(preserving base: RoutineVersion?, at date: Date = .now) throws -> RoutineVersion {
         let steps = includedSteps.map { step in
-            RoutineStep(title: step.title, detail: Self.detail(for: step, of: morningsUsed), kind: step.kind.stepKind,
-                        durationMinutes: step.minutes, target: step.suggestedTarget)
+            var candidate = step.suggestedStep
+            if step.retainedStep == nil {
+                candidate.detail = Self.detail(for: step, of: morningsUsed)
+                if let explanation = step.executionExplanation { candidate.detail += " " + explanation }
+            }
+            return candidate
         }
         guard !steps.isEmpty else { throw ScreenTimeProposalError.nothingIncluded }
         return RoutineVersion(number: base?.nextNumber ?? 1, createdAt: date,
@@ -477,13 +627,22 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
         morningsFound = try values.decode(Int.self, forKey: .morningsFound)
         daysOfData = try values.decode(Int.self, forKey: .daysOfData)
         steps = try values.decode([Step].self, forKey: .steps)
+        preferenceSnapshot = try values.decodeIfPresent(RoutinePreferenceJournal.self, forKey: .preferenceSnapshot)
+        try preferenceSnapshot?.validate()
         guard (0..<(24 * 60)).contains(typicalStartMinuteOfDay), (1...60).contains(morningsUsed),
               (morningsUsed...60).contains(morningsFound), (0...60).contains(daysOfData),
-              (1...Self.maximumSteps).contains(steps.count), Set(steps.map(\.id)).count == steps.count,
+              (1...(Self.maximumSteps + RoutinePreferenceJournal.maximumEntries)).contains(steps.count),
+              steps.filter({ !$0.bundleIdentifier.isEmpty }).count <= Self.maximumSteps,
+              Set(steps.map(\.id)).count == steps.count,
+              Set(steps.map { $0.suggestedStep.id }).count == steps.count,
               steps.allSatisfy({ step in
-                  !step.title.isEmpty && step.title.count <= 120 && step.bundleIdentifier.count <= 255
-                      && Self.minutesRange.contains(step.minutes) && Self.minutesRange.contains(step.medianMinutes)
-                      && (1...morningsUsed).contains(step.morningsSeen)
+                  let retained = step.retainedStep
+                  let savedKeep = preferenceSnapshot?.entries.first { $0.retainedStep == retained && $0.presence == .keep }
+                  return !step.title.isEmpty && step.title.count <= (retained == nil ? 120 : 2_000)
+                      && step.bundleIdentifier.count <= 255 && step.allowedMinutesRange.contains(step.minutes)
+                      && step.allowedMinutesRange.contains(step.medianMinutes)
+                      && (retained == nil ? (1...morningsUsed).contains(step.morningsSeen) : savedKeep != nil)
+                      && (!step.bundleIdentifier.isEmpty || retained != nil)
               }) else { throw ScreenTimeProposalError.invalidProposal }
     }
 
@@ -492,6 +651,7 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
         self.id = id; self.createdAt = createdAt; self.baseRoutineID = baseRoutineID
         self.typicalStartMinuteOfDay = typicalStartMinuteOfDay; self.timeZoneIdentifier = timeZoneIdentifier
         self.morningsUsed = morningsUsed; self.morningsFound = morningsFound; self.daysOfData = daysOfData; self.steps = steps
+        preferenceSnapshot = nil
     }
 }
 

@@ -35,6 +35,7 @@ final class GmailConnectionController {
     @ObservationIgnored private var restorationAttempted = false
 
     var hasMessageAccess: Bool { session?.canReadMessages == true }
+    var hasSendAccess: Bool { session?.canSendMessages == true }
     var isShowingMessage: Bool { selectedMessageID != nil }
     var replyUnavailabilityReason: String? { replyService.unavailabilityReason }
 
@@ -45,7 +46,7 @@ final class GmailConnectionController {
 
     /// Only this explicit tap opens Google consent. A successful readonly/offline
     /// grant is saved before Inbox reads, while its privacy generation is current.
-    func connect() {
+    func connect(access: GmailAuthorizationAccess = .readMessages) {
         guard !isBusy, UIApplication.shared.applicationState == .active else { return }
         do {
             let configuration = try configuration()
@@ -63,7 +64,7 @@ final class GmailConnectionController {
                 defer { finishOperation(token) }
                 do {
                     try requireCurrent(token)
-                    let request = try GmailAuthorizationRequest(configuration: configuration, access: .readMessages)
+                    let request = try GmailAuthorizationRequest(configuration: configuration, access: access)
                     let url = try await authorizationCallback(for: request, token: token)
                     try requireCurrent(token)
                     let granted = try await service.completeAuthorization(request, callbackURL: url)

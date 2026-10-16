@@ -1,10 +1,14 @@
 # Voice with MORE
 
-MORE uses native system speech for approved notes, selected historical excerpts and prepared Calendar/Weather recaps. Command input and spoken capture each require an explicit listening turn. There is no continuously listening custom wake word.
+MORE uses native system speech for approved notes, selected historical excerpts and prepared Calendar/Weather recaps. An active hands-free morning now owns continuous on-device recognition and duplex output. Speech can interrupt the current operation; final requests are bound to the session and step at speech onset. Manual command/capture sheets remain available as a fallback and first release the continuous microphone. There is no cloud recognition/model fallback.
 
 Physical microphone recognition, HomePod routing and listener-confirmed speech quality remain open. An earlier phone greeting reached speech completion, but the owner did not confirm hearing it. [Verification](PHASE-ONE.md) separates native simulator speech callbacks, injected text tests and actual phone evidence.
 
-## Use it
+## Hands-free morning
+
+Start a reviewed approved routine with hands-free execution enabled. MORE listens while the app is foreground, including while paused, so Resume needs no new button. Pause, Resume, Next, Repeat, Stop and +2 minutes control the same session. Contextual questions use the local model; Gmail reply/send dialogue uses its own validated policy. Leaving the foreground or ending the morning releases the microphone. Permissions and hardware/model availability remain visible system gates. [Runtime contract and proof limits](ROUTINE-AUTOMATION.md).
+
+## Manual turns
 
 1. Start an approved routine. Open **Morning controls → Speak a command**. MORE pauses the run and cancels its current automatic operation.
 2. Choose **English** or **Français**, then **Tap to speak**. The app stops and releases its speech output before preparing the microphone. It requests Speech and microphone access when needed.
@@ -98,9 +102,9 @@ The listener observes Apple's audio route and interruption notifications to canc
 
 Keep any diagnostic transcripts synthetic and any device artifacts private. Log pass, failure and unavailable/skipped checks separately. A supported-command demonstration does not establish general conversational accuracy, speaker authentication or reliable use in noisy rooms.
 
-## Still ahead
+## Remaining device validation and voice routes
 
-Always-listening MORE detection, conversational interruptions, open-ended dialogue, fresh inbox preparation and HomePod microphone input remain future work. Bounded dictation for explicit capture is implemented in this branch; it is not a continuous conversation or a background wake word. The existing Siri capture entry and spoken-output voice chooser remain separate features. Personal Voice, Siri voices and custom voices are not offered; the [voice audit](VOICE-AUDIT.md) records why and what each would require. A future inbox recap needs connected source data, source timestamps and freshness rules; hearing a command or capturing a thought does not grant access to messages, health data or another app's interface.
+The foreground hands-free implementation above adds interruptions, contextual local dialogue and connected inbox preparation. Acoustic interruption, recognition latency and actual voice-directed sending still require ordinary-iPhone validation. Background wake-word detection and HomePod microphone input remain future work. Bounded dictation for explicit capture, the Siri capture entry and the spoken-output voice chooser remain separate features. Personal Voice, Siri voices and custom voices are not offered; the [voice audit](VOICE-AUDIT.md) records why and what each would require. Hearing a command or capturing a thought does not grant access to messages, health data or another app's interface.
 
 Implementation: [command sheet](../Sources/MorningOperator/MorningVoiceCommandView.swift), [capture sheet](../Sources/MorningOperator/MorningCaptureVoiceView.swift), [editable capture review](../Sources/MorningOperator/QuickCaptureView.swift), [store orchestration](../Sources/MorningOperator/MorningStore.swift), [shared listener](../Sources/MorningApple/MorningVoiceCommandListener.swift), [strict command grammar](../Sources/MorningCore/MorningVoiceCommand.swift), [bounded capture policy](../Sources/MorningCore/MorningCaptureTurn.swift). Related work: [voice #4](https://github.com/gibouu/morning-operator/issues/4), [V2 #25](https://github.com/gibouu/morning-operator/issues/25).
 

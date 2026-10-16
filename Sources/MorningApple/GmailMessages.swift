@@ -29,6 +29,10 @@ public struct GmailMessage: Sendable, Equatable, Identifiable, CustomStringConve
     public let subject: String
     public let receivedAt: Date?
     public let plainTextBody: String
+    /// Header-derived recipient and threading identity, never model output.
+    public let replyAddress: String?
+    public let internetMessageID: String?
+    public let threadID: String?
     public let bodyWasTruncated: Bool
     /// No readable inline text was returned. Attachments, unsupported encodings
     /// and attachment-backed text are not fetched or guessed from the snippet.
@@ -36,6 +40,14 @@ public struct GmailMessage: Sendable, Equatable, Identifiable, CustomStringConve
     /// Time this immutable message snapshot was fetched. It is not a polling TTL
     /// and never expires an active reading or a user-edited reply after 60 seconds.
     public let retrievedAt: Date
+    public init(id: String, sender: String, subject: String, receivedAt: Date?, plainTextBody: String,
+                bodyWasTruncated: Bool, bodyUnavailable: Bool, retrievedAt: Date,
+                replyAddress: String? = nil, internetMessageID: String? = nil, threadID: String? = nil) {
+        self.id = id; self.sender = sender; self.subject = subject; self.receivedAt = receivedAt
+        self.plainTextBody = plainTextBody; self.bodyWasTruncated = bodyWasTruncated
+        self.bodyUnavailable = bodyUnavailable; self.retrievedAt = retrievedAt
+        self.replyAddress = replyAddress; self.internetMessageID = internetMessageID; self.threadID = threadID
+    }
     public var description: String { "GmailMessage(redacted)" }
     public var debugDescription: String { description }
 }
@@ -101,6 +113,12 @@ enum GmailMessageDecoder {
         let object = try dictionary(data)
         let summary = try summary(object, expectedID: expectedID)
         guard let payload = object["payload"] as? [String: Any] else { throw GmailConnectionError.invalidResponse }
+        let messageHeaders = try headers(payload)
+        let replyTo = try header("reply-to", in: messageHeaders)
+        let sender = try header("from", in: messageHeaders)
+        let internetID = try header("message-id", in: messageHeaders)
+        let threadID = object["threadId"] as? String
+        if let threadID, !validID(threadID) { throw GmailConnectionError.invalidResponse }
         var count = 0
         try validate(payload, depth: 0, count: &count)
         let extracted = try text(payload)
@@ -110,7 +128,9 @@ enum GmailMessageDecoder {
                             receivedAt: summary.receivedAt,
                             plainTextBody: String(content.prefix(GmailMessageLimits.maximumBodyCharacters)),
                             bodyWasTruncated: truncated, bodyUnavailable: content.isEmpty,
-                            retrievedAt: retrievedAt)
+                            retrievedAt: retrievedAt,
+                            replyAddress: GmailReplyAddress.parse(replyTo.isEmpty ? sender : replyTo),
+                            internetMessageID: GmailReplyAddress.messageID(internetID), threadID: threadID)
     }
 
     private static func dictionary(_ data: Data) throws -> [String: Any] {
@@ -275,7 +295,7 @@ enum GmailMessageDecoder {
 /// Deliberately small text extractor, not a browser or HTML interpreter. All tag
 /// attributes disappear, script/style/embedded document content is suppressed,
 /// and decoded entities are returned only as inert text.
-private enum GmailHTMLText {
+enum GmailHTMLText {
     static func extract(_ html: String) -> (value: String, isIncomplete: Bool) {
         var output = ""
         var isIncomplete = false
@@ -352,5 +372,37 @@ private enum GmailHTMLText {
             output.append(text[cursor]); cursor = text.index(after: cursor)
         }
         return output
+    }
+}
+
+/// Strict single mailbox support keeps an ambiguous or injected header out of To.
+/// Unsupported address syntax remains readable but cannot be used for a send.
+enum GmailReplyAddress {
+    static func parse(_ value: String) -> String? {
+        guard !value.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              !value.contains(","), !value.contains(";"), value.count <= 1_024 else { return nil }
+        var address = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let start = address.firstIndex(of: "<"), let end = address.firstIndex(of: ">"), start < end {
+            guard address[address.index(after: end)...].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            address = String(address[address.index(after: start)..<end])
+        }
+        let parts = address.split(separator: "@", omittingEmptySubsequences: false)
+        guard (3...254).contains(address.count), parts.count == 2, !parts[0].isEmpty,
+              parts[0].count <= 64, parts[1].contains("."),
+              address.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) ||
+                  (97...122).contains($0) || ".!#$%&'*+-/=?^_`{|}~@".utf8.contains($0) }),
+              !parts[0].hasPrefix("."), !parts[0].hasSuffix("."), !parts[0].contains(".."),
+              parts[1].split(separator: ".", omittingEmptySubsequences: false).allSatisfy({ label in
+                  !label.isEmpty && label.count <= 63 && !label.hasPrefix("-") && !label.hasSuffix("-") &&
+                  label.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || $0 == 45 })
+              }) else { return nil }
+        return address
+    }
+
+    static func messageID(_ value: String) -> String? {
+        guard value.count <= 998, value.hasPrefix("<"), value.hasSuffix(">"),
+              value.dropFirst().dropLast().contains("@"),
+              value.dropFirst().dropLast().utf8.allSatisfy({ $0 > 32 && $0 < 127 && $0 != 60 && $0 != 62 }) else { return nil }
+        return value
     }
 }

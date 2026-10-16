@@ -9,17 +9,25 @@ public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equat
     /// scene was in front. Named apart so that a capture during which the scene never left
     /// the front can be told from one that simply shows nothing usable.
     case ownInterfaceLeftNoEvidence
+    case screenTimeSelectionRequired(availableSlots: Int)
     public var errorDescription: String? {
         switch self {
         case .invalidSelection: String(localized: "Select one to five different saved observations.", bundle: .module)
         case .dateRequired: String(localized: "Assign an observed day to every selected observation first.", bundle: .module)
         case .incompatibleSources: String(localized: "Select observations in the same time zone and with the same human or synthetic origin.", bundle: .module)
         case .unsupportedSource: String(localized: "This source needs a reviewed written correction before it can support a proposal.", bundle: .module)
-        case .insufficientEvidence: String(localized: "Each selected observation needs usable activity evidence. Review the current notes in Learn or add new evidence.", bundle: .module)
+        case .insufficientEvidence: AppLanguage.isFrench
+            ? "Les sources choisies ne contiennent pas encore d’activité utilisable. Relisez les notes ou ajoutez une observation. Les périodes inconnues restent inconnues."
+            : "The selected sources do not yet contain usable activity evidence. Review the notes or add an observation. Unknown periods remain unknown."
         case .ownInterfaceLeftNoEvidence: String(localized: "A selected recording has no usable activity evidence. Some of its samples were left out because MORE itself was in front when they were taken. Use your other apps while a recording runs, or choose another observation.", bundle: .module)
         case .inputBudgetExceeded: String(localized: "These saved observations exceed the bounded local workload or contain a text unit too large to send safely. Your complete saved source is unchanged; nothing was silently shortened.", bundle: .module)
         case .outputBudgetExceeded: String(localized: "The combined suggestion contains more distinct supporting text than can fit in one reviewable plan. Your complete observations are still saved; choose a smaller set of observations. Nothing was silently shortened.", bundle: .module)
-        case .tooManySteps: String(localized: "This proposal needs more than ten moments, including your kept rituals. Select fewer observations; no kept ritual was removed.", bundle: .module)
+        case .tooManySteps: AppLanguage.isFrench
+            ? "Cette proposition dépasse dix moments, y compris vos rituels gardés. Réduisez les observations choisies ou ajustez les rituels à garder. Aucun rituel gardé n’a été retiré automatiquement."
+            : "This proposal exceeds ten moments, including your kept rituals. Select fewer observations or adjust which rituals to keep. No kept ritual was removed automatically."
+        case .screenTimeSelectionRequired(let slots): AppLanguage.isFrench
+            ? "Ce plan peut accueillir encore \(slots) moment(s) d’app Screen Time. Choisissez les apps à ajouter dans la sélection d’observations. Les séquences observées et vos rituels gardés sont conservés."
+            : "This plan has room for \(slots) additional Screen Time app moment(s). Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained."
         case .invalidCitation: String(localized: "A proposed step could not be tied to the exact supplied evidence. Your current routine is unchanged.", bundle: .module)
         case .invalidProposal: String(localized: "This proposal is incomplete or inconsistent with its saved evidence. Create another proposal.", bundle: .module)
         }
@@ -27,12 +35,13 @@ public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equat
 }
 
 public enum RoutineEvidenceSourceLayer: String, Codable, Sendable {
-    case original, correction, videoFrame
+    case original, correction, videoFrame, screenTimeAggregate
     public var displayName: String {
         switch self {
         case .original: String(localized: "Original observation", bundle: .module)
         case .correction: String(localized: "Your correction", bundle: .module)
         case .videoFrame: String(localized: "Recorded screen text", bundle: .module)
+        case .screenTimeAggregate: AppLanguage.isFrench ? "Agrégat Screen Time" : "Screen Time aggregate"
         }
     }
 }
@@ -108,10 +117,11 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
     public let sourceSnapshots: [LearningSourceSnapshot]
     public let support: [RoutineProposalSupport]
     public let omissions: [LearningEvidenceOmission]
+    public let screenTimeSelection: ScreenTimeMomentSelection?
 
     fileprivate init(base: RoutineVersion?, routine: RoutineVersion, sources: [LearningSourceSnapshot],
                      support: [RoutineProposalSupport], omissions: [LearningEvidenceOmission],
-                     preferences: RoutinePreferenceJournal?) throws {
+                     preferences: RoutinePreferenceJournal?, screenTimeSelection: ScreenTimeMomentSelection?) throws {
         id = UUID()
         baseRoutineID = base?.id
         baseRoutineRevision = try base.map { try EvidenceRevision.hash($0) }
@@ -121,7 +131,21 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
         sourceSnapshots = sources
         self.support = support
         self.omissions = omissions
+        self.screenTimeSelection = screenTimeSelection
         try validateStructure()
+    }
+
+    /// Adopting a suggestion is an explicit edit, never delegation. Revalidate
+    /// the exact saved evidence and choices before handing it to the draft editor.
+    public func draftForEditing(archive: ObservationArchive, baseRoutine: RoutineVersion?,
+                                preferences: RoutinePreferenceJournal, session: RoutineSession? = nil) throws -> RoutineVersion {
+        guard session?.status != .running, session?.status != .paused,
+              isCurrent(archive: archive, baseRoutine: baseRoutine, preferences: preferences) else {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
+        var draft = routine
+        draft.isApproved = false
+        return draft
     }
 
     /// Checks source bytes/metadata, every base field, and the complete preference journal.
@@ -140,19 +164,41 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                   routine.number == baseNumber + 1 else { return false }
             guard baseRoutineID == baseRoutine?.id,
                   baseRoutineRevision == (try baseRoutine.map { try EvidenceRevision.hash($0) }) else { return false }
+            var sources: [ObservationAcquisition] = []
             for snapshot in sourceSnapshots {
                 guard let entry = archive.entry(id: snapshot.acquisitionID),
                       try LearningEvidencePreparation.snapshot(entry) == snapshot else { return false }
+                sources.append(entry)
             }
+            // Rebuild eligible units and their exact reviewed frame bindings from
+            // the archive; stored proposal actions and support reasons grant nothing.
+            // Older native proposals predate the shared selection policy. Ask for
+            // a new review instead of selecting with a live restoration-time clock.
+            guard !sourceSnapshots.contains(where: { $0.sourceLayer == .screenTimeAggregate }) || screenTimeSelection != nil else { return false }
+            let restoredEvidence = try LearningEvidencePreparation.prepare(acquisitions: sources, screenTimeSelection: screenTimeSelection)
             // Rebuild user-owned rows independently of the stored support claims. The
             // authoritative journal suppresses legacy retention, including after a cleared keep.
+            // Browser lessons are an ordered native observation, not a model's
+            // choice of which segments to retain. Rebuild every candidate before
+            // preferences, assigning saved IDs only through exact citations.
+            var restoredCandidates = try LearningEvidencePreparation.restoredBrowserCandidates(
+                evidence: restoredEvidence, proposal: self)
+            var restoredCitations = Dictionary(uniqueKeysWithValues: support.map { ($0.stepID, $0.citations) })
+            _ = try LearningEvidencePreparation.joiningScreenTime(evidence: restoredEvidence,
+                steps: &restoredCandidates, citations: &restoredCitations, preserving: baseRoutine, preferences: preferences, restoring: true)
             let candidate = RoutineVersion(createdAt: routine.createdAt, sourceLabel: routine.sourceLabel,
-                steps: routine.steps)
-            let inherited = Self.inferredDraft(from: candidate, preserving: baseRoutine,
+                steps: restoredCandidates)
+            var inherited = Self.inferredDraft(from: candidate, preserving: baseRoutine,
                 preferences: preferences, at: routine.createdAt)
+            let legacyKept = preferences == nil ? Self.keptSteps(in: baseRoutine) : []
+            let legacyKeptIDs = Set(legacyKept.map(\.id))
+            for index in inherited.steps.indices where !legacyKeptIDs.contains(inherited.steps[index].id) {
+                let citations = support.first { $0.stepID == inherited.steps[index].id }?.citations ?? []
+                inherited.steps[index] = LearningEvidencePreparation.applyingReviewedSuggestion(to: inherited.steps[index],
+                    citations: citations, evidence: restoredEvidence)
+            }
             let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: inherited.steps)
             guard try EvidenceRevision.hash(reconciled.steps) == EvidenceRevision.hash(routine.steps) else { return false }
-            let legacyKept = preferences == nil ? Self.keptSteps(in: baseRoutine) : []
             let keptIDs = Set(legacyKept.map(\.id)).union(reconciled.retainedStepIDs)
             for item in support {
                 guard let step = routine.steps.first(where: { $0.id == item.stepID }) else { return false }
@@ -160,6 +206,9 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                     : reconciled.durationOverriddenStepIDs.contains(step.id) ? .inferredEvidenceWithUserPreference : .inferredEvidence
                 let expectedPreferences = (reconciled.appliedPreferenceIDsByStepID[step.id] ?? []).sorted { $0.uuidString < $1.uuidString }
                 guard item.reason == expectedReason, item.preferenceIDs == expectedPreferences else { return false }
+                if item.reason != .preservedUserDecision,
+                   restoredEvidence.units.contains(where: { $0.screenTimeContext != nil }),
+                   item.citations != restoredCitations[item.stepID] { return false }
                 if item.reason == .inferredEvidenceWithUserPreference {
                     // Model rows receive fresh IDs at assembly. On restore, an invented
                     // collision with a saved target ID cannot transfer its timing to a
@@ -173,7 +222,7 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                     }) else { return false }
                 }
                 if item.reason != .preservedUserDecision {
-                    guard !step.isRequired, step.automation == nil,
+                    guard !step.isRequired, RoutineExecutionSuggestion.isBoundedSuggestion(step),
                           step.observationReference == nil else { return false }
                     for citation in item.citations {
                         guard let entry = archive.entry(id: citation.acquisitionID),
@@ -210,6 +259,9 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
         case .original:
             guard citation.sampleID == nil, entry.correctedText == nil else { return nil }
             return entry.originalText
+        case .screenTimeAggregate:
+            guard citation.sampleID == nil, entry.correctedText == nil, entry.screenTimeEvidence != nil else { return nil }
+            return entry.originalText
         case .videoFrame:
             guard entry.correctedText == nil, let id = citation.sampleID,
                   !entry.frameReviews.contains(where: { $0.sampleID == id && $0.label == nil }),
@@ -220,6 +272,11 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
 
     private func validateStructure() throws {
         try preferenceSnapshot?.validate()
+        try screenTimeSelection?.validate()
+        guard screenTimeSelection == nil || (screenTimeSelection?.referenceDate == routine.createdAt &&
+            sourceSnapshots.contains(where: { $0.sourceLayer == .screenTimeAggregate })) else {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
         guard (preferenceSnapshot == nil) == (preferenceRevision == nil),
               preferenceRevision.map(EvidenceRevision.isValid) ?? true,
               preferenceRevision == (try preferenceSnapshot.map { try EvidenceRevision.hash($0) }) else {
@@ -254,8 +311,10 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                   !step.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   step.title.count <= (inferred ? 120 : 2_000),
                   step.detail.count <= LearningEvidencePreparation.maximumDetailCharacters,
-                  (1...(item.reason == .inferredEvidence ? 60 : RoutineStep.durationMinutesRange.upperBound)).contains(step.durationMinutes),
-                  !inferred || (!step.isRequired && step.automation == nil && step.observationReference == nil),
+                  (1...(item.reason == .inferredEvidence
+                        ? (item.citations.allSatisfy({ $0.sourceLayer == .screenTimeAggregate }) ? ScreenTimeRoutineSelection.plannedMinutesRange.upperBound : 60)
+                        : RoutineStep.durationMinutesRange.upperBound)).contains(step.durationMinutes),
+                  !inferred || (!step.isRequired && RoutineExecutionSuggestion.isBoundedSuggestion(step) && step.observationReference == nil),
                   item.citations.count <= LearningEvidencePreparation.maximumCitationsPerStep,
                   item.preferenceIDs.count <= 100,
                   Set(item.preferenceIDs).count == item.preferenceIDs.count,
@@ -285,7 +344,7 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
 
     private enum CodingKeys: String, CodingKey {
         case id, baseRoutineID, baseRoutineRevision, preferenceSnapshot, preferenceRevision
-        case routine, sourceSnapshots, support, omissions
+        case routine, sourceSnapshots, support, omissions, screenTimeSelection
     }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -304,6 +363,7 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
         sourceSnapshots = try values.decode([LearningSourceSnapshot].self, forKey: .sourceSnapshots)
         support = try values.decode([RoutineProposalSupport].self, forKey: .support)
         omissions = try values.decodeIfPresent([LearningEvidenceOmission].self, forKey: .omissions) ?? []
+        screenTimeSelection = try values.decodeIfPresent(ScreenTimeMomentSelection.self, forKey: .screenTimeSelection)
         try validateStructure()
     }
 }
@@ -329,6 +389,26 @@ public struct PreparedLearningEvidenceUnit: Equatable, Sendable, Identifiable {
     fileprivate let context: String
     var kind: LearningEvidenceKind { sourceLayer == .videoFrame ? .visibleTaskContent : evidenceKind }
     fileprivate let evidenceKind: LearningEvidenceKind
+    fileprivate let browserContext: PreparedBrowserLearningContext?
+    fileprivate var screenTimeContext: PreparedScreenTimeContext? = nil
+}
+
+fileprivate struct PreparedScreenTimeContext: Equatable, Sendable {
+    let report: ScreenTimeObservationEvidence
+    let appIndex: Int
+    let french: Bool
+    var app: ScreenTimeObservationEvidence.App { report.apps[appIndex] }
+}
+
+fileprivate struct PreparedBrowserLearningContext: Equatable, Sendable {
+    let trace: BrowserLearningTrace
+    let segmentIndex: Int
+    let french: Bool
+}
+
+fileprivate struct PreparedBrowserLessonGroup {
+    var segmentUnits: [[PreparedLearningEvidenceUnit]]
+    var acquisitionIDs: Set<UUID> { Set(segmentUnits.flatMap { $0.map(\.acquisitionID) }) }
 }
 
 public struct PreparedLearningEvidence: Equatable, Sendable {
@@ -336,7 +416,14 @@ public struct PreparedLearningEvidence: Equatable, Sendable {
     public let units: [PreparedLearningEvidenceUnit]
     public let omissions: [LearningEvidenceOmission]
     public let submittedCharacterCount: Int
+    public let screenTimeSelection: ScreenTimeMomentSelection?
     public var modelRequestCount: Int { batches.count }
+    /// Native categories need no generative interpretation. This can be proposed
+    /// locally even when the optional on-device language model is unavailable.
+    public var hasOnlyBrowserLessons: Bool { !units.isEmpty && units.allSatisfy { $0.browserContext != nil } }
+    public var hasOnlyStructuredEvidence: Bool {
+        !units.isEmpty && units.allSatisfy { $0.browserContext != nil || $0.screenTimeContext != nil }
+    }
     let batches: [[PreparedLearningEvidenceUnit]]
     let prompts: [String]
 }
@@ -375,7 +462,8 @@ public enum LearningEvidencePreparation {
     /// `ownInterfaceMarginSeconds` widens each span in which MORE was in front; see
     /// `OwnInterfaceIntervals`. Only a native recording that saved such spans is affected.
     public static func prepare(acquisitions: [ObservationAcquisition],
-                               ownInterfaceMarginSeconds: Double = OwnInterfaceIntervals.defaultMarginSeconds)
+                               ownInterfaceMarginSeconds: Double = OwnInterfaceIntervals.defaultMarginSeconds,
+                               screenTimeSelection: ScreenTimeMomentSelection? = nil)
         throws -> PreparedLearningEvidence {
         guard (1...5).contains(acquisitions.count), Set(acquisitions.map(\.id)).count == acquisitions.count else {
             throw RoutineEvidenceProposalError.invalidSelection
@@ -388,6 +476,12 @@ public enum LearningEvidencePreparation {
         }
         let digests = acquisitions.compactMap(\.fileSHA256)
         guard Set(digests).count == digests.count else { throw RoutineEvidenceProposalError.invalidSelection }
+        let reportKeys = acquisitions.compactMap { $0.screenTimeEvidence?.sourceKey }
+        guard Set(reportKeys).count == reportKeys.count else { throw RoutineEvidenceProposalError.invalidSelection }
+        let hasNativeReport = acquisitions.contains { $0.correctedText == nil && $0.screenTimeEvidence != nil }
+        guard hasNativeReport || screenTimeSelection == nil else { throw RoutineEvidenceProposalError.invalidSelection }
+        let appSelection = hasNativeReport ? try (screenTimeSelection ?? ScreenTimeMomentSelection(referenceDate: Date())) : nil
+        try appSelection?.validate(acquisitions: acquisitions)
         var units: [PreparedLearningEvidenceUnit] = []
         var omissions: [LearningEvidenceOmission] = []
         for entry in acquisitions {
@@ -395,6 +489,30 @@ public enum LearningEvidencePreparation {
             if let correction = entry.correctedText {
                 guard LearningEvidencePolicy.isEligibleWrittenContext(correction) else { throw RoutineEvidenceProposalError.insufficientEvidence }
                 units += try makeUnits(text: correction, entry: entry, layer: .correction, sampleID: nil, kind: .userReportedActivity)
+            } else if let report = entry.screenTimeEvidence {
+                let french = entry.originalText.utf8.elementsEqual(report.renderedText(french: true).utf8)
+                for index in report.apps.indices {
+                    let text = report.appText(at: index, french: french)
+                    guard let range = EvidenceText.exactRange(of: text, in: entry.originalText), text.count <= 240 else {
+                        throw RoutineEvidenceProposalError.invalidCitation
+                    }
+                    units.append(.init(id: UUID(), acquisitionID: entry.id, text: text, sourceLayer: .screenTimeAggregate,
+                        sampleID: nil, startCharacterOffset: range.lowerBound, reviewedContext: nil,
+                        context: entry.originalText, evidenceKind: .aggregateAppUsage, browserContext: nil,
+                        screenTimeContext: .init(report: report, appIndex: index, french: french)))
+                }
+            } else if let trace = entry.browserLearning {
+                let french = entry.originalText.utf8.elementsEqual(trace.renderedText(french: true).utf8)
+                for index in trace.segments.indices {
+                    let text = trace.segmentText(at: index, french: french)
+                    guard let range = EvidenceText.exactRange(of: text, in: entry.originalText) else {
+                        throw RoutineEvidenceProposalError.invalidCitation
+                    }
+                    units.append(.init(id: UUID(), acquisitionID: entry.id, text: text, sourceLayer: .original,
+                        sampleID: nil, startCharacterOffset: range.lowerBound, reviewedContext: nil,
+                        context: entry.originalText, evidenceKind: .userReportedActivity,
+                        browserContext: .init(trace: trace, segmentIndex: index, french: french)))
+                }
             } else if let video = entry.videoEvidence {
                 // Imported files and older recordings carry no spans and are judged by text alone.
                 let ownInterface = entry.recordingContext?.ownInterfaceIntervals
@@ -426,7 +544,7 @@ public enum LearningEvidencePreparation {
                 switch entry.sourceKind {
                 case .text, .manual: kind = .userReportedActivity
                 case .image: kind = .visibleTaskContent
-                case .video, .unknown: throw RoutineEvidenceProposalError.unsupportedSource
+                case .video, .screenTime, .unknown: throw RoutineEvidenceProposalError.unsupportedSource
                 }
                 var text = entry.originalText
                 var sourceOffset = 0
@@ -440,7 +558,7 @@ public enum LearningEvidencePreparation {
                 guard valid else { throw RoutineEvidenceProposalError.insufficientEvidence }
                 units += try makeUnits(text: text, entry: entry, layer: .original, sampleID: nil, kind: kind, startingOffset: sourceOffset)
             }
-            guard units.count > previousCount else {
+            guard units.count > previousCount || (entry.correctedText == nil && entry.screenTimeEvidence != nil) else {
                 let byTime = omissions.contains { $0.acquisitionID == entry.id && $0.reason == .ownInterfaceInFront }
                 throw byTime ? RoutineEvidenceProposalError.ownInterfaceLeftNoEvidence : RoutineEvidenceProposalError.insufficientEvidence
             }
@@ -449,7 +567,8 @@ public enum LearningEvidencePreparation {
         // Every eligible source character is retained. Both request limits include identifiers and review metadata.
         var batches: [[PreparedLearningEvidenceUnit]] = []
         var current: [PreparedLearningEvidenceUnit] = []
-        for unit in units {
+        guard !units.isEmpty else { throw RoutineEvidenceProposalError.insufficientEvidence }
+        for unit in units where unit.screenTimeContext == nil {
             if !fitsRequest(prompt(current + [unit])), !current.isEmpty {
                 batches.append(current); current = []
             }
@@ -463,7 +582,7 @@ public enum LearningEvidencePreparation {
             throw RoutineEvidenceProposalError.inputBudgetExceeded
         }
         return PreparedLearningEvidence(sourceSnapshots: sources, units: units, omissions: omissions,
-            submittedCharacterCount: count, batches: batches, prompts: prompts)
+            submittedCharacterCount: count, screenTimeSelection: appSelection, batches: batches, prompts: prompts)
     }
 
     /// The same deterministic gate is used for model output and explicitly labeled UI fixtures.
@@ -472,7 +591,8 @@ public enum LearningEvidencePreparation {
                                 preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal? = nil,
                                 at date: Date = Date()) throws -> EvidenceRoutineProposal {
         try preferences?.validate()
-        guard !steps.isEmpty, steps.count <= maximumModelCalls * 4, date.timeIntervalSince1970.isFinite else {
+        guard (!steps.isEmpty || evidence.units.contains(where: { $0.browserContext != nil || $0.screenTimeContext != nil })), steps.count <= maximumModelCalls * 4,
+              date.timeIntervalSince1970.isFinite else {
             throw RoutineEvidenceProposalError.insufficientEvidence
         }
         if let base {
@@ -481,6 +601,19 @@ public enum LearningEvidencePreparation {
         var proposed: [RoutineStep] = []
         var citationsByStep: [UUID: [RoutineEvidenceCitation]] = [:]
         var keyIndexes: [String: Int] = [:]
+        let browserGroups = browserLessonGroups(evidence: evidence)
+        let browserSources = browserGroups.reduce(into: Set<UUID>()) { $0.formUnion($1.acquisitionIDs) }
+        let browserSteps = try browserGroups.map { group in try group.segmentUnits.map { try browserCandidate(units: $0) } }
+        var insertedBrowserGroups = Set<Int>()
+        func insertBrowserGroup(_ index: Int) throws {
+            guard insertedBrowserGroups.insert(index).inserted else { return }
+            for (segment, step) in browserSteps[index].enumerated() {
+                proposed.append(step)
+                citationsByStep[step.id] = try browserGroups[index].segmentUnits[segment].map {
+                    try browserCitation(unit: $0, evidence: evidence)
+                }
+            }
+        }
         for input in steps {
             let title = input.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let detail = input.detail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -488,7 +621,7 @@ public enum LearningEvidencePreparation {
                   (1...24).contains(input.citations.count) else { throw RoutineEvidenceProposalError.invalidProposal }
             var citations: [RoutineEvidenceCitation] = []
             for inputCitation in input.citations {
-                guard let unit = evidence.units.first(where: { $0.id == inputCitation.unitID }),
+                guard let unit = evidence.units.first(where: { $0.id == inputCitation.unitID }), unit.screenTimeContext == nil,
                       let snapshot = evidence.sourceSnapshots.first(where: { $0.acquisitionID == unit.acquisitionID }),
                       (8...240).contains(inputCitation.quote.count),
                       let range = EvidenceText.exactRange(of: inputCitation.quote, in: unit.text),
@@ -501,6 +634,16 @@ public enum LearningEvidencePreparation {
                     startCharacterOffset: unit.startCharacterOffset + range.lowerBound,
                     endCharacterOffset: unit.startCharacterOffset + range.upperBound, sourceLayer: unit.sourceLayer)
                 if !citations.contains(citation) { citations.append(citation) }
+            }
+            let browserAnchors = browserGroups.indices.filter { index in
+                citations.contains { browserGroups[index].acquisitionIDs.contains($0.acquisitionID) }
+            }
+            citations.removeAll { browserSources.contains($0.acquisitionID) }
+            // Preserve the model's position among other sources, but put each
+            // entire native lesson in its observed order at its first citation.
+            if citations.isEmpty {
+                for index in browserAnchors { try insertBrowserGroup(index) }
+                continue
             }
             let key = input.kind.rawValue + ":" + ObservationText.normalized(title)
             if let index = keyIndexes[key] {
@@ -516,10 +659,16 @@ public enum LearningEvidencePreparation {
                 keyIndexes[key] = proposed.count
                 proposed.append(step); citationsByStep[step.id] = citations
             }
+            for index in browserAnchors { try insertBrowserGroup(index) }
         }
+        for index in browserGroups.indices { try insertBrowserGroup(index) }
+        let screenTimeBaselineIDs = try joiningScreenTime(evidence: evidence, steps: &proposed, citations: &citationsByStep,
+            preserving: base, preferences: preferences)
         // Pending receipts hold structured provenance. Keep bounded, exact quotations in
         // the routine too, so explicit approval does not erase the established source text.
         for index in proposed.indices {
+            if EvidenceDetailText.description(of: proposed[index].detail,
+                citing: (citationsByStep[proposed[index].id] ?? []).map(\.quote)) != nil { continue }
             var seenQuotes = Set<Data>()
             let quotes = (citationsByStep[proposed[index].id] ?? []).compactMap { citation -> String? in
                 seenQuotes.insert(Data(citation.quote.utf8)).inserted ? citation.quote : nil
@@ -529,9 +678,20 @@ public enum LearningEvidencePreparation {
         }
         let synthetic = evidence.sourceSnapshots.first?.origin == .synthetic
         let source = synthetic ? "Demo fixture — synthetic saved observations" : String(localized: "Selected saved observations — tentative proposal", bundle: .module)
-        let candidate = RoutineVersion(createdAt: date, sourceLabel: source, steps: proposed, isApproved: false)
+        let proposalDate = evidence.screenTimeSelection?.referenceDate ?? date
+        let candidate = RoutineVersion(createdAt: proposalDate, sourceLabel: source, steps: proposed, isApproved: false)
         var routine = EvidenceRoutineProposal.inferredDraft(from: candidate, preserving: base,
-            preferences: preferences, at: date)
+            preferences: preferences, at: proposalDate)
+        let legacyKept = preferences == nil ? EvidenceRoutineProposal.keptSteps(in: base) : []
+        let legacyKeptIDs = Set(legacyKept.map(\.id))
+        // Identity comes only from every cited unit's explicit reviewed frame
+        // context. Enrich the sanitized draft before applying the person's choices.
+        // A retained legacy ritual already belongs to the person, even when its
+        // stable native ID also has fresh citations. Do not sanitize it again.
+        for index in routine.steps.indices where !legacyKeptIDs.contains(routine.steps[index].id) {
+            guard let citations = citationsByStep[routine.steps[index].id] else { continue }
+            routine.steps[index] = applyingReviewedSuggestion(to: routine.steps[index], citations: citations, evidence: evidence)
+        }
         let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: routine.steps)
         routine.steps = reconciled.steps
         // An explicit Keep may reintroduce a synthetic excerpt even when every
@@ -541,9 +701,13 @@ public enum LearningEvidencePreparation {
             routine.sourceLabel = "Demo fixture — includes a synthetic saved observation"
         }
         guard !routine.steps.isEmpty else { throw RoutineEvidenceProposalError.insufficientEvidence }
+        let keptIDs = legacyKeptIDs.union(reconciled.retainedStepIDs)
+        let optionalAppCount = routine.steps.filter { screenTimeBaselineIDs.contains($0.id) && !keptIDs.contains($0.id) }.count
+        let mandatoryCount = routine.steps.count - optionalAppCount
+        guard mandatoryCount <= 10 else { throw RoutineEvidenceProposalError.tooManySteps }
+        let available = min(ScreenTimeRoutineSelection.maximumSuggestedApps, 10 - mandatoryCount)
+        if optionalAppCount > available { throw RoutineEvidenceProposalError.screenTimeSelectionRequired(availableSlots: available) }
         guard routine.steps.count <= 10 else { throw RoutineEvidenceProposalError.tooManySteps }
-        let legacyKept = preferences == nil ? EvidenceRoutineProposal.keptSteps(in: base) : []
-        let keptIDs = Set(legacyKept.map(\.id)).union(reconciled.retainedStepIDs)
         let support = try routine.steps.map { step -> RoutineProposalSupport in
             let preferenceIDs = (reconciled.appliedPreferenceIDsByStepID[step.id] ?? []).sorted { $0.uuidString < $1.uuidString }
             if keptIDs.contains(step.id) {
@@ -555,7 +719,295 @@ public enum LearningEvidencePreparation {
             return .init(stepID: step.id, citations: citations, reason: reason, preferenceIDs: preferenceIDs)
         }
         return try EvidenceRoutineProposal(base: base, routine: routine, sources: evidence.sourceSnapshots,
-            support: support, omissions: evidence.omissions, preferences: preferences)
+            support: support, omissions: evidence.omissions, preferences: preferences, screenTimeSelection: evidence.screenTimeSelection)
+    }
+
+    fileprivate static func applyingReviewedSuggestion(to step: RoutineStep,
+        citations: [RoutineEvidenceCitation], evidence: PreparedLearningEvidence) -> RoutineStep {
+        let manual = RoutineExecutionSuggestion.applying(to: step, bundleIdentifier: nil)
+        let citations = citations.filter { $0.sourceLayer != .screenTimeAggregate }
+        guard !citations.isEmpty else { return manual }
+        let browserUnits = citations.compactMap { browserUnit(for: $0, evidence: evidence) }
+        if browserUnits.count == citations.count, let context = browserUnits.first?.browserContext,
+           browserUnits.allSatisfy({ $0.browserContext == context }) {
+            return context.trace.applying(to: manual, segment: context.segmentIndex)
+        }
+        var exactLabel: String?
+        for citation in citations {
+            guard citation.sourceLayer == .videoFrame, let sampleID = citation.sampleID,
+                  let snapshot = evidence.sourceSnapshots.first(where: { $0.acquisitionID == citation.acquisitionID }),
+                  snapshot.sourceRevision == citation.sourceRevision,
+                  let unit = evidence.units.first(where: {
+                      $0.acquisitionID == citation.acquisitionID && $0.sampleID == sampleID && $0.sourceLayer == .videoFrame &&
+                      citation.startCharacterOffset >= $0.startCharacterOffset &&
+                      citation.endCharacterOffset <= $0.startCharacterOffset + $0.text.count
+                  }),
+                  EvidenceText.matches(citation.quote, in: unit.text,
+                    start: citation.startCharacterOffset - unit.startCharacterOffset,
+                    end: citation.endCharacterOffset - unit.startCharacterOffset),
+                  let reviewed = unit.reviewedContext,
+                  Data(unit.context.utf8).range(of: Data(reviewed.evidenceQuote.utf8)) != nil else { return manual }
+            if let exactLabel {
+                guard exactLabel.utf8.elementsEqual(reviewed.label.utf8) else { return manual }
+            } else { exactLabel = reviewed.label }
+        }
+        guard let exactLabel else { return manual }
+        return RoutineExecutionSuggestion.applyingReviewedLabel(to: manual, label: exactLabel)
+    }
+
+    private static func browserCitation(unit: PreparedLearningEvidenceUnit,
+        evidence: PreparedLearningEvidence) throws -> RoutineEvidenceCitation {
+        guard unit.browserContext != nil,
+              let snapshot = evidence.sourceSnapshots.first(where: { $0.acquisitionID == unit.acquisitionID }) else {
+            throw RoutineEvidenceProposalError.invalidCitation
+        }
+        return .init(acquisitionID: unit.acquisitionID, sourceRevision: snapshot.sourceRevision,
+            sampleID: nil, quote: unit.text, startCharacterOffset: unit.startCharacterOffset,
+            endCharacterOffset: unit.startCharacterOffset + unit.text.count, sourceLayer: .original)
+    }
+
+    private static func browserUnit(for citation: RoutineEvidenceCitation,
+        evidence: PreparedLearningEvidence) -> PreparedLearningEvidenceUnit? {
+        evidence.units.first { unit in
+            unit.browserContext != nil && (try? browserCitation(unit: unit, evidence: evidence)) == citation
+        }
+    }
+
+    private static func browserCandidate(units: [PreparedLearningEvidenceUnit], id: UUID = UUID()) throws -> RoutineStep {
+        guard let unit = units.first, let context = unit.browserContext,
+              units.allSatisfy({ $0.browserContext == context && $0.text == unit.text }) else {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
+        let segment = context.trace.segments[context.segmentIndex]
+        let minutes = max(1, Int(((segment.endSeconds - segment.startSeconds) / 60).rounded(.up)))
+        let note = context.french
+            ? "Couverture partielle de gestes observés, sans contenu de page ni preuve d’attention continue. Durée proposée arrondie à la minute, à ajuster avant validation. Likes désactivés."
+            : "Partial coverage of observed gestures, without page content or proof of continuous attention. Suggested duration rounded up to a minute; adjust before approval. Likes disabled."
+        let multiple = units.count > 1 ? (context.french
+            ? "\nDes observations distinctes soutiennent cette même séquence ; elles ne forment pas une matinée continue."
+            : "\nSeparate observations support this same sequence; they are not one continuous morning.") : ""
+        return .init(id: id, title: context.trace.proposedTitle(at: context.segmentIndex, french: context.french),
+            detail: unit.text + "\n" + note + multiple + "\n" + EvidenceDetailText.savedTentativeNotes[context.french ? 1 : 0]
+                + "\n" + EvidenceDetailText.savedLabels[context.french ? 1 : 0] + " “\(unit.text)”",
+            kind: context.trace.site == .news ? .briefing : .entertainment, durationMinutes: minutes)
+    }
+
+    fileprivate static func restoredBrowserCandidates(evidence: PreparedLearningEvidence,
+        proposal: EvidenceRoutineProposal) throws -> [RoutineStep] {
+        guard evidence.units.contains(where: { $0.browserContext != nil }) else { return proposal.routine.steps }
+        let groups = browserLessonGroups(evidence: evidence)
+        let browserSources = groups.reduce(into: Set<UUID>()) { $0.formUnion($1.acquisitionIDs) }
+        var groupByStepID: [UUID: Int] = [:]
+        var browserRows: [[RoutineStep]] = []
+        for (index, group) in groups.enumerated() {
+            var rows: [RoutineStep] = []
+            for units in group.segmentUnits {
+                let citations = try units.map { try browserCitation(unit: $0, evidence: evidence) }
+                let matching = proposal.support.filter { $0.citations.filter { $0.sourceLayer != .screenTimeAggregate } == citations }
+                guard matching.count <= 1 else { throw RoutineEvidenceProposalError.invalidProposal }
+                let id = matching.first?.stepID ?? UUID()
+                if matching.first != nil { groupByStepID[id] = index }
+                rows.append(try browserCandidate(units: units, id: id))
+            }
+            browserRows.append(rows)
+        }
+        // A malformed or mixed citation cannot masquerade as an ordinary model
+        // row while a canonical candidate is restored beside it.
+        for item in proposal.support where groupByStepID[item.stepID] == nil {
+            if item.citations.contains(where: { browserSources.contains($0.acquisitionID) }) {
+                throw RoutineEvidenceProposalError.invalidCitation
+            }
+        }
+        if evidence.hasOnlyBrowserLessons { return browserRows.flatMap { $0 } }
+        var restored: [RoutineStep] = [], inserted = Set<Int>()
+        func insert(_ index: Int) {
+            if inserted.insert(index).inserted { restored += browserRows[index] }
+        }
+        for step in proposal.routine.steps {
+            if let group = groupByStepID[step.id] { insert(group) }
+            else if proposal.support.first(where: { $0.stepID == step.id })?.reason == .preservedUserDecision {
+                let matches = browserRows.indices.filter { index in
+                    browserRows[index].contains { $0.kind == step.kind && $0.title == step.title }
+                }
+                if matches.count == 1, let index = matches.first { insert(index) }
+                else { restored.append(step) }
+            } else { restored.append(step) }
+        }
+        for index in groups.indices { insert(index) }
+        return restored
+    }
+
+    private static func browserLessonGroups(evidence: PreparedLearningEvidence) -> [PreparedBrowserLessonGroup] {
+        var seen = Set<UUID>(), groups: [PreparedBrowserLessonGroup] = []
+        for unit in evidence.units where unit.browserContext != nil {
+            guard seen.insert(unit.acquisitionID).inserted, let context = unit.browserContext else { continue }
+            let source = evidence.units.filter { $0.acquisitionID == unit.acquisitionID && $0.browserContext != nil }
+                .sorted { $0.browserContext!.segmentIndex < $1.browserContext!.segmentIndex }
+            // Only an identical complete observed sequence can be merged across
+            // independent mornings. Never concatenate different partial lessons.
+            if let index = groups.firstIndex(where: {
+                guard let first = $0.segmentUnits.first?.first?.browserContext else { return false }
+                return first.trace == context.trace && first.french == context.french && $0.segmentUnits.count == source.count
+            }) {
+                for segment in source.indices { groups[index].segmentUnits[segment].append(source[segment]) }
+            } else { groups.append(.init(segmentUnits: source.map { [$0] })) }
+        }
+        return groups
+    }
+
+    /// The same native join runs on creation and restoration. App-wide aggregates
+    /// attach once to an exact identity; they never rewrite an observed sequence,
+    /// distribute its minutes among gestures or supply action authority.
+    fileprivate static func joiningScreenTime(evidence: PreparedLearningEvidence,
+        steps: inout [RoutineStep], citations: inout [UUID: [RoutineEvidenceCitation]],
+        preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal?, restoring: Bool = false) throws -> Set<UUID> {
+        let units = evidence.units.filter { $0.screenTimeContext != nil }
+        guard !units.isEmpty else { return [] }
+        guard let selection = evidence.screenTimeSelection else { throw RoutineEvidenceProposalError.invalidSelection }
+        let reports = units.reduce(into: [ScreenTimeObservationEvidence]()) { values, unit in
+            let report = unit.screenTimeContext!.report
+            if !values.contains(where: { $0.sourceKey == report.sourceKey }) { values.append(report) }
+        }
+        let policy = try ScreenTimeRoutineSelection.from(reports: reports, referenceDate: selection.referenceDate)
+        let ambiguous = ScreenTimeAppMomentChoice.ambiguousIdentifiers(reports: reports)
+        let candidates = Dictionary(uniqueKeysWithValues: policy.candidates.map { ($0.bundleIdentifier, $0) })
+        var baselineIDs = Set<UUID>()
+        var baselinePositions: [Int] = []
+        let savedCitations = citations
+        // Native-only rows are reconstructed, including their stable identity, from
+        // source bytes. A saved proposal cannot relabel them or change their budget.
+        let nativeOnlySavedIDs = Set(steps.filter { step in
+            let saved = citations[step.id] ?? []
+            return !saved.isEmpty && saved.allSatisfy { $0.sourceLayer == .screenTimeAggregate }
+        }.map(\.id))
+        for id in Array(citations.keys) { citations[id]?.removeAll { $0.sourceLayer == .screenTimeAggregate } }
+        var identities: [String] = []
+        identities = policy.candidates.map(\.bundleIdentifier) + policy.excludedBundleIdentifiers
+        for identity in identities {
+            let group = units.filter { $0.screenTimeContext!.app.bundleIdentifier == identity }
+            let context = group[0].screenTimeContext!, french = context.french
+            let aggregateCitations = try group.map { unit -> RoutineEvidenceCitation in
+                guard let snapshot = evidence.sourceSnapshots.first(where: { $0.acquisitionID == unit.acquisitionID }) else {
+                    throw RoutineEvidenceProposalError.invalidCitation
+                }
+                return .init(acquisitionID: unit.acquisitionID, sourceRevision: snapshot.sourceRevision, sampleID: nil,
+                    quote: unit.text, startCharacterOffset: unit.startCharacterOffset,
+                    endCharacterOffset: unit.startCharacterOffset + unit.text.count, sourceLayer: .screenTimeAggregate)
+            }
+            let note = french
+                ? "Agrégats Screen Time de l’app entière sur \(group.count) fenêtre(s) retenue(s). Ordre estimé, couverture partielle ; aucun contenu ni geste établi. Le total n’est pas réparti entre les séquences observées."
+                : "Whole-app Screen Time aggregates across \(group.count) retained window(s). Estimated order, partial coverage; no content or gesture established. The total is not distributed across observed sequences."
+            let matching = steps.indices.first { index in
+                exactBundleIdentifier(citations: citations[steps[index].id] ?? [], evidence: evidence) == identity
+            }
+            let index: Int
+            if let matching { index = matching }
+            else {
+                guard let candidate = candidates[identity], !ambiguous.contains(identity),
+                      selection.includedBundleIdentifiers?.contains(identity) ?? true else { continue }
+                let entry = ScreenTimeAppCatalog.entry(for: identity)
+                // A baseline app moment is manual until a separate observed source
+                // or explicit user edit establishes a particular activity.
+                let id = try screenTimeStepID(identity: identity, sources: group.map(\.acquisitionID))
+                let baseline = RoutineStep(id: id, title: context.app.displayName, detail: french
+                    ? "Moment proposé depuis les minutes de l’app ; durée prévue à ajuster. Aucun geste proposé."
+                    : "Proposed moment from app minutes; adjust the planned duration. No gesture proposed.",
+                    kind: entry.kind.stepKind, durationMinutes: candidate.minutes)
+                let preference = try preferences?.matchingPreference(for: baseline)
+                // Excluded candidates have no saved position. On restoration they
+                // need not displace surviving candidates or missing kept rituals;
+                // reconciliation still remains the authority for that exclusion.
+                if restoring, preference?.presence == .exclude { continue }
+                // A restored Keep is a position placeholder, never a second app
+                // candidate. Replace only its matched native baseline and then let
+                // the authoritative journal/base restore the person's full row.
+                let keptID: UUID?
+                if let preference, preference.presence == .keep {
+                    keptID = preference.retainedStep?.id ?? preference.targetID
+                } else if preferences == nil {
+                    let kept = EvidenceRoutineProposal.keptSteps(in: base)
+                    let exact = kept.filter { $0.id == id }
+                    let matches = exact.isEmpty ? kept.filter { RoutineVersion.matchesActivity($0, baseline) } : exact
+                    keptID = matches.count == 1 ? matches[0].id : nil
+                } else { keptID = nil }
+                if let position = steps.firstIndex(where: { $0.id == id && nativeOnlySavedIDs.contains(id) }) {
+                    steps[position] = baseline; index = position
+                } else if let keptID, let position = steps.firstIndex(where: { $0.id == keptID }),
+                   savedCitations[keptID]?.isEmpty == true {
+                    steps[position] = baseline; index = position
+                } else {
+                    steps.append(baseline); index = steps.count - 1
+                }
+                citations[id] = []
+                baselineIDs.insert(id)
+                baselinePositions.append(index)
+            }
+            let id = steps[index].id, before = citations[id] ?? []
+            var combined = before
+            for citation in aggregateCitations where !combined.contains(citation) { combined.append(citation) }
+            guard combined.count <= maximumCitationsPerStep else { throw RoutineEvidenceProposalError.outputBudgetExceeded }
+            let description = EvidenceDetailText.description(of: steps[index].detail, citing: (savedCitations[id] ?? []).map(\.quote))
+                ?? EvidenceDetailText.description(of: steps[index].detail, citing: before.map(\.quote))
+                ?? removingTentativeSuffix(steps[index].detail)
+            let body = description.hasSuffix(note) ? description : description + "\n" + note
+            steps[index].detail = body + "\n" + EvidenceDetailText.savedTentativeNotes[french ? 1 : 0] + "\n"
+                + distinctQuotes(combined).map { "\(EvidenceDetailText.savedLabels[french ? 1 : 0]) “\($0)”" }.joined(separator: "\n")
+            guard steps[index].detail.count <= maximumDetailCharacters else { throw RoutineEvidenceProposalError.outputBudgetExceeded }
+            citations[id] = combined
+        }
+        if restoring, !zip(baselinePositions, baselinePositions.dropFirst()).allSatisfy({ $0 < $1 }) {
+            throw RoutineEvidenceProposalError.invalidProposal
+        }
+        steps.removeAll { nativeOnlySavedIDs.contains($0.id) && !baselineIDs.contains($0.id) }
+        return baselineIDs
+    }
+
+    private static func distinctQuotes(_ citations: [RoutineEvidenceCitation]) -> [String] {
+        var seen = Set<Data>()
+        return citations.compactMap { seen.insert(Data($0.quote.utf8)).inserted ? $0.quote : nil }
+    }
+
+    private static func removingTentativeSuffix(_ text: String) -> String {
+        for note in EvidenceDetailText.savedTentativeNotes + [EvidenceDetailText.tentativeNote] {
+            let suffix = "\n" + note
+            if text.hasSuffix(suffix) { return String(text.dropLast(suffix.count)) }
+        }
+        return text
+    }
+
+    private static func screenTimeStepID(identity: String, sources: [UUID]) throws -> UUID {
+        let digest = try EvidenceRevision.hash(["ScreenTime-app", identity] + sources.map(\.uuidString))
+        let hex = String(digest.prefix(32))
+        let sizes = [8, 4, 4, 4, 12]
+        var cursor = hex.startIndex, parts: [String] = []
+        for size in sizes {
+            let end = hex.index(cursor, offsetBy: size); parts.append(String(hex[cursor..<end])); cursor = end
+        }
+        guard let id = UUID(uuidString: parts.joined(separator: "-")) else { throw RoutineEvidenceProposalError.invalidProposal }
+        return id
+    }
+
+    private static func exactBundleIdentifier(citations: [RoutineEvidenceCitation], evidence: PreparedLearningEvidence) -> String? {
+        let actionCitations = citations.filter { $0.sourceLayer != .screenTimeAggregate }
+        guard !actionCitations.isEmpty else { return nil }
+        let browser = actionCitations.compactMap { browserUnit(for: $0, evidence: evidence)?.browserContext }
+        if browser.count == actionCitations.count, let first = browser.first,
+           browser.allSatisfy({ $0.trace.site == first.trace.site }) {
+            return RoutineExecutionSuggestion.bundleIdentifier(forReviewedLabel: first.trace.site.displayName)
+        }
+        var identity: String?
+        for citation in actionCitations {
+            guard citation.sourceLayer == .videoFrame,
+                  let unit = evidence.units.first(where: {
+                      $0.acquisitionID == citation.acquisitionID && $0.sampleID == citation.sampleID &&
+                      citation.startCharacterOffset >= $0.startCharacterOffset &&
+                      citation.endCharacterOffset <= $0.startCharacterOffset + $0.text.count
+                  }), let reviewed = unit.reviewedContext,
+                  let exact = RoutineExecutionSuggestion.bundleIdentifier(forReviewedLabel: reviewed.label) else { return nil }
+            if let identity, identity != exact { return nil }
+            identity = exact
+        }
+        return identity
     }
 
     fileprivate static func snapshot(_ entry: ObservationAcquisition) throws -> LearningSourceSnapshot {
@@ -568,7 +1020,7 @@ public enum LearningEvidencePreparation {
         guard let date = entry.observedDate else { throw RoutineEvidenceProposalError.dateRequired }
         return LearningSourceSnapshot(acquisitionID: entry.id, sourceRevision: try EvidenceRevision.source(entry),
             sourceLabel: entry.sourceLabel, observedDate: date, origin: entry.origin,
-            sourceLayer: entry.correctedText != nil ? .correction : (entry.videoEvidence != nil ? .videoFrame : .original))
+            sourceLayer: entry.correctedText != nil ? .correction : (entry.screenTimeEvidence != nil ? .screenTimeAggregate : (entry.videoEvidence != nil ? .videoFrame : .original)))
     }
 
     /// Validate each request before reporting completion or retaining its result.
@@ -609,7 +1061,7 @@ public enum LearningEvidencePreparation {
             defer { offset += chunk.count }
             return .init(id: UUID(), acquisitionID: entry.id, text: chunk, sourceLayer: layer,
                 sampleID: sampleID, startCharacterOffset: offset, reviewedContext: reviewedContext,
-                context: text, evidenceKind: kind)
+                context: text, evidenceKind: kind, browserContext: nil)
         }
     }
 
@@ -651,13 +1103,16 @@ private enum EvidenceRevision {
             let originalText: String; let correctedText: String?; let videoEvidence: ObservationVideoEvidence?
             let frameReviews: [ObservationFrameReview]?
             let ownInterfaceIntervals: OwnInterfaceIntervals?
+            let browserLearning: BrowserLearningTrace?
+            let screenTimeEvidence: ScreenTimeObservationEvidence?
         }
         return try hash(Payload(id: value.id, importedAt: value.importedAt, fileSHA256: value.fileSHA256,
             observedDate: value.observedDate, origin: value.origin, sourceKind: value.sourceKind,
             sourceLabel: value.sourceLabel, originalText: value.originalText, correctedText: value.correctedText,
             videoEvidence: value.videoEvidence,
             frameReviews: value.frameReviews.isEmpty ? nil : value.frameReviews.sorted { $0.sampleID.uuidString < $1.sampleID.uuidString },
-            ownInterfaceIntervals: value.recordingContext?.ownInterfaceIntervals))
+            ownInterfaceIntervals: value.recordingContext?.ownInterfaceIntervals,
+            browserLearning: value.browserLearning, screenTimeEvidence: value.screenTimeEvidence))
     }
 }
 
