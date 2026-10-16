@@ -344,6 +344,7 @@ final class MorningStore {
     @ObservationIgnored var cloudVoiceMemoryTurnID: UUID?
     @ObservationIgnored var cloudVoiceConsentGeneration: UUID?
     @ObservationIgnored var cloudVoiceConsentSession: UUID?
+    @ObservationIgnored var cloudVoiceStartAttempt: UUID?
     var cloudVoiceReleasing = false
     var cloudVoiceStartIssue: String?
 
