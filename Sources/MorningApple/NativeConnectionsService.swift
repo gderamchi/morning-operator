@@ -31,6 +31,7 @@ public final class NativeConnectionsService {
     private var reminderNotice: NativeConnectionNotice?
     public var reminderMessage: String? { reminderNotice?.text() }
     public var pendingShortcut: ShortcutBridgeRequest? { bridge.pending }
+    public var reminderAuthorization: EventKitAccess { reminderService.reminderAuthorization }
     public var hasReminderAccess: Bool { reminderService.hasReminderAccess }
     public var callbackScheme: String { scheme }
     @ObservationIgnored private let reminderService: ReminderService

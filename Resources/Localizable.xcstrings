@@ -13687,6 +13687,23 @@
         }
       }
     },
+    "Open iPhone Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open iPhone Settings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir les réglages de l’iPhone"
+          }
+        }
+      }
+    },
     "Open MORE and request your approved morning routine. A draft still needs your approval in the app.": {
       "localizations": {
         "fr": {
