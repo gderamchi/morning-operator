@@ -30,7 +30,11 @@ struct MorningSubscriptionEntryView: View {
             MorningSubscriptionLegalSheet(document: document, store: store)
         }
         .task { await subscription.load() }
-        .task {
+        .onChange(of: store.privacyBlocksWork ? nil : store.briefing.settings.weatherLocation, initial: true) { _, location in
+            MorningThemeClock.shared.setLocation(location)
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 MorningThemeClock.shared.refresh()
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
