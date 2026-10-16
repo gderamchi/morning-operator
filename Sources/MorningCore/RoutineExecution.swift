@@ -14,13 +14,17 @@ public struct RoutineExecutionRecord: Codable, Equatable, Sendable, Identifiable
     /// A provider receipt was observed even if presenting its result later failed.
     /// No provider content is retained in the record.
     public var confirmedExternalEffect: Bool?
+    /// Opaque browser-content hashes for this exact session/step, never page text.
+    public var webContentProgress: WebMorningContentProgress?
     public var updatedAt: Date
 
     public init(sessionID: UUID, stepID: UUID, outcome: Outcome, observedContents: Int = 0,
-                confirmedLikes: Int = 0, confirmedExternalEffect: Bool? = nil, updatedAt: Date = Date()) {
+                confirmedLikes: Int = 0, confirmedExternalEffect: Bool? = nil,
+                webContentProgress: WebMorningContentProgress? = nil, updatedAt: Date = Date()) {
         self.sessionID = sessionID; self.stepID = stepID; self.outcome = outcome
-        self.observedContents = max(0, observedContents); self.confirmedLikes = max(0, confirmedLikes)
+        self.observedContents = max(0, observedContents, webContentProgress?.observedCount ?? 0); self.confirmedLikes = max(0, confirmedLikes)
         self.confirmedExternalEffect = confirmedExternalEffect
+        self.webContentProgress = webContentProgress
         self.updatedAt = updatedAt
     }
 }

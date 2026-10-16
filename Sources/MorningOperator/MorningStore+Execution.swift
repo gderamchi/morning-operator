@@ -78,13 +78,14 @@ extension MorningStore {
 
     @discardableResult
     func recordExecution(_ outcome: RoutineExecutionRecord.Outcome, observed: Int? = nil, likes: Int? = nil,
-                         confirmedExternalEffect: Bool? = nil) -> Bool {
+                         confirmedExternalEffect: Bool? = nil, webContentProgress: WebMorningContentProgress? = nil) -> Bool {
         guard !privacyBlocksWork, let session, let step = currentStep else { return false }
         let previous = executionRecords
         let old = currentExecutionRecord
         let record = RoutineExecutionRecord(sessionID: session.id, stepID: step.id, outcome: outcome,
             observedContents: max(observed ?? 0, old?.observedContents ?? 0), confirmedLikes: max(likes ?? 0, old?.confirmedLikes ?? 0),
-            confirmedExternalEffect: confirmedExternalEffect ?? old?.confirmedExternalEffect)
+            confirmedExternalEffect: confirmedExternalEffect ?? old?.confirmedExternalEffect,
+            webContentProgress: webContentProgress ?? old?.webContentProgress)
         executionRecords.removeAll { $0.sessionID == session.id && $0.stepID == step.id }
         executionRecords.append(record)
         executionRecords = Array(executionRecords.suffix(256))
@@ -125,7 +126,8 @@ extension MorningStore {
         return WebMorningExecutionPlan(sessionID: session.id, stepID: step.id,
             behavior: behavior, likesAllowed: step.webLikesAllowed == true,
             initialObservedContentCount: currentExecutionRecord?.observedContents ?? 0,
-            initialConfirmedLikeCount: currentExecutionRecord?.confirmedLikes ?? 0)
+            initialConfirmedLikeCount: currentExecutionRecord?.confirmedLikes ?? 0,
+            initialContentProgress: currentExecutionRecord?.webContentProgress)
     }
 
     func receiveWebExecution(_ event: WebMorningExecutionEvent) {
@@ -143,7 +145,8 @@ extension MorningStore {
         }
         if currentExecutionRecord?.outcome == .uncertain,
            [.paused, .cancelled, .waitingForPage, .needsSignIn, .needsChoice, .unavailable].contains(event.state) { outcome = .uncertain }
-        guard recordExecution(outcome, observed: event.observedContentCount, likes: event.confirmedLikeCount) else { pause(); return }
+        guard recordExecution(outcome, observed: event.observedContentCount, likes: event.confirmedLikeCount,
+                              webContentProgress: event.contentProgress) else { pause(); return }
         if !event.spokenText.isEmpty, readAloud, session?.status == .running {
             executionSpeechTask?.cancel()
             executionSpeechTask = Task { [weak self] in

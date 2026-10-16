@@ -12,6 +12,8 @@ Browser moments have a reviewed behavior: feed, videos, stories, headlines or vi
 
 MORE observes the page, performs the reviewed operation, checks the result and continues at the selected pace. Loading, sign-in, occluding dialogs, changed layouts, empty content and an unknown like outcome are distinct states. Page text never authorizes actions. A budget ending can end observed browsing; it cannot prove an external effect. An effect being verified defers the transition. Pauses stop the same session's clock and browser. Resuming reopens that moment; relaunch pauses browser execution.
 
+Observed-content counts now retain opaque hashes in the exact session/step record. A process restart can recognize content already counted without saving its text, URL or DOM. Older records preserve their count but cannot recover identities they never stored. The checkpoint is bounded and stops accepting new identities at capacity rather than evicting them and recounting later. It does not restore the web document or its viewport and does not certify a like; that effect has its own journal. Shared restoration/privacy/bounds tests pass, while the ordinary app's cold-relaunch journey still needs runtime proof.
+
 Personal timed moments let a person get ready while MORE keeps the allotted time and moves on automatically. Spoken calendar/briefing/saved-note operations continue on their actual completion. A manual app handoff is described as manual; opening another iOS app cannot certify work inside it.
 
 ## Prepare listening before starting
