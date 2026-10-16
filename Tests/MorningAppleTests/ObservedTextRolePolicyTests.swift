@@ -5,9 +5,8 @@ import Testing
 
 @Suite("Observed provenance never substitutes for task evidence")
 struct ObservedTextRolePolicyTests {
-    private let disclaimer = "No real account, send, write or like"
-
-    @Test func visibleDisclaimerDoesNotEraseTheTaskOnTheSameFrame() throws {
+    @Test(arguments: ["No real account, send, write or like", "OFFLINE STORYBOARD • NOT NATIVE CAPTURE"])
+    func visibleDisclaimerDoesNotEraseTheTaskOnTheSameFrame(_ disclaimer: String) throws {
         let task = "09:15 Prepare eight green cards in the Cedar Room"
         let text = disclaimer + "\nHarbor Calendar\n" + task
         let units = try LearningEvidencePolicy.prepare(frames: [text])
@@ -19,7 +18,8 @@ struct ObservedTextRolePolicyTests {
         #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) { try LearningEvidencePolicy.prepare(frames: [disclaimer]) }
     }
 
-    @Test func preparedAnchorsAndFinalValidationShareTheNegativeRole() throws {
+    @Test(arguments: ["No real account, send, write or like", "OFFLINE STORYBOARD • NOT NATIVE CAPTURE"])
+    func preparedAnchorsAndFinalValidationShareTheNegativeRole(_ disclaimer: String) throws {
         let task = "09:15 Prepare eight green cards in the Cedar Room"
         let text = disclaimer + "\nHarbor Calendar\n" + task
         let frame = try ObservationFrameEvidence(requestedTimeSeconds: 0, actualTimeSeconds: 0, outcome: .observed, text: text)
@@ -42,6 +42,7 @@ struct ObservedTextRolePolicyTests {
 
     @Test func ordinaryNamesAndCloseTaskSentencesAreNotBlacklisted() {
         for text in ["Synthetic Studio", "Test Kitchen", "Demo Reader", "Cedar News • Browser SIMULATED",
+                     "Offline Journal", "Native Instruments", "Storyboard Studio",
                      "No real account was changed; review the project notes."] {
             #expect(!ObservedTextRolePolicy.isProvenanceLine(text))
         }
@@ -49,6 +50,7 @@ struct ObservedTextRolePolicyTests {
         #expect(LearningEvidencePolicy.supports(quote: task, source: task, context: task,
             kind: .visibleTaskContent, claimedKind: LearningEvidenceKind.visibleTaskContent.rawValue))
         // Written reports have their existing separate provenance contract.
+        let disclaimer = "No real account, send, write or like"
         #expect(LearningEvidencePolicy.supports(quote: disclaimer, source: disclaimer, context: disclaimer,
             kind: .userReportedActivity, claimedKind: LearningEvidenceKind.userReportedActivity.rawValue))
     }

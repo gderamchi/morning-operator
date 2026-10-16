@@ -15,9 +15,9 @@ enum ObservedTextRolePolicy {
         let folded = line.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
         let tokens = folded.split { !$0.isLetter && !$0.isNumber }.map(String.init)
         let markers: Set<String> = ["synthetic", "synthetique", "simulated", "simulation", "demo", "demonstration",
-            "test", "testing", "recording", "recorded", "capture", "captured", "enregistrement", "provenance", "watermark", "filigrane"]
+            "test", "testing", "recording", "recorded", "capture", "captured", "enregistrement", "provenance", "watermark", "filigrane", "storyboard", "offline"]
         let qualifiers: Set<String> = ["metadata", "metadonnees", "screen", "video", "version", "fr", "en",
-            "francais", "francaise", "french", "english", "anglais", "on", "le", "de", "the"]
+            "francais", "francaise", "french", "english", "anglais", "on", "le", "de", "the", "not", "native"]
         if tokens.contains(where: markers.contains), tokens.allSatisfy({
             markers.contains($0) || qualifiers.contains($0) || $0.allSatisfy(\.isNumber)
         }) { return true }
