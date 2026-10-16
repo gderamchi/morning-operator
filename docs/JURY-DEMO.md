@@ -7,12 +7,16 @@ Avant de commencer, préciser oralement : **« Le sommeil, la météo et le mess
 ## État vérifié au 16 octobre 2026
 
 - **Services réels :** rédaction libre puis révision avec OpenAI, synthèse ElevenLabs, un seul mail envoyé au compte lui-même et relu avec label SENT, destinataire et contenu exacts. La reprise serveur retrouve le reçu sans nouvel envoi.
-- **iPhone :** deux tests d’interface avec données de test passent. Un autre test utilise le vrai audio : neuf secondes en arrière-plan, pause, reprise avec lecture effective, puis arrêt. Il passe en 76,52 s ; résultat local non versionné : `work/jury-demo-final-lifecycle-verified.xcresult`.
-- **Dynamic Island :** rendu réel observé par capture et accessibilité. Les commandes restent à valider : le premier harnais mettait l’activité en pause avant d’interroger ses actions et utilisait un ancien libellé d’accessibilité. Il est adapté ; aucun défaut produit n’est établi par cet essai.
-- **Logique partagée :** commande Swift réussie après intégration de `main` (`e8312a9`), avec 1 961 tests rapportés dans 226 suites et 7 tests optionnels ignorés ; 36 tests du service réussis. Le graphe audio iOS a changé depuis (`f1878ab`) : le package macOS ne couvre pas ce code conditionnel iOS, dont le nouvel essai téléphone reste en cours.
+- **iPhone et Dynamic Island :** deux tests d’interface avec données de test passent. Sur le parcours physique normal, pause, reprise au premier plan avec véritable synthèse vocale et arrêt via la Dynamic Island passent en 109,552 s, avec neuf secondes sur l’accueil iOS à chaque phase. Le moteur et le lecteur PCM canonique sont actifs. Le résultat local `work/jury-demo-canonical-final-physical.xcresult` contient deux tests : commandes réussies, reconnaissance acoustique en échec ; l’ensemble n’est donc pas entièrement vert.
+- **Logique partagée :** commande Swift réussie après intégration de `main` (`e8312a9`), avec 1 961 tests rapportés dans 226 suites et 7 tests optionnels ignorés ; 36 tests du service réussis. Les changements du graphe audio conditionnel iOS restent distincts de cette couverture macOS.
 - **Python :** 33 méthodes réussies et une en échec, avec 133 sous-échecs pour des ressources anglaises absentes : 104 dans le catalogue principal et 29 dans MorningApple. Ces catalogues sont identiques à `main` (`463af5f`) ; défaut préexistant suivi dans [l’issue 208](https://github.com/gibouu/morning-operator/issues/208).
 - **Conversion audio numérique :** quatre cas Float32 à 44,1 kHz, mono/stéréo vers 48 kHz mono, passent sur des signaux d’une seconde et de 8,4 secondes : écart de durée nul et fin conservée. Cela ne valide pas la reconnaissance acoustique.
-- **Encore non prouvés :** conversation acoustique interactive complète, création réelle d’un rappel, connexion et navigation dans un fil Instagram. L’entrée audio examinée contient uniquement des zéros en Float32 mono 48 kHz, malgré les autorisations accordées et les indicateurs muet désactivés. Le diagnostic et l’essai du nouveau graphe continuent. La démo complète devant jury n’est pas déclarée validée.
+- **Microphone :** la parole réelle diffusée par le Mac pendant l’essai de 45 secondes ne produit aucun caractère reconnu. Un lancement autonome, hors XCTest, reproduit cette absence. Le diagnostic brut passe son cycle de vie en 81,97 s, mais capture uniquement des zéros sur environ 1,8 million de trames, même en mode `.measurement`, sans traitement vocal ni reconnaissance. Ce succès de harnais ne valide aucune voix.
+- **Encore non prouvés :** conversation acoustique interactive complète, création réelle d’un rappel — jamais atteinte —, connexion Instagram et vidéo suivante. La démo complète devant jury n’est pas déclarée validée ; suivi ouvert dans [l’issue 205](https://github.com/gibouu/morning-operator/issues/205).
+
+Apple indique que [le microphone est indisponible avec iPhone Mirroring](https://support.apple.com/en-us/120421). Mirroring n’était pas actif lors du contrôle : cette limite ne démontre pas la cause du silence observé. Il reste à parler directement au téléphone physique déverrouillé, hors Mirroring.
+
+Le diagnostic brut est réservé aux builds DEBUG et s’active explicitement avec `--jury-raw-microphone-diagnostic`. Il désactive la reconnaissance et les tours externes, ne conserve aucun audio et ne fournit que des compteurs numériques. Il ne doit pas être activé pour le passage normal.
 
 ## Préparer la répétition
 
@@ -44,7 +48,7 @@ Répéter d’abord les passages vocaux sur le téléphone. Garder les options R
 
 **1:45 — Option Instagram, après connexion et vérification du fil.** Demander de passer aux vidéos. Une fois un vrai Reel chargé dans le navigateur intégré, dire « La suivante » et vérifier le changement. Une page ouverte ou une connexion réussie ne vaut pas navigation vérifiée.
 
-**2:10 — Garder le contrôle.** Montrer l’état dans la Dynamic Island. Après validation des commandes choisies, montrer pause, reprise et arrêt. Le test audio réussi établit ces changements de lecture en arrière-plan ; il ne valide pas encore leur déclenchement par une conversation acoustique.
+**2:10 — Garder le contrôle.** Montrer l’état et les commandes de la Dynamic Island : pause, reprise vers MORE avec lecture effective, puis arrêt. Ces commandes sont vérifiées sur téléphone ; leur déclenchement par une conversation acoustique reste non validé.
 
 Le rythme dépend de la conversation et des fournisseurs. Mieux vaut montrer ces quelques effets lisibles que multiplier les étapes ou réciter un texte exact.
 
