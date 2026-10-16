@@ -40,7 +40,8 @@ struct MorningOperatorApp: App {
                         .accessibilityIdentifier("system.qaIdentity")
                         .accessibilityLabel(Text(verbatim: "\(Bundle.main.bundleIdentifier ?? "missing")|\(Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "missing")"))
                         .allowsHitTesting(false)
-                } else if let workspace = Self.testWorkspace {
+                } else if let workspace = Self.testWorkspace,
+                          !ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
                     Text(verbatim: "Test routine")
                         .font(.raleway(.caption2)).padding(4)
                         .dynamicTypeSize(.medium)

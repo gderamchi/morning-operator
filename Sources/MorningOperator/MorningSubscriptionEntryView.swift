@@ -30,7 +30,7 @@ struct MorningSubscriptionEntryView: View {
             MorningSubscriptionLegalSheet(document: document, store: store)
         }
         .task { await subscription.load() }
-        .onChange(of: store.privacyBlocksWork ? nil : store.briefing.settings.weatherLocation, initial: true) { _, location in
+        .onChange(of: store.privacyBlocksWork ? nil : store.briefing.currentWeatherLocation, initial: true) { _, location in
             MorningThemeClock.shared.setLocation(location)
         }
         .task(id: scenePhase) {
@@ -143,7 +143,7 @@ struct MorningWelcomePreview: View {
                 Text(french ? "APERÇU · AUCUN ACHAT" : "PREVIEW · NO PURCHASE")
                     .font(.system(.caption2)).padding(3)
                     .dynamicTypeSize(.medium)
-                    .background(.regularMaterial).allowsHitTesting(false)
+                    .background(.regularMaterial, in: Capsule()).allowsHitTesting(false)
                     .accessibilityIdentifier("onboarding.preview")
             }
     }
