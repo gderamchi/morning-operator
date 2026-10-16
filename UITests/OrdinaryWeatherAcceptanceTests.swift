@@ -97,7 +97,7 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
         attach("ordinary-current-location-and-weather-details")
         let resolved = element("briefing.currentLocation").exists
         outcome.append(resolved ? "CURRENT_LOCATION_RESOLVED_BY_NATIVE_PROVIDER" : "CURRENT_LOCATION_UNAVAILABLE: inspect native issue in attachment.")
-        let weatherLink = app.links.matching(NSPredicate(format: "label == %@ OR label == %@", "Weather data · Apple Weather", "Données météo · Apple Météo")).firstMatch
+        let weatherLink = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ OR label == %@", "Weather data · Apple Weather", "Données météo · Apple Météo")).firstMatch
         _ = waitUntil(25) { weatherLink.exists }
         var measuredRows = false
         for index in 1...5 {
@@ -116,10 +116,12 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
         app.terminate()
         app.launch()
         XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
-        _ = waitUntil(25) { self.app.links["morning.weatherCredit"].exists }
+        _ = waitUntil(25) {
+            let value = self.app.buttons["morning.actions"].value as? String ?? ""
+            return value.contains("Current location:") || value.contains("Position actuelle:")
+        }
         attach("ordinary-home-weather-status")
         outcome.append("HOME_WEATHER_STATUS_AFTER_RELAUNCH: \(app.buttons["morning.actions"].value ?? "not exposed")")
-        outcome.append("HOME_NATIVE_WEATHER_CREDIT_AFTER_RELAUNCH=\(app.links["morning.weatherCredit"].exists)")
         attach("ordinary-live-sky-0s")
         for index in 1...4 {
             Thread.sleep(forTimeInterval: 3)

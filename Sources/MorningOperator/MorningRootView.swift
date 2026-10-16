@@ -1341,11 +1341,6 @@ private struct MorningSunHome: View {
                     VStack(spacing: 0) {
                         playback
                             .shadow(color: night > 0.5 ? .black.opacity(0.65) : .clear, radius: 2, y: 1)
-                        if let attribution = clock.weatherAttribution, !weatherSynthetic {
-                            weatherCredit(attribution, night: night)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 28)
-                        }
                     }
                 } else if actionsShown {
                     Button {
@@ -1386,11 +1381,6 @@ private struct MorningSunHome: View {
                         .frame(maxWidth: 640, maxHeight: .infinity, alignment: .leading)
                         .accessibilityIdentifier("morning.complete")
                 }
-                if playback == nil, let attribution = clock.weatherAttribution, !weatherSynthetic {
-                    weatherCredit(attribution, night: night)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 24).padding(.bottom, 8)
-                }
                 if playback == nil, let notice, !notice.isEmpty {
                     Text(notice).font(.raleway(.subheadline))
                         .padding(28).frame(maxWidth: 540)
@@ -1410,20 +1400,6 @@ private struct MorningSunHome: View {
         }
     }
 
-    private func weatherCredit(_ attribution: WeatherAttributionInfo, night: Double) -> some View {
-        Link(destination: attribution.legalURL) {
-            AsyncImage(url: night > 0.5 ? attribution.combinedMarkDarkURL : attribution.combinedMarkLightURL) { phase in
-                if let image = phase.image {
-                    image.resizable().scaledToFit().frame(width: 100, height: 18)
-                } else {
-                    Text(attribution.serviceName).font(.raleway(.caption))
-                }
-            }
-            .frame(minWidth: 100, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel(attribution.serviceName)
-        .accessibilityIdentifier("morning.weatherCredit")
-    }
+
 
 }
