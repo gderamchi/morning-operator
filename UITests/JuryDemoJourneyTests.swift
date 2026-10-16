@@ -380,9 +380,20 @@ final class JuryDemoJourneyTests: XCTestCase {
     private func expandedJuryIslandControl(_ identifier: String, in springboard: XCUIApplication) -> XCUIElement {
         let control = springboard.descendants(matching: .any).matching(identifier: identifier).firstMatch
         if !control.waitForExistence(timeout: 5) || !control.isHittable {
-            let compact = springboard.otherElements.matching(NSPredicate(format:
-                "identifier == %@ AND label BEGINSWITH[c] %@", "regular.view", "MORE."))
-            XCTAssertTrue(compact.firstMatch.waitForExistence(timeout: 10),
+            let compact = springboard.otherElements.matching(identifier: "regular.view")
+                .containing(NSPredicate(format: "label BEGINSWITH[c] %@", "MORE."))
+            let compactAppeared = compact.firstMatch.waitForExistence(timeout: 10)
+            if !compactAppeared || compact.count != 1 {
+                let hierarchy = XCTAttachment(string: springboard.debugDescription)
+                hierarchy.name = "jury-island-missing-or-ambiguous-compact"
+                hierarchy.lifetime = .keepAlways
+                add(hierarchy)
+                let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                screenshot.name = "jury-island-before-compact-assertion"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+            }
+            XCTAssertTrue(compactAppeared,
                           "The observed compact MORE activity must be present; no coordinate fallback is allowed.")
             XCTAssertEqual(compact.count, 1, "An ambiguous MORE activity is not safe to open automatically.")
             compact.firstMatch.press(forDuration: 1.2)
