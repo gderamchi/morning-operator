@@ -91,6 +91,7 @@ struct AppLanguageTests {
                 defaults.setPersistentDomain(["more.appLanguage": "fr", "AppleLanguages": ["en"],
                                               "unrelated": "kept"], forName: name)
                 defaults.setVolatileDomain(["AppleLanguages": ["fr"]], forName: UserDefaults.argumentDomain)
+                #expect(defaults.array(forKey: "AppleLanguages") as? [String] == ["fr"])
                 AppLanguage.removeLegacyLanguageOverride(in: defaults, domainName: name)
                 let domain = try #require(defaults.persistentDomain(forName: name))
                 #expect(domain["more.appLanguage"] == nil)

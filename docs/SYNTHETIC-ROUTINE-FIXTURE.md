@@ -313,3 +313,34 @@ session and a real timed remainder. Its Slack transport is explicitly simulated
 and deliberately loses one response, which must remain uncertain without a
 retry. It is prepared for native execution, **not a runtime pass**, voice proof,
 video-import proof or live-provider proof.
+
+### Next diagnostic iteration
+
+The origin clarification alone did **not** repair generation. Full movie v6
+(`d193826`, unchanged Apple products/source from `f09ad84`) failed after
+**126.187s**, again at empty-list assembly. Its ten SDK invocations all returned
+and validated with explicit `insufficientEvidence`, zero steps and 8–15 anchors
+per batch. Context again completed 12/12 batches without a technical failure,
+with two identified and 22 ambiguous frames. The source fingerprint is unchanged
+and the scorer remains exit **4**. Both v5 and v6 initially prepared eight
+requests; their final SDK workloads were nine and ten respectively. Metadata is
+included in rebatching.
+
+The first real two-frame synthetic positive control on `f09ad84` also failed
+after **18.383s**, with one SDK invocation, return and validation but zero resolved
+steps. Its aggregate diagnostic did not record the batch outcome: this control
+alone cannot distinguish explicit abstention from `supportedActivities` with an
+empty array. A separately flagged written-activity control and detailed bounded
+diagnostics are prepared for the next iteration; neither has run yet.
+
+| Check | Verified result and boundary |
+| --- | --- |
+| Package v10 on `f09ad84`, with the two real OCR tests explicitly separated | Build **19.26s**; Health **4 passed**; Apple **1,001 reported**, nine optional skips, zero issues in **19.899s**; Core **724 reported**, one English-label expectation failed. This is not a fully green package run |
+| The two real OCR tests alone on the same products | **2 passed**, **49.947s**; `/tmp/more-integrated-synthetic-package-v10-ocr-only.log` |
+| Core v11 on `d193826` | **725 reported**, seven issues in two media-warning tests. Two disposable Foundation probes then confirmed that the migration test's `NSArgumentDomain` overlay changes `Locale.preferredLanguages` across all defaults instances in the test process. The claimed isolation was incorrect; a per-instance test-double correction is pending validation |
+| Native build9 on `bd2801a` | Build failed on the mixed fixture's use of an internal Slack initializer; no runtime |
+| Native build9b on `f09ad84` | **TEST BUILD SUCCEEDED**, frozen binary/test/xctestrun hashes retained in `work/acceptance-ux-build9b-source.json`. A fixed-draft factory now exists only in DEBUG, behind the private flags and unique workspace. The mixed native journey is in progress, with no result claimed here |
+
+Do not change production read deadlines or translate unrelated expectations to
+hide a process-wide test-preference leak. Preserve the failed logs, the immutable
+movie and independent oracle while repairing that test boundary.
