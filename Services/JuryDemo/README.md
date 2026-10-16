@@ -39,6 +39,8 @@ Cette configuration **dépend du Mac allumé**, du service lancé et d'une conne
 
 Le doublon iOS doit déclarer son accès au réseau local et autoriser cette origine locale dans sa configuration ATS ; ces réglages ne rendent pas un serveur distant accessible. Si le Wi-Fi du jury isole ses clients ou bloque Bonjour, utiliser un réseau local maîtrisé et vérifier la connexion depuis le téléphone avant de commencer. Garder le Mac éveillé pendant la démo. Aucun hébergement cloud ni fonctionnement autonome loin du Mac n'est établi par cette installation.
 
+Les diagnostics microphone de la variante DEBUG restent distincts de ce service : le contrôle `AVAudioRecorder` n’appelle aucune route et ne modifie pas une ancienne session serveur. Son état, les résultats physiques et les prérequis USB des essais sont consignés dans [le parcours jury](../../docs/JURY-DEMO.md). Une compilation ou un lancement du diagnostic ne prouve pas une capture audible.
+
 ## Contrat iPhone
 
 Toutes les routes sauf `/health` exigent `Authorization: Bearer <JURY_DEMO_TOKEN>`. Les POST exigent `Content-Type: application/json` ; les réponses ne sont pas mises en cache.
