@@ -50,9 +50,11 @@ tests. No browser feed, media, story, like, real account or provider send is
 included in this slice.
 
 Validation status: targeted Core/Apple contracts and integrated packagev18 pass.
-Frozen9j builds, but both EN/FR WebKit journeys fail before the delegated action:
-the test inspects Home behind an already open browser and taps through the sheet.
-An incidentally opened second article is not credited as an agent action. The
-corrected test first observes the foreground close/title controls and registered
-headlines resource. Fresh native validation is pending in build9k; no successful
-article, Repeat, return, real-service or acoustic proof is claimed yet.
+Frozen9j fails before the delegated action by inspecting Home behind an already
+open browser. Frozen9k on `c3cbd3b` corrects that handover and observes the actual
+foreground close/title controls and registered headlines resource, but both
+languages still fail because the native second ordinal is absent. Three DOM
+titles are visible; they do not prove three admitted article links. The next
+build exposes only private parsed/admitted/unique counts, builder-presence bits,
+fixed refusal codes and the live retained-link count to locate the loss. No
+successful article, Repeat, return, real-service or acoustic proof is claimed.

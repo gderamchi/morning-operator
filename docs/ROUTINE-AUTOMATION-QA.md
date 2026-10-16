@@ -68,7 +68,89 @@ The corrected snapshot `c9332ca`, including Home changes through `554a614`, pass
 
 The later Home decision (`99ef99d`, `3dfed93`) replaces scrolling history with a single short passage and tap-revealed controls that disappear after five seconds. It is integrated with the action-state correction, using the same passage instead of a permanent status/button panel. Build6 of the previous scene succeeds, but its six runtime journeys were deliberately not started after this product change. The new scene, its speech-chunk changes and adapted runtime journeys require fresh validation; the 1,598-test checkpoint above does not cover them.
 
-## Latest checkpoint — 16 October 2026: separate execution and learning gates
+## Latest native checkpoint — 16 October 2026, frozen9k / `c3cbd3b`
+
+Seventeen distinct native journeys finish **8 passed, 9 failed, 0 skipped**.
+Their sealed app/UI-test products remain unchanged. Results are local to their
+own workspace and scenario; they are not combined into MORE §10 acceptance.
+
+- The strict Calendar smoke passes in80.344s, with an independently reviewed
+  native prefix/date/fact clear of Pause in standard portrait. Three Gmail
+  journeys, Home caption drag and French XXXL Outlook setup pass.
+- The French parsed synthetic routine passes in251.970s through editing,
+  approval and relaunch. It is an explicitly imported manual draft, not video
+  learning. Ten short-budget moments pass in97.417s, retaining order/session
+  through the fifth-moment pause/relaunch and restoring the recap. This is
+  separate from the 28-minute Long10 path and proves no provider effect.
+- Private EN/FR News still fail before the native article ordinal. Three DOM
+  titles render, but there is no native `web.article.2`; no delegated article,
+  Repeat or return is credited. The next build adds private snapshot admission
+  counts to distinguish missing parsed links from later clearing.
+- Long10 fails before approval/Start in149.308s: the selected Slack sheet's
+  Use control is below the viewport, while the helper scrolls the editor behind
+  it. The foreground-container correction is integrated for the next build.
+- Screen Time's French XXXL switch stays selected after its tap. Slack EN/FR
+  fail to reveal Settings before preparation. Neither failure has yet been
+  isolated between the control and its helper. The three-source merge fails
+  its planned-minutes assertion, but its final recording is zero bytes and
+  final snapshots contain only the app root; cause remains unknown.
+- Reddit's wait for two observed contents expires before cold relaunch, even
+  though the later failure capture shows two. No persistence/deduplication
+  result is credited. Public News shows a real consent wall, but no typed
+  refusal; it is a failure, not a successful reading or an expanded skip.
+
+The next source integrates the current main, exact-reminder private transport
+and displayed-minute precision fix, pure-provenance citation exclusion,
+foreground Slack scrolling, History navigation and schema diagnostics. These
+changes still need their own compiled/native results. App-owned UI and runtime
+behavior must remain French and English according to the current AGENTS rule.
+
+On `ee5d180`,77 reported shared tests in four affected suites pass with one
+optional preparation replay skipped. This covers provenance exclusion, native
+moment precision/transport, context schema and the current model route. It is
+not an app or full-package result.
+
+Full packagev19 on `8c302aa` passes with2,098 reported tests (51 LiveDemo,
+8 Health,774 Core,1,265 Apple),16 optional skips and the same two real OCR
+tests separately excluded. This compiled scope includes the new OCR guard and
+reminder precision contracts. No later app/UI-test fix is promoted by this
+shared-package result.
+
+The explicitly authorized OCR-only OpenAI replay on `6b73592` completes in
+81.709s:7 actual requests,7 returns, all HTTP200, and8 natively validated draft
+moments using the current `gpt-6-luna/high` route. Its two local guards also pass.
+Only the frozen invented OCR texts were eligible to leave the machine; no movie,
+audio, oracle or personal data was transmitted. The interface language is EN,
+with original FR quotes retained. The report is expressly an OCR replay, not
+fresh extraction/classification or a complete video-learning result. Independent
+review finds all9 citations byte-exact,9 cited frames out of24, and18 proposed
+minutes. Eight of nine source families have some cited content; that is not
+eight faithfully reconstructed activities. Gmail and Slack collapse into one
+generic message moment, the feed is split twice, and music is omitted. The
+native kind/title deduplication permits the cross-source merge and is being
+corrected separately. The draft stays synthetic and unapproved, without actions,
+targets or personal Keep authority. Absence of an inferred Keep or explicit
+recap is correct because no personal preference journal/base was supplied.
+
+CI on the preceding c3 source builds the app successfully but fails package
+schema assertions and14 proposal UI journeys (one additional skip). The package
+log omits the actual enum encoding, so the assertion is retained with a new
+diagnostic. The proposal helpers still address the removed Home date control;
+their replacement follows Home → Settings → History. Later obsolete `run.*`
+controls were subsequently migrated to real Begin/Continue/Pause and Settings
+routes, without a runtime result yet. On `ee5d180`, the diagnostic establishes
+the package cause: SDK26.6 encodes the exact choices as an anyOf of singleton
+enums; SDK27 uses one enum. The compatibility assertion is being corrected to
+check the same exact choices. That CI app build also catches private snapshot
+visibility in the new reminder diagnostic; it is corrected by querying the
+provider's already-validated private capability. The next native build must
+verify compilation. Neither earlier failure is reclassified as green.
+
+Full MORE §10, movie learning, the 28-minute Long10, ordinary-iPhone acoustic
+proof and the single authorized self-mail remain open in issue173. The task
+branch is pushed in PR211; this task has not yet updated remote main.
+
+## Prior package and learning checkpoint — 16 October 2026
 
 - **Package v18, compiled from `ae231e0`: zero issues, 2,093 reported tests**
   (51 LiveDemo, 8 Health, 774 Core, 1,260 Apple), including **15 optional skips**.
@@ -124,9 +206,10 @@ checks are absent from the reported optional-skip lines. The previous correction
 subtracting them from those log counts was wrong. Nineteen Python scorer
 regressions pass, separately from these Swift and native gates.
 
-Main through `d5d9b0e` is integrated into the task branch, but this task has not
-updated remote main. Draft PR #211 has skipped CI checks, not executed green
-checks. Full MORE §10, ordinary-iPhone acoustic/provider proof and the single
+At that checkpoint main through `d5d9b0e` was integrated into the task branch,
+but this task had not updated remote main. PR #211 was subsequently marked
+ready; the actual CI failures are recorded above. Full MORE §10,
+ordinary-iPhone acoustic/provider proof and the single
 authorized self-mail remain open in [issue #173](https://github.com/gibouu/morning-operator/issues/173).
 See the [fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md) for source-specific receipts,
 failed experiments, immutable media and the distinct manual-oracle path.
