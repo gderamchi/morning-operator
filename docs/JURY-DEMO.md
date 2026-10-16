@@ -47,6 +47,8 @@ Le service local sur le port 8791 fonctionne actuellement dans un processus dét
 
 Le candidat corrigé porte le numéro **2** dans le bundle Démo uniquement, pour le distinguer du premier doublon installé (build 1). La signature, le build réellement installé et les contrôles physiques de ce candidat doivent rester des preuves séparées.
 
+Sur le code combiné `7e2b4f1`, les **115 tests Swift ciblés dans huit suites** passent, y compris les nouvelles protections de lecture et de sous-titres. Le `build-for-testing` iPhone réussit ; la signature stricte du doublon est valide et son plist donne version `0.1.0`, build `2`. Le test UI bilingue de refus est compilé, mais pas encore exécuté. Le build 2 n’est pas encore installé : le téléphone reste réservé aux autres contrôles coordonnés. Ces résultats ne valident aucune nouvelle capture, aucun rappel ni navigation Instagram.
+
 ## Parcours visé de deux à trois minutes
 
 Répéter d’abord les passages vocaux sur le téléphone. Garder les options Rappels et Instagram seulement après leur validation réelle ; les tests du serveur ne suffisent pas à les certifier.
