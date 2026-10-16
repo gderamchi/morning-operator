@@ -104,8 +104,12 @@ Fresh main through `d5d9b0e` is integrated separately. Package v16 on
 two real OCR tests excluded). Actual written/advert controls pass, but full
 movie v9 still fails: all ten proposal responses abstain (72.747s, scorer 4).
 The shorter-instruction experiment regresses both positive controls and is
-reverted in `30b8d4b`; retained Sources/Tests equal `42dc82b`. The new native
-build still has to validate the downstream manual path. Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
+reverted in `30b8d4b`; retained Sources/Tests equal `42dc82b`. Native9e builds but its Calendar smoke fails in 73.282s before approval or
+TTS: the helper scrolled the wrong form while the keyboard remained open.
+Its test-only correction requires a new native run. Long10/follow-up remain
+unrun. A separate supported-first branch-order contrast also fails to improve
+visual inference and is reverted in `91f6ae3`; retained model code remains
+`42dc82b`. Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
 and [issue #173](https://github.com/gibouu/morning-operator/issues/173).
 
 ## Earlier source-specific checkpoint — `830e9cd`, 16 October 2026

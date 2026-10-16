@@ -504,3 +504,21 @@ controls abstain (while the advert remains excluded). It is reverted in
 experiments do not change the movie, manual oracle, negative stimuli or native
 validation. The next native build exercises the independent downstream manual
 path and cannot be credited as fixing video learning.
+
+### Native9e precondition failure and isolated order contrast
+
+Frozen native9e (`d725b9d`) builds and seals successfully. Its single Calendar
+smoke **fails in 73.282s before approval/Begin/TTS**, while trying to configure
+`step.automation`. Capture/AX show the Step details keyboard still focused and
+the action below the unmaterialized form fold; the test had scrolled a different
+hittable container. This establishes no TTS availability/failure. Long10 and the
+13-test follow-up were not started. `1ee8337` prepares a test-only real gesture
+in the exact form and resolves the action by its exact identifier across native
+AX types; configuration/approval, budgets and assertions are unchanged. It
+requires a new native build/run, not credit from the source patch.
+
+A separate two-line supported-first union order contrast (`1d103b9`) survives
+pure SDK/schema checks but improves neither the original visual positive nor
+the archived agenda frame (explicit abstention, 2.001s). Written and advert
+controls still pass. It is reverted in `91f6ae3`; retained model code remains
+`42dc82b`. No failed experiment is included merely to accumulate instructions.
