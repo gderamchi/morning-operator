@@ -41,9 +41,31 @@ final class MorningPermissionSetupTests: XCTestCase {
         add(screenshot)
     }
 
-    private func launchFixture(denied: Bool = false) -> XCUIApplication {
+    func testFrenchLargestTextExplainsEveryAccessAndReturnsToTopWithoutAnimation() {
+        let app = launchFixture(frenchLargestText: true)
+        for permission in ["location", "calendar", "reminders", "screenTime", "speech", "microphone", "notifications", "alarms"] {
+            XCTAssertTrue(app.staticTexts["permissions.title.\(permission)"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["MORE"].isHittable, "Each new explanation must start at its top, even after scrolling through the previous one.")
+            let skip = app.buttons["permissions.skip"]
+            reveal(skip, app)
+            XCTAssertEqual(skip.label, "Plus tard")
+            skip.tap()
+        }
+        let finish = app.buttons["permissions.finish"]
+        reveal(finish, app)
+        XCTAssertEqual(finish.label, "Ouvrir MORE")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "synthetic-permissions-french-accessibility-largest-completion"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        finish.tap()
+        XCTAssertTrue(finish.waitForNonExistence(timeout: 5))
+    }
+
+    private func launchFixture(denied: Bool = false, frenchLargestText: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-permissions", "--ui-testing-workspace=\(UUID().uuidString)", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-permissions", "--ui-testing-workspace=\(UUID().uuidString)", "-AppleLanguages", frenchLargestText ? "(fr)" : "(en)", "-AppleLocale", frenchLargestText ? "fr_FR" : "en_US"]
+        if frenchLargestText { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
         if denied { app.launchArguments.append("--ui-testing-permissions-denied") }
         app.launch()
         return app

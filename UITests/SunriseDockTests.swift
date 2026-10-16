@@ -254,7 +254,7 @@ final class SunriseDockTests: XCTestCase {
 
     func testMeasuredWindChangesAClearSkyAndFollowsItsDirection() {
         var poses: [String: Data] = [:]
-        for weather in ["calm", "breeze", "strongWind", "westWind", "eastWind", "humid"] {
+        for weather in ["calm", "breeze", "gustOnly", "strongWind", "westWind", "eastWind", "humid"] {
             let app = launch(weather: weather, extra: ["--theme-motion-time=3.2"])
             assertQuietArrival(in: app)
             let screenshot = app.buttons["morning.actions"].screenshot()
@@ -265,7 +265,7 @@ final class SunriseDockTests: XCTestCase {
             assertReachable("morning.closeActions", in: app)
             app.terminate()
         }
-        for (first, second) in [("calm", "breeze"), ("breeze", "strongWind"), ("westWind", "eastWind"), ("calm", "humid")] {
+        for (first, second) in [("calm", "breeze"), ("calm", "gustOnly"), ("breeze", "strongWind"), ("westWind", "eastWind"), ("calm", "humid")] {
             XCTAssertNotNil(poses[first])
             XCTAssertNotNil(poses[second])
             XCTAssertNotEqual(poses[first], poses[second],
@@ -274,7 +274,7 @@ final class SunriseDockTests: XCTestCase {
     }
 
     func testMeasuredWindAndHumidityStayStillWithReducedMotion() {
-        for weather in ["breeze", "strongWind", "eastWind", "humid"] {
+        for weather in ["breeze", "gustOnly", "strongWind", "eastWind", "humid"] {
             var firstPose: Data?
             for seconds in [3.2, 12.0] {
                 let app = launch(weather: weather, extra: ["--ui-testing-reduce-motion", "--theme-motion-time=\(seconds)"])

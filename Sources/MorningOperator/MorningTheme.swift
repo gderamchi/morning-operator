@@ -110,7 +110,7 @@ final class MorningThemeClock {
         #if DEBUG
         if let option = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--theme-weather=") }) {
             let value = String(option.dropFirst("--theme-weather=".count))
-            if ["unavailable", "calm", "breeze", "strongWind", "westWind", "eastWind", "humid"].contains(value)
+            if ["unavailable", "calm", "breeze", "gustOnly", "strongWind", "westWind", "eastWind", "humid"].contains(value)
                 || MorningWeatherCondition(rawValue: value) != nil { return value }
         }
         #endif
@@ -121,6 +121,7 @@ final class MorningThemeClock {
         switch name {
         case "calm": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 0)
         case "breeze": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 2, windGustMetersPerSecond: 4)
+        case "gustOnly": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 0, windGustMetersPerSecond: 12)
         case "strongWind": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 15, windGustMetersPerSecond: 25)
         case "westWind", "eastWind":
             MorningWeatherScene(condition: .partlyCloudy, cloudCover: 0.3,

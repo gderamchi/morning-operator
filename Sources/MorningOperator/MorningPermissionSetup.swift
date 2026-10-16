@@ -32,7 +32,7 @@ final class MorningPermissionSetup {
     init(directory: URL, isolated: Bool) {
         self.isolated = isolated
         control = LocalDataControl(directory: directory)
-        file = AtomicJSONFile(url: directory.appendingPathComponent("permission-setup.json"))
+        file = AtomicJSONFile(url: directory.appendingPathComponent("permission-setup.json"), maximumBytes: 16 * 1_024)
         do {
             progress = try control.withReadyAccess { state in
                 generation = state.generation
@@ -65,7 +65,8 @@ final class MorningPermissionSetup {
     func revisit() {
         guard !isRequesting else { return }
         remaining = supported; lastOutcome = nil
-        isPresented = true
+        var transaction = Transaction(); transaction.disablesAnimations = true
+        withTransaction(transaction) { isPresented = true }
     }
 
     func skip() {
@@ -102,13 +103,17 @@ final class MorningPermissionSetup {
                         store.refreshScreenTimeAccess()
                         allowed = store.screenTimeSource.access == .approved
                     case .speech:
-                        let raw = await withCheckedContinuation { continuation in
-                            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0.rawValue) }
+                        let raw = await withCheckedContinuation { (continuation: CheckedContinuation<Int, Never>) in
+                            let completion: @Sendable (SFSpeechRecognizerAuthorizationStatus) -> Void = {
+                                continuation.resume(returning: $0.rawValue)
+                            }
+                            SFSpeechRecognizer.requestAuthorization(completion)
                         }
                         allowed = raw == SFSpeechRecognizerAuthorizationStatus.authorized.rawValue
                     case .microphone:
-                        allowed = await withCheckedContinuation { continuation in
-                            AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) }
+                        allowed = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                            let completion: @Sendable (Bool) -> Void = { continuation.resume(returning: $0) }
+                            AVAudioApplication.requestRecordPermission(completionHandler: completion)
                         }
                     case .notifications:
                         allowed = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
@@ -132,7 +137,11 @@ final class MorningPermissionSetup {
         }
     }
 
-    func finish() { guard !isRequesting else { return }; isPresented = false }
+    func finish() {
+        guard !isRequesting else { return }
+        var transaction = Transaction(); transaction.disablesAnimations = true
+        withTransaction(transaction) { isPresented = false }
+    }
 
     func cancelForBackground() {
         attempt = nil; requestTask?.cancel(); requestTask = nil; isRequesting = false
@@ -256,7 +265,7 @@ private extension MorningPermission {
     }
     var explanation: String {
         switch self {
-        case .location: MorningPermissionSetup.text("While MORE is open, your location brings you local weather and a sky that follows the sun. Your coordinates go to Apple Weather for the forecast and stay out of your saved history. An approximate location is enough; you can choose a city instead.", "Quand MORE est ouvert, votre position apporte la météo locale et un ciel qui suit le soleil. Vos coordonnées sont transmises à Apple Météo pour la météo et ne sont pas enregistrées dans votre historique. Une position approximative suffit ; vous pouvez aussi choisir une ville.")
+        case .location: MorningPermissionSetup.text("While MORE is open, your location brings you local weather and a sky that follows the sun. Your coordinates go to Apple Weather for local conditions and stay out of your saved history. An approximate location is enough; you can choose a city instead.", "Quand MORE est ouvert, votre position apporte la météo locale et un ciel qui suit le soleil. Vos coordonnées sont transmises à Apple Météo pour la météo et ne sont pas enregistrées dans votre historique. Une position approximative suffit ; vous pouvez aussi choisir une ville.")
         case .calendar: MorningPermissionSetup.text("MORE can read your upcoming events for your morning recap. Apple requires full calendar access; you choose which calendars MORE reads in Settings. Saving an event still needs your instruction.", "MORE peut lire vos prochains rendez-vous pour votre récap du matin. Apple exige l’accès complet ; vous choisissez les calendriers à lire dans les réglages. Enregistrer un événement nécessite toujours votre instruction.")
         case .reminders: MorningPermissionSetup.text("MORE can read upcoming reminders and save a thought as a reminder when you ask. Permission alone never creates, changes or completes a reminder.", "MORE peut lire vos rappels à venir et enregistrer une idée en rappel à votre demande. Cette autorisation ne crée, ne modifie et ne termine aucun rappel à elle seule.")
         case .screenTime: MorningPermissionSetup.text("Available app-use times help MORE understand your morning habits and propose a routine for you to review. The available coverage depends on your iPhone and Apple's approval; it doesn't reveal what you read inside other apps.", "Les durées d’utilisation disponibles aident MORE à comprendre vos habitudes et à proposer une routine à relire. La couverture dépend de votre iPhone et de l’autorisation Apple ; elle ne révèle pas ce que vous lisez dans les autres apps.")

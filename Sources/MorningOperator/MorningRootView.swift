@@ -1381,8 +1381,8 @@ private struct MorningSunHome: View {
             }
             if needsSolarCity {
                 Button(action: openSettings) {
-                    Text(isFrench ? "Choisissez votre ville dans Votre journée pour adapter le ciel à l’heure et à la météo."
-                                  : "Choose your city in Your day for local daylight and weather.")
+                    Text(isFrench ? "Autorisez la localisation ou choisissez une ville dans Votre journée pour adapter le ciel à la météo locale."
+                                  : "Allow location or choose a city in Your day for local daylight and weather.")
                         .font(.raleway(.caption)).multilineTextAlignment(.leading).opacity(0.75)
                         .frame(minHeight: 44, alignment: .leading).contentShape(Rectangle())
                 }

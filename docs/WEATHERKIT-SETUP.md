@@ -1,6 +1,6 @@
 # Enable real Apple Weather on an iPhone
 
-The app already calls native WeatherKit for the deliberately selected city. A paid Apple Developer Program team must authorize and sign that app; a Personal Team cannot enable WeatherKit. This guide prepares a WeatherKit-only build without requiring the unrelated Screen Time capabilities. It does not establish a successful live weather response.
+The app calls native WeatherKit for an authorized current position or a deliberately selected city. A paid Apple Developer Program team must authorize and sign that app; a Personal Team cannot enable WeatherKit. This guide prepares a WeatherKit-only build without requiring the unrelated Screen Time capabilities. It does not establish a successful live weather response.
 
 ## Paid-team owner
 
@@ -79,7 +79,7 @@ xcrun devicectl device process launch --device "$MORE_DEVICE_ID" \
 Use no `--ui-testing`, `--theme-weather`, `--theme-phase`, `MO_THEME_PHASE` or `MORNING_OPERATOR_DATA_DIR` override. Do not use a synthetic workspace or reset the owner's data.
 
 1. On Home, reveal the controls and open **Settings → Calendar & weather** (also reachable through **Apps & accounts → Calendar & weather**).
-2. Choose **Use my current location** and allow the explained iPhone location request, or keep a deliberately selected city. Verify that the resolved current position or selected city is shown before checking the weather. Leave calendars and the routine unchanged.
+2. Choose **Current location**, tap **Allow location** and allow the explained iPhone location request, or keep a deliberately selected city. Verify that the resolved current position or selected city is shown before checking the weather. Leave calendars and the routine unchanged.
 3. Return to Home and allow the bounded weather request to finish. With a fresh app process, the **Apple Weather** credit on the quiet sky and the chosen city's actual condition in the revealed controls establish a new admitted native result. There must be no “sample”, “Weather preview” or synthetic-source marker. The credit links to Apple's data sources; verify that its native mark loads.
 4. A developer can assert the same UI state in the UI-test target using `morning.weatherCredit` and `morning.weatherStatus`, without adding fixture launch arguments or changing saved sources. Do not add phone-control code to the app target.
 

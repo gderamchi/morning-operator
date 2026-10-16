@@ -30,7 +30,12 @@ public protocol WeatherDeviceLocationProviding: AnyObject {
 /// cancelled, denied or late callback can never complete a subsequent request.
 @MainActor
 public final class WeatherDeviceLocation: NSObject, WeatherDeviceLocationProviding, @preconcurrency CLLocationManagerDelegate {
-    private var manager: CLLocationManager
+    private lazy var manager: CLLocationManager = {
+        let manager = CLLocationManager()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyKilometer
+        return manager
+    }()
     private let clock: any Clock<Duration>
     private let timeout: Duration
     private var authorizationContinuation: CheckedContinuation<Bool, any Error>?
@@ -39,13 +44,9 @@ public final class WeatherDeviceLocation: NSObject, WeatherDeviceLocationProvidi
     private var attempt: UUID?
 
     public init(timeout: Duration = .seconds(8), clock: any Clock<Duration> = ContinuousClock()) {
-        manager = CLLocationManager()
         self.timeout = min(max(timeout, .milliseconds(1)), .seconds(10))
         self.clock = clock
         super.init()
-        manager.delegate = self
-        // Weather needs a neighborhood, not a precise movement history.
-        manager.desiredAccuracy = kCLLocationAccuracyKilometer
     }
 
     public var authorization: WeatherLocationAuthorization {
@@ -95,8 +96,8 @@ public final class WeatherDeviceLocation: NSObject, WeatherDeviceLocationProvidi
     }
 
     public func cancel() {
-        if let attempt { fail(CancellationError(), id: attempt) }
-        manager.stopUpdatingLocation()
+        guard let attempt else { return }
+        fail(CancellationError(), id: attempt)
     }
 
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

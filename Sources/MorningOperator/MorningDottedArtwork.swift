@@ -507,7 +507,7 @@ struct MorningQuietLandscape: View {
                     // The expensive dot grids are traced once, outside the timeline.
                     let stamps = cloudStamps(size: size, weather: weather)
                     let moves = weather.cloudCoverage > 0 || weather.precipitation != .none
-                        || weather.windIntensity > 0 || weather.atmosphericVeil > 0
+                        || weather.windIntensity > 0 || weather.windGustIntensity > 0 || weather.atmosphericVeil > 0
                         || weather.atmosphere != .clear || weather.condition == .hot
                     TimelineView(.animation(minimumInterval: 1 / 24,
                                             paused: !MorningSkyAnimation.runs(animated && active && moves))) { timeline in
@@ -723,7 +723,9 @@ struct MorningQuietLandscape: View {
     }
 
     private func wind(in context: GraphicsContext, size: CGSize, weather: MorningWeatherScene, night: Double, seconds: Double) {
-        let intensity = weather.windIntensity
+        // Calm sustained wind can still carry measured gusts. Keep those breaths
+        // occasional and smaller than an equally strong sustained wind.
+        let intensity = max(weather.windIntensity, weather.windGustIntensity * 0.35)
         guard intensity > 0 else { return }
         let gust = weather.windGustIntensity
         let count = 2 + Int(ceil(intensity * 5))
