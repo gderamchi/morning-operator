@@ -543,7 +543,7 @@ struct SetupView: View {
         .fullScreenCover(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
         .sheet(isPresented: $choosingHealth) { MorningHealthView(store: store) }
         .sheet(isPresented: $choosingConversation) { MorningConversationView(store: store) }
-        .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
+        .sheet(isPresented: $choosingVoice) { VoicePickerView(store: store) }
         .sheet(isPresented: $preparingVoiceAccess) { MorningVoicePreparationView(store: store) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
         .onAppear { store.voiceAccess.refresh(language: store.voicePreparationLanguage) }

@@ -320,6 +320,17 @@ final class LocalizationJourneyTests: XCTestCase {
         XCTAssertEqual(app.buttons["voice.gender.male"].label, french ? "Homme" : "Male")
         XCTAssertEqual(app.buttons["voice.gender.female"].label, french ? "Femme" : "Female")
         attach(french ? "localization-fr-voices" : "localization-en-voices", app)
+        let preview = app.buttons["voice.preview"]
+        XCTAssertEqual(preview.label, french ? "Écouter" : "Listen")
+        preview.tap()
+        let stop = app.buttons["voice.stopPreview"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5), app.debugDescription)
+        let speaking = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@",
+            french ? "Lecture en cours…" : "Speaking…"), object: preview)
+        XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 10), .completed, app.debugDescription)
+        XCTAssertEqual(app.alerts.count, 0, "The fixed sample never requests microphone access.")
+        stop.tap()
+        XCTAssertTrue(stop.waitForNonExistence(timeout: 5))
         app.buttons["voice.done"].tap()
     }
 
@@ -331,7 +342,7 @@ final class LocalizationJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["voice.gender.female"].exists)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'voice.gender.'")).count, 2)
         XCTAssertFalse(app.buttons["voice.default"].exists)
-        XCTAssertFalse(app.buttons["voice.preview"].exists)
+        XCTAssertTrue(app.buttons["voice.preview"].exists)
         XCTAssertEqual(app.searchFields.count, 0)
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "ElevenLabs")).firstMatch.exists)
     }

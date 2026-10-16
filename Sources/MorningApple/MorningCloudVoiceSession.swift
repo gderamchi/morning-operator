@@ -116,8 +116,8 @@ public final class MorningCloudVoiceSession {
     }
 
     /// Only call after the cloud audio purpose and selected context have been explained.
-    public func start(context: MorningCloudVoiceContext, language: String,
-                      voiceGender: MorningVoiceGender = .female, consented: Bool) async {
+    public func start(context: MorningCloudVoiceContext, language: String, consented: Bool,
+                      voiceGender: MorningVoiceGender = .female) async {
         stop()
         french = language.hasPrefix("fr")
         guard consented else { fail(.consentRequired); return }

@@ -43,6 +43,24 @@ struct SpeechCloudOutputTests {
         speech.externalSpeech = nil
     }
 
+    @Test func externalFailureFollowsFrenchThenEnglishWithoutChangingGlobalLanguage() async {
+        struct SyntheticFailure: Error {}
+        var locale = Locale(identifier: "fr_FR"), attempts = 0
+        let speech = SpeechCoordinator(externalSpeechLocale: { locale })
+        speech.externalSpeech = { _ in attempts += 1; throw SyntheticFailure() }
+        let messages = [
+            ("fr_FR", "La lecture en ligne n’a pas pu se terminer. Réessayez ou continuez avec les commandes."),
+            ("en_US", "Cloud speech could not finish. Try again or continue with the controls.")
+        ]
+        for (index, message) in messages.enumerated() {
+            locale = Locale(identifier: message.0)
+            await #expect(throws: SpeechPlaybackError.self) { try await speech.speakAndWait("SYNTHETIC_FAILED_TEXT") }
+            #expect(speech.lastError == message.1)
+            #expect(speech.state == .idle && speech.currentText == nil && speech.playbackID == nil)
+            #expect(attempts == index + 1)
+        }
+    }
+
     @Test func providerFailureWaitsForReleaseAndThenWaitsForTheSameAppleReading() async throws {
         let release = SpeechRouteGate(), apple = SpeechRouteGate()
         var readings: [String] = []
@@ -90,6 +108,22 @@ struct SpeechCloudOutputTests {
         current = false; release.release()
         await #expect(throws: CancellationError.self) { try await reading.value }
         #expect(appleReads == 0 && speech.lastError == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func taskCancellationOrChangedGenderInvalidatesPendingRecovery(changeGender: Bool) async {
+        let release = SpeechRouteGate()
+        var appleReads = 0
+        let speech = SpeechCoordinator(localSpeechOutput: { _, _ in appleReads += 1 })
+        speech.externalSpeech = { _ in throw MorningCloudVoiceError.unavailable }
+        speech.externalSpeechFallback = { await release.value() }
+        let reading = Task { try await speech.speakAndWait("SYNTHETIC_OLD_SELECTION") }
+        await release.waitUntilCalled()
+        if changeGender { speech.voiceGender = .male } else { reading.cancel() }
+        await #expect(throws: CancellationError.self) { try await reading.value }
+        release.release()
+        for _ in 0..<10 { await Task.yield() }
+        #expect(appleReads == 0 && speech.state == .idle)
     }
 
     @Test func aReplacementReadingSurvivesThePreviousReleaseFinishingLate() async throws {
@@ -186,6 +220,21 @@ struct SpeechCloudOutputTests {
         await #expect(throws: CancellationError.self) { try await reading.value }
         for _ in 0..<10 { await Task.yield() }
         #expect(dataReads == 0 && appleReads == 0 && recoveries == 0)
+    }
+
+    @Test func asynchronousAudioFailureAlsoRecoversWithoutRepeatingSynthesis() async throws {
+        let audio = SpeechRouteGate()
+        var appleReads = 0, syntheses = 0, recoveries = 0
+        let speech = SpeechCoordinator(localSpeechOutput: { _, _ in appleReads += 1 }, audioDataPlayback: { _ in
+            await audio.value(); throw MorningCloudVoiceError.unavailable
+        })
+        speech.cloudSpeech = { _, _ in syntheses += 1; return Data([1]) }
+        speech.externalSpeechFallback = { recoveries += 1 }
+        let reading = Task { try await speech.speakAndWait("SYNTHETIC_AUDIO_FAILURE") }
+        await audio.waitUntilCalled()
+        #expect(appleReads == 0 && recoveries == 0)
+        audio.release(); try await reading.value
+        #expect(appleReads == 1 && recoveries == 1 && syntheses == 1)
     }
 }
 

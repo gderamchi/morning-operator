@@ -232,7 +232,7 @@ final class MorningDuplexSpeechOutput {
             dataCompletion = nil; dataStarted = nil; programID = nil
             completed(.failure(SpeechAudioPCM.unavailable()))
         }
-        waiting?.resume(throwing: SpeechPlaybackError.audioUnavailable("Duplex speech output could not finish safely."))
+        waiting?.resume(throwing: SpeechPlaybackError.audioUnavailable(AppLanguage.localized("Audio output could not finish safely.", bundle: .module)))
     }
 }
 
@@ -296,7 +296,11 @@ enum SpeechAudioPCM {
         try data.write(to: fileURL, options: .atomic)
         #endif
         let file = try AVAudioFile(forReading: fileURL)
+        let format = file.processingFormat
+        let bytesPerFrame = Double(format.streamDescription.pointee.mBytesPerFrame) * Double(format.isInterleaved ? 1 : format.channelCount)
         guard file.length > 0, file.length <= 12_000_000,
+              bytesPerFrame > 0, file.processingFormat.channelCount <= 2,
+              Double(file.length) * bytesPerFrame <= 64 * 1_024 * 1_024,
               let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
             throw unavailable()
         }
@@ -317,7 +321,9 @@ enum SpeechAudioPCM {
         let ratio = format.sampleRate / input.format.sampleRate
         let prime = Double(converter.primeInfo.leadingFrames) + Double(converter.primeInfo.trailingFrames)
         let capacity = ceil((Double(input.frameLength) + prime) * ratio) + 32
+        let bytesPerFrame = Double(format.streamDescription.pointee.mBytesPerFrame) * Double(format.isInterleaved ? 1 : format.channelCount)
         guard capacity.isFinite, capacity > 0, capacity <= 12_000_000,
+              bytesPerFrame > 0, capacity * bytesPerFrame <= 64 * 1_024 * 1_024,
               let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(capacity)) else {
             throw unavailable()
         }

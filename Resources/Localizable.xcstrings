@@ -26386,6 +26386,198 @@
           }
         }
       }
+    },
+    "Listen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écouter"
+          }
+        }
+      }
+    },
+    "Your voice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your voice"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre voix"
+          }
+        }
+      }
+    },
+    "MORE’s voice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE’s voice"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La voix de MORE"
+          }
+        }
+      }
+    },
+    "MORE can read the moments of your morning.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE can read the moments of your morning."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE peut lire les moments de votre matin."
+          }
+        }
+      }
+    },
+    "Natural voice uses the passages read during this morning. They are processed online.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Natural voice uses the passages read during this morning. They are processed online."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La voix naturelle utilise les passages lus pendant ce matin. Ils sont traités en ligne."
+          }
+        }
+      }
+    },
+    "Beginning sends the passages MORE reads to ElevenLabs to produce the voice: routine information and readings you choose to play, including selected messages, calendar or Health measurements. This reading sends no microphone audio, video or complete Health history. Consent applies to this morning; your selected model keeps its own settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginning sends the passages MORE reads to ElevenLabs to produce the voice: routine information and readings you choose to play, including selected messages, calendar or Health measurements. This reading sends no microphone audio, video or complete Health history. Consent applies to this morning; your selected model keeps its own settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En commençant, vous envoyez les passages que MORE lit à ElevenLabs pour produire la voix : informations de votre routine et lectures que vous lancez, y compris les messages, calendrier ou mesures Santé choisis. Cette lecture n’envoie ni microphone, ni vidéo, ni historique Santé complet. L’accord vaut pour ce matin ; le modèle choisi garde ses propres réglages."
+          }
+        }
+      }
+    },
+    "Begin": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begin"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commencer"
+          }
+        }
+      }
+    },
+    "Begin without listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Begin without listening"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commencer sans écoute"
+          }
+        }
+      }
+    },
+    "Continue without sharing readings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue without sharing readings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer sans partager les lectures"
+          }
+        }
+      }
+    },
+    "Backup voice is active.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup voice is active."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La voix de secours est activée."
+          }
+        }
+      }
+    },
+    "The voice sample is unavailable. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The voice sample is unavailable. Try again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’exemple vocal est indisponible. Réessayez."
+          }
+        }
+      }
+    },
+    "The microphone could not be released. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The microphone could not be released. Try again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le micro n’a pas pu être libéré. Réessayez."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

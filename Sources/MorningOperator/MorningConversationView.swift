@@ -68,7 +68,7 @@ struct MorningConversationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(store.cloudVoice.isActive ? (french ? "Retour au matin" : "Back to morning") : String(localized: "Done")) { dismiss() }
+                    Button(store.cloudVoice.isActive ? (french ? "Retour au matin" : "Back to morning") : String(localized: "Done", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) { dismiss() }
                 }
             }
         }.tint(MorningStyle.accent)

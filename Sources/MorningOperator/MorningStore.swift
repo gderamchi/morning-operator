@@ -352,6 +352,8 @@ final class MorningStore {
     @ObservationIgnored var naturalSpeechDeclined: MorningNaturalSpeechConsent?
     @ObservationIgnored var naturalSpeechFailed = false
     @ObservationIgnored var cloudVoiceFallbackTask: Task<Void, Never>?
+    @ObservationIgnored var cloudVoiceReleaseTask: Task<Void, Never>?
+    @ObservationIgnored var voicePreviewAttempt: UUID?
 
     init() {
         let fixtureMode = ProcessInfo.processInfo.arguments.contains("--ui-testing")

@@ -128,6 +128,7 @@ struct MorningVoicePreparationView: View {
             do {
                 if store.cloudVoice.isActive || store.cloudVoiceReleasing {
                     store.stopCloudVoice()
+                    await store.cloudVoiceReleaseTask?.value
                     await store.cloudVoice.stopAndRelease()
                     store.speech.externalSpeech = nil; store.speech.cancelExternalSpeech = nil
                     store.cloudVoiceReleasing = false

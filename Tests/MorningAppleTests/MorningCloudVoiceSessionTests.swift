@@ -11,7 +11,7 @@ struct MorningCloudVoiceSessionTests {
     @Test(arguments: MorningVoiceGender.allCases)
     func chosenGenderReachesTheTransport(voiceGender: MorningVoiceGender) async {
         let transport = CloudVoiceFixture(), session = makeSession(transport)
-        await session.start(context: .init(binding: nil), language: "fr", voiceGender: voiceGender, consented: true)
+        await session.start(context: .init(binding: nil), language: "fr", consented: true, voiceGender: voiceGender)
         #expect(transport.voiceGender == voiceGender)
         await session.stopAndRelease()
     }

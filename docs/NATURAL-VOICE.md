@@ -10,6 +10,16 @@ Apple's on-device listener and system speech remain the default. Choosing online
 
 The long-lived provider key and private agent ID stay in the backend. The app authenticates with its existing installation token and receives only a temporary WebRTC conversation token. Starting this mode does not subscribe to a provider plan or purchase the MORE subscription. The private prototype restricts token issuance to explicitly activated installations; a new phone's first request can require administrative activation.
 
+## Provider configuration contract
+
+The ordinary text-to-speech path is `POST /v1/voice/speech`, authenticated by the same installation bearer and private activation allowlist as `/v1/voice/token`. It accepts exactly `text` (nonempty, at most 32,768 UTF-8 bytes), `language` (`fr` or `en`) and `voiceGender` (`male` or `female`). The server fixes the public premade voice: Roger (`CwhRBWXzGAHq8TQ4Fs17`) for male and Sarah (`EXAVITQu4vr4xnSDxMaL`) for female. The provider's authenticated metadata lists both French and English for these voices; no native French voice was available in this account's French-filtered collection. No voice is created or cloned.
+
+Standalone synthesis uses `eleven_turbo_v2_5`, with an explicit `language_code`, `output_format=mp3_44100_128` and `enable_logging=false`. Refusal of that logging setting fails closed; there is no retry with logging enabled. The provider accepted four bounded synthetic FR/EN × male/female requests with these exact settings. This establishes accepted requests and returned audio, not a separate audit of supplier retention. The backend allows at most 20 seconds and 8 MiB of MPEG audio, rejects redirects and malformed responses, and returns sanitized failures. Neither selected text nor returned audio enters D1, the business execution journal or application logs. An explicit repeat synthesizes again; it does not invoke a business tool.
+
+The explicit conversation keeps its existing Gemini 3.5 Flash / Eleven v4 Turbo model, prompt and three client tools. SDK 3.4.0 sets only `AgentOverrides.language` and `TTSOverrides(voiceId:)` using the same two public voices. The private agent permits only those language/voice overrides; prompt, model, tool and knowledge-base overrides remain disabled. The provider configuration update changed only `platform_settings.overrides.conversation_config_override.tts.voice_id`; a before/after comparison confirmed all other conversation, platform, workflow and name settings identical. Long-lived API keys and the private agent identity remain server-side.
+
+Provider references: [TTS parameters and logging](https://elevenlabs.io/docs/api-reference/text-to-speech/convert), [voice metadata](https://elevenlabs.io/docs/api-reference/voices/search), [allowed conversation overrides](https://elevenlabs.io/docs/eleven-agents/customization/personalization/overrides).
+
 ## Conversation and execution
 
 The official Swift SDK 3.4.0 owns continuous audio, streamed responses and interruptions. One conversation retains context across turns. Routine metadata is updated when the current moment changes. Source text enters through an approved narration message, with a fresh narration ID; it is data, never an instruction to perform an action.

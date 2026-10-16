@@ -93,7 +93,9 @@ public final class SpeechCoordinator: NSObject {
     @ObservationIgnored public var cloudSpeech: (@MainActor (String, MorningVoiceGender) async throws -> Data)?
     /// The workspace persists this preference; the coordinator holds no durable consent.
     public var voiceGender: MorningVoiceGender = .female {
-        didSet { if oldValue != voiceGender { chosenVoiceIdentifier = nil } }
+        didSet {
+            if oldValue != voiceGender { chosenVoiceIdentifier = nil; stop() }
+        }
     }
     public private(set) var currentText: String?
     /// Only the passage currently being spoken; never persisted as a transcript.
@@ -186,6 +188,7 @@ public final class SpeechCoordinator: NSObject {
     /// Injected by shared tests to observe completion without opening an audio device.
     @ObservationIgnored private var localSpeechOutput: (@MainActor (String, SpeechVoiceDescriptor?) async throws -> Void)?
     @ObservationIgnored private var audioDataPlayback: (@MainActor (Data) async throws -> Void)?
+    @ObservationIgnored private var externalSpeechLocale: @MainActor () -> Locale = { AppLanguage.locale }
     @ObservationIgnored private lazy var audioSession = SpeechAudioSessionGate(
         activate: { [weak self] in
             try await Self.activateAudioSession(handsFree: self?.handsFreeAudioSessionIsOwned == true)
@@ -230,6 +233,11 @@ public final class SpeechCoordinator: NSObject {
         self.init()
         self.localSpeechOutput = localSpeechOutput
         self.audioDataPlayback = audioDataPlayback
+    }
+
+    convenience init(externalSpeechLocale: @escaping @MainActor () -> Locale) {
+        self.init()
+        self.externalSpeechLocale = externalSpeechLocale
     }
 
     deinit {
@@ -577,7 +585,7 @@ public final class SpeechCoordinator: NSObject {
         switch result {
         case .success: lastError = nil; pending?.resume()
         case .failure(let error):
-            lastError = error is CancellationError ? nil : String(localized: "Cloud speech could not finish. Try again or continue with the controls.", bundle: .module)
+            lastError = error is CancellationError ? nil : AppLanguage.localized("Cloud speech could not finish. Try again or continue with the controls.", bundle: .module, locale: externalSpeechLocale())
             pending?.resume(throwing: error is CancellationError ? CancellationError() : SpeechPlaybackError.audioUnavailable(lastError!))
         }
     }

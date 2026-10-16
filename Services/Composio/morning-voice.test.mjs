@@ -1,8 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { morningSpeech, morningVoiceToken } from './morning-voice.mjs';
 
 const config = { apiKey: 'server-only-synthetic-key', agentID: 'synthetic-agent', installations: ['synthetic-owner'] };
+
+test('agent template allows only language and voice overrides while retaining the three client tools', async () => {
+  const template = JSON.parse(await readFile(new URL('./elevenlabs-agent.template.json', import.meta.url), 'utf8'));
+  assert.deepEqual(template.platform_settings.overrides, { conversation_config_override: { agent: { language: true }, tts: { voice_id: true } } });
+  const tools = template.conversation_config.agent.prompt.tools;
+  assert.deepEqual(tools.map(tool => tool.name).sort(), ['more_control', 'more_narration_complete', 'more_request']);
+  assert.ok(tools.every(tool => tool.type === 'client'));
+  assert.equal(template.conversation_config.agent.prompt.llm, 'gemini-3.5-flash');
+  assert.equal(template.conversation_config.tts.model_id, 'eleven_v4_turbo');
+});
 
 test('voice refuses unconfigured and unapproved installations before contacting ElevenLabs', async () => {
   let calls = 0;
