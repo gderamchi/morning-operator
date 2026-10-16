@@ -34,8 +34,12 @@ import CryptoKit
     }
 
     static func integratedDraftsIfRequested() -> SlackReplyDraftService? {
+        #if DEBUG
         guard integratedJourneyRequested else { return nil }
-        return SlackReplyDraftService(generator: { _ in "SYNTHETIC I will review the invented meeting notes." })
+        return .syntheticIntegratedJourneyIfRequested()
+        #else
+        return nil
+        #endif
     }
 
     static func serviceIfRequested() -> ComposioService? {

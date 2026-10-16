@@ -261,6 +261,19 @@ public struct SlackReplyReceipt: Sendable, Equatable {
         })
     }
     init(generator: @escaping @MainActor (String) async throws -> String) { self.generator = generator }
+    #if DEBUG
+    /// Fixed draft for the isolated mixed UI journey; never available in release builds.
+    public static func syntheticIntegratedJourneyIfRequested(
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> SlackReplyDraftService? {
+        guard arguments.contains("--ui-testing-integrated-three-moments"),
+              arguments.contains("--ui-testing-slack-setup"),
+              !arguments.contains("--ui-testing-slack-reply"),
+              arguments.filter({ $0.hasPrefix("--ui-testing-workspace=") }).count == 1,
+              GmailAttentionUITestFixture.workspaceID(arguments) != nil else { return nil }
+        return .init(generator: { _ in "SYNTHETIC I will review the invented meeting notes." })
+    }
+    #endif
     public func draft(source: SlackReplySource, intention: String, previousReply: String = "") async throws -> String {
         guard !intention.isEmpty, intention.count <= 1_000 else { throw SlackReplyError.invalidReply }
         struct Input: Encodable { let message: String; let ownerIntention: String; let previousReply: String }

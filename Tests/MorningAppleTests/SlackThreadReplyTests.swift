@@ -9,6 +9,26 @@ struct SlackThreadReplyTests {
     private let instant = Date(timeIntervalSince1970: 1_800_000_000)
     private let channel = "C12345678", author = "U33333333", parent = "1800000000.000001"
 
+    #if DEBUG
+    @Test("The deterministic mixed-journey draft requires its private flags and isolated workspace")
+    func integratedDraftCannotEnterAnOrdinaryLaunch() async throws {
+        let flags = ["--ui-testing", "--ui-testing-integrated-three-moments", "--ui-testing-slack-setup",
+                     "--ui-testing-gmail-attention", "--ui-testing-workspace=\(UUID().uuidString)"]
+        for missing in flags.indices {
+            #expect(SlackReplyDraftService.syntheticIntegratedJourneyIfRequested(
+                arguments: flags.enumerated().filter { $0.offset != missing }.map(\.element)) == nil)
+        }
+        #expect(SlackReplyDraftService.syntheticIntegratedJourneyIfRequested(arguments: []) == nil)
+        #expect(SlackReplyDraftService.syntheticIntegratedJourneyIfRequested(arguments: flags + [flags.last!]) == nil)
+        #expect(SlackReplyDraftService.syntheticIntegratedJourneyIfRequested(arguments:
+            Array(flags.dropLast()) + ["--ui-testing-workspace=invalid"]) == nil)
+        #expect(SlackReplyDraftService.syntheticIntegratedJourneyIfRequested(arguments: flags + ["--ui-testing-slack-reply"]) == nil)
+        let drafts = try #require(SlackReplyDraftService.syntheticIntegratedJourneyIfRequested(arguments: flags))
+        let body = try await drafts.draft(source: source(), intention: "Review these invented notes")
+        #expect(body == "SYNTHETIC I will review the invented meeting notes.")
+    }
+    #endif
+
     @Test func languagePresentationPreservesDraftAndSourceWithoutPosting() async throws {
         let setup = try setup(); defer { setup.cleanup() }
         let provider = Provider(destination: try destination()), source = try source()
