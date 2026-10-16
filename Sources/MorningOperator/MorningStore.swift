@@ -2851,7 +2851,7 @@ final class MorningStore {
         catch {
             privacyNeedsCleanup = true
             privacyHasInterruptedRemoval = true
-            privacyStatus = "Les reçus des rappels n’ont pas pu être supprimés. Réessayez pour terminer l’oubli."
+            privacyNotice = .removalFailed(error)
             return
         }
         #endif
