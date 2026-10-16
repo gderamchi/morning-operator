@@ -63,8 +63,9 @@ extension MorningStore {
         cloudVoice.onUserText = nil
         cloudVoiceConsentGeneration = nil; cloudVoiceConsentSession = nil
         await cloudVoice.stopAndRelease()
-        try checkNaturalSpeechScope(scope)
+        // Release cleanup must survive cancellation; the old SDK no longer owns audio.
         speech.externalSpeech = nil; speech.cancelExternalSpeech = nil
+        try checkNaturalSpeechScope(scope)
         cloudVoiceReleasing = false
         voiceFallbackMessage = AppLanguage.isFrench ? "La voix de secours est activée." : "Backup voice is active."
     }
