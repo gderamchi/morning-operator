@@ -626,7 +626,17 @@ enum MorningUITestNavigation {
                 let table = app.tables.containing(.button, identifier: identifier).firstMatch
                 let scroll = app.scrollViews.containing(.button, identifier: identifier).firstMatch
                 let container: XCUIElement = collection.exists ? collection : (table.exists ? table : scroll)
-                let viewport = (container.exists ? container.frame : app.frame).intersection(app.frame)
+                var viewport = (container.exists ? container.frame : app.frame).intersection(app.frame)
+                if container.exists {
+                    let navigation = app.navigationBars.firstMatch
+                    let top = navigation.exists ? max(viewport.minY, navigation.frame.maxY) : viewport.minY
+                    let selectionSummary = app.staticTexts["observations.selectionSummary"]
+                    // List AX frames include the pinned selection footer. Its covered rows
+                    // can report hittable even though a tap reaches the footer instead.
+                    let bottom = selectionSummary.exists
+                        ? min(viewport.maxY, selectionSummary.frame.minY - 20) : viewport.maxY
+                    viewport = CGRect(x: viewport.minX, y: top, width: viewport.width, height: max(0, bottom - top))
+                }
                 if !frame.isEmpty, viewport.contains(CGPoint(x: frame.midX, y: frame.midY)), button.isHittable { break }
                 if container.exists {
                     let distance = viewport.midY - frame.midY

@@ -7,18 +7,20 @@ import XCTest
 final class MorningLiveActivityTests: XCTestCase {
     private var runningApp: XCUIApplication?
 
-    override func tearDown() {
-        if let app = runningApp {
-            // A relaunch reconciles only this test's process-era activities.
-            app.terminate(); MorningUITestNavigation.launch(app)
-            let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                app.buttons["morning.actions"].exists || app.staticTexts["morning.caption"].exists
-            }, object: nil)
-            _ = XCTWaiter.wait(for: [restored], timeout: 10)
-            app.terminate()
+    override func tearDown() async throws {
+        await MainActor.run {
+            if let app = runningApp {
+                // A relaunch reconciles only this test's process-era activities.
+                app.terminate(); MorningUITestNavigation.launch(app)
+                let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    app.buttons["morning.actions"].exists || app.staticTexts["morning.caption"].exists
+                }, object: nil)
+                _ = XCTWaiter.wait(for: [restored], timeout: 10)
+                app.terminate()
+            }
+            runningApp = nil
         }
-        runningApp = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     func testNativeProgressTracksPauseAdvanceAndEndsWhenDisabled() throws {
