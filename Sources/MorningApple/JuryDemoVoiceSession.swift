@@ -421,6 +421,12 @@ public final class JuryDemoVoiceSession {
         engine.prepare(); try engine.start()
         guard engine.isRunning else { throw JuryDemoError.localVoiceUnavailable }
         JuryDemoAudioDiagnostic.log.info("prepare_ready engineRunning=\(self.engine.isRunning, privacy: .public) voiceProcessing=\(input.isVoiceProcessingEnabled, privacy: .public)")
+        #if DEBUG
+        let route = AVAudioSession.sharedInstance().currentRoute
+        let inputPorts = route.inputs.map { $0.portType.rawValue }.joined(separator: ",")
+        let outputPorts = route.outputs.map { $0.portType.rawValue }.joined(separator: ",")
+        JuryDemoAudioDiagnostic.log.info("prepare_route inputType=\(inputPorts, privacy: .public) outputType=\(outputPorts, privacy: .public) inputMuted=\(input.isVoiceProcessingInputMuted, privacy: .public)")
+        #endif
         observeInterruptions(run: id)
     }
 
@@ -458,6 +464,10 @@ public final class JuryDemoVoiceSession {
         let receive: @Sendable (SFSpeechRecognitionResult?, (any Error)?) -> Void = { [weak self] result, error in
             let text = result?.bestTranscription.formattedString
             let final = result?.isFinal == true
+            #if DEBUG
+            let failure = error as NSError?
+            JuryDemoAudioDiagnostic.log.info("asr_callback chars=\(text?.count ?? 0, privacy: .public) final=\(final, privacy: .public) failed=\(error != nil, privacy: .public) domain=\(failure?.domain ?? "none", privacy: .public) code=\(failure?.code ?? 0, privacy: .public)")
+            #endif
             let failed = error != nil
             Task { @MainActor [weak self] in
                 self?.receive(text: text, final: final, failed: failed, run: id, turn: turnID)
@@ -573,12 +583,34 @@ private enum JuryDemoAudioDiagnostic {
 private final class JuryDemoAudioSink: @unchecked Sendable {
     private let lock = NSLock()
     private var request: SFSpeechAudioBufferRecognitionRequest?
+    #if DEBUG
+    private var diagnosticBuffers: UInt64 = 0
+    private var diagnosticFrames: UInt64 = 0
+    private var diagnosticPeak: Float = 0
+    private var diagnosticLoggedAt: TimeInterval = 0
+    #endif
     func replace(_ request: SFSpeechAudioBufferRecognitionRequest) {
         lock.lock(); defer { lock.unlock() }
         self.request?.endAudio(); self.request = request
     }
     func append(_ buffer: AVAudioPCMBuffer) {
-        lock.lock(); defer { lock.unlock() }; request?.append(buffer)
+        lock.lock(); defer { lock.unlock() }
+        request?.append(buffer)
+        #if DEBUG
+        diagnosticBuffers += 1
+        diagnosticFrames += UInt64(buffer.frameLength)
+        if let samples = buffer.floatChannelData?[0] {
+            let stride = buffer.format.isInterleaved ? Int(buffer.format.channelCount) : 1
+            for frame in 0..<Int(buffer.frameLength) {
+                diagnosticPeak = max(diagnosticPeak, abs(samples[frame * stride]))
+            }
+        }
+        let now = Date.timeIntervalSinceReferenceDate
+        if now - diagnosticLoggedAt >= 1 {
+            JuryDemoAudioDiagnostic.log.info("tap_buffers total=\(self.diagnosticBuffers, privacy: .public) frames=\(self.diagnosticFrames, privacy: .public) peak=\(self.diagnosticPeak, privacy: .public) requestActive=\(self.request != nil, privacy: .public)")
+            diagnosticLoggedAt = now; diagnosticPeak = 0
+        }
+        #endif
     }
     func end() { lock.lock(); defer { lock.unlock() }; request?.endAudio(); request = nil }
 }
