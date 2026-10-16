@@ -235,7 +235,9 @@ private actor JuryDemoTransportProbe {
     init(body: Data, status: Int = 200) { self.body = body; self.status = status }
     func load(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
         requests.append(request)
-        return (body, try #require(HTTPURLResponse(url: #require(request.url), statusCode: status,
-                                                  httpVersion: nil, headerFields: ["Content-Type": "application/json"])))
+        let url = try #require(request.url)
+        let response = try #require(HTTPURLResponse(url: url, statusCode: status,
+                                                  httpVersion: nil, headerFields: ["Content-Type": "application/json"]))
+        return (body, response)
     }
 }
