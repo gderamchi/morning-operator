@@ -274,10 +274,10 @@ public final class JuryDemoVoiceSession {
         #if DEBUG && os(iOS)
         if Self.recorderMicrophoneDiagnostic {
             runID = nil; operation?.cancel(); operation = nil
-            forgetSession()
             queuedText = nil; latestResponse = nil; pendingAcknowledgement = nil
             transcript = ""; state = .idle
-            message = language == .french ? "Votre matin est arrêté." : "Your morning has stopped."
+            message = AppLanguage.localized("Your morning has stopped.", bundle: .module,
+                                            locale: Locale(identifier: language.localeIdentifier))
             releaseAudio()
             return
         }
@@ -651,7 +651,8 @@ public final class JuryDemoVoiceSession {
             recorderDiagnostic?.stop()
             recorderDiagnostic = try JuryDemoRecorderMicrophoneDiagnostic { [weak self] in self?.pause() }
             state = .listening
-            message = language == .french ? "Je vous écoute." : "I’m listening."
+            message = AppLanguage.localized("I'm listening.", bundle: .module,
+                                            locale: Locale(identifier: language.localeIdentifier))
             onText?(message)
         } catch { fail(error) }
     }
