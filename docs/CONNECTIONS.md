@@ -4,6 +4,12 @@
 
 Product reference: [MORE](../MORE.md). Settings → **Apps & accounts** now uses compact native grouped rows, system typography and bundled service logos. Website, account and iPhone access states describe their own route. A person's website confirmation is labelled as their confirmation, never as independently verified authentication. Professional Instagram/WhatsApp/Facebook access remains explicit. A service can have several routes; connecting one does not authorize another.
 
+**Current test scope:** the owner confirmed on 16 October that this is a directly
+installed development prototype. The approved Debug developer entry in MORE §8
+is the access route for functional connection tests. StoreKit subscriptions,
+App Store Connect and TestFlight belong to future distribution acceptance; they
+are not prerequisites or remaining blockers for these prototype tests.
+
 | Route | Actual connection | What it provides today |
 | --- | --- | --- |
 | Native iPhone / direct provider | EventKit Calendar and Reminders, Core Location + WeatherKit, optional HealthKit sleep and metrics, Screen Time, native Gmail OAuth/API, AlarmKit and user-prepared Shortcuts | System data/actions within the actual grant. Native Gmail calls Google directly with a Keychain refresh credential; it is separate from Composio Gmail. Health access is optional, read-only and off by default. Shortcuts require an actual workflow; a saved name or return callback does not prove its effect. |
@@ -36,7 +42,16 @@ failures actually passed. The extras deadline now uses an injectable clock with
 the same continuous-clock default, so its 49/50 ms regression remains valid under
 parallel actor load. Hosted CI is a separate pending check.
 
-Release access requires verified StoreKit entitlement. Four fresh ordinary physical runs through build 1703 failed to obtain the configured live offer; the normal paywall reported App Store unavailable. Native Gmail was consequently skipped in those runs. Main subsequently added the product-approved Debug developer entry: selecting its actual button permits functional service testing without asserting an Apple transaction. This entry never proves purchase, restore or eligibility. App Store Connect still requires owner authentication to inspect the actual product/account configuration. [#191](https://github.com/gibouu/morning-operator/issues/191) tracks the release gate; [the dated ledger](CONNECTIONS-E2E-2026-10-16.md#ordinary-physical-iphone-checkpoint) records the device checks. Earlier device/build claims below are historical.
+The future Release flow requires verified StoreKit entitlement. Four early
+physical runs through build 1703 failed to obtain the configured live offer;
+the normal paywall reported App Store unavailable and downstream Gmail was
+skipped then. The later approved Debug entry opened normal functional service
+tests, without asserting a transaction. Purchase, restore and eligibility remain
+future distribution work in [#191](https://github.com/gibouu/morning-operator/issues/191),
+outside the current prototype acceptance. No App Store Connect sign-in is needed
+for this connection audit. [The dated ledger](CONNECTIONS-E2E-2026-10-16.md#ordinary-physical-iphone-checkpoint)
+retains the earlier observations; they do not invalidate the successful Debug
+Weather and Worker journeys.
 
 On ordinary physical build **2026101608**, the official Debug UI entry and
 Connections navigation were exercised. This installation exposed no saved native

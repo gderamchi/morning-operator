@@ -100,20 +100,27 @@ extension MorningStore {
               UIApplication.shared.applicationState == .active else { return }
         cloudVoiceStartIssue = nil
         voiceFallbackMessage = nil
-        let generation = dataGeneration, sessionID = session?.id
+        let attempt = UUID(), generation = dataGeneration, sessionID = session?.id
+        let languageGeneration = voiceLanguageGeneration
+        cloudVoiceStartAttempt = attempt
+        defer { if cloudVoiceStartAttempt == attempt { cloudVoiceStartAttempt = nil } }
+        func checkCurrentStart() throws {
+            try Task.checkCancellation()
+            guard cloudVoiceStartAttempt == attempt, dataGeneration == generation,
+                  voiceLanguageGeneration == languageGeneration, self.session?.id == sessionID,
+                  !privacyBlocksWork, !voiceInputBlocksPlayback, !voiceCommandPresented,
+                  !captureVoicePresented, !capturePresented,
+                  UIApplication.shared.applicationState == .active else { throw CancellationError() }
+        }
         if session?.status == .running { pause() }
         cancelVoiceCommandTurn()
         do {
             await waitForVoiceInputRelease()
-            try Task.checkCancellation()
-            guard !voiceInputBlocksPlayback, !voiceCommandPresented,
-                  !captureVoicePresented, !capturePresented else { throw MorningCloudVoiceError.unavailable }
+            try checkCurrentStart()
             try await handsFreeVoice.stopAndRelease()
+            try checkCurrentStart()
             try await speech.stopAndRelease()
-            guard !Task.isCancelled, !privacyBlocksWork, dataGeneration == generation,
-                  self.session?.id == sessionID, !voiceInputBlocksPlayback,
-                  !voiceCommandPresented, !captureVoicePresented, !capturePresented,
-                  UIApplication.shared.applicationState == .active else { return }
+            try checkCurrentStart()
             cloudVoiceConsentGeneration = generation
             cloudVoiceConsentSession = sessionID
             cloudVoice.onInterruption = { [weak self] in
@@ -127,6 +134,7 @@ extension MorningStore {
             await cloudVoice.start(context: cloudVoiceContext,
                                    language: AppLanguage.isFrench ? "fr" : "en", consented: true,
                                    voiceGender: speech.voiceGender)
+            try checkCurrentStart()
             guard cloudVoice.isActive, cloudVoiceConsentGeneration == generation,
                   !privacyBlocksWork, dataGeneration == generation,
                   self.session?.id == sessionID else {
@@ -156,14 +164,18 @@ extension MorningStore {
             }
             speech.cancelExternalSpeech = { [weak self] in self?.cloudVoice.cancelNarration() }
         } catch {
+            guard cloudVoiceStartAttempt == attempt else { return }
             stopCloudVoice()
-            notice = AppLanguage.isFrench ? "Le micro n’a pas pu être libéré. Réessayez." : "The microphone could not be released. Try again."
+            if !(error is CancellationError) {
+                notice = AppLanguage.isFrench ? "Le micro n’a pas pu être libéré. Réessayez." : "The microphone could not be released. Try again."
+            }
         }
         #endif
     }
 
     func stopCloudVoice() {
         cloudVoiceFallbackTask?.cancel(); cloudVoiceFallbackTask = nil
+        cloudVoiceStartAttempt = nil
         guard cloudVoice.isActive || cloudVoiceConsentGeneration != nil ||
                 speech.externalSpeech != nil || cloudVoiceReleasing else { return }
         cloudVoiceRequestTask?.cancel()

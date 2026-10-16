@@ -193,6 +193,13 @@ events and synthetic audio remain outside Git in private mode-0600 files.
 
 ## Remaining live gates
 
+Scope clarification from the owner, 16 October: this acceptance concerns the
+directly installed development prototype using the approved Debug developer
+entry (MORE §8). Apple subscription, App Store Connect and TestFlight validation
+are future distribution work in [#191](https://github.com/gibouu/morning-operator/issues/191),
+not blockers for the functional service journeys below. No Apple-account sign-in
+is requested for the current prototype tests.
+
 - Recover the legitimate owning installation journey for the existing Composio
   Gmail account, or initiate a fresh Gmail grant from the actual ordinary app.
   Never rewrite account ownership or D1 identity to make a test pass.
@@ -246,14 +253,15 @@ fixture or system-grant injection. Release purchase, restore and eligibility
 remain separate gates.
 
 App Store Connect's apps page redirected to a signed-out login form. Existing
-local credentials did not establish API access, so the owner must sign into the
-Apple team to inspect the actual product and sandbox setup. An existing passkey
+local credentials did not establish API access. An existing passkey
 reached macOS Touch ID; no authenticated App Store Connect session was obtained.
 The observed failure
 does not by itself establish whether the cause is product configuration, account
 state or Apple availability. [Issue #191](https://github.com/gibouu/morning-operator/issues/191)
-tracks that live release gate. No Apple account, agreement or billing settings
-were changed.
+tracks that future distribution gate. The owner subsequently clarified the
+direct-install prototype scope: this investigation is deferred and does not
+block functional tests through the approved Debug entry. No Apple account,
+agreement or billing settings were changed.
 
 ### Ordinary Debug service checkpoint
 
