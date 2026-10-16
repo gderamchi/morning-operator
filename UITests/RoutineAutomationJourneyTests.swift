@@ -14,7 +14,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertEqual(steps.count, 10)
         XCTAssertEqual(steps.compactMap { $0["durationMinutes"] as? Int }.reduce(0, +), 28)
         let titles = try steps.map { try XCTUnwrap($0["title"] as? String) }
-        let app = launch(["--ui-testing-approved",
+        let app = launch(["--ui-testing-approved", "--ui-testing-stopped-run", "--ui-testing-ten-moments",
                           "--ui-testing-parsed-routine=" + data.base64EncodedString()], french: true)
         defer { app.terminate() }
         reveal(app)
@@ -69,7 +69,8 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         returnHome(app)
         app.terminate()
         app.launchArguments.removeAll {
-            $0.hasPrefix("--ui-testing-parsed-routine=") || $0 == "--ui-testing-approved" || $0 == "--ui-testing-empty-workspace"
+            $0.hasPrefix("--ui-testing-parsed-routine=") || $0 == "--ui-testing-approved" ||
+                $0 == "--ui-testing-stopped-run" || $0 == "--ui-testing-ten-moments" || $0 == "--ui-testing-empty-workspace"
         }
         app.launch()
         let workspace = try XCTUnwrap(app.launchArguments.first { $0.hasPrefix("--ui-testing-workspace=") }
