@@ -86,8 +86,8 @@ extension MorningStore {
            outcome.requestID == context.requestID, session?.id == context.sessionID,
            currentStep?.id == context.stepID, !privacyBlocksWork {
             connectedActionStatus = outcome.status == .returned
-                ? String(localized: "Shortcut returned. \(outcome.text)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-                : String(localized: "The shortcut did not finish. Check its outcome before running it again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                ? AppLanguage.localized("Shortcut returned. \(outcome.text)")
+                : AppLanguage.localized("The shortcut did not finish. Check its outcome before running it again.")
             nativeStepContext = nil
         }
         return true
@@ -114,7 +114,7 @@ extension MorningStore {
         } catch { notice = error.moreDescription; return false }
         let step = RoutineStep(title: tool.name, detail: detail, durationMinutes: 1, target: target)
         if addConnectedStep(step) {
-            notice = String(localized: "Action added to your draft. Review and approve the routine before starting.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            notice = AppLanguage.localized("Action added to your draft. Review and approve the routine before starting.")
             return true
         }
         return false
@@ -143,7 +143,7 @@ extension MorningStore {
         connectedAPITask?.cancel()
         let generation = dataGeneration, privacyGeneration = localPrivacyGeneration
         let requestID = IntegrationRequestID.make(sessionID: sessionID, stepID: stepID)
-        connectedActionStatus = String(localized: "Requesting the connected service…", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        connectedActionStatus = AppLanguage.localized("Requesting the connected service…")
         connectedAPITask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {

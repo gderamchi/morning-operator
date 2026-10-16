@@ -15,11 +15,11 @@ public enum RecordingCleanupError: LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidTestWorkspace: String(localized: "Recording cleanup requires an isolated test workspace.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .unsafeDirectory: String(localized: "The recording folder couldn't be safely opened. No linked folder was followed.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .unexpectedFileType: String(localized: "An unexpected item remains in the recording folder. It hasn't been removed.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .captureStopUnconfirmed: String(localized: "Screen recording hasn't fully stopped. Stop it using the system controls, then retry forgetting.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .forgettingInProgress: String(localized: "Finish forgetting local data before starting another recording.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidTestWorkspace: AppLanguage.localized("Recording cleanup requires an isolated test workspace.", bundle: .module)
+        case .unsafeDirectory: AppLanguage.localized("The recording folder couldn't be safely opened. No linked folder was followed.", bundle: .module)
+        case .unexpectedFileType: AppLanguage.localized("An unexpected item remains in the recording folder. It hasn't been removed.", bundle: .module)
+        case .captureStopUnconfirmed: AppLanguage.localized("Screen recording hasn't fully stopped. Stop it using the system controls, then retry forgetting.", bundle: .module)
+        case .forgettingInProgress: AppLanguage.localized("Finish forgetting local data before starting another recording.", bundle: .module)
         }
     }
 }
