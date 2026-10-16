@@ -59,11 +59,19 @@ public enum WebMorningBehavior: String, Codable, CaseIterable, Sendable {
 public struct WebMorningContentProgress: Codable, Sendable, Equatable {
     public static let maximumKeys = 4_096
     public private(set) var observedCount: Int
+    public private(set) var isAvailable: Bool
     private var keys: Set<String>
 
     public init(legacyObservedCount: Int = 0) {
         observedCount = min(100_000, max(0, legacyObservedCount))
+        isAvailable = true
         keys = []
+    }
+
+    static func unavailable(legacyObservedCount: Int) -> Self {
+        var progress = Self(legacyObservedCount: legacyObservedCount)
+        progress.isAvailable = false
+        return progress
     }
 
     public func preservingCount(atLeast count: Int) -> Self {
@@ -76,7 +84,7 @@ public struct WebMorningContentProgress: Codable, Sendable, Equatable {
     /// caller must stop rather than evict identities and inflate the recap later.
     @discardableResult
     public mutating func observe(site: WebMorningSite, fingerprint: String) throws -> Bool {
-        guard !fingerprint.isEmpty, fingerprint.utf8.count <= 512 else { throw ProgressError.invalidState }
+        guard isAvailable, !fingerprint.isEmpty, fingerprint.utf8.count <= 512 else { throw ProgressError.invalidState }
         let key = SHA256.hash(data: Data("\(site.rawValue):\(fingerprint)".utf8))
             .map { String(format: "%02x", $0) }.joined()
         if keys.contains(key) { return false }
@@ -87,23 +95,27 @@ public struct WebMorningContentProgress: Codable, Sendable, Equatable {
     }
 
     public enum ProgressError: Error { case invalidState, capacityReached }
-    private enum CodingKeys: String, CodingKey { case observedCount, keys }
+    private enum CodingKeys: String, CodingKey { case observedCount, keys, isAvailable }
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let count = try container.decode(Int.self, forKey: .observedCount)
         let saved = try container.decode([String].self, forKey: .keys)
+        let available = container.contains(.isAvailable) ? try container.decode(Bool.self, forKey: .isAvailable) : true
         guard (0...100_000).contains(count), saved.count <= Self.maximumKeys,
               Set(saved).count == saved.count, count >= saved.count,
+              available || saved.isEmpty,
               saved.allSatisfy({ $0.utf8.count == 64 && $0.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } }) else {
             throw ProgressError.invalidState
         }
         observedCount = count
+        isAvailable = available
         keys = Set(saved)
     }
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(observedCount, forKey: .observedCount)
         try container.encode(keys.sorted(), forKey: .keys)
+        if !isAvailable { try container.encode(false, forKey: .isAvailable) }
     }
 }
 

@@ -91,6 +91,8 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     @ObservationIgnored private var isRetired = false
     @ObservationIgnored private var mediaPlaybackSuspended = false
 
+    var savedContentProgressIsAvailable: Bool { contentProgress.isAvailable }
+
     private var privacyIsCurrent: Bool {
         guard !isRetired, let created = privacyAtCreation, !created.forgetPending,
               let current = try? LocalDataControl(directory: LocalDataControl.defaultDirectory).status(),
@@ -437,6 +439,12 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     }
 
     private func execute(_ plan: WebMorningExecutionPlan, nonce: UUID) async {
+        guard executionIsCurrent(nonce) else { return }
+        guard contentProgress.isAvailable else {
+            executionDiagnostic = "stop=savedContentProgressUnavailable"
+            publishExecution(.unavailable)
+            return
+        }
         guard WebMorningBehavior.availableBehaviors(for: site).contains(plan.behavior) else {
             publishExecution(.unavailable); return
         }
