@@ -4,7 +4,7 @@ MORE already called Apple's Foundation Models for routine proposals, contextual 
 
 ## Explicit model route
 
-Settings → **Intelligence & memory** selects OpenAI with the owner's personal API key and an explanation of the text shared. Apple remains the default. GPT-5 mini (`gpt-5-mini-2025-08-07`) uses the Responses API, minimal reasoning, strict JSON Schema for routine proposals and memory extraction, and `store: false`. Model failure is surfaced without silently switching provider. Credentials stay in the installation Keychain and outside shared source/build settings. This is a personal development setup; a shipped multi-user app must put its provider key behind an authenticated backend.
+Settings → **Intelligence & memory** selects OpenAI with the owner's personal API key and an explanation of the text shared. Apple remains the default. GPT-6 Luna (`gpt-6-luna`) uses the Responses API with `reasoning.effort: high`, strict JSON Schema for routine proposals and memory extraction, and `store: false`. This model and effort were explicitly selected by the owner on 16 October 2026. Model failure is surfaced without silently switching provider. Credentials stay in the installation Keychain and outside shared source/build settings. This is a personal development setup; a shipped multi-user app must put its provider key behind an authenticated backend.
 
 The selected route is used by:
 
@@ -62,4 +62,4 @@ Delivery verification on 16 October 2026, final combined source `dc130ca` (inclu
 
 Full-run local evidence is retained in `more-intelligence-package-tests-final.log`, `more-intelligence-package-serial-live.log` and `more-intelligence-tests.sample`. The city-race failures and the stalled process remain part of the record; targeted passing results do not erase them. Real-iPhone correction/relaunch, voice latency/barge-in, sourced daily advice and authenticated browser execution remain [#200](https://github.com/gibouu/morning-operator/issues/200).
 
-Official API references: [GPT-5 mini](https://developers.openai.com/api/docs/models/gpt-5-mini), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [data controls](https://developers.openai.com/api/docs/guides/your-data).
+Official API references: [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [data controls](https://developers.openai.com/api/docs/guides/your-data).
