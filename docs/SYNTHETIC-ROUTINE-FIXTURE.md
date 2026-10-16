@@ -522,3 +522,14 @@ pure SDK/schema checks but improves neither the original visual positive nor
 the archived agenda frame (explicit abstention, 2.001s). Written and advert
 controls still pass. It is reverted in `91f6ae3`; retained model code remains
 `42dc82b`. No failed experiment is included merely to accumulate instructions.
+
+Native9f (`84c540c`) also builds/seals, then fails the same pre-approval action
+lookup in **76.617s**. Its exported original XCTest gesture events identify the
+cause: a Form of height 812 behind the keyboard starts its default swipe at
+y568, inside keyboard suggestions (keyboard begins y539). No form scroll,
+approval or TTS was established. The retained source preview does contain the
+synthetic Calendar fact; a preview is not a spoken execution. The next correction
+adds a stable editor Form accessibility identifier and physically drags only in
+its visible rectangle above the real keyboard. No focus, operation, budget or
+approval is injected. This UI-only identifier/helper change requires a new
+native run; retained Core/Apple model code is unchanged.
