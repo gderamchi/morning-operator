@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare an already-produced local extraction/classification report to hidden truth.
+"""Compare an already-produced local extraction/classification/proposal report to hidden truth.
 
 Never invokes extraction or inference and never edits their inputs. Without
 --actual, produces a sampling forecast only (exit 4, no execution evidence).
@@ -38,6 +38,72 @@ def within(time, scenes):
     return next((scene for scene in scenes if scene['startSeconds'] <= time < scene['endSeconds']), None)
 
 
+def classification_summary(classification):
+    return dict(status=(classification or {}).get('status', 'not-run'),
+                attemptedBatchCount=(classification or {}).get('attemptedBatchCount', 0),
+                respondedBatchCount=(classification or {}).get('respondedBatchCount', 0),
+                failedBatchCount=(classification or {}).get('failedBatchCount', 0),
+                diagnostics=(classification or {}).get('diagnostics', []),
+                modelIdentifier=(classification or {}).get('modelIdentifier'),
+                semanticFactAccuracy=None,
+                warning='This adapter classifies visual context only. No numeric classifier confidence, installed app identity or action authority is available.')
+
+
+def source_binding(actual, manifest, timeline):
+    binding = dict(reportFilename=actual.get('sourceFilename'),
+                   expectedFilename=f"{timeline['profile']}-{timeline['language']}.mp4",
+                   reportDoesNotContainMovieHash=True,
+                   warning='Verify the actual invocation separately; filename/duration are not a cryptographic binding of report to source.')
+    if 'fingerprint' not in actual:
+        return binding
+    fingerprint = actual['fingerprint']
+    movies = [movie for movie in manifest['movies']
+              if movie['profile'] == timeline['profile'] and movie['language'] == timeline['language']]
+    valid = (isinstance(fingerprint, dict) and isinstance(fingerprint.get('sha256'), str)
+             and len(fingerprint['sha256']) == 64
+             and all(char in '0123456789abcdef' for char in fingerprint['sha256'])
+             and type(fingerprint.get('byteCount')) is int and fingerprint['byteCount'] >= 0)
+    expected = movies[0] if len(movies) == 1 else None
+    status = ('invalid-fingerprint' if not valid else 'manifest-movie-unavailable' if expected is None
+              else 'matched' if fingerprint['sha256'] == expected['sha256'] and fingerprint['byteCount'] == expected['bytes']
+              else 'mismatch')
+    binding.update(reportDoesNotContainMovieHash=False, status=status,
+                   reportedFingerprint=fingerprint,
+                   expectedSHA256=expected['sha256'] if expected else None,
+                   expectedByteCount=expected['bytes'] if expected else None,
+                   warning='Compares the reported complete-file hash and byte count to the frozen manifest. Verify the native invocation separately; this is not capture authenticity or semantic accuracy.')
+    return binding
+
+
+def pipeline_summary(actual):
+    # This is a distinct producer contract, not a relabeled classifier report.
+    proposal = actual.get('proposal')
+    routine = (proposal.get('routine') or {}) if isinstance(proposal, dict) else {}
+    routine = routine if isinstance(routine, dict) else {}
+    steps = routine.get('steps', [])
+    steps = steps if isinstance(steps, list) else []
+    return dict(status=actual.get('status'), stage=actual.get('stage'), scope=actual.get('scope'),
+                elapsedSeconds=actual.get('elapsedSeconds'),
+                errorCategory=actual.get('errorCategory'), nativeError=actual.get('nativeError'),
+                contextCapability=actual.get('contextCapability'), proposalCapability=actual.get('proposalCapability'),
+                extractionWarnings=actual.get('extractionWarnings', []), omissions=actual.get('omissions', []),
+                preparedUnitCount=actual.get('preparedUnitCount'), submittedCharacterCount=actual.get('submittedCharacterCount'),
+                plannedProposalModelRequestCount=actual.get('modelRequestCount'), actualProposalModelRequestCount=None,
+                proposal=dict(present=isinstance(proposal, dict), applicationCitationsValid=actual.get('citationsValid'),
+                              stepCount=len(steps) if isinstance(proposal, dict) else None,
+                              routineIsApproved=routine.get('isApproved'),
+                              sourceLabel=routine.get('sourceLabel'),
+                              sourceSnapshots=proposal.get('sourceSnapshots', []) if isinstance(proposal, dict) else [],
+                              support=proposal.get('support', []) if isinstance(proposal, dict) else [],
+                              omissions=proposal.get('omissions', []) if isinstance(proposal, dict) else [],
+                              steps=[{key: step.get(key) for key in ['id', 'title', 'kind', 'durationMinutes', 'automation']}
+                                     for step in steps if isinstance(step, dict)] if len(steps) <= 10 else [],
+                              stepsOmittedByScorer=len(steps) if len(steps) > 10 else 0,
+                              warning='Source validation is the application report claim, not independent semantic fact accuracy, user approval or execution.'),
+                userApproval='not-performed-by-this-opt-in', providerExecution='not-run-by-this-opt-in',
+                warning='Preserves the complete pipeline outcome, including failure after completed context classification. Planned model work is not an actual request count.')
+
+
 def compare(manifest_path, timeline_path, oracle_path, actual_path):
     manifest, timeline, oracle = load(manifest_path), load(timeline_path), load(oracle_path)
     if sha(oracle_path) != manifest['oracleSHA256']:
@@ -68,9 +134,21 @@ def compare(manifest_path, timeline_path, oracle_path, actual_path):
         result['verdict'] = 'forecast-only-no-real-pipeline-evidence'
         return result, 4
     actual = load(actual_path)
-    evidence = actual.get('evidence', {})
+    is_pipeline = 'videoEvidence' in actual or ('status' in actual and 'stage' in actual)
+    if is_pipeline and 'evidence' in actual:
+        raise ValueError('Ambiguous report contract: both legacy evidence and full-pipeline fields are present')
+    evidence = (actual.get('videoEvidence') if is_pipeline else actual.get('evidence')) or {}
     frames = evidence.get('frames', [])
     classification = actual.get('classification')
+    binding = source_binding(actual, manifest, timeline)
+    if is_pipeline:
+        result['reportFormat'] = 'full-routine-pipeline-v1'
+        result['pipeline'] = pipeline_summary(actual)
+    if binding.get('status') in ['mismatch', 'invalid-fingerprint', 'manifest-movie-unavailable']:
+        result.update(sourceBinding=binding, realClassification=classification_summary(classification),
+                      realOCR=dict(status='not-compared-source-binding-rejected', frameCount=len(frames)),
+                      verdict='source-binding-rejected-no-oracle-comparison')
+        return result, 3
     decisions = {row['sampleID']: row for row in (classification or {}).get('decisions', [])}
     excerpts = {row['sampleID'] for row in ((classification or {}).get('inputSelection') or {}).get('excerpts', [])}
     observations = {scene['sceneID']: [] for scene in scenes}
@@ -117,20 +195,25 @@ def compare(manifest_path, timeline_path, oracle_path, actual_path):
                                sampledLiteralRecall=matches / len(eligible) if eligible else None,
                                wholeSourceLiteralDenominator=len(checks),
                                warning='Conditional literal OCR recall excludes unsampled scenes; read both denominators. No action/draft/send correctness is inferred.'),
-                  realClassification=dict(status=(classification or {}).get('status', 'not-run'),
-                                          attemptedBatchCount=(classification or {}).get('attemptedBatchCount', 0),
-                                          respondedBatchCount=(classification or {}).get('respondedBatchCount', 0),
-                                          failedBatchCount=(classification or {}).get('failedBatchCount', 0),
-                                          diagnostics=(classification or {}).get('diagnostics', []),
-                                          modelIdentifier=(classification or {}).get('modelIdentifier'),
-                                          semanticFactAccuracy=None,
-                                          warning='This adapter classifies visual context only. No numeric classifier confidence, installed app identity or action authority is available.'),
+                  realClassification=classification_summary(classification),
                   sampleComparison=rows,
-                  sourceBinding=dict(reportFilename=actual.get('sourceFilename'),
-                                     expectedFilename=f"{timeline['profile']}-{language}.mp4",
-                                     reportDoesNotContainMovieHash=True,
-                                     warning='Verify the actual invocation separately; filename/duration are not a cryptographic binding of report to source.'),
+                  sourceBinding=binding,
                   verdict='diagnostic-report-not-full-acceptance')
+    if is_pipeline:
+        result['realOCR']['status'] = 'extracted' if isinstance(actual.get('videoEvidence'), dict) else 'not-run'
+        valid_draft = (actual.get('status') == 'completed' and actual.get('citationsValid') is True
+                       and result['pipeline']['proposal']['present']
+                       and result['pipeline']['proposal']['routineIsApproved'] is False
+                       and 1 <= (result['pipeline']['proposal']['stepCount'] or 0) <= 10
+                       and binding.get('status') == 'matched'
+                       and classification and classification.get('status') == 'completed'
+                       and classification.get('attemptedBatchCount', 0) > 0
+                       and classification.get('respondedBatchCount', 0) > 0
+                       and classification.get('failedBatchCount') == 0)
+        result['pipeline']['proposal']['validatedDraftReported'] = bool(valid_draft)
+        result['verdict'] = ('pipeline-source-validated-draft-not-execution' if valid_draft
+                             else 'pipeline-not-complete-no-execution-proof')
+        return result, 0 if valid_draft else 4
     return result, 0 if classification and classification.get('status') == 'completed' else 4
 
 
