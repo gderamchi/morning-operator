@@ -407,6 +407,8 @@ struct SetupView: View {
     @State private var choosingInvitation = false
     @State private var showingPrivacy = false
     @State private var choosingBriefing = false
+    @State private var choosingHealth = false
+    @State private var choosingConversation = false
     @Environment(\.colorScheme) private var colorScheme
     private var french: Bool { AppLanguage.isFrench }
 
@@ -442,8 +444,10 @@ struct SetupView: View {
                 NavigationLink { MorningConnectionsView(store: store) } label: {
                     settingsLabel(String(localized: "Apps & accounts", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "link")
                 }.accessibilityIdentifier("setup.connections")
-                settingsButton(String(localized: "Calendar, weather & sleep", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "sun.max") { choosingBriefing = true }
+                settingsButton(MorningPermissionSetup.text("Calendar & weather", "Calendrier et météo"), symbol: "sun.max") { choosingBriefing = true }
                     .accessibilityIdentifier("setup.briefing")
+                settingsButton(MorningPermissionSetup.text("Health", "Santé"), symbol: "heart") { choosingHealth = true }
+                    .accessibilityIdentifier("setup.health")
             }
             Section("Language") {
                 Picker("Language", selection: Binding(
@@ -456,6 +460,9 @@ struct SetupView: View {
                 .accessibilityIdentifier("setup.language")
             }
             Section(french ? "Voix et lecture" : "Voice & playback") {
+                settingsButton(french ? "Parler avec MORE" : "Talk with MORE",
+                               detail: "ElevenLabs", symbol: "sparkles") { choosingConversation = true }
+                    .accessibilityIdentifier("setup.conversation")
                 settingsButton(String(localized: "Voice", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: store.speech.selectedVoiceSummary,
                                symbol: "waveform") { choosingVoice = true }
                     .disabled(store.sessionActive).accessibilityIdentifier("setup.voice")
@@ -529,6 +536,8 @@ struct SetupView: View {
         .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
         .task { if store.privacyNeedsCleanup { showingPrivacy = true } }
         .fullScreenCover(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
+        .sheet(isPresented: $choosingHealth) { MorningHealthView(store: store) }
+        .sheet(isPresented: $choosingConversation) { MorningConversationView(store: store) }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $preparingVoiceAccess) { MorningVoicePreparationView(store: store) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }

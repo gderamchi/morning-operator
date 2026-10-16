@@ -10,20 +10,23 @@ public struct MorningBriefingSettings: Codable, Sendable, Equatable {
     /// Device coordinates remain transient; weatherLocation retains only a chosen fallback city.
     public var usesCurrentLocation: Bool
     public var temperatureUnit: MorningBriefingTemperatureUnit
-    /// The person's choice to include health (today: sleep duration) in the briefing,
+    /// The person's choice to include sleep in the briefing,
     /// independent of calendar and weather. Off until they turn it on; while it is off
     /// the health reader is never called. A settings file saved before this choice
     /// existed has no such key and loads as off.
     public var includesHealth: Bool
+    /// Expanded read scope, separately confirmed for people who enabled sleep before it existed.
+    public var includesHealthMetrics: Bool
 
     public init(calendarIDs: Set<String> = [], weatherLocation: WeatherLocation? = nil,
                 temperatureUnit: MorningBriefingTemperatureUnit = .celsius, includesHealth: Bool = false,
-                usesCurrentLocation: Bool? = nil) {
+                usesCurrentLocation: Bool? = nil, includesHealthMetrics: Bool = false) {
         self.calendarIDs = calendarIDs
         self.weatherLocation = weatherLocation
         self.usesCurrentLocation = usesCurrentLocation ?? (weatherLocation == nil)
         self.temperatureUnit = temperatureUnit
         self.includesHealth = includesHealth
+        self.includesHealthMetrics = includesHealth && includesHealthMetrics
     }
 
     public static let maximumCalendarIDs = 100
@@ -38,13 +41,13 @@ public struct MorningBriefingSettings: Codable, Sendable, Equatable {
     public static let maximumEncodedBytes = 512 * 1_024
 
     public func validate() throws {
-        guard calendarIDs.count <= Self.maximumCalendarIDs, calendarIDs.allSatisfy({
+        guard (!includesHealthMetrics || includesHealth), calendarIDs.count <= Self.maximumCalendarIDs, calendarIDs.allSatisfy({
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= Self.maximumCalendarIDBytes &&
                 !$0.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
         }) else { throw MorningBriefingControllerError.invalidSettings }
     }
 
-    private enum CodingKeys: String, CodingKey { case calendarIDs, weatherLocation, temperatureUnit, includesHealth, usesCurrentLocation }
+    private enum CodingKeys: String, CodingKey { case calendarIDs, weatherLocation, temperatureUnit, includesHealth, usesCurrentLocation, includesHealthMetrics }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         calendarIDs = try values.decode(Set<String>.self, forKey: .calendarIDs)
@@ -52,6 +55,8 @@ public struct MorningBriefingSettings: Codable, Sendable, Equatable {
         usesCurrentLocation = try values.decodeIfPresent(Bool.self, forKey: .usesCurrentLocation) ?? (weatherLocation == nil)
         temperatureUnit = try values.decode(MorningBriefingTemperatureUnit.self, forKey: .temperatureUnit)
         includesHealth = try values.decodeIfPresent(Bool.self, forKey: .includesHealth) ?? false
+        includesHealthMetrics = try values.decodeIfPresent(Bool.self, forKey: .includesHealthMetrics) ?? false
+        if !includesHealth { includesHealthMetrics = false }
         try validate()
     }
 }
@@ -145,6 +150,7 @@ public final class MorningBriefingController {
                 // A document prepared with health must not play once health is excluded,
                 // and one prepared without it is out of date once health is included.
                 guard (document.sleep.status != .notConfigured) == settings.includesHealth else { return false }
+                guard document.healthMetrics.contains(where: { $0.section.status != .notConfigured }) == settings.includesHealthMetrics else { return false }
                 if settings.includesHealth {
                     guard sleepPlaybackAdmissions[document.id]?.revision == sleepPlaybackRevision else { return false }
                 }
@@ -162,6 +168,7 @@ public final class MorningBriefingController {
     @ObservationIgnored private var locationAttempt: UUID?
     @ObservationIgnored private let weather: WeatherObservationService
     @ObservationIgnored private let sleep: SleepObservationService
+    @ObservationIgnored private let healthMetrics: HealthMetricsObservationService
     @ObservationIgnored private let control: LocalDataControl
     @ObservationIgnored private let file: AtomicJSONFile<MorningBriefingSettings>
     @ObservationIgnored private let now: @Sendable () -> Date
@@ -192,6 +199,7 @@ public final class MorningBriefingController {
     @ObservationIgnored private var weatherInput: MorningBriefingInput<WeatherObservationSnapshot> = .notConfigured
     @ObservationIgnored private var lastWeatherAttemptAt: Date?
     @ObservationIgnored private var sleepInput: SleepBriefingInput = .excluded
+    @ObservationIgnored private var healthMetricsInput: [HealthMetric: HealthMetricBriefingInput] = [:]
     /// An empty/failed reread or a return from Settings must not reauthorize older sleep text.
     @ObservationIgnored private var sleepPlaybackRevision = UUID()
     @ObservationIgnored private var sleepPlaybackAdmissions: [UUID: SleepPlaybackAdmission] = [:]
@@ -199,7 +207,7 @@ public final class MorningBriefingController {
 
     public init(directory: URL = LocalDataControl.defaultDirectory,
                 calendar: CalendarObservationService = .init(), weather: WeatherObservationService = .init(),
-                sleep: SleepObservationService = .init(),
+                sleep: SleepObservationService = .init(), healthMetrics: HealthMetricsObservationService = .init(),
                 deviceLocation: (any WeatherDeviceLocationProviding)? = nil,
                 now: @escaping @Sendable () -> Date = { Date() },
                 timeZone: @escaping @Sendable () -> TimeZone = { .current },
@@ -211,6 +219,7 @@ public final class MorningBriefingController {
         self.deviceLocation = deviceLocation ?? WeatherDeviceLocation()
         // The default has no reader: until one is passed in, sleep is "not part of this version".
         self.sleep = sleep
+        self.healthMetrics = healthMetrics
         control = LocalDataControl(directory: directory)
         // Test injection may lower the limit, never raise it. Writer and reader share it.
         file = AtomicJSONFile(url: directory.appendingPathComponent("briefing-settings.json"),
@@ -408,7 +417,7 @@ public final class MorningBriefingController {
     /// The explicit Health action, after its purpose has been explained in the UI.
     /// A handled prompt saves the person's inclusion choice; it never claims that
     /// HealthKit allowed the read. Only a later sample can establish a recorded night.
-    @discardableResult public func enableHealth() async -> Bool {
+    @discardableResult public func enableHealth(includeMetrics: Bool = false) async -> Bool {
         guard prepareForAccess() else { return false }
         if let task = healthAccessTask { return await task.value }
         let attempt = UUID(), expectedRevision = revision
@@ -423,12 +432,14 @@ public final class MorningBriefingController {
             do {
                 try Task.checkCancellation()
                 guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
-                try await sleep.requestReadAccess()
+                if includeMetrics { try await healthMetrics.requestReadAccess() }
+                else { try await sleep.requestReadAccess() }
                 try Task.checkCancellation()
                 guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
                 try withCurrentAccess { }
                 // No suspension between privacy/revision validation and the save.
                 var next = settings; next.includesHealth = true
+                next.includesHealthMetrics = settings.includesHealthMetrics || includeMetrics
                 try updateSettings(next)
                 return true
             } catch {
@@ -446,6 +457,7 @@ public final class MorningBriefingController {
     public func disableHealth() throws {
         cancelHealthConnection()
         var next = settings; next.includesHealth = false
+        next.includesHealthMetrics = false
         try updateSettings(next)
     }
 
@@ -456,7 +468,7 @@ public final class MorningBriefingController {
         if isConnectingHealth { cancelHealthConnection() }
         guard settings.includesHealth else { return }
         refreshAttempt = nil; refreshTask?.cancel(); refreshTask = nil; preparingKey = nil; isPreparing = false
-        prepared = nil; sleepInput = .excluded
+        prepared = nil; sleepInput = .excluded; healthMetricsInput = [:]
         sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]
     }
 
@@ -663,6 +675,7 @@ public final class MorningBriefingController {
                 var nextCalendar = calendarInput
                 var nextWeather = weatherInput
                 var nextSleep = sleepInput
+                var nextMetrics = healthMetricsInput
                 if key.settings.calendarIDs.isEmpty { nextCalendar = .notConfigured }
                 else if !calendar.isAuthorized { nextCalendar = .denied; calendarChoices = [] }
                 else {
@@ -682,13 +695,16 @@ public final class MorningBriefingController {
                 // `async let` keeps both reads child tasks of this refresh: cancelling it
                 // cancels both, and leaving this scope early (one read cancelled) cancels and
                 // awaits the other. Both still finish here, before the one composition below.
-                let cachedWeather = nextWeather, cachedSleep = nextSleep
+                let cachedWeather = nextWeather, cachedSleep = nextSleep, cachedMetrics = nextMetrics
                 async let weatherRead = readWeather(cached: cachedWeather, location: key.weatherLocation, force: force,
                                                     at: instant, zone: zone)
                 async let sleepRead = readSleep(cached: cachedSleep, settings: key.settings, force: force,
                                                 at: instant, zone: zone, attempt: attempt, revision: expectedRevision)
+                async let metricsRead = readHealthMetrics(cached: cachedMetrics, settings: key.settings, force: force,
+                    at: instant, zone: zone, attempt: attempt, revision: expectedRevision)
                 nextWeather = try await weatherRead
                 nextSleep = try await sleepRead
+                nextMetrics = try await metricsRead
                 try Task.checkCancellation()
                 guard revision == expectedRevision, refreshAttempt == attempt,
                       timeZone().identifier == key.timeZoneIdentifier, settings == key.settings,
@@ -713,7 +729,8 @@ public final class MorningBriefingController {
                     }
                 }
                 let completedAt = max(instant, now())
-                let document = try compose(calendar: nextCalendar, weather: nextWeather, sleep: nextSleep, at: completedAt, zone: zone)
+                let document = try compose(calendar: nextCalendar, weather: nextWeather, sleep: nextSleep,
+                    healthMetrics: nextMetrics, at: completedAt, zone: zone)
                 calendarPlaybackAdmissions = calendarPlaybackAdmissions.filter {
                     $0.value.changeRevision == calendar.changeRevision && $0.value.validUntil > completedAt
                 }
@@ -722,7 +739,7 @@ public final class MorningBriefingController {
                     calendarPlaybackAdmissions[document.id] = .init(changeRevision: snapshot.changeRevision,
                         validUntil: validUntil)
                 }
-                if !sameSleepRead(sleepInput, nextSleep) {
+                if !sameSleepRead(sleepInput, nextSleep) || !sameMetricsRead(healthMetricsInput, nextMetrics) {
                     sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]
                 }
                 sleepPlaybackAdmissions = sleepPlaybackAdmissions.filter { $0.value.validUntil > completedAt }
@@ -730,6 +747,7 @@ public final class MorningBriefingController {
                     sleepPlaybackAdmissions[document.id] = .init(revision: sleepPlaybackRevision, validUntil: validUntil)
                 }
                 calendarInput = nextCalendar; weatherInput = nextWeather; sleepInput = nextSleep; prepared = document
+                healthMetricsInput = nextMetrics
                 if !document.hasUsableFacts { errorMessage = String(localized: "No current briefing facts are available. Review your sources or try refreshing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
                 return document
             } catch {
@@ -783,10 +801,36 @@ public final class MorningBriefingController {
         catch { return .notReadable }
     }
 
+    private func readHealthMetrics(cached: [HealthMetric: HealthMetricBriefingInput], settings: MorningBriefingSettings,
+        force: Bool, at instant: Date, zone: TimeZone, attempt: UUID, revision expectedRevision: UUID) async throws -> [HealthMetric: HealthMetricBriefingInput] {
+        guard settings.includesHealth && settings.includesHealthMetrics else { return [:] }
+        async let hrv = readMetric(.heartRateVariabilitySDNN)
+        async let heart = readMetric(.restingHeartRate)
+        async let breathing = readMetric(.respiratoryRate)
+        return try await [.heartRateVariabilitySDNN: hrv, .restingHeartRate: heart, .respiratoryRate: breathing]
+
+        func readMetric(_ metric: HealthMetric) async throws -> HealthMetricBriefingInput {
+            let previous = cached[metric] ?? .excluded
+            let document = try compose(calendar: .notConfigured, weather: .notConfigured,
+                healthMetrics: [metric: previous], at: instant, zone: zone)
+            if !force, document.healthMetrics.first(where: { $0.metric == metric })?.section.status == .fresh { return previous }
+            let service = healthMetrics
+            do {
+                return try await BriefingSourceDeadline<HealthMetricBriefingInput>(clock: clock).run(timeout: sourceTimeout) { [weak self] in
+                    guard let self, self.revision == expectedRevision, self.refreshAttempt == attempt,
+                          self.settings.includesHealth, self.settings.includesHealthMetrics else { throw CancellationError() }
+                    return try await service.read(metric, at: instant)
+                }
+            } catch is CancellationError { throw CancellationError() }
+            catch { return .notReadable }
+        }
+    }
+
     private func compose(calendar: MorningBriefingInput<CalendarSnapshot>,
         weather: MorningBriefingInput<WeatherObservationSnapshot>, sleep: SleepBriefingInput = .excluded,
+        healthMetrics: [HealthMetric: HealthMetricBriefingInput] = [:],
         at date: Date, zone: TimeZone) throws -> PreparedMorningBriefing {
-        try MorningBriefingComposer.prepare(calendar: calendar, weather: weather, sleep: sleep, for: date, at: date,
+        try MorningBriefingComposer.prepare(calendar: calendar, weather: weather, sleep: sleep, healthMetrics: healthMetrics, for: date, at: date,
             timeZoneIdentifier: zone.identifier, localeIdentifier: localeIdentifier,
             temperatureUnit: settings.temperatureUnit, policy: policy)
     }
@@ -803,6 +847,15 @@ public final class MorningBriefingController {
         return first == second
     }
 
+    private func sameMetricsRead(_ first: [HealthMetric: HealthMetricBriefingInput], _ second: [HealthMetric: HealthMetricBriefingInput]) -> Bool {
+        HealthMetric.allCases.allSatisfy { metric in
+            if case .snapshot(let lhs) = first[metric], case .snapshot(let rhs) = second[metric] {
+                return lhs.samples == rhs.samples
+            }
+            return first[metric] == second[metric]
+        }
+    }
+
     private func invalidateWork(clearChoices: Bool) {
         revision = UUID()
         cancelHealthConnection()
@@ -811,6 +864,7 @@ public final class MorningBriefingController {
         refreshTask = nil; accessTask = nil; searchTask = nil; suggestionTask = nil; preparingKey = nil
         isPreparing = false; isConnectingCalendar = false; isSearchingCities = false
         prepared = nil; calendarInput = .notConfigured; weatherInput = .notConfigured; sleepInput = .excluded
+        healthMetricsInput = [:]
         lastWeatherAttemptAt = nil
         calendarPlaybackAdmissions = [:]
         sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]

@@ -88,9 +88,9 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>MORE uses your current location while open for local weather and a sky that follows the sun. An approximate location is enough.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Read only the sleep or step data you explicitly enable to prepare your morning. Health data stays on this iPhone; MORE does not write to Apple Health.</string>
+	<string>MORE reads only the sleep, optional steps, resting heart rate, heart rate variability (SDNN) and breathing rate you explicitly choose for your morning. Readings stay on this iPhone unless you start the optional online conversation. MORE never writes Health data.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MORE listens on this device during your hands-free morning so you can interrupt, pause or request an action. Listening stops when you end the morning or leave the app.</string>
+	<string>Voice listening is local by default so you can interrupt MORE or ask a question during your morning. If you choose ElevenLabs conversation, your microphone audio is sent to ElevenLabs. Listening stops when you end the morning or leave the app.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>MORE transcribes your requested voice commands and drafts.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

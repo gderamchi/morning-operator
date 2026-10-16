@@ -74,35 +74,37 @@
       }
     },
     "NSHealthShareUsageDescription": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Read only the sleep or step data you explicitly enable to prepare your morning. Health data stays on this iPhone; MORE does not write to Apple Health."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lire uniquement le sommeil ou les pas que vous activez explicitement pour préparer votre matin. Ces données restent sur cet iPhone ; MORE n’écrit pas dans Santé Apple."
-          }
-        }
-      }
-    },
-    "NSMicrophoneUsageDescription": {
-      "comment": "Privacy usage description",
+      "comment": "Explicitly chosen read scope; local by default, optional online voice conversation disclosed separately.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE listens on this device during your hands-free morning so you can interrupt, pause or request an action. Listening stops when you end the morning or leave the app."
+            "value": "MORE reads only the sleep, optional steps, resting heart rate, heart rate variability (SDNN) and breathing rate you explicitly choose for your morning. Readings stay on this iPhone unless you start the optional online conversation. MORE never writes Health data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE écoute sur cet appareil pendant votre matin mains libres pour vous permettre de l’interrompre, de mettre en pause ou de demander une action. L’écoute s’arrête quand vous terminez votre matin ou quittez l’app."
+            "value": "MORE lit uniquement le sommeil, les pas facultatifs, la fréquence cardiaque au repos, sa variabilité (SDNN) et la fréquence respiratoire que vous choisissez pour votre matin. Ces lectures restent sur cet iPhone sauf si vous démarrez la conversation en ligne facultative. MORE ne modifie aucune donnée Santé."
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription": {
+      "comment": "Explicitly chosen read scope; local by default, optional online voice conversation disclosed separately.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice listening is local by default so you can interrupt MORE or ask a question during your morning. If you choose ElevenLabs conversation, your microphone audio is sent to ElevenLabs. Listening stops when you end the morning or leave the app."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’écoute vocale est locale par défaut pour interrompre MORE ou poser une question pendant votre matin. Si vous choisissez la conversation ElevenLabs, le son du microphone est envoyé à ElevenLabs. L’écoute s’arrête à la fin du matin ou quand vous quittez l’app."
           }
         }
       }
