@@ -2,7 +2,7 @@ import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { mkdir, open, readFile, rename } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { morningVoiceToken } from './morning-voice.mjs';
+import { morningSpeech, morningVoiceToken } from './morning-voice.mjs';
 
 const token = () => randomBytes(32).toString('base64url');
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -408,6 +408,13 @@ export async function createRequestHandler(config, { storage = new FileStorage(c
         }
         return reply(result.status, result.payload);
       }
+      if (request.method === 'POST' && url.pathname === '/v1/voice/speech') {
+        if (url.search) fail(400, 'invalid_speech', 'Use speech without extra parameters.');
+        const input = await body(request); exactKeys(input, ['text', 'language', 'voiceGender']);
+        const result = await morningSpeech(config.voice, userID, input);
+        if (result.status === 503 && config.voice?.apiKey && config.voice?.agentID) await storage.requestVoiceActivation(userID);
+        return result;
+      }
       if (request.method === 'GET' && url.pathname === '/v1/slack/reply-identity') {
         if ([...url.searchParams.keys()].some(key => key !== 'connectionID') || url.searchParams.getAll('connectionID').length !== 1) {
           fail(400, 'invalid_slack_reply', 'Choose one Slack account for this reply.');
@@ -472,7 +479,7 @@ export async function createFetchService(config, options) {
   const handle = await createRequestHandler(config, options);
   return { async fetch(request) {
     const receipt = await handle(request);
-    return new Response(receipt.rawJSON ?? (receipt.payload === undefined ? null : JSON.stringify(receipt.payload)), { status: receipt.status, headers: { ...responseHeaders, ...receipt.headers } });
+    return new Response(receipt.audio ?? receipt.rawJSON ?? (receipt.payload === undefined ? null : JSON.stringify(receipt.payload)), { status: receipt.status, headers: { ...responseHeaders, ...receipt.headers } });
   } };
 }
 
@@ -481,7 +488,7 @@ export async function createService(config, options) {
   const handle = await createRequestHandler(config, options);
   const server = createServer(async (request, response) => {
     const receipt = await handle(request);
-    if (receipt.rawJSON !== undefined) { response.writeHead(receipt.status, { ...responseHeaders, ...receipt.headers }); response.end(receipt.rawJSON); }
+    if (receipt.audio !== undefined || receipt.rawJSON !== undefined) { response.writeHead(receipt.status, { ...responseHeaders, ...receipt.headers }); response.end(receipt.audio ?? receipt.rawJSON); }
     else send(response, receipt.status, receipt.payload, receipt.headers);
   });
   server.requestTimeout = 15000;

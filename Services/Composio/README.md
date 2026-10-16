@@ -56,6 +56,7 @@ All `/v1` routes except installation creation and the browser verifier require `
 | --- | --- | --- |
 | `POST /v1/installations` | `{}` | `201 {token}` |
 | `POST /v1/voice/token` | `{}` | `200 {conversationToken}` for an activated installation; otherwise `503 voice_not_configured` |
+| `POST /v1/voice/speech` | `{text,language:"fr"\|"en",voiceGender:"male"\|"female"}` | `200 audio/mpeg` for the same activated installation; otherwise sanitized JSON error |
 | `GET /v1/services` | — | `{services:[{id,name}]}` |
 | `GET /v1/connections` | — | `{connections:[{id,service,name,status,accountLabel?}]}` |
 | `POST /v1/connections` | `{service,callbackURL}` | `201 {id?,authorizationURL}` |
@@ -91,6 +92,12 @@ The voice route requests an [ElevenLabs WebRTC session token](https://elevenlabs
 A configured deployment records a refused authenticated request as the generated installation ID and last request time only (`voice_activation_requests` in D1; `voice-activation` metadata files in Node). Invalid bodies and unauthenticated requests create no activation request. A request is not an entitlement or automatic approval: an operator must verify the intended installation through a trusted owner channel before adding its ID to the private allowlist. Public enrollment, catalog access and a database row alone never authorize a paid conversation. Receipt-backed subscription enforcement and identity recovery are not implemented by this broker.
 
 The provider request has a ten-second deadline, a 64 KiB response bound and no retry. Redirects are refused with Fetch `manual` and a status check; Cloudflare does not support `redirect: "error"`. Provider errors become a generic `502 voice_unavailable`, without private response bodies. Token responses are `no-store`; do not log their contents. The deployment and activation runbook is in [CLOUDFLARE.md](CLOUDFLARE.md#activate-cloud-conversation).
+
+## Bounded text-to-speech
+
+`/v1/voice/speech` sends only selected text to ElevenLabs TTS, without a microphone, conversation or tool execution. It uses the same private activation allowlist as the token broker. Unknown JSON fields and query parameters are refused. Text must be nonempty and at most 32,768 UTF-8 bytes; language and gender are closed enums. The server selects public premade Roger/Sarah voice IDs and `eleven_turbo_v2_5`; callers cannot supply an arbitrary voice, model or provider URL.
+
+The provider call sets `language_code`, `output_format=mp3_44100_128` and `enable_logging=false`. It refuses redirects, has one total 20-second deadline including the body stream, and accepts at most 8 MiB of MPEG audio. No request is retried with logging enabled. A provider failure becomes `502 speech_unavailable`; successful audio and JSON errors are `no-store`. Text and audio are never persisted or logged by this route. An explicit repeat synthesizes another audio response and may incur another provider charge; it never reserves or dispatches a business effect. Provider metadata and configuration checks are recorded in [NATURAL-VOICE.md](../../docs/NATURAL-VOICE.md#provider-configuration-contract).
 
 ## Replay and uncertainty
 

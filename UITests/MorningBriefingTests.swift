@@ -24,12 +24,17 @@ final class MorningBriefingTests: XCTestCase {
         openSettings(app)
         tap("setup.conversation", app)
         XCTAssertTrue(app.buttons["cloudVoice.start"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["cloudVoice.start"].label, "Talk")
         XCTAssertTrue(app.buttons["cloudVoice.start"].isEnabled, "Conversation can be chosen from Settings without starting a morning.")
         XCTAssertFalse(app.buttons["cloudVoice.stop"].exists)
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "ElevenLabs", "Google Gemini")).firstMatch.exists)
-        let disclosure = app.buttons["What is shared?"]
+        XCTAssertTrue(app.staticTexts["cloudVoice.consent"].label.contains("processed online"))
+        let providers = app.staticTexts["cloudVoice.providers"]
+        XCTAssertFalse(providers.exists, "Provider details stay outside the voice choice and start collapsed.")
+        let disclosure = app.buttons["cloudVoice.privacy"]
         reveal(disclosure, app)
         disclosure.tap()
+        XCTAssertTrue(providers.waitForExistence(timeout: 5))
+        XCTAssertTrue(providers.label.contains("ElevenLabs") && providers.label.contains("Google Gemini"))
         let details = app.staticTexts["cloudVoice.sharingDetails"]
         XCTAssertTrue(details.waitForExistence(timeout: 5))
         XCTAssertTrue(details.label.contains("Previews and recaps you choose to play"))
