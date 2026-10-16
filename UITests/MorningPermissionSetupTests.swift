@@ -57,7 +57,11 @@ final class MorningPermissionSetupTests: XCTestCase {
         for (index, permission) in permissions.enumerated() {
             if index == 4 {
                 XCUIDevice.shared.orientation = .landscapeLeft
-                XCTAssertGreaterThan(app.frame.width, app.frame.height, app.debugDescription)
+                let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    let frame = app.frame
+                    return frame.width > frame.height
+                }, object: nil)
+                XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed, app.debugDescription)
             }
             XCTAssertTrue(app.staticTexts["permissions.title.\(permission)"].waitForExistence(timeout: 5))
             XCTAssertTrue(element("permissions.progress", in: app).isHittable,

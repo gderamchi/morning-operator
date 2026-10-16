@@ -135,7 +135,11 @@ final class MorningWelcomeFlowTests: XCTestCase {
         attach("onboarding-night-fr-largest-paywall-portrait", app)
 
         XCUIDevice.shared.orientation = .landscapeLeft
-        XCTAssertGreaterThan(app.frame.width, app.frame.height, app.debugDescription)
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = app.frame
+            return frame.width > frame.height
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed, app.debugDescription)
         for identifier in ["paywall.subscribe", "paywall.restore", "paywall.terms", "paywall.privacy"] {
             reach(control(identifier, in: app), in: app)
         }
