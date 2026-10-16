@@ -243,17 +243,63 @@ struct MorningExtrasProviderTests {
         #expect(!saved.contains("7000") && !saved.contains("7,000"))
     }
 
-    @Test func aHangingSourceIsSilentAfterTheDeadline() async throws {
+    @Test(.timeLimit(.minutes(1))) func aHangingSourceIsSilentAfterTheDeadline() async throws {
         let health = SyntheticHealth(steps: [7_000, nil, nil, nil, nil, nil, nil, nil], hang: true)
+        defer { health.releaseRead() }
+        let clock = ManualTestClock()
         let provider = MorningExtrasProvider(store: MorningExtrasPreferencesStore(directory: try directory()),
-                                             health: health, timeout: .milliseconds(50))
+                                             health: health, timeout: .milliseconds(50), clock: clock)
         try await provider.setEnabled(.steps, true)
-        let started = ContinuousClock.now
-        let selection = await prepare(provider)
+        var finished = false
+        let attempt = Task { let selection = await prepare(provider); finished = true; return selection }
+        defer { attempt.cancel() }
+        await clock.waitForSleepers()
+        while health.waitingRead == nil { try Task.checkCancellation(); await Task.yield() }
+        clock.advance(by: .milliseconds(49))
+        #expect(!finished && clock.sleeperCount == 1)
+        clock.advance(by: .milliseconds(1))
+        let selection = await attempt.value
         #expect(selection.items.isEmpty)
-        // The source hangs for 30 seconds; the preparation must not wait for it. The margin
-        // is wide because parallel suites share the main actor.
-        #expect(ContinuousClock.now - started < .seconds(20))
+        #expect(health.waitingRead != nil, "The deadline must return before the reader is released.")
+        #expect(clock.sleeperCount == 0)
+        health.releaseRead()
+        while !health.readFinished { try Task.checkCancellation(); await Task.yield() }
+        #expect(health.readWasCancelled && selection.items.isEmpty)
+    }
+
+    @Test(.timeLimit(.minutes(1))) func cancellationReleasesTheCallerAndDeadlineBeforeTheReader() async throws {
+        let health = SyntheticHealth(steps: [7_000, nil, nil, nil, nil, nil, nil, nil], hang: true)
+        defer { health.releaseRead() }
+        let clock = ManualTestClock()
+        let provider = MorningExtrasProvider(store: MorningExtrasPreferencesStore(directory: try directory()),
+                                             health: health, clock: clock)
+        try await provider.setEnabled(.steps, true)
+        let attempt = Task { await prepare(provider) }
+        defer { attempt.cancel() }
+        await clock.waitForSleepers()
+        while health.waitingRead == nil { try Task.checkCancellation(); await Task.yield() }
+        attempt.cancel()
+        #expect(await attempt.value == .empty)
+        #expect(health.waitingRead != nil && clock.sleeperCount == 0)
+        health.releaseRead()
+        while !health.readFinished { try Task.checkCancellation(); await Task.yield() }
+        #expect(health.readWasCancelled)
+    }
+
+    @Test(.timeLimit(.minutes(1))) func anAnsweredSourceCancelsItsUnusedDeadline() async throws {
+        let health = SyntheticHealth(steps: [7_000, nil, nil, nil, nil, nil, nil, nil], hang: true)
+        defer { health.releaseRead() }
+        let clock = ManualTestClock()
+        let provider = MorningExtrasProvider(store: MorningExtrasPreferencesStore(directory: try directory()),
+                                             health: health, clock: clock)
+        try await provider.setEnabled(.steps, true)
+        let attempt = Task { await prepare(provider) }
+        defer { attempt.cancel() }
+        await clock.waitForSleepers()
+        while health.waitingRead == nil { try Task.checkCancellation(); await Task.yield() }
+        health.releaseRead()
+        #expect(await attempt.value.kinds == [.steps])
+        #expect(clock.sleeperCount == 0 && health.readFinished && !health.readWasCancelled)
     }
 
     @Test func weatherAndCalendarReachTheSentenceAndScreenTimeIsAHook() async throws {
@@ -288,6 +334,8 @@ private final class SyntheticHealth: MorningHealthExtrasProviding {
     var requestedSleep = false, requestedSteps = false
     let steps: [Int?]
     let hang: Bool
+    var waitingRead: CheckedContinuation<Void, Never>?
+    var readFinished = false, readWasCancelled = false
     init(steps: [Int?], hang: Bool = false) { self.steps = steps; self.hang = hang }
     func requestReadAccess() async throws { prompts += 1 }
     func requestExtrasAccess() async throws { prompts += 1 }
@@ -297,9 +345,12 @@ private final class SyntheticHealth: MorningHealthExtrasProviding {
     func sleepSamples(in interval: DateInterval) async throws -> SleepReadOutcome { reads += 1; return .samples([]) }
     func stepTotals(for days: [DateInterval]) async throws -> [Int?] {
         reads += 1
-        if hang { try await Task.sleep(for: .seconds(30)) }
+        if hang { await withCheckedContinuation { waitingRead = $0 } }
+        readWasCancelled = Task.isCancelled
+        readFinished = true
         return steps.count == days.count ? steps : days.map { _ in nil }
     }
+    func releaseRead() { waitingRead?.resume(); waitingRead = nil }
 }
 
 @MainActor

@@ -245,14 +245,17 @@ public final class MorningExtrasProvider {
     @ObservationIgnored private let birthdays: (any BirthdayProviding)?
     @ObservationIgnored private let weatherOutlook: WeatherOutlookProvider?
     @ObservationIgnored private let timeout: Duration
+    @ObservationIgnored private let clock: any Clock<Duration>
     @ObservationIgnored private var revision = UUID()
 
     public init(store: MorningExtrasPreferencesStore?, health: (any MorningHealthExtrasProviding)? = nil,
                 screenTime: (any ScreenTimeSummaryProviding)? = nil, birthdays: (any BirthdayProviding)? = nil,
-                weatherOutlook: WeatherOutlookProvider? = nil, timeout: Duration = .seconds(4)) {
+                weatherOutlook: WeatherOutlookProvider? = nil, timeout: Duration = .seconds(4),
+                clock: any Clock<Duration> = ContinuousClock()) {
         self.store = store; self.health = health; self.screenTime = screenTime
         self.birthdays = birthdays; self.weatherOutlook = weatherOutlook
         self.timeout = min(max(timeout, .milliseconds(1)), .seconds(10))
+        self.clock = clock
         preferences = store?.load() ?? .init()
     }
 
@@ -337,7 +340,7 @@ public final class MorningExtrasProvider {
         func wants(_ kind: MorningExtraKind) -> Bool {
             enabled.contains(kind) && readable(kind, weatherLocation: weatherLocation, calendarSelected: calendarEvents != nil)
         }
-        let timeout = timeout
+        let timeout = timeout, clock = clock
         let health = wants(.sleep) || wants(.steps) ? health : nil
         let screenTime = wants(.screenTime) ? screenTime : nil
         let birthdays = wants(.birthday) ? birthdays : nil
@@ -346,7 +349,7 @@ public final class MorningExtrasProvider {
 
         let sleepTask = Task { @MainActor () -> MorningExtraFact? in
             guard wants(.sleep), let health else { return nil }
-            return await ExtrasDeadline.run(timeout) {
+            return await ExtrasDeadline.run(timeout, clock: clock) {
                 let read = try await health.sleepSamples(in: DateInterval(start: now.addingTimeInterval(-2 * 86_400), end: now))
                 guard case .samples(let values) = read else { return nil }
                 return MorningExtrasFacts.sleep(.snapshot(.init(readAt: now, samples: values)), at: now, timeZone: timeZone)
@@ -355,14 +358,14 @@ public final class MorningExtrasProvider {
         let days = [frame.yesterday] + frame.previousWeek
         let stepTask = Task { @MainActor () -> MorningExtraFact? in
             guard wants(.steps), let health else { return nil }
-            return await ExtrasDeadline.run(timeout) {
+            return await ExtrasDeadline.run(timeout, clock: clock) {
                 let values = try await health.stepTotals(for: days)
                 return values.count == days.count ? MorningExtrasFacts.steps(values) : nil
             }
         }
         let screenTask = Task { @MainActor () -> MorningExtraFact? in
             guard let screenTime else { return nil }
-            return await ExtrasDeadline.run(timeout) {
+            return await ExtrasDeadline.run(timeout, clock: clock) {
                 let values = try await screenTime.screenTimeMinutes(for: days)
                 return values.count == days.count ? MorningExtrasFacts.screenTime(values) : nil
             }
@@ -372,20 +375,20 @@ public final class MorningExtrasProvider {
             var calendar = Calendar(identifier: .gregorian); calendar.timeZone = timeZone
             let parts = calendar.dateComponents([.month, .day], from: now)
             guard let month = parts.month, let dayOfMonth = parts.day else { return nil }
-            return await ExtrasDeadline.run(timeout) {
+            return await ExtrasDeadline.run(timeout, clock: clock) {
                 let names = try await birthdays.names(bornOn: month, day: dayOfMonth)
                 return names.isEmpty ? nil : .birthdays(names)
             }
         }
         let weatherTask = Task { @MainActor () -> [MorningExtraFact]? in
             guard let outlook, let weatherLocation else { return nil }
-            return await ExtrasDeadline.run(timeout) {
+            return await ExtrasDeadline.run(timeout, clock: clock) {
                 MorningExtrasFacts.weather(try await outlook(weatherLocation, frame), frame: frame, unit: temperatureUnit)
             }
         }
         let calendarTask = Task { @MainActor () -> MorningExtraFact? in
             guard let events else { return nil }
-            return await ExtrasDeadline.run(timeout) { MorningExtrasFacts.calendar(try await events(frame), frame: frame) }
+            return await ExtrasDeadline.run(timeout, clock: clock) { MorningExtrasFacts.calendar(try await events(frame), frame: frame) }
         }
         let single = [sleepTask, stepTask, screenTask, birthdayTask, calendarTask]
         let facts = await withTaskCancellationHandler {
@@ -427,9 +430,10 @@ private final class ExtrasDeadline<Value: Sendable> {
     private var operation: Task<Void, Never>?
     private var timer: Task<Void, Never>?
 
-    static func run(_ timeout: Duration, _ body: @escaping @MainActor () async throws -> Value?) async -> Value? {
+    static func run<C: Clock>(_ timeout: Duration, clock: C,
+                              _ body: @escaping @MainActor () async throws -> Value?) async -> Value? where C.Duration == Duration {
         let race = ExtrasDeadline()
-        let started = ContinuousClock.now
+        let started = clock.now
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 race.continuation = continuation
@@ -437,10 +441,10 @@ private final class ExtrasDeadline<Value: Sendable> {
                     let value = try? await body()
                     // A synchronous read can hold the main actor past the timer; its answer is
                     // still late and is dropped.
-                    race.finish(ContinuousClock.now - started <= timeout ? value : nil)
+                    race.finish(started.duration(to: clock.now) <= timeout ? value : nil)
                 }
                 race.timer = Task { @MainActor in
-                    do { try await Task.sleep(for: timeout) } catch { return }
+                    do { try await clock.sleep(for: timeout) } catch { return }
                     race.finish(nil)
                 }
             }
