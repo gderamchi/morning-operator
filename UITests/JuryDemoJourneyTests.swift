@@ -292,6 +292,58 @@ final class JuryDemoJourneyTests: XCTestCase {
         #endif
     }
 
+    /// Diagnostics only: numeric device logs establish whether raw input has a
+    /// signal. This makes no ASR, acoustic recognition or acceptance claim.
+    func testLivePhysicalPhoneRawMicrophoneDiagnostic() async throws {
+        guard ProcessInfo.processInfo.environment["MORE_JURY_RAW_MIC_PHONE"] == "1" else {
+            throw XCTSkip("Set MORE_JURY_RAW_MIC_PHONE=1 only for the authorized raw microphone diagnosis.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Raw microphone diagnosis requires a physical iPhone.")
+        #else
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = try demoApplication()
+        app.launchArguments = ["-AppleLanguages", "(fr)", "--jury-raw-microphone-diagnostic"]
+        defer { app.terminate() }
+        app.launch()
+        if app.buttons["permissions.allow"].waitForExistence(timeout: 3) {
+            finishRealPermissionSetup(app)
+            returnToLiveHome(app)
+        }
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
+        assertNoSpecialPresentation(app)
+        openSettings(app)
+        let previousStop = app.buttons["morning.stop"]
+        if previousStop.exists { previousStop.tap(); XCTAssertTrue(previousStop.waitForNonExistence(timeout: 10)) }
+        let listening = app.buttons["setup.voiceAccess"]
+        reveal(listening, in: app); listening.tap()
+        if app.buttons["voice.access.prepare"].waitForExistence(timeout: 3) {
+            app.buttons["voice.access.prepare"].tap()
+            handleRealSystemGrants()
+        }
+        app.buttons["voice.access.close"].tap()
+        returnToLiveHome(app)
+        app.buttons["morning.actions"].tap()
+        let begin = app.buttons["morning.begin"]
+        XCTAssertTrue(begin.waitForExistence(timeout: 5)); begin.tap()
+        handleRealSystemGrants()
+        await waitForLiveSpokenPassage(app)
+        attachLive("jury-raw-mic-diagnostic-real-audio-started", app)
+        print("JURY_RAW_MIC_READY")
+        try await Task.sleep(for: .seconds(25))
+        attachLive("jury-raw-mic-diagnostic-after-acoustic-window", app)
+        openLiveSettings(app)
+        let stop = app.buttons["morning.stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5)); stop.tap()
+        XCTAssertTrue(stop.waitForNonExistence(timeout: 10))
+        returnToLiveHome(app)
+        XCTAssertTrue(app.buttons["morning.actions"].exists)
+        XCTAssertFalse(app.staticTexts["morning.caption"].exists)
+        #endif
+    }
+
     /// The compact activity is opened only by its observed MORE accessibility
     /// label. Every action then requires a demo-only control identifier.
     func testLivePhysicalPhoneDynamicIslandPauseResumeAndStop() async throws {

@@ -130,6 +130,9 @@ public final class JuryDemoVoiceSession {
     }
 
     public func send(text: String) {
+        #if DEBUG && os(iOS)
+        guard !Self.rawMicrophoneDiagnostic else { return }
+        #endif
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.count <= 4_000, !text.isEmpty, isActive else { return }
         if case .session(.pause) = MorningHandsFreeVoicePolicy.control(in: text, language: language) { pause(); return }
@@ -412,8 +415,10 @@ public final class JuryDemoVoiceSession {
         guard audioPreparationID == audioID, state != .paused else { throw CancellationError() }
         engine = AVAudioEngine()
         let input = engine.inputNode
-        try input.setVoiceProcessingEnabled(true)
-        guard input.isVoiceProcessingEnabled, !input.isVoiceProcessingBypassed else { throw JuryDemoError.localVoiceUnavailable }
+        if !Self.rawMicrophoneDiagnostic {
+            try input.setVoiceProcessingEnabled(true)
+            guard input.isVoiceProcessingEnabled, !input.isVoiceProcessingBypassed else { throw JuryDemoError.localVoiceUnavailable }
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.channelCount > 0, format.sampleRate > 0 else { throw JuryDemoError.localVoiceUnavailable }
         let sink = sink
@@ -438,7 +443,7 @@ public final class JuryDemoVoiceSession {
         let route = AVAudioSession.sharedInstance().currentRoute
         let inputPorts = route.inputs.map { $0.portType.rawValue }.joined(separator: ",")
         let outputPorts = route.outputs.map { $0.portType.rawValue }.joined(separator: ",")
-        JuryDemoAudioDiagnostic.log.info("prepare_route inputType=\(inputPorts, privacy: .public) outputType=\(outputPorts, privacy: .public) inputMuted=\(input.isVoiceProcessingInputMuted, privacy: .public) appInputMuted=\(AVAudioApplication.shared.isInputMuted, privacy: .public)")
+        JuryDemoAudioDiagnostic.log.info("prepare_route inputType=\(inputPorts, privacy: .public) outputType=\(outputPorts, privacy: .public) inputMuted=\(input.isVoiceProcessingInputMuted, privacy: .public) appInputMuted=\(AVAudioApplication.shared.isInputMuted, privacy: .public) diagnosticRaw=\(Self.rawMicrophoneDiagnostic, privacy: .public)")
         #endif
         observeInterruptions(run: id)
     }
@@ -469,6 +474,14 @@ public final class JuryDemoVoiceSession {
 
     private func beginRecognition(run id: UUID) {
         guard runID == id, state != .paused, let recognizer, recognizer.isAvailable else { return }
+        #if DEBUG
+        if Self.rawMicrophoneDiagnostic {
+            if operation == nil, speechOperation == nil, state != .speaking {
+                state = .listening; message = "Je vous écoute."
+            }
+            return
+        }
+        #endif
         endRecognition()
         let turnID = UUID(); recognitionID = turnID; finishingInput = false
         transcript = ""
@@ -574,9 +587,18 @@ public final class JuryDemoVoiceSession {
         }
     }
 
+    private static var rawMicrophoneDiagnostic: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--jury-raw-microphone-diagnostic")
+        #else
+        false
+        #endif
+    }
+
     private static func activateAudio() async throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetoothHFP])
+        try session.setCategory(.playAndRecord, mode: rawMicrophoneDiagnostic ? .measurement : .voiceChat,
+                                options: [.defaultToSpeaker, .allowBluetoothHFP])
         if #available(iOS 27.0, *) {
             guard try await session.activate(options: []) else { throw JuryDemoError.localVoiceUnavailable }
         } else { try session.setActive(true) }
