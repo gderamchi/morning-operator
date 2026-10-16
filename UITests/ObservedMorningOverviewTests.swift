@@ -183,6 +183,7 @@ final class ObservedMorningOverviewTests: XCTestCase {
     }
 
     private func openDay(offset: Int, in app: XCUIApplication) {
+        MorningUITestNavigation.selectTab("Review", in: app)
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         let date = calendar.date(byAdding: .day, value: offset, to: Date())!

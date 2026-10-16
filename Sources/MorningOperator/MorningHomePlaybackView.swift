@@ -168,6 +168,9 @@ struct MorningHomePlaybackView: View {
                         .animation(showingInput ? nil : .easeOut(duration: still ? 0.12 : 0.22), value: caption)
                         .textSelection(.enabled)
                         .accessibilityIdentifier(showingActionStatus ? "morning.actionStatus" : "morning.caption")
+                        #if DEBUG
+                        .accessibilityValue(store.uiTestSessionSnapshot)
+                        #endif
                         .accessibilityAction(named: Text(controlsLabel), toggleControls)
                 }
                 .scrollIndicators(.hidden)

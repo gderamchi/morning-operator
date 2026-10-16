@@ -58,11 +58,16 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         XCTAssertTrue(learn.waitForExistence(timeout: 5),
                       "Settings → History must expose the saved observation in Learn.")
         waitForNotes(importedObservation, in: app)
+        let back = app.navigationBars.buttons["BackButton"].firstMatch
+        XCTAssertTrue(back.isHittable, "Saved observation review must retain its native return to History.")
         scrollTo(app.textViews["learn.notes"], in: app)
         XCTAssertFalse(app.buttons["proposal.approve"].exists)
         XCTAssertEqual(app.alerts.count, 0)
         attach("synthetic-history-reopens-saved-observation-for-review-only", app)
         closeLearn(in: app)
+        XCTAssertTrue(app.buttons["review.period"].waitForExistence(timeout: 5),
+                      "Back must return to History before another destination is opened.")
+        XCTAssertTrue(review.exists)
         assertApprovedRoutine(currentTitle, count: 4, in: app)
         openArchive(in: app)
         XCTAssertFalse(app.buttons["observations.reviewProposal"].exists,
@@ -85,8 +90,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         waitForNotes(importedObservation, in: app)
         app.terminate()
 
-        // Keep the approved routine and saved text in the same workspace. This
-        // hook must reach real blank extraction, never missing-file substitute data.
+        // The hook must reach blank extraction, never a missing-file substitute.
         app.launchArguments.removeAll {
             $0 == "--ui-testing-import-observation" || $0 == "--ui-testing-observation-archive"
                 || $0 == "--ui-testing-approved"
@@ -762,8 +766,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
     }
 
     private func openRoutine(in app: XCUIApplication) {
-        reviewRoot(in: app)
-        tap("review.routine", in: app)
+        MorningUITestNavigation.openRoutine(in: app)
         XCTAssertTrue(app.navigationBars["Your routine"].waitForExistence(timeout: 5))
     }
 
@@ -822,16 +825,22 @@ final class RoutineEvidenceProposalTests: XCTestCase {
     }
 
     private func tapPlayback(_ expectedLabel: String, in app: XCUIApplication) {
-        MorningUITestNavigation.revealMorningAction("morning.playback", in: app)
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        MorningUITestNavigation.revealControls(in: app)
         let playback = app.buttons["morning.playback"]
         XCTAssertEqual(playback.label, expectedLabel)
         XCTAssertTrue(playback.isEnabled)
         playback.tap()
     }
 
+    private func assertRun(_ state: String, step: String, in app: XCUIApplication) {
+        MorningUITestNavigation.assertSession(state: state, step: step, in: app)
+    }
+
     private func assertRun(_ state: String, step: String, identity: RunIdentity, in app: XCUIApplication) throws {
         XCTAssertTrue(["running", "paused"].contains(state))
-        MorningUITestNavigation.revealMorningAction("morning.playback", in: app)
+        MorningUITestNavigation.selectTab("Morning", in: app)
+        MorningUITestNavigation.revealControls(in: app)
         XCTAssertEqual(app.buttons["morning.playback"].label, state == "running" ? "Pause" : "Continue")
         XCTAssertEqual(try runIdentity(in: app), identity, "Home navigation must preserve the exact session and current step.")
         if state == "paused" {
@@ -854,10 +863,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
     }
 
     private func assertStoppedRun(in app: XCUIApplication) {
-        let landscape = app.buttons["morning.actions"]
-        let stopped = XCTNSPredicateExpectation(predicate: NSPredicate(
-            format: "exists == true AND value BEGINSWITH %@", "Morning stopped"), object: landscape)
-        XCTAssertEqual(XCTWaiter.wait(for: [stopped], timeout: 5), .completed, app.debugDescription)
+        MorningUITestNavigation.assertSession(state: "stopped", in: app)
         XCTAssertFalse(app.buttons["morning.playback"].exists)
         assertStartAvailable(in: app)
     }

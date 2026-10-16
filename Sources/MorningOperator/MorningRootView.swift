@@ -78,6 +78,7 @@ struct MorningRootView: View {
                            motionAllowed: homeSkyIsVisible,
                            notice: store.notice,
                            session: store.session,
+                           testingSessionSnapshot: store.uiTestSessionSnapshot,
                            playback: store.sessionActive && !store.privacyBlocksWork ? AnyView(MorningHomePlaybackView(store: store, openSettings: { showingActions = false; showingSettings = true }).id(store.currentStep?.id)) : nil,
                            begin: {
                                guard !store.sessionActive else { return }
@@ -1374,6 +1375,7 @@ private struct MorningSunHome: View {
     var motionAllowed: Bool
     var notice: String?
     var session: RoutineSession?
+    var testingSessionSnapshot = ""
     var playback: AnyView? = nil
     /// Plays the saved routine, or opens the onboarding when there is none yet.
     var begin: () -> Void
@@ -1439,7 +1441,8 @@ private struct MorningSunHome: View {
                 .accessibilityLabel(actionsShown
                     ? (isFrench ? "Masquer les commandes" : "Hide controls")
                     : (isFrench ? "Afficher les commandes" : "Show controls"))
-                .accessibilityValue("\(sessionAccessibilityStatus). \(clock.skyAccessibilityDescription)")
+                .accessibilityValue("\(sessionAccessibilityStatus). \(clock.skyAccessibilityDescription)"
+                    + (testingSessionSnapshot.isEmpty ? "" : "\n\(testingSessionSnapshot)"))
                 .accessibilityHint(isFrench ? "Le paysage suit l’heure de votre iPhone." : "The landscape follows your iPhone’s time.")
 
                 if let playback {
