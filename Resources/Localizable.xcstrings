@@ -26258,6 +26258,134 @@
           }
         }
       }
+    },
+    "Male": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Male"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homme"
+          }
+        }
+      }
+    },
+    "Female": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Female"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Femme"
+          }
+        }
+      }
+    },
+    "Talk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talk"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parler"
+          }
+        }
+      }
+    },
+    "Talk to MORE and interrupt at any time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talk to MORE and interrupt at any time."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parlez à MORE et interrompez-le à tout moment."
+          }
+        }
+      }
+    },
+    "By tapping Talk, your voice and spoken passages are processed online during this conversation.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By tapping Talk, your voice and spoken passages are processed online during this conversation."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En touchant Parler, votre voix et les passages lus sont traités en ligne pendant cet échange."
+          }
+        }
+      }
+    },
+    "This conversation uses ElevenLabs and Google Gemini to process your voice and MORE’s spoken text.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This conversation uses ElevenLabs and Google Gemini to process your voice and MORE’s spoken text."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette conversation utilise ElevenLabs et Google Gemini pour traiter votre voix et les textes lus par MORE."
+          }
+        }
+      }
+    },
+    "Previews and recaps you choose to play during the conversation are shared. During an active morning, its routine steps and information MORE speaks from your chosen sources are also shared: calendar, weather, read messages and Health measurements included in this routine. No video recording or complete Health history is sent.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previews and recaps you choose to play during the conversation are shared. During an active morning, its routine steps and information MORE speaks from your chosen sources are also shared: calendar, weather, read messages and Health measurements included in this routine. No video recording or complete Health history is sent."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les aperçus et récapitulatifs que vous lancez vous-même durant la conversation sont partagés. Si un matin est en cours, ses étapes et les informations que MORE prononce depuis vos sources choisies sont aussi partagées : calendrier, météo, messages lus et mesures Santé incluses dans cette routine. Aucun enregistrement vidéo ni historique Santé complet n’est envoyé."
+          }
+        }
+      }
+    },
+    "This consent applies to this session. Choosing a voice or granting Apple Health access never enables this sharing. Ending the conversation releases the microphone. Listening also ends when you leave the app or end the morning.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This consent applies to this session. Choosing a voice or granting Apple Health access never enables this sharing. Ending the conversation releases the microphone. Listening also ends when you leave the app or end the morning."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce consentement vaut pour cette session. Choisir une voix ou autoriser Apple Santé n’active jamais ce partage. Arrêter la conversation libère le microphone. L’écoute s’arrête aussi en quittant l’app ou en arrêtant le matin."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

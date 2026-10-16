@@ -462,7 +462,7 @@ struct SetupView: View {
             Section(french ? "Voix et lecture" : "Voice & playback") {
                 #if !MORE_JURY_DEMO
                 settingsButton(french ? "Parler avec MORE" : "Talk with MORE",
-                               detail: "ElevenLabs", symbol: "sparkles") { choosingConversation = true }
+                               symbol: "sparkles") { choosingConversation = true }
                     .accessibilityIdentifier("setup.conversation")
                 #endif
                 NavigationLink { MorningIntelligenceView(store: store) } label: {

@@ -261,6 +261,18 @@ public final class ComposioService {
         }
         return response.conversationToken
     }
+
+    /// Synthesizes only this selected text, without opening a microphone or conversation.
+    public func morningSpeech(_ text: String, language: String, voiceGender: MorningVoiceGender) async throws -> Data {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              text.utf8.count <= 32_768, ["fr", "en"].contains(language),
+              !text.unicodeScalars.contains(where: { ($0.value < 32 && ![9, 10, 13].contains($0.value)) || $0.value == 127 }) else {
+            throw ComposioServiceError.invalidArguments
+        }
+        return try await send("POST", path: "voice/speech", body: .object([
+            "text": .string(text), "language": .string(language),
+            "voiceGender": .string(voiceGender == .male ? "male" : "female")]))
+    }
     public func connections() async throws -> [ComposioConnection] {
         let response: Connections = try await request("GET", path: "connections")
         return response.connections
@@ -532,8 +544,9 @@ public final class ComposioService {
         guard let url = components.url else { throw ComposioServiceError.insecureURL }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = path == "execute" ? 60 : 30
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let isSpeech = path == "voice/speech"
+        request.timeoutInterval = path == "execute" ? 60 : (isSpeech ? 25 : 30)
+        request.setValue(isSpeech ? "audio/mpeg" : "application/json", forHTTPHeaderField: "Accept")
         if let bearer { request.setValue("Bearer " + bearer, forHTTPHeaderField: "Authorization") }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -550,7 +563,7 @@ public final class ComposioService {
         } onCancel: { task.cancel() }
         try Task.checkCancellation()
         guard generation == expectedGeneration else { throw CancellationError() }
-        guard data.count <= 4_194_304 else { throw ComposioServiceError.invalidResponse }
+        guard data.count <= (isSpeech ? 8_388_608 : 4_194_304) else { throw ComposioServiceError.invalidResponse }
         guard (200..<300).contains(response.statusCode) else {
             if response.statusCode == 401 { throw ComposioServiceError.notAuthorized }
             if path == "execute", response.statusCode >= 500 || response.statusCode == 408 {
@@ -560,6 +573,13 @@ public final class ComposioService {
                 throw ComposioServiceError.backend(envelope.error)
             }
             throw ComposioServiceError.requestFailed(response.statusCode)
+        }
+        if isSpeech {
+            let bytes = data.prefix(3)
+            guard response.mimeType?.lowercased() == "audio/mpeg", bytes.count == 3,
+                  bytes.starts(with: [0x49, 0x44, 0x33]) || (bytes[bytes.startIndex] == 0xff && (bytes[bytes.index(after: bytes.startIndex)] & 0xe0) == 0xe0) else {
+                throw ComposioServiceError.invalidResponse
+            }
         }
         return data
     }

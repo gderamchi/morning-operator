@@ -3,7 +3,7 @@ import XCTest
 /// Synthetic data in a unique workspace. Never installs on or controls a physical phone.
 @MainActor
 final class LocalizationJourneyTests: XCTestCase {
-    func testLanguageSwitchPersistsAndFiltersInstalledVoices() {
+    func testLanguageSwitchPersistsAndKeepsTwoVoiceChoices() {
         continueAfterFailure = false
         let workspace = UUID()
         var app = launch(workspace: workspace, initialLanguage: "fr")
@@ -36,6 +36,41 @@ final class LocalizationJourneyTests: XCTestCase {
         choose("Français", in: app)
         XCTAssertTrue(picker.buttons["Français"].isSelected)
         verifyVoices(app, french: true)
+        app.terminate()
+    }
+
+    func testVoiceGenderPersistsAcrossLaunchAndLanguageWithoutStartingAudio() {
+        continueAfterFailure = false
+        let workspace = UUID()
+        var app = launch(workspace: workspace, initialLanguage: "en")
+        openSettings(app)
+        openVoiceChoices(app)
+        XCTAssertEqual(app.buttons["voice.gender.female"].value as? String, "Selected",
+                       "New workspaces start with the female voice.")
+        app.buttons["voice.gender.male"].tap()
+        XCTAssertEqual(app.buttons["voice.gender.male"].value as? String, "Selected")
+        XCTAssertEqual(app.alerts.count, 0, "Choosing a voice does not request microphone access.")
+        app.buttons["voice.done"].tap()
+        app.terminate()
+
+        app = launch(workspace: workspace, systemLanguage: "fr")
+        openSettings(app)
+        choose("Français", in: app)
+        openVoiceChoices(app)
+        XCTAssertEqual(app.buttons["voice.gender.male"].label, "Homme")
+        XCTAssertEqual(app.buttons["voice.gender.male"].value as? String, "Sélectionné")
+        app.buttons["voice.gender.female"].tap()
+        XCTAssertEqual(app.buttons["voice.gender.female"].value as? String, "Sélectionné")
+        XCTAssertEqual(app.alerts.count, 0)
+        app.buttons["voice.done"].tap()
+        app.terminate()
+
+        app = launch(workspace: workspace)
+        openSettings(app)
+        openVoiceChoices(app)
+        XCTAssertEqual(app.buttons["voice.gender.female"].label, "Femme")
+        XCTAssertEqual(app.buttons["voice.gender.female"].value as? String, "Sélectionné")
+        attach("voice-gender-restored-without-audio", app)
         app.terminate()
     }
 
@@ -281,28 +316,24 @@ final class LocalizationJourneyTests: XCTestCase {
     }
 
     private func verifyVoices(_ app: XCUIApplication, french: Bool) {
+        openVoiceChoices(app)
+        XCTAssertEqual(app.buttons["voice.gender.male"].label, french ? "Homme" : "Male")
+        XCTAssertEqual(app.buttons["voice.gender.female"].label, french ? "Femme" : "Female")
+        attach(french ? "localization-fr-voices" : "localization-en-voices", app)
+        app.buttons["voice.done"].tap()
+    }
+
+    private func openVoiceChoices(_ app: XCUIApplication) {
         let voice = app.buttons["setup.voice"]
         scrollTo(voice, in: app)
         voice.tap()
-        let automatic = app.buttons["voice.default"]
-        XCTAssertTrue(automatic.waitForExistence(timeout: 10), app.debugDescription)
-        let language = app.staticTexts["voice.currentLanguage"]
-        scrollTo(language, in: app)
-        XCTAssertTrue(language.label.contains(french ? "Français" : "English"), language.label)
-        if french {
-            XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'voice.option.' AND label CONTAINS[c] 'Samantha'")).firstMatch.exists)
-        }
-        attach(french ? "localization-fr-voices" : "localization-en-voices", app)
-        // Exercise the actual simulator speech path, separately from phone audibility.
-        scrollTo(app.buttons["voice.preview"], in: app, upward: false)
-        app.buttons["voice.preview"].tap()
-        let stop = app.buttons["voice.stopPreview"]
-        XCTAssertTrue(stop.waitForExistence(timeout: 5), app.debugDescription)
-        let speaking = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", french ? "Lecture en cours…" : "Speaking…"), object: app.buttons["voice.preview"])
-        XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 8), .completed, app.debugDescription)
-        // The utterance may finish naturally after the speaking assertion. Done
-        // also stops any unfinished preview through the sheet's onDisappear.
-        app.buttons["voice.done"].tap()
+        XCTAssertTrue(app.buttons["voice.gender.male"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.buttons["voice.gender.female"].exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'voice.gender.'")).count, 2)
+        XCTAssertFalse(app.buttons["voice.default"].exists)
+        XCTAssertFalse(app.buttons["voice.preview"].exists)
+        XCTAssertEqual(app.searchFields.count, 0)
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "ElevenLabs")).firstMatch.exists)
     }
 
     private func back(_ app: XCUIApplication) {

@@ -3,7 +3,86 @@ import UIKit
 import MorningApple
 import MorningCore
 
+struct MorningNaturalSpeechConsent: Equatable {
+    let generation: UUID
+    let sessionID: UUID?
+    let routineVersionID: UUID?
+    let languageCode: String
+}
+
 extension MorningStore {
+    var naturalSpeechScope: MorningNaturalSpeechConsent {
+        .init(generation: dataGeneration, sessionID: session?.id,
+              routineVersionID: session?.routine.id ?? routine?.id, languageCode: AppLanguage.code)
+    }
+
+    var hasNaturalSpeechConsent: Bool { naturalSpeechConsent == naturalSpeechScope }
+    var hasNaturalSpeechDecision: Bool { hasNaturalSpeechConsent || naturalSpeechDeclined == naturalSpeechScope }
+
+    func configureNaturalSpeech() {
+        speech.cloudSpeech = nil
+        guard hasNaturalSpeechConsent, !naturalSpeechFailed, !privacyBlocksWork else { return }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing"),
+           !ProcessInfo.processInfo.arguments.contains("--ui-testing-real-voice-provider") { return }
+        #endif
+        let scope = naturalSpeechScope
+        speech.cloudSpeech = { [weak self] text, gender in
+            guard let self else { throw CancellationError() }
+            try checkNaturalSpeechScope(scope)
+            guard hasNaturalSpeechConsent, !naturalSpeechFailed else { throw CancellationError() }
+            let data = try await composio.morningSpeech(text, language: scope.languageCode, voiceGender: gender)
+            try checkNaturalSpeechScope(scope)
+            guard speech.voiceGender == gender else { throw CancellationError() }
+            return data
+        }
+        speech.externalSpeechFallback = { [weak self] in
+            guard let self else { throw CancellationError() }
+            try await useAppleVoiceAfterFailure(scope: scope)
+        }
+    }
+
+    private func checkNaturalSpeechScope(_ scope: MorningNaturalSpeechConsent) throws {
+        try Task.checkCancellation()
+        guard !privacyBlocksWork, naturalSpeechScope == scope,
+              UIApplication.shared.applicationState == .active else { throw CancellationError() }
+    }
+
+    /// Only approved app narration may continue. Never replay a tool, request or agent caption.
+    private func useAppleVoiceAfterFailure(scope: MorningNaturalSpeechConsent) async throws {
+        try checkNaturalSpeechScope(scope)
+        naturalSpeechFailed = true
+        speech.cloudSpeech = nil
+        cloudVoice.onUserText = nil
+        cloudVoiceConsentGeneration = nil; cloudVoiceConsentSession = nil
+        await cloudVoice.stopAndRelease()
+        try checkNaturalSpeechScope(scope)
+        speech.externalSpeech = nil; speech.cancelExternalSpeech = nil
+        cloudVoiceReleasing = false
+        voiceFallbackMessage = AppLanguage.isFrench ? "La voix de secours est activée." : "Backup voice is active."
+    }
+
+    func cloudConversationFailed() {
+        guard cloudVoiceConsentGeneration != nil, cloudVoiceFallbackTask == nil else { return }
+        let scope = naturalSpeechScope
+        cloudVoiceFallbackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { cloudVoiceFallbackTask = nil }
+            do {
+                try await useAppleVoiceAfterFailure(scope: scope)
+                startHandsFreeVoice()
+            } catch { }
+        }
+    }
+
+    func voicePreferenceChanged() {
+        stopCloudVoice()
+        speech.stop()
+        naturalSpeechFailed = false; voiceFallbackMessage = nil
+        configureNaturalSpeech()
+        saveVoicePreference()
+    }
+
     var cloudVoiceContext: MorningCloudVoiceContext {
         .init(binding: handsFreeContext, stepTitle: currentStep?.title ?? "",
               sessionState: session?.status.rawValue ?? "no_active_morning")
@@ -20,6 +99,7 @@ extension MorningStore {
         guard !privacyBlocksWork, !cloudVoiceReleasing,
               UIApplication.shared.applicationState == .active else { return }
         cloudVoiceStartIssue = nil
+        voiceFallbackMessage = nil
         let generation = dataGeneration, sessionID = session?.id
         if session?.status == .running { pause() }
         cancelVoiceCommandTurn()
@@ -45,14 +125,21 @@ extension MorningStore {
                 self?.receiveCloudVoiceOwnerText(text, turn: turn)
             }
             await cloudVoice.start(context: cloudVoiceContext,
-                                   language: AppLanguage.isFrench ? "fr" : "en", consented: true)
+                                   language: AppLanguage.isFrench ? "fr" : "en", consented: true,
+                                   voiceGender: speech.voiceGender)
             guard cloudVoice.isActive, cloudVoiceConsentGeneration == generation,
                   !privacyBlocksWork, dataGeneration == generation,
                   self.session?.id == sessionID else {
-                let issue = cloudVoice.errorMessage
                 stopCloudVoice()
-                cloudVoiceStartIssue = issue
+                cloudVoiceStartIssue = nil
+                voiceFallbackMessage = AppLanguage.isFrench ? "La voix de secours est activée." : "Backup voice is active."
+                startHandsFreeVoice()
                 return
+            }
+            let scope = naturalSpeechScope
+            speech.externalSpeechFallback = { [weak self] in
+                guard let self else { throw CancellationError() }
+                try await useAppleVoiceAfterFailure(scope: scope)
             }
             speech.externalSpeech = { [weak self] text in
                 guard let self, self.cloudVoice.isActive, !self.privacyBlocksWork,
@@ -76,6 +163,7 @@ extension MorningStore {
     }
 
     func stopCloudVoice() {
+        cloudVoiceFallbackTask?.cancel(); cloudVoiceFallbackTask = nil
         guard cloudVoice.isActive || cloudVoiceConsentGeneration != nil ||
                 speech.externalSpeech != nil || cloudVoiceReleasing else { return }
         cloudVoiceRequestTask?.cancel()
@@ -92,6 +180,7 @@ extension MorningStore {
             await cloudVoice.stopAndRelease()
             speech.externalSpeech = nil; speech.cancelExternalSpeech = nil
             cloudVoiceReleasing = false
+            configureNaturalSpeech()
         }
     }
 

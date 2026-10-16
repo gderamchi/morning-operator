@@ -8,6 +8,30 @@ import MorningCore
 struct MorningCloudVoiceSessionTests {
     private let binding = MorningVoiceCommandContext(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
 
+    @Test(arguments: MorningVoiceGender.allCases)
+    func chosenGenderReachesTheTransport(voiceGender: MorningVoiceGender) async {
+        let transport = CloudVoiceFixture(), session = makeSession(transport)
+        await session.start(context: .init(binding: nil), language: "fr", voiceGender: voiceGender, consented: true)
+        #expect(transport.voiceGender == voiceGender)
+        await session.stopAndRelease()
+    }
+
+    @Test(arguments: [false, true])
+    func unexpectedEndAndFailurePreserveProviderFailureForNarration(unexpectedEnd: Bool) async {
+        let transport = CloudVoiceFixture(), session = makeSession(transport)
+        await session.start(context: .init(binding: binding), language: "en", consented: true)
+        let reading = Task { try await session.narrate("SYNTHETIC_APPROVED_READING") }
+        await transport.waitForMessages()
+        transport.emit(unexpectedEnd ? .ended : .failed)
+        do {
+            try await reading.value
+            Issue.record("Provider failure must not complete narration.")
+        } catch let error as MorningCloudVoiceError { #expect(error == .unavailable) }
+        catch { Issue.record("Provider failure must remain distinguishable from deliberate cancellation.") }
+        #expect(session.state == .failed)
+        await session.stopAndRelease()
+    }
+
     @Test func noCloudConnectionWithoutExplicitConsent() async {
         let transport = CloudVoiceFixture()
         var tokens = 0
@@ -385,6 +409,7 @@ private final class CloudVoiceFixture: MorningCloudVoiceTransport {
     var onEvent: (@MainActor (MorningCloudVoiceEvent) -> Void)?
     var sendGate: CloudVoiceGate?
     private(set) var connections = 0
+    private(set) var voiceGender: MorningVoiceGender?
     private(set) var stops = 0
     private(set) var contexts: [String] = []
     private(set) var replies: [(String, String, Bool)] = []
@@ -392,7 +417,9 @@ private final class CloudVoiceFixture: MorningCloudVoiceTransport {
     private(set) var replySuppressions = 0
     private var replyWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
     private var messageWaiters: [CheckedContinuation<Void, Never>] = []
-    func connect(token: String, language: String) async throws { connections += 1 }
+    func connect(token: String, language: String, voiceGender: MorningVoiceGender) async throws {
+        connections += 1; self.voiceGender = voiceGender
+    }
     func updateContext(_ context: String) async throws { contexts.append(context) }
     func sendUserMessage(_ text: String) async throws {
         if let sendGate { await sendGate.value() }

@@ -15,13 +15,16 @@ final class ElevenLabsMorningVoiceTransport: MorningCloudVoiceTransport {
     private var playbackRevision = UUID()
     private var interruptionTask: Task<Void, Never>?
 
-    func connect(token: String, language: String) async throws {
+    func connect(token: String, language: String, voiceGender: MorningVoiceGender) async throws {
         // Configure before either SDK initializes a conversation or its shared logger.
         LiveKitSDK.disableLogging()
         ElevenLabs.configure(.init(logLevel: .error, debugMode: false))
         let id = UUID(); attempt = id
         let config = ConversationConfig(
             agentOverrides: AgentOverrides(language: language.hasPrefix("fr") ? .french : .english),
+            // Public premade voices, verified for French and English. Only this
+            // TTS field and language are permitted by the private agent policy.
+            ttsOverrides: TTSOverrides(voiceId: voiceGender == .male ? "CwhRBWXzGAHq8TQ4Fs17" : "EXAVITQu4vr4xnSDxMaL"),
             onError: { [weak self] _ in
                 Task { @MainActor in if self?.attempt == id { self?.onEvent?(.failed) } }
             },
