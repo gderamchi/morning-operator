@@ -24,11 +24,6 @@ struct MorningConversationView: View {
                         Button(french ? "Arrêter la conversation" : "End conversation", role: .destructive) { store.stopCloudVoice() }
                             .accessibilityIdentifier("cloudVoice.stop")
                     } else {
-                        if !store.sessionActive {
-                            Text(french ? "Démarrez votre matin, puis revenez ici pour parler avec MORE."
-                                 : "Start your morning, then return here to talk with MORE.")
-                                .font(.footnote).foregroundStyle(MorningStyle.muted)
-                        }
                         Button {
                             starting = true
                             Task {
@@ -40,7 +35,7 @@ struct MorningConversationView: View {
                             if starting { ProgressView() }
                             else { Text(french ? "Utiliser ElevenLabs" : "Use ElevenLabs") }
                         }.disabled(starting || store.cloudVoiceReleasing || store.privacyBlocksWork ||
-                                   !store.sessionActive || store.voiceInputBlocksPlayback)
+                                   store.voiceInputBlocksPlayback)
                             .accessibilityIdentifier("cloudVoice.start")
                     }
                 } header: { Text(french ? "Conversation naturelle" : "Natural conversation") }
@@ -52,8 +47,9 @@ struct MorningConversationView: View {
                 Section {
                     DisclosureGroup(french ? "Quelles informations sont partagées ?" : "What is shared?") {
                         Text(french
-                             ? "Les étapes du matin en cours et les informations que MORE prononce depuis vos sources choisies : calendrier, météo, messages lus et mesures Santé inclus dans cette routine. Les aperçus et récapitulatifs que vous lancez vous-même durant la conversation sont aussi partagés. Aucun enregistrement vidéo ni historique Santé complet n’est envoyé."
-                             : "The current morning’s routine steps and information MORE speaks from your chosen sources: calendar, weather, read messages and Health measurements included in this routine. Previews and recaps you choose to play during the conversation are also shared. No video recording or complete Health history is sent.")
+                             ? "Les aperçus et récapitulatifs que vous lancez vous-même durant la conversation sont partagés. Si un matin est en cours, ses étapes et les informations que MORE prononce depuis vos sources choisies sont aussi partagées : calendrier, météo, messages lus et mesures Santé inclus dans cette routine. Aucun enregistrement vidéo ni historique Santé complet n’est envoyé."
+                             : "Previews and recaps you choose to play during the conversation are shared. During an active morning, its routine steps and information MORE speaks from your chosen sources are also shared: calendar, weather, read messages and Health measurements included in this routine. No video recording or complete Health history is sent.")
+                            .accessibilityIdentifier("cloudVoice.sharingDetails")
                         if let routine = store.sessionActive ? store.session?.routine : store.routine {
                             ForEach(routine.steps) { step in Text(step.title).font(.subheadline) }
                         }

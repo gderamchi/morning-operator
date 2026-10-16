@@ -1416,6 +1416,7 @@ final class MorningStore {
     /// the change to finished, once: a repeated command on a finished morning adds nothing.
     private func completedMorningSaved(wasCompleted: Bool) {
         guard !wasCompleted else { return }
+        stopCloudVoice()
         morningCompletionCount += 1
         queueCompletionInvitation()
     }
@@ -1681,7 +1682,7 @@ final class MorningStore {
 
     func completionSessionChanged() {
         if cloudVoiceConsentGeneration != nil,
-           cloudVoiceConsentSession != session?.id || !sessionActive { stopCloudVoice() }
+           cloudVoiceConsentSession != session?.id { stopCloudVoice() }
         let current = session?.status == .completed ? session?.id : nil
         if completionInvitationSessionID != current { completionInvitationSessionID = nil; stopCompletionInvitation() }
         if let expected = completionVoiceSessionID, expected != current { discardCompletionReflection() }

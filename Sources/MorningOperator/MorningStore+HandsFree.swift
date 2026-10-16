@@ -45,12 +45,12 @@ extension MorningStore {
         return
         #endif
         if cloudVoice.isActive {
-            guard !privacyBlocksWork, sessionActive,
+            guard !privacyBlocksWork,
                   cloudVoiceConsentGeneration == dataGeneration,
                   cloudVoiceConsentSession == session?.id else { stopCloudVoice(); return }
             let context = cloudVoiceContext, generation = dataGeneration, sessionID = session?.id
             Task { [weak self] in
-                guard let self, !privacyBlocksWork, cloudVoice.isActive, sessionActive,
+                guard let self, !privacyBlocksWork, cloudVoice.isActive,
                       dataGeneration == generation, session?.id == sessionID,
                       cloudVoiceConsentGeneration == generation, cloudVoiceConsentSession == sessionID,
                       handsFreeContext == context.binding else { return }

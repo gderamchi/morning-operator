@@ -57,6 +57,30 @@ struct MorningCloudVoiceSessionTests {
         #expect(session.state == .off && transport.connections == 0)
     }
 
+    @Test func conversationWithoutAMorningConnectsButCannotApplyTools() async throws {
+        let transport = CloudVoiceFixture()
+        var effects = 0
+        let session = MorningCloudVoiceSession(tokenProvider: { "SYNTHETIC_TOKEN_123456" }, makeTransport: { transport },
+            control: { _, _ in effects += 1; return "UNEXPECTED_CONTROL" },
+            request: { _, _ in effects += 1; return true })
+        await session.start(context: .init(binding: nil), language: "en", consented: true)
+        #expect(session.state == .listening && transport.connections == 1)
+        let control = call("next")
+        transport.emit(.userText("SYNTHETIC_NEXT", eventID: 9))
+        transport.emit(.tool(.init(id: "SYNTHETIC_NO_MORNING_CONTROL", name: control.name,
+                                  parametersJSON: control.parametersJSON, eventID: 9)))
+        await transport.waitForReplies(1)
+        let parameters = String(decoding: try JSONEncoder().encode([
+            "request": "SYNTHETIC_REQUEST", "session_id": binding.sessionID.uuidString, "step_id": binding.stepID.uuidString]), as: UTF8.self)
+        transport.emit(.userText("SYNTHETIC_REQUEST", eventID: 10))
+        transport.emit(.tool(.init(id: "SYNTHETIC_NO_MORNING_REQUEST", name: "more_request",
+                                  parametersJSON: parameters, eventID: 10)))
+        await transport.waitForReplies(2)
+        #expect(effects == 0 && transport.replies.count == 2)
+        #expect(transport.replies.allSatisfy { $0.2 })
+        await session.stopAndRelease()
+    }
+
     @Test func tokenOrProviderErrorsNeverExposePrivateErrorText() async {
         struct SyntheticPrivateError: Error, CustomStringConvertible { var description: String { "SYNTHETIC_PRIVATE_SECRET" } }
         for invalidToken in [true, false] {
