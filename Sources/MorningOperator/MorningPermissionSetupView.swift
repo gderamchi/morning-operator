@@ -14,12 +14,10 @@ struct MorningPermissionSetupView: View {
     private var setup: MorningPermissionSetup { store.permissionSetup }
     private var clock: MorningThemeClock { .shared }
     private var night: Bool { clock.celestial.moon.opacity > 0.57 }
-    private var palette: MorningPaletteValues { .resolve(clock.blend, dark: night) }
-    private var ink: Color { color(palette.ink) }
-    private var muted: Color { color(contrast == .increased ? palette.ink : palette.inkSoft) }
-    private var paper: Color { color(palette.paper) }
+    private var ink: Color { MorningStyle.ink }
+    private var muted: Color { contrast == .increased ? MorningStyle.ink : MorningStyle.muted }
+    private var paper: Color { MorningStyle.background }
     private var scrollingFooter: Bool { typeSize.isAccessibilitySize || verticalSizeClass == .compact }
-    private func color(_ value: MorningRGB) -> Color { Color(red: value.red, green: value.green, blue: value.blue) }
     private func text(_ english: String, _ french: String) -> String { MorningPermissionSetup.text(english, french) }
 
     var body: some View {
@@ -34,7 +32,7 @@ struct MorningPermissionSetupView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                     choice
                     if let issue = setup.saveIssue {
-                        Text(issue).font(.raleway(.subheadline)).foregroundStyle(ink)
+                        Text(issue).font(MorningTheme.Typography.note).foregroundStyle(ink)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("permissions.saveIssue")
                     }
@@ -54,7 +52,7 @@ struct MorningPermissionSetupView: View {
             }
         }
         .background(paper.ignoresSafeArea())
-        .foregroundStyle(ink).font(.raleway(.body)).tint(ink)
+        .foregroundStyle(ink).font(MorningTheme.Typography.body).tint(ink)
         .preferredColorScheme(night ? .dark : .light)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("permissions.appearance")
@@ -73,10 +71,10 @@ struct MorningPermissionSetupView: View {
 
     private var navigation: some View {
         HStack(spacing: 20) {
-            Text(verbatim: "MORE").font(.raleway(.subheadline, .semibold)).tracking(4)
+            Text(verbatim: "MORE").font(.system(.subheadline, weight: .semibold)).tracking(4)
             Spacer(minLength: 12)
             Text(verbatim: "\(setup.stepNumber) / \(setup.stepCount)")
-                .font(.raleway(.caption, .medium).monospacedDigit()).foregroundStyle(muted)
+                .font(.system(.caption, weight: .medium).monospacedDigit()).foregroundStyle(muted)
                 .accessibilityLabel(text("Access choice \(setup.stepNumber) of \(setup.stepCount)",
                                          "Choix d’accès \(setup.stepNumber) sur \(setup.stepCount)"))
                 .accessibilityIdentifier("permissions.progress")
@@ -89,7 +87,7 @@ struct MorningPermissionSetupView: View {
     private var choice: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(setup.current?.accessHeading ?? text("Ready for your morning.", "Votre matin peut commencer."))
-                .font(.serif(.largeTitle))
+                .font(MorningTheme.Typography.display)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityFocused($headingFocused)
@@ -114,11 +112,11 @@ struct MorningPermissionSetupView: View {
                         Text(outcome).accessibilityIdentifier("permissions.lastOutcome")
                     }
                 }
-                .font(.raleway(.subheadline)).foregroundStyle(muted).lineSpacing(3)
+                .font(MorningTheme.Typography.note).foregroundStyle(muted).lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 12)
             } label: {
                 Text(text("Learn more", "En savoir plus"))
-                    .font(.raleway(.subheadline, .medium)).frame(minHeight: 44, alignment: .leading)
+                    .font(.system(.subheadline, weight: .medium)).frame(minHeight: 44, alignment: .leading)
                     .accessibilityIdentifier("permissions.details")
             }
         }
@@ -132,23 +130,26 @@ struct MorningPermissionSetupView: View {
                 } label: {
                     primaryLabel(setup.current?.accessAction ?? "")
                 }
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(setup.isRequesting || scenePhase != .active)
                 .accessibilityIdentifier("permissions.allow")
                 Button(text("Not now", "Plus tard")) { setup.skip() }
-                    .font(.raleway(.subheadline, .medium))
+                    .font(.system(.subheadline, weight: .medium))
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .disabled(setup.isRequesting)
                     .accessibilityIdentifier("permissions.skip")
             } else if setup.isRevisiting {
                 Button { setup.finish() } label: { primaryLabel(text("Done", "Terminer")) }
+                    .buttonStyle(PrimaryButtonStyle())
                     .accessibilityIdentifier("permissions.finish")
             } else {
                 Button { setup.finish(learn: true) } label: {
                     primaryLabel(text("Discover my routine", "Découvrir ma routine"))
                 }
+                .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("permissions.learn")
                 Button(text("Later", "Plus tard")) { setup.finish() }
-                    .font(.raleway(.subheadline, .medium))
+                    .font(.system(.subheadline, weight: .medium))
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .accessibilityIdentifier("permissions.finish")
             }
@@ -159,17 +160,13 @@ struct MorningPermissionSetupView: View {
 
     private func primaryLabel(_ title: String) -> some View {
         HStack(spacing: 12) {
-            if setup.isRequesting { ProgressView().tint(ink).accessibilityHidden(true) }
+            if setup.isRequesting { ProgressView().tint(MorningStyle.onControl).accessibilityHidden(true) }
             Text(setup.isRequesting ? text("Waiting for your choice…", "En attente de votre choix…") : title)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .font(.raleway(.body, .semibold))
+        .font(MorningTheme.Typography.control)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity, minHeight: 26)
-        .padding(.horizontal, 20).padding(.vertical, 16)
-        .background(color(palette.surface), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(MorningDottedFrame(cornerRadius: 8, spacing: 5, dotRadius: 1).fill(ink))
-        .contentShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
