@@ -18,7 +18,7 @@ The owner requested one development version containing every open pull request, 
 | #123 | Optional morning extras and closing questions; extras start off and each Health function needs its own explicit choice. |
 | #203 | Separate jury app/backend, bounded real-action flow, audio recovery and explicit physical/acoustic acceptance gates. The ordinary app and existing demo variant coexist. |
 | #207 | Each connection opens its own provider; independent rows, readable professional-account labels and complete English catalog coverage. |
-| #209 | Fixed-format Demo audio graph, bounded PCM conversion, identifiable Island controls and explicitly opt-in numeric microphone diagnostics. |
+| #209 | Fixed-format Demo audio graph, bounded PCM conversion, identifiable Island controls, Debug numeric microphone diagnostics and explicitly opt-in raw-input diagnosis. |
 
 The prior subscription, permission onboarding, quiet solar Home, weather, native connections, routine execution and Health changes remain present. Current main also contributes explicit Apple/OpenAI model selection and bounded personal memory; the ElevenLabs microphone transcript feeds that selected route without uploading the raw memory to Gemini. Sleep and recovery readings are excluded from the general OpenAI context. Historical branches do not replace newer implementations wholesale. The ancestry evidence records all thirteen listed PR histories, including the latest #193, #203, #207 and #209 heads; semantic conflict resolutions and combined checks are separate evidence.
 
@@ -46,11 +46,11 @@ Both catalogs pass independent strict JSON, locale and printf checks. All 133 re
 
 At `43d1d04`, ordinary app/widget/UI-test compilation and the separate Demo build pass with valid ad hoc simulator signatures. All 112 snapshotted ordinary test-product files are unchanged after the Demo build. Nine numeric cases execute the exact extracted conversion body (unchanged in the final source): identity, mono/stereo and interleaved conversion, duration/tail retention, and invalid/oversized input rejection. This harness does not run an iPhone audio engine. The new iOS-conditional audio code is compiled natively; the unchanged macOS runtime remains covered by the earlier package result, without another full SwiftPM build.
 
-## Signed ordinary candidate
+## Delivered ordinary app
 
 Remote main contains source `43d1d04` and all thirteen listed PR histories, including final #207 `a94cdf3` and #209 `9483c8f`. GitHub reports both merged and no open PR at this integration checkpoint.
 
-**MORE 0.1.0 (2026101610)** from clean `43d1d04` is compiled, signed, strictly verified and frozen. Installation is waiting for other active physical test hosts to finish. The guard stopped before backup, installation or launch; those steps have not yet been performed for this candidate. Earlier builds 1608 and 1609 frozen by this task are not installed by it.
+**MORE 0.1.0 (2026101610)** from clean `43d1d04` is signed, installed in place and launched without test arguments. The exact installed version and the same surviving ordinary process were checked twice; the other variant remains unchanged and the container remains accessible. A fresh private 31-file backup preceded the upgrade from the immediately observed build 1608; its contents were not read. No uninstall, reset, restore, purchase or protected consent occurred. The first installation guard deferred work while other physical test hosts were active; all hosts had finished before the successful guarded workflow. Earlier builds 1608 and 1609 frozen by this task were never installed by it.
 
 Strict app/widget signatures and embedded profiles match the local development kit: exactly the four expected app capabilities, none in the widget, no forbidden Health extras/PCC, pinned ElevenLabs SDK 3.4, real app-only Worker URL and public Google configuration. The frozen 76-file artifact has no configured Demo endpoint, StoreKit test configuration, enabled fixture arguments or provider credential. Signing files, raw logs, screenshots and backups stay outside Git.
 
