@@ -55,15 +55,31 @@ struct AppLanguageTests {
         #expect(AppLanguage.resolvedLocale(preferredLanguages: ["fr-CA"], current: current) == current)
     }
 
-    @Test("A compiled bundle follows the primary language rather than secondary French")
+    @Test("Bundle lookup follows the primary language rather than secondary French")
     func bundleLookupFollowsTheResolvedLanguage() throws {
-        _ = try #require(Bundle.module.path(forResource: "fr", ofType: "lproj"), "The String Catalog must be compiled for this proof.")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bundle")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let info: [String: Any] = ["CFBundleIdentifier": "test.more.language", "CFBundleDevelopmentRegion": "en",
+                                   "CFBundleLocalizations": ["en", "fr"]]
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+            .write(to: directory.appendingPathComponent("Info.plist"))
+        for (code, strings) in [
+            "en": ["Weather": "Weather", "Next: %@": "Next: %@"],
+            "fr": ["Weather": "Météo", "Next: %@": "Ensuite : %@"]
+        ] {
+            let localization = directory.appendingPathComponent(code + ".lproj")
+            try FileManager.default.createDirectory(at: localization, withIntermediateDirectories: true)
+            try PropertyListSerialization.data(fromPropertyList: strings, format: .xml, options: 0)
+                .write(to: localization.appendingPathComponent("Localizable.strings"))
+        }
+        let bundle = try #require(Bundle(url: directory))
         let english = AppLanguage.resolvedLocale(preferredLanguages: ["es-ES", "fr-FR"], current: Locale(identifier: "es_ES"))
         let french = AppLanguage.resolvedLocale(preferredLanguages: ["fr-CA", "en"], current: Locale(identifier: "en_US"))
-        #expect(AppLanguage.localized("Weather", bundle: .module, locale: english) == "Weather")
-        #expect(AppLanguage.localized("Weather", bundle: .module, locale: french) == "Météo")
+        #expect(AppLanguage.localized("Weather", bundle: bundle, locale: english) == "Weather")
+        #expect(AppLanguage.localized("Weather", bundle: bundle, locale: french) == "Météo")
         let next = "Calendar"
-        #expect(AppLanguage.localized("Next: \(next)", bundle: .module, locale: english) == "Next: Calendar")
-        #expect(AppLanguage.localized("Next: \(next)", bundle: .module, locale: french) == "Ensuite : Calendar")
+        #expect(AppLanguage.localized("Next: \(next)", bundle: bundle, locale: english) == "Next: Calendar")
+        #expect(AppLanguage.localized("Next: \(next)", bundle: bundle, locale: french) == "Ensuite : Calendar")
     }
 }
