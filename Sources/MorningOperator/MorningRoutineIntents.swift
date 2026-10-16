@@ -86,7 +86,9 @@ extension MorningStore {
                       UIApplication.shared.applicationState == .active,
                       document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier),
                       briefing.permitsPlayback(of: document) else { return }
-                notice = document.spokenText
+                notice = document.sleep.status == .notConfigured ? document.spokenText :
+                    (AppLanguage.isFrench ? "Retrouvez ce récapitulatif dans Réglages → Calendrier, météo et sommeil."
+                        : "Find this recap in Settings → Calendar, weather & sleep.")
                 speech.speak(document.spokenText)
             }
         }

@@ -46,7 +46,10 @@ struct MorningSubscriptionEntryView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { store.briefing.invalidateHealthForForeground() }
+            if phase == .background {
+                if store.briefing.settings.includesHealth { store.speech.stop() }
+                store.briefing.invalidateHealthForForeground()
+            }
             if phase == .active {
                 MorningThemeClock.shared.refresh()
                 Task { await subscription.load() }

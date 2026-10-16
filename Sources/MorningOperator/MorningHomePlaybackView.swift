@@ -79,6 +79,9 @@ struct MorningHomePlaybackView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { displayedCaption = nil; controlsVisible = false }
         }
+        .onChange(of: store.briefing.settings.includesHealth) { wasIncluded, included in
+            if wasIncluded && !included { displayedCaption = nil }
+        }
         .onDisappear { controlsVisible = false }
         .onChange(of: voiceOverEnabled) { _, _ in if controlsVisible { controlsInteraction = UUID() } }
         .task(id: controlsInteraction) {
