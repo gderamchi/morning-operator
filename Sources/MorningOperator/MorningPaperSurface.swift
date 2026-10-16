@@ -1,10 +1,8 @@
 import SwiftUI
 
-/// The opaque sheet beneath content and the separate celestial artwork.
-/// Reads the same clock-driven paper token as MorningPaper; system appearance
-/// never selects the old purple/dark palette. No timer or animation drives grain.
+/// Utility pages use a plain native background; explicit artwork previews retain paper.
 struct MorningPaperSurface: View {
-    /// Pass a theme only for a component preview; nil follows the live theme clock.
+    /// Pass a theme only for a component preview; nil uses the adaptive utility palette.
     var theme: MorningTheme? = nil
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -12,8 +10,8 @@ struct MorningPaperSurface: View {
 
     var body: some View {
         ZStack {
-            (theme ?? MorningTheme.current).paper
-            if !reduceTransparency && contrast != .increased {
+            theme?.paper ?? MorningStyle.background
+            if theme != nil && !reduceTransparency && contrast != .increased {
                 MorningPaperGrain()
             }
         }

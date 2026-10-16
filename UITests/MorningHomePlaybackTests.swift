@@ -5,6 +5,61 @@ import XCTest
 final class MorningHomePlaybackTests: XCTestCase {
     private let longPassage = "Take your time this morning. Let the light come into the room while you take a slow breath and prepare for the day ahead. There is nothing to press while MORE reads this passage. You can keep getting ready and return whenever you want to read along. Each passage should replace the one being spoken before it. Your routine stays here on the same home screen. If you need a little longer, a tap makes the small controls available. When this quiet moment ends, MORE will continue with the next part of your morning."
 
+    func testDaySettingsKeepTheirAppearanceAcrossRoutineAccountsAndVoice() {
+        let app = launch()
+        defer { app.terminate() }
+        openIdleSettings(app)
+        assertSettingsAppearance("day", in: app)
+        XCTAssertTrue(app.buttons["setup.routine"].isHittable)
+        attach("settings-day-top", app)
+        app.buttons["setup.routine"].tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "routine.editor").firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["routine.step.0"].isHittable)
+        attach("settings-day-routine", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("day", in: app)
+        settingsButton("setup.connections", in: app).tap()
+        XCTAssertTrue(app.navigationBars["Apps & accounts"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["connections.instagram"].exists)
+        attach("settings-day-apps-and-accounts", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("day", in: app)
+        settingsButton("setup.voice", in: app).tap()
+        XCTAssertTrue(app.buttons["voice.default"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Your morning voice"].exists)
+        XCTAssertTrue(app.buttons["voice.done"].isHittable)
+        attach("settings-day-voice", app)
+        app.buttons["voice.done"].tap()
+        assertSettingsAppearance("day", in: app)
+    }
+
+    func testNightSettingsRemainReadableInFrenchAtLargestTextSize() {
+        let app = launch(["--ui-testing-reduce-motion", "-UIPreferredContentSizeCategoryName",
+                          "UICTContentSizeCategoryAccessibilityXXXL"], french: true, night: true)
+        defer { app.terminate() }
+        openIdleSettings(app)
+        assertSettingsAppearance("night", in: app)
+        let routine = app.buttons["setup.routine"]
+        XCTAssertTrue(routine.isHittable)
+        assertFitsOnScreen(routine, in: app)
+        attach("settings-night-french-largest-top", app)
+        routine.tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "routine.editor").firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["routine.step.0"].isHittable)
+        attach("settings-night-french-largest-routine", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("night", in: app)
+        let accounts = settingsButton("setup.connections", in: app)
+        assertFitsOnScreen(accounts, in: app)
+        attach("settings-night-french-largest-connections-row", app)
+        accounts.tap()
+        XCTAssertTrue(app.navigationBars["Apps et comptes"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["connections.instagram"].exists)
+        attach("settings-night-french-largest-apps-and-accounts", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("night", in: app)
+    }
+
     func testIdleTapShowsOnlyPlayAndSettingsThenHidesAndOpensRoutineThroughSettings() {
         let app = launch()
         defer { app.terminate() }
@@ -165,6 +220,34 @@ final class MorningHomePlaybackTests: XCTestCase {
         XCTAssertTrue(reveal.waitForExistence(timeout: 5))
         reveal.tap()
         XCTAssertTrue(app.buttons["morning.playback"].waitForExistence(timeout: 5))
+    }
+
+    private func openIdleSettings(_ app: XCUIApplication) {
+        let landscape = app.buttons["morning.actions"]
+        XCTAssertTrue(landscape.waitForExistence(timeout: 10))
+        landscape.tap()
+        let settings = app.buttons["morning.settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.tap()
+        XCTAssertTrue(app.buttons["setup.routine"].waitForExistence(timeout: 5))
+    }
+
+    private func assertSettingsAppearance(_ appearance: String, in app: XCUIApplication,
+                                          file: StaticString = #filePath, line: UInt = #line) {
+        let marker = app.descendants(matching: .any).matching(identifier: "settings.appearance").firstMatch
+        XCTAssertTrue(marker.waitForExistence(timeout: 5), file: file, line: line)
+        XCTAssertEqual(marker.value as? String, appearance, file: file, line: line)
+    }
+
+    private func settingsButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let button = app.buttons[identifier]
+        for _ in 0..<14 where !(button.exists && button.isHittable) {
+            let form = app.collectionViews.firstMatch
+            let container = form.exists ? form : app.scrollViews.firstMatch
+            container.swipeUp()
+        }
+        XCTAssertTrue(button.exists && button.isHittable, "Settings keeps \(identifier) reachable.")
+        return button
     }
 
     private func setFirstMomentDetails(_ text: String, in app: XCUIApplication) -> String {
