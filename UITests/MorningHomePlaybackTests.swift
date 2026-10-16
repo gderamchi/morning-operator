@@ -401,15 +401,20 @@ final class MorningHomePlaybackTests: XCTestCase {
     }
 
     private func scrollConnectionControl(_ control: XCUIElement, in app: XCUIApplication) {
-        let top = app.navigationBars.firstMatch.frame.maxY
+        let top = app.navigationBars.firstMatch.frame.maxY + 8
+        let bottom = app.frame.maxY - 24
         for attempt in 0..<20 {
             let frame = control.exists ? control.frame : .zero
-            let fits = frame.height > app.frame.maxY - top ||
-                (frame.minY >= top && frame.maxY <= app.frame.maxY)
+            let fits = frame.height > bottom - top || (frame.minY >= top && frame.maxY <= bottom)
             if control.exists && control.isHittable && fits { return }
             if frame.height > 0 {
-                if frame.midY < (top + app.frame.maxY) / 2 { app.swipeDown() }
-                else { app.swipeUp() }
+                // A full swipe can jump over a tall accessibility row forever.
+                // Move its nearest clipped edge into the visible content area.
+                let distance = frame.minY < top
+                    ? min(160, top - frame.minY + 12)
+                    : -min(160, frame.maxY - bottom + 12)
+                let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                start.press(forDuration: 0.02, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)))
             } else if attempt < 10 { app.swipeUp() }
             else { app.swipeDown() }
         }
