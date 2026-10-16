@@ -10,6 +10,33 @@ final class OrdinaryRoutineAcceptanceTests: XCTestCase {
     private let browserTitle = "MORE QA · Public Reddit"
     private let timedTitle = "MORE QA · Getting ready"
 
+    /// Run before the owner backup is frozen. The optional key belongs only to
+    /// the private test runner; no app launch environment or fixture is used.
+    func testConfigureOrdinarySelectedModelIfRequested() throws {
+        continueAfterFailure = false
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MORE_PHYSICAL_MODEL_SETUP"] == "1",
+                          "Requires explicit ordinary model setup; private runner logs must be protected.")
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Requires the ordinary physical iPhone.")
+        #else
+        let app = XCUIApplication(bundleIdentifier: bundle)
+        app.launchArguments = []
+        app.launchEnvironment = [:]
+        app.terminate()
+        app.launch()
+        defer { app.terminate() }
+        try require(app.wait(for: .runningForeground, timeout: 15), "The ordinary app did not launch for model setup.")
+        try refuseFixtures(app)
+        try openSettings(app)
+        try require(!app.buttons["morning.stop"].exists, "An owner morning is active; its model selection was not changed.")
+        let route = try verifySelectedModel(app, configureIfNeeded: true)
+        let note = XCTAttachment(string: "Ordinary UI active model verified: \(route). No model request or fixture result was injected. No credential attached; take the owner-state backup after setup.")
+        note.name = "ordinary-selected-model-setup"
+        note.lifetime = .keepAlways
+        add(note)
+        #endif
+    }
+
     func testRealLearningApprovalAndAutomaticRoutinePersistTheirRecap() throws {
         continueAfterFailure = false
         let environment = ProcessInfo.processInfo.environment
@@ -174,18 +201,38 @@ final class OrdinaryRoutineAcceptanceTests: XCTestCase {
         #endif
     }
 
-    private func verifySelectedModel(_ app: XCUIApplication) throws -> String {
+    private func verifySelectedModel(_ app: XCUIApplication, configureIfNeeded: Bool = false) throws -> String {
         try tap("setup.intelligence", in: app)
         let summary = app.staticTexts["intelligence.status"]
         try require(summary.waitForExistence(timeout: 10), "The active model could not be inspected.")
-        let local = [
+        let localStatuses = [
             "The Apple model runs on this device. No text is sent to OpenAI.",
             "Le modèle Apple fonctionne sur cet appareil. Aucun texte n’est envoyé à OpenAI."
-        ].contains(summary.label)
-        let cloud = [
-            "OpenAI GPT-5 mini is enabled. Text needed for analysis and conversation is sent to OpenAI. Videos stay on this device.",
-            "OpenAI GPT-5 mini est activé. Les textes utiles à l’analyse et à la conversation sont envoyés à OpenAI. Les vidéos restent sur l’appareil."
-        ].contains(summary.label)
+        ]
+        let cloudStatuses = [
+            "OpenAI GPT-6 Luna is enabled with high reasoning. Text needed for analysis and conversation is sent to OpenAI. Videos stay on this device.",
+            "OpenAI GPT-6 Luna est activé, avec un raisonnement élevé. Les textes utiles à l’analyse et à la conversation sont envoyés à OpenAI. Les vidéos restent sur l’appareil."
+        ]
+        if configureIfNeeded, !localStatuses.contains(summary.label), !cloudStatuses.contains(summary.label) {
+            guard let key = ProcessInfo.processInfo.environment["MORE_PHYSICAL_OPENAI_KEY"],
+                  key.hasPrefix("sk-"), (20...512).contains(key.utf8.count),
+                  key.utf8.allSatisfy({ (33...126).contains($0) }) else {
+                try require(false, "No model is available and no valid private runner credential was supplied. No selection was changed.")
+                return "unavailable"
+            }
+            let field = app.secureTextFields["intelligence.apiKey"]
+            try reveal(field, in: app)
+            try require(field.exists && field.isHittable && field.isEnabled, "The ordinary secure model configuration field was unavailable.")
+            field.tap()
+            field.typeText(key)
+            try setSwitch("intelligence.consent", on: true, in: app)
+            try tap("intelligence.enable", in: app)
+            try wait(10, message: "Explicit ordinary OpenAI configuration did not produce the expected selected-model status.") {
+                cloudStatuses.contains(summary.label) && !app.staticTexts["intelligence.issue"].exists
+            }
+        }
+        let local = localStatuses.contains(summary.label)
+        let cloud = cloudStatuses.contains(summary.label)
         try require(local != cloud, "No unambiguous available model is selected. Configure Apple Intelligence or explicitly enable OpenAI in the ordinary UI before retrying.")
         if cloud {
             // This button changes back to Apple; it never establishes local availability.
@@ -195,16 +242,14 @@ final class OrdinaryRoutineAcceptanceTests: XCTestCase {
                         "The explicit OpenAI status does not match an operable selected route.")
         }
         try back(until: app.buttons["setup.intelligence"], in: app)
-        return cloud ? "OpenAI GPT-5 mini" : "local Apple"
+        return cloud ? "OpenAI GPT-6 Luna (high reasoning)" : "local Apple"
     }
 
     private func configurePublicWeather(_ app: XCUIApplication) throws {
         try tap("setup.briefing", in: app)
         try require(!app.staticTexts["briefing.synthetic"].exists, "Weather must use the native provider.")
         // The operator restores the exact previous source selections after proof.
-        for calendar in app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "briefing.calendar.")).allElementsBoundByIndex {
-            if calendar.value as? String == "1" { try reveal(calendar, in: app); calendar.tap() }
-        }
+        try disableCalendarSelections(app)
         try setSwitch("briefing.healthIncluded", on: false, in: app)
         for kind in ["sleep", "steps", "screenTime", "weatherChange", "calendar", "birthday"] {
             let toggle = app.switches["extras.\(kind)"]
@@ -228,6 +273,42 @@ final class OrdinaryRoutineAcceptanceTests: XCTestCase {
         try require(done.exists && done.isHittable, "The ordinary source sheet could not close.")
         done.tap()
         try require(app.buttons["setup.routine"].waitForExistence(timeout: 10), "Settings did not return after source setup.")
+    }
+
+    private func disableCalendarSelections(_ app: XCUIApplication) throws {
+        let scrolls = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex + app.scrollViews.allElementsBoundByIndex
+        guard let scroll = scrolls.first(where: \.isHittable) else {
+            try require(false, "The ordinary Calendar source inventory could not be scrolled.")
+            return
+        }
+        // This fresh form starts above Calendar. Small overlapping scrolls visit
+        // virtualized switches until the following Health section is reached.
+        for _ in 0..<30 {
+            let calendars = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "briefing.calendar."))
+            for calendar in calendars.allElementsBoundByIndex where calendar.isHittable {
+                try require(["0", "1"].contains(calendar.value as? String ?? ""),
+                            "A native calendar selection had no readable on/off state.")
+                if calendar.value as? String == "1" {
+                    try require(calendar.isEnabled, "A selected native calendar could not be disabled for the public-data run.")
+                    calendar.tap()
+                }
+                try require(calendar.value as? String == "0", "A native calendar remained selected for the public-data run.")
+            }
+            let clearUnavailable = app.buttons.matching(NSPredicate(format: "label IN %@", [
+                "Clear calendar selection", "Effacer la sélection de calendriers"
+            ])).firstMatch
+            if clearUnavailable.exists && clearUnavailable.isHittable {
+                try require(clearUnavailable.isEnabled, "Unavailable saved calendar selections could not be cleared.")
+                clearUnavailable.tap()
+                try require(clearUnavailable.waitForNonExistence(timeout: 5), "Unavailable calendar selections remained saved.")
+            }
+            let health = app.switches["briefing.healthIncluded"]
+            if health.exists && health.isHittable { return }
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.78))
+            let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        try require(false, "The complete Calendar inventory was not traversed; the public-data run must not start.")
     }
 
     /// Called from Learn; the site session is real and only public browsing is performed.
@@ -288,6 +369,16 @@ final class OrdinaryRoutineAcceptanceTests: XCTestCase {
                     ? ["Read today's briefing", "Lire le récap du jour"]
                     : ["Keep this time, then continue", "Prendre ce temps, puis continuer"], in: app)
             }
+            let publicDetail = [
+                "Read the current Apple Weather recap for Paris, France.",
+                "Browse the public Reddit feed for one minute without liking, posting or sending anything.",
+                "Take one minute to get ready, then continue automatically."
+            ][index]
+            let fieldTypes = [XCUIElement.ElementType.textField.rawValue, XCUIElement.ElementType.textView.rawValue]
+            let detail = app.descendants(matching: .any).matching(NSPredicate(format: "elementType IN %@ AND label IN %@",
+                fieldTypes, ["Step details", "Détails de l’étape", "Détails de l'étape"])).firstMatch
+            try replace(detail, with: publicDetail, in: app)
+            try require(detail.value as? String == publicDetail, "The reviewed QA moment retained inherited description text.")
             let duration = app.steppers["step.duration"]
             for _ in 0..<120 {
                 if duration.value as? String == "1" { break }
@@ -350,7 +441,8 @@ final class OrdinaryRoutineAcceptanceTests: XCTestCase {
 
     private func openLearnFromSettings(_ app: XCUIApplication) throws {
         try tap("setup.routine", in: app)
-        if app.buttons["learn.refine"].exists { try tap("learn.refine", in: app) }
+        if element("routine.editor", in: app).exists { try tap("learn.refine", in: app) }
+        try reveal(app.textViews["learn.notes"], in: app)
         try require(app.textViews["learn.notes"].waitForExistence(timeout: 10), "The ordinary Learn editor did not open.")
     }
 
