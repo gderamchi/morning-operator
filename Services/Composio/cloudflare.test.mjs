@@ -29,6 +29,17 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
   async function upstream(request) {
     const url = new URL(request.url);
     if (url.origin === 'https://api.elevenlabs.io') {
+      if (url.pathname.startsWith('/v1/text-to-speech/')) {
+        assert.equal(request.headers.get('xi-api-key'), 'synthetic-voice-key');
+        assert.equal(request.method, 'POST');
+        assert.equal(url.searchParams.get('enable_logging'), 'false');
+        assert.equal(url.searchParams.get('output_format'), 'mp3_44100_128');
+        const input = await request.json();
+        assert.equal(input.model_id, 'eleven_turbo_v2_5');
+        state.calls.push({ method: request.method, url, input });
+        if (state.mode === 'speechError') return json(403, { detail: 'private-provider-body-sentinel' });
+        return new MiniflareResponse(Uint8Array.from([0x49, 0x44, 0x33, 4, 0, 0]), { headers: { 'Content-Type': 'audio/mpeg' } });
+      }
       assert.equal(url.pathname, '/v1/convai/conversation/token');
       assert.equal(url.searchParams.get('agent_id'), 'synthetic-agent');
       assert.equal(request.headers.get('xi-api-key'), 'synthetic-voice-key');
@@ -118,6 +129,7 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
   async function api(path, { method = 'GET', bearer, data, headers = {}, worker = 'primary' } = {}) {
     const target = await runtime.getWorker(worker);
     const response = await target.fetch(`https://connector.example${path}`, { method, redirect: 'manual', headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...(data === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers }, body: data === undefined ? undefined : JSON.stringify(data) });
+    if (response.headers.get('content-type') === 'audio/mpeg') return { status: response.status, headers: response.headers, bytes: new Uint8Array(await response.arrayBuffer()) };
     const raw = await response.text();
     return { status: response.status, headers: response.headers, data: raw ? JSON.parse(raw) : null, raw };
   }
@@ -177,6 +189,51 @@ test('Worker returns only a WebRTC token for an explicitly activated installatio
   assert.equal(f.state.calls.length, 1);
   assert.equal(f.state.mockError, undefined);
   assert.deepEqual(await f.rows('voice_activation_requests'), []);
+});
+
+test('Worker speech authenticates, shares the activation gate and persists no text or audio', async t => {
+  const f = await fixture(t, { voice: true });
+  const data = { text: 'Synthetic selected text.', language: 'fr', voiceGender: 'male' };
+  assert.equal((await f.api('/v1/voice/speech', { method: 'POST', data })).status, 401);
+  const bearer = await f.install();
+  assert.equal((await f.api('/v1/voice/speech', { method: 'POST', bearer, data: { ...data, voice_id: 'client-selected' } })).status, 400);
+  assert.equal((await f.api('/v1/voice/speech', { method: 'POST', bearer, data })).status, 503);
+  const rows = await f.rows('voice_activation_requests');
+  assert.equal(rows.length, 1);
+  assert.deepEqual(Object.keys(rows[0]).sort(), ['requested_at', 'user_id']);
+  assert.equal(f.state.calls.length, 0);
+});
+
+test('Worker speech returns bounded MPEG bytes, allows explicit synthesis replay and never executes a tool', async t => {
+  const userID = 'more_00000000-0000-0000-0000-000000000001';
+  const f = await fixture(t, { voice: true, voiceInstallations: [userID] });
+  const bearer = 'a'.repeat(43);
+  await new D1Storage(await f.database()).createInstallation(hash(bearer), userID);
+  const data = { text: 'Synthetic selected text.', language: 'fr', voiceGender: 'male' };
+  for (const invalid of [{ ...data, language: 'de' }, { ...data, text: 'é'.repeat(16385) }, { ...data, voiceGender: 'other' }, { ...data, text: '' }]) {
+    assert.equal((await f.api('/v1/voice/speech', { method: 'POST', bearer, data: invalid })).status, 400);
+  }
+  assert.equal((await f.api('/v1/voice/speech?voice_id=arbitrary', { method: 'POST', bearer, data })).status, 400);
+  assert.equal(f.state.calls.length, 0);
+  for (const worker of ['primary', 'secondary']) {
+    const result = await f.api('/v1/voice/speech', { method: 'POST', bearer, data, worker });
+    assert.equal(result.status, 200);
+    assert.deepEqual([...result.bytes], [0x49, 0x44, 0x33, 4, 0, 0]);
+    assert.equal(result.headers.get('cache-control'), 'no-store');
+    assert.equal(result.headers.get('content-type'), 'audio/mpeg');
+    assert.equal(result.headers.get('content-length'), '6');
+  }
+  assert.equal(f.state.calls.length, 2);
+  assert.equal(f.state.executions, 0);
+  assert.equal(f.state.mockError, undefined);
+  assert.deepEqual(await f.rows('executions'), []);
+  assert.deepEqual(await f.rows('voice_activation_requests'), []);
+  f.state.mode = 'speechError';
+  const refused = await f.api('/v1/voice/speech', { method: 'POST', bearer, data });
+  assert.equal(refused.status, 502);
+  assert.equal(refused.data.error.code, 'speech_unavailable');
+  assert.ok(!refused.raw.includes('private-provider-body-sentinel'));
+  assert.equal(f.state.calls.length, 3);
 });
 
 test('D1 reservations are atomic across sessions, scoped by installation and immutable after completion', async t => {

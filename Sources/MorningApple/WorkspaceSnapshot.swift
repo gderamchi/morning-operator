@@ -62,6 +62,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
     public var budgetAndFeedback: RoutineBudgetAndFeedback?
     public var pendingCaptures: [String: String]?
     public var voiceIdentifier: String?
+    public var voiceGender: String?
     public var observationNotes: String?
     public var observationSource: String?
     public var observationVideoEvidence: ObservationVideoEvidence?
@@ -84,7 +85,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, routine, session, previousRoutine, history, captures, receipts, sessionTimeZone
         case automatic, readAloud, handsFreeListeningSuppressedSessionID, showMorningOnLockScreen, sessionTimingInterrupted, budgetAndFeedback, pendingCaptures
-        case voiceIdentifier, observationNotes, observationSource, observationVideoEvidence
+        case voiceIdentifier, voiceGender, observationNotes, observationSource, observationVideoEvidence
         case observationContextClassification, observationArchive, selectedObservationID
         case pendingRoutineProposal, pendingScreenTimeProposal, consumedMorningEntryIDs, routinePreferences, greeting, executionRecords, evidenceRetentionDays, setAside
     }
@@ -95,7 +96,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
                 handsFreeListeningSuppressedSessionID: UUID? = nil,
                 showMorningOnLockScreen: Bool? = nil, sessionTimingInterrupted: Bool? = nil,
                 budgetAndFeedback: RoutineBudgetAndFeedback? = nil,
-                pendingCaptures: [String: String]? = nil, voiceIdentifier: String? = nil,
+                pendingCaptures: [String: String]? = nil, voiceIdentifier: String? = nil, voiceGender: String? = nil,
                 observationNotes: String? = nil, observationSource: String? = nil,
                 observationVideoEvidence: ObservationVideoEvidence? = nil,
                 observationContextClassification: RecoverableObservationClassification? = nil,
@@ -110,7 +111,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         self.handsFreeListeningSuppressedSessionID = handsFreeListeningSuppressedSessionID
         self.showMorningOnLockScreen = showMorningOnLockScreen; self.sessionTimingInterrupted = sessionTimingInterrupted
         self.budgetAndFeedback = budgetAndFeedback
-        self.pendingCaptures = pendingCaptures; self.voiceIdentifier = voiceIdentifier
+        self.pendingCaptures = pendingCaptures; self.voiceIdentifier = voiceIdentifier; self.voiceGender = voiceGender
         self.observationNotes = observationNotes; self.observationSource = observationSource
         self.observationVideoEvidence = observationVideoEvidence
         self.observationContextClassification = observationContextClassification
@@ -180,6 +181,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         }
         pendingCaptures = try values.decodeIfPresent([String: String].self, forKey: .pendingCaptures)
         voiceIdentifier = try values.decodeIfPresent(String.self, forKey: .voiceIdentifier)
+        voiceGender = try? values.decodeIfPresent(String.self, forKey: .voiceGender)
         observationNotes = try values.decodeIfPresent(String.self, forKey: .observationNotes)
         observationSource = try values.decodeIfPresent(String.self, forKey: .observationSource)
         observationVideoEvidence = try strict(ObservationVideoEvidence.self, .observationVideoEvidence)

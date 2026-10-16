@@ -18,6 +18,8 @@ struct APIConnectionsView: View {
     @ViewState private var hasLoaded = false
     @ViewState private var message: String?
     @ViewState private var technicalMessage: String?
+    @ViewState private var supportCode: String?
+    @ViewState private var supportCodeIssue: String?
     @ViewState private var operation: Task<Void, Never>?
     @ViewState private var revision = UUID()
     @ViewState private var signIn = APIHostedSignIn()
@@ -73,10 +75,21 @@ struct APIConnectionsView: View {
                                       "Identifiez-vous sur la page officielle du service et choisissez ses autorisations. MORE ne vous demande jamais votre mot de passe."))
                             Text(text("Authorizations and requested actions pass through MORE’s connection service and Composio. Results are only shown during this session.",
                                       "Les autorisations et les actions demandées passent par le service de connexion de MORE et Composio. Les résultats restent affichés pendant cette session."))
-                            if let technicalMessage {
-                                DisclosureGroup(text("Connection details", "Détails de connexion")) {
+                            DisclosureGroup(text("Connection details", "Détails de connexion")) {
+                                if let technicalMessage {
                                     Text(technicalMessage).font(.raleway(.caption)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                                 }
+                                Button(text("Show installation code", "Afficher le code d’installation")) { showInstallationCode() }
+                                    .accessibilityIdentifier("accounts.installationCode.show")
+                                if let supportCode {
+                                    Text(text("Installation code", "Code d’installation")).font(.caption)
+                                    Text(supportCode).font(.system(.caption, design: .monospaced))
+                                        .textSelection(.enabled).accessibilityIdentifier("accounts.installationCode")
+                                    Text(text("This code identifies this installation for MORE support. It does not grant account access.",
+                                              "Ce code permet à l’assistance MORE d’identifier cette installation. Il ne donne pas accès à vos comptes."))
+                                        .font(.caption)
+                                }
+                                if let supportCodeIssue { Text(supportCodeIssue).font(.caption) }
                             }
                         }.font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).padding(.top, 12)
                     }
@@ -215,9 +228,19 @@ struct APIConnectionsView: View {
         }
     }
     private func cancelWaiting() { operation?.cancel(); signIn.cancel() }
+    private func showInstallationCode() {
+        supportCode = nil; supportCodeIssue = nil
+        do {
+            supportCode = try service.existingInstallationSupportCode()
+            if supportCode == nil {
+                supportCodeIssue = text("No saved installation yet. Refresh your accounts first.",
+                                        "Aucune installation enregistrée. Actualisez d’abord vos comptes.")
+            }
+        } catch { supportCodeIssue = error.moreDescription }
+    }
     private func clearSession() {
         revision = UUID(); operation?.cancel(); operation = nil; signIn.cancel()
-        selectedConnection = nil; connections = []; services = []; message = nil; technicalMessage = nil; busy = false; hasLoaded = false
+        selectedConnection = nil; connections = []; services = []; message = nil; technicalMessage = nil; supportCode = nil; supportCodeIssue = nil; busy = false; hasLoaded = false
     }
     private func text(_ en: String, _ fr: String) -> String { locale.language.languageCode?.identifier == "fr" ? fr : en }
 }
@@ -663,7 +686,8 @@ private final class APIHostedSignIn: NSObject, ASWebAuthenticationPresentationCo
                 }
                 self.session = session
                 session.presentationContextProvider = self
-                session.prefersEphemeralWebBrowserSession = true
+                // Reuse the owner's browser sign-in; authenticated completion still verifies this installation.
+                session.prefersEphemeralWebBrowserSession = false
                 if !session.start() { finish(.failure(ComposioServiceError.invalidResponse)) }
             }
         } onCancel: { Task { @MainActor in self.cancel() } }
