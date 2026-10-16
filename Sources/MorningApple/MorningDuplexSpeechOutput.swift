@@ -288,7 +288,7 @@ enum SpeechAudioPCM {
 
     static func decode(_ data: Data) throws -> AVAudioPCMBuffer {
         guard !data.isEmpty, data.count <= 16 * 1_024 * 1_024 else { throw unavailable() }
-        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("more-speech-\(UUID().uuidString).mp3")
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("more-speech-\(UUID().uuidString).audio")
         defer { try? FileManager.default.removeItem(at: fileURL) }
         #if os(iOS)
         try data.write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
