@@ -6,8 +6,10 @@ import MorningApple
     static func serviceIfRequested() -> ComposioService? {
         #if DEBUG
         let flags = ProcessInfo.processInfo.arguments
-        guard flags.contains("--ui-testing"), flags.contains("--ui-testing-slack-setup") else { return nil }
-        let empty = flags.contains("--ui-testing-slack-empty")
+        let catalog = flags.contains("--ui-testing-connections-catalog")
+        let unavailable = flags.contains("--ui-testing-connections-unavailable")
+        guard flags.contains("--ui-testing"), flags.contains("--ui-testing-slack-setup") || catalog || unavailable else { return nil }
+        let empty = flags.contains("--ui-testing-slack-empty") || catalog || unavailable
         let connection = "ca_slack_synthetic_setup", cursor = "opaque-fixture-page-two"
         return ComposioService(baseURL: URL(string: "https://synthetic-slack.invalid")!,
             tokenStore: Tokens("synthetic-slack-ui-installation-token"), executionStore: Tokens(nil)) { request in
@@ -15,7 +17,9 @@ import MorningApple
             let payload: [String: Any]
             switch (request.httpMethod, url.path) {
             case ("GET", "/v1/services"):
-                payload = ["services": [["id": "slack", "name": "Slack"]]]
+                if unavailable { throw FixtureError.blocked }
+                let services = catalog ? ["gmail", "outlook", "googlecalendar", "googledrive", "googledocs", "googlesheets", "notion", "slack", "calendly", "linkedin", "discord", "youtube", "reddit", "instagram", "whatsapp", "facebook"] : ["slack"]
+                payload = ["services": services.map { ["id": $0, "name": $0.capitalized] }]
             case ("GET", "/v1/connections"):
                 payload = ["connections": empty ? [] : [["id": connection, "service": "slack", "name": "Slack", "status": "ACTIVE",
                     "accountLabel": "SYNTHETIC compte de préparation du matin"]]]

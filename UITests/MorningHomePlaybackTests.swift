@@ -60,6 +60,73 @@ final class MorningHomePlaybackTests: XCTestCase {
         assertSettingsAppearance("night", in: app)
     }
 
+    func testConnectionsExplainProfessionalLimitsAndReturnFromWebsiteNativeAndAccountDestinations() {
+        let app = launch(["--ui-testing-connections-catalog", "--ui-testing-briefing-fixture"])
+        defer { app.terminate() }
+        openIdleSettings(app)
+        settingsButton("setup.connections", in: app).tap()
+        let title = app.navigationBars["Apps & accounts"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        app.buttons["connections.instagram"].tap()
+        XCTAssertTrue(app.buttons["web.close"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "web.page").firstMatch.exists)
+        XCTAssertTrue(app.buttons["connections.confirmReady"].exists)
+        attach("connections-website-sign-in-destination-only", app)
+        app.buttons["web.close"].tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["connections.instagram"].label.contains("Website · Sign in"))
+
+        connectionControl("connections.calendar", in: app).tap()
+        let done = app.navigationBars["Your day"].buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        attach("connections-native-day-destination", app)
+        done.tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        connectionControl("connections.account.notion", in: app).tap()
+        XCTAssertTrue(app.buttons["accounts.connect.notion"].waitForExistence(timeout: 5))
+        attach("connections-synthetic-empty-account-destination", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        connectionControl("connections.professional", in: app).tap()
+        let limits = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Instagram requires a professional account")).firstMatch
+        XCTAssertTrue(limits.waitForExistence(timeout: 5))
+        XCTAssertTrue(limits.label.contains("WhatsApp requires a Business Cloud account"))
+        XCTAssertTrue(limits.label.contains("Facebook uses your Pages"))
+        for service in ["instagram", "whatsapp", "facebook"] {
+            let row = connectionControl("connections.account.\(service)", in: app)
+            XCTAssertTrue(row.label.contains("Account · Sign in"))
+            assertFitsOnScreen(row, in: app)
+        }
+        attach("connections-synthetic-professional-limits-and-rows", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("day", in: app)
+    }
+
+    func testFrenchLargestNightConnectionsExplainUnavailableAccountsAndKeepRetryReachable() {
+        let app = launch(["--ui-testing-connections-unavailable", "--ui-testing-reduce-motion",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true, night: true)
+        defer { app.terminate() }
+        openIdleSettings(app)
+        settingsButton("setup.connections", in: app).tap()
+        XCTAssertTrue(app.navigationBars["Apps et comptes"].waitForExistence(timeout: 5))
+        let issue = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Impossible de charger vos comptes")).firstMatch
+        scrollConnectionControl(issue, in: app)
+        attach("connections-french-largest-night-unavailable-accounts", app)
+        let retry = app.buttons["Réessayer"]
+        scrollConnectionControl(retry, in: app)
+        XCTAssertTrue(retry.isEnabled)
+        assertFitsOnScreen(retry, in: app)
+        retry.tap()
+        XCTAssertTrue(issue.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["connections.account.slack"].exists)
+        attach("connections-french-largest-night-unavailable-retry", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("night", in: app)
+    }
+
     func testNightSettingsAndWeatherSheetUseDarkAppearanceAtStandardTextSize() {
         let app = launch(["--ui-testing-briefing-fixture"], night: true)
         defer { app.terminate() }
@@ -288,6 +355,17 @@ final class MorningHomePlaybackTests: XCTestCase {
         }
         XCTAssertTrue(button.exists && button.isHittable, "Settings keeps \(identifier) reachable.")
         return button
+    }
+
+    private func connectionControl(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let control = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        scrollConnectionControl(control, in: app)
+        return control
+    }
+
+    private func scrollConnectionControl(_ control: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<20 where !control.exists || !control.isHittable { app.swipeUp() }
+        XCTAssertTrue(control.exists && control.isHittable)
     }
 
     private func setFirstMomentDetails(_ text: String, in app: XCUIApplication) -> String {
