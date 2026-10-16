@@ -95,15 +95,12 @@ final class JuryDemoJourneyTests: XCTestCase {
         defer { removeUIInterruptionMonitor(permissionMonitor); app.terminate() }
         app.launch()
 
-        if !app.buttons["permissions.allow"].waitForExistence(timeout: 3) {
-            XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10),
-                          "Leave an existing active morning intact; this check needs idle Home.")
-            openSettings(app)
-            let permissions = app.buttons["setup.permissions"]
-            reveal(permissions, in: app); permissions.tap()
+        if app.buttons["permissions.allow"].waitForExistence(timeout: 3) {
+            finishRealPermissionSetup(app)
+            returnToLiveHome(app)
+        } else {
+            XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
         }
-        finishRealPermissionSetup(app)
-        returnToLiveHome(app)
         XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
         assertNoSpecialPresentation(app)
 
@@ -174,6 +171,16 @@ final class JuryDemoJourneyTests: XCTestCase {
         XCTAssertEqual(resumeResult, .completed)
         await waitForLiveSpokenPassage(app)
         openLiveSettings(app)
+        let resumedDetails = app.buttons["morning.details"]
+        XCTAssertTrue(resumedDetails.waitForExistence(timeout: 5)); resumedDetails.tap()
+        let resumedVoice = app.staticTexts["morning.voiceStatus"]
+        let resumedAudio = XCTNSPredicateExpectation(predicate: NSPredicate(format:
+            "label CONTAINS[cd] %@", "interrompre"), object: resumedVoice)
+        let resumedAudioResult = await XCTWaiter.fulfillment(of: [resumedAudio], timeout: 10)
+        XCTAssertEqual(resumedAudioResult, .completed,
+                       "Resume must start actual decoded audio, beyond the local Play label.")
+        attachLive("jury-live-resumed-real-audio", app)
+        app.buttons["morning.closeDetails"].tap()
         let stop = app.buttons["morning.stop"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5)); stop.tap()
         XCTAssertTrue(stop.waitForNonExistence(timeout: 10))

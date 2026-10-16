@@ -42,7 +42,7 @@ public final class JuryDemoVoiceSession {
     @ObservationIgnored private var pendingAcknowledgement: (requestID: String, status: String, receiptID: String?)?
     @ObservationIgnored private var language: MorningVoiceCommandLanguage = .french
     #if os(iOS)
-    @ObservationIgnored private let engine = AVAudioEngine()
+    @ObservationIgnored private var engine = AVAudioEngine()
     @ObservationIgnored private let sink = JuryDemoAudioSink()
     @ObservationIgnored private var output: JuryDemoAudioOutput?
     @ObservationIgnored private var recognizer: SFSpeechRecognizer?
@@ -407,6 +407,7 @@ public final class JuryDemoVoiceSession {
         guard try await audioSession.prepare(for: audioID).value else { throw CancellationError() }
         try requireCurrent(id)
         guard audioPreparationID == audioID, state != .paused else { throw CancellationError() }
+        engine = AVAudioEngine()
         let input = engine.inputNode
         try input.setVoiceProcessingEnabled(true)
         guard input.isVoiceProcessingEnabled, !input.isVoiceProcessingBypassed else { throw JuryDemoError.localVoiceUnavailable }
@@ -418,6 +419,7 @@ public final class JuryDemoVoiceSession {
         hasTap = true
         output = JuryDemoAudioOutput(engine: engine)
         engine.prepare(); try engine.start()
+        guard engine.isRunning else { throw JuryDemoError.localVoiceUnavailable }
         JuryDemoAudioDiagnostic.log.info("prepare_ready engineRunning=\(self.engine.isRunning, privacy: .public) voiceProcessing=\(input.isVoiceProcessingEnabled, privacy: .public)")
         observeInterruptions(run: id)
     }
