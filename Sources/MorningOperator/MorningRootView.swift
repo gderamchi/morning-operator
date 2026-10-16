@@ -81,7 +81,7 @@ struct MorningRootView: View {
                            weatherSynthetic: store.usesSyntheticBriefing,
                            needsSolarCity: store.briefing.settings.weatherLocation == nil, notice: store.notice,
                            session: store.session,
-                           playback: store.sessionActive ? AnyView(MorningHomePlaybackView(store: store).id(store.currentStep?.id)) : nil,
+                           playback: store.sessionActive ? AnyView(MorningHomePlaybackView(store: store, openSettings: { showingActions = false; showingSettings = true }).id(store.currentStep?.id)) : nil,
                            executionSummary: store.executionSummary,
                            begin: {
                                guard !store.sessionActive else { return }

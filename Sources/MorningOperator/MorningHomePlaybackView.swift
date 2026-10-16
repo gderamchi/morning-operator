@@ -5,6 +5,7 @@ import MorningApple
 /// The landscape remains Home. Only spoken passages and a few controls sit over it.
 struct MorningHomePlaybackView: View {
     @Bindable var store: MorningStore
+    var openSettings: () -> Void
     @State private var passages: [Passage] = []
     @State private var showingDetails = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -122,6 +123,8 @@ struct MorningHomePlaybackView: View {
                         }
                         Button(french ? "Interagir" : "Interact") { showingDetails = true }
                             .accessibilityIdentifier("morning.details")
+                        Button(String(localized: "Settings", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), action: openSettings)
+                            .accessibilityIdentifier("morning.settings")
                         Button(french ? "Arrêter mon matin" : "Stop my morning", role: .destructive) { store.stop() }
                             .accessibilityIdentifier("morning.stop")
                     } label: {

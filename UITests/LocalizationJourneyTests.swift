@@ -84,8 +84,9 @@ final class LocalizationJourneyTests: XCTestCase {
         let current = app.staticTexts["morning.currentStep"]
         XCTAssertTrue(current.waitForExistence(timeout: 10), app.debugDescription)
         let title = current.label
+        app.buttons["morning.more"].tap()
         let settings = app.buttons["morning.settings"]
-        scrollTo(settings, in: app)
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
         settings.tap()
         choose("English", in: app)
         back(app)
