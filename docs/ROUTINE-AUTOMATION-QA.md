@@ -101,6 +101,10 @@ The later Home decision (`99ef99d`, `3dfed93`) replaces scrolling history with a
   different output task; an assessment-before-selection contrast does not
   improve proposals and is reverted, with its failed schema-projection test
   retained in the ledger. No model decision is repaired or counted as learning.
+  A fresh complete compact v11 on `7542d49` then observes all24 frames without
+  OCR failure, but all7 actual proposal SDK responses abstain (65.445s, coverage
+  **0/9**, exit4). The flat steps-first diagnostic also fails to improve proposals
+  and is reverted. Learning remains blocked with complete extraction.
 - **Closed news2 is implemented, not natively proved.** A DEBUG-only workspace
   capability, four local resources and the ordinary DOM executor are covered by
   Core contracts and a source review. EN/FR WebKit journeys require execution;

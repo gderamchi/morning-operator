@@ -683,3 +683,26 @@ The private news2 slice uses a distinct closed local origin in the ordinary
 WebKit executor. Source/contracts pass, but no new native news journey has run.
 Its [contract](PRIVATE-NEWS-QA.md) keeps the finite resources, activation,
 non-network behavior and pending runtime gates explicit.
+
+### Complete compact extraction v11 still yields no learned activity
+
+The flat steps-before-explicit-outcome contrast runs three SDK requests in
+6.887s. All three return explicit insufficient/zero steps, including the agenda;
+the advertisement remains excluded. Its pure contracts pass but it improves no
+proposal. The test-only experiment is reverted in `e13f688`; reports/logs and
+the pushed experiment remain, without adding an unused product schema route.
+
+Full compact v11 on `7542d49` **fails after 65.445s** at proposal. The exact same
+5,164,714-byte movie/hash now yields **24 observed frames**: 24 native recognizer
+calls complete, with no recorded failure and 26.979s total inside the recognizer.
+Classification completes 12/12 requests without a batch failure; 22 units and
+seven actual proposal SDK responses all explicitly abstain. The independent
+coverage scorer reports **0/9**, exit4. Classification completion is not semantic
+accuracy; no proposal, approval or execution is accepted. V10's eight OCR failures
+remain historical failures with unknown cause; this successful extraction does
+not recover their discarded error details or establish why they occurred.
+
+Only completed9h/9i compilation/index/SDK caches were removed before v11; all
+sealed Products, manifests, xcresults, captures and media remain. The active
+SwiftPM cache was preserved. The [QA ledger](ROUTINE-AUTOMATION-QA.md) retains
+native pre-Start failures separately from learning and execution evidence.
