@@ -72,6 +72,12 @@
             "state": "translated",
             "value": "%@ se ferme juste après s’être ouvert. Dans Raccourcis, vérifiez que son automatisation de fermeture n’a que « Est fermée » coché ; d’ici là, les enregistrements ne peuvent pas utiliser ses heures."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ closes right after opening. In Shortcuts, check that its closing automation has only Is Closed selected; until then recordings can't use its times."
+          }
         }
       }
     },
@@ -190,6 +196,12 @@
             "state": "translated",
             "value": "%@ · Texte à l’écran"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Screen text"
+          }
         }
       }
     },
@@ -200,6 +212,12 @@
             "state": "translated",
             "value": "%@ · Vu dans l’image"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Seen in image"
+          }
         }
       }
     },
@@ -209,6 +227,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ · Raccourcis"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Shortcuts"
           }
         }
       }
@@ -252,6 +276,12 @@
             "state": "translated",
             "value": "%@ · texte à l’écran"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · screen text"
+          }
         }
       }
     },
@@ -261,6 +291,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ · vu dans l’image"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · seen in image"
           }
         }
       }
@@ -3228,6 +3264,12 @@
             "state": "translated",
             "value": "1 an"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 year"
+          }
         }
       }
     },
@@ -3318,6 +3360,12 @@
             "state": "translated",
             "value": "30 jours"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 days"
+          }
         }
       }
     },
@@ -3327,6 +3375,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "90 jours"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 days"
           }
         }
       }
@@ -3546,6 +3600,12 @@
             "state": "translated",
             "value": "Un moment que vous avez choisi de garder"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A moment you chose to keep"
+          }
         }
       }
     },
@@ -3700,6 +3760,12 @@
             "state": "translated",
             "value": "Une suppression est déjà en cours. Rien de plus n’a été supprimé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A removal is already in progress. Nothing more was removed."
+          }
         }
       }
     },
@@ -3709,6 +3775,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Une suppression que vous aviez confirmée a été interrompue, et vos données enregistrées ont changé depuis. Rien de plus n’a été supprimé. Vérifiez-la de nouveau."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A removal you confirmed was interrupted, and your saved data has changed since. Nothing more was removed. Review it again."
           }
         }
       }
@@ -3752,6 +3824,12 @@
             "state": "translated",
             "value": "Une matinée enregistrée"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A saved morning"
+          }
         }
       }
     },
@@ -3761,6 +3839,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Une matinée enregistrée contient encore ce brouillon. Approuvez ou modifiez d’abord votre routine. Rien n’a été supprimé."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A saved morning still holds this draft. Approve or edit your routine first. Nothing was removed."
           }
         }
       }
@@ -3836,6 +3920,12 @@
             "state": "translated",
             "value": "Une étape qui cite l’une de ces observations contient aussi des mots que vous gardez : rien ne peut encore être supprimé. Modifiez d’abord cette étape dans votre routine."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A step quoting one of these observations also holds words you keep, so nothing can be removed yet. Edit that step in your routine first."
+          }
         }
       }
     },
@@ -3845,6 +3935,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Une étape qui cite cette observation contient aussi des mots que vous gardez. Modifiez d’abord cette étape dans votre routine. Rien n’a été supprimé."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A step quoting this observation also holds words you keep. Edit that step in your routine first. Nothing was removed."
           }
         }
       }
@@ -4397,6 +4493,12 @@
             "state": "translated",
             "value": "Ajoutez l’action Enregistrer un passage d’app. Touchez App et choisissez cette même app, ou tapez son nom ; si vous le laissez vide, iOS vous le demandera à chaque fois. Choisissez Ouverte ou affichée. Laissez l’identifiant d’événement vide pour un usage normal."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add the action Log an app transition. Tap App and pick that same app, or type its name; if you leave it empty, iOS asks you every time. Choose Opened or switched to. Leave Event ID empty for ordinary use."
+          }
         }
       }
     },
@@ -4826,6 +4928,12 @@
             "state": "translated",
             "value": "Autoriser Santé pour le sommeil et les pas"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Health for sleep and steps"
+          }
         }
       }
     },
@@ -4868,6 +4976,12 @@
             "state": "translated",
             "value": "Une suppression précédente doit encore se terminer. Choisissez d’abord « Terminer la suppression interrompue » dans Confidentialité. Rien n’a été supprimé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An earlier removal still needs to finish. Choose Finish the interrupted removal in Privacy first. Nothing was removed."
+          }
         }
       }
     },
@@ -4877,6 +4991,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Une suppression interrompue n’a pas pu être lue, donc rien de plus n’a été supprimé. Vérifiez de nouveau vos observations."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An interrupted removal couldn't be read, so nothing more was removed. Review your observations again."
           }
         }
       }
@@ -4983,6 +5103,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Répondez avec vos mots, ou dites « non » pour passer."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answer in your own words, or say “no” to skip."
           }
         }
       }
@@ -5091,6 +5217,12 @@
             "state": "translated",
             "value": "Reconnaissance des apps dans les enregistrements d’écran : disponible sur cet appareil."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App recognition in screen recordings: available on this device."
+          }
         }
       }
     },
@@ -5100,6 +5232,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reconnaissance des apps dans les enregistrements d’écran : indisponible ici. Les apps peuvent toujours venir de vos automatisations Raccourcis ou de vos libellés."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App recognition in screen recordings: unavailable here. Apps can still come from your Shortcuts automations or your labels."
           }
         }
       }
@@ -5254,6 +5392,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le modèle d’Apple sur l’appareil a reconnu cette app dans la capture. Il peut se tromper ; votre libellé reste prioritaire."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple's on-device model recognized this app from the screenshot. It can be wrong; your label takes priority."
           }
         }
       }
@@ -5817,6 +5961,12 @@
             "state": "translated",
             "value": "Anniversaires de vos contacts"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Birthdays among contacts"
+          }
         }
       }
     },
@@ -5954,6 +6104,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Conflit ou battement serré dans l’agenda"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar clash or tight gap"
           }
         }
       }
@@ -6352,6 +6508,12 @@
             "state": "translated",
             "value": "Choisissez d’abord une ville ci-dessus."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a city above first."
+          }
         }
       }
     },
@@ -6539,6 +6701,12 @@
             "state": "translated",
             "value": "Choisissez un nom d’app de 60 caractères maximum."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an app name of up to 60 characters."
+          }
         }
       }
     },
@@ -6628,6 +6796,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choisissez d’abord des calendriers ci-dessus."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose calendars above first."
           }
         }
       }
@@ -7474,6 +7648,12 @@
             "state": "translated",
             "value": "Connectez n’importe quelle app une fois avec l’app Raccourcis d’Apple, comme WhatsApp, Instagram ou Mail. Seuls les noms d’apps et les heures sont enregistrés, sur l’appareil."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect any app once with Apple's Shortcuts app, such as WhatsApp, Instagram or Mail. Only app names and times are saved locally."
+          }
         }
       }
     },
@@ -7628,6 +7808,12 @@
             "state": "translated",
             "value": "L’accès aux contacts est désactivé. Autorisez-le dans l’app Réglages."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contacts access is off. Allow it in the Settings app."
+          }
         }
       }
     },
@@ -7669,6 +7855,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copies gardées à part"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copies kept separately"
           }
         }
       }
@@ -7776,6 +7968,12 @@
             "state": "translated",
             "value": "Comptés par votre iPhone, comparés à votre moyenne sur 7 jours."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Counted by your iPhone, compared with your 7-day average."
+          }
         }
       }
     },
@@ -7817,6 +8015,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Créez une autre automatisation pour la même app avec seulement « Est fermée » coché. Dans notre action, choisissez Fermée ou quittée. Recommencez pour chaque app à inclure."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a separate automation for the same app with only Is Closed selected. Choose Closed or switched from in our action. Repeat for any other apps you want to include."
           }
         }
       }
@@ -8969,6 +9173,12 @@
             "state": "translated",
             "value": "Terminez ou arrêtez cette matinée et attendez la fin du travail en cours, puis réessayez. Rien n’a été supprimé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish or stop this morning and wait for current work to end, then try again. Nothing was removed."
+          }
         }
       }
     },
@@ -9058,6 +9268,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Terminer la suppression interrompue"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish the interrupted removal"
           }
         }
       }
@@ -9277,6 +9493,12 @@
             "state": "translated",
             "value": "Oublier cette observation"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forget this observation"
+          }
         }
       }
     },
@@ -9287,6 +9509,12 @@
             "state": "translated",
             "value": "Oublier cette observation ?"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forget this observation?"
+          }
         }
       }
     },
@@ -9296,6 +9524,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Oublier cette observation…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forget this observation…"
           }
         }
       }
@@ -9491,6 +9725,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Texte complet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full text"
           }
         }
       }
@@ -9709,6 +9949,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "L’accès à Santé n’a pas pu être demandé. %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health access couldn't be asked. %@"
           }
         }
       }
@@ -10057,6 +10303,12 @@
             "state": "translated",
             "value": "Importées avant le %@."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported before %@."
+          }
         }
       }
     },
@@ -10066,6 +10318,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Importée : %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported: %@"
           }
         }
       }
@@ -10108,6 +10366,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dans Raccourcis, ouvrez Automatisation et créez une automatisation App. Choisissez n’importe quelle app et « Est ouverte ». Sélectionnez Exécuter immédiatement pour qu’elle fonctionne automatiquement."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Shortcuts, open Automation and create an App automation. Choose any app and Is Opened. Select Run Immediately if you want it to work automatically."
           }
         }
       }
@@ -10299,6 +10563,12 @@
             "state": "translated",
             "value": "Elle a été préparée à partir de ce qui change ici : elle est mise de côté et devra être refaite. Votre routine actuelle n’en est pas modifiée."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It was prepared from what changes here, so it is set aside and has to be worked out again. Your current routine is unchanged by this."
+          }
         }
       }
     },
@@ -10404,6 +10674,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Conserver les éléments bruts pendant"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep raw evidence for"
           }
         }
       }
@@ -10526,6 +10802,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gardé à part"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept separately"
           }
         }
       }
@@ -10857,6 +11139,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Liens et suggestions mis de côté"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Links and suggestions set aside"
           }
         }
       }
@@ -11798,6 +12086,12 @@
             "state": "translated",
             "value": "Les noms sont dits, jamais enregistrés."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Names are spoken, never saved."
+          }
         }
       }
     },
@@ -11968,6 +12262,12 @@
             "state": "translated",
             "value": "Pas besoin d’Apple Watch : un iPhone avec un horaire de sommeil enregistre le temps au lit."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Apple Watch needed: an iPhone with a Sleep schedule records time in bed."
+          }
         }
       }
     },
@@ -12010,6 +12310,12 @@
             "state": "translated",
             "value": "Aucune date d’importation enregistrée"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No import date saved"
+          }
         }
       }
     },
@@ -12035,6 +12341,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Plus reliés à l’observation"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No longer linked"
           }
         }
       }
@@ -12554,6 +12866,12 @@
             "state": "translated",
             "value": "Pas disponible dans cette version de l’app."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not available in this build."
+          }
         }
       }
     },
@@ -12563,6 +12881,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pas disponible dans cette version."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not available in this version."
           }
         }
       }
@@ -12750,6 +13074,12 @@
             "state": "translated",
             "value": "Rien n’est plus ancien pour l’instant."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing is older than this right now."
+          }
         }
       }
     },
@@ -12904,6 +13234,12 @@
             "state": "translated",
             "value": "Observations à supprimer"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Observations to remove"
+          }
         }
       }
     },
@@ -12994,6 +13330,12 @@
             "state": "translated",
             "value": "Désactivé : chaque observation reste jusqu’à ce que vous la supprimiez. Si vous choisissez une durée, rien n’est supprimé avant que vous ayez vérifié la liste et confirmé. Les citations d’une routine que vous avez approuvée et les moments que vous avez choisi de garder restent."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off keeps every observation until you remove it. When an age is chosen, nothing is removed until you review the list and confirm. Quotations in a routine you approved and moments you chose to keep stay."
+          }
         }
       }
     },
@@ -13019,6 +13361,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Plus anciennes"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Older than this"
           }
         }
       }
@@ -13490,6 +13838,12 @@
             "state": "translated",
             "value": "Ouverture de %@"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opened %@"
+          }
         }
       }
     },
@@ -13515,6 +13869,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ouverte, d’après vos Raccourcis"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opened, per your Shortcuts"
           }
         }
       }
@@ -13894,6 +14254,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Une partie ne peut pas être supprimée ici en toute sécurité. Rien n’a été supprimé."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part of this can't be removed safely here. Nothing was removed."
           }
         }
       }
@@ -14397,6 +14763,12 @@
             "state": "translated",
             "value": "Citations supprimées avec elles"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quotations removed with them"
+          }
         }
       }
     },
@@ -14855,6 +15227,12 @@
             "state": "translated",
             "value": "Reconnue grâce au texte à l’écran"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognized from screen text"
+          }
         }
       }
     },
@@ -14864,6 +15242,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reconnaissance des apps sur vos écrans…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognizing the apps on your screens…"
           }
         }
       }
@@ -15422,6 +15806,12 @@
             "state": "translated",
             "value": "La suppression n’a pas pu commencer. Rien n’a été supprimé. %@"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removal couldn't start. Nothing was removed. %@"
+          }
         }
       }
     },
@@ -15555,6 +15945,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Supprimer les anciennes observations ?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove old observations?"
           }
         }
       }
@@ -15706,6 +16102,12 @@
             "state": "translated",
             "value": "Supprimé des données enregistrées de MORE. Une copie temporaire restante n’a pas encore pu être supprimée ; MORE réessaiera à sa prochaine ouverture. %@"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removed from MORE’s saved data. A leftover temporary copy couldn’t be removed yet; MORE tries again the next time it opens. %@"
+          }
         }
       }
     },
@@ -15715,6 +16117,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Supprimé avec elles"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removed with them"
           }
         }
       }
@@ -15789,6 +16197,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Suppression…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removing…"
           }
         }
       }
@@ -16264,6 +16678,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vérifier avant de supprimer…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review before removing…"
           }
         }
       }
@@ -17507,6 +17927,12 @@
             "state": "translated",
             "value": "Les données enregistrées sont indisponibles pour le moment. Rien n’a été supprimé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved data is unavailable right now. Nothing was removed."
+          }
         }
       }
     },
@@ -18144,6 +18570,12 @@
             "state": "translated",
             "value": "Temps d’écran d’hier"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen time yesterday"
+          }
         }
       }
     },
@@ -18297,6 +18729,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vue dans l’image"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seen in the image"
           }
         }
       }
@@ -18864,6 +19302,12 @@
             "state": "translated",
             "value": "Petits plus"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short extras"
+          }
         }
       }
     },
@@ -19034,6 +19478,12 @@
             "state": "translated",
             "value": "Montre d’abord toutes ses copies. Ses citations dans un brouillon non approuvé partent aussi ; ce que vous avez approuvé ou gardé reste."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows every copy of it first. Quotations in an unapproved draft go too; what you approved or kept stays."
+          }
         }
       }
     },
@@ -19140,6 +19590,12 @@
             "state": "translated",
             "value": "Passer"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
         }
       }
     },
@@ -19197,6 +19653,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sommeil de la nuit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep last night"
           }
         }
       }
@@ -19740,6 +20202,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pas d’hier"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steps yesterday"
           }
         }
       }
@@ -20403,6 +20871,12 @@
             "state": "translated",
             "value": "Texte lu à l’écran"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text read on screen"
+          }
         }
       }
     },
@@ -20665,6 +21139,12 @@
             "state": "translated",
             "value": "La suppression interrompue ne peut pas encore se terminer. Rien de plus n’a été supprimé. Réessayez depuis Confidentialité."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The interrupted removal can't finish yet. Nothing more was removed. Try again from Privacy."
+          }
         }
       }
     },
@@ -20750,6 +21230,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "La matinée enregistrée avec votre routine"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The morning saved with your routine"
           }
         }
       }
@@ -20856,6 +21342,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "La suppression que vous avez confirmée est terminée."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The removal you confirmed has finished."
           }
         }
       }
@@ -21139,6 +21631,12 @@
             "state": "translated",
             "value": "Leur texte d’origine, leurs corrections, les écrans échantillonnés et leurs libellés quittent MORE sur cet appareil. Rien d’autre n’est supprimé, sauf ce qui est indiqué ci-dessous comme supprimé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Their original text, corrections, sampled screens and screen labels leave MORE on this device. Nothing else is removed unless it is listed below as removed."
+          }
         }
       }
     },
@@ -21180,6 +21678,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Il n’y a plus rien à supprimer ici. Rien n’a été supprimé."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is nothing left to remove here. Nothing was removed."
           }
         }
       }
@@ -21286,6 +21790,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ces copies restent. Supprimez-les là où elles se trouvent si vous voulez qu’elles disparaissent aussi."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These stay. Remove them where they live if you want them gone too."
           }
         }
       }
@@ -21408,6 +21918,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce choix n’a pas pu être enregistré ou l’autorisation n’a pas pu être demandée. %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This choice couldn't be saved or the permission couldn't be asked. %@"
           }
         }
       }
@@ -21643,6 +22159,12 @@
             "state": "translated",
             "value": "Cette observation fait partie d’une session enregistrée, qui ne peut pas encore être supprimée ici. Rien n’a été supprimé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This observation belongs to a recorded session, which can't be removed here yet. Nothing was removed."
+          }
         }
       }
     },
@@ -21732,6 +22254,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cette observation sera supprimée."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This observation will be removed."
           }
         }
       }
@@ -22078,6 +22606,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce réglage n’a pas pu être enregistré. Rien n’a été supprimé."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This setting couldn't be saved. Nothing was removed."
           }
         }
       }
@@ -22537,6 +23071,12 @@
             "state": "translated",
             "value": "Essayez d’ouvrir deux apps connectées puis de revenir à la première, puis ouvrez Relire. Les comptes apparaissent une fois les automatisations exécutées. Les enregistrements d’écran faits dans MORE utilisent aussi ces heures pour nommer l’app de chaque écran échantillonné. Cette configuration ne lance pas d’enregistrement d’écran et ne lit pas vos messages."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try opening two connected apps and returning to the first, then open Review. Counts appear after those automations actually run. Screen recordings you make in MORE also use these times to name the app on each sampled screen. This setup does not start screen recording or read messages."
+          }
         }
       }
     },
@@ -22851,6 +23391,12 @@
             "state": "translated",
             "value": "Parties illisibles conservées"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unreadable parts kept"
+          }
         }
       }
     },
@@ -22984,6 +23530,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jusqu’à trois faits courts après l’ouverture, environ dix secondes en tout. Rien de ce qui est lu n’est enregistré, seulement ces choix. Quand une source n’a rien, MORE n’en dit rien."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to three short facts after the opening, about ten seconds in all. Nothing read for them is saved; only these choices are. When a source has nothing, MORE says nothing about it."
           }
         }
       }
@@ -23235,6 +23787,12 @@
             "state": "translated",
             "value": "En attente de la fin de l’analyse en cours…"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for the current analysis to finish…"
+          }
         }
       }
     },
@@ -23308,6 +23866,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Changement de météo utile"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather change worth knowing"
           }
         }
       }
@@ -23688,6 +24252,12 @@
             "state": "translated",
             "value": "Le texte échantillonné contient des mots propres aux écrans de cette app."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Words that belong to this app's own screens appear in the sampled text."
+          }
         }
       }
     },
@@ -23982,6 +24552,12 @@
             "state": "translated",
             "value": "Votre automatisation Raccourcis a noté cette app comme ouverte à ce moment de l’enregistrement."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Shortcuts automation logged this app as open at this moment of the recording."
+          }
         }
       }
     },
@@ -24200,6 +24776,12 @@
             "state": "translated",
             "value": "Votre routine actuelle"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your current routine"
+          }
         }
       }
     },
@@ -24289,6 +24871,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos données n’ont pas pu être enregistrées, donc rien n’a été supprimé. Réessayez."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your data couldn't be saved, so nothing was removed. Try again."
           }
         }
       }
@@ -24764,6 +25352,12 @@
             "state": "translated",
             "value": "Vos autres modifications n’ont pas pu être enregistrées d’abord. Rien n’a été supprimé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your other changes couldn't be saved first. Nothing was removed."
+          }
         }
       }
     },
@@ -24773,6 +25367,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre suggestion en attente"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your pending suggestion"
           }
         }
       }
@@ -24863,6 +25463,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre routine précédente"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your previous routine"
           }
         }
       }
@@ -25098,6 +25704,12 @@
             "state": "translated",
             "value": "Votre routine a changé. Vérifiez de nouveau la liste. Rien n’a été supprimé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your routine changed. Review the list again. Nothing was removed."
+          }
         }
       }
     },
@@ -25220,6 +25832,12 @@
             "state": "translated",
             "value": "Vos données enregistrées ont changé après l’affichage de cette liste, donc rien n’a été supprimé. Voici la liste à jour."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved data changed after this list was shown, so nothing was removed. This is the updated list."
+          }
         }
       }
     },
@@ -25229,6 +25847,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos données enregistrées ont changé, donc rien n’a été supprimé. Vérifiez la liste à jour."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved data changed, so nothing was removed. Review the updated list."
           }
         }
       }
