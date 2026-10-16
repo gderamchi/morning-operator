@@ -1,6 +1,6 @@
+import MorningCore
 import Foundation
 import CoreLocation
-import MorningCore
 
 public enum WeatherLocationAuthorization: Sendable, Equatable {
     case notDetermined, authorized, denied, unavailable
@@ -13,9 +13,9 @@ public enum WeatherDeviceLocationError: Error, LocalizedError, Sendable, Equatab
     func message(locale: Locale) -> String {
         let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
         return switch self {
-        case .denied: String(localized: "Location is off. Allow it in iPhone Settings or choose a city for the weather.", bundle: bundle, locale: locale)
-        case .unavailable, .invalidReading: String(localized: "Your location isn't available yet. Try again or choose a city.", bundle: bundle, locale: locale)
-        case .timedOut: String(localized: "Finding your location took too long. Try again or choose a city.", bundle: bundle, locale: locale)
+        case .denied: AppLanguage.localized("Location is off. Allow it in iPhone Settings or choose a city for the weather.", bundle: bundle, locale: locale)
+        case .unavailable, .invalidReading: AppLanguage.localized("Your location isn't available yet. Try again or choose a city.", bundle: bundle, locale: locale)
+        case .timedOut: AppLanguage.localized("Finding your location took too long. Try again or choose a city.", bundle: bundle, locale: locale)
         }
     }
 }
@@ -143,8 +143,8 @@ public final class WeatherDeviceLocation: NSObject, WeatherDeviceLocationProvidi
     }
 
     static func currentLocationName(locale: Locale = AppLanguage.locale) -> String {
-        String(localized: "Current location",
-               bundle: AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier), locale: locale)
+        AppLanguage.localized("Current location",
+               bundle: .module, locale: locale)
     }
 
     private func startTimer(id: UUID, duration: Duration) {

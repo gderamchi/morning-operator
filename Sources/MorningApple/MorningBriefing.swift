@@ -1,5 +1,5 @@
-import Foundation
 import MorningCore
+import Foundation
 
 /// Availability is supplied by the explicit source coordinator. Missing data is
 /// never converted into an empty calendar or a fabricated weather observation.
@@ -33,10 +33,10 @@ public enum MorningBriefingError: Error, LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidDate: String(localized: "The briefing date could not be resolved.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .invalidTimeZone: String(localized: "Choose a valid time zone for this briefing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .unsupportedLocale: String(localized: "Prepared briefings currently support English and French.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .invalidPolicy: String(localized: "The briefing freshness settings are invalid.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidDate: AppLanguage.localized("The briefing date could not be resolved.", bundle: .module)
+        case .invalidTimeZone: AppLanguage.localized("Choose a valid time zone for this briefing.", bundle: .module)
+        case .unsupportedLocale: AppLanguage.localized("Prepared briefings currently support English and French.", bundle: .module)
+        case .invalidPolicy: AppLanguage.localized("The briefing freshness settings are invalid.", bundle: .module)
         }
     }
 }

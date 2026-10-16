@@ -47,9 +47,9 @@ public enum MorningInvitationForgetError: LocalizedError, Sendable, Equatable {
     case alreadyForgetting, cleanupUnconfirmed, staleGeneration
     public var errorDescription: String? {
         switch self {
-        case .alreadyForgetting: String(localized: "Invitation cleanup is already in progress.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .cleanupUnconfirmed: String(localized: "The invitation could not be fully removed. Retry forgetting your local data.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .staleGeneration: String(localized: "Your local data changed. Open Morning again before scheduling an invitation.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .alreadyForgetting: AppLanguage.localized("Invitation cleanup is already in progress.", bundle: .module)
+        case .cleanupUnconfirmed: AppLanguage.localized("The invitation could not be fully removed. Retry forgetting your local data.", bundle: .module)
+        case .staleGeneration: AppLanguage.localized("Your local data changed. Open Morning again before scheduling an invitation.", bundle: .module)
         }
     }
 }
@@ -94,7 +94,7 @@ public final class MorningInvitationService {
     public private(set) var isBusy = false
     public private(set) var isScheduled = false
     public private(set) var errorMessage: String?
-    public private(set) var statusText = String(localized: "No invitation is scheduled.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+    public private(set) var statusText = AppLanguage.localized("No invitation is scheduled.", bundle: .module)
     public var needsRecovery: Bool { !storageAvailable }
 
     private enum StatusPresentation {
@@ -408,8 +408,8 @@ public final class MorningInvitationService {
     func refreshStatusPresentation(locale: Locale) {
         switch statusPresentation {
         case .message(let key, let isError):
-            statusText = String(localized: key,
-                bundle: AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier), locale: locale)
+            statusText = AppLanguage.localized(key,
+                bundle: .module, locale: locale)
             if isError { errorMessage = statusText }
         case .failure(let error):
             statusText = error.moreDescription
@@ -473,14 +473,14 @@ private final class NativeMorningInvitationNotificationClient: MorningInvitation
     func add(_ invitation: MorningInvitation, sound: Bool) async throws {
         let content = UNMutableNotificationContent()
         if invitation.learningTarget == nil {
-            content.title = String(localized: "Ready for your morning?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-            content.body = String(localized: "Tap to begin with MORE.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            content.title = AppLanguage.localized("Ready for your morning?", bundle: .module)
+            content.body = AppLanguage.localized("Tap to begin with MORE.", bundle: .module)
             content.categoryIdentifier = MorningInvitationService.categoryIdentifier
         } else {
             // A reminder to record, without the Start morning action: nothing begins
             // until the person opens MORE and starts the recording themselves.
-            content.title = String(localized: "Your learning window is open", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-            content.body = String(localized: "Open MORE and start the recording when you are ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            content.title = AppLanguage.localized("Your learning window is open", bundle: .module)
+            content.body = AppLanguage.localized("Open MORE and start the recording when you are ready.", bundle: .module)
             content.categoryIdentifier = MorningInvitationService.learningReminderCategoryIdentifier
         }
         content.userInfo = invitation.payload.dictionary

@@ -221,15 +221,15 @@ final class LocalizationJourneyTests: XCTestCase {
         attach("localization-fr-sleep-off-after-relaunch", app)
     }
 
-    func testUnsupportedSystemLanguageStartsInFrench() {
+    func testUnsupportedSystemLanguageStartsInEnglish() {
         continueAfterFailure = false
         let app = launch(workspace: UUID(), initialLanguage: "unsupported", systemLanguage: "de")
         openSettings(app)
         let picker = app.segmentedControls["setup.language"]
         scrollTo(picker, in: app)
         XCTAssertEqual(picker.buttons.count, 2)
-        XCTAssertTrue(picker.buttons["Français"].isSelected)
-        XCTAssertTrue(app.staticTexts["Langue"].exists)
+        XCTAssertTrue(picker.buttons["English"].isSelected)
+        XCTAssertTrue(app.staticTexts["Language"].exists)
         attach("localization-unsupported-system-fallback", app)
         app.terminate()
     }
