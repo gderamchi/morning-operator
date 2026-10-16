@@ -635,12 +635,7 @@ private final class JuryDemoAudioOutput {
     var id: UUID?
     private let engine: AVAudioEngine
     private let player = AVAudioPlayerNode()
-    init(engine: AVAudioEngine) {
-        self.engine = engine
-        engine.attach(player)
-        // Establish both I/O paths before starting voice processing.
-        engine.connect(player, to: engine.mainMixerNode, format: nil)
-    }
+    init(engine: AVAudioEngine) { self.engine = engine; engine.attach(player) }
 
     func play(data: Data, id: UUID, completion: @escaping @MainActor () -> Void) throws -> TimeInterval {
         var phase = "write"
