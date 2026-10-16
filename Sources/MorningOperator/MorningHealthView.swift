@@ -1,5 +1,6 @@
 import SwiftUI
 import MorningApple
+import MorningCore
 
 struct MorningHealthView: View {
     @Bindable var store: MorningStore
@@ -53,12 +54,13 @@ struct MorningHealthSection: View {
                 if let document = controller.prepared {
                     sleepSummary(document.sleep)
                     ForEach(document.healthMetrics) { item in
-                        if item.section.status == .fresh {
+                        if item.section.status == .fresh, let sample = item.observation {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(item.section.segments.map(\.text).joined(separator: " "))
-                                if let source = item.observation?.source.name {
-                                    Text(source).font(.caption).foregroundStyle(MorningStyle.muted)
-                                }
+                                LabeledContent(metricName(item.metric), value: metricValue(sample))
+                                Text((sample.source.name.map { $0 + " · " } ?? "") + sample.end.formatted(
+                                    Date.FormatStyle(date: .abbreviated, time: .shortened)
+                                        .locale(Locale(identifier: AppLanguage.localeIdentifier))))
+                                    .font(.caption).foregroundStyle(MorningStyle.muted)
                             }.accessibilityIdentifier("briefing.health.\(item.metric.rawValue)")
                         }
                     }
@@ -67,7 +69,8 @@ struct MorningHealthSection: View {
                         ForEach(document.healthMetrics) { item in
                             Text(item.section.statusText).font(.caption)
                             if let sample = item.observation {
-                                Text(sample.end.formatted(date: .abbreviated, time: .shortened)).font(.caption2)
+                                Text(sample.end.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened)
+                                    .locale(Locale(identifier: AppLanguage.localeIdentifier)))).font(.caption2)
                             }
                         }
                         accessDetails
@@ -91,6 +94,24 @@ struct MorningHealthSection: View {
     private func connect() {
         stopPreview()
         Task { if await controller.enableHealth(includeMetrics: true) { await store.prepareDayIfConfigured() } }
+    }
+
+    private func metricName(_ metric: HealthMetric) -> String {
+        switch metric {
+        case .heartRateVariabilitySDNN: text("HRV · SDNN", "VFC · SDNN")
+        case .restingHeartRate: text("Resting heart rate", "Fréquence au repos")
+        case .respiratoryRate: text("Breathing rate", "Respiration")
+        }
+    }
+
+    private func metricValue(_ sample: HealthMetricSample) -> String {
+        let number = sample.value.formatted(.number.precision(.fractionLength(0...1))
+            .locale(Locale(identifier: AppLanguage.localeIdentifier)))
+        switch sample.metric {
+        case .heartRateVariabilitySDNN: return number + " ms"
+        case .restingHeartRate: return number + " bpm"
+        case .respiratoryRate: return number + " /min"
+        }
     }
 
     @ViewBuilder private func sleepSummary(_ section: MorningBriefingSection) -> some View {

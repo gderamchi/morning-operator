@@ -2,6 +2,16 @@
 
 Tracks [issue #15](https://github.com/gibouu/morning-operator/issues/15). This report keeps engineering checks separate from the owner’s actual iPhone checks. No device identifiers, Health values, personal usage, screenshots, signing files or credentials belong here.
 
+## Owner feedback and expanded scope
+
+The owner reports that Weather and Screen Time work on installed build 1563. Apple asked only for sleep access, and an older sleep record was returned. The owner rejected the long explanations, the date-led presentation and the robotic spoken experience. This is partial source evidence, not acceptance of the complete Health or voice journey. No Health value or date is retained in this report.
+
+Continuation `4e66385` adds separately consented VFC/HRV SDNN, resting heart rate and breathing rate, with the writing app’s name, exact observation time and per-type freshness/error handling. Existing sleep-only choices stay sleep-only until explicit upgrade. All new source scopes start off. **113 targeted shared/native mapping tests pass** with serial test scheduling; no real Health store was read by those tests. The direct Health entry and compact presentation are app changes awaiting the combined native/UI/device checks below.
+
+The owner also authorized an explicit temporary Debug cross on onboarding/paywall, remembered across launches. It grants development access without a fake StoreKit transaction; Release retains verified subscription access. This removes the prototype’s blocked product-configuration gate while preserving the full onboarding presentation. Natural conversation is tracked separately in [NATURAL-VOICE.md](NATURAL-VOICE.md).
+
+The following evidence describes the earlier sleep checkpoint; the combined delivery result will identify its later source and installed build.
+
 ## Delivered behavior
 
 The ordinary app links `MorningHealth`; the widget does not. Apple Health sleep analysis is read-only and off by default. Only the explained inclusion action requests permission. The app displays recorded asleep duration, measurement window, inferred source categories and local read time, and uses the same sentence in the briefing. Apple does not disclose a read-authorization decision; a handled prompt or empty result is never labeled granted or denied.
@@ -22,12 +32,12 @@ Source baseline: `36fede6` from freshly fetched `origin/main`, including require
 | Latest main combined signed build | PASS | MORE 0.1.0 (1565), Xcode 27.0 (27A266a), ordinary MorningOperator scheme; target-specific manual Development signing. No StoreKit test configuration or enabled test arguments. This binary has not been installed. |
 | Strict app/widget signatures and embedded profiles | PASS | Strict/deep codesign; exact Development identity and profiles; all four expected app capabilities, no Health extras/PCC and no app capabilities in widget; Google public configuration matches the local kit. |
 | Private backup / in-place installation / ordinary launch | PASS | Private backups before both upgrades (1552 → 1561 → 1563). Final installed version and ordinary running process verified. Personal Team variant unchanged. No uninstall/reset. |
-| Real sleep consent, reading and visible/vocal integration | PENDING — owner action | Final 1563 is installed/open. Owner must handle the Apple sheet in Settings → Calendar, weather & sleep → Include recorded sleep, then Refresh sleep and Hear this recap. No real sample or audibility confirmation has been received; never report this as a pass. |
-| Weather and Screen Time regression check | PENDING — owner action | Requested on final 1563. Prior 1552/1541 results do not establish the new build’s behavior. |
+| Real sleep consent and reading | PARTIAL — owner report | 1563 requested sleep only and returned an older record. The owner rejected the presentation/voice; current measurements and matching audible facts are not accepted. |
+| Weather and Screen Time on 1563 | PASS — owner report | The owner explicitly confirmed both work. This is not proof for a later installed build. |
 
 The latest signed build used clean source `3369115e44bcb0058687f8ffd1b46db10f2cb9e4`, combining main `2adf69e` (subscription entry from #192), compact access onboarding and Health. All 100 targeted package tests passed on the combined shared logic; the final app-only fixes withdraw shortcut notices/audio and retained Home captions at privacy boundaries. The two focused UI tests passed on the Health/settings interface; they use an isolated fixture and do not prove the ordinary subscription gate.
 
-The phone retains **1563**, the installed, ordinarily launched Health checkpoint from before #192. Current main requires verified StoreKit access before entering the app; live billing/access is separately unverified in [#191](https://github.com/gibouu/morning-operator/issues/191). No purchase or bypass was introduced for Health QA. Installing the newer gated binary and completing its normal subscription-to-Health journey remains a separate owner/device gate. Health data, the matching audible recap and weather/Screen Time on 1563 have also not yet been owner-confirmed.
+The phone retains **1563**, the installed, ordinarily launched Health checkpoint from before #192. Current main requires verified StoreKit access before entering the app; live billing/access is separately unverified in [#191](https://github.com/gibouu/morning-operator/issues/191). No purchase or bypass was introduced for Health QA. Installing the newer gated binary and completing its normal subscription-to-Health journey remains a separate owner/device gate. The owner subsequently confirmed Weather/Screen Time and a returned older sleep record on 1563; the Health presentation and voice were rejected. See the continuation above.
 
 On access withdrawal, the app clears transient briefing work and stops speech. Real backgrounding cancels pending initial Health setup and stops Health speech. Health-containing shortcut recaps leave a generic notice rather than personal sleep prose on Home; disabling Health clears the retained Home passage. Durable choices and other app data remain intact.
 
