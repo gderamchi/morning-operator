@@ -61,8 +61,8 @@ struct RoutineExportView: View {
                         .accessibilityIdentifier("export.includeNotes")
                 } footer: {
                     Text(includeNotes
-                        ? "Notes and the source label are included exactly as saved. They may contain personal details or quotations from observations."
-                        : "Notes, evidence quotations in notes, and the source label are left out.")
+                        ? String(localized: "Notes and the source label are included exactly as saved. They may contain personal details or quotations from observations.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                        : String(localized: "Notes, evidence quotations in notes, and the source label are left out.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 }
 
                 switch preview {

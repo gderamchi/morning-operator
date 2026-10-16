@@ -133,10 +133,10 @@ struct QuickCaptureView: View {
                     }
                     if isSchedule {
                         VStack(alignment: .leading, spacing: 18) {
-                            Toggle(kind == .reminder ? "Add to Apple Reminders" : "Add to Apple Calendar", isOn: $saveToSystem)
+                            Toggle(kind == .reminder ? String(localized: "Add to Apple Reminders", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Add to Apple Calendar", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), isOn: $saveToSystem)
                             if kind == .reminder { Toggle("Set a time & alert", isOn: $hasDate) }
                             if hasDate || kind == .calendarIdea {
-                                DatePicker(kind == .reminder ? "Remind me" : "Starts", selection: $date)
+                                DatePicker(kind == .reminder ? String(localized: "Remind me", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Starts", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), selection: $date)
                                     .datePickerStyle(.compact)
                                 Text(TimeZone.current.identifier).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             }

@@ -58,8 +58,8 @@ struct ObservationScreenReviewView: View {
                     }
                 } footer: {
                     Text(existing == nil
-                         ? "Unknown screens stay visible in your review and are left out of new activity suggestions."
-                         : "Removing your correction restores the original interpretation, if one is available.")
+                         ? String(localized: "Unknown screens stay visible in your review and are left out of new activity suggestions.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                         : String(localized: "Removing your correction restores the original interpretation, if one is available.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 }
                 Section {
                     if quotes.isEmpty {

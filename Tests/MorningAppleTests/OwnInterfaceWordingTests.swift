@@ -78,6 +78,7 @@ private struct ShippedCatalogs {
     /// Everything that would let recognition drift from what the app shows. Empty when in step.
     func drift(of phrases: [OwnInterfaceWording.Phrase]) -> [String] {
         var problems: [String] = []
+        let shippedLanguages = languages
         for phrase in phrases {
             guard let key = phrase.catalogKey else { continue }
             let entries = catalogs.compactMap { $0[key] as? [String: Any] }
@@ -93,7 +94,7 @@ private struct ShippedCatalogs {
             if entries.contains(where: { $0["extractionState"] as? String == "stale" }) {
                 problems.append("“\(key)” is stale: the app no longer shows it. Keep it as earlier wording and add what replaced it.")
             }
-            for language in languages {
+            for language in shippedLanguages {
                 guard let perCatalog = valueGroups(for: key, in: language) else {
                     problems.append("“\(key)” has no \(language) text in a catalog that ships it.")
                     continue

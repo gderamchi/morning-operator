@@ -56,8 +56,8 @@ struct ObservationHistoryView: View {
         MorningList {
             Section {
                 Text(onlyUndated
-                     ? "These observations need a day before they can appear in your morning history. The day a file was imported doesn't tell us when it was recorded."
-                     : "Saved glimpses of your morning. Observations and routine runs stay separate; sampled screens don't measure complete phone use.")
+                     ? String(localized: "These observations need a day before they can appear in your morning history. The day a file was imported doesn't tell us when it was recorded.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                     : String(localized: "Saved glimpses of your morning. Observations and routine runs stay separate; sampled screens don't measure complete phone use.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                     .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             }
             if store.pendingRoutineProposal != nil {
@@ -123,7 +123,7 @@ struct ObservationHistoryView: View {
             }
         }
         .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
-        .navigationTitle(onlyUndated ? "Date needed" : "Observations")
+        .navigationTitle(onlyUndated ? String(localized: "Date needed", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Observations", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
         .accessibilityIdentifier("observations.list")
         .toolbar {
             if !onlyUndated, !entries.isEmpty {
