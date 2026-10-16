@@ -5,10 +5,9 @@ import MorningApple
 /// The landscape remains Home. Only spoken passages and a few controls sit over it.
 struct MorningHomePlaybackView: View {
     @Bindable var store: MorningStore
-    var openSettings: () -> Void
+    let openSettings: () -> Void
     @State private var displayedCaption: String?
     @State private var displayedCaptionBoundary: String?
-    @State private var showingDetails = false
     @State private var controlsVisible = false
     @State private var controlsInteraction = UUID()
     @State private var captionScrolling = false
@@ -102,7 +101,7 @@ struct MorningHomePlaybackView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
+            ZStack {
                 ScrollView {
                     Text(verbatim: caption)
                         .font(.raleway(.title2)).lineSpacing(7)
@@ -133,7 +132,6 @@ struct MorningHomePlaybackView: View {
 
                 if controlsVisible {
                     controls
-                        .padding(.horizontal, 28).padding(.bottom, 12)
                         .transition(.opacity)
                 }
             }
@@ -152,22 +150,17 @@ struct MorningHomePlaybackView: View {
             if !speaking, (actionStatus?.priority ?? -1) >= 3 { displayedCaption = nil; displayedCaptionBoundary = nil }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; controlsVisible = false; captionScrolling = false; showingDetails = false }
+            if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; controlsVisible = false; captionScrolling = false }
         }
-        .onChange(of: AppLanguage.code) { _, _ in displayedCaption = nil; showingDetails = false }
-        .onChange(of: showingDetails) { _, presented in
-            store.morningDetailPresented = presented
-            if presented { store.pause() } else { keepControlsVisible() }
-        }
-        .onDisappear { store.morningDetailPresented = false }
+        .onChange(of: AppLanguage.code) { _, _ in displayedCaption = nil; displayedCaptionBoundary = nil }
+        .onDisappear { controlsVisible = false; captionScrolling = false }
         .onChange(of: voiceOverEnabled) { _, _ in if controlsVisible { controlsInteraction = UUID() } }
         .task(id: controlsInteraction) {
-            guard controlsVisible, !voiceOverEnabled, !showingDetails, !captionScrolling else { return }
+            guard controlsVisible, !voiceOverEnabled, !captionScrolling else { return }
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
-            guard !Task.isCancelled, !voiceOverEnabled, !showingDetails, !captionScrolling else { return }
+            guard !Task.isCancelled, !voiceOverEnabled, !captionScrolling else { return }
             withAnimation(.easeOut(duration: 0.15)) { controlsVisible = false }
         }
-        .sheet(isPresented: $showingDetails) { interaction }
     }
 
     private func toggleControls() {
@@ -181,59 +174,102 @@ struct MorningHomePlaybackView: View {
     }
 
     private var controls: some View {
-        VStack(spacing: 12) {
-            if store.currentOpening != nil {
-                Button(french ? "Continuer" : "Continue") {
-                    keepControlsVisible(); store.chooseOpening(.ritual)
-                }.frame(minHeight: 44).accessibilityIdentifier("opening.routine")
+        ZStack {
+            let offersPlay = store.currentOpening != nil || store.session?.status == .paused
+            Button {
+                keepControlsVisible()
+                if store.currentOpening != nil { store.chooseOpening(.ritual) }
+                else if store.session?.status == .paused { store.resume() }
+                else { store.pause() }
+            } label: {
+                MorningFloatingGlassSymbol(symbol: offersPlay ? .play : .pause, size: 48)
+                    .frame(width: 88, height: 88).contentShape(Rectangle())
             }
-            HStack(spacing: 24) {
-                Button {
-                    keepControlsVisible()
-                    if store.session?.status == .paused { store.resume() } else { store.pause() }
-                } label: {
-                    Image(systemName: store.session?.status == .paused ? "play.fill" : "pause.fill")
-                        .frame(width: 44, height: 44).contentShape(Rectangle())
-                }
-                .accessibilityLabel(store.session?.status == .paused ? (french ? "Continuer" : "Continue") : "Pause")
-                .accessibilityIdentifier("morning.playback")
-                Spacer(minLength: 0)
-                Button {
-                    keepControlsVisible()
-                    store.nextTargetStep(sessionID: store.session?.id, stepID: store.currentStep?.id)
-                } label: {
-                    Image(systemName: "forward.end").frame(width: 44, height: 44).contentShape(Rectangle())
-                }
-                .accessibilityLabel(french ? "Suivant" : "Next")
-                .accessibilityIdentifier("morning.next")
-                Menu {
+            .accessibilityLabel(offersPlay ? (french ? "Continuer" : "Continue") : "Pause")
+            .accessibilityIdentifier("morning.playback")
+
+            Button(action: openSettings) {
+                MorningFloatingGlassSymbol(symbol: .settings, size: 28)
+                    .frame(width: 48, height: 48).contentShape(Rectangle())
+            }
+            .accessibilityLabel(french ? "Paramètres" : "Settings")
+            .accessibilityIdentifier("morning.settings")
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(.top, 20).padding(.trailing, 20)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Session commands live in Settings; Home keeps only playback and navigation.
+struct MorningRoutineControlsView: View {
+    @Bindable var store: MorningStore
+    @State private var showingDetails = false
+    @Environment(\.scenePhase) private var scenePhase
+    private var french: Bool { AppLanguage.isFrench }
+    private var fallback: String {
+        if let opening = store.currentOpening {
+            return opening.briefText ?? opening.opening?.displayText
+                ?? (french ? "Je prépare votre journée…" : "Preparing your day…")
+        }
+        return store.connectedActionStatus ?? store.currentStep?.detail ?? ""
+    }
+
+    var body: some View {
+        Group {
+            if store.sessionActive {
+                VStack(alignment: .leading, spacing: 12) {
+                    Button {
+                        if store.currentOpening != nil { store.chooseOpening(.ritual) }
+                        else if store.session?.status == .paused { store.resume() }
+                        else { store.pause() }
+                    } label: {
+                        Label(store.currentOpening != nil || store.session?.status == .paused
+                              ? (french ? "Continuer" : "Continue") : "Pause",
+                              systemImage: store.currentOpening != nil || store.session?.status == .paused ? "play.fill" : "pause.fill")
+                            .frame(minHeight: 44)
+                    }.accessibilityIdentifier("morning.playback")
+                    Button {
+                        store.nextTargetStep(sessionID: store.session?.id, stepID: store.currentStep?.id)
+                    } label: {
+                        Label(french ? "Suivant" : "Next", systemImage: "forward.end")
+                            .frame(minHeight: 44)
+                    }.accessibilityIdentifier("morning.next")
                     if let timer = store.activeStepTimer {
-                        Button("+2 min") {
-                            keepControlsVisible()
+                        Button {
                             Task { await store.extendStepTimer(expectedTimer: timer) }
+                        } label: {
+                            Text("+2 min").frame(minHeight: 44)
                         }.accessibilityIdentifier("morning.extend")
                     }
                     if case let .inAppWeb(url) = store.currentStep?.target {
-                        Button(french ? "Ouvrir la page" : "Open page") {
-                            keepControlsVisible(); store.pendingWebTarget = url
+                        Button {
+                            store.pendingWebTarget = url
+                        } label: {
+                            Text(french ? "Ouvrir la page" : "Open page").frame(minHeight: 44)
                         }.accessibilityIdentifier("stepTimer.openPage")
                     }
-                    Button(french ? "Interagir" : "Interact") {
-                        keepControlsVisible(); showingDetails = true
+                    Button { showingDetails = true } label: {
+                        Text(french ? "Interagir" : "Interact").frame(minHeight: 44)
                     }.accessibilityIdentifier("morning.details")
-                    Button(String(localized: "Settings", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), action: openSettings)
-                        .accessibilityIdentifier("morning.settings")
-                    Button(french ? "Arrêter mon matin" : "Stop my morning", role: .destructive) { store.stop() }
-                        .accessibilityIdentifier("morning.stop")
-                } label: {
-                    Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle())
+                    Button(role: .destructive) { store.stop() } label: {
+                        Text(french ? "Arrêter mon matin" : "Stop my morning").frame(minHeight: 44)
+                    }.accessibilityIdentifier("morning.stop")
                 }
-                .simultaneousGesture(TapGesture().onEnded { keepControlsVisible() })
-                .accessibilityLabel(french ? "Plus" : "More")
-                .accessibilityIdentifier("morning.more")
+                .buttonStyle(.plain)
             }
-            .font(.system(size: 18, weight: .regular)).buttonStyle(.plain)
         }
+        .onChange(of: showingDetails) { _, presented in
+            store.morningDetailPresented = presented
+            if presented { store.pause() }
+        }
+        .onChange(of: scenePhase) { _, phase in if phase == .background { showingDetails = false } }
+        .onChange(of: AppLanguage.code) { _, _ in showingDetails = false }
+        .onChange(of: store.currentStep?.id) { _, _ in showingDetails = false }
+        .onChange(of: store.sessionActive) { _, active in if !active { showingDetails = false } }
+        .onChange(of: store.dataGeneration) { _, _ in showingDetails = false }
+        .onDisappear { store.morningDetailPresented = false }
+        .sheet(isPresented: $showingDetails) { interaction }
     }
 
     private var interaction: some View {
