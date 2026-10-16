@@ -1,6 +1,6 @@
 # Subscription entry verification — 16 October 2026
 
-The source includes the current adaptive Settings design and the separate permission setup. The subscription entry builds the existing root only after verified StoreKit access; no permission implementation was duplicated in this workstream.
+The source includes the current adaptive Settings design and the separate solar permission setup. Its visual tokens, typography and primary buttons now match discovery and the paywall; permission behavior is unchanged. The subscription entry builds the existing root only after verified StoreKit access; no permission implementation was duplicated in this workstream.
 
 ## Observed results
 
@@ -18,6 +18,7 @@ Apple references: [reported StoreKit CLI failure and DTS replies](https://develo
 
 - Final build: `/tmp/more-onboarding-final-build.log` (passed after the declined-request recovery fix).
 - Latest-main integration: `/tmp/more-onboarding-main-build.log` passed; `/tmp/more-onboarding-main-smoke-fresh.xcresult` and `.log` contain one passing native night-appearance permission-screen smoke. The first launch failed destination discovery and a cached runner enumerated zero tests; neither was counted as a pass. Reinstalling only this isolated UI-test runner ran the actual case successfully.
+- Final access integration: `/tmp/more-onboarding-shared-style-build.log` passed; `/tmp/more-onboarding-shared-style-ui.xcresult` and `.log` contain 4 passing native UI tests (0 failures): unpaid intro/purchase recovery, French day/night access surfaces and disclosure, accessibility XXXL portrait/landscape, and revisiting access from Settings without restarting onboarding. Captures are exported outside Git in the same visualization directory under `onboarding/access-integration/`.
 - First full UI run: `/tmp/more-onboarding-ui-verified.xcresult` and `.log` (4 passed, 8 explicitly skipped).
 - Combined UI run: `/tmp/more-onboarding-integrated-ui.xcresult` and `.log` (5 passed, 0 failures).
 - Final targeted UI and StoreKit environment check: `/tmp/more-onboarding-final-ui.xcresult` and `.log` (3 UI cases passed, 9 native StoreKit cases explicitly skipped). This rerun covers the compact intro layout, large-text navigation and explicit pending-request recovery.
