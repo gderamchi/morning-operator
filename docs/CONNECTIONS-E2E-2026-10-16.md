@@ -457,6 +457,24 @@ passed **39/39**, zero failures/skips, in 0.014 test seconds (11.14 seconds incl
 the cached build). This targeted correction does not retroactively turn the old
 CI failure or the earlier full local run green.
 
+### Final complete parallel package run
+
+On combined source `02c6899`,
+`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/test.sh --jobs 2 --parallel`
+completed with **exit 0** in 14.02 seconds (0.38-second cached build). All four
+products passed: LiveDemo **51**, Health **8**, Core **735** and Apple **1,169**
+tests, across 226 suites. The aggregate is **1,956 passed, zero failed and seven
+explicit optional integration skips**, out of 1,963 tests. Model/media inputs and
+the opted-in live OpenAI memory integration remained unselected.
+
+Both previously failing Vision cases actually passed, rather than skipping:
+layout **7.933 seconds**, screenshot **7.942 seconds**. The corrected hanging-source
+deadline case passed in **10.108 seconds** under parallel main-actor load, using
+its controlled 49/50 ms clock assertions. This is a newly green complete local
+run; the earlier real compiler failures remain recorded in
+[issue #204](https://github.com/gibouu/morning-operator/issues/204), and hosted CI
+is a separate pending check.
+
 After integrating main `297ec1a`, the retained Jury client identity and typed
 browser-command contracts passed **19/19**, zero failures/skips. The new Jury
 microphone graph is iOS-only and guarded by `MORE_JURY_DEMO`; these Mac package

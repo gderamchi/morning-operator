@@ -30,6 +30,12 @@ The configured API services are **Gmail, Outlook, Google Calendar, Google Drive,
 
 Fresh backend regression on the combined source (`4bd789f` integrated) passes **44/44, zero failures or skips**. The cause of [#196](https://github.com/gibouu/morning-operator/issues/196) was reproduced: a 100 ms fixture deadline expired while concurrent-success tests held their fake response for 150 ms. Success fixtures now have 2 seconds; deliberate timeout cases retain 100 ms, and duplicate-dispatch/durable-receipt assertions remain. The production 20-second deadline was unchanged. These synthetic checks remain separate from real provider acceptance.
 
+The final complete parallel Swift run on `02c6899` passes **1,956 tests, zero
+failures, seven optional integration skips** (1,963 total). Both earlier Vision
+failures actually passed. The extras deadline now uses an injectable clock with
+the same continuous-clock default, so its 49/50 ms regression remains valid under
+parallel actor load. Hosted CI is a separate pending check.
+
 Release access requires verified StoreKit entitlement. Four fresh ordinary physical runs through build 1703 failed to obtain the configured live offer; the normal paywall reported App Store unavailable. Native Gmail was consequently skipped in those runs. Main subsequently added the product-approved Debug developer entry: selecting its actual button permits functional service testing without asserting an Apple transaction. This entry never proves purchase, restore or eligibility. App Store Connect still requires owner authentication to inspect the actual product/account configuration. [#191](https://github.com/gibouu/morning-operator/issues/191) tracks the release gate; [the dated ledger](CONNECTIONS-E2E-2026-10-16.md#ordinary-physical-iphone-checkpoint) records the device checks. Earlier device/build claims below are historical.
 
 On ordinary physical build **2026101608**, the official Debug UI entry and
