@@ -13,6 +13,8 @@
 	<string>$(MORE_GOOGLE_CLIENT_ID)</string>
 	<key>MorningAPIBaseURL</key>
 	<string>$(MORNING_API_BASE_URL)</string>
+	<key>MORESubscriptionProductID</key>
+	<string>$(MORE_SUBSCRIPTION_PRODUCT_ID)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key>
