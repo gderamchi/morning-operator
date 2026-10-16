@@ -432,6 +432,7 @@ public final class MorningBriefingController {
     /// sheet. Apple exposes no read-permission status: discard sleep while away and
     /// require a new read before any previous Health text can play again.
     public func invalidateHealthForForeground() {
+        if isConnectingHealth { cancelHealthConnection() }
         guard settings.includesHealth else { return }
         refreshAttempt = nil; refreshTask?.cancel(); refreshTask = nil; preparingKey = nil; isPreparing = false
         prepared = nil; sleepInput = .excluded

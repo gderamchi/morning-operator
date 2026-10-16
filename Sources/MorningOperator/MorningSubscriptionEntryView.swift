@@ -54,8 +54,9 @@ struct MorningSubscriptionEntryView: View {
         }
         .onChange(of: subscription.hasAccess) { wasActive, isActive in
             guard wasActive && !isActive else { return }
-            store.briefing.invalidateHealthForForeground()
+            store.briefing.cancelAndClear()
             if store.session?.status == .running { store.pause() }
+            store.speech.stop()
             store.suspendHandsFreeVoice()
         }
     }

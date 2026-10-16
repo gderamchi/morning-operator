@@ -74,6 +74,25 @@ struct HealthConnectionLifecycleTests {
         #expect(rig.reader.prompts == 1)
     }
 
+    @Test func backgroundDuringInitialPermissionPreparationRejectsItsLateCompletion() async throws {
+        let rig = HealthConnectionRig()
+        defer { rig.close() }
+        let location = try WeatherLocation(latitude: 48, longitude: 2, displayName: "SYNTHETIC_CITY")
+        let choices = MorningBriefingSettings(calendarIDs: ["SYNTHETIC_CALENDAR"], weatherLocation: location)
+        try rig.controller.updateSettings(choices)
+        rig.reader.holdsPrompt = true
+        let connecting = Task { await rig.controller.enableHealth() }
+        await rig.reader.waitForPrompt()
+        #expect(rig.controller.isConnectingHealth && !rig.controller.settings.includesHealth)
+        rig.controller.invalidateHealthForForeground()
+        #expect(!rig.controller.isConnectingHealth && rig.controller.settings == choices)
+        rig.reader.finishPrompt()
+        #expect(!(await connecting.value))
+        #expect(rig.controller.settings == choices && rig.controller.prepared == nil)
+        #expect(rig.reader.reads == 0 && rig.controller.healthConnectionIssue == nil)
+        #expect(rig.makeController().settings == choices, "A backgrounded permission completion must not change durable choices.")
+    }
+
     @Test func forgettingDuringAuthorizationCannotSaveHealthIntoTheNewPrivacyGeneration() async throws {
         let rig = HealthConnectionRig()
         defer { rig.close() }
