@@ -90,13 +90,11 @@ final class LocalizationJourneyTests: XCTestCase {
         XCTAssertEqual(ids.count, 2)
         XCTAssertTrue(ids.allSatisfy { UUID(uuidString: String($0)) != nil })
         current.tap()
-        app.buttons["morning.more"].tap()
         let settings = app.buttons["morning.settings"]
         XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
         settings.tap()
         choose("English", in: app)
         back(app)
-        if !current.exists { app.buttons["morning.actions"].tap() }
         XCTAssertTrue(current.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertEqual(current.value as? String, identity)
         if !app.buttons["morning.playback"].exists { current.tap() }
@@ -176,15 +174,22 @@ final class LocalizationJourneyTests: XCTestCase {
         app.launchArguments += extraArguments
         if let initialLanguage { app.launchArguments += ["-more.appLanguage", initialLanguage] }
         app.launch()
-        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 15), app.debugDescription)
+        let home = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.buttons["morning.actions"].exists || app.scrollViews["morning.captions"].exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [home], timeout: 15), .completed, app.debugDescription)
         return app
     }
 
     private func openSettings(_ app: XCUIApplication) {
-        app.buttons["morning.actions"].tap()
         let settings = app.buttons["morning.settings"]
+        if !(settings.exists && settings.isHittable) {
+            let reading = app.scrollViews["morning.captions"]
+            if reading.exists { reading.tap() }
+            else { app.buttons["morning.actions"].tap() }
+        }
         XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
-        scrollTo(settings, in: app)
+        XCTAssertTrue(settings.isHittable, app.debugDescription)
         settings.tap()
         XCTAssertTrue(app.buttons["setup.connections"].waitForExistence(timeout: 10), app.debugDescription)
     }
