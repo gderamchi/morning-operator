@@ -117,6 +117,80 @@ identity cannot be completed with a different iPhone installation's Keychain
 bearer. For app acceptance, start each connection inside the ordinary app and
 finish its same-installation authenticated completion.
 
+## Selected model and cloud conversation checkpoint
+
+The following additional checks ran at 04:03–04:06 UTC on 16 October against the
+new model/conversation implementation inspected at `origin/main` `4bd789f`.
+They used the owner's existing MORE provider credentials and only fixed
+synthetic text. No real mail, Health information, screen recording, microphone
+audio or other owner context was uploaded. No provider settings, grants,
+subscriptions, voice allowlist or production deployment were changed.
+
+### Live Worker voice authorization
+
+| Request to `POST /v1/voice/token` | Live result |
+| --- | --- |
+| No installation bearer, empty object | HTTP 401 `unauthorized` |
+| Existing QA bearer with a client-selected agent field | HTTP 400 `unexpected_field` |
+| Existing isolated Composio QA bearer, empty object | HTTP 503 `voice_not_configured` |
+| This task's separate isolated QA bearer, empty object | HTTP 503 `voice_not_configured` |
+
+Every response had `Cache-Control: no-store`; no conversation token was returned.
+These two QA identities are not activated for cloud voice. Their 503 responses
+establish that the installation gate refuses them; they do **not** establish a
+global ElevenLabs failure. The earlier activated-QA token proof in
+[the broker runbook](../Services/Composio/CLOUDFLARE.md#broker-evidence-16-october-2026)
+belongs to a different test identity. This checkpoint did not add either of these
+identities to the allowlist or try to bypass activation.
+
+### Fresh OpenAI synthetic generation
+
+A single Responses request used the exact source pin
+`gpt-5-mini-2025-08-07`, minimal reasoning, a strict one-field JSON Schema,
+bounded output and `store:false`. It returned HTTP 200, `completed`, the exact
+requested model, the expected synthetic JSON result and `store:false` in the
+response. Observed latency was **2.405 seconds**, with **66 input / 30 output
+tokens**. There was no retry, external tool or owner data in the request.
+
+This proves current model access and the small strict-output contract. It does
+not repeat the broader live routine/memory tests in [INTELLIGENCE.md](INTELLIGENCE.md)
+or prove app Keychain selection, microphone recognition or a real morning.
+Official OpenAI documentation schedules this exact snapshot's API removal for
+**11 December 2026**. [Migration issue #206](https://github.com/gibouu/morning-operator/issues/206)
+tracks replacement evaluation, privacy/schema/no-fallback checks and delivery;
+no model pin was changed in this audit.
+[Official deprecation notice](https://developers.openai.com/api/docs/deprecations#2026-06-11-gpt-5-and-o3-model-deprecations).
+
+### Fresh ElevenLabs configuration and generated audio
+
+Authenticated read-only provider discovery found exactly one MORE agent matching
+the repository template's exact name and tag. Its retrieved configuration had:
+
+- Gemini 3.5 Flash, Eleven v4 Turbo and the source-selected voice;
+- authentication required, Zero Retention Mode enabled, voice recording disabled
+  and LLM cascading disabled;
+- exactly `more_control`, `more_request` and `more_narration_complete` as client
+  tools, with no external action tools.
+
+These are provider configuration values, not an independent guarantee about
+every system log or subprocessor. No configuration was modified.
+
+One bounded provider conversation then used a private signed WebSocket URL and
+an approved narration containing fixed synthetic French text. It produced
+**11 PCM chunks / 143,360 bytes** in `pcm_16000` format; the first audio arrived
+**1.501 seconds** after connection. The exact synthetic narration-completion
+tool was observed and answered without any app effect. The connection closed
+cleanly with code 1000 after **6.175 seconds**. No owner audio was captured or
+uploaded, and no action tool was given live effect authority.
+
+This proves fresh real-provider generated audio and a synthetic client-tool
+round trip. It used the provider's administrative WebSocket route, while the
+ordinary iOS app uses its separately gated Worker WebRTC token and Swift SDK.
+It therefore does **not** prove native LiveKit playback, audible quality,
+microphone transcription, interruption/audio drain, consent UI, subscription
+access or a real iPhone conversation. Identifiers, signed URLs, tokens, raw
+events and synthetic audio remain outside Git in private mode-0600 files.
+
 ## Remaining live gates
 
 - Recover the legitimate owning installation journey for the existing Composio

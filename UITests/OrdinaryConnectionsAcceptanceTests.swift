@@ -5,9 +5,11 @@ import XCTest
 final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
     private let bundle = "com.gibouu.morningoperator"
 
-    func test01RealAppleOfferOrExistingVerifiedAccess() throws {
+    func test01RealAppleOfferWhenOrdinaryAccessIsLocked() throws {
         let app = try ordinaryApp()
-        if hasOrdinaryAccess(app) { return }
+        if hasOrdinaryAccess(app) {
+            throw XCTSkip("Existing ordinary access can include the approved Debug entry; it does not prove a StoreKit offer.")
+        }
 
         let offer = app.buttons["onboarding.offer"]
         if offer.waitForExistence(timeout: 10) {
@@ -36,6 +38,7 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
 
     func test02ExistingNativeGmailReadsInsideTheOrdinaryApp() throws {
         let app = try ordinaryApp()
+        try enterDeveloperAccessIfRequested(app)
         try openConnections(app)
         let reader = app.buttons["connections.gmailReader"]
         try reveal(reader, in: app)
@@ -75,10 +78,36 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
         app.buttons["morning.actions"].exists || app.buttons["permissions.allow"].exists
     }
 
+    private func enterDeveloperAccessIfRequested(_ app: XCUIApplication) throws {
+        guard ProcessInfo.processInfo.environment["MORE_PHYSICAL_DEVELOPER_ACCESS"] == "1" else { return }
+        if !hasOrdinaryAccess(app) {
+            let intro = app.buttons["onboarding.developerAccess"]
+            let paywall = app.buttons["paywall.developerAccess"]
+            _ = intro.waitForExistence(timeout: 10)
+            let entry = intro.exists ? intro : paywall
+            XCTAssertTrue(entry.exists && entry.isHittable,
+                          "The product's explicit Debug developer entry is unavailable.")
+            entry.tap()
+            let note = XCTAttachment(string: "Official Debug developer entry selected through the ordinary UI. No StoreKit entitlement was asserted.")
+            note.name = "ordinary-debug-access-route"
+            note.lifetime = .keepAlways
+            add(note)
+        }
+        // Defer optional setup prompts; each real service permission is checked separately.
+        for _ in 0..<12 {
+            let skip = app.buttons["permissions.skip"]
+            let finish = app.buttons["permissions.finish"]
+            if skip.exists && skip.isHittable { skip.tap() }
+            else if finish.exists && finish.isHittable { finish.tap() }
+            else if app.buttons["morning.actions"].waitForExistence(timeout: 2), app.buttons["morning.actions"].isHittable { return }
+        }
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
+    }
+
     private func openConnections(_ app: XCUIApplication) throws {
         let landscape = app.buttons["morning.actions"]
         guard landscape.waitForExistence(timeout: 8) else {
-            throw XCTSkip("Ordinary access/setup is incomplete; no subscription or permission bypass was used.")
+            throw XCTSkip("Ordinary access/setup is incomplete. No fixture or system permission was injected.")
         }
         landscape.tap()
         let settings = app.buttons["morning.settings"]
