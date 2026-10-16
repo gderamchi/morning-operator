@@ -12,8 +12,8 @@ final class OrdinaryVoiceMemoryAcceptanceTests: XCTestCase {
             throw XCTSkip("Requires explicit MO_ORDINARY_VOICE_MEMORY=1; no app was activated.")
         }
         let phase = environment["MO_ORDINARY_VOICE_PHASE"] ?? "inspect"
-        guard ["inspect", "inspectSettings", "memoryCheck"].contains(phase) else {
-            throw XCTSkip("Choose inspect, inspectSettings or memoryCheck before activating the app.")
+        guard ["inspect", "inspectSettings", "weatherRead", "memoryCheck"].contains(phase) else {
+            throw XCTSkip("Choose inspect, inspectSettings, weatherRead or memoryCheck before activating the app.")
         }
         let base = "com.gibouu.morningoperator"
         guard let bundle = environment["MO_ORDINARY_VOICE_BUNDLE_ID"],
@@ -38,6 +38,8 @@ final class OrdinaryVoiceMemoryAcceptanceTests: XCTestCase {
         case "inspectSettings":
             try openSettings()
             capture("ordinary-voice-settings")
+        case "weatherRead":
+            try readWeather()
         case "memoryCheck":
             try openMemory()
             guard try denialIsVisible() else {
@@ -82,13 +84,18 @@ final class OrdinaryVoiceMemoryAcceptanceTests: XCTestCase {
         try requireOrdinaryState()
         if app.buttons["setup.intelligence"].exists { return }
         let settings = app.buttons["morning.settings"]
-        if !settings.exists {
-            let controls = app.buttons["morning.actions"]
-            guard controls.waitForExistence(timeout: 5), controls.isHittable,
-                  ["Show controls", "Afficher les commandes"].contains(controls.label) else {
-                throw XCTSkip("Leave ordinary MORE on Home or Settings. No unrelated screen was dismissed.")
+        if !(settings.exists && settings.isHittable) {
+            let captions = app.scrollViews["morning.captions"]
+            if captions.exists && captions.isHittable {
+                captions.tap()
+            } else {
+                let controls = app.buttons["morning.actions"]
+                guard controls.waitForExistence(timeout: 5), controls.isHittable,
+                      ["Show controls", "Afficher les commandes"].contains(controls.label) else {
+                    throw XCTSkip("Leave ordinary MORE on Home or Settings. No unrelated screen was dismissed.")
+                }
+                controls.tap()
             }
-            controls.tap()
         }
         try requireOrdinaryState()
         guard settings.waitForExistence(timeout: 5), settings.isHittable else {
@@ -96,6 +103,41 @@ final class OrdinaryVoiceMemoryAcceptanceTests: XCTestCase {
         }
         settings.tap()
         try requireOrdinaryState()
+    }
+
+    private func readWeather() throws {
+        let refresh = app.buttons["briefing.refresh"]
+        let sources = app.descendants(matching: .any).matching(identifier: "weather.sources").firstMatch
+        let text = app.staticTexts["briefing.text"]
+        let refreshed: Bool
+        let attributionVisible: Bool
+        let recapVisible: Bool
+        do {
+            if !refresh.exists {
+                try openSettings()
+                let briefing = app.buttons["setup.briefing"]
+                guard try reveal(briefing) else { throw XCTSkip("The ordinary day settings were not reachable.") }
+                briefing.tap()
+            }
+            try requireOrdinaryState()
+            guard try reveal(refresh), refresh.isEnabled else {
+                throw XCTSkip("The ordinary recap refresh was not ready. No source configuration was changed.")
+            }
+            refresh.tap()
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: refresh)
+            refreshed = XCTWaiter.wait(for: [ready], timeout: 35) == .completed
+            try requireOrdinaryState()
+            attributionVisible = try reveal(sources)
+            capture("ordinary-voice-weather-attribution")
+            recapVisible = try reveal(text)
+        } catch {
+            capture("ordinary-voice-weather-blocked")
+            throw error
+        }
+        capture("ordinary-voice-weather-reading")
+        XCTAssertTrue(refreshed, "The real recap refresh did not finish within 35 seconds.")
+        XCTAssertTrue(attributionVisible, "No real provider weather-attribution link was visible.")
+        XCTAssertTrue(recapVisible, "No ordinary sourced recap text was visible.")
     }
 
     private func openMemory() throws {
