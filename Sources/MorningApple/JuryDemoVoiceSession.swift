@@ -88,6 +88,15 @@ public final class JuryDemoVoiceSession {
 
     public func start(language: MorningVoiceCommandLanguage = .french) {
         guard !isActive, state != .paused else { return }
+        if let operation {
+            let retainedID = sessionID
+            Task { [weak self] in
+                await operation.value
+                guard let self, sessionID == retainedID, state == .failed else { return }
+                start(language: language)
+            }
+            return
+        }
         guard let client else { fail(JuryDemoError.configuration); return }
         #if os(iOS)
         guard UIApplication.shared.applicationState == .active else { return }
@@ -153,27 +162,36 @@ public final class JuryDemoVoiceSession {
     /// The native executor acknowledges only an effect it has actually read back.
     /// An ambiguous result is reported once and reconciled without re-execution.
     public func acknowledgeAction(requestID: String, status: String, receiptID: String? = nil) {
-        guard let id = runID, let sessionID, let client, isActive || state == .paused else { return }
+        guard let sessionID, let client, isActive || state == .paused || state == .failed else { return }
+        let voiceRun = runID
         guard operation == nil else {
             pendingAcknowledgement = (requestID, status, receiptID); return
         }
         interruptSpeech()
-        if state != .paused { state = .thinking; message = "MORE vérifie le résultat…" }
+        if isActive { state = .thinking; message = "MORE vérifie le résultat…" }
         operation = Task { [weak self] in
             guard let self else { return }
             do {
                 let response = try await client.actionResult(sessionID: sessionID, requestID: requestID, status: status, receiptID: receiptID)
-                try requireCurrent(id)
+                try Task.checkCancellation()
+                guard self.sessionID == sessionID else { throw CancellationError() }
                 operation = nil
-                apply(response, run: id)
+                if let voiceRun, runID == voiceRun { apply(response, run: voiceRun) }
+                else {
+                    latestResponse = response; stage = response.stage
+                    onResponse?(response)
+                }
             } catch is CancellationError { }
-            catch { if runID == id { fail(error) } }
+            catch { if self.sessionID == sessionID { fail(error) } }
         }
     }
 
     /// Pausing really releases the microphone; resuming retains the backend session.
     public func pause() {
         guard isActive else { return }
+        // Before bootstrap returns an ID, no user turn or effect can exist.
+        // Invalidate it now so a quick resume cannot inherit a canceled startup.
+        if sessionID == nil { runID = UUID(); operation?.cancel(); operation = nil }
         state = .paused; message = "Votre matin est en pause."; transcript = ""
         interruptSpeech()
         #if os(iOS)

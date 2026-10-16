@@ -327,6 +327,38 @@ test('morning starts with a short conversation then moves to the prepared messag
   assert.equal(mail.payload.stage, 'mail'); assert.match(mail.payload.text, /15 h/); assert.equal(state.modelCount, 0);
 });
 
+test('a free-form model next intention from morning presents the message without skipping to social', async t => {
+  const { start, turn, state } = await fixture(t);
+  const session = await start(false); state.model = () => model('next');
+  const result = await turn(session.sessionID, 'On passe aux messages');
+  assert.equal(result.payload.stage, 'mail'); assert.match(result.payload.text, /point produit/);
+  assert.equal(result.payload.action, undefined); assert.equal(result.payload.receipt, undefined); assert.equal(state.sendCount, 0);
+});
+
+test('draft or revision requested before hearing the message first presents its context without preparing an action', async t => {
+  const { start, turn, state } = await fixture(t);
+  for (const intent of ['draft', 'revise']) {
+    const session = await start(false); state.model = () => model(intent, 'This draft must not be used.');
+    const result = await turn(session.sessionID, 'Réponds-lui que je suis disponible');
+    assert.equal(result.payload.stage, 'mail'); assert.match(result.payload.text, /point produit/);
+    assert.equal(result.payload.action, undefined); assert.equal(result.payload.receipt, undefined);
+    assert.match((await turn(session.sessionID, 'envoie')).payload.text, /d’abord te lire/);
+  }
+  assert.equal(state.sendCount, 0);
+});
+
+test('model next transitions skip only the current mail or draft and finish only from social', async t => {
+  const { start, turn, state } = await fixture(t);
+  const mail = await start(); state.model = () => model('next');
+  const social = await turn(mail.sessionID, 'Je préfère regarder mes vidéos pour le moment');
+  assert.equal(social.payload.stage, 'social'); assert.equal(social.payload.action.type, 'openURL');
+  const complete = await turn(mail.sessionID, 'Ça me suffit pour ce matin');
+  assert.equal(complete.payload.stage, 'complete'); assert.equal(complete.payload.action, undefined); assert.equal(complete.payload.completed, true);
+  const another = await start(); state.model = () => model('draft', 'Je serai disponible.'); await turn(another.sessionID, 'Réponds que je serai disponible');
+  state.model = () => model('next'); const skipped = await turn(another.sessionID, 'Finalement laisse ce brouillon et passe à mes vidéos');
+  assert.equal(skipped.payload.stage, 'social'); assert.equal(skipped.payload.receipt, undefined); assert.equal(state.sendCount, 0);
+});
+
 test('GET resumes the current draft after process restart without invoking the model or sending', async t => {
   const { state, start, turn, config, fetchImpl } = await fixture(t);
   const session = await start(); await turn(session.sessionID, 'oui');

@@ -2663,8 +2663,13 @@ final class MorningStore {
     private func archiveTerminalSession() {
         guard let session, session.status == .completed || session.status == .stopped else { return }
         do {
+            #if MORE_JURY_DEMO
+            let isSynthetic = true
+            #else
+            let isSynthetic = session.routine.isSynthetic
+            #endif
             history.upsert(try MorningRunRecord(session: session, timeZoneIdentifier: sessionTimeZone,
-                isSynthetic: session.routine.isSynthetic,
+                isSynthetic: isSynthetic,
                 timingInterrupted: sessionTimingInterrupted))
         } catch { notice = AppLanguage.localized("This morning could not be added to history: \(error.localizedDescription)") }
     }

@@ -205,6 +205,33 @@ struct JuryDemoClientTests {
         #expect(preferences.string(forKey: key) == "known-session")
     }
 
+    @Test("A verified native receipt still reaches the backend after voice fails, without restarting audio")
+    @MainActor func acknowledgeAfterVoiceFailure() async throws {
+        let suiteName = "JuryDemoClientTests-\(UUID().uuidString)"
+        let preferences = try #require(UserDefaults(suiteName: suiteName))
+        defer { preferences.removePersistentDomain(forName: suiteName) }
+        let configuration = try JuryDemoConfiguration(baseURL: #require(URL(string: "http://127.0.0.1:8788")), token: "local-secret")
+        let key = "MorningJuryDemoSession:\(Bundle.main.bundleIdentifier ?? "MORE"):\(configuration.baseURL.absoluteString)"
+        preferences.set("known-session", forKey: key)
+        let probe = JuryDemoTransportProbe(body: Self.response)
+        let session = JuryDemoVoiceSession(configuration: configuration, preferences: preferences, client: try makeClient(probe))
+        var received = false, completed = false
+        session.onResponse = { _ in received = true }
+        session.onCompleted = { completed = true }
+        session.fail(JuryDemoError.speechUnavailable)
+        session.acknowledgeAction(requestID: UUID().uuidString, status: "confirmed", receiptID: "verified-native-id")
+        for _ in 0..<100 {
+            if received { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(received)
+        #expect(session.state == .failed)
+        #expect(!session.isActive && !completed)
+        let requests = await probe.requests
+        #expect(requests.count == 1)
+        #expect(requests.first?.url?.path == "/v1/jury/action-result")
+    }
+
     @Test("Startup failure and stop synchronize the existing session controls exactly once")
     @MainActor func stateCallbacks() {
         let session = JuryDemoVoiceSession(configuration: nil)
@@ -235,7 +262,9 @@ private actor JuryDemoTransportProbe {
     init(body: Data, status: Int = 200) { self.body = body; self.status = status }
     func load(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
         requests.append(request)
-        return (body, try #require(HTTPURLResponse(url: #require(request.url), statusCode: status,
-                                                  httpVersion: nil, headerFields: ["Content-Type": "application/json"])))
+        let url = try #require(request.url)
+        let response = try #require(HTTPURLResponse(url: url, statusCode: status,
+                                                    httpVersion: nil, headerFields: ["Content-Type": "application/json"]))
+        return (body, response)
     }
 }
