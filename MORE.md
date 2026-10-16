@@ -1,6 +1,6 @@
 # MORE — Référence produit
 
-Version du 15 octobre 2026, issue des décisions du fondateur. Ce document fixe la valeur et l'expérience à construire. Il est la référence pour les décisions produit, les parcours, l'architecture et les critères d'acceptation. Une évolution de cette direction doit faire l'objet d'une décision explicite, puis être reportée ici.
+Version du 16 octobre 2026, issue des décisions du fondateur. Ce document fixe la valeur et l'expérience à construire. Il est la référence pour les décisions produit, les parcours, l'architecture et les critères d'acceptation. Une évolution de cette direction doit faire l'objet d'une décision explicite, puis être reportée ici.
 
 **MORE comprend ta routine matinale, te permet de la transformer si tu le souhaites, puis la fait pour toi. Le résultat attendu est un matin hands-free, avec presque aucun besoin de toucher son téléphone.**
 
@@ -81,9 +81,9 @@ MORE prépare et présente les informations pertinentes, ouvre les pages nécess
 
 ### L’accueil reste la scène du matin
 
-La routine se déroule sur le paysage existant de l’accueil de MORE. Les phrases parlées apparaissent directement sur ce fond et remontent progressivement pour permettre de suivre la lecture. Aucun panneau, fiche d’étape ou formulaire ne recouvre le paysage par défaut. La réduction des animations conserve le texte lisible sans défilement animé.
+La routine se déroule sur le paysage existant de l’accueil de MORE. Seul le court passage en cours de lecture apparaît sur ce fond, puis laisse sa place au suivant. L’historique ne s’accumule pas. Aucun titre d’étape, minuteur, panneau, fiche, formulaire ou bouton permanent ne recouvre le paysage. Les passages changent doucement ; la réduction des animations conserve une transition discrète sans mouvement.
 
-Les commandes courantes restent discrètes : pause, suivant et un menu pour prolonger, interagir ou arrêter. Le navigateur s’ouvre pour les moments interactifs, puis rend la place à l’accueil. Les formulaires de réponse et les détails restent accessibles sur demande. Pour une activité dans une autre app, MORE laisse le temps prévu ; quand la personne revient dans MORE pendant le déroulement automatique, la routine continue sans bouton « c’est fait ». Ce retour ne prouve aucune action dans l’autre app, et MORE ne suppose pas pouvoir ramener iOS de force au premier plan.
+Un tap révèle pause, suivant et un menu pour prolonger, interagir ou arrêter. Ces commandes disparaissent après cinq secondes sans interaction ; une nouvelle interaction relance ce délai. VoiceOver les conserve pour permettre leur exploration. Le navigateur s’ouvre pour les moments interactifs, puis rend la place à l’accueil. Les formulaires de réponse et les détails restent accessibles sur demande. Pour une activité dans une autre app, MORE laisse le temps prévu ; quand la personne revient dans MORE pendant le déroulement automatique, la routine continue sans bouton « c’est fait ». Ce retour ne prouve aucune action dans l’autre app, et MORE ne suppose pas pouvoir ramener iOS de force au premier plan.
 
 La durée règle le temps alloué à un moment. Sa fin permet à MORE d'annoncer ou d'engager la transition prévue. Elle ne prouve pas qu'une action distante a réussi. Une pause, une prolongation ou un changement demandé à la voix doit se répercuter sur la même session et la même étape.
 

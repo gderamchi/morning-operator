@@ -83,9 +83,13 @@ final class LocalizationJourneyTests: XCTestCase {
         let app = launch(workspace: UUID(), initialLanguage: "fr", extraArguments: ["--ui-testing-automation"])
         app.buttons["morning.actions"].tap()
         app.buttons["morning.begin"].tap()
-        let current = app.staticTexts["morning.currentStep"]
+        let current = app.scrollViews["morning.captions"]
         XCTAssertTrue(current.waitForExistence(timeout: 10), app.debugDescription)
-        let title = current.label
+        let identity = current.value as? String
+        let ids = identity?.split(separator: "|") ?? []
+        XCTAssertEqual(ids.count, 2)
+        XCTAssertTrue(ids.allSatisfy { UUID(uuidString: String($0)) != nil })
+        current.tap()
         app.buttons["morning.more"].tap()
         let settings = app.buttons["morning.settings"]
         XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
@@ -94,7 +98,8 @@ final class LocalizationJourneyTests: XCTestCase {
         back(app)
         if !current.exists { app.buttons["morning.actions"].tap() }
         XCTAssertTrue(current.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertEqual(current.label, title)
+        XCTAssertEqual(current.value as? String, identity)
+        if !app.buttons["morning.playback"].exists { current.tap() }
         XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"), app.debugDescription)
         attach("localization-active-session-preserved-paused", app)
         app.terminate()
