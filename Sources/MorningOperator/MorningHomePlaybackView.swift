@@ -76,6 +76,7 @@ struct MorningHomePlaybackView: View {
                         .accessibilityAction(named: Text(controlsLabel), toggleControls)
                 }
                 .scrollIndicators(.hidden)
+                .defaultScrollAnchor(.bottom, for: .sizeChanges)
                 .contentShape(Rectangle())
                 .onTapGesture(perform: toggleControls)
                 .accessibilityIdentifier("morning.captions")
