@@ -589,3 +589,30 @@ Disk pressure was resolved by removing completed native compilation/index/SDK
 caches only. Sealed Build/Products, manifests, xcresults, captures, original
 gesture events, raw attachments and movies remain available; active SwiftPM
 cache was not removed. Cache cleanup does not alter the above runtime results.
+
+### Native9h and the compact extraction boundary
+
+Frozen9h (`3a3a33f`) builds/seals and passes the strict Calendar smoke in
+**79.992s**. The test actually selects Continue after the opening, observes
+Pause with the pinned identity, and requires the Calendar renderer's
+"Here is your briefing for" prefix plus "Synthetic quiet reading". Independent
+capture review accepts that visible operation prerequisite. This establishes
+neither acoustic hearing, listening nor the end of TTS. Pause temporarily
+overlaps part of the date in the capture; that UX issue remains recorded.
+
+Its first Long10 attempt **fails in 158.788s before approval/Start**. The Slack
+placeholder was removed and its replacement added through Setup, but the test's
+text replacement left part of the existing long name. The exact-name assertion
+correctly rejects it. No long session, elapsed budgets or follow-up lot was
+executed; the helper correction requires another frozen build/run.
+
+Detailed v10 inspection also finds an extraction difference: compact has
+**16 observed / eight ocrFailed frames**, compared with v9's 24 observed. The
+first eight decoded frames (0 through 511.27s) retain valid presentation times
+but their text recognition failed. The current catch discards the native error
+cause, so this is not attributable to the text masks, disk pressure or a
+particular subsystem. Classification completion is only 8/8 requests for the
+remaining text, not successful recognition of all frames. The five proposal
+responses abstain on the resulting 15 units; no agenda/mail inference comparison
+is available from this compact run. V9's complete extraction and its separate
+model failure remain unchanged.

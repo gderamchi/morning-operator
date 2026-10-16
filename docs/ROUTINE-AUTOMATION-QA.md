@@ -114,6 +114,14 @@ rejects it: the facts were in the opening greeting before the operation started.
 Long10/follow-up remain unrun; the next test explicitly continues into the
 routine. A separate compact-disclosure movie also fails actual proposal in
 225.945s (five explicit empty responses, scorer 4); v1 remains unchanged.
+Frozen9h (`3a3a33f`) then passes the corrected Calendar smoke in 79.992s:
+Continue is selected after opening, Pause and the pinned identity are retained,
+and the native Calendar prefix/facts are visibly present. Independent visual
+review accepts this prerequisite, without acoustic or TTS-completion credit.
+The first Long10 attempt fails in 158.788s during pre-Start text replacement;
+it has not executed a long session or the follow-up lot. The compact run also
+has eight OCR failures before its model stage, so it cannot establish a clean
+disclaimer-only semantic comparison with the fully extracted original.
 Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
 and [issue #173](https://github.com/gibouu/morning-operator/issues/173).
 
