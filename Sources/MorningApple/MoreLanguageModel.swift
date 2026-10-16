@@ -96,14 +96,14 @@ private final class MoreModelNoRedirectDelegate: NSObject, URLSessionTaskDelegat
 @Observable
 public final class MoreLanguageModel {
     public static let shared = MoreLanguageModel()
-    public static let openAIModel = "gpt-5-mini-2025-08-07"
+    public static let openAIModel = "gpt-6-luna"
     public private(set) var usesOpenAI = false
     public var isAvailable: Bool { !credentialStorageFailed && (usesOpenAI || localAvailable()) }
     public var summary: String {
         let french = AppLanguage.isFrench
         if credentialStorageFailed { return MoreLanguageModelError.credentialStorageUnavailable.localizedDescription }
         if usesOpenAI {
-            return french ? "OpenAI GPT-5 mini est activé. Les textes utiles à l’analyse et à la conversation sont envoyés à OpenAI. Les vidéos restent sur l’appareil." : "OpenAI GPT-5 mini is enabled. Text needed for analysis and conversation is sent to OpenAI. Videos stay on this device."
+            return french ? "OpenAI GPT-6 Luna est activé, avec un raisonnement élevé. Les textes utiles à l’analyse et à la conversation sont envoyés à OpenAI. Les vidéos restent sur l’appareil." : "OpenAI GPT-6 Luna is enabled with high reasoning. Text needed for analysis and conversation is sent to OpenAI. Videos stay on this device."
         }
         return localAvailable()
             ? (french ? "Le modèle Apple fonctionne sur cet appareil. Aucun texte n’est envoyé à OpenAI." : "The Apple model runs on this device. No text is sent to OpenAI.")
@@ -289,7 +289,7 @@ public final class MoreLanguageModel {
         } else { format = .object(["type": .string("text")]) }
         let body: ComposioJSONValue = .object([
             "model": .string(openAIModel), "instructions": .string(instructions), "input": .string(prompt),
-            "store": .bool(false), "reasoning": .object(["effort": .string("minimal")]),
+            "store": .bool(false), "reasoning": .object(["effort": .string("high")]),
             // The API budget includes hidden reasoning, unlike Foundation Models' visible output budget.
             "max_output_tokens": .number(Decimal(min(16_384, max(2_048, maximumResponseTokens * 4)))),
             "text": .object(["format": format])])

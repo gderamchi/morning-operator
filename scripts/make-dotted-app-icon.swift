@@ -1,7 +1,7 @@
 #!/usr/bin/env swift
 // Original, app-owned dotted sunrise. Regenerate on macOS from the repository root:
 // DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift scripts/make-dotted-app-icon.swift
-// The earlier non-dotted generator remains at scripts/make-app-icon.swift.
+// scripts/make-app-icon.swift delegates here to preserve the approved app icon.
 import AppKit
 import CoreGraphics
 import Foundation
