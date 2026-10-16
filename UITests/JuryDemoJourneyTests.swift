@@ -108,6 +108,12 @@ final class JuryDemoJourneyTests: XCTestCase {
         assertNoSpecialPresentation(app)
 
         openSettings(app)
+        // Live acceptance ends its preceding demo rehearsal through the normal UI.
+        let previousStop = app.buttons["morning.stop"]
+        if previousStop.exists {
+            previousStop.tap()
+            XCTAssertTrue(previousStop.waitForNonExistence(timeout: 10))
+        }
         let listening = app.buttons["setup.voiceAccess"]
         reveal(listening, in: app); listening.tap()
         let access = app.staticTexts["voice.access.status"].firstMatch
@@ -203,6 +209,12 @@ final class JuryDemoJourneyTests: XCTestCase {
         assertNoSpecialPresentation(app)
 
         openSettings(app)
+        // Live acceptance ends its preceding demo rehearsal through the normal UI.
+        let previousStop = app.buttons["morning.stop"]
+        if previousStop.exists {
+            previousStop.tap()
+            XCTAssertTrue(previousStop.waitForNonExistence(timeout: 10))
+        }
         let listening = app.buttons["setup.voiceAccess"]
         reveal(listening, in: app); listening.tap()
         let access = app.staticTexts["voice.access.status"].firstMatch

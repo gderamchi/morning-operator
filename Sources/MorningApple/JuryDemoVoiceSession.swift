@@ -3,6 +3,7 @@ import MorningCore
 import Observation
 #if os(iOS)
 import AVFAudio
+import OSLog
 import Speech
 import UIKit
 #endif
@@ -290,8 +291,14 @@ public final class JuryDemoVoiceSession {
         output?.id = speechID
         speechOperation = Task { [weak self] in
             guard let self else { return }
+            var phase = "request"
+            var byteCount = 0
             do {
+                JuryDemoAudioDiagnostic.log.info("speech_request engineRunning=\(self.engine.isRunning, privacy: .public)")
                 let data = try await client.speech(text: response.text)
+                byteCount = data.count
+                phase = "decode_play"
+                JuryDemoAudioDiagnostic.log.info("speech_received bytes=\(byteCount, privacy: .public) engineRunning=\(self.engine.isRunning, privacy: .public)")
                 try requireCurrent(id)
                 guard state != .paused, output?.id == speechID else { return }
                 let duration = try output?.play(data: data, id: speechID) { [weak self] in
@@ -307,6 +314,8 @@ public final class JuryDemoVoiceSession {
                 speechOperation = nil
             } catch is CancellationError { }
             catch {
+                let failure = error as NSError
+                JuryDemoAudioDiagnostic.log.error("speech_failed phase=\(phase, privacy: .public) domain=\(failure.domain, privacy: .public) code=\(failure.code, privacy: .public) bytes=\(byteCount, privacy: .public) engineRunning=\(self.engine.isRunning, privacy: .public) voiceProcessing=\(self.engine.inputNode.isVoiceProcessingEnabled, privacy: .public)")
                 if !Task.isCancelled, runID == id, state != .paused, output?.id == speechID {
                     fail(JuryDemoError.speechUnavailable)
                 }
@@ -386,6 +395,7 @@ public final class JuryDemoVoiceSession {
     }
 
     private func prepareAudio(id: UUID) async throws {
+        JuryDemoAudioDiagnostic.log.info("prepare_begin engineRunning=\(self.engine.isRunning, privacy: .public)")
         let audioID = UUID(); audioPreparationID = audioID; audioReleaseID = nil
         guard SFSpeechRecognizer.authorizationStatus() == .authorized,
               AVAudioApplication.shared.recordPermission == .granted,
@@ -408,10 +418,12 @@ public final class JuryDemoVoiceSession {
         hasTap = true
         output = JuryDemoAudioOutput(engine: engine)
         engine.prepare(); try engine.start()
+        JuryDemoAudioDiagnostic.log.info("prepare_ready engineRunning=\(self.engine.isRunning, privacy: .public) voiceProcessing=\(input.isVoiceProcessingEnabled, privacy: .public)")
         observeInterruptions(run: id)
     }
 
     private func releaseAudio() {
+        JuryDemoAudioDiagnostic.log.info("release_begin engineRunning=\(self.engine.isRunning, privacy: .public)")
         audioPreparationID = nil
         let releaseID = UUID(); audioReleaseID = releaseID
         for observer in observers { observer.cancel() }; observers.removeAll()
@@ -552,6 +564,10 @@ public final class JuryDemoVoiceSession {
 }
 
 #if os(iOS)
+private enum JuryDemoAudioDiagnostic {
+    static let log = Logger(subsystem: "com.gibouu.morningoperator.demo", category: "JURY_AUDIO")
+}
+
 private final class JuryDemoAudioSink: @unchecked Sendable {
     private let lock = NSLock()
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -575,17 +591,22 @@ private final class JuryDemoAudioOutput {
     init(engine: AVAudioEngine) { self.engine = engine; engine.attach(player) }
 
     func play(data: Data, id: UUID, completion: @escaping @MainActor () -> Void) throws -> TimeInterval {
+        var phase = "write"
+        do {
         // Only synthesized output is decoded via a protected temporary MP3.
         // It is removed when scheduling finishes; microphone audio never touches disk.
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("more-voice-\(UUID().uuidString).mp3")
         defer { try? FileManager.default.removeItem(at: url) }
         try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        phase = "decode"
         let file = try AVAudioFile(forReading: url)
         guard file.length > 0, file.length <= 12_000_000,
               let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
             throw JuryDemoError.speechUnavailable
         }
         try file.read(into: buffer)
+        phase = "play"
+        JuryDemoAudioDiagnostic.log.info("output_decoded frames=\(buffer.frameLength, privacy: .public) sampleRate=\(buffer.format.sampleRate, privacy: .public) engineRunning=\(self.engine.isRunning, privacy: .public)")
         guard engine.isRunning else { throw JuryDemoError.speechUnavailable }
         self.id = id
         player.stop(); engine.disconnectNodeOutput(player)
@@ -598,7 +619,13 @@ private final class JuryDemoAudioOutput {
         }
         player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack, completionHandler: played)
         player.play()
+        JuryDemoAudioDiagnostic.log.info("output_playing engineRunning=\(self.engine.isRunning, privacy: .public) playerPlaying=\(self.player.isPlaying, privacy: .public)")
         return Double(buffer.frameLength) / buffer.format.sampleRate
+        } catch {
+            let failure = error as NSError
+            JuryDemoAudioDiagnostic.log.error("output_failed phase=\(phase, privacy: .public) domain=\(failure.domain, privacy: .public) code=\(failure.code, privacy: .public) engineRunning=\(self.engine.isRunning, privacy: .public)")
+            throw error
+        }
     }
 
     func stop() { id = nil; player.stop() }

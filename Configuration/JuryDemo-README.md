@@ -56,7 +56,8 @@ Use `DEVELOPER_DIR` if the active command-line developer directory is not Xcode.
 `MORE_DEMO_DERIVED_DATA` optionally selects a separate build directory.
 Builds use two parallel Xcode jobs by default; `MORE_DEMO_JOBS` overrides that limit.
 
-UI journey tests run against the demo app, using the shared UI-test sources:
+The dedicated `JuryDemoJourneyTests` run against the shared app UX. The demo target
+compiles only that test file; the ordinary target retains its complete UI suite:
 
 ```sh
 xcodebuild -project MorningOperatorDemo.xcodeproj -scheme MorningOperatorDemo \
