@@ -281,13 +281,18 @@ final class MorningWelcomeFlowTests: XCTestCase {
         }
         for _ in 0..<10 {
             if visibleAndHittable() { return }
-            let above = element.frame.midY < viewport().midY
-            if scroll.exists {
-                if above { scroll.swipeDown() }
-                else { scroll.swipeUp() }
+            let bounds = viewport()
+            let distance = bounds.midY - element.frame.midY
+            let surface: XCUIElement = scrollsTarget ? scroll : app
+            if abs(distance) > bounds.height * 2 {
+                if distance > 0 { surface.swipeDown() }
+                else { surface.swipeUp() }
             } else {
-                if above { app.swipeDown() }
-                else { app.swipeUp() }
+                // A full flick can jump past a control repeatedly in short landscape viewports.
+                let step = min(bounds.height * 0.6, max(-bounds.height * 0.6, distance))
+                let start = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: step > 0 ? 0.2 : 0.8))
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: step)),
+                            withVelocity: .slow, thenHoldForDuration: 0.2)
             }
         }
         XCTAssertTrue(visibleAndHittable(), "The control must remain visible and reachable: \(app.debugDescription)")
