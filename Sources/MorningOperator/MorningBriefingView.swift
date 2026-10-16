@@ -13,6 +13,7 @@ struct MorningBriefingView: View {
     @ViewState<Bool> private var explainingLocation = false
     @ViewState<UUID?> private var previewAttempt = nil
     @ViewState<PreparedMorningBriefing?> private var playingPreview = nil
+    @ViewState<Bool> private var addedToMorning = false
     @FocusState private var cityFocused: Bool
     private var controller: MorningBriefingController { store.briefing }
 
@@ -37,7 +38,9 @@ struct MorningBriefingView: View {
                     }
                 } else {
                     calendarSection.disabled(store.sessionActive)
+                    healthSection
                     weatherSection
+                    recapSection
                 }
                 if let error = controller.errorMessage {
                     Section { Text(error).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
@@ -45,7 +48,7 @@ struct MorningBriefingView: View {
                 }
                 Section {
                     Text("MORE prepares this recap when you open the app and checks it again before speaking. Overnight preparation isn't guaranteed.")
-                    Text("This recap uses your selected calendar and current weather. It doesn't change your events.")
+                    Text(MorningPermissionSetup.text("This recap uses only the sources you choose. Sleep stays on this device; MORE never changes your health records.", "Ce récapitulatif utilise uniquement les sources choisies. Le sommeil reste sur cet appareil ; MORE ne modifie jamais vos données de santé."))
                 }.font(.raleway(.caption2)).foregroundStyle(MorningStyle.muted)
             }
             .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
@@ -87,7 +90,7 @@ struct MorningBriefingView: View {
                     if !store.sessionActive { try? controller.resetSettings() }
                 }
                 Button("Cancel", role: .cancel) { }
-            } message: { Text("This removes your selected calendars and city from MORE. Your routine and Apple app data stay in place.") }
+            } message: { Text(MorningPermissionSetup.text("This removes your calendar, city and sleep choices from MORE. Your routine and Apple app data stay in place.", "Ceci retire vos choix de calendriers, de ville et de sommeil dans MORE. Votre routine et vos données Apple sont conservées.")) }
           }
         }
         // The sheet's own background showed beside the keyboard's rounded corners;
@@ -128,6 +131,84 @@ struct MorningBriefingView: View {
         } header: { Text("Your calendar") } footer: {
             Text("Apple requires full calendar access to read events. MORE reads only the calendars you select; this recap doesn't change them.")
                 .font(.raleway(.caption2))
+        }
+    }
+
+    private var healthSection: some View {
+        Section {
+            Toggle(isOn: Binding(get: { controller.settings.includesHealth }, set: { included in
+                stopPreview()
+                if included {
+                    Task { if await controller.enableHealth() { await store.prepareDayIfConfigured() } }
+                } else { store.disableHealthInBriefing() }
+            })) {
+                Text(MorningPermissionSetup.text("Include recorded sleep", "Inclure le sommeil enregistré"))
+            }
+            .disabled(controller.isConnectingHealth || (store.sessionActive && !controller.settings.includesHealth))
+            .accessibilityIdentifier("briefing.healthIncluded")
+            if controller.isConnectingHealth {
+                ProgressView(MorningPermissionSetup.text("Opening Apple Health…", "Ouverture de Santé Apple…"))
+                Button(MorningPermissionSetup.text("Cancel sleep setup", "Annuler l’activation du sommeil")) {
+                    store.disableHealthInBriefing()
+                }
+            }
+            if let issue = controller.healthConnectionIssue {
+                Text(issue).foregroundStyle(MorningStyle.muted).accessibilityIdentifier("briefing.healthError")
+            }
+            if controller.settings.includesHealth {
+                if let document = controller.prepared {
+                    MorningSleepDetailsView(section: document.sleep)
+                } else {
+                    Text(MorningPermissionSetup.text("Sleep needs a fresh reading.", "Le sommeil doit être relu."))
+                }
+                Button(MorningPermissionSetup.text("Refresh sleep", "Actualiser le sommeil")) {
+                    stopPreview()
+                    Task { _ = await controller.refresh(force: true) }
+                }.disabled(controller.isPreparing).accessibilityIdentifier("briefing.refreshSleep")
+                Text(MorningPermissionSetup.text("If no record appears, check Sleep access for MORE in Apple Health and allow time for your watch to sync. Apple does not tell MORE whether reading was allowed.", "Si aucun enregistrement n’apparaît, vérifiez l’accès Sommeil de MORE dans Santé Apple et laissez votre montre se synchroniser. Apple n’indique pas à MORE si la lecture a été autorisée."))
+                    .font(.caption).foregroundStyle(MorningStyle.muted)
+            }
+        } header: { Text(MorningPermissionSetup.text("Apple Health · optional sleep", "Santé Apple · sommeil facultatif")) }
+        footer: {
+            Text(MorningPermissionSetup.text("Off by default. Turning this on opens Apple’s permission sheet for sleep only. MORE reads recorded asleep time and its window, never time in bed, a recovery score or a diagnosis. Samples and recap stay in memory. Manage access in Apple Health → profile → Apps → MORE.", "Désactivé par défaut. L’activation ouvre la demande Apple pour le sommeil uniquement. MORE lit la durée et la période enregistrées comme sommeil, jamais le temps au lit, un score de récupération ou un diagnostic. Les données et le récapitulatif restent en mémoire. Gérez l’accès dans Santé Apple → profil → Apps → MORE."))
+                .font(.caption2)
+        }
+    }
+
+    private var recapSection: some View {
+        Section {
+            if controller.isPreparing { ProgressView(MorningPermissionSetup.text("Preparing your recap…", "Préparation du récapitulatif…")) }
+            if let document = controller.prepared { MorningBriefingDocumentView(document: document) }
+            Button("Refresh recap") {
+                stopPreview()
+                Task { _ = await controller.refresh(force: true) }
+            }.disabled(controller.isPreparing).accessibilityIdentifier("briefing.refresh")
+            Button("Hear this recap") { hearRecap() }
+                .disabled(store.sessionActive || controller.isPreparing || controller.prepared?.hasUsableFacts != true)
+                .accessibilityIdentifier("briefing.hear")
+            if store.routine != nil {
+                let alreadyAdded = store.routine?.steps.contains(where: { $0.automation == .morningBriefing }) == true
+                Button(alreadyAdded ? "Already in your morning" : "Add to my morning") {
+                    addedToMorning = store.addBriefingToRoutine()
+                }.disabled(store.sessionActive || alreadyAdded).accessibilityIdentifier("briefing.addToRoutine")
+                if addedToMorning { Text("Added as a draft. Review and approve your routine.").accessibilityIdentifier("briefing.saved") }
+            }
+        } header: { Text(MorningPermissionSetup.text("Your recap", "Votre récapitulatif")) }
+    }
+
+    private func hearRecap() {
+        stopPreview()
+        guard !store.sessionActive else { return }
+        let attempt = UUID()
+        previewAttempt = attempt
+        Task {
+            guard let document = await controller.refresh(), previewAttempt == attempt,
+                  !store.sessionActive, !store.privacyBlocksWork, scenePhase == .active,
+                  controller.permitsPlayback(of: document), document.hasUsableFacts else { return }
+            playingPreview = document
+            do { try await store.speech.speakAndWait(document.spokenText) }
+            catch { /* Speech interruptions are handled by the ordinary controls. */ }
+            if previewAttempt == attempt { playingPreview = nil; previewAttempt = nil }
         }
     }
 
@@ -211,9 +292,9 @@ struct MorningBriefingView: View {
                     }
                 }
             }.disabled(store.sessionActive)
-            if let snapshot = controller.currentWeatherSnapshot { currentWeatherDetails(snapshot) }
-            if let attribution = controller.currentWeatherSnapshot?.attribution {
-                MorningWeatherAttributionView(attribution: attribution, synthetic: store.usesSyntheticBriefing)
+            if let snapshot = controller.currentWeatherSnapshot {
+                currentWeatherDetails(snapshot)
+                MorningWeatherAttributionView(attribution: snapshot.attribution, synthetic: store.usesSyntheticBriefing)
             }
         } header: { Text("Weather · optional") } footer: {
             VStack(alignment: .leading, spacing: 8) {
@@ -335,6 +416,9 @@ struct MorningBriefingDocumentView: View {
             if operation != .todayCalendar, document.weather.status != .notConfigured {
                 source(String(localized: "Weather", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), section: document.weather, isCalendar: false)
             }
+            if operation != .todayCalendar, document.sleep.status != .notConfigured {
+                MorningSleepDetailsView(section: document.sleep)
+            }
         }
     }
 
@@ -351,6 +435,28 @@ struct MorningBriefingDocumentView: View {
             if let observedAt = section.observationAt {
                 Text("Conditions at \(observedAt.formatted(Date.FormatStyle(date: .omitted, time: .standard).locale(AppLanguage.locale)))").font(.raleway(.caption2))
             }
+        }.foregroundStyle(MorningStyle.muted)
+    }
+}
+
+/// Source categories are inferred from HealthKit metadata, never personal source IDs.
+private struct MorningSleepDetailsView: View {
+    let section: MorningBriefingSection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(section.status == .fresh ? section.segments.map(\.text).joined(separator: " ") : section.statusText)
+                .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("briefing.sleep")
+            if !section.sourceLabels.isEmpty {
+                Text(section.sourceLabels.joined(separator: " · "))
+                    .font(.caption).accessibilityIdentifier("briefing.sleepSources")
+            }
+            if let readAt = section.retrievedAt {
+                Text(MorningPermissionSetup.text("Read locally: ", "Lecture locale : ") + readAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption2)
+            }
+            Text(MorningPermissionSetup.text("Overlapping records count once. The union can differ from Apple Health’s source priority.", "Les enregistrements qui se chevauchent sont comptés une seule fois. Le total peut différer de Santé Apple, qui applique sa priorité de sources."))
+                .font(.caption2)
         }.foregroundStyle(MorningStyle.muted)
     }
 }

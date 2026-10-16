@@ -164,6 +164,9 @@ struct MorningHomePlaybackView: View {
             if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; controlsVisible = false; captionScrolling = false }
         }
         .onChange(of: AppLanguage.code) { _, _ in displayedCaption = nil; displayedCaptionBoundary = nil }
+        .onChange(of: store.briefing.settings.includesHealth) { wasIncluded, included in
+            if wasIncluded && !included { displayedCaption = nil; displayedCaptionBoundary = nil }
+        }
         .onDisappear { controlsVisible = false; captionScrolling = false }
         .onChange(of: voiceOverEnabled) { _, _ in if controlsVisible { controlsInteraction = UUID() } }
         .task(id: controlsInteraction) {

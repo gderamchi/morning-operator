@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Isolated permission explanations, persistence and weather-source selection.
 /// Synthetic sources never change iOS authorizations or contact weather providers.
@@ -46,24 +47,121 @@ final class MorningPermissionSetupTests: XCTestCase {
     }
 
     func testFrenchLargestTextExplainsEveryAccessAndReturnsToTopWithoutAnimation() {
-        let app = launchFixture(frenchLargestText: true)
-        for permission in ["location", "calendar", "reminders", "screenTime", "speech", "microphone", "notifications", "alarms"] {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = launchFixture(frenchLargestText: true, phase: "night")
+        let permissions = ["location", "calendar", "reminders", "screenTime", "speech", "microphone", "notifications", "alarms"]
+        for (index, permission) in permissions.enumerated() {
+            if index == 4 {
+                XCUIDevice.shared.orientation = .landscapeLeft
+                XCTAssertGreaterThan(app.frame.width, app.frame.height, app.debugDescription)
+            }
             XCTAssertTrue(app.staticTexts["permissions.title.\(permission)"].waitForExistence(timeout: 5))
-            XCTAssertTrue(app.staticTexts["MORE"].isHittable, "Each new explanation must start at its top, even after scrolling through the previous one.")
+            XCTAssertTrue(element("permissions.progress", in: app).isHittable,
+                          "Progress must stay available while long text scrolls.")
+            XCTAssertFalse(app.staticTexts["permissions.explanation"].exists,
+                           "Each new choice should start with its details closed.")
+            if index == 0 {
+                let details = element("permissions.details", in: app)
+                reveal(details, app); details.tap()
+                XCTAssertTrue(app.staticTexts["permissions.explanation"].waitForExistence(timeout: 5))
+                attach("permissions-night-fr-largest-expanded-portrait", app)
+            }
+            let allow = app.buttons["permissions.allow"]
+            reveal(allow, app)
             let skip = app.buttons["permissions.skip"]
             reveal(skip, app)
             XCTAssertEqual(skip.label, "Plus tard")
             skip.tap()
         }
         let finish = app.buttons["permissions.finish"]
-        reveal(finish, app)
-        XCTAssertEqual(finish.label, "Ouvrir MORE")
-        let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "synthetic-permissions-french-accessibility-largest-completion"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
+        for control in [app.buttons["permissions.learn"], finish, element("permissions.progress", in: app)] {
+            reveal(control, app)
+            let frame = control.frame
+            XCTAssertGreaterThan(frame.width, 0, control.debugDescription)
+            XCTAssertGreaterThanOrEqual(frame.minX, app.frame.minX - 1,
+                                        "The complete control must fit horizontally: \(control.debugDescription)")
+            XCTAssertLessThanOrEqual(frame.maxX, app.frame.maxX + 1,
+                                     "The complete control must fit horizontally: \(control.debugDescription)")
+        }
+        XCTAssertEqual(finish.label, "Plus tard")
+        attach("permissions-night-fr-largest-completion-landscape", app)
+        attach("permissions-night-fr-largest-completion-landscape-screen", app,
+               screenshot: XCUIScreen.main.screenshot())
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "permissions-night-fr-largest-completion-landscape-hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
         finish.tap()
         XCTAssertTrue(finish.waitForNonExistence(timeout: 5))
+    }
+
+    func testCompletingAccessChoicesCanContinueIntoRealRoutineLearning() {
+        let app = launchFixture()
+        skipAllPermissions(in: app)
+        let learn = app.buttons["permissions.learn"]
+        reveal(learn, app); learn.tap()
+        XCTAssertTrue(app.buttons["learn.screenTime"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.buttons["learn.connections"].exists, "Continue must open the existing learning journey.")
+        XCTAssertFalse(app.buttons["permissions.allow"].exists)
+        XCTAssertFalse(app.buttons["permissions.learn"].exists)
+        XCTAssertEqual(app.alerts.count, 0)
+        app.terminate(); app.launch()
+        XCTAssertFalse(app.buttons["permissions.allow"].waitForExistence(timeout: 2),
+                       "Opening learning must keep the access choices saved.")
+    }
+
+    func testRevisitingPermissionsReturnsToSettingsWithoutOfferingOnboardingAgain() {
+        let app = launchFixture(french: true)
+        skipAllPermissions(in: app)
+        let later = app.buttons["permissions.finish"]
+        reveal(later, app); later.tap()
+        openSettingsFromHome(app)
+        let revisit = app.buttons["setup.permissions"]
+        reveal(revisit, app); revisit.tap()
+        skipAllPermissions(in: app)
+        XCTAssertFalse(app.buttons["permissions.learn"].exists,
+                       "Reviewing access from Settings must not restart routine onboarding.")
+        let done = app.buttons["permissions.finish"]
+        reveal(done, app)
+        XCTAssertEqual(done.label, "Terminer")
+        done.tap()
+        XCTAssertTrue(done.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["setup.permissions"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(app.buttons["learn.screenTime"].exists)
+    }
+
+    func testFrenchChoicesUseDistinctDayAndNightPaperWithDetailsInitiallyHidden() throws {
+        var luminances: [String: Double] = [:]
+        for phase in ["day", "night"] {
+            let app = launchFixture(french: true, phase: phase)
+            XCTAssertTrue(app.staticTexts["permissions.title.location"].waitForExistence(timeout: 5), app.debugDescription)
+            let benefit = app.staticTexts["permissions.benefit"]
+            XCTAssertTrue(benefit.exists)
+            XCTAssertFalse(benefit.label.isEmpty)
+            XCTAssertFalse(app.staticTexts["permissions.explanation"].exists,
+                           "The first view should show the short benefit, with detail available on demand.")
+            XCTAssertFalse(app.staticTexts["permissions.lastOutcome"].exists)
+            let screenshot = app.screenshot()
+            luminances[phase] = try paperLuminance(screenshot)
+            attach("permissions-\(phase)-fr-compact", app, screenshot: screenshot)
+            let details = element("permissions.details", in: app)
+            reveal(details, app); details.tap()
+            let explanation = app.staticTexts["permissions.explanation"]
+            XCTAssertTrue(explanation.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertGreaterThan(explanation.label.count, benefit.label.count)
+            attach("permissions-\(phase)-fr-expanded", app)
+            let skip = app.buttons["permissions.skip"]
+            reveal(skip, app); skip.tap()
+            XCTAssertTrue(app.staticTexts["permissions.title.calendar"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.staticTexts["permissions.explanation"].exists)
+            XCTAssertFalse(app.staticTexts["permissions.lastOutcome"].exists,
+                           "The previous choice must not add a second explanation to the next screen.")
+            XCTAssertEqual(app.alerts.count, 0)
+            app.terminate()
+        }
+        XCTAssertGreaterThan(try XCTUnwrap(luminances["day"]) - XCTUnwrap(luminances["night"]), 0.4,
+                             "The rendered paper must visibly darken at night, independently of the artwork.")
     }
 
     func testManualCitySelectionFromCurrentLocationSurvivesRelaunch() {
@@ -114,16 +212,81 @@ final class MorningPermissionSetupTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["briefing.synthetic"].waitForExistence(timeout: 5), app.debugDescription)
     }
 
-    private func launchFixture(denied: Bool = false, frenchLargestText: Bool = false) -> XCUIApplication {
+    private func launchFixture(denied: Bool = false, frenchLargestText: Bool = false,
+                               french: Bool = false, phase: String = "day") -> XCUIApplication {
+        continueAfterFailure = false
+        let french = french || frenchLargestText
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-permissions", "--ui-testing-workspace=\(UUID().uuidString)", "-AppleLanguages", frenchLargestText ? "(fr)" : "(en)", "-AppleLocale", frenchLargestText ? "fr_FR" : "en_US"]
+        app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-permissions",
+            "--ui-testing-workspace=\(UUID().uuidString)", "--theme-phase=\(phase)", "--ui-testing-reduce-motion",
+            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"]
         if frenchLargestText { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
         if denied { app.launchArguments.append("--ui-testing-permissions-denied") }
         app.launch()
+        XCTAssertTrue(app.staticTexts["permissions.title.location"].waitForExistence(timeout: 5), app.debugDescription)
         return app
     }
+
+    private func skipAllPermissions(in app: XCUIApplication) {
+        for permission in ["location", "calendar", "reminders", "screenTime", "speech", "microphone", "notifications", "alarms"] {
+            XCTAssertTrue(app.staticTexts["permissions.title.\(permission)"].waitForExistence(timeout: 5), app.debugDescription)
+            let skip = app.buttons["permissions.skip"]
+            reveal(skip, app); skip.tap()
+        }
+    }
+
+    private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
     private func reveal(_ element: XCUIElement, _ app: XCUIApplication) {
-        for _ in 0..<8 where !element.isHittable { app.swipeUp() }
-        XCTAssertTrue(element.waitForExistence(timeout: 5))
+        if element.exists, element.isHittable { return }
+        let content: XCUIElement
+        if app.scrollViews["permissions.content"].exists {
+            content = app.scrollViews["permissions.content"]
+        } else if app.scrollViews.firstMatch.exists {
+            content = app.scrollViews.firstMatch
+        } else {
+            content = app.collectionViews.firstMatch
+        }
+        for _ in 0..<10 {
+            if element.exists, element.isHittable { break }
+            if content.exists {
+                if element.exists, element.frame.maxY < content.frame.minY { content.swipeDown() }
+                else { content.swipeUp() }
+            } else { app.swipeUp() }
+        }
+        XCTAssertTrue(element.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(element.isHittable, app.debugDescription)
+    }
+
+    /// Sample the outer gutter, away from the landscape, text and controls. This
+    /// checks actual pixels instead of an appearance value supplied by the app.
+    private func paperLuminance(_ screenshot: XCUIScreenshot) throws -> Double {
+        let image = try XCTUnwrap(screenshot.image.cgImage)
+        let patch = try XCTUnwrap(image.cropping(to: CGRect(x: CGFloat(image.width) * 0.02,
+            y: CGFloat(image.height) * 0.25, width: 5, height: 5).integral))
+        var bytes = [UInt8](repeating: 0, count: 4)
+        return try bytes.withUnsafeMutableBytes { (storage: UnsafeMutableRawBufferPointer) in
+            let context = try XCTUnwrap(CGContext(data: storage.baseAddress, width: 1, height: 1,
+                bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(patch, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+            return (0.2126 * Double(storage[0]) + 0.7152 * Double(storage[1]) + 0.0722 * Double(storage[2])) / 255
+        }
+    }
+
+    private func attach(_ name: String, _ app: XCUIApplication, screenshot: XCUIScreenshot? = nil) {
+        let screenshot = screenshot ?? app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name; attachment.lifetime = .keepAlways
+        add(attachment)
+        if let directory = ProcessInfo.processInfo.environment["MO_ONBOARDING_SCREENSHOT_DIR"] {
+            do {
+                let url = URL(fileURLWithPath: directory, isDirectory: true)
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                try screenshot.pngRepresentation.write(to: url.appendingPathComponent(name + ".png"), options: .atomic)
+            } catch { XCTFail("Could not save the synthetic permission screenshot: \(error)") }
+        }
     }
 }

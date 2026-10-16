@@ -159,9 +159,9 @@ L'interface décrit précisément ce qui est disponible pour la personne. Une ca
 ## 8. Fiabilité et contrôle personnel
 
 
-### Préparer les accès dès la première ouverture
+### Préparer les accès après l’abonnement
 
-Les autorisations iPhone sont proposées dès l'arrivée dans MORE, indépendamment de l'apprentissage de la routine qui peut attendre. Avant chaque demande système, une étape statique explique l'accès demandé, son usage concret et le contrôle conservé par la personne. Les demandes sont séquentielles ; microphone et reconnaissance vocale ont chacun leur explication. Un refus n'empêche pas de préparer les autres accès ni d'entrer dans l'app. Les accès non disponibles dans le build sont annoncés fidèlement. Les connexions aux comptes et le partage d'une vidéo gardent leur parcours explicite.
+Les choix d’accès font partie de l’onboarding, après la confirmation de l’abonnement, essai compris. Ils reprennent le paysage fixe, les polices et la palette solaire de la découverte de MORE : clairs le jour, sombres la nuit. Chaque écran présente un titre et une phrase utile ; le détail reste disponible sur demande. Après les accès, la personne peut découvrir sa routine ou rejoindre l’accueil et apprendre plus tard. Avant chaque demande système, une étape statique explique l'accès demandé, son usage concret et le contrôle conservé par la personne. Les demandes sont séquentielles ; microphone et reconnaissance vocale ont chacun leur explication. Un refus n'empêche pas de préparer les autres accès ni d'entrer dans l'app. Les accès non disponibles dans le build sont annoncés fidèlement. Les connexions aux comptes et le partage d'une vidéo gardent leur parcours explicite.
 
 ### Un accueil qui reflète le temps qu'il fait ici
 
@@ -177,6 +177,12 @@ L'apprentissage utilise les sources choisies, avec un état visible et une possi
 Pendant l'exécution, MORE distingue une source vide, absente, périmée ou inaccessible. Il ne transforme pas une information inconnue en zéro ni un échec en réussite. Une interruption, une fermeture ou une réponse réseau tardive ne doivent pas entraîner un double envoi, un like répété involontairement ou une progression incohérente.
 
 Les permissions et les connexions se préparent dans l'interface. Une difficulté rencontrée pendant le matin appelle une explication courte, un choix vocal utile et une reprise cohérente. L'objectif reste de réduire les gestes, pas de multiplier les confirmations routinières.
+
+### Découvrir MORE et s’abonner
+
+Le parcours d’entrée présente d’abord la valeur de MORE : comprendre ses habitudes, ajuster sa routine, puis la confier à MORE pour un matin mains libres. Il présente ensuite un abonnement mensuel à **4,99 € avec une semaine d’essai gratuit**, selon l’éligibilité confirmée par l’App Store. Le prix localisé et les conditions réellement disponibles viennent de la boutique Apple.
+
+Les demandes d’accès commencent seulement après la confirmation de l’abonnement, essai compris. Chaque demande explique son utilité avant d’ouvrir l’autorisation correspondante. Le paysage, les polices, les couleurs et le cycle jour/nuit accompagnent toute cette découverte, sans dépendre du paiement ni d’une autorisation de localisation. La restauration des achats et les contrôles de confidentialité restent accessibles sans abonnement actif.
 
 ## 9. Ce qui doit encore être construit et prouvé
 

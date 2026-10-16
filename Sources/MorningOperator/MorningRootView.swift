@@ -131,7 +131,11 @@ struct MorningRootView: View {
         .foregroundStyle(MorningStyle.ink)
         .font(MorningTheme.Typography.body)
         .fullScreenCover(isPresented: Binding(get: { store.permissionSetup.isPresented }, set: { store.permissionSetup.isPresented = $0 }), onDismiss: {
-            processPendingEntries()
+            if store.permissionSetup.takeLearningRequest(), !store.privacyBlocksWork {
+                showingLearn = true
+            } else {
+                processPendingEntries()
+            }
             Task { await store.prepareDayIfConfigured(); synchronizeHomeWeather() }
         }) {
             MorningPermissionSetupView(store: store)
@@ -222,6 +226,8 @@ struct MorningRootView: View {
             updateScreenAwake()
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
+                if store.briefing.settings.includesHealth { store.speech.stop() }
+                store.briefing.invalidateHealthForForeground()
                 store.briefing.cancelLocationRequest()
                 store.permissionSetup.cancelForBackground()
                 externalAppDeparture = store.externalAppDeparture
