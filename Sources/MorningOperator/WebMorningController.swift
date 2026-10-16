@@ -901,7 +901,11 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         loadFailed = true
         isSignInPage = true
         if needsArticleReturn {
-            let reason = articleRefusal ?? .navigationFailure
+            // Keep a precise navigation rejection when WebKit subsequently
+            // reports its cancellation. An earlier DOM/staleness refusal must
+            // not hide a new load failure after an explicit reload.
+            let retained: [WebArticleRefusal] = [.unexpectedDestination, .httpFailure, .unsupportedContent]
+            let reason = articleRefusal.flatMap { retained.contains($0) ? $0 : nil } ?? .navigationFailure
             cancelArticleWork()
             refuseArticle(reason)
         }
