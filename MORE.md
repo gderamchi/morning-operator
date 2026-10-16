@@ -1,6 +1,6 @@
 # MORE — Référence produit
 
-Version du 15 octobre 2026, issue des décisions du fondateur. Ce document fixe la valeur et l'expérience à construire. Il est la référence pour les décisions produit, les parcours, l'architecture et les critères d'acceptation. Une évolution de cette direction doit faire l'objet d'une décision explicite, puis être reportée ici.
+Version du 16 octobre 2026, issue des décisions du fondateur. Ce document fixe la valeur et l'expérience à construire. Il est la référence pour les décisions produit, les parcours, l'architecture et les critères d'acceptation. Une évolution de cette direction doit faire l'objet d'une décision explicite, puis être reportée ici.
 
 **MORE comprend ta routine matinale, te permet de la transformer si tu le souhaites, puis la fait pour toi. Le résultat attendu est un matin hands-free, avec presque aucun besoin de toucher son téléphone.**
 
