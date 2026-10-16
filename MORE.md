@@ -160,6 +160,12 @@ Pendant l'exécution, MORE distingue une source vide, absente, périmée ou inac
 
 Les permissions et les connexions se préparent dans l'interface. Une difficulté rencontrée pendant le matin appelle une explication courte, un choix vocal utile et une reprise cohérente. L'objectif reste de réduire les gestes, pas de multiplier les confirmations routinières.
 
+### Découvrir MORE et s’abonner
+
+Le parcours d’entrée présente d’abord la valeur de MORE : comprendre ses habitudes, ajuster sa routine, puis la confier à MORE pour un matin mains libres. Il présente ensuite un abonnement mensuel à **4,99 € avec une semaine d’essai gratuit**, selon l’éligibilité confirmée par l’App Store. Le prix localisé et les conditions réellement disponibles viennent de la boutique Apple.
+
+Les demandes d’accès commencent seulement après la confirmation de l’abonnement, essai compris. Chaque demande explique son utilité avant d’ouvrir l’autorisation correspondante. Le paysage, les polices, les couleurs et le cycle jour/nuit accompagnent toute cette découverte, sans dépendre du paiement ni d’une autorisation de localisation. La restauration des achats et les contrôles de confidentialité restent accessibles sans abonnement actif.
+
 ## 9. Ce qui doit encore être construit et prouvé
 
 Le dépôt contient déjà des briques de lecture Screen Time, d'import et d'analyse vidéo, de propositions éditables, de sessions, de navigateur, de connexions, de voix et de minuteries. Leur présence n'établit pas l'exécution autonome décrite ici.

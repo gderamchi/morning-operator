@@ -16,14 +16,19 @@ struct MorningOperatorApp: App {
         WindowGroup {
             Group {
             #if DEBUG
-            if let site = Self.webMorningLaunchSite, showingWebPreview {
+            if ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
+                MorningWelcomePreview()
+            } else if let site = Self.webMorningLaunchSite, showingWebPreview {
                 WebMorningView(site: site, minutes: 10, onClose: { showingWebPreview = false })
                     .preferredColorScheme(.light)
-            } else {
+            } else if ProcessInfo.processInfo.arguments.contains("--ui-testing")
+                        && !ProcessInfo.processInfo.arguments.contains("--ui-testing-real-subscription") {
                 MorningRootView(store: store)
+            } else {
+                MorningSubscriptionEntryView(store: store)
             }
             #else
-            MorningRootView(store: store)
+            MorningSubscriptionEntryView(store: store)
             #endif
             }
             #if DEBUG
