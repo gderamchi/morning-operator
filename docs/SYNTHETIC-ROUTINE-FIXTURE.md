@@ -562,3 +562,30 @@ adds a stable editor Form accessibility identifier and physically drags only in
 its visible rectangle above the real keyboard. No focus, operation, budget or
 approval is injected. This UI-only identifier/helper change requires a new
 native run; retained Core/Apple model code is unchanged.
+
+### Native9g semantic rejection and compact movie result
+
+Frozen9g (`e262922`) builds and its Calendar smoke reports **XCTest PASS,
+66.176s**. Independent capture review rejects that as moment acceptance: the
+phrase occurs in the opening greeting, which still asks whether to start the
+routine. Native callbacks present text, but the operation is not thereby
+proved. Long10/follow-up were not launched. A test-only correction now uses the
+actual Home Continue control, waits for Pause (opening absent/session running),
+and requires the native Calendar prefix plus its source facts and pinned identity;
+the greeting cannot satisfy that assertion. This requires another native run.
+
+Compact variant FR is separately rendered at 1680s/180s, 5fps, no audio; realistic
+SHA-256 `82d0dd41e50654186b7848b6463aebdd1e1013977a6da2bab4593f98d3a67815`.
+All 27 full PNGs reproduce v1 hashes; compact differs only in the three declared
+text rectangles. Marker, scenario, timeline, body content and manual oracle stay
+unchanged. Actual compact pipeline on `cea4732` **fails in 225.945s** at proposal:
+8/8 classification requests complete, 15 prepared units yield five actual SDK
+responses, all explicit insufficientEvidence/zero steps. Fingerprint matches;
+scorer exits 4. Both v1 and compact failures remain; removing the explanatory
+text does not fix learning, and no causal timing or identity-accuracy claim is
+made from this single comparison. Eight Python scorer regressions pass separately.
+
+Disk pressure was resolved by removing completed native compilation/index/SDK
+caches only. Sealed Build/Products, manifests, xcresults, captures, original
+gesture events, raw attachments and movies remain available; active SwiftPM
+cache was not removed. Cache cleanup does not alter the above runtime results.

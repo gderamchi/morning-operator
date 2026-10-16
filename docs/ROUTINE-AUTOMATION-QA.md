@@ -109,7 +109,12 @@ TTS: the helper scrolled the wrong form while the keyboard remained open.
 Its test-only correction requires a new native run. Long10/follow-up remain
 unrun. A separate supported-first branch-order contrast also fails to improve
 visual inference and is reverted in `91f6ae3`; retained model code remains
-`42dc82b`. Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
+`42dc82b`. Native9g's Calendar smoke reports XCTest PASS (66.176s), but capture review
+rejects it: the facts were in the opening greeting before the operation started.
+Long10/follow-up remain unrun; the next test explicitly continues into the
+routine. A separate compact-disclosure movie also fails actual proposal in
+225.945s (five explicit empty responses, scorer 4); v1 remains unchanged.
+Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
 and [issue #173](https://github.com/gibouu/morning-operator/issues/173).
 
 ## Earlier source-specific checkpoint — `830e9cd`, 16 October 2026
