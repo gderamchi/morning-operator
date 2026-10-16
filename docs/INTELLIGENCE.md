@@ -50,7 +50,9 @@ MORE_OPENAI_LIVE_KEY_FILE=/absolute/private/path/to/key \
 
 Normal package tests skip the live test. Protocol tests use in-memory credentials and injected transports. A successful provider call is not proof of an acoustic or browser journey.
 
-Delivery verification on 16 October 2026, final combined source `dc130ca` (including the persisted language preference from main):
+GPT-6 Luna migration verification on 16 October 2026, source `a4cfc0d`: **36 targeted tests in 4 suites passed** in 19.529 seconds (`more-luna-high-tests-retry.log`), including real OpenAI routine proposals, personal corrections after reload and weather advice. The protocol test checks the exact model and high reasoning in every captured request. A separate real Responses probe returned `model: gpt-6-luna`, `reasoning.effort: high`, and `status: completed`, with a French suggestion from synthetic weather/transport facts. The signed ordinary iPhone build succeeded (`more-luna-high-device-retry.log`), was installed, launched and its running process verified. The microphone journey was not replayed. Only documentation changed in the subsequent main merge.
+
+Earlier GPT-5 mini delivery verification on 16 October 2026, source `dc130ca` (including the persisted language preference from main):
 
 | Check | Observed result and limits |
 | --- | --- |
