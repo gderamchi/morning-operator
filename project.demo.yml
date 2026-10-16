@@ -38,6 +38,8 @@ targets:
         INFOPLIST_FILE: Configuration/JuryDemoActivityWidget-Info.plist
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) MORE_JURY_DEMO"
   MorningOperatorUITests:
+    sources:REPLACE:
+      - path: UITests/JuryDemoJourneyTests.swift
     settings:
       base:
         CODE_SIGN_STYLE: $(MORE_DEMO_CODE_SIGN_STYLE)
