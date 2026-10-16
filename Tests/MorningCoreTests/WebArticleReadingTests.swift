@@ -67,6 +67,25 @@ struct WebArticleReadingTests {
         let excessive = try JSONSerialization.data(withJSONObject: ["title": "SYNTHETIC", "paragraphs": [String(repeating: "x", count: 1_001)], "truncated": false])
         #expect(WebArticleText.parse(String(decoding: excessive, as: UTF8.self)) == nil)
     }
+    @Test("Only explicit access controls can classify a provider-blocked acceptance run")
+    func typedReadRefusals() throws {
+        for reason in WebArticleRefusal.allCases {
+            #expect(reason.isObservedAccessGate == [.signInRequired, .consentRequired].contains(reason))
+            #expect(!reason.message(french: true).isEmpty && !reason.message(french: false).isEmpty)
+        }
+        for reason in [WebArticleRefusal.signInRequired, .consentRequired, .obstructed, .stale, .missingBody] {
+            #expect(WebArticleReadResult.parse("{\"reason\":\"\(reason.rawValue)\"}") == .refused(reason))
+        }
+        for bad in [nil, "not JSON", "{}", "{\"reason\":\"choice\"}", "{\"reason\":\"subscription\"}",
+            "{\"reason\":\"httpFailure\"}", "{\"reason\":\"consentRequired\",\"title\":\"extra\"}",
+            "{\"title\":\"SYNTHETIC\",\"paragraphs\":[],\"truncated\":false}"] as [String?] {
+            #expect(WebArticleReadResult.parse(bad) == .refused(.invalidScriptResult))
+        }
+        let content = "{\"title\":\"SYNTHETIC title\",\"paragraphs\":[\"Actual supplied paragraph.\"],\"truncated\":false}"
+        guard case .content(let text) = WebArticleReadResult.parse(content) else { Issue.record("Actual article body must remain readable"); return }
+        #expect(text.paragraphs == ["Actual supplied paragraph."])
+    }
+
     @Test("A same-origin redirect and an HTTP error cannot stand in for the selected article")
     func destinationResponse() {
         let selected = URL(string: "https://www.lemonde.fr/article/one")!
@@ -91,31 +110,51 @@ struct WebArticleDOMTests {
         js.evaluateScript("""
         var window=this;window.top=window;
         var location={href:'https://www.lemonde.fr/article/synthetic'};
-        var gate=false,bodyReads=0;
+        var gate='',signin=false,bodyReads=0;
         var getComputedStyle=e=>({display:'block',visibility:'visible',opacity:'1'});
         var node=text=>({innerText:text,getBoundingClientRect(){return {width:100,height:20};},getAttribute(){return null;},closest(){return null;}});
         var heading=node('SYNTHETIC observed title'), paragraph=node('SYNTHETIC observed article paragraph.');
+        var panel={...node('SYNTHETIC unknown dialog'),querySelectorAll(){return gate==='cookie'?[node('Accept all cookies'),node('Reject all cookies')]:[node('Subscribe')];}};
         var menu=node('SYNTHETIC navigation, never article text');menu.closest=()=>({});
         var root={...node(''),matches(){return true;},querySelector(){return heading;},querySelectorAll(){return [menu,paragraph];}};
         var document={hidden:false,querySelector(){return heading;},querySelectorAll(s){
-          if(s.includes('input[type=password]'))return [];
-          if(s.includes('[role=dialog]'))return gate?[node('SYNTHETIC gate')]:[];
+          if(s.includes('input[type=password]'))return signin?[node('')]:[];
+          if(s.includes('[role=dialog]'))return gate?[panel]:[];
           bodyReads++;return [root];
         }};
         """)
         return js
     }
-    @Test("Article reading excludes menus and does not read behind a consent or subscription gate")
+    @Test("Article reading excludes menus; an unknown dialog is not invented consent or subscription")
     func observedBodyAndGate() throws {
         let js = try environment()
         let script = WebArticleScript.body(pageURL: page, expiresAt: Date().addingTimeInterval(60))
         let text = try #require(WebArticleText.parse(js.evaluateScript(script)?.toString()))
         #expect(text.paragraphs == ["SYNTHETIC observed article paragraph."])
-        js.evaluateScript("gate=true;bodyReads=0;")
+        js.evaluateScript("gate='unknown';bodyReads=0;")
         let blocked = try #require(js.evaluateScript(script)?.toString())
-        #expect(WebArticleText.parse(blocked) == nil && blocked.contains("choice"))
+        #expect(WebArticleReadResult.parse(blocked) == .refused(.obstructed))
         #expect(js.objectForKeyedSubscript("bodyReads")?.toInt32() == 0)
         #expect(js.exception == nil)
+    }
+    @Test("Visible exact cookie controls and sign-in fields retain distinct refusal facts")
+    func explicitAccessControls() throws {
+        let js = try environment(), script = WebArticleScript.body(pageURL: page, expiresAt: Date().addingTimeInterval(60))
+        js.evaluateScript("gate='cookie';bodyReads=0;")
+        #expect(WebArticleReadResult.parse(js.evaluateScript(script)?.toString()) == .refused(.consentRequired))
+        #expect(js.objectForKeyedSubscript("bodyReads")?.toInt32() == 0)
+        js.evaluateScript("gate='';signin=true;bodyReads=0;")
+        #expect(WebArticleReadResult.parse(js.evaluateScript(script)?.toString()) == .refused(.signInRequired))
+        #expect(js.objectForKeyedSubscript("bodyReads")?.toInt32() == 0)
+        #expect(js.exception == nil)
+    }
+    @Test("A missing article container is a layout/content failure, not an access assumption")
+    func missingBodyIsNotAccess() throws {
+        let js = try environment()
+        js.evaluateScript("document.querySelectorAll=s=>[];")
+        let raw = js.evaluateScript(WebArticleScript.body(pageURL: page, expiresAt: Date().addingTimeInterval(60)))?.toString()
+        #expect(WebArticleReadResult.parse(raw) == .refused(.missingBody))
+        #expect(!WebArticleRefusal.missingBody.isObservedAccessGate && js.exception == nil)
     }
     @Test("Changed pages and expired callbacks cannot read article DOM")
     func stalePage() throws {

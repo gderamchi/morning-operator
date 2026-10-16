@@ -242,6 +242,7 @@ struct WebMorningView: View {
                 if case .headlines = controller.outcome {
                     ScrollView { Text(line).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).frame(maxWidth: .infinity, alignment: .leading) }
                         .frame(maxHeight: 110).accessibilityIdentifier("web.result")
+                        .accessibilityValue(resultDiagnostic)
                 } else {
                     Text(line).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                         .frame(maxWidth: .infinity, alignment: .leading).accessibilityIdentifier("web.result")
@@ -346,7 +347,7 @@ struct WebMorningView: View {
         guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return "" }
         let source = controller.executionEvent?.contextText ?? []
         let position = Int(controller.webView.scrollView.contentOffset.y.rounded())
-        return "\(controller.executionDiagnostic) viewportY=\(position) sourceItems=\(source.count) sourceIdentity=\(source.hashValue)"
+        return "\(controller.executionDiagnostic) pageState=\(controller.executionEvent?.state.rawValue ?? "none") articleRefusal=\(controller.articleRefusal?.rawValue ?? "none") viewportY=\(position) sourceItems=\(source.count) sourceIdentity=\(source.hashValue)"
         #else
         return ""
         #endif
