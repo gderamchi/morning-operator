@@ -152,7 +152,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         MorningUITestNavigation.selectTab("Morning", in: app)
         let stopped = app.staticTexts["morning.heading"]
         XCTAssertTrue(stopped.waitForExistence(timeout: 5))
-        XCTAssertEqual(stopped.value as? String, "stopped")
+        XCTAssertTrue(MorningUITestState.labels(for: "stopped").contains(stopped.value as? String ?? ""))
         assertApprovedRoutine(currentTitle, count: 4, in: app)
         openArchive(in: app)
         XCTAssertFalse(app.buttons["observations.reviewProposal"].exists,
@@ -801,7 +801,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
     private func assertRun(_ state: String, step: String, in app: XCUIApplication) {
         let status = app.staticTexts["run.state"]
         XCTAssertTrue(status.waitForExistence(timeout: 5))
-        XCTAssertEqual(status.value as? String, state)
+        XCTAssertTrue(MorningUITestState.labels(for: state).contains(status.value as? String ?? ""))
         XCTAssertEqual(app.staticTexts["run.step"].label, step)
     }
 
@@ -811,7 +811,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         guard verifyStoppedState else { return }
         let stopped = app.staticTexts["morning.heading"]
         XCTAssertTrue(stopped.waitForExistence(timeout: 5))
-        XCTAssertEqual(stopped.value as? String, "stopped")
+        XCTAssertTrue(MorningUITestState.labels(for: "stopped").contains(stopped.value as? String ?? ""))
         XCTAssertFalse(app.buttons["run.pause"].exists)
         XCTAssertFalse(app.buttons["run.resume"].exists)
     }

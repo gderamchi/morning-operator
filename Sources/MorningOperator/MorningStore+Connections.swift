@@ -3,6 +3,82 @@ import MorningCore
 import MorningApple
 
 extension MorningStore {
+    /// Rebuild presentation from retained facts; this never retries an operation.
+    func refreshConnectedPresentationLanguage() {
+        connectedMoment.invalidateSummaryForLanguageChange()
+        guard !privacyBlocksWork, sessionActive, let session, let step = currentStep else { return }
+        let context = MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
+        if nativeMoment.context == context, nativeMoment.isActive, !nativeMoment.message.isEmpty {
+            connectedActionStatus = nativeMoment.message; return
+        }
+        if slackReply.context == context, slackReply.isActive, !slackReply.message.isEmpty {
+            connectedActionStatus = slackReply.message; return
+        }
+        if mailMorning.context == context, mailMorning.state != .idle, !mailMorning.message.isEmpty {
+            connectedActionStatus = mailMorning.message; return
+        }
+        let matches = connectedMoment.executionID == context
+        if currentExecutionRecord?.outcome == .uncertain || (matches && connectedMoment.phase == .uncertain) {
+            connectedActionStatus = uncertainConnectedResultMessage; return
+        }
+        let paused = AppLanguage.isFrench ? " Votre matin est en pause. " : " Your morning is paused. "
+        let incomplete = currentExecutionRecord?.outcome == .unavailable
+            ? (AppLanguage.isFrench ? "La dernière lecture n’a pas pu se terminer. " : "The last reading could not finish. ") : ""
+        switch step.target {
+        case .googleCalendarDay:
+            if let document = currentGoogleCalendarDay {
+                connectedActionStatus = incomplete + document.summary() + paused + (AppLanguage.isFrench
+                    ? "Utilisez Relire cette journée pour retrouver ces mêmes informations, ou Suivant."
+                    : "Use Read this day again for the same information, or Next.")
+            } else {
+                connectedActionStatus = (AppLanguage.isFrench
+                    ? "La lecture de ce calendrier a expiré ou n’est plus disponible. Utilisez Actualiser ce calendrier, Suivant ou Arrêter."
+                    : "This calendar reading has expired or is unavailable. Use Refresh this calendar, Next or Stop.") + paused
+            }
+        case .calendlyDay:
+            if let document = currentCalendlyDay {
+                connectedActionStatus = incomplete + document.summary() + paused + (AppLanguage.isFrench
+                    ? "Utilisez Relire ces rendez-vous pour retrouver ces mêmes informations, ou Suivant."
+                    : "Use Read these bookings again for the same information, or Next.")
+            } else {
+                connectedActionStatus = (AppLanguage.isFrench
+                    ? "La lecture de vos rendez-vous a expiré ou n’est plus disponible. Utilisez Actualiser mes rendez-vous, Suivant ou Arrêter."
+                    : "This booking reading has expired or is unavailable. Use Refresh my bookings, Next or Stop.") + paused
+            }
+        case .outlookInbox:
+            if let source = currentOutlookInbox {
+                let summary = currentOutlookMessage?.summary() ?? source.summary()
+                let expiredMessage = outlookMessageDocument != nil && currentOutlookMessage == nil
+                    ? (AppLanguage.isFrench ? "Le message choisi a expiré. " : "The selected message has expired. ") : ""
+                connectedActionStatus = incomplete + expiredMessage + summary + paused + (AppLanguage.isFrench
+                    ? "Utilisez Relire cette lecture pour retrouver les informations disponibles, ou Suivant."
+                    : "Use Read this again for the available information, or Next.")
+            } else {
+                connectedActionStatus = (AppLanguage.isFrench
+                    ? "Cette lecture Outlook a expiré ou n’est plus disponible. Utilisez Actualiser Outlook, Suivant ou Arrêter."
+                    : "This Outlook reading has expired or is unavailable. Use Refresh Outlook, Next or Stop.") + paused
+            }
+        case .connectedAPI:
+            if (matches && connectedMoment.effectConfirmed) || currentExecutionRecord?.confirmedExternalEffect == true {
+                connectedActionStatus = matches && connectedMoment.document != nil
+                    ? (AppLanguage.isFrench
+                        ? "Le service a confirmé l’action. Les informations reçues sont conservées. Dites répète pour les relire dans la langue choisie, ou suivant."
+                        : "The service confirmed the action. The received information is kept. Say repeat to hear it in your chosen language, or next.") + paused
+                    : clearedConnectedResultMessage
+            } else {
+                connectedActionStatus = (AppLanguage.isFrench
+                    ? "La demande au service n’est pas terminée. Vérifiez la connexion avant de reprendre, ou choisissez Suivant."
+                    : "The service request is unfinished. Check the connection before resuming, or choose Next.") + paused
+            }
+        default:
+            if connectedActionStatus != nil {
+                connectedActionStatus = incomplete + (AppLanguage.isFrench
+                    ? "Votre matin est en pause. Vérifiez les informations de ce moment avant de reprendre, ou choisissez Suivant."
+                    : "Your morning is paused. Review this moment’s information before resuming, or choose Next.")
+            }
+        }
+    }
+
     @discardableResult
     func handleNativeConnectionURL(_ url: URL) -> Bool {
         guard nativeConnections.handle(url: url) else { return false }

@@ -41,7 +41,7 @@ extension MorningStore {
         guard handsFreeListeningSuppressedSessionID != session?.id else { return }
         guard voiceAccess.refresh(language: voicePreparationLanguage).isReady else { return }
         let language: MorningVoiceCommandLanguage = handsFreeUsesFrench ? .french : .english
-        handsFreeVoice.start(language: language, speech: speech, context: { [weak self] in
+        handsFreeVoice.start(language: language, speech: speech, languageGeneration: voiceLanguageGeneration, context: { [weak self] in
             self?.handsFreeContext
         }, onSpeech: { [weak self] in
             guard let self, !privacyBlocksWork else { return }
@@ -75,6 +75,7 @@ extension MorningStore {
     /// a delayed conversational answer remain pinned to the same session/step.
     func receiveHandsFreeUtterance(_ utterance: MorningHandsFreeUtterance) async {
         guard !privacyBlocksWork, !Task.isCancelled, handsFreeContext == utterance.context,
+              utterance.languageGeneration == voiceLanguageGeneration,
               !voiceInputBlocksPlayback else { return }
         let continuation = handsFreeVoice.continuation.ticket
         defer { handsFreeVoice.continuation.discard(continuation) }
@@ -280,9 +281,20 @@ extension MorningStore {
 
     var handsFreeUsesFrench: Bool { AppLanguage.isFrench }
 
+    func setAppLanguage(_ code: String) {
+        guard AppLanguage.supportedCodes.contains(code), AppLanguage.code != code else { return }
+        AppLanguage.setChosenLanguage(code)
+        // Invalidate before returning to the run loop: a queued old recognition
+        // result must not authorize an effect while SwiftUI is updating its views.
+        appLanguageDidChange()
+    }
+
     /// A language switch changes presentation and local speech, never the approved
     /// routine, prepared reply or an external operation's reconciliation state.
     func appLanguageDidChange() {
+        guard appliedLanguageCode != AppLanguage.code else { return }
+        appliedLanguageCode = AppLanguage.code
+        voiceLanguageGeneration = UUID()
         cancelVoicePreparation()
         handsFreePauseRevision = UUID()
         if session?.status == .running { pause() }
@@ -296,6 +308,7 @@ extension MorningStore {
         mailMorning.appLanguageDidChange()
         nativeMoment.appLanguageDidChange()
         slackReply.appLanguageDidChange()
+        refreshConnectedPresentationLanguage()
         briefing.appLanguageDidChange()
         clearLanguageDependentPlayback()
         refreshCapabilities()

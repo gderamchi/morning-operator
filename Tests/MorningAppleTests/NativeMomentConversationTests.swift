@@ -359,7 +359,7 @@ struct NativeMomentConversationTests {
         failSpeech = true
         _ = await conversation.respond("add it", context: context)
         #expect(conversation.phase == .completed)
-        let format = Date.FormatStyle(date: .complete, time: .shortened, locale: Locale(identifier: AppLanguage.isFrench ? "fr_FR" : "en_US"), calendar: calendar, timeZone: calendar.timeZone)
+        let format = Date.FormatStyle(date: .complete, time: .shortened, locale: AppLanguage.locale, calendar: calendar, timeZone: calendar.timeZone)
         #expect(conversation.message.contains(draft.title)); #expect(conversation.message.contains(target.title))
         #expect(conversation.message.contains(target.sourceTitle)); #expect(conversation.message.contains(due.formatted(format)))
         #expect(conversation.message.contains("Europe/Paris"))

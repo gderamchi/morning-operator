@@ -67,7 +67,7 @@ final class BudgetAndRecapTests: XCTestCase {
         tap("run.start", in: app)
         for _ in 0..<4 { advance(in: app) }
         let state = app.staticTexts["run.state"]
-        let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "completed"), object: state)
+        let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value IN %@", MorningUITestState.labels(for: "completed")), object: state)
         XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 5), .completed)
 
         MorningUITestNavigation.selectTab("Review", in: app)

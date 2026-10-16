@@ -33,7 +33,7 @@ final class MorningOpeningUITests: XCTestCase {
         app.buttons["opening.routine"].tap()
         XCTAssertTrue(opening.waitForNonExistence(timeout: 5))
         XCTAssertFalse(app.buttons["opening.routine"].exists)
-        XCTAssertEqual(app.staticTexts["run.state"].value as? String, "running")
+        XCTAssertTrue(MorningUITestState.labels(for: "running").contains(app.staticTexts["run.state"].value as? String ?? ""))
         XCTAssertEqual(app.staticTexts["run.step"].label, "Your morning")
         XCTAssertEqual(app.staticTexts["run.step"].value as? String, "routine started 1")
         XCTAssertTrue(app.buttons["run.pause"].exists)

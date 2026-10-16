@@ -9,6 +9,7 @@ struct MorningVoiceCommandTests {
         #expect(MorningVoiceCommandParser.parse("résume", language: .french) == nil)
         #expect(MorningVoiceCommandParser.parse("resume", language: .english) == .resume)
         #expect(MorningVoiceCommandParser.parse("reprends", language: .french) == .resume)
+        #expect(MorningVoiceCommandParser.parse("continue", language: .french) == .resume)
         #expect(MorningVoiceCommandParser.parse("reprends", language: .english) == nil)
         #expect(MorningVoiceCommandParser.parse("next", language: .french) == nil)
         #expect(MorningVoiceCommandParser.parse("MORE suivant", language: .french) == .next)

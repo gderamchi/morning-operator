@@ -81,6 +81,19 @@ struct MorningHandsFreeVoiceTests {
         #expect(turn.accept("stop", isFinal: true) == nil)
     }
 
+    @Test("A queued utterance retains its original language generation across a language switch")
+    func languageGenerationOwnership() {
+        let originalLanguage = UUID(), changedLanguage = UUID()
+        var oldTurn = MorningHandsFreeVoiceTurn(languageGeneration: originalLanguage)
+        oldTurn.begin(in: context())
+        let queued = oldTurn.accept("send", isFinal: true)
+        #expect(queued?.languageGeneration == originalLanguage)
+        #expect(queued?.languageGeneration != changedLanguage)
+        var newTurn = MorningHandsFreeVoiceTurn(languageGeneration: changedLanguage)
+        newTurn.begin(in: context())
+        #expect(newTurn.accept("envoie", isFinal: true)?.languageGeneration == changedLanguage)
+    }
+
     @Test("Canceled, empty, unbound and oversized turns cannot deliver an utterance")
     func invalidResults() {
         var canceled = MorningHandsFreeVoiceTurn()

@@ -294,6 +294,8 @@ final class MorningStore {
     var voiceStartDecision: MorningVoiceStartDecision?
     var handsFreeListeningSuppressedSessionID: UUID?
     @ObservationIgnored var handsFreePauseRevision = UUID()
+    @ObservationIgnored var voiceLanguageGeneration = UUID()
+    @ObservationIgnored var appliedLanguageCode = AppLanguage.code
     @ObservationIgnored var handsFreeUtteranceHandler: (@MainActor (String) async -> Bool)?
     @ObservationIgnored lazy var mailMorning = GmailMorningConversation(speak: { [weak self] text in
         guard let self else { throw CancellationError() }
@@ -336,6 +338,7 @@ final class MorningStore {
     private var pendingSpokenCapture: (sessionID: UUID, text: String)?
     @ObservationIgnored private var completionCaptureTask: Task<Void, Never>?
     @ObservationIgnored private var completionCaptureAttempt: UUID?
+    @ObservationIgnored private var completionCaptureReviewID: UUID?
     @ObservationIgnored private var completionInvitationPlaybackID: UUID?
     private(set) var voiceInputReleasing = false
     @ObservationIgnored private var voiceInputReleaseTask: Task<Void, Never>?
@@ -1383,6 +1386,7 @@ final class MorningStore {
         guard !privacyBlocksWork else { return }
         guard hasSavedCompletedSession, storageIsAvailable, !busy,
               !capturePresented, !voiceInputBlocksPlayback, !voiceCommandPresented else { return }
+        completionCaptureReviewID = nil
         completionInvitationSessionID = nil
         suspendHandsFreeVoice()
         stopCompletionInvitation()
@@ -1456,13 +1460,16 @@ final class MorningStore {
         cancelCompletionCapture()
         guard allowReview, let pending, session?.id == pending.sessionID,
               session?.status == .completed, !capturePresented else { return }
-        let generation = dataGeneration
+        let generation = dataGeneration, reviewID = UUID()
+        completionCaptureReviewID = reviewID
         Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { if completionCaptureReviewID == reviewID { completionCaptureReviewID = nil } }
             // A language switch may have cancelled a live dictation. Keep its
             // words for review while the microphone owner finishes releasing.
             await voiceInputReleaseTask?.value
             guard !privacyBlocksWork, dataGeneration == generation,
+                  completionCaptureReviewID == reviewID, UIApplication.shared.applicationState == .active,
                   session?.id == pending.sessionID, session?.status == .completed,
                   !capturePresented, !captureVoicePresented, !voiceCommands.isBusy else { return }
             openCapture(text: pending.text, source: .voice)
@@ -1489,6 +1496,7 @@ final class MorningStore {
     }
 
     func cancelCompletionCapture() {
+        completionCaptureReviewID = nil
         let owned = completionCaptureAttempt != nil || completionCapturePreparing
         let owner = completionCaptureTask
         owner?.cancel()
@@ -2482,6 +2490,7 @@ final class MorningStore {
 
     func openCapture(text: String = "", source: QuickCaptureSource = .typed) {
         guard !privacyBlocksWork else { return }
+        completionCaptureReviewID = nil
         completionInvitationSessionID = nil
         stopCompletionInvitation()
         capturePrefill = text

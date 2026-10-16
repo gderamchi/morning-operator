@@ -151,6 +151,12 @@ final class LocalizationJourneyTests: XCTestCase {
             XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'voice.option.' AND label CONTAINS[c] 'Samantha'")).firstMatch.exists)
         }
         attach(french ? "localization-fr-voices" : "localization-en-voices", app)
+        // Exercise the actual simulator speech path, separately from phone audibility.
+        scrollTo(app.buttons["voice.preview"], in: app, upward: false)
+        app.buttons["voice.preview"].tap()
+        let stop = app.buttons["voice.stopPreview"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5), app.debugDescription)
+        stop.tap()
         app.buttons["voice.done"].tap()
     }
 

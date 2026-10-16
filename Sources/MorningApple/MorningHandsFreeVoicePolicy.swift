@@ -123,9 +123,11 @@ public struct MorningHandsFreeUtterance: Identifiable, Sendable, Equatable {
     public let id: UUID
     public let context: MorningVoiceCommandContext
     public let text: String
+    public let languageGeneration: UUID
 
-    public init(id: UUID = UUID(), context: MorningVoiceCommandContext, text: String) {
-        self.id = id; self.context = context; self.text = text
+    public init(id: UUID = UUID(), context: MorningVoiceCommandContext, text: String,
+                languageGeneration: UUID = UUID()) {
+        self.id = id; self.context = context; self.text = text; self.languageGeneration = languageGeneration
     }
 }
 
@@ -135,6 +137,9 @@ struct MorningHandsFreeVoiceTurn: Sendable {
     private(set) var context: MorningVoiceCommandContext?
     private(set) var isFinished = false
     let id = UUID()
+    let languageGeneration: UUID
+
+    init(languageGeneration: UUID = UUID()) { self.languageGeneration = languageGeneration }
 
     mutating func begin(in context: MorningVoiceCommandContext) {
         guard !isFinished, self.context == nil else { return }
@@ -146,7 +151,7 @@ struct MorningHandsFreeVoiceTurn: Sendable {
         isFinished = true
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let context, !text.isEmpty, text.count <= 4_000 else { return nil }
-        return .init(id: id, context: context, text: text)
+        return .init(id: id, context: context, text: text, languageGeneration: languageGeneration)
     }
 
     mutating func cancel() { isFinished = true }

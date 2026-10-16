@@ -414,7 +414,7 @@ struct SetupView: View {
                     Text("Language").font(MorningTheme.Typography.heading)
                     Picker("Language", selection: Binding(
                         get: { AppLanguage.code },
-                        set: { AppLanguage.setChosenLanguage($0) })) {
+                        set: { store.setAppLanguage($0) })) {
                         Text(verbatim: "Français").tag("fr")
                         Text(verbatim: "English").tag("en")
                     }

@@ -39,7 +39,7 @@ public enum MorningVoiceCommandParser {
             switch command {
             case "suivant", "etape suivante": return .next
             case "pause", "mets en pause": return .pause
-            case "reprends", "reprendre", "continuer": return .resume
+            case "reprends", "reprendre", "continue", "continuer": return .resume
             case "passe cette etape", "passer cette etape": return .skip
             case "repete", "repeter", "repete cette etape": return .repeatStep
             case "stop", "arrete", "arreter", "arrete la routine": return .stop
