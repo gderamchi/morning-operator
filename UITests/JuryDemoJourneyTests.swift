@@ -371,56 +371,6 @@ final class JuryDemoJourneyTests: XCTestCase {
         #endif
     }
 
-    /// Independent recorder metering isolates capture from the engine and ASR.
-    /// The numeric device log, rather than this lifecycle test, proves input.
-    func testLivePhysicalPhoneRecorderMicrophoneDiagnostic() async throws {
-        guard ProcessInfo.processInfo.environment["MORE_JURY_RECORDER_MIC_PHONE"] == "1" else {
-            throw XCTSkip("Set MORE_JURY_RECORDER_MIC_PHONE=1 only for the authorized recorder diagnosis.")
-        }
-        #if targetEnvironment(simulator)
-        throw XCTSkip("Recorder microphone diagnosis requires a physical iPhone.")
-        #else
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .portrait
-        let app = try demoApplication()
-        app.launchArguments = ["-AppleLanguages", "(fr)", "--jury-recorder-microphone-diagnostic"]
-        defer { app.terminate() }
-        app.launch()
-        if app.buttons["permissions.allow"].waitForExistence(timeout: 3) {
-            finishRealPermissionSetup(app)
-            returnToLiveHome(app)
-        }
-        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
-        openSettings(app)
-        let previousStop = app.buttons["morning.stop"]
-        if previousStop.exists { previousStop.tap(); XCTAssertTrue(previousStop.waitForNonExistence(timeout: 10)) }
-        let listening = app.buttons["setup.voiceAccess"]
-        reveal(listening, in: app); listening.tap()
-        if app.buttons["voice.access.prepare"].waitForExistence(timeout: 3) {
-            app.buttons["voice.access.prepare"].tap()
-            handleRealSystemGrants()
-        }
-        app.buttons["voice.access.close"].tap()
-        returnToLiveHome(app)
-        app.buttons["morning.actions"].tap()
-        let begin = app.buttons["morning.begin"]
-        XCTAssertTrue(begin.waitForExistence(timeout: 5)); begin.tap()
-        handleRealSystemGrants()
-        XCTAssertTrue(app.scrollViews["morning.captions"].waitForExistence(timeout: 10))
-        attachLive("jury-recorder-diagnostic-capture-window", app)
-        print("JURY_RECORDER_MIC_READY")
-        try await Task.sleep(for: .seconds(20))
-        openLiveSettings(app)
-        let stop = app.buttons["morning.stop"]
-        XCTAssertTrue(stop.waitForExistence(timeout: 5)); stop.tap()
-        XCTAssertTrue(stop.waitForNonExistence(timeout: 10))
-        returnToLiveHome(app)
-        XCTAssertTrue(app.buttons["morning.actions"].exists)
-        XCTAssertFalse(app.staticTexts["morning.caption"].exists)
-        #endif
-    }
-
     /// The compact activity is opened only by its observed MORE accessibility
     /// label. Every action then requires a demo-only control identifier.
     func testLivePhysicalPhoneDynamicIslandPauseResumeAndStop() async throws {
