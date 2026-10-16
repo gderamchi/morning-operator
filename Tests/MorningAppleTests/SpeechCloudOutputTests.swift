@@ -48,6 +48,7 @@ struct SpeechCloudOutputTests {
         var locale = Locale(identifier: "fr_FR"), attempts = 0
         let speech = SpeechCoordinator(externalSpeechLocale: { locale })
         speech.externalSpeech = { _ in attempts += 1; throw SyntheticFailure() }
+        defer { speech.externalSpeech = nil }
         let messages = [
             ("fr_FR", "La lecture en ligne n’a pas pu se terminer. Réessayez ou continuez avec les commandes."),
             ("en_US", "Cloud speech could not finish. Try again or continue with the controls.")
