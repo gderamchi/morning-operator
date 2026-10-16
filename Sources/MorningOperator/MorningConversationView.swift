@@ -24,6 +24,11 @@ struct MorningConversationView: View {
                         Button(french ? "Arrêter la conversation" : "End conversation", role: .destructive) { store.stopCloudVoice() }
                             .accessibilityIdentifier("cloudVoice.stop")
                     } else {
+                        if !store.sessionActive {
+                            Text(french ? "Démarrez votre matin, puis revenez ici pour parler avec MORE."
+                                 : "Start your morning, then return here to talk with MORE.")
+                                .font(.footnote).foregroundStyle(MorningStyle.muted)
+                        }
                         Button {
                             starting = true
                             Task {
@@ -34,21 +39,22 @@ struct MorningConversationView: View {
                         } label: {
                             if starting { ProgressView() }
                             else { Text(french ? "Utiliser ElevenLabs" : "Use ElevenLabs") }
-                        }.disabled(starting || store.cloudVoiceReleasing || store.privacyBlocksWork)
+                        }.disabled(starting || store.cloudVoiceReleasing || store.privacyBlocksWork ||
+                                   !store.sessionActive || store.voiceInputBlocksPlayback)
                             .accessibilityIdentifier("cloudVoice.start")
                     }
                 } header: { Text(french ? "Conversation naturelle" : "Natural conversation") }
                 footer: {
                     Text(french
-                         ? "En démarrant, vous partagez votre voix et les textes lus pendant ce matin avec ElevenLabs et Google Gemini pour la conversation. L’écoute s’arrête en quittant l’app ou en arrêtant le matin."
-                         : "Starting shares your voice and the text read during this morning with ElevenLabs and Google Gemini for conversation. Listening ends when you leave the app or end the morning.")
+                         ? "En démarrant, vous partagez votre voix et les lectures de MORE durant cette conversation avec ElevenLabs et Google Gemini. L’écoute s’arrête en quittant l’app ou en arrêtant le matin."
+                         : "Starting shares your voice and MORE’s spoken text during this conversation with ElevenLabs and Google Gemini. Listening ends when you leave the app or end the morning.")
                 }
                 Section {
                     DisclosureGroup(french ? "Quelles informations sont partagées ?" : "What is shared?") {
                         Text(french
-                             ? "Les étapes de la routine validée et les informations que MORE prononce depuis vos sources choisies. Cela peut inclure le calendrier, la météo, les messages lus et les mesures Santé si vous les avez inclus dans cette routine. Aucun enregistrement vidéo ni historique Santé complet n’est envoyé."
-                             : "Your approved routine steps and the information MORE speaks from your chosen sources. This can include calendar, weather, read messages and Health measurements if included in this routine. No video recording or complete Health history is sent.")
-                        if let routine = store.routine {
+                             ? "Les étapes du matin en cours et les informations que MORE prononce depuis vos sources choisies : calendrier, météo, messages lus et mesures Santé inclus dans cette routine. Les aperçus et récapitulatifs que vous lancez vous-même durant la conversation sont aussi partagés. Aucun enregistrement vidéo ni historique Santé complet n’est envoyé."
+                             : "The current morning’s routine steps and information MORE speaks from your chosen sources: calendar, weather, read messages and Health measurements included in this routine. Previews and recaps you choose to play during the conversation are also shared. No video recording or complete Health history is sent.")
+                        if let routine = store.sessionActive ? store.session?.routine : store.routine {
                             ForEach(routine.steps) { step in Text(step.title).font(.subheadline) }
                         }
                         Text(french

@@ -14,14 +14,26 @@ extension MorningStore {
         guard !privacyBlocksWork, !cloudVoiceReleasing,
               UIApplication.shared.applicationState == .active else { return }
         cloudVoiceStartIssue = nil
-        let generation = dataGeneration, sessionID = session?.id
-        if session?.status == .running { pause() }
+        guard sessionActive, let session, session.currentStep != nil else {
+            cloudVoiceStartIssue = AppLanguage.isFrench
+                ? "Démarrez votre matin, puis revenez ici pour parler avec MORE."
+                : "Start your morning, then return here to talk with MORE."
+            return
+        }
+        let generation = dataGeneration, sessionID = session.id
+        if session.status == .running { pause() }
         cancelVoiceCommandTurn()
         do {
+            await waitForVoiceInputRelease()
+            try Task.checkCancellation()
+            guard !voiceInputBlocksPlayback, !voiceCommandPresented,
+                  !captureVoicePresented, !capturePresented else { throw MorningCloudVoiceError.unavailable }
             try await handsFreeVoice.stopAndRelease()
             try await speech.stopAndRelease()
             guard !Task.isCancelled, !privacyBlocksWork, dataGeneration == generation,
-                  session?.id == sessionID, UIApplication.shared.applicationState == .active else { return }
+                  self.session?.id == sessionID, sessionActive, !voiceInputBlocksPlayback,
+                  !voiceCommandPresented, !captureVoicePresented, !capturePresented,
+                  UIApplication.shared.applicationState == .active else { return }
             cloudVoiceConsentGeneration = generation
             cloudVoiceConsentSession = sessionID
             cloudVoice.onInterruption = { [weak self] in
@@ -33,7 +45,7 @@ extension MorningStore {
                                    language: AppLanguage.isFrench ? "fr" : "en", consented: true)
             guard cloudVoice.isActive, cloudVoiceConsentGeneration == generation,
                   !privacyBlocksWork, dataGeneration == generation,
-                  session?.id == sessionID else {
+                  self.session?.id == sessionID, sessionActive else {
                 let issue = cloudVoice.errorMessage
                 stopCloudVoice()
                 cloudVoiceStartIssue = issue
@@ -44,6 +56,10 @@ extension MorningStore {
                       self.cloudVoiceConsentGeneration == self.dataGeneration,
                       self.cloudVoiceConsentSession == self.session?.id else { throw CancellationError() }
                 await self.cloudVoice.updateContext(self.cloudVoiceContext)
+                try Task.checkCancellation()
+                guard self.cloudVoice.isActive, !self.privacyBlocksWork,
+                      self.cloudVoiceConsentGeneration == self.dataGeneration,
+                      self.cloudVoiceConsentSession == self.session?.id, self.sessionActive else { throw CancellationError() }
                 try await self.cloudVoice.narrate(text)
             }
             speech.cancelExternalSpeech = { [weak self] in self?.cloudVoice.cancelNarration() }
