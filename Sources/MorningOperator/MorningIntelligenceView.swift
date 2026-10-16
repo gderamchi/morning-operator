@@ -1,5 +1,6 @@
 import SwiftUI
 import MorningApple
+import MorningCore
 
 struct MorningIntelligenceView: View {
     @Bindable var store: MorningStore
@@ -19,7 +20,7 @@ struct MorningIntelligenceView: View {
                     : "The model understands observations, prepares answers and proposes actions. MORE checks permissions before execution.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
-            Section("OpenAI") {
+            Section {
                 SecureField(french ? "Clé API personnelle" : "Personal API key", text: $apiKey)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                     .accessibilityIdentifier("intelligence.apiKey")
@@ -50,6 +51,8 @@ struct MorningIntelligenceView: View {
                     update { try model.forget() }
                 }.accessibilityIdentifier("intelligence.forgetKey")
                 if let issue { Text(issue).font(.footnote).foregroundStyle(.secondary) }
+            } header: {
+                Text("OpenAI")
             } footer: {
                 Text(french
                     ? "La clé est conservée dans le trousseau de cet iPhone. Aucun basculement automatique vers OpenAI. Les frais de votre compte OpenAI s’appliquent."
