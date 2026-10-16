@@ -6,7 +6,7 @@ final class MorningHomePlaybackTests: XCTestCase {
     private let longPassage = "Take your time this morning. Let the light come into the room while you take a slow breath and prepare for the day ahead. There is nothing to press while MORE reads this passage. You can keep getting ready and return whenever you want to read along. Each passage should replace the one being spoken before it. Your routine stays here on the same home screen. If you need a little longer, a tap makes the small controls available. When this quiet moment ends, MORE will continue with the next part of your morning."
 
     func testIdleTapShowsOnlyPlayAndSettingsThenHidesAndOpensRoutineThroughSettings() {
-        let app = launch(night: true)
+        let app = launch()
         defer { app.terminate() }
         let landscape = app.buttons["morning.actions"]
         XCTAssertTrue(landscape.waitForExistence(timeout: 10))
@@ -76,6 +76,7 @@ final class MorningHomePlaybackTests: XCTestCase {
         }
         XCTAssertFalse(app.buttons["morning.next"].exists)
         XCTAssertFalse(app.buttons["morning.more"].exists)
+        attach("home-playback-night-floating-glass-pause", app)
         app.buttons["morning.playback"].tap()
         assertPlaybackLabel("Continuer", in: app)
         attach("home-playback-french-largest-revealed-controls", app)
