@@ -42,6 +42,8 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     @ObservationIgnored private let routineContext: MorningVoiceCommandContext?
     @ObservationIgnored private var articleReturnPoint: (item: WKBackForwardListItem, offset: CGPoint)?
     @ObservationIgnored private var articleOperation: UUID?
+    @ObservationIgnored private var articleExpectedDestination: URL?
+    @ObservationIgnored private var articleResponse: (url: URL, status: Int)?
     /// The presenting view revokes this whenever it leaves the foreground.
     var actionsEnabled = false {
         didSet {
@@ -154,6 +156,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     func cancelArticleWork() {
         articleOperation = nil; articleBusy = false; articleText = nil
+        articleExpectedDestination = nil; articleResponse = nil
         if needsArticleReturn { articleMessage = AppLanguage.isFrench ? "Lecture interrompue. Dites retour aux titres ou reprends."
             : "Reading interrupted. Say back to headlines or resume." }
     }
@@ -188,14 +191,20 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
             return nil
         }
         articleReturnPoint = (listItem, webView.scrollView.contentOffset)
+        articleExpectedDestination = selected.href; articleResponse = nil
         articleText = nil; articleMessage = AppLanguage.isFrench ? "Ouverture de l’article observé…" : "Opening the observed article…"
         webView.load(URLRequest(url: selected.href))
         guard await waitForArticleNavigation(operation, context: context, privacy: privacy, authorized: authorized,
-            destination: nil), let page = webView.url, WebArticlePolicy.permits(page, from: snapshot.pageURL) else { return nil }
+            destination: selected.href, requireResponse: true), let page = webView.url,
+            let response = articleResponse,
+            WebArticlePolicy.permitsResponse(selected: selected.href, observed: response.url, status: response.status),
+            WebArticlePolicy.matchesDestination(page, selected: selected.href) else { return nil }
         let generation = pageGeneration
         let body = try? await webView.evaluateJavaScript(WebArticleScript.body(pageURL: page, expiresAt: Date().addingTimeInterval(2)), contentWorld: .defaultClient)
         guard articleOperation == operation, articleAccess(context: context, privacy: privacy, authorized: authorized),
-              generation == pageGeneration, webView.url == page else { return nil }
+              generation == pageGeneration, webView.url == page,
+              let latestResponse = articleResponse,
+              WebArticlePolicy.permitsResponse(selected: selected.href, observed: latestResponse.url, status: latestResponse.status) else { return nil }
         guard let text = WebArticleText.parse(body) else {
             articleMessage = AppLanguage.isFrench ? "Je ne peux pas lire un corps d’article fiable ici. Une connexion, un abonnement ou un choix dans la page peut être nécessaire. Dites retour aux titres ou suivant."
                 : "A reliable article body is not available here. This page may need sign-in, a subscription or a choice. Say back to headlines or next."
@@ -208,11 +217,15 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
     }
 
     private func waitForArticleNavigation(_ operation: UUID, context: MorningVoiceCommandContext, privacy: UUID,
-        authorized: @MainActor () -> Bool, destination: URL?) async -> Bool {
+        authorized: @MainActor () -> Bool, destination: URL?, requireResponse: Bool = false) async -> Bool {
         for _ in 0..<40 {
             guard articleOperation == operation, articleAccess(context: context, privacy: privacy, allowFailed: destination != nil, authorized: authorized) else { return false }
             if !loadFailed, !webView.isLoading, let page = webView.url,
-               destination.map({ $0 == page }) ?? (page != articleReturnPoint?.item.url), WebArticlePolicy.isPage(page) { return true }
+               destination.map({ WebArticlePolicy.matchesDestination(page, selected: $0) }) ?? (page != articleReturnPoint?.item.url), WebArticlePolicy.isPage(page) {
+                if !requireResponse { return true }
+                if let response = articleResponse, let destination,
+                   WebArticlePolicy.permitsResponse(selected: destination, observed: response.url, status: response.status) { return true }
+            }
             do { try await Task.sleep(for: .milliseconds(500)) } catch { return false }
         }
         articleMessage = AppLanguage.isFrench ? "Le chargement n’est pas confirmé. Dites retour aux titres ou suivant."
@@ -225,6 +238,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         guard articleAccess(context: context, privacy: privacy, allowFailed: true, authorized: authorized) else { return false }
         guard let point = articleReturnPoint else { return !articleBusy }
         let operation = UUID(); articleOperation = operation; articleBusy = true; articleText = nil; newsSnapshot = nil
+        articleExpectedDestination = point.item.url; articleResponse = nil
         defer { if articleOperation == operation { articleBusy = false; articleOperation = nil } }
         webView.stopLoading()
         if webView.backForwardList.currentItem === point.item, webView.url != point.item.url || loadFailed {
@@ -245,6 +259,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
               webView.url == point.item.url else { return false }
         webView.scrollView.setContentOffset(point.offset, animated: false)
         articleReturnPoint = nil
+        articleExpectedDestination = nil; articleResponse = nil
         articleMessage = AppLanguage.isFrench ? "Retour aux titres. Le temps restant est conservé. Dites reprends pour continuer."
             : "Back at the headlines. Your remaining time is preserved. Say resume to continue."
         let generation = pageGeneration, page = webView.url
@@ -456,6 +471,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     private func clearSourceText() {
         newsSnapshot = nil; articleText = nil
+        articleResponse = nil
         executionContextText = []
         outcome = nil
         if let plan = executionPlan, let event = executionEvent {
@@ -480,6 +496,7 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         executionPlan = nil; executionHistoryPlan = nil; executionContextText = []
         executionEvent = nil; outcome = nil; contentProgress = .init()
         articleOperation = nil; articleBusy = false; articleReturnPoint = nil; articleText = nil; newsSnapshot = nil; articleMessage = nil
+        articleExpectedDestination = nil; articleResponse = nil
         lastSpokenFingerprint = nil
         webView.stopLoading()
         webView.navigationDelegate = nil; webView.uiDelegate = nil
@@ -785,10 +802,11 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
         guard privacyIsCurrent, let url = navigationAction.request.url, url.scheme?.lowercased() == "https",
               url.user == nil, url.password == nil else { decisionHandler(.cancel); return }
         if navigationAction.targetFrame?.isMainFrame != false, let point = articleReturnPoint,
-           (!WebArticlePolicy.isPage(url) || url.host?.lowercased() != point.item.url.host?.lowercased() || navigationAction.shouldPerformDownload) {
+           (!WebArticlePolicy.isPage(url) || url.host?.lowercased() != point.item.url.host?.lowercased() || navigationAction.shouldPerformDownload ||
+            articleExpectedDestination.map({ !WebArticlePolicy.matchesDestination(url, selected: $0) }) == true) {
             articleOperation = nil; articleBusy = false; articleText = nil
-            articleMessage = AppLanguage.isFrench ? "Ce lien sort du site d’actualités ou demande une connexion. Je ne l’ai pas ouvert. Dites retour aux titres ou suivant."
-                : "This link leaves the news site or needs sign-in. I did not open it. Say back to headlines or next."
+            articleMessage = AppLanguage.isFrench ? "La destination ne correspond pas à la page choisie ou demande une connexion. Je ne l’ai pas lue. Dites retour aux titres ou suivant."
+                : "The destination does not match the selected page or needs sign-in. I did not read it. Say back to headlines or next."
             decisionHandler(.cancel); return
         }
         if articleReturnPoint != nil, !articleBusy, navigationAction.targetFrame?.isMainFrame != false {
@@ -810,6 +828,16 @@ final class WebMorningController: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
                  decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
+        if needsArticleReturn, navigationResponse.isForMainFrame {
+            guard let selected = articleExpectedDestination, let response = navigationResponse.response as? HTTPURLResponse,
+                  let url = response.url, WebArticlePolicy.permitsResponse(selected: selected, observed: url, status: response.statusCode) else {
+                articleOperation = nil; articleBusy = false; articleText = nil; articleResponse = nil
+                articleMessage = AppLanguage.isFrench ? "Le site n’a pas fourni l’article choisi ou a renvoyé une erreur. Je ne l’ai pas lu. Dites retour aux titres ou suivant."
+                    : "The site did not provide the selected article or returned an error. I did not read it. Say back to headlines or next."
+                decisionHandler(.cancel); return
+            }
+            articleResponse = (url, response.statusCode)
+        }
         if needsArticleReturn, navigationResponse.isForMainFrame,
            !["text/html", "application/xhtml+xml"].contains(navigationResponse.response.mimeType?.lowercased() ?? "") {
             articleOperation = nil; articleBusy = false; articleText = nil

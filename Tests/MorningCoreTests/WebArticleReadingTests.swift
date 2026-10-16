@@ -67,6 +67,17 @@ struct WebArticleReadingTests {
         let excessive = try JSONSerialization.data(withJSONObject: ["title": "SYNTHETIC", "paragraphs": [String(repeating: "x", count: 1_001)], "truncated": false])
         #expect(WebArticleText.parse(String(decoding: excessive, as: UTF8.self)) == nil)
     }
+    @Test("A same-origin redirect and an HTTP error cannot stand in for the selected article")
+    func destinationResponse() {
+        let selected = URL(string: "https://www.lemonde.fr/article/one")!
+        #expect(WebArticlePolicy.permitsResponse(selected: selected, observed: selected, status: 200))
+        #expect(WebArticlePolicy.permitsResponse(selected: selected, observed: URL(string: selected.absoluteString + "#section")!, status: 200))
+        #expect(!WebArticlePolicy.permitsResponse(selected: selected, observed: URL(string: "https://www.lemonde.fr/article/two")!, status: 200))
+        #expect(!WebArticlePolicy.permitsResponse(selected: selected, observed: page, status: 200))
+        for status in [0, 199, 301, 302, 401, 403, 404, 500] {
+            #expect(!WebArticlePolicy.permitsResponse(selected: selected, observed: selected, status: status))
+        }
+    }
 }
 
 #if canImport(JavaScriptCore)

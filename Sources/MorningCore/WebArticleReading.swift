@@ -71,6 +71,16 @@ public enum WebArticlePolicy {
         destination?.fragment = nil; source?.fragment = nil
         return destination?.url != source?.url
     }
+    public static func matchesDestination(_ observed: URL, selected: URL) -> Bool {
+        guard isPage(observed), isPage(selected) else { return false }
+        var actual = URLComponents(url: observed, resolvingAgainstBaseURL: false)
+        var expected = URLComponents(url: selected, resolvingAgainstBaseURL: false)
+        actual?.fragment = nil; expected?.fragment = nil
+        return actual?.url == expected?.url
+    }
+    public static func permitsResponse(selected: URL, observed: URL, status: Int) -> Bool {
+        (200..<300).contains(status) && matchesDestination(observed, selected: selected)
+    }
 }
 
 /// A bounded, attributed passage from an article container in the visible browser.
