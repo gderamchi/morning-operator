@@ -602,6 +602,7 @@ public final class JuryDemoVoiceSession {
         }
         if transcript.isEmpty { interruptSpeech(); recognitionFailures = 0 }
         transcript = text
+        onText?(SpeechCoordinator.inputCaption(text))
         if final {
             let utterance = transcript
             beginRecognition(run: id)

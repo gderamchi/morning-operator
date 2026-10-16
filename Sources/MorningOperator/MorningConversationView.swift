@@ -14,7 +14,10 @@ struct MorningConversationView: View {
                 Section {
                     Text(french ? "Parlez naturellement à MORE. Vous pouvez l’interrompre et poursuivre la conversation."
                          : "Talk naturally with MORE. Interrupt and continue the conversation.")
-                    if let caption = store.cloudVoice.caption { Text(caption).accessibilityIdentifier("cloudVoice.caption") }
+                    if let caption = store.cloudVoice.userCaption ?? store.cloudVoice.caption {
+                        Text(store.cloudVoice.userCaption == nil ? caption : SpeechCoordinator.inputCaption(caption))
+                            .accessibilityIdentifier("cloudVoice.caption")
+                    }
                     if let error = store.cloudVoice.errorMessage { Text(error).foregroundStyle(MorningStyle.muted) }
                     if let error = store.cloudVoiceStartIssue { Text(error).foregroundStyle(MorningStyle.muted) }
                     if store.cloudVoice.isActive {
