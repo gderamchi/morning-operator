@@ -6,6 +6,19 @@ import SwiftUI
 /// Only an explicit Connect tap may start Google consent.
 struct GmailConnectionView: View {
     var allowsReading = true
+    var body: some View {
+        if GmailAttentionUITestFixture.isRequested {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("SYNTHETIC — Gmail attention test. No account, network, or sending.")
+                    .font(.caption).accessibilityIdentifier("gmail.attention.synthetic")
+                GmailAttentionPreferencesEditor(allowsEditing: allowsReading)
+            }
+        } else { GmailConnectedReaderView(allowsReading: allowsReading) }
+    }
+}
+
+private struct GmailConnectedReaderView: View {
+    let allowsReading: Bool
     @State private var controller = GmailConnectionController()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -170,7 +183,7 @@ private struct GmailAttentionPreferencesEditor: View {
     private let preferences = GmailAttentionPreferencesStore()
 
     var body: some View {
-        DisclosureGroup(french ? "Ce qui mérite votre attention" : "What deserves your attention") {
+        DisclosureGroup {
             VStack(alignment: .leading, spacing: 10) {
                 Text(french ? "Précisez les sujets, demandes ou personnes à privilégier. Le modèle local propose trois mails parmi les cinq lus, avec une raison et un extrait. Cela n’autorise aucun envoi."
                     : "Describe topics, requests or people to prioritize. The local model proposes three of the five read messages, with a reason and an excerpt. This does not authorize sending.")
@@ -191,7 +204,7 @@ private struct GmailAttentionPreferencesEditor: View {
                 if !status.isEmpty { Text(status).font(.caption).accessibilityIdentifier("gmail.attention.status") }
             }.padding(.top, 8)
         }
-        .accessibilityIdentifier("gmail.attention.settings")
+        label: { Text(french ? "Ce qui mérite votre attention" : "What deserves your attention").accessibilityIdentifier("gmail.attention.settings") }
         .task { load() }
         .onChange(of: allowsEditing) { _, allowed in if allowed { load() } else { clear() } }
         .onChange(of: scenePhase) { _, phase in if phase == .background { clear() } else if phase == .active { load() } }

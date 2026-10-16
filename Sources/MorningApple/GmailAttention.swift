@@ -68,10 +68,18 @@ public struct GmailAttentionSelection: Sendable, Equatable, CustomStringConverti
     public let fallback: Fallback?
     /// The owner's exact local preference snapshot, only when a model used it.
     public let prioritiesUsed: String?
+    public let isSynthetic: Bool
+    init(items: [GmailAttentionItem], mode: Mode, fallback: Fallback?, prioritiesUsed: String?, isSynthetic: Bool = false) {
+        self.items = items; self.mode = mode; self.fallback = fallback; self.prioritiesUsed = prioritiesUsed; self.isSynthetic = isSynthetic
+    }
     public var description: String { "GmailAttentionSelection(redacted)" }
     public var debugDescription: String { description }
 
     public func explanation(french: Bool) -> String {
+        if isSynthetic {
+            return french ? "SYNTHETIC — données et sélection de test, sans compte Gmail ni inférence réelle. " + (mode == .localProposal ? "Trois propositions de test attribuées aux extraits fictifs." : "Repli de test : ordre reçu, sans classement d’importance personnalisé.")
+                : "SYNTHETIC — test data and selection, without a Gmail account or real inference. " + (mode == .localProposal ? "Three test proposals linked to invented excerpts." : "Test fallback: received order, without personalized importance ranking.")
+        }
         if mode == .localProposal {
             return french ? "Proposition du modèle local à partir des extraits lus et des priorités indiquées, à vérifier. Vous pouvez choisir un autre mail lu."
                 : "The local model proposes these messages from the read excerpts and any priorities you supplied. Review its suggestions; you can choose another read message."
@@ -106,6 +114,7 @@ public struct GmailAttentionSelection: Sendable, Equatable, CustomStringConverti
     private let generator: Generator
     private let available: @MainActor () -> Bool
     private let timeout: Duration
+    private let synthetic: Bool
     private var activeID: UUID?
     private var worker: Task<Void, Never>?
     private var deadline: Task<Void, Never>?
@@ -126,8 +135,8 @@ public struct GmailAttentionSelection: Sendable, Equatable, CustomStringConverti
             return false
         })
     }
-    init(generator: @escaping Generator, available: @escaping @MainActor () -> Bool = { true }, timeout: Duration = .seconds(15)) {
-        self.generator = generator; self.available = available; self.timeout = timeout
+    init(generator: @escaping Generator, available: @escaping @MainActor () -> Bool = { true }, timeout: Duration = .seconds(15), synthetic: Bool = false) {
+        self.generator = generator; self.available = available; self.timeout = timeout; self.synthetic = synthetic
     }
     /// Explicit deterministic fallback for non-model callers and component tests.
     public static func recentOnly() -> GmailAttentionService {
@@ -138,18 +147,25 @@ public struct GmailAttentionSelection: Sendable, Equatable, CustomStringConverti
         try Task.checkCancellation()
         try preferences.validate()
         guard (1...5).contains(messages.count), Set(messages.map(\.id)).count == messages.count else { throw GmailAttentionError.invalidInput }
-        guard available() else { return .recent(messages, reason: .modelUnavailable, french: french) }
+        guard available() else { return recentSelection(messages, reason: .modelUnavailable, french: french) }
         do {
             let input = messages.map(InputMessage.init)
             let prompt = try Self.prompt(input, preferences: preferences, french: french)
             let output = try await generate(prompt)
             try Task.checkCancellation()
-            return try Self.validate(output, input: input, priorities: preferences.priorities)
+            return marked(try Self.validate(output, input: input, priorities: preferences.priorities))
         } catch {
             try Task.checkCancellation()
             if error is CancellationError { throw error }
-            return .recent(messages, reason: .modelFailed, french: french)
+            return recentSelection(messages, reason: .modelFailed, french: french)
         }
+    }
+
+    func recentSelection(_ messages: [GmailMessage], reason: GmailAttentionSelection.Fallback, french: Bool) -> GmailAttentionSelection {
+        marked(.recent(messages, reason: reason, french: french))
+    }
+    private func marked(_ selection: GmailAttentionSelection) -> GmailAttentionSelection {
+        .init(items: selection.items, mode: selection.mode, fallback: selection.fallback, prioritiesUsed: selection.prioritiesUsed, isSynthetic: synthetic)
     }
 
     public func cancel() { finish(activeID, result: .failure(CancellationError())) }
