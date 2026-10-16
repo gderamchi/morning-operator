@@ -107,9 +107,28 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
 
         let source = app.descendants(matching: .any).matching(identifier: "briefing.locationSource").firstMatch
         try reveal(source, in: app)
-        let originalSource = source.value as? String ?? ""
         let knownSources = ["Current location", "Position actuelle", "Choose a city", "Choisir une ville"]
-        guard knownSources.contains(originalSource) else {
+        func readSource() -> String? {
+            let children = source.descendants(matching: .staticText).allElementsBoundByIndex +
+                source.descendants(matching: .button).allElementsBoundByIndex
+            let pickerElements = [source] + children
+            let texts = pickerElements.flatMap { [$0.label, $0.value as? String ?? ""] }
+            let choices = knownSources.filter { choice in
+                texts.contains { $0.localizedCaseInsensitiveContains(choice) }
+            }
+            guard choices.count == 1 else {
+                let metadata = pickerElements.map {
+                    "type=\($0.elementType.rawValue); label=\($0.label); value=\($0.value as? String ?? "<nil>")"
+                }.joined(separator: "\n")
+                let attachment = XCTAttachment(string: metadata)
+                attachment.name = "ordinary-weather-picker-selection-only"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+                return nil
+            }
+            return choices[0]
+        }
+        guard let originalSource = readSource() else {
             XCTFail("The ordinary weather picker did not expose its original selection; no setting was changed.")
             return
         }
@@ -128,14 +147,15 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
             }
         }
         func selectSource(_ labels: [String]) -> Bool {
-            if labels.contains(source.value as? String ?? "") { return true }
+            if let selection = readSource(), labels.contains(selection) { return true }
             try? reveal(source, in: app)
             guard source.exists && source.isHittable else { return false }
             source.tap()
             let option = app.buttons.matching(NSPredicate(format: "label IN %@", labels)).firstMatch
             guard option.waitForExistence(timeout: 5), option.isHittable else { return false }
             option.tap()
-            return labels.contains(source.value as? String ?? "")
+            guard let selection = readSource() else { return false }
+            return labels.contains(selection)
         }
         func showsOurCity() -> Bool {
             guard city.exists else { return false }
@@ -162,7 +182,7 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
                 }
             }
             try? require(selectSource([originalSource]), "The original weather-source selection must be restored.")
-            try? require(source.value as? String == originalSource, "The original weather-source value must match exactly.")
+            try? require(readSource() == originalSource, "The original weather-source selection must match exactly.")
             if attemptedOurCity { try? require(!showsOurCity(), "Paris must not remain configured after this read.") }
             let done = app.navigationBars.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Done", "Terminé")).firstMatch
             if done.exists && done.isHittable { done.tap() }
@@ -204,6 +224,37 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
         try require(!app.staticTexts["briefing.synthetic"].exists, "A synthetic source cannot establish provider acceptance.")
         let note = XCTAttachment(string: "Real Apple Maps result selected for public Paris, France; admitted Apple Weather attribution and measured wind present. No location permission or owner content was requested. Cleanup assertions run in defer.")
         note.name = "ordinary-public-city-provider-evidence"
+        note.lifetime = .keepAlways
+        add(note)
+    }
+
+    func test06OrdinaryWorkerLoadsFreshNotionServiceAndEmptyInventory() throws {
+        let app = try ordinaryApp()
+        try enterDeveloperAccessIfRequested(app)
+        try openConnections(app)
+        let notion = app.buttons["connections.account.notion"]
+        try reveal(notion, in: app)
+        XCTAssertTrue(notion.exists && notion.isHittable, "The ordinary Worker service list did not expose Notion.")
+        notion.tap()
+        XCTAssertTrue(app.navigationBars["Notion"].waitForExistence(timeout: 10))
+
+        // Both labels require hasLoaded, set only after services and connections succeed.
+        let refresh = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label IN %@",
+            "accounts.refresh", ["Refresh my accounts", "Actualiser mes comptes"])).firstMatch
+        XCTAssertTrue(refresh.waitForExistence(timeout: 45), "No successful fresh Worker services/connections read appeared.")
+        try reveal(refresh, in: app)
+        XCTAssertTrue(refresh.isHittable && refresh.isEnabled)
+        let empty = app.staticTexts.matching(NSPredicate(format: "label IN %@", [
+            "No account connected yet. Sign in above, then choose the permissions you want to share.",
+            "Aucun compte connecté pour le moment. Identifiez-vous ci-dessus, puis choisissez les accès à partager."
+        ])).firstMatch
+        XCTAssertTrue(empty.exists, "The fresh Notion inventory did not report an empty account state.")
+        XCTAssertTrue(app.buttons["accounts.connect.notion"].exists)
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "accounts.notice").firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["Connection unavailable"].exists)
+        XCTAssertFalse(app.staticTexts["Connexion indisponible"].exists)
+        let note = XCTAttachment(string: "The ordinary iPhone app completed installation-authenticated Worker services and connections reads and displayed the fresh empty Notion inventory. No sign-in, tool-catalog read or Notion action was initiated.")
+        note.name = "ordinary-worker-services-and-connections-evidence"
         note.lifetime = .keepAlways
         add(note)
     }

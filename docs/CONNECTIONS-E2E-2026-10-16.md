@@ -280,6 +280,30 @@ failures / one skip**; its two-case navigation retry is **two skips / zero
 failures**, not two successful provider reads. Real Health data, native/spoken
 Gmail sending and an ordinary cloud conversation remain unaccepted.
 
+### Real public-city Maps and Weather journey
+
+A separate ordinary physical test on build **2026101608** passed **1/1**, zero
+failures or skips, in **117.598 seconds** (122.535 elapsed). It read the actual
+weather picker, confirmed no existing resolved or hidden fallback city, selected
+Choose a city and searched Apple Maps for the fixed public query `Paris, France`.
+It selected the real matching result, then observed an admitted native Apple
+Weather snapshot with the `weather.sources` attribution link, a measured wind
+value and no synthetic/error marker. No fixture coordinates, provider response,
+GPS permission or personal source was substituted.
+
+The initial attempt stopped before mutation because the picker exposed its
+selection through child text rather than its value. The test now requires one
+unambiguous known label/value/child selection; ambiguity fails without changing
+the setting. That initial failure is retained as test-selector evidence, not a
+WeatherKit failure.
+
+Deferred cleanup tapped the temporary city's **Remove weather** control,
+verified the city disappeared, restored the exact original **Current location**
+picker selection and closed the sheet. Those assertions passed. No system grant
+was requested. The original current-location source remains unconfigured; this
+proves a real chosen-city Maps → WeatherKit → ordinary MORE presentation, not
+personal GPS weather, a full forecast, Health reading or spoken advice.
+
 ## Synthetic backend regression
 
 [#196](https://github.com/gibouu/morning-operator/issues/196) was traced to the
