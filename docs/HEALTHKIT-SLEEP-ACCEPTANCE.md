@@ -10,11 +10,15 @@ Continuation `4e66385` adds separately consented VFC/HRV SDNN, resting heart rat
 
 The owner also authorized an explicit temporary Debug cross on onboarding/paywall, remembered across launches. It grants development access without a fake StoreKit transaction; Release retains verified subscription access. This removes the prototype’s blocked product-configuration gate while preserving the full onboarding presentation. Natural conversation is tracked separately in [NATURAL-VOICE.md](NATURAL-VOICE.md).
 
-## Combined integration checkpoint
+## Combined delivery
 
-Combined code `4577ff4` passes 1,961 package tests; the ordinary app/widget/UI-test target and separate Demo build compile. Eight synthetic UI checks pass, including direct compact Health, pre-microphone disclosure and persistent Debug access; the final ten-test selection also checks explicit model configuration. A separate last Demo-only audio fix is retained from `76fef1d`. No personal Health store or microphone was exercised by these checks.
+Remote main `4bd789f` contains the integrated implementation. **MORE 0.1.0 (2026101607)** is signed, installed in place and ordinarily launched on the connected iPhone. A fresh private 16-file backup preceded the upgrade from the immediately observed build 1703; source, signatures, exact installed version, surviving process and the unchanged other variant were verified. No data was reset and no purchase occurred.
 
-The ordinary app was observed at 2026101605 before this final installation; it must not be confused with the older 1563 checkpoint. Final signing, backup, in-place installation and current-device acceptance are recorded separately below when complete.
+Swift Testing reports 1,961 tests without failures at `4577ff4`; seven optional replay/live-model declarations are skipped. Ordinary app/widget/UI-test and separate Demo builds pass. Ten distinct synthetic UI checks are validated: eight in the combined run, plus two real-simulator-Keychain checks after correcting the unsigned test environment. Direct compact Health, sharing disclosure, the persistent development cross and English/French model settings at largest text are covered. The last Demo audio-resume delta is included and compiled in physical source `4bd789f`.
+
+Strict final signatures have exactly standard HealthKit, WeatherKit and the two Screen Time capabilities in the app, none in the widget; Google configuration and the real app-only Worker URL match the local kit. No extra Health records/background/PCC grant, provider credential, fixture argument or StoreKit test configuration is present.
+
+No real Health values or microphone transcript were read by these checks. Expanded Health consent/freshness/source acceptance and audible natural conversation remain owner checks, separate from installation. The actual voice installation awaits its first explicit Use ElevenLabs request and individual activation; QA authorization does not activate the phone. See [combined evidence](ALL-PR-INTEGRATION-2026-10-16.md), [natural voice](NATURAL-VOICE.md), #15 and #116.
 
 ## Earlier sleep checkpoint (historical)
 
