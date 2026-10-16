@@ -398,9 +398,12 @@ final class FixtureJourneyTests: XCTestCase {
 enum MorningUITestNavigation {
     /// Fixture tests choose their interface language independently of earlier tests.
     /// Ordinary app launches and tests that explicitly set a language keep their choice.
-    static func launch(_ app: XCUIApplication) {
+    static func launch(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         if app.launchArguments.contains("--ui-testing") {
             var arguments = app.launchArguments
+            if !arguments.contains(where: { $0.hasPrefix("--ui-testing-workspace=") }) {
+                arguments.append("--ui-testing-workspace=\(UUID().uuidString)")
+            }
             if !arguments.contains("-more.appLanguage") {
                 let french = arguments.firstIndex(of: "-AppleLanguages").map { index in
                     arguments.indices.contains(index + 1) && arguments[index + 1].contains("fr")
@@ -413,6 +416,18 @@ enum MorningUITestNavigation {
             app.launchArguments = arguments
         }
         app.launch()
+        if let argument = app.launchArguments.first(where: { $0.hasPrefix("--ui-testing-workspace=") }) {
+            let workspace = String(argument.dropFirst("--ui-testing-workspace=".count))
+            let marker = app.staticTexts["qa.testWorkspace"]
+            // Xcode can prelaunch the first target without its test arguments.
+            // Confirm isolation before touching any state, then relaunch once if needed.
+            if !marker.waitForExistence(timeout: 5) || marker.value as? String != workspace {
+                app.terminate()
+                app.launch()
+            }
+            XCTAssertTrue(marker.waitForExistence(timeout: 5), app.debugDescription, file: file, line: line)
+            XCTAssertEqual(marker.value as? String, workspace, app.debugDescription, file: file, line: line)
+        }
     }
 
     /// Weather starts from the authorized current position. City-search journeys
@@ -523,6 +538,13 @@ enum MorningUITestNavigation {
             selectTab("Morning", in: app, file: file, line: line)
             XCTAssertFalse(app.scrollViews["morning.captions"].exists, "A draft must not start. \(message)", file: file, line: line)
             return
+        }
+        if identifier == "run.start" {
+            // Play is also offered for drafts; verify approval before claiming readiness.
+            openRoutine(in: app, file: file, line: line)
+            XCTAssertTrue(app.buttons["routine.step.0"].waitForExistence(timeout: timeout), message, file: file, line: line)
+            XCTAssertFalse(app.buttons["routine.approve"].exists, "Starting requires an approved routine. \(message)", file: file, line: line)
+            closeRoutine(in: app, file: file, line: line)
         }
         let action = revealMorningAction(identifier, in: app, file: file, line: line)
         XCTAssertTrue(action.waitForExistence(timeout: timeout) && becomesHittable(action), message, file: file, line: line)

@@ -45,10 +45,7 @@ final class RisoThemeSnapshotTests: XCTestCase {
             app.terminate()
             app.launch()
             MorningUITestNavigation.openSettings(in: app)
-            let privacy = app.buttons["setup.privacy"]
-            for _ in 0..<6 where !privacy.isHittable { app.scrollViews.firstMatch.swipeUp() }
-            XCTAssertTrue(privacy.isHittable)
-            privacy.tap()
+            MorningUITestNavigation.tapButton("setup.privacy", in: app)
             // The destructive control is a lazily created row far below the fold.
             // Verify the inventory that this screenshot actually shows.
             let inventory = app.descendants(matching: .any).matching(identifier: "privacy.observations").firstMatch

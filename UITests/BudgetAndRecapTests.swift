@@ -203,7 +203,10 @@ final class BudgetAndRecapTests: XCTestCase {
         MorningUITestNavigation.selectTab("Morning", in: app)
         let moved = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let current = MorningUITestNavigation.sessionSnapshot(in: app)
-            return current["state"] == "completed" || current["step"] != step
+            guard let state = current["state"] else { return false }
+            if state == "completed" { return true }
+            guard let title = current["step"], !title.isEmpty else { return false }
+            return title != step
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, file: file, line: line)
     }

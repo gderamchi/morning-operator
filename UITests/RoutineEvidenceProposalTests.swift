@@ -681,6 +681,16 @@ final class RoutineEvidenceProposalTests: XCTestCase {
             XCTAssertTrue(choice.waitForExistence(timeout: 5))
             XCTAssertTrue(choice.isEnabled)
             if (choice.value as? String) != "Selected" { tap(choice.identifier, in: app) }
+            let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: choice)
+            let outcome = XCTWaiter.wait(for: [selected], timeout: 5)
+            if outcome != .completed {
+                let hierarchy = XCTAttachment(string: app.debugDescription)
+                hierarchy.name = "observation-selection-did-not-change"
+                hierarchy.lifetime = .keepAlways
+                add(hierarchy)
+                attach("observation-selection-did-not-change", app)
+            }
+            XCTAssertEqual(outcome, .completed)
             XCTAssertEqual(choice.value as? String, "Selected")
         }
         let fixture = app.descendants(matching: .any).matching(identifier: "observations.fixtureMode").firstMatch

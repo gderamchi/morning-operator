@@ -43,6 +43,7 @@ final class QuietMorningTests: XCTestCase {
         XCTAssertTrue(app.buttons["routine.approve"].exists)
         XCTAssertFalse(app.scrollViews["morning.captions"].exists)
         attach("more-phone-sample-persists-unapproved", app)
+        MorningUITestNavigation.assertSession(state: "none", in: app)
     }
 
     func testFrenchSampleUsesBonjourAndKeepsReadyStartExplicit() {
@@ -128,6 +129,7 @@ final class QuietMorningTests: XCTestCase {
         attach("more-review-routine-editor", app)
         MorningUITestNavigation.tapButton("routine.approve", in: app)
         MorningUITestNavigation.selectTab("Morning", in: app)
+        MorningUITestNavigation.assertSession(state: "none", in: app)
         MorningUITestNavigation.selectTab("Review", in: app)
         XCTAssertTrue(app.buttons["review.period"].waitForExistence(timeout: 5))
         attach("more-weekly-review", app)
