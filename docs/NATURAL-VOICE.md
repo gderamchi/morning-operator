@@ -48,6 +48,8 @@ The SDK's interruption method has no public cancellation acknowledgement or rend
 
 ## Evidence and remaining checks
 
+Live user captions (16 October 2026): **84 shared Swift tests in seven suites passed**, including provisional/final isolation, corrections, bounded input, stop/stale callbacks and current voice fallback/briefing compatibility. **Four iOS simulator UI tests passed**: progressive words and correction, long French input at the largest text size in night mode, automatic passage progression, and actual local speech output replacing the passage. The input UI checks inject presentation-only hypotheses; they do not exercise a microphone or a provider. App, widget and UI-test targets compile for the simulator. [Physical microphone and online-track acceptance remains #216](https://github.com/gibouu/morning-operator/issues/216); acoustic latency, echo and live PCM delivery are unverified on an iPhone.
+
 - Gender/TTS backend, 16 October: **51 Node/Workerd tests passed**. The deployed endpoint returned `200 audio/mpeg` for all four synthetic French/English × male/female requests with `no-store`; unauthenticated, inactive and malformed requests retained their rejection gates. The production catalog, database, business journal and existing activation remained unchanged. The owner phone was not activated by these synthetic checks.
 - Direct provider checks accepted the same four bounded synthetic requests with logging disabled; two SDK conversation checks confirmed the voice override without opening a phone microphone. These prove accepted requests and returned audio, not audible iPhone playback or personal Health sharing.
 
