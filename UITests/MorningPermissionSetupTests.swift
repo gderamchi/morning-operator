@@ -79,13 +79,11 @@ final class MorningPermissionSetupTests: XCTestCase {
         let result = app.buttons["briefing.cityResult.48.0,2.0"]
         XCTAssertTrue(result.waitForExistence(timeout: 5), app.debugDescription)
         reveal(result, app); result.tap()
-        XCTAssertTrue(app.staticTexts["Synthetic City"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        assertSelectedCity(in: app)
         XCTAssertEqual(app.alerts.count, 0, "Choosing a manual city must not request GPS access.")
         app.terminate(); app.launch()
         openYourDayFromHome(app)
-        let city = app.descendants(matching: .any).matching(identifier: "briefing.city").firstMatch
-        reveal(city, app)
-        XCTAssertTrue(app.staticTexts["Synthetic City"].firstMatch.exists, app.debugDescription)
+        assertSelectedCity(in: app)
         // The search row is offered only in manual mode, so its presence also
         // establishes the stored source choice rather than only a cached label.
         reveal(app.textFields["briefing.citySearch"], app)
@@ -100,6 +98,13 @@ final class MorningPermissionSetupTests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
         settings.tap()
         XCTAssertTrue(app.buttons["setup.briefing"].waitForExistence(timeout: 5), app.debugDescription)
+    }
+
+    private func assertSelectedCity(in app: XCUIApplication) {
+        let city = app.descendants(matching: .any).matching(identifier: "briefing.city").firstMatch
+        reveal(city, app)
+        XCTAssertTrue(city.label.contains("Synthetic City") || (city.value as? String)?.contains("Synthetic City") == true,
+                      "The saved city must be exposed by its native labeled row: \(city.debugDescription)")
     }
 
     private func openYourDayFromHome(_ app: XCUIApplication) {

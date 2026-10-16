@@ -112,7 +112,9 @@ public final class WeatherDeviceLocation: NSObject, WeatherDeviceLocationProvidi
 
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard manager === self.manager, let id = attempt, let continuation = locationContinuation, authorization == .authorized else { return }
-        guard let reading = locations.last, let location = try? Self.validated(reading, at: Date()) else { return }
+        guard let reading = locations.last,
+              let location = try? Self.validated(reading, at: Date(),
+                  reducedAccuracy: manager.accuracyAuthorization == .reducedAccuracy) else { return }
         locationContinuation = nil; finish(id: id)
         continuation.resume(returning: location)
     }
@@ -124,10 +126,13 @@ public final class WeatherDeviceLocation: NSObject, WeatherDeviceLocationProvidi
         fail((error as? CLError)?.code == .denied ? WeatherDeviceLocationError.denied : .unavailable, id: id)
     }
 
-    static func validated(_ reading: CLLocation, at now: Date) throws -> WeatherLocation {
+    static func validated(_ reading: CLLocation, at now: Date, reducedAccuracy: Bool = false) throws -> WeatherLocation {
         let age = now.timeIntervalSince(reading.timestamp)
-        guard reading.horizontalAccuracy.isFinite, (0...5_000).contains(reading.horizontalAccuracy),
-              age.isFinite, (-60...300).contains(age) else { throw WeatherDeviceLocationError.invalidReading }
+        // The Core Location SDK permits reduced-accuracy fixes up to 20 minutes old.
+        let maximumAge = reducedAccuracy ? 1_200.0 : 300.0
+        let maximumUncertainty = reducedAccuracy ? 20_000.0 : 5_000.0
+        guard reading.horizontalAccuracy.isFinite, (0...maximumUncertainty).contains(reading.horizontalAccuracy),
+              age.isFinite, (-60...maximumAge).contains(age) else { throw WeatherDeviceLocationError.invalidReading }
         return try WeatherLocation(latitude: reading.coordinate.latitude, longitude: reading.coordinate.longitude,
             displayName: String(localized: "Current location", bundle: .module))
     }

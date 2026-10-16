@@ -18,6 +18,17 @@ struct WeatherDeviceLocationTests {
                 verticalAccuracy: -1, timestamp: instant.addingTimeInterval(offset))
             #expect(throws: WeatherDeviceLocationError.invalidReading) { try WeatherDeviceLocation.validated(invalid, at: instant) }
         }
+        let approximate = CLLocation(coordinate: fix.coordinate, altitude: 0, horizontalAccuracy: 10_000,
+            verticalAccuracy: -1, timestamp: instant.addingTimeInterval(-600))
+        #expect(try WeatherDeviceLocation.validated(approximate, at: instant, reducedAccuracy: true).latitude == fix.coordinate.latitude)
+        #expect(throws: WeatherDeviceLocationError.invalidReading) { try WeatherDeviceLocation.validated(approximate, at: instant) }
+        for (accuracy, offset) in [(10_000.0, -1_201.0), (20_001.0, -600.0)] {
+            let invalid = CLLocation(coordinate: fix.coordinate, altitude: 0, horizontalAccuracy: accuracy,
+                verticalAccuracy: -1, timestamp: instant.addingTimeInterval(offset))
+            #expect(throws: WeatherDeviceLocationError.invalidReading) {
+                try WeatherDeviceLocation.validated(invalid, at: instant, reducedAccuracy: true)
+            }
+        }
     }
     @Test func emptySettingsUseCurrentLocationAndExistingCitiesRemainManual() throws {
         #expect(MorningBriefingSettings().usesCurrentLocation)
