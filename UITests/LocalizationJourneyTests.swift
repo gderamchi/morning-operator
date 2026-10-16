@@ -375,7 +375,8 @@ final class LocalizationJourneyTests: XCTestCase {
 }
 
 /// Opt-in acceptance on the owner's ordinary installation. No workspace, language
-/// override, permission grant, provider call or routine execution is injected.
+/// override, permission grant or routine execution is injected. Only the app's
+/// fixed, non-personal voice sample is sent through its ordinary playback route.
 @MainActor
 final class PhysicalLocalizationAcceptanceTests: XCTestCase {
     func testFrenchEnglishVoiceChoicePersistsInOrdinaryApp() throws {
@@ -387,6 +388,7 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
         #else
         // Swift errors let the best-effort preference restoration run on failures too.
         continueAfterFailure = true
+        let requirePrimary = ProcessInfo.processInfo.environment["MORE_REQUIRE_PRIMARY_PREVIEW"] == "1"
         let app = XCUIApplication(bundleIdentifier: "com.gibouu.morningoperator")
         app.launchArguments = []
         app.launchEnvironment = [:]
@@ -428,8 +430,19 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
                 let speaking = XCTNSPredicateExpectation(
                     predicate: NSPredicate(format: "value == %@", language == "Français" ? "Lecture en cours…" : "Speaking…"),
                     object: preview)
-                XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 40), .completed,
+                let playbackObserved = XCTWaiter.wait(for: [speaking], timeout: 40) == .completed
+                XCTAssertTrue(playbackObserved,
                                "The selected voice did not begin physical playback.")
+                let backup = app.staticTexts.matching(NSPredicate(format: "label IN %@",
+                    ["La voix de secours est activée.", "Backup voice is active."])).firstMatch.exists
+                if requirePrimary {
+                    XCTAssertFalse(backup, "The primary voice failed; Apple backup playback is not a primary-provider pass.")
+                }
+                let route = playbackObserved ? (backup ? "apple-backup" : "primary") : "unconfirmed"
+                let report = XCTAttachment(string: "language=\(language == "Français" ? "fr" : "en"); gender=\(gender); playback=\(route); primaryRequired=\(requirePrimary)")
+                report.name = "physical-voice-route"
+                report.lifetime = .keepAlways
+                add(report)
                 let capture = XCTAttachment(screenshot: app.screenshot())
                 capture.name = "physical-\(language == "Français" ? "fr" : "en")-voice-\(gender)"
                 capture.lifetime = .keepAlways
