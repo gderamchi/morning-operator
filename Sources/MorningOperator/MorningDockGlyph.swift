@@ -43,7 +43,7 @@ struct MorningFloatingGlassSymbol: View {
                 shape.fill(.primary)
             } else if #available(iOS 26.0, macOS 26.0, *) {
                 shape.fill(.clear)
-                    .glassEffect(.regular.tint(Color.primary.opacity(0.12)), in: shape)
+                    .glassEffect(.regular.tint(Color.primary.opacity(0.45)), in: shape)
             } else {
                 shape.fill(.regularMaterial)
             }
