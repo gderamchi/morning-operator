@@ -54,3 +54,25 @@ The first permission attempt stopped because iOS exposed duplicate nested native
 These are genuine current-location/provider checks, not fixture weather. The captures establish changing wind poses and the current night appearance; they do not measure continuous frame rate or prove strong-wind, rain, snow, fog, daytime, VoiceOver or French largest-text behavior on this physical phone. Those conditions were not manufactured by resetting grants or changing the device's location. The Core/simulator checks above remain separate evidence for those variants. Native screen-recording via this CoreDevice version is unsupported, so no continuous device-video proof is claimed.
 
 Private evidence remains under ignored `work/phone-weather-20261016/`: signed-build logs, artifact checks, container exports, `permissions-resume.xcresult`, `final-1539-weather.xcresult` and `final-1540-smoke.xcresult`, with locally exported attachments. No coordinates, calendar content, screenshots or signing credentials are committed.
+
+## Compact solar access onboarding — 16 October 2026
+
+Access choices now follow MORE's local solar palette, including dark paper at night, with its serif headings and dotted landscape. The landscape stays static during these choices. Each screen presents one short benefit; the longer purpose, privacy details and previous outcome remain behind a closed “Learn more” disclosure. The eight supported allow/skip requests and their saved progress are unchanged; existing choices are not reset.
+
+First setup ends with “Discover my routine”, which opens the existing learning journey, or “Later”, which returns to Home. Revisiting access from Settings ends with “Done” and does not offer routine onboarding again. This change does not create or approve a routine.
+
+The revised simulator build passed. **All seven targeted permission/city UI journeys passed** across the corrected runs: allow/deny progression and saved completion, skip and separate speech/microphone choices, real learning handoff, Settings-only revisit, rendered day/night colors and closed details, largest French text with landscape, and manual-city persistence after relaunch. Learning opened the existing Screen Time/connection screen in **41.6s**. Day/night was checked from actual background pixels, not an appearance label. The final largest-text check passed in **58.4s**, with both completion buttons inside the landscape window and reachable by scrolling. Day/night and the native full-screen landscape captures were visually inspected.
+
+The first attempts exposed an inherited disclosure identifier hiding its child text and a test helper assuming offscreen Form cells already existed. The identifier is now attached to the expansion control, and the helper scrolls the native collection before asserting. Targeted reruns passed. The landscape `app.screenshot()` export has invalid orientation/black padding; the separately attached `XCUIScreen` capture and window/control frames establish the actual intact layout.
+
+These isolated workspaces simulate permission outcomes and do not change native system grants. Evidence stays under ignored `work/onboarding-access-20261016/`; this is a focused native UI result, not a full UI-suite or physical VoiceOver result. The physical results above describe build 1540, before this visual revision.
+
+### iPhone follow-up — build 1552
+
+Both installed copies were updated in place to **0.1.0 (1552)** after reconciling the native Settings release `36fede6`; app source is `30b68d3`. Strict signatures and device coverage passed for both. The ordinary build retains its real WeatherKit, Family Controls and usage-data entitlements and registered `.liveactivity` widget; the Personal Team build keeps its own profile, `.activity` widget and unavailable WeatherKit capability. Configuration remains private.
+
+The ordinary physical access journey passed in **83.580s**: all eight compact explanations were reached in the actual night appearance, the review returned to Settings, and ordinary relaunch did not repeat setup. The existing grants were retained; no new system prompts appeared, so this re-proves the revised interface and revisit path, not first-ever consent. Its night capture was visually inspected.
+
+The fresh-process live-sky check passed in **19.881s** with native **Current location / Clear** admitted throughout five foreground captures across 12 seconds. The actual night scene and intermittent wind breaths remain visible and subside between frames. No fixture, theme or location override was used. This smoke does not repeat the full detailed-measurement audit above or manufacture other weather conditions.
+
+Both saved workspaces are byte-for-byte identical to their pre-install exports. The ordinary briefing settings and all eight saved access choices are preserved; the personal copy still has no access-progress file, and no decisions were copied between apps. Private build checks, before/after exports and `native-final.xcresult` remain under ignored `work/onboarding-access-20261016/phone-1552/`.

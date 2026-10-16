@@ -89,6 +89,7 @@
 		8706D4C28912FC25A45E3D1E /* RecordedObservationImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35191AAE6C75EE39494AC52A /* RecordedObservationImportTests.swift */; };
 		8804FDDEF738D87906FE866D /* RoutineAutomationJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F649D50F4BCF527213FB411 /* RoutineAutomationJourneyTests.swift */; };
 		8CD682C5DF97F2CF8EC3D2CE /* GmailConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5087BDE08DBD2E7273AECA0 /* GmailConnectionView.swift */; };
+		9110D8F9FE1CCA1CA6BEBB8F /* MorningPermissionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA781F3E0E954D226DDC941 /* MorningPermissionSetupView.swift */; };
 		9239172E43B7341A7C81A36D /* MorningStore+Outlook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 597D20B3852383C91E5DD384 /* MorningStore+Outlook.swift */; };
 		9282FCF2D0B6E5576779EF9D /* WebRoutineJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCC683CD3C90B5FFD65B77C /* WebRoutineJourneyTests.swift */; };
 		95F21F4BFB1948D2ABD031C4 /* MorningStore+Mail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2491FFBC2ACFD04646271C6D /* MorningStore+Mail.swift */; };
@@ -276,6 +277,7 @@
 		7473723C675D8D6B48B5EAFC /* RoutineTimeBudgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineTimeBudgetView.swift; sourceTree = "<group>"; };
 		7665B33053A581FA603175F0 /* MorningBriefingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningBriefingView.swift; sourceTree = "<group>"; };
 		7A6237A39EB8759262EEFC1F /* RoutineTransferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineTransferTests.swift; sourceTree = "<group>"; };
+		7AA781F3E0E954D226DDC941 /* MorningPermissionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPermissionSetupView.swift; sourceTree = "<group>"; };
 		7FA34D4123459FDC0D241C4B /* OutlookInboxMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlookInboxMomentView.swift; sourceTree = "<group>"; };
 		823908783E18F7A5E2A6B5D7 /* SlackMomentReplyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlackMomentReplyView.swift; sourceTree = "<group>"; };
 		823DC3878AEC67AE33FE7B03 /* MorningOperator.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MorningOperator.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -534,6 +536,7 @@
 				86B12EF7D60AB60D6F04CA6C /* MorningOperatorApp.swift */,
 				BA6BF52226B552A07B4ACD44 /* MorningPaperSurface.swift */,
 				AC5B8976F9BC4B92D48290EC /* MorningPermissionSetup.swift */,
+				7AA781F3E0E954D226DDC941 /* MorningPermissionSetupView.swift */,
 				25987AA3F93570E4CED0B631 /* MorningPrivacyView.swift */,
 				CEA9A5D33ACBE08EDB29D96F /* MorningRecapView.swift */,
 				236ACA44D0A812AC0CFA3A5C /* MorningRecordingStatus.swift */,
@@ -937,6 +940,7 @@
 				5E40933188691C5EAA5A47E4 /* MorningOperatorApp.swift in Sources */,
 				B0710FC5608F8CE8D5C83305 /* MorningPaperSurface.swift in Sources */,
 				36C037C0195F86D93CC845C8 /* MorningPermissionSetup.swift in Sources */,
+				9110D8F9FE1CCA1CA6BEBB8F /* MorningPermissionSetupView.swift in Sources */,
 				06E46596DA50049E51AAAE76 /* MorningPrivacyView.swift in Sources */,
 				F77D08BE48F8931FF8749C4D /* MorningRecapView.swift in Sources */,
 				DCFA9E0C4B6CEA64FF05E07B /* MorningRecordingStatus.swift in Sources */,
