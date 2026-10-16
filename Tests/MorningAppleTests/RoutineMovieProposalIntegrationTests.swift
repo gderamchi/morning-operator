@@ -55,11 +55,16 @@ struct RoutineMovieProposalIntegrationTests {
             let archive = try ObservationArchive(entries: [acquisition])
             let evidence = try LearningEvidencePreparation.prepare(acquisitions: [acquisition])
             report.preparedUnitCount = evidence.units.count
-            report.submittedCharacterCount = evidence.submittedCharacterCount
-            report.modelRequestCount = evidence.modelRequestCount
+            report.preparedSubmittedCharacterCount = evidence.submittedCharacterCount
+            report.preparedModelRequestCount = evidence.modelRequestCount
             report.omissions = evidence.omissions
             report.stage = "localRoutineProposal"
-            let proposal = try await model.propose(evidence: evidence, preserving: nil)
+            let proposal = try await model.propose(evidence: evidence, preserving: nil, progress: { completed, total in
+                // Total is the serial runner's post-annotation workload, not an
+                // attempted-request count. An interrupted request may not complete.
+                report.proposalProgressTotalRequests = total
+                report.proposalCompletedRequests = completed
+            })
             report.proposal = proposal; report.proposalCapability = model.capabilitySummary
             report.stage = "exactSourceValidation"
             report.citationsValid = proposal.isCurrent(archive: archive, baseRoutine: nil)
@@ -104,7 +109,7 @@ struct RoutineMovieProposalIntegrationTests {
 private enum RoutineMovieReportFailure: Error { case invalidResult, pipelineFailed, reportNotSaved }
 
 private struct RoutineMovieProposalReport: Encodable {
-    let schemaVersion = 1
+    let schemaVersion = 2
     let scope = "Selected synthetic movie only; no oracle/catalog/filename/expected intents supplied to either local model. QA-assigned day is not capture metadata. No semantic accuracy verdict or provider execution is claimed."
     let createdAt = Date()
     var elapsedSeconds = 0.0
@@ -115,7 +120,8 @@ private struct RoutineMovieProposalReport: Encodable {
     var extractionWarnings: [String] = []
     var classification: ObservationContextClassification?
     var acquisition: ObservationAcquisition?
-    var preparedUnitCount: Int?, submittedCharacterCount: Int?, modelRequestCount: Int?
+    var preparedUnitCount: Int?, preparedSubmittedCharacterCount: Int?, preparedModelRequestCount: Int?
+    var proposalProgressTotalRequests: Int?, proposalCompletedRequests: Int?
     var omissions: [LearningEvidenceOmission] = []
     var proposal: EvidenceRoutineProposal?
     var citationsValid: Bool?
