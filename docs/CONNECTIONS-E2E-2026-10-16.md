@@ -150,15 +150,17 @@ the ordinary app with empty app arguments and environment, without a test
 workspace, StoreKit fixture or injected subscription. The launch guard was also
 reviewed independently. Simulator and ordinary CI runs skip this opt-in suite.
 
-Two actual phone runs reached the normal subscription screen. In the final
-fresh-launch run, the configured StoreKit offer still did not expose
+Three actual phone runs reached the normal subscription screen, including a
+final combined-source signed build **1702** after integrating `origin/main`
+`fe19a40`. In that fresh-launch run, the configured StoreKit offer did not expose
 `paywall.price` after 45 seconds; the app's accessibility state displayed the
 App Store unavailable notice and its Try again control. The result was **one
 failed live-offer check and one skipped native Gmail check**, not a passing
-physical acceptance run. The first run had the same outcome. A screenshot from
+physical acceptance run. The earlier two runs had the same outcome. A screenshot from
 the first run captured an unrelated system permission overlay and is not used
 as paywall evidence; the ordinary app's accessibility hierarchy establishes the
-observed state.
+observed state. The final build-1702 screenshot was separately inspected and
+does show the ordinary MORE paywall and App Store unavailable notice.
 
 No purchase, restore, subscription bypass or permission grant was performed.
 The paywall prevented access to the normal connections screen, so current-build
@@ -196,3 +198,19 @@ affected Worker checks passed **4/4**. The final complete `npm test` passed
 Every upstream request in these checks was intercepted by a synthetic provider;
 they prove Worker/D1 timeout, concurrency and receipt behavior, not real account
 access, provider effects or the ordinary iPhone journey.
+
+## Combined source checks
+
+After integrating the current `origin/main` (`fe19a40`), both generic simulator
+and signed physical-device **build-for-testing passed**, compiling the app,
+widget and UI-test target. The signed app was installed in place as build 1702;
+its four capability entitlements and configured Google/backend values were
+checked again. The live-offer failure above was then reproduced on that build.
+
+`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/test.sh --jobs 2 --no-parallel`
+completed successfully: **1,647 passed, six optional integration skips, zero
+failures** across 1,653 tests and 185 suites. Those skips concern explicitly
+selected local-model/video/replay integrations. Build and test time was 408
+seconds. The complete Python script/resource suite also passed: **34/34**.
+These package checks are separate from the physical StoreKit failure and live
+account grants.
