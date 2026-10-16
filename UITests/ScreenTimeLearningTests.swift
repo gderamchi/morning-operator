@@ -64,7 +64,7 @@ final class ScreenTimeLearningTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
-            "--app-language=en", "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-approved", "--ui-testing-screen-time-fixture"]
+            "-more.appLanguage", "en", "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-approved", "--ui-testing-screen-time-fixture"]
         app.launch()
         return app
     }
