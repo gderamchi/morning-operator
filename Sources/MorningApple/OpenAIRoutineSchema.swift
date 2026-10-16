@@ -23,6 +23,7 @@ enum OpenAIRoutineSchema {
         if let citationIDs {
             if citationIDs.isEmpty {
                 return object([
+                    "outcome": string(["insufficientEvidence"]),
                     "steps": .object(["type": .string("array"), "minItems": .number(0), "maxItems": .number(0),
                         "items": string()])
                 ])
@@ -33,10 +34,6 @@ enum OpenAIRoutineSchema {
             step["title"] = string(description: EvidenceRoutineFieldGuidance.title)
             step["durationMinutes"] = .object(["type": .string("integer"), "minimum": .number(1), "maximum": .number(60),
                 "description": .string(EvidenceRoutineFieldGuidance.duration)])
-            return object([
-                "steps": .object(["type": .string("array"), "minItems": .number(0), "maxItems": .number(4),
-                    "items": object(step)])
-            ])
         } else {
             step["detail"] = string()
             step["evidenceQuote"] = string()
