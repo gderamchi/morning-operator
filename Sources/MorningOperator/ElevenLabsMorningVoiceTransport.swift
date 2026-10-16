@@ -27,16 +27,16 @@ final class ElevenLabsMorningVoiceTransport: MorningCloudVoiceTransport {
             },
             onAgentResponse: { [weak self] text, eventID in
                 Task { @MainActor in
-                    guard let self, attempt == id else { return }
-                    guard !playbackMuted else { return }
-                    onEvent?(.agentText(text))
+                    guard let self, self.attempt == id else { return }
+                    guard !self.playbackMuted else { return }
+                    self.onEvent?(.agentText(text))
                 }
             },
             onUserTranscript: { [weak self] text, eventID in
                 Task { @MainActor in
-                    guard let self, attempt == id else { return }
-                    onEvent?(.userText(text, eventID: eventID))
-                    await resumePlaybackForNewTurn()
+                    guard let self, self.attempt == id else { return }
+                    self.onEvent?(.userText(text, eventID: eventID))
+                    await self.resumePlaybackForNewTurn()
                 }
             },
             onInterruption: { [weak self] _ in
