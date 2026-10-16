@@ -17,8 +17,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         let app = launch(["--ui-testing-approved", "--ui-testing-stopped-run", "--ui-testing-ten-moments",
                           "--ui-testing-parsed-routine=" + data.base64EncodedString()], french: true)
         defer { app.terminate() }
-        reveal(app)
-        enabledVisibleButton("morning.settings", in: app).tap()
+        tapHomeSettings(app)
         let routine = visibleButton("setup.routine", in: app)
         XCTAssertTrue(routine.label.contains("10 moments") && routine.label.contains("28 min"), routine.label)
         routine.tap()
@@ -78,8 +77,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             .map { String($0.dropFirst("--ui-testing-workspace=".count)) })
         XCTAssertTrue(app.staticTexts["qa.testWorkspace"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.staticTexts["qa.testWorkspace"].value as? String, workspace)
-        reveal(app)
-        enabledVisibleButton("morning.settings", in: app).tap()
+        tapHomeSettings(app)
         let saved = visibleButton("setup.routine", in: app)
         XCTAssertTrue(saved.label.contains("10 moments") && saved.label.contains("29 min"), saved.label)
         saved.tap()
@@ -182,7 +180,8 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         for id in ["net.whatsapp.WhatsApp", "com.google.Gmail", "com.chess.iphone", "com.google.ios.youtube"] {
             let choice = visibleScreenTimeSwitch(id, in: app)
             XCTAssertEqual(choice.value as? String, "1", "The overflow must preserve the choices.")
-            choice.tap()
+            let native = choice.switches.firstMatch
+            if native.exists && native.isHittable { native.tap() } else { choice.tap() }
             XCTAssertEqual(choice.value as? String, "0")
         }
         enabledVisibleButton("observations.suggestUpdate", in: app).tap()
@@ -1295,7 +1294,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         attach("automation-real-public-feed-cold-morning-restored", app)
         // Home deliberately has no title or timer. Open the same paused page
         // through Settings to inspect the retained budget before resume.
-        enabledVisibleButton("morning.settings", in: app).tap()
+        tapHomeSettings(app)
         enabledVisibleButton("stepTimer.openPage", in: app).tap()
         XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 15))
         XCTAssertEqual(app.staticTexts["web.remaining"].label, remaining,
@@ -1367,7 +1366,18 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         if result != .completed { captureFailure("home-controls-not-revealed", app) }
         XCTAssertEqual(result, .completed)
     }
+    private func tapHomeSettings(_ app: XCUIApplication) {
+        reveal(app)
+        // Controls expire after five seconds. Select Settings directly after
+        // the reveal instead of scrolling Home or waiting on another predicate.
+        app.buttons["morning.settings"].tap()
+        let form = app.collectionViews["settings.appearance"]
+        let opened = form.waitForExistence(timeout: 5)
+        if !opened { captureFailure("home-settings-did-not-open", app) }
+        XCTAssertTrue(opened, "The actual Settings screen must open from Home.")
+    }
     private func tapVisible(_ identifier: String, in app: XCUIApplication) {
+        if identifier == "morning.settings" { tapHomeSettings(app); return }
         visibleButton(identifier, in: app).tap()
     }
     private func fullyVisibleProposalButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
@@ -1450,14 +1460,12 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(element.isHittable, "Unreachable control: \(identifier)")
     }
     private func openSlackSetup(_ app: XCUIApplication) {
-        reveal(app)
-        tapVisible("morning.settings", in: app)
+        tapHomeSettings(app)
         tapVisible("setup.connections", in: app)
         tapVisible("connections.account.slack", in: app)
     }
     private func openScreenTimeObservationChoices(_ app: XCUIApplication) {
-        reveal(app)
-        enabledVisibleButton("morning.settings", in: app).tap()
+        tapHomeSettings(app)
         enabledVisibleButton("setup.routine", in: app).tap()
         tapVisible("learn.refine", in: app)
         XCTAssertTrue(app.textViews["learn.notes"].waitForExistence(timeout: 8))
@@ -1499,8 +1507,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
     }
     private func openHomeInteraction(_ app: XCUIApplication) {
         if app.buttons["morning.closeDetails"].exists { return }
-        revealHomeControls(app)
-        enabledVisibleButton("morning.settings", in: app).tap()
+        tapHomeSettings(app)
         _ = visibleButton("morning.next", in: app)
         _ = visibleButton("morning.stop", in: app)
         enabledVisibleButton("morning.details", in: app).tap()
@@ -1540,14 +1547,12 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         return choice
     }
     private func openCalendlySetup(_ app: XCUIApplication) {
-        reveal(app)
-        tapVisible("morning.settings", in: app)
+        tapHomeSettings(app)
         tapVisible("setup.connections", in: app)
         tapVisible("connections.account.calendly", in: app)
     }
     private func openOutlookSetup(_ app: XCUIApplication) {
-        reveal(app)
-        tapVisible("morning.settings", in: app)
+        tapHomeSettings(app)
         tapVisible("setup.connections", in: app)
         tapVisible("connections.account.outlook", in: app)
     }
@@ -1584,8 +1589,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         }
     }
     private func openGoogleCalendarSetup(_ app: XCUIApplication) {
-        reveal(app)
-        tapVisible("morning.settings", in: app)
+        tapHomeSettings(app)
         tapVisible("setup.connections", in: app)
         tapVisible("connections.account.googlecalendar", in: app)
     }
