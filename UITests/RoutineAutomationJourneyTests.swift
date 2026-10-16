@@ -3,6 +3,43 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    func testSyntheticSlackUncertainSendReplacesTheOldInstructionOnHome() {
+        let app = launch(["--ui-testing-slack-reply", "--ui-testing-slack-uncertain-send", "--ui-testing-approved", "--ui-testing-hands-free"])
+        defer { app.terminate() }
+        reveal(app); app.buttons["morning.begin"].tap()
+        openHomeInteraction(app)
+        tapVisible("slackMoment.message.0", in: app)
+        let intention = app.descendants(matching: .any).matching(identifier: "slackMoment.intention").firstMatch
+        scrollTo(intention, identifier: "slackMoment.intention", in: app)
+        intention.tap(); intention.typeText("SYNTHETIC please confirm the meeting")
+        tapVisible("slackMoment.prepare", in: app)
+        XCTAssertTrue(app.buttons["slackMoment.send"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["slackMoment.synthetic"].exists)
+        // This fixture interrupts TTS; only an actual complete screen review
+        // opens the gate. It never proves acoustic recognition or a provider write.
+        tapVisible("slackMoment.reviewed", in: app)
+        enabledVisibleButton("slackMoment.send", in: app).tap()
+        let status = app.staticTexts["slackMoment.status"]
+        let uncertain = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Slack post is unconfirmed"), object: status)
+        let result = XCTWaiter.wait(for: [uncertain], timeout: 10)
+        if result != .completed { captureFailure("synthetic-slack-uncertain-not-shown", app) }
+        XCTAssertEqual(result, .completed)
+        XCTAssertFalse(app.buttons["slackMoment.send"].exists)
+        tapVisible("morning.closeDetails", in: app)
+        let homeStatus = app.staticTexts["morning.actionStatus"]
+        XCTAssertTrue(homeStatus.waitForExistence(timeout: 5))
+        XCTAssertTrue(homeStatus.label.contains("Slack post is unconfirmed"))
+        XCTAssertTrue(homeStatus.label.contains("will not retry"))
+        XCTAssertFalse(app.staticTexts["morning.caption"].exists)
+        XCTAssertFalse(app.staticTexts["morning.previousCaption"].exists)
+        attach("automation-synthetic-slack-uncertain-state-on-home", app)
+        enabledVisibleButton("morning.actionDetails", in: app).tap()
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertTrue(status.label.contains("Slack post is unconfirmed"))
+        XCTAssertFalse(app.buttons["slackMoment.send"].exists)
+        attach("automation-synthetic-slack-uncertain-reopened-without-retry", app)
+    }
+
     func testFrenchLargestScreenTimeOverflowKeepsTheSourceAndLetsMeChooseEightApps() {
         let app = launch(["--ui-testing-approved", "--ui-testing-learning-source-join", "--ui-testing-evidence-proposals",
                           "--ui-testing-learning-source-many-apps", "-UIPreferredContentSizeCategoryName",
@@ -1187,6 +1224,17 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["observations.fixtureMode"].exists)
         XCTAssertFalse(app.buttons["observations.suggestUpdate"].isEnabled)
     }
+    private func openHomeInteraction(_ app: XCUIApplication) {
+        if app.buttons["morning.closeDetails"].exists { return }
+        XCTAssertTrue(app.buttons["morning.playback"].waitForExistence(timeout: 10))
+        if app.buttons["morning.actionDetails"].exists {
+            enabledVisibleButton("morning.actionDetails", in: app).tap()
+        } else {
+            tapVisible("morning.more", in: app)
+            tapVisible("morning.details", in: app)
+        }
+        XCTAssertTrue(app.buttons["morning.closeDetails"].waitForExistence(timeout: 5))
+    }
     private func visibleScreenTimeSwitch(_ bundleID: String, in app: XCUIApplication) -> XCUIElement {
         let identifier = "observations.screenTime.app.\(bundleID)"
         let choice = app.switches[identifier]
@@ -1219,6 +1267,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
     private func launchOutlookRuntime(_ extra: [String] = []) -> XCUIApplication {
         let app = launch(["--ui-testing-outlook-inbox", "--ui-testing-outlook-runtime", "--ui-testing-approved", "--ui-testing-hands-free"] + extra)
         reveal(app); app.buttons["morning.begin"].tap()
+        if !extra.contains("--ui-testing-voice-preparation") { openHomeInteraction(app) }
         return app
     }
     private func outlookReads(_ app: XCUIApplication) -> String {

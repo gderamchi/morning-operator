@@ -13,6 +13,62 @@ struct MorningHomePlaybackView: View {
     private struct Passage: Identifiable {
         let id = UUID()
         let text: String
+        let actionBoundary: String?
+    }
+
+    private struct ActionStatus {
+        let text: String
+        var hidesOldInstructions = false
+        var priority = 2
+        var captionBoundary: String? { hidesOldInstructions ? text : nil }
+    }
+
+    /// State may change without TTS. Only this exact session/step can supply it;
+    /// uncertain effects take precedence over an older dialogue's review/error.
+    private var actionStatus: ActionStatus? {
+        guard !store.privacyBlocksWork, store.sessionActive, let session = store.session, let step = store.currentStep else { return nil }
+        let context = MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id)
+        var statuses: [ActionStatus] = []
+        let native = store.nativeMoment
+        if native.context == context {
+            switch native.phase {
+            case .writing: statuses.append(.init(text: french ? "Écriture Apple en cours. Attendez son résultat." : "Apple write in progress. Wait for its result.", hidesOldInstructions: true, priority: 3))
+            case .uncertain: statuses.append(.init(text: french ? "Le résultat de l’écriture Apple n’est pas confirmé. Vérifiez Rappels ou Calendrier avant une autre tentative." : "The Apple write is unconfirmed. Check Reminders or Calendar before another attempt.", hidesOldInstructions: true, priority: 4))
+            case .unavailable: statuses.append(.init(text: french ? "Cette demande Apple est indisponible. Retrouvez les détails dans Interagir." : "This Apple request is unavailable. Open Interact for details.", hidesOldInstructions: true, priority: 0))
+            case .completed: statuses.append(.init(text: french ? "Cette demande Apple est terminée." : "This Apple request is finished.", hidesOldInstructions: true, priority: 1))
+            case .reviewing, .awaitingConfirmation, .needsDetails, .choosingReminder:
+                statuses.append(.init(text: french ? "Une demande Apple attend votre revue ou vos précisions." : "An Apple request is waiting for your review or details."))
+            default: break
+            }
+        }
+        if store.currentSlackContext == context, store.slackReply.context == context {
+            switch store.slackReply.phase {
+            case .sending: statuses.append(.init(text: french ? "Envoi Slack en cours. Attendez son résultat." : "Slack send in progress. Wait for its result.", hidesOldInstructions: true, priority: 3))
+            case .uncertain: statuses.append(.init(text: french ? "La publication Slack n’est pas confirmée. Vérifiez le fil avant une autre tentative ; MORE ne la relance pas." : "The Slack post is unconfirmed. Check the thread before another attempt; MORE will not retry it.", hidesOldInstructions: true, priority: 4))
+            case .unavailable: statuses.append(.init(text: french ? "Cette demande Slack est indisponible. Retrouvez les détails dans Interagir." : "This Slack request is unavailable. Open Interact for details.", hidesOldInstructions: true, priority: 0))
+            case .completed: statuses.append(.init(text: french ? "La réponse Slack a été publiée. Retrouvez les détails dans Interagir." : "The Slack reply was posted. Open Interact for details.", hidesOldInstructions: true, priority: 1))
+            case .preparing: statuses.append(.init(text: french ? "Préparation de votre réponse Slack…" : "Preparing your Slack reply…"))
+            case .reviewing, .awaitingConfirmation: statuses.append(.init(text: french ? "Une réponse Slack est prête à relire." : "A Slack reply is ready to review."))
+            default: break
+            }
+        }
+        if step.automation == .gmailInbox, store.mailMorning.context == context {
+            switch store.mailMorning.state {
+            case .sending: statuses.append(.init(text: french ? "Envoi du mail en cours. Attendez son résultat." : "Mail send in progress. Wait for its result.", hidesOldInstructions: true, priority: 3))
+            case .uncertain: statuses.append(.init(text: french ? "L’envoi du mail n’est pas confirmé. Vérifiez Gmail avant une autre tentative ; MORE ne le relance pas." : "The mail send is unconfirmed. Check Gmail before another attempt; MORE will not retry it.", hidesOldInstructions: true, priority: 4))
+            case .unavailable: statuses.append(.init(text: french ? "Cette demande Gmail est indisponible. Retrouvez les détails dans Interagir." : "This Gmail request is unavailable. Open Interact for details.", hidesOldInstructions: true, priority: 0))
+            case .completed: statuses.append(.init(text: french ? "Cette demande Gmail est terminée." : "This Gmail request is finished.", hidesOldInstructions: true, priority: 1))
+            case .preparingReply: statuses.append(.init(text: french ? "Préparation de votre mail…" : "Preparing your mail…"))
+            case .reviewingReply, .reviewingSelfMessage: statuses.append(.init(text: french ? "Un mail est prêt à relire." : "A mail draft is ready to review."))
+            default: break
+            }
+        }
+        return statuses.max { $0.priority < $1.priority }
+    }
+
+    private var visiblePassages: [Passage] {
+        guard let boundary = actionStatus?.captionBoundary else { return passages }
+        return passages.filter { $0.actionBoundary == boundary }
     }
 
     private var french: Bool { AppLanguage.isFrench }
@@ -50,16 +106,18 @@ struct MorningHomePlaybackView: View {
                 ScrollViewReader { reader in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 28) {
-                            if passages.isEmpty {
+                            if visiblePassages.isEmpty, actionStatus?.hidesOldInstructions == true {
+                                Color.clear.frame(height: 1).accessibilityHidden(true)
+                            } else if visiblePassages.isEmpty {
                                 Text(verbatim: fallback)
                                     .accessibilityIdentifier("morning.caption")
                             } else {
-                                ForEach(passages) { passage in
+                                ForEach(visiblePassages) { passage in
                                     VStack(alignment: .leading, spacing: 0) {
                                         Color.clear.frame(height: 1).id(passage.id.uuidString).accessibilityHidden(true)
                                         Text(verbatim: passage.text)
-                                            .opacity(passage.id == passages.last?.id ? 1 : 0.45)
-                                            .accessibilityIdentifier(passage.id == passages.last?.id ? "morning.caption" : "morning.previousCaption")
+                                            .opacity(passage.id == visiblePassages.last?.id ? 1 : 0.45)
+                                            .accessibilityIdentifier(passage.id == visiblePassages.last?.id ? "morning.caption" : "morning.previousCaption")
                                     }
                                 }
                             }
@@ -78,11 +136,21 @@ struct MorningHomePlaybackView: View {
                                        startPoint: .top, endPoint: .bottom)
                     }
                     .accessibilityIdentifier("morning.captions")
-                    .onChange(of: passages.last?.id) { _, id in
+                    .onChange(of: visiblePassages.last?.id) { _, id in
                         guard let id else { return }
                         let readingPosition = UnitPoint(x: 0.5, y: 0.15)
                         if still { reader.scrollTo(id.uuidString, anchor: readingPosition) }
                         else { withAnimation(.easeOut(duration: 0.24)) { reader.scrollTo(id.uuidString, anchor: readingPosition) } }
+                    }
+                }
+
+                if let actionStatus {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(actionStatus.text).font(.raleway(.subheadline, .medium))
+                            .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("morning.actionStatus")
+                        Button(french ? "Interagir" : "Interact") { showingDetails = true }
+                            .font(.raleway(.caption)).frame(minHeight: 44)
+                            .accessibilityIdentifier("morning.actionDetails")
                     }
                 }
 
@@ -136,9 +204,15 @@ struct MorningHomePlaybackView: View {
             .frame(maxWidth: 640).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onChange(of: store.speech.captionRevision, initial: true) { _, _ in
+            guard !store.privacyBlocksWork else { passages.removeAll(); return }
             guard let text = store.speech.currentCaption, !text.isEmpty else { return }
-            passages.append(Passage(text: text))
+            passages.append(Passage(text: text, actionBoundary: actionStatus?.captionBoundary))
             if passages.count > 24 { passages.removeFirst(passages.count - 24) }
+        }
+        .onChange(of: actionStatus?.captionBoundary) { _, boundary in
+            // Keep any fresh result/Q&A caption already delivered in this same
+            // render transaction, while retiring the earlier review instruction.
+            if let boundary { passages.removeAll { $0.actionBoundary != boundary } }
         }
         .onChange(of: scenePhase) { _, phase in if phase == .background { passages.removeAll(); showingDetails = false } }
         .sheet(isPresented: $showingDetails) { interaction }

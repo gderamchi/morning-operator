@@ -165,6 +165,16 @@ extension MorningStore {
     }
     func send(_ reply: SlackPreparedReply, operationID: UUID) async throws -> SlackReplyReceipt {
         try await validate(reply)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing"),
+           ProcessInfo.processInfo.arguments.contains("--ui-testing-slack-reply"),
+           ProcessInfo.processInfo.arguments.contains("--ui-testing-slack-uncertain-send") {
+            // The conversation already durably claimed this synthetic dispatch.
+            // A lost response after its simulated dispatch is ambiguous, not a
+            // guaranteed pre-dispatch rejection. No provider/network is used.
+            throw URLError(.timedOut)
+        }
+        #endif
         let ts = "1792100999.000001"
         let data: ComposioJSONValue = .object(["ok": .bool(true), "channel": .string(reply.source.channelID), "ts": .string(ts),
             "message": .object(["ts": .string(ts), "thread_ts": .string(reply.source.threadTS), "user": .string(reply.destination.userID),
