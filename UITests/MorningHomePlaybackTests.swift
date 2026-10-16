@@ -5,6 +5,48 @@ import XCTest
 final class MorningHomePlaybackTests: XCTestCase {
     private let longPassage = "Take your time this morning. Let the light come into the room while you take a slow breath and prepare for the day ahead. There is nothing to press while MORE reads this passage. You can keep getting ready and return whenever you want to read along. Each passage should replace the one being spoken before it. Your routine stays here on the same home screen. If you need a little longer, a tap makes the small controls available. When this quiet moment ends, MORE will continue with the next part of your morning."
 
+    func testIdleTapShowsOnlyPlayAndSettingsThenHidesAndOpensRoutineThroughSettings() {
+        let app = launch(night: true)
+        defer { app.terminate() }
+        let landscape = app.buttons["morning.actions"]
+        XCTAssertTrue(landscape.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["morning.begin"].exists)
+        XCTAssertFalse(app.buttons["morning.settings"].exists)
+        landscape.tap()
+        let play = app.buttons["morning.begin"]
+        let settings = app.buttons["morning.settings"]
+        XCTAssertTrue(play.waitForExistence(timeout: 5))
+        XCTAssertTrue(play.isHittable)
+        XCTAssertTrue(settings.isHittable)
+        let visibleButtons = Set(app.buttons.allElementsBoundByIndex.map(\.identifier))
+            .subtracting(["morning.actions"])
+        XCTAssertEqual(visibleButtons, Set(["morning.begin", "morning.settings"]))
+        XCTAssertEqual(play.frame.midX, app.frame.midX, accuracy: 2)
+        XCTAssertEqual(play.frame.midY, app.frame.midY, accuracy: app.frame.height * 0.12)
+        XCTAssertGreaterThan(settings.frame.midX, app.frame.midX)
+        XCTAssertLessThan(settings.frame.maxY, app.frame.height * 0.25)
+        XCTAssertFalse(app.buttons["morning.closeActions"].exists)
+        XCTAssertFalse(app.buttons["morning.review"].exists)
+        XCTAssertFalse(app.staticTexts["morning.readyQuestion"].exists)
+        XCTAssertEqual(app.scrollViews.count, 0)
+        attach("home-idle-only-glass-play-and-settings", app)
+        XCTAssertTrue(play.waitForNonExistence(timeout: 7))
+        XCTAssertFalse(settings.exists)
+        attach("home-idle-controls-hidden", app)
+
+        landscape.tap()
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.tap()
+        let routine = app.buttons["setup.routine"]
+        XCTAssertTrue(routine.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["morning.begin"].exists)
+        routine.tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "routine.editor").firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["routine.step.0"].exists)
+        XCTAssertFalse(app.buttons["morning.playback"].exists)
+        attach("home-idle-routine-reached-through-settings", app)
+    }
+
     func testHomeShowsOnlyCurrentTextAndContinuesAutomatically() {
         let app = launch(["--ui-testing-short-budgets"], night: true)
         defer { app.terminate() }
@@ -18,7 +60,7 @@ final class MorningHomePlaybackTests: XCTestCase {
         attach("home-playback-automatic-next-text", app)
     }
 
-    func testFrenchLargestTextRevealsPauseAndNextWithOneTap() {
+    func testFrenchLargestTextRevealsPauseAndKeepsNextInSettings() {
         let app = launch(["--ui-testing-reduce-motion", "-UIPreferredContentSizeCategoryName",
                           "UICTContentSizeCategoryAccessibilityXXXL"], french: true, night: true)
         defer { app.terminate() }
@@ -27,16 +69,24 @@ final class MorningHomePlaybackTests: XCTestCase {
         assertFitsOnScreen(app.staticTexts["morning.caption"], in: app)
         attach("home-playback-french-largest-pure-text", app)
         revealControls(app)
-        for identifier in ["morning.playback", "morning.next", "morning.more"] {
+        for identifier in ["morning.playback", "morning.settings"] {
             let button = app.buttons[identifier]
             XCTAssertTrue(button.isHittable)
             assertFitsOnScreen(button, in: app)
         }
-        XCTAssertEqual(app.buttons["morning.next"].label, "Suivant")
+        XCTAssertFalse(app.buttons["morning.next"].exists)
+        XCTAssertFalse(app.buttons["morning.more"].exists)
         app.buttons["morning.playback"].tap()
         assertPlaybackLabel("Continuer", in: app)
         attach("home-playback-french-largest-revealed-controls", app)
-        app.buttons["morning.next"].tap()
+        app.buttons["morning.playback"].tap()
+        assertPlaybackLabel("Pause", in: app)
+        app.buttons["morning.settings"].tap()
+        let next = app.buttons["morning.next"]
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        XCTAssertEqual(next.label, "Suivant")
+        next.tap()
+        returnHome(app)
         assertCaption("Your next moment.", in: app)
         assertNoHeaderOrHistory(app)
     }
@@ -118,7 +168,10 @@ final class MorningHomePlaybackTests: XCTestCase {
 
     private func setFirstMomentDetails(_ text: String, in app: XCUIApplication) -> String {
         app.buttons["morning.actions"].tap()
-        let review = app.buttons["morning.review"]
+        let settings = app.buttons["morning.settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.tap()
+        let review = app.buttons["setup.routine"]
         XCTAssertTrue(review.waitForExistence(timeout: 5))
         review.tap()
         let first = app.buttons["routine.step.0"]
@@ -134,15 +187,25 @@ final class MorningHomePlaybackTests: XCTestCase {
         let approve = app.buttons["routine.approve"]
         XCTAssertTrue(approve.waitForExistence(timeout: 5))
         approve.tap()
-        if app.buttons["destination.close"].exists { app.buttons["destination.close"].tap() }
+        returnHome(app)
         XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 5))
         return configured
+    }
+
+    private func returnHome(_ app: XCUIApplication) {
+        for _ in 0..<3 {
+            if app.buttons["morning.actions"].exists || app.scrollViews["morning.captions"].exists { return }
+            let back = app.navigationBars.buttons.element(boundBy: 0)
+            XCTAssertTrue(back.waitForExistence(timeout: 5))
+            back.tap()
+        }
+        XCTFail("Expected to return to the landscape.")
     }
 
     private func assertPureReading(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(app.scrollViews["morning.captions"].exists, file: file, line: line)
         XCTAssertEqual(app.staticTexts.matching(identifier: "morning.caption").count, 1, file: file, line: line)
-        for identifier in ["morning.playback", "morning.next", "morning.more", "morning.closeActions"] {
+        for identifier in ["morning.playback", "morning.settings", "morning.next", "morning.more", "morning.closeActions"] {
             XCTAssertFalse(app.buttons[identifier].exists, "Reading keeps controls hidden: \(identifier)", file: file, line: line)
         }
         assertNoHeaderOrHistory(app, file: file, line: line)

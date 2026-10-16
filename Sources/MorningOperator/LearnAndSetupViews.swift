@@ -357,6 +357,7 @@ struct SetupView: View {
     @Bindable var store: MorningStore
     /// Opens the routine screen; nil hides its card.
     var openRoutine: (() -> Void)? = nil
+    var openHistory: (() -> Void)? = nil
     @ViewState<Bool> private var choosingAlarm = false
     @ViewState<Bool> private var choosingVoice = false
     @ViewState<Bool> private var preparingVoiceAccess = false
@@ -366,6 +367,36 @@ struct SetupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
+            if store.sessionActive {
+                MorningRoutineControlsView(store: store)
+            }
+            if let completed = store.session?.completedAt, Calendar.current.isDateInToday(completed),
+               let session = store.session {
+                Card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(AppLanguage.isFrench ? "Votre matin" : "Your morning")
+                            .font(MorningTheme.Typography.heading)
+                        let elapsed = MorningStyle.duration(session.activeDuration(until: completed))
+                        Text(AppLanguage.isFrench
+                             ? "\(session.completedStepIDs.count) moments · temps écoulé : \(elapsed)"
+                             : "\(session.completedStepIDs.count) moments · elapsed: \(elapsed)")
+                            .accessibilityIdentifier("morning.completeSummary")
+                        if let summary = store.executionSummary {
+                            Text(summary).accessibilityIdentifier("morning.executionSummary")
+                        }
+                        if store.shouldOfferCompletionReflection {
+                            Button { store.openCompletionCapture() } label: {
+                                Label(AppLanguage.isFrench ? "Dire une pensée" : "Speak a thought", systemImage: "mic")
+                                    .frame(minHeight: 44)
+                            }
+                            .disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
+                            Button(AppLanguage.isFrench ? "Plus tard" : "Not now") { store.discardCompletionReflection() }
+                                .frame(minHeight: 44).accessibilityIdentifier("morning.dismissReflection")
+                        }
+                    }
+                    .font(.raleway(.subheadline))
+                }
+            }
             if let openRoutine {
                 CardButton(action: openRoutine) {
                     LinkRow(title: String(localized: "Your routine"),
@@ -373,6 +404,14 @@ struct SetupView: View {
                             symbol: "list.bullet")
                 }.accessibilityIdentifier("setup.routine")
             }
+            if let openHistory {
+                CardButton(action: openHistory) {
+                    LinkRow(title: String(localized: "History"), detail: "", symbol: "clock.arrow.circlepath")
+                }.accessibilityIdentifier("setup.history")
+            }
+            CardButton { store.openCapture() } content: {
+                LinkRow(title: AppLanguage.isFrench ? "Noter une pensée" : "Note a thought", detail: "", symbol: "square.and.pencil")
+            }.accessibilityIdentifier("morning.reflect")
             NavigationLink {
                 ScrollView { MorningScreenTimeView(store: store, onEdit: openRoutine).padding(24) }
                     .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
