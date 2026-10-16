@@ -46,6 +46,18 @@ MORE_OPENAI_LIVE_KEY_FILE=/absolute/private/path/to/key \
 ./scripts/test.sh --jobs 2 --filter MoreIntelligenceLiveTests
 ```
 
-Normal package tests skip the live test. Protocol tests use in-memory credentials and injected transports. Build/test results and remaining acceptance work are recorded with this task's delivery; a successful provider call is not proof of an acoustic or browser journey.
+Normal package tests skip the live test. Protocol tests use in-memory credentials and injected transports. A successful provider call is not proof of an acoustic or browser journey.
+
+Delivery verification on 16 October 2026, source checkpoint `3857d0c`:
+
+| Check | Observed result and limits |
+| --- | --- |
+| Targeted package selection with real OpenAI opt-in | **118 tests in 11 suites passed in 17.290 seconds** (`more-intelligence-targeted-live-final.log`). The live test proposes an unapproved calendar/mail routine with valid source citations; corrects scooter ownership from yes to no and saves public transport; replaces a coffee preference; reloads the saved facts; then produces advice for synthetic rain at 7 °C without inventing a scooter. The model receives synthetic text only; this does not establish real WeatherKit data, personal morning accuracy or microphone recognition. |
+| Signed iPhone build | **BUILD SUCCEEDED** (`more-intelligence-device-delivery.log`). The ordinary app was installed in place and launched successfully with the explicitly enabled development provisioning path. Credentials and phone identifiers remain private. Installation/launch does not establish acoustic interruption or a complete routine. |
+| Simulator app, widget and UI-test target | **TEST BUILD SUCCEEDED** (`more-intelligence-simulator-delivery.log`). Compilation is separate from running the UI tests. |
+| Intelligence & memory settings UI | **Pending**. The native settings journey has not yet been accepted for this delivery. |
+| Broad package verification | **694 Core tests in 78 suites** and **4 Health mapping tests passed**. The broad Apple run recorded three city-race fixture wait failures; all three pass unchanged in the targeted serial selection above. A full serial rerun was stopped after stalling, with a process sample in TextRecognition/ANE model compilation. No completed full Apple-suite pass is claimed. Reproducibility and bounded diagnostics are tracked in [#204](https://github.com/gibouu/morning-operator/issues/204), separately from product acceptance. |
+
+Full-run local evidence is retained in `more-intelligence-package-tests-final.log`, `more-intelligence-package-serial-live.log` and `more-intelligence-tests.sample`. The city-race failures and the stalled process remain part of the record; targeted passing results do not erase them. Real-iPhone correction/relaunch, voice latency/barge-in, sourced daily advice and authenticated browser execution remain [#200](https://github.com/gibouu/morning-operator/issues/200).
 
 Official API references: [GPT-5 mini](https://developers.openai.com/api/docs/models/gpt-5-mini), [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [data controls](https://developers.openai.com/api/docs/guides/your-data).
