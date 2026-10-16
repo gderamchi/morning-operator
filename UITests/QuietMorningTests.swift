@@ -17,7 +17,7 @@ final class QuietMorningTests: XCTestCase {
     }
 
     func testTryPhoneSampleKeepsSeparateAppsManualAndPersistsAsDraft() {
-        let app = launch(["--ui-testing-empty-workspace", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
+        let app = launch(["--ui-testing-empty-workspace", "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
         let sample = app.buttons["routine.sample"]
         XCTAssertTrue(sample.waitForExistence(timeout: 10), app.debugDescription)
         sample.tap()
@@ -74,7 +74,7 @@ final class QuietMorningTests: XCTestCase {
     }
 
     func testFrenchSampleUsesBonjourAndKeepsReadyStartExplicit() {
-        let app = launch(["--ui-testing-empty-workspace", "--dark-preview", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"])
+        let app = launch(["--ui-testing-empty-workspace", "--dark-preview", "-more.appLanguage", "fr", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"])
         XCTAssertTrue(app.buttons["routine.sample"].waitForExistence(timeout: 10))
         app.buttons["routine.sample"].tap()
         XCTAssertEqual(app.staticTexts["morning.heading"].label, "bonjour")
@@ -227,7 +227,7 @@ final class QuietMorningTests: XCTestCase {
     func testDarkTenMomentMorningRemainsOneScreen() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--dark-preview", "--ui-testing-ten-moments", "--ui-testing-approved"]
+        app.launchArguments = ["--ui-testing", "--dark-preview", "--ui-testing-ten-moments", "--ui-testing-approved", "-more.appLanguage", "en"]
         app.launch()
         XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["morning.step.9"].isHittable)
@@ -462,6 +462,7 @@ final class QuietMorningTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"] + (arguments.contains("--dark-preview") ? [] : ["--light-preview"]) + arguments
+        if !arguments.contains("-more.appLanguage") { app.launchArguments += ["-more.appLanguage", "en"] }
         if !arguments.contains(where: { $0.hasPrefix("--ui-testing-workspace=") }) {
             app.launchArguments.append("--ui-testing-workspace=\(UUID().uuidString)")
         }
@@ -490,7 +491,7 @@ final class QuietMorningAccessibilityTests: XCTestCase {
         try LargeTextCondition.require()
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--ui-testing-approved", "--fixture-mode"]
+        app.launchArguments = ["--ui-testing", "--ui-testing-approved", "--fixture-mode", "-more.appLanguage", "en"]
         app.launch()
         let scroll = app.scrollViews["morning.accessibleScroll"]
         XCTAssertTrue(scroll.waitForExistence(timeout: 10), "This check requires actual accessibility text size.")

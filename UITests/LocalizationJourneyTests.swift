@@ -250,10 +250,12 @@ final class LocalizationJourneyTests: XCTestCase {
 
     private func scrollTo(_ element: XCUIElement, in app: XCUIApplication, upward: Bool = true) {
         _ = element.waitForExistence(timeout: 5)
-        for _ in 0..<6 where !(element.exists && element.isHittable) {
+        for _ in 0..<6 {
+            if element.exists && element.isHittable { break }
             if upward { app.swipeUp() } else { app.swipeDown() }
         }
-        for _ in 0..<10 where !(element.exists && element.isHittable) {
+        for _ in 0..<10 {
+            if element.exists && element.isHittable { break }
             if upward { app.swipeDown() } else { app.swipeUp() }
         }
         XCTAssertTrue(element.exists && element.isHittable, app.debugDescription)

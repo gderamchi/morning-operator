@@ -139,7 +139,10 @@ final class MorningPermissionSetupTests: XCTestCase {
         XCTAssertEqual(marker.value as? String, workspace, app.debugDescription)
     }
     private func reveal(_ element: XCUIElement, _ app: XCUIApplication) {
-        for _ in 0..<8 where !element.isHittable { app.swipeUp() }
+        for _ in 0..<8 {
+            if element.exists && element.isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(element.waitForExistence(timeout: 5))
     }
 }

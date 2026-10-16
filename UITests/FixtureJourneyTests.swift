@@ -10,7 +10,7 @@ final class VoicePlaybackTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         MorningUITestNavigation.reviewAction("navigation.setup", in: app)
         let readAloud = app.switches["setup.readAloud"]
         XCTAssertTrue(readAloud.waitForExistence(timeout: 5))
@@ -54,7 +54,7 @@ final class VoicePlaybackTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         MorningUITestNavigation.reviewAction("navigation.setup", in: app)
         let preview = app.buttons["setup.testVoice"]
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
@@ -82,7 +82,7 @@ final class FixtureJourneyTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-workspace=\(UUID().uuidString)"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         let begin = app.buttons["learn.begin"]
         XCTAssertTrue(begin.waitForExistence(timeout: 10))
         XCTAssertTrue(begin.isHittable, "The first-use learning action must be available before any scroll.")
@@ -237,7 +237,7 @@ final class FixtureJourneyTests: XCTestCase {
         // Reuse only this test's UUID under the application's temporary fixture directory.
         // Relaunch must load the existing draft and retained approved version rather than reseed.
         app.terminate()
-        app.launch()
+        MorningUITestNavigation.launch(app)
         MorningUITestNavigation.openRoutine(in: app)
         XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["routine.step.0"].label.contains(editedName), "The edited draft must survive relaunch.")
@@ -258,7 +258,7 @@ final class FixtureJourneyTests: XCTestCase {
         let interruptedStep = stepTitle(in: app)
         XCTAssertFalse(interruptedStep.isEmpty)
         app.terminate()
-        app.launch()
+        MorningUITestNavigation.launch(app)
         assertState("paused", in: app)
         XCTAssertEqual(stepTitle(in: app), interruptedStep, "Reopening must preserve the current step and require explicit continuation.")
         XCTAssertTrue(app.buttons["run.resume"].exists)
@@ -278,7 +278,7 @@ final class FixtureJourneyTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--fixture-mode",
                                "--ui-testing-workspace=\(UUID().uuidString)",
                                "--ui-testing-import-observation"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
 
         // The test hook imports a synthetic UTF-8 file while Learn is presented,
         // through the real async importer and the already-mounted observation editor.
@@ -291,7 +291,7 @@ final class FixtureJourneyTests: XCTestCase {
 
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-import-observation" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearnAndAssertNotes(expected, in: app)
         attachScreenshot("synthetic-import-restored-without-reimport", from: app)
 
@@ -303,7 +303,7 @@ final class FixtureJourneyTests: XCTestCase {
         XCTAssertTrue(corrected.contains("I also make tea."))
         closeLearn(in: app)
         app.terminate()
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearnAndAssertNotes(corrected, in: app)
         attachScreenshot("corrected-observation-restored-after-relaunch", from: app)
 
@@ -316,7 +316,7 @@ final class FixtureJourneyTests: XCTestCase {
         assertNotes("", in: app)
         XCTAssertFalse(clear.exists)
         app.terminate()
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearnAndAssertNotes("", in: app)
         XCTAssertFalse(app.buttons["learn.clear"].exists, "Cleared text must not return from disk or a test reimport.")
         attachScreenshot("synthetic-import-cleared-after-relaunch", from: app)
@@ -357,7 +357,7 @@ final class FixtureJourneyTests: XCTestCase {
         // Each launch uses an isolated temporary workspace and disables speech/automatic progression.
         app.launchArguments = ["--ui-testing", "--fixture-mode"]
         if let workspaceID { app.launchArguments.append("--ui-testing-workspace=\(workspaceID.uuidString)") }
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 
@@ -414,6 +414,25 @@ final class FixtureJourneyTests: XCTestCase {
 /// The historical method name keeps callers consistent without relying on a tab bar.
 @MainActor
 enum MorningUITestNavigation {
+    /// Fixture tests choose their interface language independently of earlier tests.
+    /// Ordinary app launches and tests that explicitly set a language keep their choice.
+    static func launch(_ app: XCUIApplication) {
+        if app.launchArguments.contains("--ui-testing") {
+            var arguments = app.launchArguments
+            if !arguments.contains("-more.appLanguage") {
+                let french = arguments.firstIndex(of: "-AppleLanguages").map { index in
+                    arguments.indices.contains(index + 1) && arguments[index + 1].contains("fr")
+                } ?? false
+                arguments += ["-more.appLanguage", french ? "fr" : "en"]
+            }
+            if !arguments.contains("-AppleLanguages") {
+                arguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            }
+            app.launchArguments = arguments
+        }
+        app.launch()
+    }
+
     /// Weather starts from the authorized current position. City-search journeys
     /// choose the manual source explicitly, in either shipped interface language.
     static func chooseManualWeatherCity(in app: XCUIApplication,

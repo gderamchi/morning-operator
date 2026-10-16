@@ -265,12 +265,12 @@ final class PlanBSystemDeviceTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: qaBundle)
         if isLab {
-            app.launchArguments = ["--qa-system-checks", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            app.launchArguments = ["--qa-system-checks", "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
             app.launchEnvironment.removeValue(forKey: "MORNING_OPERATOR_DATA_DIR")
         } else {
             app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
                 "--ui-testing-briefing-fixture", "--ui-testing-workspace=\(UUID().uuidString)",
-                "--qa-system-checks", "--light-preview", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+                "--qa-system-checks", "--light-preview", "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
             if nativeActivity { app.launchArguments.append("--ui-testing-live-activity") }
         }
         runningApp = app

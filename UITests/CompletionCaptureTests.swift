@@ -117,7 +117,7 @@ final class CompletionCaptureTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
             "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-approved", sample]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 
@@ -202,7 +202,7 @@ final class CompletionCaptureTests: XCTestCase {
     private func relaunch(_ app: XCUIApplication) {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-approved" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
     }
 
     private func tap(_ identifier: String, in app: XCUIApplication) {

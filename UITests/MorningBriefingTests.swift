@@ -30,7 +30,7 @@ final class MorningBriefingTests: XCTestCase {
         XCTAssertTrue(app.buttons["routine.approve"].exists)
         MorningUITestNavigation.closeRoutine(in: app)
 
-        app.terminate(); app.launch()
+        app.terminate(); MorningUITestNavigation.launch(app)
         MorningUITestNavigation.assertMorningAction("morning.reviewDraft", without: "run.start", in: app)
         openBriefing(app)
         let calendar = app.switches["briefing.calendar.synthetic-day-calendar"].firstMatch
@@ -201,7 +201,7 @@ final class MorningBriefingTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
             "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-briefing-fixture"] + extra
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 

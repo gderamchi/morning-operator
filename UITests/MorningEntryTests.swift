@@ -110,7 +110,7 @@ final class MorningEntryUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--light-preview", "--fixture-mode"] + arguments
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 }

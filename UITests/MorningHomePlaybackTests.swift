@@ -265,7 +265,8 @@ final class MorningHomePlaybackTests: XCTestCase {
 
     private func settingsButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         let button = app.buttons[identifier]
-        for _ in 0..<14 where !(button.exists && button.isHittable) {
+        for _ in 0..<14 {
+            if button.exists && button.isHittable { break }
             let form = app.collectionViews.firstMatch
             let container = form.exists ? form : app.scrollViews.firstMatch
             container.swipeUp()
