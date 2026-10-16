@@ -137,9 +137,10 @@ final class LocalizationJourneyTests: XCTestCase {
         for french in [true, false] {
             let code = french ? "fr" : "en"
             let app = XCUIApplication()
+            let workspace = UUID().uuidString
             app.launchArguments = ["--ui-testing", "--web-morning", "--web-morning-site=news", "--light-preview",
-                                   "--ui-testing-workspace=\(UUID().uuidString)", "-more.appLanguage", code, "-webMorning.explained", "NO"]
-            app.launch()
+                                   "--ui-testing-workspace=\(workspace)", "-more.appLanguage", code, "-webMorning.explained", "NO"]
+            launchConfirmedWorkspace(app, workspace: workspace)
             let explanation = app.buttons["web.aboutDone"]
             if explanation.waitForExistence(timeout: 4) {
                 attach("localization-\(code)-browser-explanation", app)
@@ -173,12 +174,23 @@ final class LocalizationJourneyTests: XCTestCase {
                                "-AppleLocale", systemLanguage == "fr" ? "fr_FR" : "en_US"]
         app.launchArguments += extraArguments
         if let initialLanguage { app.launchArguments += ["-more.appLanguage", initialLanguage] }
-        app.launch()
+        launchConfirmedWorkspace(app, workspace: workspace.uuidString)
         let home = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             app.buttons["morning.actions"].exists || app.scrollViews["morning.captions"].exists
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [home], timeout: 15), .completed, app.debugDescription)
         return app
+    }
+
+    private func launchConfirmedWorkspace(_ app: XCUIApplication, workspace: String) {
+        app.launch()
+        let marker = app.staticTexts["qa.testWorkspace"]
+        if !marker.waitForExistence(timeout: 5) || marker.value as? String != workspace {
+            app.terminate()
+            app.launch()
+        }
+        XCTAssertTrue(marker.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(marker.value as? String, workspace, app.debugDescription)
     }
 
     private func openSettings(_ app: XCUIApplication) {
@@ -221,7 +233,8 @@ final class LocalizationJourneyTests: XCTestCase {
         XCTAssertTrue(stop.waitForExistence(timeout: 5), app.debugDescription)
         let speaking = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", french ? "Lecture en cours…" : "Speaking…"), object: app.buttons["voice.preview"])
         XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 8), .completed, app.debugDescription)
-        stop.tap()
+        // The utterance may finish naturally after the speaking assertion. Done
+        // also stops any unfinished preview through the sheet's onDisappear.
         app.buttons["voice.done"].tap()
     }
 
