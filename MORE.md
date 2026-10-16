@@ -161,7 +161,7 @@ L'interface décrit précisément ce qui est disponible pour la personne. Une ca
 
 ### Préparer les accès après l’abonnement
 
-Les autorisations iPhone sont proposées après la confirmation de l’abonnement, essai compris, indépendamment de l'apprentissage de la routine qui peut attendre. Avant chaque demande système, une étape statique explique l'accès demandé, son usage concret et le contrôle conservé par la personne. Les demandes sont séquentielles ; microphone et reconnaissance vocale ont chacun leur explication. Un refus n'empêche pas de préparer les autres accès ni d'entrer dans l'app. Les accès non disponibles dans le build sont annoncés fidèlement. Les connexions aux comptes et le partage d'une vidéo gardent leur parcours explicite.
+Les choix d’accès font partie de l’onboarding, après la confirmation de l’abonnement, essai compris. Ils reprennent le paysage fixe, les polices et la palette solaire de la découverte de MORE : clairs le jour, sombres la nuit. Chaque écran présente un titre et une phrase utile ; le détail reste disponible sur demande. Après les accès, la personne peut découvrir sa routine ou rejoindre l’accueil et apprendre plus tard. Avant chaque demande système, une étape statique explique l'accès demandé, son usage concret et le contrôle conservé par la personne. Les demandes sont séquentielles ; microphone et reconnaissance vocale ont chacun leur explication. Un refus n'empêche pas de préparer les autres accès ni d'entrer dans l'app. Les accès non disponibles dans le build sont annoncés fidèlement. Les connexions aux comptes et le partage d'une vidéo gardent leur parcours explicite.
 
 ### Un accueil qui reflète le temps qu'il fait ici
 
