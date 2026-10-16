@@ -1154,7 +1154,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         return button
     }
     private func scrollTo(_ element: XCUIElement, identifier: String, in app: XCUIApplication) {
-        for _ in 0..<24 where !element.exists || !element.isHittable {
+        for attempt in 0..<24 where !element.exists || !element.isHittable {
             let scrolls = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex + app.scrollViews.allElementsBoundByIndex
             let scroll = scrolls.first { $0.isHittable } ?? app
             // UIKit reports a zero frame for an offscreen multiline text field,
@@ -1162,8 +1162,15 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             // Use that position so a newly shortened form can be found above us.
             let frame = element.exists && element.frame.height > 0 ? element.frame :
                 (element.exists ? element.descendants(matching: .any).allElementsBoundByIndex.first(where: { $0.frame.height > 0 })?.frame : nil)
-            if let frame, frame.height > 0, frame.midY < scroll.frame.midY { scroll.swipeDown() }
-            else { scroll.swipeUp() }
+            if let frame, frame.height > 0 {
+                if frame.midY < scroll.frame.midY { scroll.swipeDown() }
+                else { scroll.swipeUp() }
+            } else if attempt < 12 { scroll.swipeUp() }
+            else {
+                // SwiftUI virtualizes offscreen rows, including rows above a
+                // retained Settings position after returning from setup.
+                scroll.swipeDown()
+            }
         }
         if !element.exists || !element.isHittable { captureFailure("unreachable-\(identifier)", app) }
         XCTAssertTrue(element.exists, "Missing control: \(identifier)")
