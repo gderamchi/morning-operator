@@ -287,6 +287,15 @@ struct MorningRootView: View {
         .onChange(of: observationReviewCanPresent) { _, ready in if ready { processPendingEntries() } }
         .onChange(of: store.busy) { _, busy in if !busy { processPendingEntries() } }
         .onOpenURL { url in
+            #if DEBUG
+            let ownSchemes = ((Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]]) ?? [])
+                .flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
+            if let scheme = url.scheme, ownSchemes.contains(scheme), url.host == "watch-morning", !store.privacyBlocksWork, store.canStartRecording {
+                MorningIntentRouter.shared.requestWatchMorning()
+                store.tab = .review; showingLearn = true
+                return
+            }
+            #endif
             if store.handleNativeConnectionURL(url) { return }
             let scheme = Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "more"
             if let next = StepNavigation.parseNext(url, scheme: scheme) {
@@ -308,7 +317,12 @@ struct MorningRootView: View {
             synchronizeHomeWeather()
         }
         .onChange(of: store.briefing.prepared) { _, _ in synchronizeHomeWeather() }
-        .task { await initializeMorning() }
+        .task {
+            await initializeMorning()
+            #if DEBUG
+            if MorningStore.screenTimeAutoLearnRequested, !store.privacyBlocksWork { store.tab = .review; showingLearn = true }
+            #endif
+        }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             while !Task.isCancelled {

@@ -4,12 +4,16 @@ import MorningCore
 import MorningApple
 
 struct LearnView: View {
+    #if DEBUG
+    @MainActor static var autoLearnStarted = false
+    #endif
     @Bindable var store: MorningStore
     /// Where to go when learning is done. Without it, Learn dismisses itself.
     var onClose: (() -> Void)? = nil
     @ViewState<Bool> private var importing = false
     @ViewState<UUID?> private var importGeneration = nil
     @ViewState<Bool> private var recording = false
+    @ViewState<Bool> private var recordingStartsAtOnce = false
     @ViewState<Bool> private var confirmingObservation = false
     @ViewState<Bool> private var showingProposal = false
     @ViewState<Bool> private var awaitingSuggestion = false
@@ -181,11 +185,17 @@ struct LearnView: View {
         .navigationDestination(isPresented: $showingSavedObservations) {
             ObservationHistoryView(store: store, onLearn: { showingSavedObservations = false }, onEdit: { close() })
         }
-        .sheet(isPresented: $recording) {
-            RecordMorningView(canStartRecording: store.canStartRecording) { url in
+        .sheet(isPresented: $recording, onDismiss: { recordingStartsAtOnce = false }) {
+            RecordMorningView(canStartRecording: store.canStartRecording, startsAtOnce: recordingStartsAtOnce) { url in
                 store.importObservation(url)
             }
         }
+        #if DEBUG
+        .onChange(of: MorningIntentRouter.shared.pendingWatchMorning, initial: true) { _, pending in
+            guard pending, MorningIntentRouter.shared.consumeWatchMorning(), !recording else { return }
+            recordingStartsAtOnce = true; recording = true
+        }
+        #endif
         .sheet(isPresented: $confirmingObservation) {
             if let entry = store.selectedObservation {
                 ObservationDateEditor(store: store, entry: entry)
@@ -199,6 +209,13 @@ struct LearnView: View {
                 showingProposal = false
             })
         }
+        #if DEBUG
+        .task {
+            guard MorningStore.screenTimeAutoLearnRequested, !LearnView.autoLearnStarted else { return }
+            LearnView.autoLearnStarted = true
+            store.learnFromScreenTime()
+        }
+        #endif
         .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.routine?.id) { _, _ in
