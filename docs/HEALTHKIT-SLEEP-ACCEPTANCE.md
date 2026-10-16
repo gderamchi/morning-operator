@@ -10,7 +10,15 @@ Continuation `4e66385` adds separately consented VFC/HRV SDNN, resting heart rat
 
 The owner also authorized an explicit temporary Debug cross on onboarding/paywall, remembered across launches. It grants development access without a fake StoreKit transaction; Release retains verified subscription access. This removes the prototype’s blocked product-configuration gate while preserving the full onboarding presentation. Natural conversation is tracked separately in [NATURAL-VOICE.md](NATURAL-VOICE.md).
 
-The following evidence describes the earlier sleep checkpoint; the combined delivery result will identify its later source and installed build.
+## Combined integration checkpoint
+
+Combined code `4577ff4` passes 1,961 package tests; the ordinary app/widget/UI-test target and separate Demo build compile. Eight synthetic UI checks pass, including direct compact Health, pre-microphone disclosure and persistent Debug access; the final ten-test selection also checks explicit model configuration. A separate last Demo-only audio fix is retained from `76fef1d`. No personal Health store or microphone was exercised by these checks.
+
+The ordinary app was observed at 2026101605 before this final installation; it must not be confused with the older 1563 checkpoint. Final signing, backup, in-place installation and current-device acceptance are recorded separately below when complete.
+
+## Earlier sleep checkpoint (historical)
+
+The remaining sections describe the earlier sleep delivery. Their references to installed 1563 and a still-gated newer build are historical evidence, not the current device inventory.
 
 ## Delivered behavior
 
