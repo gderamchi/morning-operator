@@ -7724,6 +7724,119 @@
           }
         }
       }
+    },
+    "Male": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Male"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Homme"
+          }
+        }
+      }
+    },
+    "Female": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Female"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Femme"
+          }
+        }
+      }
+    },
+    "No voice is available for this language on this device.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No voice is available for this language on this device."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune voix n’est disponible pour cette langue sur cet appareil."
+          }
+        }
+      }
+    },
+    "Audio playback could not resume.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio playback could not resume."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture audio n’a pas pu reprendre."
+          }
+        }
+      }
+    },
+    "Audio output could not be prepared.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio output could not be prepared."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La sortie audio n’a pas pu être préparée."
+          }
+        }
+      }
+    },
+    "Audio output could not finish safely.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio output could not finish safely."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture audio n’a pas pu se terminer correctement."
+          }
+        }
+      }
+    },
+    "Cloud speech could not finish. Try again or continue with the controls.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud speech could not finish. Try again or continue with the controls."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture en ligne n’a pas pu se terminer. Réessayez ou continuez avec les commandes."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

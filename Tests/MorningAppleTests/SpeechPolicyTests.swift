@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Native voice selection")
 struct SpeechVoicePolicyTests {
-    @Test("Voice quality is preferred within the device's exact language and dialect")
+    @Test("Highest installed quality wins within the language; dialect breaks quality ties")
     func qualityAndDialectRanking() {
         let standard = voice("system", "en-GB", .standard)
         let enhanced = voice("enhanced", "en-GB", .enhanced)
@@ -14,7 +14,33 @@ struct SpeechVoicePolicyTests {
         #expect(SpeechVoicePolicy.recommended(from: [foreign, standard, enhanced, otherDialect, premium],
             language: "en_GB", systemVoiceID: standard.id)?.id == premium.id)
         #expect(SpeechVoicePolicy.recommended(from: [foreign, standard, otherDialect],
-            language: "en-GB")?.id == standard.id)
+            language: "en-GB")?.id == otherDialect.id)
+    }
+
+    @Test(arguments: MorningVoiceGender.allCases)
+    func chosenGenderWinsBeforeQualityWhenInstalled(gender: MorningVoiceGender) {
+        let other: MorningVoiceGender = gender == .female ? .male : .female
+        let chosen = SpeechVoiceDescriptor(id: "chosen", name: "chosen", language: "fr-FR", gender: gender)
+        let opposite = SpeechVoiceDescriptor(id: "opposite", name: "opposite", language: "fr-FR", quality: .premium, gender: other)
+        let unspecified = SpeechVoiceDescriptor(id: "unknown", name: "unknown", language: "fr-FR", quality: .premium)
+        #expect(SpeechVoicePolicy.recommended(from: [opposite, unspecified, chosen], language: "fr-FR", gender: gender) == chosen)
+    }
+
+    @Test func premiumThenEnhancedThenStandardWithinChosenGender() {
+        let standard = SpeechVoiceDescriptor(id: "standard", name: "standard", language: "fr-FR", gender: .female)
+        let enhanced = SpeechVoiceDescriptor(id: "enhanced", name: "enhanced", language: "fr-FR", quality: .enhanced, gender: .female)
+        let premium = SpeechVoiceDescriptor(id: "premium", name: "premium", language: "fr-CA", quality: .premium, gender: .female)
+        #expect(SpeechVoicePolicy.recommended(from: [standard, enhanced, premium], language: "fr-FR", gender: .female) == premium)
+        #expect(SpeechVoicePolicy.recommended(from: [standard, enhanced], language: "fr-FR", gender: .female) == enhanced)
+        #expect(SpeechVoicePolicy.recommended(from: [standard], language: "fr-FR", gender: .female) == standard)
+    }
+
+    @Test func unavailableGenderFallsBackWithinLanguageWithoutAssumingDownloads() {
+        let unknown = SpeechVoiceDescriptor(id: "unknown", name: "unknown", language: "fr-FR", quality: .enhanced)
+        let foreign = SpeechVoiceDescriptor(id: "foreign", name: "foreign", language: "en-US", quality: .premium, gender: .female)
+        #expect(SpeechVoicePolicy.recommended(from: [foreign, unknown], language: "fr-FR", gender: .female) == unknown)
+        #expect(SpeechVoicePolicy.recommended(from: [foreign], language: "fr-FR", gender: .female) == nil)
+        #expect(MorningVoiceGender.allCases.count == 2)
     }
 
     @Test("Fallback stays in the same language; unrelated premium voices do not win")

@@ -206,6 +206,10 @@ struct MorningRootView: View {
             processPendingEntries()
         }
         .onChange(of: store.speech.voiceIdentifier) { store.saveVoicePreference() }
+        .onChange(of: store.speech.voiceGender) { store.voicePreferenceChanged() }
+        .onChange(of: store.cloudVoice.state) { _, state in
+            if state == .failed { store.cloudConversationFailed() }
+        }
         .onChange(of: store.readAloud) { store.executionPreferencesChanged() }
         .onChange(of: store.automatic) { store.executionPreferencesChanged(); updateScreenAwake() }
         .onChange(of: store.session?.status, initial: true) { _, _ in

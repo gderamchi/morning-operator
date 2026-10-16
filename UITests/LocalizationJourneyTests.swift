@@ -3,7 +3,7 @@ import XCTest
 /// Synthetic data in a unique workspace. Never installs on or controls a physical phone.
 @MainActor
 final class LocalizationJourneyTests: XCTestCase {
-    func testLanguageSwitchPersistsAndFiltersInstalledVoices() {
+    func testLanguageSwitchPersistsAndKeepsTwoVoiceChoices() {
         continueAfterFailure = false
         let workspace = UUID()
         var app = launch(workspace: workspace, initialLanguage: "fr")
@@ -36,6 +36,41 @@ final class LocalizationJourneyTests: XCTestCase {
         choose("Français", in: app)
         XCTAssertTrue(picker.buttons["Français"].isSelected)
         verifyVoices(app, french: true)
+        app.terminate()
+    }
+
+    func testVoiceGenderPersistsAcrossLaunchAndLanguageWithoutStartingAudio() {
+        continueAfterFailure = false
+        let workspace = UUID()
+        var app = launch(workspace: workspace, initialLanguage: "en")
+        openSettings(app)
+        openVoiceChoices(app)
+        XCTAssertEqual(app.buttons["voice.gender.female"].value as? String, "Selected",
+                       "New workspaces start with the female voice.")
+        app.buttons["voice.gender.male"].tap()
+        XCTAssertEqual(app.buttons["voice.gender.male"].value as? String, "Selected")
+        XCTAssertEqual(app.alerts.count, 0, "Choosing a voice does not request microphone access.")
+        app.buttons["voice.done"].tap()
+        app.terminate()
+
+        app = launch(workspace: workspace, systemLanguage: "fr")
+        openSettings(app)
+        choose("Français", in: app)
+        openVoiceChoices(app)
+        XCTAssertEqual(app.buttons["voice.gender.male"].label, "Homme")
+        XCTAssertEqual(app.buttons["voice.gender.male"].value as? String, "Sélectionné")
+        app.buttons["voice.gender.female"].tap()
+        XCTAssertEqual(app.buttons["voice.gender.female"].value as? String, "Sélectionné")
+        XCTAssertEqual(app.alerts.count, 0)
+        app.buttons["voice.done"].tap()
+        app.terminate()
+
+        app = launch(workspace: workspace)
+        openSettings(app)
+        openVoiceChoices(app)
+        XCTAssertEqual(app.buttons["voice.gender.female"].label, "Femme")
+        XCTAssertEqual(app.buttons["voice.gender.female"].value as? String, "Sélectionné")
+        attach("voice-gender-restored-without-audio", app)
         app.terminate()
     }
 
@@ -276,33 +311,49 @@ final class LocalizationJourneyTests: XCTestCase {
     private func choose(_ language: String, in app: XCUIApplication) {
         let picker = app.segmentedControls["setup.language"]
         scrollTo(picker, in: app)
+        // A retained Settings position can put the segment under the navigation
+        // bar even when XCTest reports it hittable. Move the whole row clear.
+        let top = app.navigationBars.firstMatch.frame.maxY + 8
+        for _ in 0..<3 where picker.frame.minY < top {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+            let shift = min(180, max(60, top + 12 - picker.frame.minY))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: shift)))
+        }
+        XCTAssertGreaterThanOrEqual(picker.frame.minY, top, app.debugDescription)
         picker.buttons[language].tap()
         XCTAssertTrue(picker.buttons[language].isSelected, app.debugDescription)
     }
 
     private func verifyVoices(_ app: XCUIApplication, french: Bool) {
+        openVoiceChoices(app)
+        XCTAssertEqual(app.buttons["voice.gender.male"].label, french ? "Homme" : "Male")
+        XCTAssertEqual(app.buttons["voice.gender.female"].label, french ? "Femme" : "Female")
+        attach(french ? "localization-fr-voices" : "localization-en-voices", app)
+        let preview = app.buttons["voice.preview"]
+        XCTAssertEqual(preview.label, french ? "Écouter" : "Listen")
+        preview.tap()
+        let stop = app.buttons["voice.stopPreview"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5), app.debugDescription)
+        let speaking = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@",
+            french ? "Lecture en cours…" : "Speaking…"), object: preview)
+        XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 10), .completed, app.debugDescription)
+        XCTAssertEqual(app.alerts.count, 0, "The fixed sample never requests microphone access.")
+        stop.tap()
+        XCTAssertTrue(stop.waitForNonExistence(timeout: 5))
+        app.buttons["voice.done"].tap()
+    }
+
+    private func openVoiceChoices(_ app: XCUIApplication) {
         let voice = app.buttons["setup.voice"]
         scrollTo(voice, in: app)
         voice.tap()
-        let automatic = app.buttons["voice.default"]
-        XCTAssertTrue(automatic.waitForExistence(timeout: 10), app.debugDescription)
-        let language = app.staticTexts["voice.currentLanguage"]
-        scrollTo(language, in: app)
-        XCTAssertTrue(language.label.contains(french ? "Français" : "English"), language.label)
-        if french {
-            XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'voice.option.' AND label CONTAINS[c] 'Samantha'")).firstMatch.exists)
-        }
-        attach(french ? "localization-fr-voices" : "localization-en-voices", app)
-        // Exercise the actual simulator speech path, separately from phone audibility.
-        scrollTo(app.buttons["voice.preview"], in: app, upward: false)
-        app.buttons["voice.preview"].tap()
-        let stop = app.buttons["voice.stopPreview"]
-        XCTAssertTrue(stop.waitForExistence(timeout: 5), app.debugDescription)
-        let speaking = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", french ? "Lecture en cours…" : "Speaking…"), object: app.buttons["voice.preview"])
-        XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 8), .completed, app.debugDescription)
-        // The utterance may finish naturally after the speaking assertion. Done
-        // also stops any unfinished preview through the sheet's onDisappear.
-        app.buttons["voice.done"].tap()
+        XCTAssertTrue(app.buttons["voice.gender.male"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.buttons["voice.gender.female"].exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'voice.gender.'")).count, 2)
+        XCTAssertFalse(app.buttons["voice.default"].exists)
+        XCTAssertTrue(app.buttons["voice.preview"].exists)
+        XCTAssertEqual(app.searchFields.count, 0)
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "ElevenLabs")).firstMatch.exists)
     }
 
     private func back(_ app: XCUIApplication) {
@@ -329,5 +380,188 @@ final class LocalizationJourneyTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+/// Opt-in acceptance on the owner's ordinary installation. No workspace, language
+/// override, permission grant or routine execution is injected. Only the app's
+/// fixed, non-personal voice sample is sent through its ordinary playback route.
+@MainActor
+final class PhysicalLocalizationAcceptanceTests: XCTestCase {
+    func testFrenchEnglishVoiceChoicePersistsInOrdinaryApp() throws {
+        guard ProcessInfo.processInfo.environment["MORE_PHYSICAL_LOCALIZATION_ACCEPTANCE"] == "1" else {
+            throw XCTSkip("Physical language acceptance requires its explicit runner opt-in.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This acceptance requires a physical iPhone.")
+        #else
+        // Swift errors let the best-effort preference restoration run on failures too.
+        continueAfterFailure = true
+        let requirePrimary = ProcessInfo.processInfo.environment["MORE_REQUIRE_PRIMARY_PREVIEW"] == "1"
+        let app = XCUIApplication(bundleIdentifier: "com.gibouu.morningoperator")
+        app.launchArguments = []
+        app.launchEnvironment = [:]
+        try relaunchAndOpenSettings(app)
+        let picker = app.segmentedControls["setup.language"]
+        try reveal(picker, in: app)
+        let selectedLanguages = ["Français", "English"].filter { picker.buttons[$0].isSelected }
+        let originalLanguage = try XCTUnwrap(selectedLanguages.count == 1 ? selectedLanguages.first : nil)
+        try openVoices(app)
+        let originalGender = try selectedGender(in: app)
+        app.buttons["voice.done"].tap()
+        var restored = false
+        defer {
+            if !restored {
+                do { try restore(language: originalLanguage, gender: originalGender, in: app) }
+                catch { XCTFail("The original language and voice preferences could not be restored.") }
+            }
+        }
+
+        for language in ["Français", "English"] {
+            try reveal(picker, in: app)
+            XCTAssertEqual(picker.buttons.count, 2)
+            picker.buttons[language].tap()
+            XCTAssertTrue(picker.buttons[language].isSelected)
+            XCTAssertTrue(app.staticTexts[language == "Français" ? "Langue" : "Language"].exists)
+            for gender in ["male", "female"] {
+                try openVoices(app)
+                let male = app.buttons["voice.gender.male"], female = app.buttons["voice.gender.female"]
+                XCTAssertEqual(male.label, language == "Français" ? "Homme" : "Male")
+                XCTAssertEqual(female.label, language == "Français" ? "Femme" : "Female")
+                XCTAssertFalse(app.buttons["voice.default"].exists)
+                XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "voice.option.")).firstMatch.exists)
+                let chosen = app.buttons["voice.gender.\(gender)"]
+                chosen.tap()
+                XCTAssertEqual(try selectedGender(in: app), gender)
+                let preview = app.buttons["voice.preview"]
+                try reveal(preview, in: app)
+                preview.tap()
+                let speaking = XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "value == %@", language == "Français" ? "Lecture en cours…" : "Speaking…"),
+                    object: preview)
+                let playbackObserved = XCTWaiter.wait(for: [speaking], timeout: 40) == .completed
+                XCTAssertTrue(playbackObserved,
+                               "The selected voice did not begin physical playback.")
+                let backup = app.staticTexts.matching(NSPredicate(format: "label IN %@",
+                    ["La voix de secours est activée.", "Backup voice is active."])).firstMatch.exists
+                let capture = XCTAttachment(screenshot: app.screenshot())
+                capture.name = "physical-\(language == "Français" ? "fr" : "en")-voice-\(gender)"
+                capture.lifetime = .keepAlways
+                add(capture)
+                let ready = language == "Français" ? "Prêt à parler" : "Ready to speak"
+                let completion = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    preview.value as? String == ready && !app.buttons["voice.stopPreview"].exists
+                }, object: nil)
+                let finished = XCTWaiter.wait(for: [completion], timeout: 45) == .completed
+                XCTAssertTrue(finished, "The sample did not finish through its ordinary playback callback.")
+                XCTAssertEqual(app.state, .runningForeground)
+                let backupAfterPlayback = app.staticTexts.matching(NSPredicate(format: "label IN %@",
+                    ["La voix de secours est activée.", "Backup voice is active."])).firstMatch.exists
+                let unavailable = app.staticTexts.matching(NSPredicate(format: "label IN %@",
+                    ["L’exemple vocal est indisponible. Réessayez.", "The voice sample is unavailable. Try again."])).firstMatch.exists
+                XCTAssertFalse(unavailable, "The voice sample reported a playback failure.")
+                if requirePrimary {
+                    XCTAssertFalse(backup || backupAfterPlayback,
+                                   "The primary voice failed; Apple backup playback is not a primary-provider pass.")
+                }
+                let route = playbackObserved ? (backup || backupAfterPlayback ? "apple-backup" : "primary") : "unconfirmed"
+                let report = XCTAttachment(string: "language=\(language == "Français" ? "fr" : "en"); gender=\(gender); playback=\(route); finished=\(finished); primaryRequired=\(requirePrimary)")
+                report.name = "physical-voice-route"
+                report.lifetime = .keepAlways
+                add(report)
+                app.buttons["voice.done"].tap()
+
+                try relaunchAndOpenSettings(app)
+                try reveal(picker, in: app)
+                XCTAssertTrue(picker.buttons[language].isSelected,
+                              "The ordinary app did not retain its language across relaunch.")
+                try openVoices(app)
+                XCTAssertEqual(try selectedGender(in: app), gender,
+                               "The ordinary app did not retain its voice choice across relaunch.")
+                app.buttons["voice.done"].tap()
+            }
+        }
+        try restore(language: originalLanguage, gender: originalGender, in: app)
+        restored = true
+        #endif
+    }
+
+    private func restore(language: String, gender: String, in app: XCUIApplication) throws {
+        try relaunchAndOpenSettings(app)
+        let picker = app.segmentedControls["setup.language"]
+        try reveal(picker, in: app)
+        picker.buttons[language].tap()
+        try openVoices(app)
+        app.buttons["voice.gender.\(gender)"].tap()
+        app.buttons["voice.done"].tap()
+        try relaunchAndOpenSettings(app)
+        try reveal(picker, in: app)
+        XCTAssertTrue(picker.buttons[language].isSelected)
+        try openVoices(app)
+        XCTAssertEqual(try selectedGender(in: app), gender)
+        app.buttons["voice.done"].tap()
+        app.navigationBars.buttons.firstMatch.tap()
+    }
+
+    private func relaunchAndOpenSettings(_ app: XCUIApplication) throws {
+        app.terminate()
+        app.launch()
+        guard app.wait(for: .runningForeground, timeout: 15) else {
+            throw unreachable("The ordinary app did not reach the foreground.")
+        }
+        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
+        XCTAssertFalse(app.staticTexts["onboarding.preview"].exists)
+        let landscape = app.buttons["morning.actions"]
+        guard landscape.waitForExistence(timeout: 12) else {
+            throw XCTSkip("The ordinary app's existing access/setup does not expose Home; no grant was changed.")
+        }
+        let settings = app.buttons["morning.settings"]
+        for _ in 0..<3 {
+            if settings.exists && settings.isHittable { break }
+            landscape.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.65)).tap()
+            if settings.waitForExistence(timeout: 2) { break }
+        }
+        guard settings.exists && settings.isHittable else { throw unreachable("Settings was not reachable.") }
+        settings.tap()
+        guard app.buttons["setup.connections"].waitForExistence(timeout: 10) else {
+            throw unreachable("The ordinary Settings did not appear.")
+        }
+    }
+
+    private func openVoices(_ app: XCUIApplication) throws {
+        let voice = app.buttons["setup.voice"]
+        try reveal(voice, in: app)
+        guard voice.isEnabled else {
+            throw XCTSkip("Voice selection is unavailable during the existing morning session; it was not stopped or reset.")
+        }
+        voice.tap()
+        guard app.buttons["voice.gender.male"].waitForExistence(timeout: 15) else {
+            throw unreachable("The ordinary voice choices did not appear.")
+        }
+    }
+
+    private func selectedGender(in app: XCUIApplication) throws -> String {
+        let selected = ["male", "female"].filter { gender in
+            let button = app.buttons["voice.gender.\(gender)"]
+            return button.isSelected || ["Selected", "Sélectionné"].contains(button.value as? String ?? "")
+        }
+        return try XCTUnwrap(selected.count == 1 ? selected.first : nil)
+    }
+
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication) throws {
+        for upward in [true, false] {
+            for _ in 0..<14 {
+                if element.exists && element.isHittable { return }
+                let list = app.collectionViews.firstMatch
+                let container = list.exists ? list : app.scrollViews.firstMatch
+                if upward { container.swipeUp() } else { container.swipeDown() }
+            }
+        }
+        throw unreachable("The language or voice control was not reachable.")
+    }
+
+    private func unreachable(_ message: String) -> NSError {
+        NSError(domain: "MOREPhysicalLocalization", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: message])
     }
 }

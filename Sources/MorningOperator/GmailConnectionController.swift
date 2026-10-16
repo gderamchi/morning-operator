@@ -359,7 +359,8 @@ final class GmailConnectionController {
                 }
             }
             browser.presentationContextProvider = presenter
-            browser.prefersEphemeralWebBrowserSession = true
+            // Reuse the owner's browser sign-in; the OAuth callback still requires this request's state and PKCE.
+            browser.prefersEphemeralWebBrowserSession = false
             authentication = browser
             if !browser.start() {
                 callback = nil; authentication = nil

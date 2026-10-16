@@ -388,8 +388,16 @@ final class MorningStore {
     @ObservationIgnored var cloudVoiceMemoryTurnID: UUID?
     @ObservationIgnored var cloudVoiceConsentGeneration: UUID?
     @ObservationIgnored var cloudVoiceConsentSession: UUID?
+    @ObservationIgnored var cloudVoiceStartAttempt: UUID?
     var cloudVoiceReleasing = false
     var cloudVoiceStartIssue: String?
+    var voiceFallbackMessage: String?
+    @ObservationIgnored var naturalSpeechConsent: MorningNaturalSpeechConsent?
+    @ObservationIgnored var naturalSpeechDeclined: MorningNaturalSpeechConsent?
+    @ObservationIgnored var naturalSpeechFailed = false
+    @ObservationIgnored var cloudVoiceFallbackTask: Task<Void, Never>?
+    @ObservationIgnored var cloudVoiceReleaseTask: Task<Void, Never>?
+    @ObservationIgnored var voicePreviewAttempt: UUID?
 
     init() {
         let fixtureMode = ProcessInfo.processInfo.arguments.contains("--ui-testing")
@@ -626,7 +634,8 @@ final class MorningStore {
                 handsFreeListeningSuppressedSessionID = saved.session?.id == saved.handsFreeListeningSuppressedSessionID
                     ? saved.handsFreeListeningSuppressedSessionID : nil
                 showMorningOnLockScreen = saved.showMorningOnLockScreen ?? true
-                speech.voiceIdentifier = saved.voiceIdentifier
+                speech.voiceGender = saved.voiceGender.flatMap(MorningVoiceGender.init(rawValue:))
+                    ?? speech.availableVoices.first(where: { $0.id == saved.voiceIdentifier })?.gender ?? .female
                 if let archive = saved.observationArchive {
                     observationArchive = archive
                     projectObservation(saved.selectedObservationID.flatMap { archive.entry(id: $0)?.id })
@@ -1064,9 +1073,16 @@ final class MorningStore {
                       !speech.handsFreeAudioSessionIsOwned else { return false }
             }
         }
-        if automatic, !suppressed, !bypassesVoicePreparationForUITests,
-           (!voiceAccess.refresh(language: voicePreparationLanguage).isReady && decision?.listen != false) ||
-            (forcesVoicePreparationReviewForUITests && decision == nil) {
+        let resumingCloud = session?.status == .paused && cloudVoice.isActive &&
+            cloudVoiceConsentSession == session?.id && cloudVoiceConsentGeneration == dataGeneration
+        let needsListeningPreparation = automatic && !suppressed && !resumingCloud &&
+            !voiceAccess.refresh(language: voicePreparationLanguage).isReady && decision?.listen != false
+        // A terminal session's choice cannot cover the new identity created below.
+        let keepsSpeechDecision = session?.status == .paused && hasNaturalSpeechDecision
+        let needsSpeechConsent = (automatic || readAloud) && !resumingCloud &&
+            !keepsSpeechDecision && decision == nil
+        if !bypassesVoicePreparationForUITests,
+           needsListeningPreparation || needsSpeechConsent || (forcesVoicePreparationReviewForUITests && decision == nil) {
             if voiceStartRequest?.routineVersionID != routine.id || voiceStartRequest?.generation != dataGeneration ||
                voiceStartRequest?.originalSessionID != session?.id || voiceStartRequest?.originalSessionStatus != session?.status ||
                 voiceStartRequest?.entryID != entryID || voiceStartRequest == nil {
@@ -1102,6 +1118,12 @@ final class MorningStore {
                 pauseAfterSaveFailure()
                 return false
             }
+            if let decision {
+                naturalSpeechConsent = decision.onlineSpeech ? naturalSpeechScope : nil
+                naturalSpeechDeclined = decision.onlineSpeech ? nil : naturalSpeechScope
+                naturalSpeechFailed = false; voiceFallbackMessage = nil
+            }
+            configureNaturalSpeech()
             // A new morning opens first: the opening decides when its routine begins
             // (issue #99). A resumed one continues.
             if beginsMorning {
@@ -1172,6 +1194,11 @@ final class MorningStore {
         guard !slackReply.isActive else {
             notice = AppLanguage.isFrench ? "Terminez la réponse Slack ou fermez cette demande avant de reprendre."
                 : "Finish the Slack reply or close this request before resuming."
+            return
+        }
+        if !bypassesVoicePreparationForUITests, (automatic || readAloud),
+           !hasNaturalSpeechDecision, !cloudVoice.isActive {
+            _ = start()
             return
         }
         do {
@@ -3043,7 +3070,7 @@ final class MorningStore {
                 showMorningOnLockScreen: showMorningOnLockScreen,
                 sessionTimingInterrupted: sessionTimingInterrupted,
                 budgetAndFeedback: budgetAndFeedback,
-                pendingCaptures: pendingCaptures, voiceIdentifier: speech.voiceIdentifier,
+                pendingCaptures: pendingCaptures, voiceIdentifier: nil, voiceGender: speech.voiceGender.rawValue,
                 observationNotes: notes.isEmpty ? nil : notes,
                 observationSource: notes.isEmpty && observationVideoEvidence == nil ? nil : notesSourceLabel,
                 observationVideoEvidence: observationVideoEvidence,
@@ -3292,7 +3319,10 @@ final class MorningStore {
         observationSelectionPresented = false; routineProposalPresented = false
         consumedMorningEntryIDs = []; sessionTimingInterrupted = false; sessionTimeZone = TimeZone.current.identifier
         setAsideWorkspaceElements = []
-        readAloud = true; automatic = true; speech.voiceIdentifier = nil
+        readAloud = true; automatic = true; speech.voiceIdentifier = nil; speech.voiceGender = .female
+        naturalSpeechConsent = nil; naturalSpeechDeclined = nil
+        naturalSpeechFailed = false; voiceFallbackMessage = nil
+        speech.cloudSpeech = nil; speech.externalSpeechFallback = nil
         showMorningOnLockScreen = false; morningActivityIssue = nil; morningActivitySaveBlocked = false
         morningActivityStartSessionID = nil
         morningActivityStartRequestID = nil

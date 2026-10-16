@@ -121,7 +121,9 @@ Le contexte doit suivre la conversation : « oui », « non », « réponds-lui 
 
 Le modèle prépare et propose les opérations ; le moteur d'exécution applique les autorisations, la routine validée et les instructions de la personne. Les contenus d'un mail ou d'une page ne constituent pas des ordres de l'utilisateur.
 
-Le choix du modèle, de la reconnaissance et de la synthèse vocale reste une décision d'implémentation à évaluer sur la latence, l'interruption, la compréhension et la qualité d'exécution. Ce document n'active aucun modèle distant et ne change pas le principe local par défaut.
+Décision du 16 octobre 2026 : les réglages de voix proposent seulement **Homme** et **Femme**, avec un exemple à écouter. ElevenLabs assure la voix naturelle après l'accord sur les textes transmis ; le fournisseur ne constitue pas un choix de réglage. En cas d'indisponibilité, MORE libère l'audio distant puis continue avec la meilleure voix Apple installée dans la langue choisie, en privilégiant Premium, puis Enhanced, puis Standard. MORE ne promet pas une voix Premium absente de l'iPhone. L'exemple fixe ne nécessite ni micro ni données personnelles.
+
+Le modèle et la reconnaissance restent des décisions distinctes de la synthèse vocale. Le secours audio ne change pas le modèle d'inférence, ne transmet pas de nouvelles données et ne rejoue aucune action. Le principe d'inférence locale par défaut et l'accord préalable pour les routes distantes restent applicables.
 
 ### Modèle et mémoire personnelle
 

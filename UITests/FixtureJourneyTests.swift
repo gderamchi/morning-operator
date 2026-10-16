@@ -53,21 +53,22 @@ final class VoicePlaybackTests: XCTestCase {
         }
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--fixture-mode"]
+        app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-workspace=\(UUID().uuidString)",
+                               "-more.appLanguage", "en", "-AppleLanguages", "(en)"]
+        defer { app.terminate() }
         MorningUITestNavigation.launch(app)
         MorningUITestNavigation.reviewAction("navigation.setup", in: app)
-        let preview = app.buttons["setup.testVoice"]
+        MorningUITestNavigation.tapButton("setup.voice", in: app)
+        let preview = app.buttons["voice.preview"]
         XCTAssertTrue(preview.waitForExistence(timeout: 5))
-        let sheet = app.scrollViews.containing(.button, identifier: "setup.testVoice").firstMatch
-        for _ in 0..<4 where !preview.isHittable { sheet.swipeUp() }
         XCTAssertTrue(preview.isHittable)
         preview.tap()
-        let status = app.staticTexts["setup.speechStatus"]
-        XCTAssertTrue(status.waitForExistence(timeout: 5))
-        let started = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "speaking"), object: status)
+        let started = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Speaking…"), object: preview)
         XCTAssertEqual(XCTWaiter.wait(for: [started], timeout: 5), .completed)
-        let finished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND label == %@", "idle", "Ready to speak"), object: status)
+        let finished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Ready to speak"), object: preview)
         XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 25), .completed)
+        XCTAssertFalse(app.buttons["voice.stopPreview"].exists)
+        XCTAssertEqual(app.alerts.count, 0, "The synthetic voice sample does not request microphone access.")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "system-voice-preview-completed-listener-confirmation-separate"
         shot.lifetime = .keepAlways

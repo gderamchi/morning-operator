@@ -25,8 +25,9 @@ final class MorningHomePlaybackTests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         assertSettingsAppearance("day", in: app)
         settingsButton("setup.voice", in: app).tap()
-        XCTAssertTrue(app.buttons["voice.default"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.navigationBars["Your morning voice"].exists)
+        XCTAssertTrue(app.buttons["voice.gender.male"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["voice.gender.female"].exists)
+        XCTAssertTrue(app.navigationBars["Voice"].exists)
         XCTAssertTrue(app.buttons["voice.done"].isHittable)
         attach("settings-day-voice", app)
         app.buttons["voice.done"].tap()
@@ -57,6 +58,17 @@ final class MorningHomePlaybackTests: XCTestCase {
         XCTAssertTrue(app.buttons["connections.instagram"].exists)
         attach("settings-night-french-largest-apps-and-accounts", app)
         app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("night", in: app)
+        settingsButton("setup.voice", in: app).tap()
+        let male = app.buttons["voice.gender.male"]
+        let female = app.buttons["voice.gender.female"]
+        XCTAssertTrue(male.waitForExistence(timeout: 5))
+        XCTAssertEqual(male.label, "Homme")
+        XCTAssertEqual(female.label, "Femme")
+        assertFitsOnScreen(male, in: app)
+        assertFitsOnScreen(female, in: app)
+        attach("settings-night-french-largest-voice", app)
+        app.buttons["voice.done"].tap()
         assertSettingsAppearance("night", in: app)
     }
 

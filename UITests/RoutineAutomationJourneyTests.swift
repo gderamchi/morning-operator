@@ -733,6 +733,69 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         attach("automation-google-calendar-unavailable-honest-recap", app)
     }
 
+    func testEachNewMorningReviewsReadingConsentButSameSessionCanResume() {
+        for french in [true, false] {
+            let app = launch(["--ui-testing-automation", "--ui-testing-approved", "--ui-testing-read-aloud",
+                              "--ui-testing-natural-voice-consent"], french: french)
+            defer { app.terminate() }
+            reveal(app)
+            app.buttons["morning.begin"].tap()
+            let consent = app.staticTexts["voice.readingConsent"]
+            XCTAssertTrue(consent.waitForExistence(timeout: 8))
+            XCTAssertTrue(consent.label.contains(french ? "traités en ligne" : "processed online"))
+            XCTAssertFalse(app.buttons["morning.playback"].exists)
+            XCTAssertEqual(app.alerts.count, 0, "Reading consent must not request microphone access.")
+            attach(french ? "voice-reading-consent-first-morning-fr" : "voice-reading-consent-first-morning-en", app)
+            tapVisible("voice.access.withoutOnlineVoice", in: app)
+
+            let captions = app.scrollViews["morning.captions"]
+            XCTAssertTrue(captions.waitForExistence(timeout: 10))
+            let identity = captions.value as? String
+            let identifiers = identity?.components(separatedBy: "|") ?? []
+            XCTAssertEqual(identifiers.count, 2)
+            XCTAssertTrue(identifiers.allSatisfy { UUID(uuidString: $0) != nil })
+            func playback() -> XCUIElement {
+                let control = app.buttons["morning.playback"]
+                if !control.exists || !control.isHittable { captions.tap() }
+                XCTAssertTrue(control.waitForExistence(timeout: 5))
+                XCTAssertTrue(control.isHittable)
+                return control
+            }
+            let control = playback()
+            // The opening's Continue starts the first timed moment when needed.
+            if control.label != "Pause" { control.tap() }
+            let running = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Pause"), object: control)
+            XCTAssertEqual(XCTWaiter.wait(for: [running], timeout: 10), .completed)
+            playback().tap()
+            XCTAssertEqual(playback().label, french ? "Continuer" : "Continue")
+            playback().tap()
+            XCTAssertFalse(consent.waitForExistence(timeout: 1), "Resuming the same morning retains its reading decision.")
+            XCTAssertEqual(captions.value as? String, identity, "Resume must preserve the session and current moment.")
+
+            let settings = app.buttons["morning.settings"]
+            // Floating controls disappear after five seconds. Reveal them on
+            // the landscape rather than scrolling the current caption.
+            if !settings.exists || !settings.isHittable { captions.tap() }
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            XCTAssertTrue(settings.isHittable)
+            settings.tap()
+            tapVisible("morning.stop", in: app)
+            XCTAssertTrue(app.buttons["morning.stop"].waitForNonExistence(timeout: 5))
+            let back = app.navigationBars.buttons.firstMatch
+            XCTAssertTrue(back.exists); back.tap()
+            reveal(app)
+            XCTAssertTrue(app.buttons["morning.begin"].waitForExistence(timeout: 5))
+            app.buttons["morning.begin"].tap()
+            XCTAssertTrue(consent.waitForExistence(timeout: 8),
+                          "A stopped morning's decision cannot authorize a new morning.")
+            XCTAssertTrue(app.buttons["voice.access.withoutOnlineVoice"].exists)
+            XCTAssertFalse(app.buttons["morning.playback"].exists)
+            XCTAssertEqual(app.alerts.count, 0)
+            attach(french ? "voice-reading-consent-new-after-stop-fr" : "voice-reading-consent-new-after-stop-en", app)
+            app.terminate()
+        }
+    }
+
     func testVoicePreparationCanStartWithoutListeningAndDoesNotReopenAfterForeground() {
         let app = launch(["--ui-testing-automation", "--ui-testing-approved", "--ui-testing-hands-free", "--ui-testing-voice-preparation"])
         defer { app.terminate() }
