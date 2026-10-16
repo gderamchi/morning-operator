@@ -26,7 +26,11 @@ struct GmailAttentionModelIntegrationTests {
         }
         let preferences = try GmailAttentionPreferences(priorities:
             "Privilégier les demandes familiales et les actions pour le projet Cèdre. Les promotions et newsletters peuvent attendre.")
-        let selection = try await GmailAttentionService().select(messages: messages, preferences: preferences, french: true)
+        let service = GmailAttentionService()
+        let selection = try await service.select(messages: messages, preferences: preferences, french: true)
+        if let failure = service.lastFailure {
+            print("GMAIL_ATTENTION_MODEL_FAILURE: \(failure). No prompt, mail text or raw native error is logged.")
+        }
         try #require(selection.mode == .localProposal, "A deterministic fallback is not evidence of successful model selection.")
         #expect(!selection.isSynthetic, "The messages are invented, but this invocation must use the actual local model.")
         #expect(Set(selection.items.map(\.id)) == ["synthetic-1", "synthetic-3", "synthetic-4"])
