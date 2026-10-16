@@ -216,7 +216,14 @@ final class MorningWelcomeFlowTests: XCTestCase {
             "-AppleLanguages", "(\(preferredLanguages.joined(separator: ", ")))",
             "-AppleLocale", localeIdentifier ?? (french ? "fr_FR" : "en_US")
         ] + extra
+        XCUIDevice.shared.orientation = .portrait
         app.launch()
+        XCUIDevice.shared.orientation = .portrait
+        let portrait = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = app.frame
+            return frame.height > frame.width
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [portrait], timeout: 5), .completed, app.debugDescription)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "onboarding.preview").firstMatch
             .waitForExistence(timeout: 10), "This suite requires the nonvisual preview root: \(app.debugDescription)")
         XCTAssertFalse(app.staticTexts["onboarding.preview"].exists, "Preview identification must not create a visible badge.")
@@ -259,15 +266,28 @@ final class MorningWelcomeFlowTests: XCTestCase {
 
     private func reach(_ element: XCUIElement, in app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 5), app.debugDescription)
-        for _ in 0..<10 where !element.isHittable {
-            if app.scrollViews.firstMatch.exists {
-                let scroll = app.scrollViews.firstMatch
-                if element.frame.midY < scroll.frame.minY { scroll.swipeDown() }
-                else { scroll.swipeUp() }
-            }
-            else { app.swipeUp() }
+        let scroll = app.scrollViews.firstMatch
+        func viewport() -> CGRect {
+            (scroll.exists ? scroll.frame : app.frame).intersection(app.frame)
         }
-        XCTAssertTrue(element.isHittable, "The control must remain reachable: \(app.debugDescription)")
+        func visibleAndHittable() -> Bool {
+            let frame = element.frame
+            // XCTest can throw instead of returning false for an offscreen activation point.
+            return !frame.isEmpty && viewport().contains(CGPoint(x: frame.midX, y: frame.midY))
+                && element.isHittable
+        }
+        for _ in 0..<10 {
+            if visibleAndHittable() { return }
+            let above = element.frame.midY < viewport().midY
+            if scroll.exists {
+                if above { scroll.swipeDown() }
+                else { scroll.swipeUp() }
+            } else {
+                if above { app.swipeDown() }
+                else { app.swipeUp() }
+            }
+        }
+        XCTAssertTrue(visibleAndHittable(), "The control must remain visible and reachable: \(app.debugDescription)")
     }
 
     private func attach(_ name: String, _ app: XCUIApplication) {
