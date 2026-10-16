@@ -1,5 +1,7 @@
 # Get started with MORE
 
+Current access/location/weather behavior and verification: [location and weather checks](LOCATION-WEATHER-QA.md).
+
 16 October 2026. [MORE.md](../MORE.md) is the product reference. The full-screen solar/weather Home is tracked in [PR #170](https://github.com/gibouu/morning-operator/pull/170); use the ordinary **MORE** app. The latest final-install checkpoint is in [#171](https://github.com/gibouu/morning-operator/issues/171). The current shared story is in [demo requirements](DEMO-REQUIREMENTS.md); [the iOS team guide](IOS-TEAM-GUIDE.md) maps features and ownership. Older screenshots and historical phone checks do not establish current behavior.
 
 Home opens with a full-screen dotted sky. The large sun or crescent crosses a shallow arc around the middle of the screen; a fine printed dot texture covers the uniform background, stars span the night sky, and four slightly larger trees stay near the bottom. Touch the sky anywhere to reveal **Begin**, **My routine** and **Settings**; use Close or the exposed sky to hide the menu. My routine opens Learn when no routine exists and the routine editor otherwise. Opening controls never starts playback.
