@@ -82,9 +82,21 @@ public final class SpeechCoordinator: NSObject {
     /// Session-only duplex ownership. The listener releases the shared session
     /// after playback has stopped; ordinary speech keeps its existing ownership.
     public var handsFreeAudioSessionIsOwned = false
-    /// Installed only after explicit cloud narration consent; failure never falls back to system speech.
+    /// Installed only after explicit cloud narration consent.
     @ObservationIgnored public var externalSpeech: (@MainActor (String) async throws -> Void)?
     @ObservationIgnored public var cancelExternalSpeech: (@MainActor () -> Void)?
+    /// An explicit cloud-to-Apple recovery policy. It must release the cloud audio
+    /// owner and reject stale consent/context before returning. Cancellation never invokes it.
+    @ObservationIgnored public var externalSpeechFallback: (@MainActor () async throws -> Void)?
+    /// Text-only synthesis, installed by the app after its sharing disclosure.
+    /// The duplex SDK route above takes priority while explicitly connected.
+    @ObservationIgnored public var cloudSpeech: (@MainActor (String, MorningVoiceGender) async throws -> Data)?
+    /// The workspace persists this preference; the coordinator holds no durable consent.
+    public var voiceGender: MorningVoiceGender = .female {
+        didSet {
+            if oldValue != voiceGender { chosenVoiceIdentifier = nil; stop() }
+        }
+    }
     public private(set) var currentText: String?
     /// Only the passage currently being spoken; never persisted as a transcript.
     public var currentCaption: String? { captionProgress.currentCaption }
@@ -119,19 +131,19 @@ public final class SpeechCoordinator: NSObject {
 
     public var recommendedVoice: SpeechVoiceDescriptor? {
         SpeechVoicePolicy.recommended(from: availableVoices, language: preferredLanguage,
+            gender: voiceGender,
             systemVoiceID: AVSpeechSynthesisVoice(language: preferredLanguage)?.identifier)
     }
 
     public var selectedVoice: SpeechVoiceDescriptor? {
         let voices = availableVoices
-        if let voiceIdentifier, let selected = voices.first(where: { $0.id == voiceIdentifier && matchesPreferredLanguage($0.language) }) { return selected }
         return SpeechVoicePolicy.recommended(from: voices, language: preferredLanguage,
-            systemVoiceID: AVSpeechSynthesisVoice(language: preferredLanguage)?.identifier)
+            gender: voiceGender,
+            systemVoiceID: voiceIdentifier ?? AVSpeechSynthesisVoice(language: preferredLanguage)?.identifier)
     }
 
     public var selectedVoiceSummary: String {
-        guard let voice = selectedVoice else { return AppLanguage.localized("No compatible installed voice", bundle: .module) }
-        return "\(voice.name) · \(voice.quality.displayName)"
+        AppLanguage.localized(voiceGender == .male ? "Male" : "Female", bundle: .module)
     }
 
     public var previewText: String {
@@ -146,7 +158,8 @@ public final class SpeechCoordinator: NSObject {
         AVSpeechSynthesisVoice.speechVoices()
             .filter { Self.isBuiltInVoice($0) && matchesPreferredLanguage($0.language) }
             .map { SpeechVoiceDescriptor(id: $0.identifier, name: $0.name, language: $0.language,
-                quality: SpeechVoiceQuality(rawValue: $0.quality.rawValue) ?? .standard) }
+                quality: SpeechVoiceQuality(rawValue: $0.quality.rawValue) ?? .standard,
+                gender: $0.gender == .male ? .male : $0.gender == .female ? .female : nil) }
             .sorted {
                 let leftMatch = SpeechVoicePolicy.languageMatch($0.language, preferredLanguage)
                 let rightMatch = SpeechVoicePolicy.languageMatch($1.language, preferredLanguage)
@@ -162,12 +175,20 @@ public final class SpeechCoordinator: NSObject {
     private var captionProgress = SpeechCaptionProgress()
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
     @ObservationIgnored private var duplexOutput: MorningDuplexSpeechOutput?
+    @ObservationIgnored private let audioDataOutput = SpeechAudioDataOutput()
+    @ObservationIgnored private var currentAudioData: Data?
+    @ObservationIgnored private var outputRevision = UUID()
+    @ObservationIgnored private var audioCaptionTask: Task<Void, Never>?
     @ObservationIgnored private var currentUtterance: ObjectIdentifier?
     @ObservationIgnored private var speechRequestID: UUID?
     @ObservationIgnored private var completion: CheckedContinuation<Void, any Error>?
     @ObservationIgnored private var routeTask: Task<Void, Never>?
     @ObservationIgnored private var interruptionTask: Task<Void, Never>?
     @ObservationIgnored private var activationTask: Task<Void, Never>?
+    /// Injected by shared tests to observe completion without opening an audio device.
+    @ObservationIgnored private var localSpeechOutput: (@MainActor (String, SpeechVoiceDescriptor?) async throws -> Void)?
+    @ObservationIgnored private var audioDataPlayback: (@MainActor (Data) async throws -> Void)?
+    @ObservationIgnored private var externalSpeechLocale: @MainActor () -> Locale = { AppLanguage.locale }
     @ObservationIgnored private lazy var audioSession = SpeechAudioSessionGate(
         activate: { [weak self] in
             try await Self.activateAudioSession(handsFree: self?.handsFreeAudioSessionIsOwned == true)
@@ -207,10 +228,23 @@ public final class SpeechCoordinator: NSObject {
         #endif
     }
 
+    convenience init(localSpeechOutput: @escaping @MainActor (String, SpeechVoiceDescriptor?) async throws -> Void,
+                     audioDataPlayback: (@MainActor (Data) async throws -> Void)? = nil) {
+        self.init()
+        self.localSpeechOutput = localSpeechOutput
+        self.audioDataPlayback = audioDataPlayback
+    }
+
+    convenience init(externalSpeechLocale: @escaping @MainActor () -> Locale) {
+        self.init()
+        self.externalSpeechLocale = externalSpeechLocale
+    }
+
     deinit {
         routeTask?.cancel()
         interruptionTask?.cancel()
         activationTask?.cancel()
+        audioCaptionTask?.cancel()
     }
 
     public func speak(_ text: String) {
@@ -258,6 +292,7 @@ public final class SpeechCoordinator: NSObject {
         speechRequestID = requestID
         captionProgress.begin(text, requestID: requestID)
         state = .preparing
+        let route = UUID(); outputRevision = route
         if let externalSpeech {
             activationTask = Task { @MainActor [weak self] in
                 guard let self, !Task.isCancelled, speechRequestID == requestID else { return }
@@ -267,21 +302,123 @@ public final class SpeechCoordinator: NSObject {
                     try await externalSpeech(text)
                     try Task.checkCancellation()
                     finishExternalSpeech(requestID: requestID, result: .success(()))
-                } catch { finishExternalSpeech(requestID: requestID, result: .failure(error)) }
+                } catch {
+                    await recoverAppleSpeech(error, text: text, requestID: requestID, requiresRelease: true)
+                }
             }
             return
         }
         activationTask = Task { [weak self] in
             guard let self, !Task.isCancelled, speechRequestID == requestID else { return }
             do {
-                let prepared = try await audioSession.prepare(for: requestID).value
-                guard prepared, !Task.isCancelled, speechRequestID == requestID else { return }
-                enqueueSpeech(text)
+                if let cloudSpeech {
+                    do {
+                        let data = try await cloudSpeech(text, voiceGender)
+                        try Task.checkCancellation()
+                        guard speechRequestID == requestID, outputRevision == route else { return }
+                        try await prepareAudioData(data, text: text, requestID: requestID)
+                        guard outputRevision == route else { return }
+                        finishExternalSpeech(requestID: requestID, result: .success(()))
+                        return
+                    } catch {
+                        guard outputRevision == route else { return }
+                        await recoverAppleSpeech(error, text: text, requestID: requestID, requiresRelease: false)
+                        return
+                    }
+                }
+                try await prepareLocalSpeech(text, requestID: requestID)
             } catch {
                 guard speechRequestID == requestID else { return }
                 failBeforeSpeaking(SpeechPlaybackError.audioUnavailable(error.moreDescription))
             }
         }
+    }
+
+    private func recoverAppleSpeech(_ error: any Error, text: String, requestID: UUID, requiresRelease: Bool) async {
+        guard speechRequestID == requestID else { return }
+        guard !(error is CancellationError), !Task.isCancelled, state != .paused,
+              !requiresRelease || externalSpeechFallback != nil else {
+            finishExternalSpeech(requestID: requestID, result: .failure(error))
+            return
+        }
+        audioDataOutput.stop(); duplexOutput?.cancel(); currentAudioData = nil
+        audioCaptionTask?.cancel(); audioCaptionTask = nil
+        state = .preparing
+        captionProgress.begin(text, requestID: requestID)
+        do {
+            if let externalSpeechFallback { try await externalSpeechFallback() }
+            try Task.checkCancellation()
+            guard speechRequestID == requestID else { return }
+            try await prepareLocalSpeech(text, requestID: requestID)
+        } catch { finishExternalSpeech(requestID: requestID, result: .failure(error)) }
+    }
+
+    private func prepareAudioData(_ data: Data, text: String, requestID: UUID, startPaused: Bool = false) async throws {
+        let prepared = try await audioSession.prepare(for: requestID).value
+        try Task.checkCancellation()
+        guard prepared, speechRequestID == requestID else { throw CancellationError() }
+        currentAudioData = data
+        if let audioDataPlayback {
+            state = .speaking
+            if let first = try SpeechCaptionProgress.chunks(text).first { captionProgress.showChunk(first, requestID: requestID) }
+            try await audioDataPlayback(data)
+            try Task.checkCancellation()
+            return
+        }
+        try await withCheckedThrowingContinuation { (waiting: CheckedContinuation<Void, any Error>) in
+            do {
+                let completed: @MainActor (Result<Void, any Error>) -> Void = { waiting.resume(with: $0) }
+                if let duplexOutput {
+                    try duplexOutput.play(data: data, startPaused: startPaused, onStarted: { [weak self] duration in
+                        self?.beginAudioCaptions(text, duration: duration, requestID: requestID)
+                    }, completion: completed)
+                } else {
+                    let duration = try audioDataOutput.play(data, completion: completed)
+                    beginAudioCaptions(text, duration: duration, requestID: requestID)
+                }
+            } catch { waiting.resume(throwing: error) }
+        }
+    }
+
+    private func beginAudioCaptions(_ text: String, duration: TimeInterval, requestID: UUID) {
+        guard speechRequestID == requestID else { return }
+        state = .speaking
+        let chunks = (try? SpeechCaptionProgress.chunks(text)) ?? []
+        guard let first = chunks.first else { return }
+        captionProgress.showChunk(first, requestID: requestID)
+        audioCaptionTask?.cancel()
+        let revision = outputRevision
+        // Approximate passage timing only. The audio player's drain decides completion.
+        audioCaptionTask = Task { [weak self] in
+            let total = Double(max(1, chunks.reduce(0) { $0 + $1.count }))
+            var elapsed: TimeInterval = 0, last = Date.timeIntervalSinceReferenceDate, index = 0
+            var next = duration * Double(first.count) / total
+            while index + 1 < chunks.count {
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                guard let self, speechRequestID == requestID, outputRevision == revision else { return }
+                let now = Date.timeIntervalSinceReferenceDate
+                if state == .speaking { elapsed += max(0, now - last) }
+                last = now
+                if elapsed >= next {
+                    index += 1
+                    captionProgress.showChunk(chunks[index], requestID: requestID)
+                    next += duration * Double(chunks[index].count) / total
+                }
+            }
+        }
+    }
+
+    private func prepareLocalSpeech(_ text: String, requestID: UUID) async throws {
+        let prepared = try await audioSession.prepare(for: requestID).value
+        try Task.checkCancellation()
+        guard prepared, speechRequestID == requestID else { throw CancellationError() }
+        if let localSpeechOutput {
+            state = .speaking
+            captionProgress.showChunk(text, requestID: requestID)
+            try await localSpeechOutput(text, selectedVoice)
+            try Task.checkCancellation()
+            finishExternalSpeech(requestID: requestID, result: .success(()))
+        } else { enqueueSpeech(text) }
     }
 
     private func enqueueSpeech(_ text: String) {
@@ -293,7 +430,7 @@ public final class SpeechCoordinator: NSObject {
             // No foreign-language or novelty fallback is chosen by our ranking policy.
             utterance.voice = voice
         } else {
-            failBeforeSpeaking(.audioUnavailable(AppLanguage.localized("No supported system voice is available for this language. Choose an installed voice in Settings.", bundle: .module)))
+            failBeforeSpeaking(.audioUnavailable(AppLanguage.localized("No voice is available for this language on this device.", bundle: .module)))
             return
         }
         if let duplexOutput, let requestID = speechRequestID, let voice = utterance.voice {
@@ -325,13 +462,33 @@ public final class SpeechCoordinator: NSObject {
     /// its caller early; teardown happens after stopAndRelease has drained owners.
     func setHandsFreeOutput(_ output: MorningDuplexSpeechOutput?) {
         guard duplexOutput !== output else { return }
-        let transferring = duplexOutput == nil && output != nil && currentUtterance != nil
+        let data = audioDataOutput.hasPlayback ? currentAudioData : nil
+        let transferring = duplexOutput == nil && output != nil && (currentUtterance != nil || data != nil)
         let wasPaused = state == .paused
-        if transferring { currentUtterance = nil; synthesizer.stopSpeaking(at: .immediate) }
+        if transferring {
+            outputRevision = UUID()
+            currentUtterance = nil; synthesizer.stopSpeaking(at: .immediate)
+            audioDataOutput.stop()
+        }
         duplexOutput?.detach(); duplexOutput = output
         if transferring, let text = currentText {
-            enqueueSpeech(text)
-            if wasPaused { _ = output?.pause() }
+            if let data, let requestID = speechRequestID {
+                let revision = outputRevision
+                activationTask = Task { [weak self] in
+                    guard let self, speechRequestID == requestID, outputRevision == revision else { return }
+                    do {
+                        try await prepareAudioData(data, text: text, requestID: requestID, startPaused: wasPaused)
+                        guard outputRevision == revision else { return }
+                        finishExternalSpeech(requestID: requestID, result: .success(()))
+                    } catch {
+                        guard outputRevision == revision else { return }
+                        await recoverAppleSpeech(error, text: text, requestID: requestID, requiresRelease: false)
+                    }
+                }
+            } else {
+                enqueueSpeech(text)
+                if wasPaused { _ = output?.pause() }
+            }
         }
     }
 
@@ -342,13 +499,15 @@ public final class SpeechCoordinator: NSObject {
             if duplexOutput.pause() { state = .paused }
             return
         }
+        if audioDataOutput.pause() { state = .paused; return }
         guard currentUtterance != nil else { return }
         if synthesizer.isPaused || synthesizer.pauseSpeaking(at: .immediate) { state = .paused }
     }
 
     public func resume() {
-        guard state == .paused, currentUtterance != nil || duplexOutput != nil, let requestID = speechRequestID else { return }
-        activationTask?.cancel()
+        guard state == .paused, currentUtterance != nil || duplexOutput != nil || audioDataOutput.hasPlayback,
+              let requestID = speechRequestID else { return }
+        if currentAudioData == nil { activationTask?.cancel() }
         let activationID = UUID()
         lastError = nil
         state = .preparing
@@ -360,6 +519,9 @@ public final class SpeechCoordinator: NSObject {
                 if let duplexOutput {
                     if duplexOutput.resume() { state = .speaking }
                     else { failBeforeSpeaking(.audioUnavailable(AppLanguage.localized("Duplex speech could not resume.", bundle: .module))) }
+                } else if audioDataOutput.hasPlayback {
+                    if audioDataOutput.resume() { state = .speaking }
+                    else { failBeforeSpeaking(.audioUnavailable(AppLanguage.localized("Audio playback could not resume.", bundle: .module))) }
                 } else if synthesizer.continueSpeaking() { state = .speaking }
                 else { failBeforeSpeaking(.audioUnavailable(AppLanguage.localized("This speech could not resume. Play it again when ready.", bundle: .module))) }
             } catch {
@@ -391,6 +553,9 @@ public final class SpeechCoordinator: NSObject {
         // Invalidate first, so a late callback from the previous utterance cannot stop a new one.
         currentUtterance = nil
         currentText = nil
+        currentAudioData = nil
+        outputRevision = UUID()
+        audioCaptionTask?.cancel(); audioCaptionTask = nil
         captionProgress.reset()
         playbackID = nil
         speechRequestID = nil
@@ -400,6 +565,7 @@ public final class SpeechCoordinator: NSObject {
         let pending = completion
         completion = nil
         duplexOutput?.cancel()
+        audioDataOutput.stop()
         synthesizer.stopSpeaking(at: .immediate)
         state = .idle
         lastError = nil
@@ -411,12 +577,15 @@ public final class SpeechCoordinator: NSObject {
     private func finishExternalSpeech(requestID: UUID, result: Result<Void, any Error>) {
         guard speechRequestID == requestID else { return }
         currentText = nil; captionProgress.reset(); playbackID = nil; speechRequestID = nil
+        currentAudioData = nil
+        audioCaptionTask?.cancel(); audioCaptionTask = nil
         activationTask = nil; state = .idle
+        audioSession.cancel()
         let pending = completion; completion = nil
         switch result {
         case .success: lastError = nil; pending?.resume()
         case .failure(let error):
-            lastError = error is CancellationError ? nil : String(localized: "Cloud speech could not finish. Try again or continue with the controls.", bundle: .module)
+            lastError = error is CancellationError ? nil : AppLanguage.localized("Cloud speech could not finish. Try again or continue with the controls.", bundle: .module, locale: externalSpeechLocale())
             pending?.resume(throwing: error is CancellationError ? CancellationError() : SpeechPlaybackError.audioUnavailable(lastError!))
         }
     }
@@ -441,6 +610,8 @@ public final class SpeechCoordinator: NSObject {
     private func failBeforeSpeaking(_ error: SpeechPlaybackError) {
         lastError = error.moreDescription
         currentText = nil
+        currentAudioData = nil
+        audioCaptionTask?.cancel(); audioCaptionTask = nil
         captionProgress.reset()
         currentUtterance = nil
         playbackID = nil
@@ -450,6 +621,7 @@ public final class SpeechCoordinator: NSObject {
         let pending = completion
         completion = nil
         duplexOutput?.cancel()
+        audioDataOutput.stop()
         synthesizer.stopSpeaking(at: .immediate)
         state = .idle
         audioSession.cancel()
@@ -554,5 +726,53 @@ extension SpeechCoordinator: AVSpeechSynthesizerDelegate {
     nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         let id = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in self?.receive(.idle, utteranceID: id, finished: true, cancelled: true) }
+    }
+}
+
+/// Standalone synthesized output. Explicit cancellation resolves its waiter and
+/// late callbacks cannot finish a replacement player. No microphone is opened.
+@MainActor
+private final class SpeechAudioDataOutput: NSObject, AVAudioPlayerDelegate {
+    private var player: AVAudioPlayer?
+    private var completion: (@MainActor (Result<Void, any Error>) -> Void)?
+    var hasPlayback: Bool { player != nil }
+
+    func play(_ data: Data, completion: @escaping @MainActor (Result<Void, any Error>) -> Void) throws -> TimeInterval {
+        stop()
+        guard !data.isEmpty, data.count <= 16 * 1_024 * 1_024 else { throw SpeechAudioPCM.unavailable() }
+        let player = try AVAudioPlayer(data: data)
+        guard player.duration.isFinite, player.duration > 0, player.duration <= 600,
+              player.prepareToPlay() else { throw SpeechAudioPCM.unavailable() }
+        self.player = player; self.completion = completion; player.delegate = self
+        guard player.play() else {
+            self.player = nil; self.completion = nil; player.delegate = nil
+            throw SpeechAudioPCM.unavailable()
+        }
+        return player.duration
+    }
+
+    func pause() -> Bool {
+        guard let player else { return false }
+        player.pause(); return true
+    }
+    func resume() -> Bool { player?.play() == true }
+    func stop() {
+        let old = player; player = nil; old?.delegate = nil; old?.stop()
+        let waiting = completion; completion = nil
+        waiting?(.failure(CancellationError()))
+    }
+    private func finish(_ id: ObjectIdentifier, success: Bool) {
+        guard let player, ObjectIdentifier(player) == id else { return }
+        self.player = nil; player.delegate = nil
+        let waiting = completion; completion = nil
+        waiting?(success ? .success(()) : .failure(SpeechAudioPCM.unavailable()))
+    }
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        let id = ObjectIdentifier(player)
+        Task { @MainActor [weak self] in self?.finish(id, success: flag) }
+    }
+    nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: (any Error)?) {
+        let id = ObjectIdentifier(player)
+        Task { @MainActor [weak self] in self?.finish(id, success: false) }
     }
 }
