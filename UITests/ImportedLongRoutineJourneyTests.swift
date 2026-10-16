@@ -26,11 +26,12 @@ import MorningCore
         let minutes = document.steps.map(\.durationMinutes)
         let originalIDs = document.steps.map { $0.id.uuidString }
         let app = XCUIApplication(), workspace = UUID().uuidString
+        // Isolated QA forces English in the argument domain, never a host/device preference.
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-workspace=\(workspace)",
             "--ui-testing-integrated-three-moments", "--ui-testing-gmail-attention", "--ui-testing-slack-setup",
             "--ui-testing-briefing-fixture", "--ui-testing-hands-free", "--ui-testing-read-aloud",
             "--light-preview", "--theme-phase=morning", "--ui-testing-parsed-routine=" + data.base64EncodedString(),
-            "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         // No --approved, --automation, --slack-reply, or short-budget flag.
         app.launch(); defer { app.terminate() }
         try requireWorkspace(workspace, app)

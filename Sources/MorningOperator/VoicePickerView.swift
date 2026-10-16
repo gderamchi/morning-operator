@@ -1,4 +1,3 @@
-import MorningCore
 import AVFAudio
 import MorningApple
 import MorningCore
@@ -127,7 +126,7 @@ struct VoicePickerView: View {
     }
 
     private var automaticDetail: String {
-        guard let voice = speech.recommendedVoice else { return AppLanguage.localized("Follow this device’s language") }
+        guard let voice = speech.recommendedVoice else { return String(localized: "Follow MORE’s language", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
         return "\(voice.name) · \(languageName(voice.language)) · \(voice.quality.displayName)"
     }
 

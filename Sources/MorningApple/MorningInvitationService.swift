@@ -408,8 +408,8 @@ public final class MorningInvitationService {
     func refreshStatusPresentation(locale: Locale) {
         switch statusPresentation {
         case .message(let key, let isError):
-            statusText = String(localized: key,
-                bundle: AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier), locale: locale)
+            statusText = AppLanguage.localized(key,
+                bundle: .module, locale: locale)
             if isError { errorMessage = statusText }
         case .failure(let error):
             statusText = error.moreDescription

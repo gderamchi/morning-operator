@@ -137,8 +137,8 @@ final class BudgetAndRecapTests: XCTestCase {
     func testTourEnglishLargestText() { tour("en-largest-text", language: english + largestText) }
     func testTourFrenchLargestText() { tour("fr-largest-text", language: french + largestText) }
 
-    private var english: [String] { ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"] }
-    private var french: [String] { ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"] }
+    private var english: [String] { ["-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"] }
+    private var french: [String] { ["-more.appLanguage", "fr", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"] }
     private var largestText: [String] {
         ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
     }
@@ -181,7 +181,7 @@ final class BudgetAndRecapTests: XCTestCase {
     }
 
     private func launch(approved: Bool = false,
-                        language: [String] = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]) -> XCUIApplication {
+                        language: [String] = ["-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",

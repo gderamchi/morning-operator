@@ -24,6 +24,7 @@
     "MORE_AUTH_CALLBACK_URL": "more://composio/callback",
     "MORE_CALLBACK_URLS_JSON": "[\"more://composio/callback\",\"moreqa://composio/callback\"]",
     "MORE_PUBLIC_BASE_URL": "https://REPLACE_WITH_WORKER.workers.dev",
-    "COMPOSIO_TIMEOUT_MS": "20000"
+    "COMPOSIO_TIMEOUT_MS": "20000",
+    "MORE_VOICE_INSTALLATIONS_JSON": "[]"
   }
 }

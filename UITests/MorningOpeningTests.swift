@@ -134,10 +134,10 @@ final class MorningOpeningUITests: XCTestCase {
     /// Nothing about wording or layout is asserted here.
     func testOpeningScreenshotsInEnglishFrenchAndLargestText() {
         for (name, arguments) in [
-            ("opening-english", ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]),
-            ("opening-french", ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]),
-            ("opening-english-dark", ["--dark-preview", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]),
-            ("opening-french-dark", ["--dark-preview", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]),
+            ("opening-english", ["-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]),
+            ("opening-french", ["-more.appLanguage", "fr", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]),
+            ("opening-english-dark", ["--dark-preview", "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]),
+            ("opening-french-dark", ["--dark-preview", "-more.appLanguage", "fr", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]),
         ] {
             let app = launch(extra: arguments)
             start(app)
@@ -146,7 +146,7 @@ final class MorningOpeningUITests: XCTestCase {
             app.terminate()
         }
         for (name, language) in [("opening-largest-text-english", "en"), ("opening-largest-text-french", "fr")] {
-            let app = launch(extra: ["-AppleLanguages", "(\(language))", "-AppleLocale", language == "fr" ? "fr_FR" : "en_US",
+            let app = launch(extra: ["-more.appLanguage", language, "-AppleLanguages", "(\(language))", "-AppleLocale", language == "fr" ? "fr_FR" : "en_US",
                                      "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
             let scroll = app.scrollViews["morning.accessibleScroll"]
             XCTAssertTrue(scroll.waitForExistence(timeout: 10), "This picture requires the largest accessibility text size.")
@@ -174,6 +174,7 @@ final class MorningOpeningUITests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--fixture-mode"] + (extra.contains("--dark-preview") ? [] : ["--light-preview"])
             + ["--ui-testing-workspace=\(UUID().uuidString)"]
             + (approved ? ["--ui-testing-approved"] : []) + extra
+        if !extra.contains("-more.appLanguage") { app.launchArguments += ["-more.appLanguage", "en"] }
         app.launch()
         return app
     }

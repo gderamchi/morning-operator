@@ -8,11 +8,14 @@ public enum WeatherLocationAuthorization: Sendable, Equatable {
 
 public enum WeatherDeviceLocationError: Error, LocalizedError, Sendable, Equatable {
     case denied, unavailable, timedOut, invalidReading
-    public var errorDescription: String? {
-        switch self {
-        case .denied: AppLanguage.localized("Location is off. Allow it in iPhone Settings or choose a city for the weather.", bundle: .module)
-        case .unavailable, .invalidReading: AppLanguage.localized("Your location isn't available yet. Try again or choose a city.", bundle: .module)
-        case .timedOut: AppLanguage.localized("Finding your location took too long. Try again or choose a city.", bundle: .module)
+    public var errorDescription: String? { message(locale: AppLanguage.locale) }
+
+    func message(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        return switch self {
+        case .denied: AppLanguage.localized("Location is off. Allow it in iPhone Settings or choose a city for the weather.", bundle: bundle, locale: locale)
+        case .unavailable, .invalidReading: AppLanguage.localized("Your location isn't available yet. Try again or choose a city.", bundle: bundle, locale: locale)
+        case .timedOut: AppLanguage.localized("Finding your location took too long. Try again or choose a city.", bundle: bundle, locale: locale)
         }
     }
 }
@@ -127,7 +130,8 @@ public final class WeatherDeviceLocation: NSObject, WeatherDeviceLocationProvidi
         fail((error as? CLError)?.code == .denied ? WeatherDeviceLocationError.denied : .unavailable, id: id)
     }
 
-    static func validated(_ reading: CLLocation, at now: Date, reducedAccuracy: Bool = false) throws -> WeatherLocation {
+    static func validated(_ reading: CLLocation, at now: Date, reducedAccuracy: Bool = false,
+                          locale: Locale = AppLanguage.locale) throws -> WeatherLocation {
         let age = now.timeIntervalSince(reading.timestamp)
         // The Core Location SDK permits reduced-accuracy fixes up to 20 minutes old.
         let maximumAge = reducedAccuracy ? 1_200.0 : 300.0
@@ -135,7 +139,12 @@ public final class WeatherDeviceLocation: NSObject, WeatherDeviceLocationProvidi
         guard reading.horizontalAccuracy.isFinite, (0...maximumUncertainty).contains(reading.horizontalAccuracy),
               age.isFinite, (-60...maximumAge).contains(age) else { throw WeatherDeviceLocationError.invalidReading }
         return try WeatherLocation(latitude: reading.coordinate.latitude, longitude: reading.coordinate.longitude,
-            displayName: AppLanguage.localized("Current location", bundle: .module))
+            displayName: currentLocationName(locale: locale))
+    }
+
+    static func currentLocationName(locale: Locale = AppLanguage.locale) -> String {
+        AppLanguage.localized("Current location",
+               bundle: .module, locale: locale)
     }
 
     private func startTimer(id: UUID, duration: Duration) {

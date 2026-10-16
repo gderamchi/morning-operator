@@ -1,0 +1,67 @@
+<!doctype html><html><head><meta charset="utf-8"><title>14 Pixel blackletter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jacquard+12&family=Jacquarda+Bastarda+9&family=Geist:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+/* One pixel-blackletter word carries the mood (a bitmap font, so the pixels are
+   type, not decoration). Everything else is plain, small and quiet. */
+.screen { background:#0e0c0a; color:#efe6d8; font-family:Geist,sans-serif; font-weight:300; }
+.content { position:absolute; inset:0; padding:62px 28px 40px; display:flex; flex-direction:column; }
+.date { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8c8075; }
+h1 { font-family:"Jacquard 12",serif; font-weight:400; font-size:92px; line-height:.86; margin:14px 0 0; color:#f0b27a; letter-spacing:.01em; }
+h1 span { display:block; color:#efe6d8; }
+.total { font-size:13px; color:#8c8075; margin-top:16px; }
+ol { list-style:none; margin:26px 0 0; padding:0; }
+li { display:flex; justify-content:space-between; padding:9px 0; font-size:17px; border-top:1px solid #241f1a; }
+li small { color:#8c8075; font-size:12px; }
+li.done { color:#5a524a; } li.now { color:#f0b27a; }
+.foot { margin-top:auto; display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:500; }
+.foot b { font-family:"Jacquard 12",serif; font-weight:400; font-size:28px; background:#f0b27a; color:#0e0c0a; padding:6px 24px 4px; }
+.big { font-family:"Jacquard 12",serif; font-size:180px; line-height:.8; margin:10px 0 0; color:#f0b27a; letter-spacing:-.02em; }
+.now-title { font-family:"Jacquarda Bastarda 9",serif; font-size:52px; line-height:1; margin:22px 0 6px; }
+.purpose { font-size:14px; color:#8c8075; }
+.ctrl { margin-top:auto; display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:500; }
+.ctrl b { font-family:"Jacquard 12",serif; font-weight:400; font-size:28px; background:#efe6d8; color:#0e0c0a; padding:6px 24px 4px; }
+.rec p { margin:0 0 14px; font-size:19px; line-height:1.45; }
+.rec p.w { font-family:"Jacquarda Bastarda 9",serif; font-size:40px; line-height:1.05; margin:16px 0 22px; color:#f0b27a; }
+.rec p em { font-style:normal; color:#f0b27a; }
+.stack { margin-top:auto; display:flex; flex-direction:column; gap:12px; align-items:center; font-size:14px; font-weight:500; }
+.stack b { font-family:"Jacquard 12",serif; font-weight:400; font-size:28px; background:#f0b27a; color:#0e0c0a; padding:6px 28px 4px; }
+</style></head><body>
+<div class="phone"><div class="screen"><div class="content">
+  <div class="date">Tuesday 14 October</div>
+  <h1>good<span>morning</span></h1>
+  <div class="total">42 min planned</div>
+  <ol>
+    <li><span>Your day</span><small>3 min</small></li>
+    <li><span>People and messages</span><small>8 min</small></li>
+    <li><span>Mail</span><small>7 min</small></li>
+    <li><span>Make some tea</span><small>5 min</small></li>
+    <li><span>A little reading</span><small>6 min</small></li>
+    <li><span>A moment to move</span><small>10 min</small></li>
+    <li><span>One thought for later</span><small>3 min</small></li>
+  </ol>
+  <div class="foot"><span>Learn</span><span>History</span><b>Play</b></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content">
+  <div class="date">Now · 4 of 7</div>
+  <div class="big">3:40</div>
+  <div class="now-title">Make some tea</div>
+  <div class="purpose">A moment you’ve made room for.</div>
+  <ol style="margin-top:30px">
+    <li class="done"><span>Mail</span><small>7 min</small></li>
+    <li class="now"><span>Make some tea</span><small>5 min</small></li>
+    <li><span>A little reading</span><small>6 min</small></li>
+  </ol>
+  <div class="ctrl"><span>Again</span><span>Next</span><b>Pause</b></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content rec">
+  <div class="date">Your day</div>
+  <p class="w">Here is your briefing for Tuesday 14 October.</p>
+  <p>Weather in Paris: <em>mostly cloudy, 11 degrees Celsius.</em></p>
+  <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+  <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+  <div class="stack"><b>Hear my recap</b><span>Start my routine</span><span style="color:#8c8075">Stop</span></div>
+</div></div></div>
+</body></html>

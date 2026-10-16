@@ -86,7 +86,7 @@ final class ObservationNarrationTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
                                "--ui-testing-observation-review", "--light-preview",
                                "--ui-testing-workspace=\(UUID().uuidString)"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 
@@ -188,7 +188,7 @@ final class ObservationNarrationTests: XCTestCase {
     private func relaunchWithoutSeed(_ app: XCUIApplication) {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-observation-review" || $0 == "--ui-testing-approved" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
     }
 
     private func tap(_ identifier: String, in app: XCUIApplication) {

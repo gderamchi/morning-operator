@@ -138,6 +138,10 @@ enum OwnInterfaceWording {
         Phrase(catalogKey: nil, isPart: false, [en, fr])
     }
 
+    static let privacyIntroduction = sourceLiteral(
+        "Learning stays local by default. If you enable OpenAI, relevant excerpts and context are processed by OpenAI. You control access and saved personal facts.",
+        fr: "L’apprentissage reste local par défaut. Si vous activez OpenAI, les extraits et le contexte utiles sont traités par OpenAI. Vous gardez le contrôle des accès et des données mémorisées.")
+
     // MARK: - Wording
 
     /// Titles and controls distinctive enough that one complete line identifies the screen.
@@ -223,8 +227,19 @@ enum OwnInterfaceWording {
             fr: "Choisissez les apps à ajouter comme moments distincts. Les séquences observées et vos rituels gardés restent dans le plan. Jusqu’à huit moments d’app peuvent être ajoutés.")
     ]
 
-    /// Screens without a heading of their own: both pieces must be present.
-    static let pairs: [[Phrase]] = outlookPairs + [screenTimePickerPair] + [
+    /// Compact connection rows need all three pieces; provider names alone identify nothing.
+    static let compactConnections: [Phrase] = [
+        shown("Apps & accounts", fr: "Apps et comptes"),
+        sourceLiteral("Messages & your feed", fr: "Messages et fil d’actualité"),
+        sourceLiteral("Website · Sign in", fr: "Site web · Se connecter")
+    ]
+    static let compactConfirmedConnections: [Phrase] = [
+        compactConnections[0], compactConnections[1],
+        sourceLiteral("Confirmed by you · Open website", fr: "Confirmé par vous · Ouvrir le site")
+    ]
+
+    /// Screens without a heading of their own: every piece must be present.
+    static let pairs: [[Phrase]] = outlookPairs + [screenTimePickerPair, compactConnections, compactConfirmedConnections] + [
         [shown("Your Calendly appointments, each morning", fr: "Vos rendez-vous Calendly, chaque matin"),
          shown("Choose an account. MORE reads appointments starting today in this iPhone’s time zone.",
                fr: "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone.")],
@@ -289,6 +304,23 @@ enum OwnInterfaceWording {
         [shown("Sampled moment", fr: "Moment échantillonné"), shown("Done", fr: "Terminé")]
     ]
 
+    /// The retired introduction still occurs in saved recordings; its copy is no longer catalog-bound.
+    static let earlierConnections = Screen(name: "Apps and accounts", copy: [
+        earlier("Your apps, in one place.", "Vos apps, au même endroit."),
+        earlier("Choose what you want to bring into your morning.", "Choisissez ce qui vous accompagne le matin."),
+        earlier("Your messages, stories and feed, in MORE.", "Vos messages, vos stories et votre fil, dans MORE."),
+        earlier("Read your unread email and prepare replies.", "Lisez vos e-mails non lus et préparez vos réponses."),
+        earlier("A little setup. Then you're home.", "Un instant de préparation. Puis à vous de jouer."),
+        earlier("Connect Gmail below, or sign in to the websites your morning uses.", "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."),
+        earlier("Sign in once, here. Your morning uses these same pages.", "Connectez-vous ici une fois. Votre matin utilisera ces mêmes pages.")
+    ], controls: [
+        shown("Apps & accounts", fr: "Apps et comptes"),
+        shown("Calendar & weather", fr: "Calendrier et météo"),
+        shown("Your day", fr: "Votre journée"),
+        earlier("Your websites", "Vos sites"),
+        earlier("Connect my websites", "Connecter mes sites")
+    ])
+
     /// Current and historical screen wording share recognition rules. `shown` and `part`
     /// follow the live catalogs; `earlier` keeps saved observations readable after a redesign.
     /// Shorter current labels remain controls and cannot identify a screen by themselves.
@@ -342,21 +374,6 @@ enum OwnInterfaceWording {
             shown("Keep current", fr: "Garder l’actuelle"),
             shown("Minutes measured", fr: "Minutes mesurées"),
             shown("Minutes estimated", fr: "Minutes estimées")
-        ]),
-        Screen(name: "Apps and accounts", copy: [
-            shown("Your messages, stories and feed, in MORE.", fr: "Vos messages, vos stories et votre fil, dans MORE."),
-            shown("Read your unread email and prepare replies.", fr: "Lisez vos e-mails non lus et préparez vos réponses."),
-            earlier("Your apps, in one place.", "Vos apps, au même endroit."),
-            earlier("Choose what you want to bring into your morning.", "Choisissez ce qui vous accompagne le matin."),
-            earlier("A little setup. Then you're home.", "Un instant de préparation. Puis à vous de jouer."),
-            earlier("Connect Gmail below, or sign in to the websites your morning uses.", "Connectez Gmail ci-dessous ou identifiez-vous sur les sites de votre matin."),
-            earlier("Sign in once, here. Your morning uses these same pages.", "Connectez-vous ici une fois. Votre matin utilisera ces mêmes pages.")
-        ], controls: [
-            shown("Apps & accounts", fr: "Apps et comptes"),
-            shown("Calendar & weather", fr: "Calendrier et météo"),
-            shown("Your day", fr: "Votre journée"),
-            earlier("Your websites", "Vos sites"),
-            earlier("Connect my websites", "Connecter mes sites")
         ]),
         Screen(name: "Gmail connection", copy: [
             shown("Connect once to read Gmail and prepare replies. Google asks for read-only access.", fr: "Connectez-vous une fois pour lire Gmail et préparer des réponses. Google demande un accès en lecture seule."),
@@ -937,11 +954,10 @@ enum OwnInterfaceWording {
         ]),
         Screen(name: "Privacy", copy: [
             shown("Your mornings stay close.", fr: "Vos matinées restent à portée de main."),
-            part("MORE keeps its learning on this device", fr: "MORE garde son apprentissage sur cet appareil",
-                 of: "MORE keeps its learning on this device. You choose when to connect Apple apps and what to keep."),
-            part("You choose when to connect Apple apps and what to keep",
-                 fr: "Vous choisissez quand connecter les apps Apple et ce que vous gardez",
-                 of: "MORE keeps its learning on this device. You choose when to connect Apple apps and what to keep."),
+            privacyIntroduction,
+            earlier("MORE keeps its learning on this device", "MORE garde son apprentissage sur cet appareil"),
+            earlier("You choose when to connect Apple apps and what to keep",
+                    "Vous choisissez quand connecter les apps Apple et ce que vous gardez"),
             part("Only Shortcuts you configure can log app names and entry/exit times",
                  fr: "Seuls les raccourcis que vous configurez peuvent enregistrer les noms d’apps et les heures d’entrée et de sortie",
                  of: "Only Shortcuts you configure can log app names and entry/exit times. This doesn't record taps or read messages. Removing local data turns this off until you enable it again."),
@@ -988,12 +1004,14 @@ enum OwnInterfaceWording {
         ])
     ]
 
+    private static let recognitionScreens = screens + [earlierConnections]
+
     /// Every phrase above, for the test that compares this table with the String Catalogs.
     static var all: [Phrase] {
         distinctiveLines + marketing + marketingPair + earlierReviewHeadings + [earlierReviewNote]
             + [overviewHeading] + overviewCopy + homeHeadings + homeFooters
             + [homeReviewPrompt, recordingBadge, playbackNow, playbackPause, playbackPaused, playbackContinue]
-            + pairs.flatMap { $0 } + labelGroups.flatMap { $0 } + screens.flatMap { $0.copy + $0.controls }
+            + pairs.flatMap { $0 } + labelGroups.flatMap { $0 } + recognitionScreens.flatMap { $0.copy + $0.controls }
     }
 
     // MARK: - Recognition
@@ -1032,8 +1050,8 @@ enum OwnInterfaceWording {
         if labelGroups.contains(where: { group in group.allSatisfy { $0.isAtLineEdge(of: frame) } }) { return true }
         // Every recognized sentence on this frame, once: a label that is words of one of them
         // is not a second piece, whichever screen the sentence belongs to.
-        let present = frame.sentences(among: screens.flatMap(\.copy))
-        return screens.contains { screen in
+        let present = frame.sentences(among: recognitionScreens.flatMap(\.copy))
+        return recognitionScreens.contains { screen in
             let found = screen.copy.map { $0.occurrences(in: frame) }.filter { !$0.isEmpty }
             guard !found.isEmpty else { return false }
             // Each sentence needs words of its own: two that share a word are one passage, once.

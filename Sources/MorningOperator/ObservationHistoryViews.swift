@@ -394,7 +394,7 @@ struct ObservationHistoryDetail: View {
                         LabeledContent("Time zone", value: date.timeZoneIdentifier)
                         Text(date.provenance == .screenTimeReport
                              ? (AppLanguage.isFrench ? "Jour et fuseau du rapport Screen Time." : "Day and time zone of the Screen Time report.")
-                             : AppLanguage.localized(date.provenance == .recordingSession ? "Day recorded by this recording session." : "Day assigned by you."))
+                             : (date.provenance == .recordingSession ? String(localized: "Day recorded by this recording session.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Day assigned by you.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     LabeledContent("Origin", value: observationOriginLabel(entry.origin))
@@ -494,6 +494,7 @@ struct ObservationHistoryDetail: View {
                 }
 
                 Section {
+                    ForgetObservationButton(store: store, observationID: observationID) { dismiss() }
                     Button("Delete this observation", role: .destructive) { confirmingDelete = true }
                         .disabled(store.busy || store.sessionActive)
                         .accessibilityIdentifier("observation.delete")

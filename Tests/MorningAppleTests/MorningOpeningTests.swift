@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import MorningCore
 @testable import MorningApple
 
 @Suite("Morning opening — synthetic facts and clock only")
@@ -234,6 +235,21 @@ struct MorningOpeningTests {
         }
         // Stopped by a choice, Pause, Stop or an interruption: that action decides, not the opening.
         #expect(MorningOpeningHandOver.after(.stopped, handsFree: true) == .waitForChoice)
+    }
+
+    @Test func extrasComeAfterTheFactsAndBeforeTheChoice() throws {
+        let extras = MorningExtrasComposer.compose(facts: [.sleptMinutes(440)],
+                                                   preferences: .init(enabled: [.sleep], healthAccessRequested: true), day: 1,
+                                                   localeIdentifier: "en_US", timeZoneIdentifier: "UTC")
+        let opening = MorningOpeningComposer.compose(briefing: try briefing(weather: .snapshot(weather())), at: now,
+                                                     timeZoneIdentifier: "UTC", extras: extras)
+        #expect(opening.segments.map(\.source) == [.greeting, .weather, .extra, .choice])
+        #expect(opening.segments.map(\.id).contains("extra.sleep"))
+        #expect(opening.text.contains("Synthetic sunshine, 20 degrees Celsius. You slept 7 hours 20 minutes last night. Would you"))
+        // Outside the briefing's day, nothing it prepared is quoted, extras included.
+        let late = MorningOpeningComposer.compose(briefing: try briefing(weather: .snapshot(weather())),
+            at: now.addingTimeInterval(86_400), timeZoneIdentifier: "UTC", extras: extras)
+        #expect(!late.segments.contains { $0.source == .extra })
     }
 
     private func compose(_ briefing: PreparedMorningBriefing, at date: Date? = nil, zone: String = "UTC",

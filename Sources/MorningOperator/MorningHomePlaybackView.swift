@@ -8,6 +8,7 @@ struct MorningHomePlaybackView: View {
     let openSettings: () -> Void
     @State private var displayedCaption: String?
     @State private var displayedCaptionBoundary: String?
+    @State private var pendingCloudCaption: String?
     @State private var controlsVisible = false
     @State private var controlsInteraction = UUID()
     @State private var captionScrolling = false
@@ -84,8 +85,18 @@ struct MorningHomePlaybackView: View {
         return store.connectedActionStatus ?? store.currentStep?.detail ?? ""
     }
     private var caption: String {
+        guard !store.privacyBlocksWork else { return "" }
         if showingActionStatus, let status = actionStatus { return status.text }
         if actionStatus != nil, let displayedCaption, displayedCaptionBoundary == actionStatus?.text { return displayedCaption }
+        if actionStatus == nil {
+            #if MORE_JURY_DEMO
+            if store.juryDemoVoice.state == .failed { return store.juryDemoVoice.message }
+            if !store.juryDemoCaption.isEmpty { return store.juryDemoCaption }
+            if store.juryDemoVoice.isActive { return store.juryDemoVoice.message }
+            #else
+            if store.cloudVoice.isActive, let text = store.cloudVoice.caption, !text.isEmpty { return text }
+            #endif
+        }
         if let notice = store.notice, !notice.isEmpty { return notice }
         if let displayedCaption { return displayedCaption }
         let text = fallback.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -165,18 +176,32 @@ struct MorningHomePlaybackView: View {
         }
         .onChange(of: actionStatus?.text) { _, boundary in
             if displayedCaptionBoundary != boundary { displayedCaption = nil }
+            pendingCloudCaption = nil
         }
         .onChange(of: store.speech.isSpeaking) { _, speaking in
             if !speaking, (actionStatus?.priority ?? -1) >= 3 { displayedCaption = nil; displayedCaptionBoundary = nil }
         }
+        #if !MORE_JURY_DEMO
+        .onChange(of: store.cloudVoice.caption) { _, text in
+            pendingCloudCaption = text
+            receiveCloudCaption()
+        }
+        .onChange(of: store.cloudVoice.state) { _, state in
+            if state == .speaking { receiveCloudCaption() }
+            else {
+                pendingCloudCaption = nil
+                if (actionStatus?.priority ?? -1) >= 3 { displayedCaption = nil; displayedCaptionBoundary = nil }
+            }
+        }
+        #endif
+        .onChange(of: AppLanguage.code) { _, _ in displayedCaption = nil; displayedCaptionBoundary = nil; pendingCloudCaption = nil; controlsVisible = false }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; controlsVisible = false; captionScrolling = false }
+            if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; pendingCloudCaption = nil; controlsVisible = false; captionScrolling = false }
         }
-        .onChange(of: AppLanguage.code) { _, _ in displayedCaption = nil; displayedCaptionBoundary = nil }
         .onChange(of: store.briefing.settings.includesHealth) { wasIncluded, included in
-            if wasIncluded && !included { displayedCaption = nil; displayedCaptionBoundary = nil }
+            if wasIncluded && !included { displayedCaption = nil; displayedCaptionBoundary = nil; pendingCloudCaption = nil }
         }
-        .onDisappear { controlsVisible = false; captionScrolling = false }
+        .onDisappear { controlsVisible = false; captionScrolling = false; pendingCloudCaption = nil }
         .onChange(of: voiceOverEnabled) { _, _ in if controlsVisible { controlsInteraction = UUID() } }
         .task(id: controlsInteraction) {
             guard controlsVisible, !voiceOverEnabled, !captionScrolling else { return }
@@ -185,6 +210,17 @@ struct MorningHomePlaybackView: View {
             withAnimation(.easeOut(duration: 0.15)) { controlsVisible = false }
         }
     }
+
+    #if !MORE_JURY_DEMO
+    private func receiveCloudCaption() {
+        guard !store.privacyBlocksWork, store.cloudVoice.state == .speaking,
+              let text = pendingCloudCaption, text == store.cloudVoice.caption, !text.isEmpty else { return }
+        // The SDK may keep the previous caption while listening. Only a new
+        // passage observed in this boundary may replace the current action state.
+        displayedCaptionBoundary = actionStatus?.text
+        displayedCaption = text
+    }
+    #endif
 
     private func toggleControls() {
         withAnimation(.easeOut(duration: 0.15)) { controlsVisible.toggle() }

@@ -6,13 +6,15 @@ import MorningApple
 /// recorder's ready URL released. Saved text or an explicit discard permits raw-file deletion.
 struct RecordMorningView: View {
     var canStartRecording = true
+    /// Presents Apple's picker as soon as the sheet appears (debug `more://watch-morning`).
+    var startsAtOnce = false
     let onRecorded: (URL) -> Bool
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
         if #available(iOS 27.0, *) {
-            RecordMorningContent(canStartRecording: canStartRecording, onRecorded: onRecorded)
+            RecordMorningContent(canStartRecording: canStartRecording, startsAtOnce: startsAtOnce, onRecorded: onRecorded)
         } else {
             unavailable
         }
@@ -43,6 +45,7 @@ struct RecordMorningView: View {
 @available(iOS 27.0, *)
 private struct RecordMorningContent: View {
     let canStartRecording: Bool
+    let startsAtOnce: Bool
     let onRecorded: (URL) -> Bool
     @Environment(\.dismiss) private var dismiss
     @Bindable private var recording = ScreenRecordingService.shared
@@ -142,6 +145,10 @@ private struct RecordMorningContent: View {
                 }
             }
             .interactiveDismissDisabled(!recording.canDismiss)
+            .task {
+                guard startsAtOnce, canStartRecording, recording.state == .idle else { return }
+                recording.presentPicker(duration: duration)
+            }
         }
     }
 

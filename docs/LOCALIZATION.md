@@ -1,29 +1,44 @@
 # French and English in MORE
 
-MORE has exactly two app languages: **Français** and **English**, selected in Settings → Language. The selection is persisted independently of routine/workspace data. The first system language determines the initial choice when it is French or English; any other language starts in French. There is no third “automatic” option.
+MORE offers exactly **Français** and **English** in Settings → Language. The choice persists independently of workspace data. First launch uses French for a French primary iPhone language and English otherwise; region and secondary French do not change that rule. A saved choice takes precedence. No language questionnaire precedes discovery.
 
-`MorningCore.AppLanguage` is the common source for SwiftUI, Foundation string catalogs, date/number formatting, local model instructions, speech recognition, command interpretation and speech synthesis. SwiftUI receives its locale and observes the shared choice. Foundation strings select the matching catalog bundle explicitly so existing process bundle preferences cannot keep them in the previous language.
+`MorningCore.AppLanguage` supplies SwiftUI, explicit Foundation resource bundles, formatting, local-model instructions, recognition, command grammar and speech. Regional formats remain intact. Voice choices and search show compatible installed voices only; unavailable or incompatible saved voices repair to the automatic compatible choice. Recognition uses `fr-FR` or `en-US`; speech can use an installed dialect of the chosen language without falling back to another language.
 
-## Data and external boundaries
+Changing language pauses the same session, stops speech/listening, invalidates generated prose and pending action review, and refreshes notices from semantic state. Drafts, recipients, receipts, uncertain-operation journals and partial dictation remain available for review. It does not repeat an effect or request permission. Typed Health errors relocalize without another request/read; pending setup is cancelled and late consent completion cannot enable sleep. Resume remains explicit.
 
-Changing the language never rewrites saved routine titles/details, personal notes, original recordings/OCR, mail or message contents, account/calendar names, provider names, website content, protocol identifiers, API argument values or provider documentation. New built-in examples use the selected language. Historical source labels and the structural serialization markers inside original learning evidence remain part of that evidence; they are not reinterpreted or migrated.
+Saved routine text, notes, recordings/OCR, messages, account/calendar names, provider pages and protocol values retain their original wording. MORE's permission/shortcut resources have both languages; Apple-owned prompts, Siri and provider pages retain their system/provider boundaries. Live Activity payloads carry the choice. Known service failures use app-owned explanations instead of raw diagnostics.
 
-Provider pages and Apple-owned interface text follow their own language rules. MORE's permission descriptions live in `InfoPlist.xcstrings`; shortcut metadata and phrases live in `Localizable.xcstrings` and `AppShortcuts.xcstrings`. MORE saves its language as the app's bundle language for the next process launch, but cannot force another app, Siri's configured language or an external OAuth page. Runtime intent results and app-owned alarm labels use the selected language explicitly. Live Activity payloads carry a backwards-compatible language field so the widget does not infer the app preference from the extension's separate defaults.
+## Source and delivery
 
-Known connection-service error codes are mapped to app-controlled explanations. Raw provider diagnostic text is not displayed as interface copy. Framework errors without a typed app explanation use a localized fallback that does not expose private paths or request diagnostics.
+Main `fcd8f0d` is included in code freeze `6921b87007d59c8b30b83b7eaac0edcaf6e1a9ad`, Sources tree `5117eb25cc23dc1756273da33c5384b2022897a8`. This preserves Home, native Settings, optional Health sleep, Glass discovery/access screens, compact branded connections and the nonvisual DEBUG preview identifier. The preview cannot purchase or grant access; StoreKit owns actual pricing and trial eligibility.
 
-## Speech and changing language
+The compact Connections screen is recognized in both sign-in and confirmed-website states using three required pieces of live wording. Historical screen wording remains recognized after retirement. Regression tests preserve the source/catalog assertions and reject incomplete matches and ordinary provider lists.
 
-Installed voice choices are filtered by the app language, including search results. A saved unavailable or incompatible voice identifier is repaired to the automatic compatible choice. Speech never falls back to a voice in the other language. Recognition remains local and uses the same choice; command grammar and local model response instructions follow it too.
-
-Changing language pauses an active morning, stops speech/listening, invalidates cached generated prose, refreshes local presentation and leaves source data, pending drafts, recipients, action receipts and uncertain-operation journals intact. It does not restart the routine, authorize an action, repeat a provider effect or request permission automatically. A partial dictation is retained for editable local review. Resuming remains an explicit user action.
-
-## Integration baseline
-
-The localization branch was created in a separate managed worktree from `2a6e3c1` on `guillaume/routine-automation`. This includes the current Home redesign, Google Calendar/Calendly/Outlook integration and learning work committed at creation. The owner checkout was never reset, stashed, modified or built. Committed integration updates through `753609c` were merged. To preserve the newer Home playback/caption layout and Screen Time selection work, a reviewed source-only snapshot of 21 Swift files was integrated from the unchanged owner checkout (2026-10-16 00:08:26 UTC, base `753609c`, SHA-256 `80f4edd26df8f849251d7cb292113605779f53d372497e8f3f51361ee4c841e3`). Private/config files, AGENTS and generated project files were excluded; the project was regenerated here. The snapshot was subsequently reconciled with the actual parent commits `9089ff0` (Screen Time) and `0334b89` (Home), including the latest caption anchors and exact-identity retention fix. Those commits are now ancestors of this branch. The physical phone, its existing routine, grants and authorized test draft were not controlled by this workstream.
-
-The PR targets the routine integration branch to keep the localization change reviewable without replacing the recent connector work with an older main-branch UI.
+Delivery and live merge/check status are tracked in [PR #193](https://github.com/gibouu/morning-operator/pull/193). Documentation-only delivery commits do not change the tested application inputs or signed artifact.
 
 ## Verification
 
-See the pull request for the final commands and observed results. Package tests are separate from Xcode builds and simulator journeys. Simulator synthetic fixtures do not prove physical speaker audibility, live speech recognition, Siri invocation, provider login, or external effects. A signed candidate, if available, is prepared locally without installing it on the reserved phone. Raw screenshots, test workspaces, signing configuration and result bundles stay outside Git.
+Commands use `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
+
+| Check | Observed result |
+| --- | --- |
+| Full serialized Swift package tests | **PASSED** on the final code: Health 4 tests/1 suite, Core 700/80, Apple 949/104. Includes Health language/cancellation and compact Connections current/historical recognition. Six optional model/video/replay tests explicitly skipped; real Apple model inference was not run. Command: `./scripts/test.sh --jobs 2 -Xswiftc -j2 --no-parallel`. Log: `/tmp/more-localization-final-confirmed-package.log`. |
+| Python | **34 PASSED**, `/tmp/more-localization-final-confirmed-python.log`. |
+| Six-catalog audit | **PASSED**: all translatable entries have explicit FR/EN; 192 formatted keys, 2,141 paired variants, 52 named/plural substitution keys and 11 shortcut phrase variants. No unresolved placeholders or argument-position/type/length mismatch. |
+| Signed iOS Debug build 1600 | **PASSED**, `/tmp/more-localization-final-confirmed-signed-build.log`. No physical device was selected or controlled. |
+| arm64 simulator build | **PASSED**, app/widget/UI-test targets, `/tmp/more-localization-final-confirmed-simulator-build.log`. Compilation does not establish UI runtime success. |
+| Signed artifact verification | **PASSED**: strict signatures, FR/EN bundles, six privacy manifests, actual app capabilities, widget isolation and app-only Health framework linkage. |
+| Cloud CI | Final-code [run 38844714092](https://github.com/gibouu/morning-operator/actions/runs/38844714092) was queued at 03:20 UTC on 16 October 2026; no cloud package/app success is claimed for this freeze. Current status is visible in PR #193. |
+| UI runtime | **PARTIAL / final-source runtime unverified**. Two later smoke attempts stalled in accessibility or runner preparation and were interrupted; no pass was inferred. [#202](https://github.com/gibouu/morning-operator/issues/202), related [#199](https://github.com/gibouu/morning-operator/issues/199). |
+
+Earlier UI batches recorded 18/21 passes on `6ded082`, then 10/12 on `e3c03f4`. The obsolete microphone-heading assertion was corrected; legacy navigation remains [#186](https://github.com/gibouu/morning-operator/issues/186). Two largest-text rotation failures remain [#195](https://github.com/gibouu/morning-operator/issues/195): videos stay portrait despite rotation requests in headless iOS 26.5/Xcode 27, with cause unresolved and strict assertions retained. These recordings predate the final Health/Glass source; the full UI suite is not green. Fixture startup under load remains tracked separately in [#190](https://github.com/gibouu/morning-operator/issues/190).
+
+## Artifact and acceptance boundaries
+
+`work/localization-1600-artifact/` contains `MorningOperator.app`, `MorningOperator-1600.zip` and `verification.json`: official bundle `com.gibouu.morningoperator`, version 0.1.0 (1600), source/Sources matching the freeze above. Archive SHA-256: `31328b605f2f420400301e3f037da08059cd38f556bd40a507beb046bbefffcc`.
+
+Strict signatures and FR/EN resources pass. All six privacy manifests are present, including Core's defaults reason `CA92.1`. HealthKit, WeatherKit, Family Controls and app/website usage are actually signed app entitlements; extra Health entitlements are absent. Widget capability isolation and Health linked only in the app pass. The embedded profile expires on 2027-10-16. Packaging does not establish consent, live data, StoreKit access or App Store approval.
+
+Google client/callback metadata match local configuration; its prototype bundle metadata differs from this official artifact. Console alignment and live OAuth remain unverified ([#197](https://github.com/gibouu/morning-operator/issues/197)); this does not establish an OAuth failure. No private configuration values or signing/profile identifiers are published.
+
+Physical localization acceptance remains [#184](https://github.com/gibouu/morning-operator/issues/184), owner Health consent/sample/audibility [#15](https://github.com/gibouu/morning-operator/issues/15), and live purchase/access [#191](https://github.com/gibouu/morning-operator/issues/191). Synthetic checks do not establish physical audibility, live recognition, Siri/widget behavior, provider authentication or external effects. This workstream did not modify/build the owner checkout, install/control the reserved phone, alter its routine/grants or send its existing Gmail draft. Raw evidence, signing inputs and artifacts remain local and ignored.

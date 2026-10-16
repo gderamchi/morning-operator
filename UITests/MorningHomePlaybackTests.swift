@@ -255,7 +255,7 @@ final class MorningHomePlaybackTests: XCTestCase {
             "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"] + flags
         app.launch()
         let marker = app.staticTexts["qa.testWorkspace"]
-        if !marker.waitForExistence(timeout: 5) {
+        if !marker.waitForExistence(timeout: 5) || marker.value as? String != workspace {
             app.terminate()
             app.launch()
         }
@@ -300,7 +300,8 @@ final class MorningHomePlaybackTests: XCTestCase {
 
     private func settingsButton(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         let button = app.buttons[identifier]
-        for _ in 0..<14 where !(button.exists && button.isHittable) {
+        for _ in 0..<14 {
+            if button.exists && button.isHittable { break }
             let form = app.collectionViews.firstMatch
             let container = form.exists ? form : app.scrollViews.firstMatch
             container.swipeUp()

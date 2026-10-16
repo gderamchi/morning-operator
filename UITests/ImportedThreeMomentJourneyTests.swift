@@ -37,11 +37,12 @@ import MorningCore
         XCTAssertEqual(manualDraft.steps.count, 3)
         XCTAssertFalse(manualDraft.isApproved)
         XCTAssertTrue(manualDraft.steps.allSatisfy { $0.automation == nil && $0.target == nil })
+        // Isolated QA forces English in the argument domain, never a host/device preference.
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-workspace=\(workspace)",
             "--ui-testing-integrated-three-moments", "--ui-testing-gmail-attention", "--ui-testing-slack-setup",
             "--ui-testing-hands-free", "--light-preview", "--theme-phase=morning",
             "--ui-testing-parsed-routine=" + data.base64EncodedString(),
-            "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         defer { app.terminate() }
         try requireWorkspace(workspace, app)

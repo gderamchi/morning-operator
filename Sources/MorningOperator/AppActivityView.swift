@@ -5,6 +5,7 @@ import MorningApple
 struct AppActivityView: View {
     @ViewState<AppTransitionDaySummary?> private var summary = nil
     @ViewState<String?> private var errorMessage = nil
+    @ViewState<[ObservedApp]> private var misconfigured: [ObservedApp] = []
     @ViewState<Bool> private var showingSetup = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -31,6 +32,12 @@ struct AppActivityView: View {
                     }
                     Text("Today's configured app automations only. These entries are separate from phone pickups; gaps and other apps may be missing.")
                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                    if !misconfigured.isEmpty {
+                        Label("\(misconfigured.map(\.displayName).joined(separator: ", ")) closes right after opening. In Shortcuts, check that its closing automation has only Is Closed selected; until then recordings can't use its times.",
+                              systemImage: "exclamationmark.triangle")
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.accent)
+                            .accessibilityIdentifier("appActivity.misconfigured")
+                    }
                 } else {
                     Text(errorMessage ?? AppLanguage.localized("Connect the apps you want to understand. Their entries and repeated returns will appear here."))
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
@@ -49,6 +56,7 @@ struct AppActivityView: View {
     private func refresh() async {
         do {
             summary = try await AppTransitionLogStore.shared.summary(for: Date())
+            misconfigured = (try? await AppTransitionLogStore.shared.appsClosingRightAfterOpening()) ?? []
             errorMessage = nil
         } catch {
             summary = nil
@@ -67,12 +75,12 @@ private struct AppActivitySetupView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    PageHeading(eyebrow: AppLanguage.localized("A little more context"), title: AppLanguage.localized("Notice the loops."),
-                                subtitle: AppLanguage.localized("Connect Instagram, TikTok or Snapchat once with Apple's Shortcuts app. Only app names and times are saved locally."))
-                    instruction("1", AppLanguage.localized("Choose one app"), AppLanguage.localized("In Shortcuts, open Automation and create an App automation. Choose one supported app and Is Opened. Select Run Immediately if you want it to work automatically."))
-                    instruction("2", AppLanguage.localized("Add Morning Operator"), AppLanguage.localized("Add the action Log an app transition. Choose that same app and Opened or switched to. Leave Event ID empty for ordinary use."))
-                    instruction("3", AppLanguage.localized("Track when you leave"), AppLanguage.localized("Create a separate Is Closed automation for the same app. Choose Closed or switched from in our action. Repeat for any other supported apps you want to include."))
-                    Text("Try opening two connected apps and returning to the first, then return to the app activity card. Counts appear after those automations actually run. This setup does not start screen recording or read messages.")
+                    PageHeading(eyebrow: String(localized: "A little more context", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), title: String(localized: "Notice the loops.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+                                subtitle: String(localized: "Connect any app once with Apple's Shortcuts app, such as WhatsApp, Instagram or Mail. Only app names and times are saved locally.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                    instruction("1", String(localized: "Choose one app", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), String(localized: "In Shortcuts, open Automation and create an App automation. Choose any app and Is Opened. Select Run Immediately if you want it to work automatically.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                    instruction("2", String(localized: "Add Morning Operator", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), String(localized: "Add the action Log an app transition. Tap App and pick that same app, or type its name; if you leave it empty, iOS asks you every time. Choose Opened or switched to. Leave Event ID empty for ordinary use.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                    instruction("3", String(localized: "Track when you leave", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), String(localized: "Create a separate automation for the same app with only Is Closed selected. Choose Closed or switched from in our action. Repeat for any other apps you want to include.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                    Text("Try opening two connected apps and returning to the first, then open Review. Counts appear after those automations actually run. Screen recordings you make in MORE also use these times to name the app on each sampled screen. This setup does not start screen recording or read messages.")
                         .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     #if os(iOS)
                     Link(destination: URL(string: "shortcuts://")!) {

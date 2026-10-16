@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8"><title>12 Receipt</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+/* The morning printed on a thermal receipt. Completed moments tear off. */
+.screen { background:#d8d3c8; font-family:"Space Mono",monospace; color:#1c1c1c; }
+.paper { position:absolute; left:34px; right:34px; top:0; bottom:0; background:#fbfaf5; box-shadow:0 2px 12px rgba(0,0,0,.12); padding:70px 22px 40px; display:flex; flex-direction:column; }
+.paper::before, .paper::after { content:""; position:absolute; left:0; right:0; height:10px; background:radial-gradient(circle at 5px 10px, transparent 5px, #fbfaf5 5.5px) -5px 0/16px 10px repeat-x; }
+.paper::after { bottom:0; transform:rotate(180deg); } .paper::before { top:0; }
+.hdr { text-align:center; font-size:12px; letter-spacing:.2em; text-transform:uppercase; }
+.hdr b { display:block; font-size:28px; letter-spacing:.05em; margin-top:6px; }
+.dash { border-top:2px dashed #1c1c1c; margin:14px 0; opacity:.5; }
+.row { display:flex; justify-content:space-between; font-size:14px; padding:6px 0; }
+.row.done { color:#9a978f; text-decoration:line-through; }
+.row.now { font-weight:700; }
+.row.total { font-weight:700; font-size:15px; }
+.fine { font-size:11px; line-height:1.6; color:#5a5852; }
+.bar { height:42px; margin:18px 0 8px; background:repeating-linear-gradient(90deg,#1c1c1c 0 2px,transparent 2px 4px,#1c1c1c 4px 7px,transparent 7px 9px,#1c1c1c 9px 10px,transparent 10px 14px); }
+.keys { margin-top:auto; display:flex; gap:8px; font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.keys span { flex:1; text-align:center; padding:14px 0; border:2px solid #1c1c1c; }
+.keys span.p { background:#1c1c1c; color:#fbfaf5; }
+.big { font-size:84px; font-weight:700; line-height:1; letter-spacing:-.04em; text-align:center; margin:14px 0; }
+.tear { position:absolute; left:34px; right:34px; top:300px; height:0; border-top:2px dashed #b9b4a8; }
+.sun { width:60px; height:60px; margin:0 auto; }
+p { margin:0 0 10px; font-size:14px; line-height:1.55; }
+</style></head><body>
+<div class="phone"><div class="screen"><div class="paper">
+  <div class="hdr">Tuesday 14 October<b>GOOD MORNING</b></div>
+  <div class="dash"></div>
+  <div class="row"><span>Your day</span><span>3 min</span></div>
+  <div class="row"><span>People and messages</span><span>8 min</span></div>
+  <div class="row"><span>Mail</span><span>7 min</span></div>
+  <div class="row"><span>Make some tea</span><span>5 min</span></div>
+  <div class="row"><span>A little reading</span><span>6 min</span></div>
+  <div class="row"><span>A moment to move</span><span>10 min</span></div>
+  <div class="row"><span>One thought for later</span><span>3 min</span></div>
+  <div class="dash"></div>
+  <div class="row total"><span>PLANNED</span><span>42 min</span></div>
+  <div class="fine">Estimates you can edit. Not a clock appointment.</div>
+  <div class="bar"></div>
+  <div class="keys"><span>Learn</span><span>History</span><span class="p">Play</span></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="paper">
+  <div class="hdr">Now · 4 of 7</div>
+  <div class="big">3:40</div>
+  <div class="hdr" style="letter-spacing:.05em;text-transform:none;font-size:20px;font-weight:700">Make some tea</div>
+  <div class="fine" style="text-align:center;margin-top:6px">A moment you’ve made room for.</div>
+  <div class="dash"></div>
+  <div class="row done"><span>Mail</span><span>7 min</span></div>
+  <div class="row now"><span>▶ Make some tea</span><span>5 min</span></div>
+  <div class="row"><span>A little reading</span><span>6 min</span></div>
+  <div class="keys"><span class="p">Pause</span><span>Next</span><span>Again</span></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="paper">
+  <div class="hdr">Your day</div>
+  <canvas class="sun" id="r3"></canvas>
+  <div class="dash"></div>
+  <p>Here is your briefing for Tuesday 14 October.</p>
+  <p>Weather in Paris: mostly cloudy, 11 degrees Celsius.</p>
+  <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+  <p>Precipitation is likely before 16:00. Take an umbrella.</p>
+  <div class="dash"></div>
+  <div class="fine">Read from your selected calendars. Current conditions from Apple Weather.</div>
+  <div class="keys" style="flex-direction:column"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+</div></div></div>
+<script src="pix.js"></script>
+<script>pix.pixelSun(document.getElementById('r3'),15,'#1c1c1c',{rays:true});</script>
+</body></html>

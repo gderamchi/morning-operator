@@ -172,6 +172,7 @@ final class MorningSubscriptionPurchaseTests: XCTestCase {
         app.launchArguments = [
             "--ui-testing", "--ui-testing-real-subscription", "--ui-testing-empty-workspace",
             "--ui-testing-workspace=\(UUID().uuidString)", "--theme-phase=day", "--ui-testing-reduce-motion",
+            "-more.appLanguage", "fr",
             "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"
         ]
         app.launch()

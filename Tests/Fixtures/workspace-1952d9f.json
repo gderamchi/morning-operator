@@ -1,0 +1,521 @@
+{
+  "schemaVersion" : 1,
+  "value" : {
+    "automatic" : true,
+    "captures" : [
+
+    ],
+    "consumedMorningEntryIDs" : [
+
+    ],
+    "history" : {
+      "appObservations" : [
+
+      ],
+      "runs" : [
+        {
+          "isSynthetic" : false,
+          "recordedAt" : 781428016.6875,
+          "session" : {
+            "currentStepIndex" : 4,
+            "events" : [
+              {
+                "id" : "77A4460F-F379-4CEC-B81D-EB4ACC0C6B42",
+                "kind" : "started",
+                "occurredAt" : 781426800.4375
+              },
+              {
+                "id" : "459FDE38-7BE9-42B5-835B-76CD972FFFE5",
+                "kind" : "stepCompleted",
+                "occurredAt" : 781427043.6875,
+                "stepID" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183"
+              },
+              {
+                "id" : "F88D1BCE-8DE0-4D85-820F-C1909595F308",
+                "kind" : "stepCompleted",
+                "occurredAt" : 781427286.9375,
+                "stepID" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124"
+              },
+              {
+                "id" : "87A59785-6565-4719-A9F4-F8184EE1149E",
+                "kind" : "stepCompleted",
+                "occurredAt" : 781427530.1875,
+                "stepID" : "BB0E6464-C798-43A5-88B4-359126416CD0"
+              },
+              {
+                "id" : "867DB4B6-A16D-472B-9DF2-864F745074AE",
+                "kind" : "stepCompleted",
+                "occurredAt" : 781427773.4375,
+                "stepID" : "123CE0A0-0B6D-4A97-8C0D-40F71C2C9878"
+              },
+              {
+                "id" : "F547F0BD-C2E2-43AC-B3AC-6D6310B4F730",
+                "kind" : "completed",
+                "occurredAt" : 781427773.4375
+              }
+            ],
+            "id" : "0B611AD0-17A8-4A23-9742-4A7F13658EB4",
+            "routine" : {
+              "createdAt" : 781252176.0625,
+              "id" : "8F212871-D2CE-4C6E-98E6-873FD0749EFB",
+              "isApproved" : true,
+              "number" : 2,
+              "sourceLabel" : "Synthetic fixture notes (invented)",
+              "steps" : [
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 3,
+                  "id" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183",
+                  "isRequired" : false,
+                  "kind" : "briefing",
+                  "title" : "Fixture step: read the weather"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 4,
+                  "id" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+                  "isRequired" : true,
+                  "kind" : "custom",
+                  "title" : "Fixture step: water the test plant"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 5,
+                  "id" : "BB0E6464-C798-43A5-88B4-359126416CD0",
+                  "isRequired" : false,
+                  "kind" : "calendar",
+                  "title" : "Fixture step: check the sample calendar"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 6,
+                  "id" : "123CE0A0-0B6D-4A97-8C0D-40F71C2C9878",
+                  "isRequired" : false,
+                  "kind" : "wellbeing",
+                  "title" : "Fixture step: stretch for the test"
+                }
+              ]
+            },
+            "status" : "completed"
+          },
+          "timeZoneIdentifier" : "Europe\/Paris",
+          "timingInterrupted" : false
+        },
+        {
+          "isSynthetic" : false,
+          "recordedAt" : 781513747.75,
+          "session" : {
+            "currentStepIndex" : 1,
+            "events" : [
+              {
+                "id" : "9B8071D7-A9FC-4ECC-8825-7D2433AE1762",
+                "kind" : "started",
+                "occurredAt" : 781513200.4375
+              },
+              {
+                "id" : "E45510FE-6CE6-4972-86AB-89FAB9682A3F",
+                "kind" : "stepCompleted",
+                "occurredAt" : 781513382.875,
+                "stepID" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183"
+              },
+              {
+                "id" : "8EE72EC5-5F95-458B-8FB9-4E307548B03A",
+                "kind" : "paused",
+                "occurredAt" : 781513504.5,
+                "stepID" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124"
+              },
+              {
+                "id" : "AA541331-C8FE-4250-8F93-04E5AC7E4F50",
+                "kind" : "stopped",
+                "occurredAt" : 781513747.75,
+                "stepID" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124"
+              }
+            ],
+            "id" : "19049282-4B0F-4166-9E13-900C7EC24ABB",
+            "routine" : {
+              "createdAt" : 781252176.0625,
+              "id" : "8F212871-D2CE-4C6E-98E6-873FD0749EFB",
+              "isApproved" : true,
+              "number" : 2,
+              "sourceLabel" : "Synthetic fixture notes (invented)",
+              "steps" : [
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 3,
+                  "id" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183",
+                  "isRequired" : false,
+                  "kind" : "briefing",
+                  "title" : "Fixture step: read the weather"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 4,
+                  "id" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+                  "isRequired" : true,
+                  "kind" : "custom",
+                  "title" : "Fixture step: water the test plant"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 5,
+                  "id" : "BB0E6464-C798-43A5-88B4-359126416CD0",
+                  "isRequired" : false,
+                  "kind" : "calendar",
+                  "title" : "Fixture step: check the sample calendar"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 6,
+                  "id" : "123CE0A0-0B6D-4A97-8C0D-40F71C2C9878",
+                  "isRequired" : false,
+                  "kind" : "wellbeing",
+                  "title" : "Fixture step: stretch for the test"
+                }
+              ]
+            },
+            "status" : "stopped"
+          },
+          "timeZoneIdentifier" : "Europe\/Paris",
+          "timingInterrupted" : false
+        },
+        {
+          "isSynthetic" : false,
+          "recordedAt" : 781599661.25,
+          "session" : {
+            "currentStepIndex" : 0,
+            "events" : [
+              {
+                "id" : "0F65C62A-82FE-4841-8C1B-8AF356F85735",
+                "kind" : "stopped",
+                "occurredAt" : 781599661.25,
+                "stepID" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183"
+              }
+            ],
+            "id" : "74CBCCB8-E018-4DD9-9A53-F8CE4B762097",
+            "routine" : {
+              "createdAt" : 781252176.0625,
+              "id" : "8F212871-D2CE-4C6E-98E6-873FD0749EFB",
+              "isApproved" : true,
+              "number" : 2,
+              "sourceLabel" : "Synthetic fixture notes (invented)",
+              "steps" : [
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 3,
+                  "id" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183",
+                  "isRequired" : false,
+                  "kind" : "briefing",
+                  "title" : "Fixture step: read the weather"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 4,
+                  "id" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+                  "isRequired" : true,
+                  "kind" : "custom",
+                  "title" : "Fixture step: water the test plant"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 5,
+                  "id" : "BB0E6464-C798-43A5-88B4-359126416CD0",
+                  "isRequired" : false,
+                  "kind" : "calendar",
+                  "title" : "Fixture step: check the sample calendar"
+                },
+                {
+                  "detail" : "Invented text for a test.",
+                  "durationMinutes" : 6,
+                  "id" : "123CE0A0-0B6D-4A97-8C0D-40F71C2C9878",
+                  "isRequired" : false,
+                  "kind" : "wellbeing",
+                  "title" : "Fixture step: stretch for the test"
+                }
+              ]
+            },
+            "status" : "stopped"
+          },
+          "timeZoneIdentifier" : "Europe\/Paris",
+          "timingInterrupted" : false
+        }
+      ]
+    },
+    "observationArchive" : {
+      "entries" : [
+        {
+          "frameReviews" : [
+
+          ],
+          "id" : "0E82C5C9-F950-401F-92D9-35EF29619976",
+          "importedAt" : 781594127.3125,
+          "observedDate" : {
+            "date" : 781592302.9375,
+            "provenance" : "userAssigned",
+            "timeZoneIdentifier" : "Europe\/Paris"
+          },
+          "origin" : "human",
+          "originalText" : "Invented fixture morning: I review my sample calendar after breakfast.",
+          "sourceKind" : "text",
+          "sourceLabel" : "Synthetic fixture notes (invented)",
+          "warnings" : [
+
+          ]
+        }
+      ]
+    },
+    "observationNotes" : "Invented fixture morning: I review my sample calendar after breakfast.",
+    "observationSource" : "Synthetic fixture notes (invented)",
+    "pendingCaptures" : {
+
+    },
+    "pendingRoutineProposal" : {
+      "baseRoutineID" : "8F212871-D2CE-4C6E-98E6-873FD0749EFB",
+      "baseRoutineRevision" : "1e04060e8d05965261701da42c743438c0302c651332b6de7d5e51ab2a938007",
+      "id" : "1BE16F14-C47A-4B9B-9E9B-766A47330958",
+      "omissions" : [
+
+      ],
+      "preferenceRevision" : "fef908a656cc9098a99a91908b44aceda2a9cf201e42627308bafacdffa77113",
+      "preferenceSnapshot" : {
+        "entries" : [
+          {
+            "presence" : "keep",
+            "retainedStep" : {
+              "detail" : "Invented text for a test.",
+              "durationMinutes" : 4,
+              "id" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+              "isRequired" : true,
+              "kind" : "custom",
+              "title" : "Fixture step: water the test plant"
+            },
+            "targetID" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+            "targetKind" : "custom",
+            "targetTitle" : "Fixture step: water the test plant"
+          }
+        ],
+        "revision" : "82D9588F-0B3E-4571-80F9-1E4D7476EAFE"
+      },
+      "routine" : {
+        "createdAt" : 781682351.6875,
+        "id" : "B3C4E1E7-76D3-4EA5-B4B2-957F1B570705",
+        "isApproved" : false,
+        "number" : 3,
+        "sourceLabel" : "Selected saved observations — tentative proposal",
+        "steps" : [
+          {
+            "detail" : "Invented suggestion for a test.\nTentative suggestion from selected evidence; duration is planned, not measured.\nEvidence: “I review my sample calendar after breakfast.”",
+            "durationMinutes" : 3,
+            "id" : "72695ED7-D169-47C7-BF51-2BA804A9A8BA",
+            "isRequired" : false,
+            "kind" : "calendar",
+            "title" : "Fixture step: review the sample calendar"
+          },
+          {
+            "detail" : "Invented text for a test.",
+            "durationMinutes" : 4,
+            "id" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+            "isRequired" : true,
+            "kind" : "custom",
+            "title" : "Fixture step: water the test plant"
+          }
+        ]
+      },
+      "sourceSnapshots" : [
+        {
+          "acquisitionID" : "0E82C5C9-F950-401F-92D9-35EF29619976",
+          "observedDate" : {
+            "date" : 781592302.9375,
+            "provenance" : "userAssigned",
+            "timeZoneIdentifier" : "Europe\/Paris"
+          },
+          "origin" : "human",
+          "sourceLabel" : "Synthetic fixture notes (invented)",
+          "sourceLayer" : "original",
+          "sourceRevision" : "458ec9618b6aacbd519b432324df781eea61bfdd18ed82bc39dfa49fa5b7daa9"
+        }
+      ],
+      "support" : [
+        {
+          "citations" : [
+            {
+              "acquisitionID" : "0E82C5C9-F950-401F-92D9-35EF29619976",
+              "endCharacterOffset" : 70,
+              "quote" : "I review my sample calendar after breakfast.",
+              "sourceLayer" : "original",
+              "sourceRevision" : "458ec9618b6aacbd519b432324df781eea61bfdd18ed82bc39dfa49fa5b7daa9",
+              "startCharacterOffset" : 26
+            }
+          ],
+          "preferenceIDs" : [
+
+          ],
+          "reason" : "inferredEvidence",
+          "stepID" : "72695ED7-D169-47C7-BF51-2BA804A9A8BA"
+        },
+        {
+          "citations" : [
+
+          ],
+          "preferenceIDs" : [
+            "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124"
+          ],
+          "reason" : "preservedUserDecision",
+          "stepID" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124"
+        }
+      ]
+    },
+    "previousRoutine" : {
+      "createdAt" : 781163951.6875,
+      "id" : "32C42F3F-6BEC-492A-87FC-99E14F48DEC7",
+      "isApproved" : true,
+      "number" : 1,
+      "sourceLabel" : "Synthetic fixture notes (invented)",
+      "steps" : [
+        {
+          "detail" : "Invented text for a test.",
+          "durationMinutes" : 2,
+          "id" : "843B770A-CC5C-4F8F-B8D0-555AE61C068B",
+          "isRequired" : false,
+          "kind" : "custom",
+          "title" : "Fixture step: open the curtains"
+        },
+        {
+          "detail" : "Invented text for a test.",
+          "durationMinutes" : 3,
+          "id" : "855893FC-CD4B-49CA-B214-4C509854D468",
+          "isRequired" : false,
+          "kind" : "briefing",
+          "title" : "Fixture step: read the weather"
+        }
+      ]
+    },
+    "readAloud" : false,
+    "receipts" : {
+
+    },
+    "routine" : {
+      "createdAt" : 781252176.0625,
+      "id" : "8F212871-D2CE-4C6E-98E6-873FD0749EFB",
+      "isApproved" : true,
+      "number" : 2,
+      "sourceLabel" : "Synthetic fixture notes (invented)",
+      "steps" : [
+        {
+          "detail" : "Invented text for a test.",
+          "durationMinutes" : 3,
+          "id" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183",
+          "isRequired" : false,
+          "kind" : "briefing",
+          "title" : "Fixture step: read the weather"
+        },
+        {
+          "detail" : "Invented text for a test.",
+          "durationMinutes" : 4,
+          "id" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+          "isRequired" : true,
+          "kind" : "custom",
+          "title" : "Fixture step: water the test plant"
+        },
+        {
+          "detail" : "Invented text for a test.",
+          "durationMinutes" : 5,
+          "id" : "BB0E6464-C798-43A5-88B4-359126416CD0",
+          "isRequired" : false,
+          "kind" : "calendar",
+          "title" : "Fixture step: check the sample calendar"
+        },
+        {
+          "detail" : "Invented text for a test.",
+          "durationMinutes" : 6,
+          "id" : "123CE0A0-0B6D-4A97-8C0D-40F71C2C9878",
+          "isRequired" : false,
+          "kind" : "wellbeing",
+          "title" : "Fixture step: stretch for the test"
+        }
+      ]
+    },
+    "routinePreferences" : {
+      "entries" : [
+        {
+          "presence" : "keep",
+          "retainedStep" : {
+            "detail" : "Invented text for a test.",
+            "durationMinutes" : 4,
+            "id" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+            "isRequired" : true,
+            "kind" : "custom",
+            "title" : "Fixture step: water the test plant"
+          },
+          "targetID" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+          "targetKind" : "custom",
+          "targetTitle" : "Fixture step: water the test plant"
+        }
+      ],
+      "revision" : "82D9588F-0B3E-4571-80F9-1E4D7476EAFE"
+    },
+    "schemaVersion" : 1,
+    "selectedObservationID" : "0E82C5C9-F950-401F-92D9-35EF29619976",
+    "session" : {
+      "currentStepIndex" : 1,
+      "events" : [
+        {
+          "id" : "C892442C-A09F-42EA-B19B-B8C0015A7280",
+          "kind" : "started",
+          "occurredAt" : 781686000.4375
+        },
+        {
+          "id" : "50C4EF43-D7F8-47BD-8B2F-33E8AE9977C9",
+          "kind" : "stepCompleted",
+          "occurredAt" : 781686182.875,
+          "stepID" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183"
+        }
+      ],
+      "id" : "EEC40B97-D7A8-4EBA-8DA9-CA060CBEA3DC",
+      "routine" : {
+        "createdAt" : 781252176.0625,
+        "id" : "8F212871-D2CE-4C6E-98E6-873FD0749EFB",
+        "isApproved" : true,
+        "number" : 2,
+        "sourceLabel" : "Synthetic fixture notes (invented)",
+        "steps" : [
+          {
+            "detail" : "Invented text for a test.",
+            "durationMinutes" : 3,
+            "id" : "14A266FA-6B18-4EFF-9BC6-4E4F505AC183",
+            "isRequired" : false,
+            "kind" : "briefing",
+            "title" : "Fixture step: read the weather"
+          },
+          {
+            "detail" : "Invented text for a test.",
+            "durationMinutes" : 4,
+            "id" : "D51DF42C-BCAC-46B8-A7C3-C04A46F7C124",
+            "isRequired" : true,
+            "kind" : "custom",
+            "title" : "Fixture step: water the test plant"
+          },
+          {
+            "detail" : "Invented text for a test.",
+            "durationMinutes" : 5,
+            "id" : "BB0E6464-C798-43A5-88B4-359126416CD0",
+            "isRequired" : false,
+            "kind" : "calendar",
+            "title" : "Fixture step: check the sample calendar"
+          },
+          {
+            "detail" : "Invented text for a test.",
+            "durationMinutes" : 6,
+            "id" : "123CE0A0-0B6D-4A97-8C0D-40F71C2C9878",
+            "isRequired" : false,
+            "kind" : "wellbeing",
+            "title" : "Fixture step: stretch for the test"
+          }
+        ]
+      },
+      "status" : "running"
+    },
+    "sessionTimeZone" : "Europe\/Paris",
+    "sessionTimingInterrupted" : false,
+    "showMorningOnLockScreen" : false
+  }
+}

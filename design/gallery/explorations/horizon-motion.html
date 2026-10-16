@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Horizon — motion</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..500,0..100;1,9..144,300..500,0..100&display=swap">
+<style>
+/* A looping demonstration of the one motion in HORIZON: when a moment
+   completes, the horizon moves down by that moment's share of the planned
+   minutes and the sun climbs one pixel-row. 600 ms, ease-in-out, nothing else
+   moves. With Reduce Motion the sky/ground heights snap and the list crossfades. */
+* { box-sizing:border-box } html,body { margin:0; background:#1a1a1a }
+.phone { width:393px; height:852px; position:relative; overflow:hidden; margin:0 auto; font-family:"IBM Plex Mono",monospace; font-weight:300; color:#14211A; background:#F2EDE3; }
+.ground { position:absolute; left:0; right:0; bottom:0; background:#07250C; color:#F2EDE3; height:176px; animation:ground 14s ease-in-out infinite; }
+.ground::after { content:""; position:absolute; inset:-50%; pointer-events:none; opacity:.35; mix-blend-mode:soft-light; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.edge { position:absolute; left:0; right:0; top:-12px; height:24px; width:100%; image-rendering:pixelated; }
+.sun { position:absolute; left:50%; margin-left:-36px; width:72px; height:72px; image-rendering:pixelated; bottom:calc(100% - 8px); animation:sun 14s ease-in-out infinite; }
+@keyframes ground { 0%,14% { height:176px } 20%,34% { height:230px } 40%,54% { height:372px } 60%,74% { height:498px } 80%,94% { height:588px } 100% { height:176px } }
+@keyframes sun { 0%,14% { bottom:calc(100% - 64px) } 20%,34% { bottom:calc(100% - 48px) } 40%,54% { bottom:calc(100% - 30px) } 60%,74% { bottom:calc(100% - 8px) } 80%,94% { bottom:calc(100% + 24px) } 100% { bottom:calc(100% - 64px) } }
+.date { position:absolute; top:62px; left:28px; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:#596860; }
+h1 { position:absolute; left:28px; top:82px; margin:0; font-family:Fraunces,serif; font-weight:300; font-size:46px; line-height:1; letter-spacing:-.025em; }
+h1 i { color:#C4653F; }
+.sky-list { position:absolute; left:28px; right:28px; list-style:none; margin:0; padding:0; bottom:186px; animation:list 14s ease-in-out infinite; }
+@keyframes list { 0%,14% { bottom:186px } 20%,34% { bottom:240px } 40%,54% { bottom:382px } 60%,74% { bottom:508px } 80%,94% { bottom:598px } 100% { bottom:186px } }
+.sky-list li { display:flex; justify-content:space-between; padding:10px 0; font-size:17px; border-top:1px solid rgba(20,33,26,.14); }
+.sky-list li:first-child { border-top:0 }
+.sky-list li small { font-size:11px; letter-spacing:.08em; opacity:.6; }
+.sky-list li { animation:fade 14s steps(1) infinite; }
+.sky-list li:nth-child(1) { animation-name:f1 } .sky-list li:nth-child(2) { animation-name:f2 } .sky-list li:nth-child(3) { animation-name:f3 } .sky-list li:nth-child(4) { animation-name:f4 }
+@keyframes f1 { 0%,17% { opacity:1 } 18%,99% { opacity:0; height:0; padding:0; border:0 } }
+@keyframes f2 { 0%,37% { opacity:1 } 38%,99% { opacity:0; height:0; padding:0; border:0 } }
+@keyframes f3 { 0%,57% { opacity:1 } 58%,99% { opacity:0; height:0; padding:0; border:0 } }
+@keyframes f4 { 0%,77% { opacity:1 } 78%,99% { opacity:0; height:0; padding:0; border:0 } }
+.ground ol { position:absolute; left:28px; right:28px; top:14px; list-style:none; margin:0; padding:0; }
+.ground li { display:flex; justify-content:space-between; padding:10px 0; font-size:17px; color:rgba(242,237,227,.62); border-top:1px solid rgba(242,237,227,.18); opacity:0; animation:none 14s steps(1) infinite; }
+.ground li:first-child { border-top:0 }
+.ground li:nth-child(1) { animation-name:g1 } .ground li:nth-child(2) { animation-name:g2 } .ground li:nth-child(3) { animation-name:g3 } .ground li:nth-child(4) { animation-name:g4 }
+@keyframes g1 { 0%,19% { opacity:0 } 20%,99% { opacity:1 } } @keyframes g2 { 0%,39% { opacity:0 } 40%,99% { opacity:1 } }
+@keyframes g3 { 0%,59% { opacity:0 } 60%,99% { opacity:1 } } @keyframes g4 { 0%,79% { opacity:0 } 80%,99% { opacity:1 } }
+.foot { position:absolute; left:28px; right:28px; bottom:34px; display:flex; justify-content:space-between; align-items:center; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:rgba(242,237,227,.62); }
+.foot b { font-weight:500; color:#07250C; background:#D8764D; padding:15px 22px; border-radius:3px; }
+@media (prefers-reduced-motion: reduce) { .ground, .sun, .sky-list { animation-timing-function:steps(1) } }
+</style></head><body>
+<div class="phone">
+  <div class="date">Tuesday 14 October · demo loop</div>
+  <h1>good <i>morning</i></h1>
+  <ol class="sky-list">
+    <li><span>Your day</span><small>3 MIN</small></li>
+    <li><span>People and messages</span><small>8 MIN</small></li>
+    <li><span>Mail</span><small>7 MIN</small></li>
+    <li><span>Make some tea</span><small>5 MIN</small></li>
+    <li><span>A little reading</span><small>6 MIN</small></li>
+    <li><span>A moment to move</span><small>10 MIN</small></li>
+    <li><span>One thought for later</span><small>3 MIN</small></li>
+  </ol>
+  <div class="ground">
+    <canvas class="sun" id="sun"></canvas>
+    <canvas class="edge" id="edge"></canvas>
+    <ol>
+      <li><span>Your day</span><small>3 MIN</small></li>
+      <li><span>People and messages</span><small>8 MIN</small></li>
+      <li><span>Mail</span><small>7 MIN</small></li>
+      <li><span>Make some tea</span><small>5 MIN</small></li>
+    </ol>
+    <div class="foot"><span>Again</span><span>Next</span><b>Pause</b></div>
+  </div>
+</div>
+<script src="pix.js"></script>
+<script>
+pix.ditherSky(document.getElementById('edge'),98,6,['#F2EDE3','#07250C'],{horizon:1});
+const c=document.getElementById('sun'); pix.pixelSun(c,18,'#D8764D',{fill:1}); const x=c.getContext('2d'); x.fillStyle='#E8895D';
+for(let y=0;y<18;y++)for(let i=0;i<18;i++){ const d=Math.hypot(i+.5-9,y+.5-9); if(d>7.6&&d<=8.5&&((i+y)%2===0)) x.fillRect(i,y,1,1); }
+</script>
+</body></html>

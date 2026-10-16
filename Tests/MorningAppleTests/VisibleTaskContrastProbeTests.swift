@@ -152,7 +152,7 @@ struct VisibleTaskContrastProbeTests {
     }
 
     @MainActor private func probe(_ contrast: Contrast) async {
-        let service = AppleIntelligenceService()
+        let service = AppleIntelligenceService(model: .localOnly())
         var record = Record(contrast: contrast.label, stimulusLanguage: contrast.stimulus.language,
             sourceKind: contrast.kind.rawValue, bannerPresent: contrast.banner, fullDisclosurePresent: contrast.fullDisclosure)
         defer {
@@ -205,6 +205,7 @@ struct VisibleTaskContrastProbeTests {
         } catch {
             let category: String
             switch error {
+            case AppleIntelligenceError.modelDidNotAnswer(let reason): category = "localModelDidNotAnswer.\(reason.rawValue)"
             case RoutineEvidenceProposalError.invalidCitation: category = "invalidCitation"
             case RoutineEvidenceProposalError.invalidProposal: category = "invalidProposal"
             case RoutineEvidenceProposalError.inputBudgetExceeded: category = "inputBudgetExceeded"

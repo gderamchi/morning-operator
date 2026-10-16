@@ -1,14 +1,19 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import MorningCore
+import MorningApple
 
 struct LearnView: View {
+    #if DEBUG
+    @MainActor static var autoLearnStarted = false
+    #endif
     @Bindable var store: MorningStore
     /// Where to go when learning is done. Without it, Learn dismisses itself.
     var onClose: (() -> Void)? = nil
     @ViewState<Bool> private var importing = false
     @ViewState<UUID?> private var importGeneration = nil
     @ViewState<Bool> private var recording = false
+    @ViewState<Bool> private var recordingStartsAtOnce = false
     @ViewState<Bool> private var confirmingObservation = false
     @ViewState<Bool> private var showingProposal = false
     @ViewState<Bool> private var awaitingSuggestion = false
@@ -97,10 +102,20 @@ struct LearnView: View {
                         Text(observation.sourceLabel).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("learn.observationSource")
                     }
-                    notesEditor
+                    if let observation = store.selectedObservation, store.observationVideoEvidence != nil,
+                       case let openings = ObservationAppTimeline.openings(for: observation), !openings.isEmpty {
+                        // A recording reads as the apps it opened; the raw screen text stays
+                        // available to correct, folded away.
+                        appOpenings(openings)
+                        DisclosureGroup("Text read on screen") { notesEditor.padding(.top, 8) }
+                            .font(.subheadline).tint(MorningStyle.accent)
+                    } else {
+                        notesEditor
+                    }
                     if let evidence = store.observationVideoEvidence {
                         ObservationEvidenceView(evidence: evidence,
                             classification: store.observationContextClassification,
+                            acquisition: store.selectedObservation,
                             isBusy: store.busy, canAnalyze: !store.sessionActive,
                             analyze: store.recognizeObservationScreens)
                     }
@@ -127,6 +142,10 @@ struct LearnView: View {
                 DisclosureGroup("About on-device learning") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.modelSummary)
+                        Text(store.canRecognizeAppsInImages
+                             ? String(localized: "App recognition in screen recordings: available on this device.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                             : String(localized: "App recognition in screen recordings: unavailable here. Apps can still come from your Shortcuts automations or your labels.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                            .accessibilityIdentifier("setup.imageAppRecognition")
                         Text("Each observation is saved on this device, with its original text and your corrections kept separately. Find earlier observations in Review. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it.")
                         Text("A recording is sampled at up to 24 moments, so short clips work best and quick actions may be missed. Visible text helps suggest a routine; it doesn't reveal every tap or intention.")
                         Text("Analysis uses Apple's on-device model when available. It doesn't run other apps or approve a routine for you.")
@@ -166,11 +185,17 @@ struct LearnView: View {
         .navigationDestination(isPresented: $showingSavedObservations) {
             ObservationHistoryView(store: store, onLearn: { showingSavedObservations = false }, onEdit: { close() })
         }
-        .sheet(isPresented: $recording) {
-            RecordMorningView(canStartRecording: store.canStartRecording) { url in
+        .sheet(isPresented: $recording, onDismiss: { recordingStartsAtOnce = false }) {
+            RecordMorningView(canStartRecording: store.canStartRecording, startsAtOnce: recordingStartsAtOnce) { url in
                 store.importObservation(url)
             }
         }
+        #if DEBUG
+        .onChange(of: MorningIntentRouter.shared.pendingWatchMorning, initial: true) { _, pending in
+            guard pending, MorningIntentRouter.shared.consumeWatchMorning(), !recording else { return }
+            recordingStartsAtOnce = true; recording = true
+        }
+        #endif
         .sheet(isPresented: $confirmingObservation) {
             if let entry = store.selectedObservation {
                 ObservationDateEditor(store: store, entry: entry)
@@ -184,6 +209,13 @@ struct LearnView: View {
                 showingProposal = false
             })
         }
+        #if DEBUG
+        .task {
+            guard MorningStore.screenTimeAutoLearnRequested, !LearnView.autoLearnStarted else { return }
+            LearnView.autoLearnStarted = true
+            store.learnFromScreenTime()
+        }
+        #endif
         .onChange(of: store.pendingRoutineProposal?.id) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.busy) { _, _ in finishSuggestionIfReady() }
         .onChange(of: store.routine?.id) { _, _ in
@@ -344,6 +376,19 @@ struct LearnView: View {
         }
     }
 
+    private func appOpenings(_ openings: [ObservationAppOpening]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(openings) { opening in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(opening.wallClock.map { $0.formatted(.dateTime.hour().minute().locale(AppLanguage.locale)) }
+                         ?? String(format: "%d:%02d", Int(opening.timeSeconds) / 60, Int(opening.timeSeconds) % 60))
+                        .monospacedDigit().foregroundStyle(MorningStyle.muted)
+                    Text("Opened \(opening.app.displayName)").foregroundStyle(MorningStyle.ink)
+                }.font(.raleway(.subheadline))
+            }
+        }.accessibilityElement(children: .combine).accessibilityIdentifier("learn.appOpenings")
+    }
+
     private func sectionTitle(_ title: String, symbol: String) -> some View {
         Label { Text(title) } icon: {
             MorningDottedIcon(systemName: symbol).frame(width: 24, height: 24)
@@ -362,6 +407,8 @@ struct SetupView: View {
     @State private var choosingInvitation = false
     @State private var showingPrivacy = false
     @State private var choosingBriefing = false
+    @State private var choosingHealth = false
+    @State private var choosingConversation = false
     @Environment(\.colorScheme) private var colorScheme
     private var french: Bool { AppLanguage.isFrench }
 
@@ -375,13 +422,13 @@ struct SetupView: View {
             completion
             Section {
                 if let openRoutine {
-                    settingsButton(AppLanguage.localized("Your routine"),
-                        detail: store.routine.map { AppLanguage.localized("\($0.steps.count) moments · \($0.totalDurationMinutes) min") } ?? "",
+                    settingsButton(String(localized: "Your routine", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+                        detail: store.routine.map { String(localized: "\($0.steps.count) moments · \($0.totalDurationMinutes) min", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) } ?? "",
                         symbol: "list.bullet", action: openRoutine)
                         .accessibilityIdentifier("setup.routine")
                 }
                 if let openHistory {
-                    settingsButton(AppLanguage.localized("History"), symbol: "clock.arrow.circlepath", action: openHistory)
+                    settingsButton(String(localized: "History", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "clock.arrow.circlepath", action: openHistory)
                         .accessibilityIdentifier("setup.history")
                 }
                 settingsButton(french ? "Noter une pensée" : "Note a thought", symbol: "square.and.pencil") { store.openCapture() }
@@ -392,16 +439,36 @@ struct SetupView: View {
                     ScrollView { MorningScreenTimeView(store: store, onEdit: openRoutine).padding(24) }
                         .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
                 } label: {
-                    settingsLabel(AppLanguage.localized("Screen Time"), symbol: "clock")
+                    settingsLabel(String(localized: "Screen Time", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "clock")
                 }.accessibilityIdentifier("setup.screenTime")
                 NavigationLink { MorningConnectionsView(store: store) } label: {
-                    settingsLabel(AppLanguage.localized("Apps & accounts"), symbol: "link")
+                    settingsLabel(String(localized: "Apps & accounts", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "link")
                 }.accessibilityIdentifier("setup.connections")
-                settingsButton(AppLanguage.localized("Calendar, weather & sleep"), symbol: "sun.max") { choosingBriefing = true }
+                settingsButton(MorningPermissionSetup.text("Calendar & weather", "Calendrier et météo"), symbol: "sun.max") { choosingBriefing = true }
                     .accessibilityIdentifier("setup.briefing")
+                settingsButton(MorningPermissionSetup.text("Health", "Santé"), symbol: "heart") { choosingHealth = true }
+                    .accessibilityIdentifier("setup.health")
+            }
+            Section("Language") {
+                Picker("Language", selection: Binding(
+                    get: { AppLanguage.code },
+                    set: { store.setAppLanguage($0) })) {
+                    Text(verbatim: "Français").tag("fr")
+                    Text(verbatim: "English").tag("en")
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("setup.language")
             }
             Section(french ? "Voix et lecture" : "Voice & playback") {
-                settingsButton(AppLanguage.localized("Voice"), detail: store.speech.selectedVoiceSummary,
+                #if !MORE_JURY_DEMO
+                settingsButton(french ? "Parler avec MORE" : "Talk with MORE",
+                               detail: "ElevenLabs", symbol: "sparkles") { choosingConversation = true }
+                    .accessibilityIdentifier("setup.conversation")
+                #endif
+                NavigationLink { MorningIntelligenceView(store: store) } label: {
+                    settingsLabel(french ? "Intelligence et mémoire" : "Intelligence & memory", symbol: "sparkles")
+                }.accessibilityIdentifier("setup.intelligence")
+                settingsButton(String(localized: "Voice", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: store.speech.selectedVoiceSummary,
                                symbol: "waveform") { choosingVoice = true }
                     .disabled(store.sessionActive).accessibilityIdentifier("setup.voice")
                 Toggle(isOn: $store.automatic) {
@@ -446,18 +513,18 @@ struct SetupView: View {
                 }
             }
             Section {
-                settingsButton(AppLanguage.localized("Your next morning"), detail: store.invitation.statusText,
+                settingsButton(String(localized: "Your next morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: store.invitation.statusText,
                                symbol: "sun.horizon") { choosingInvitation = true }
                     .accessibilityIdentifier("setup.invitation")
                 settingsButton(MorningPermissionSetup.text("iPhone permissions", "Accès iPhone"),
                                symbol: "hand.raised") { store.permissionSetup.revisit() }
                     .accessibilityIdentifier("setup.permissions")
-                settingsButton(AppLanguage.localized("Privacy & data"), symbol: "lock.shield") { showingPrivacy = true }
+                settingsButton(String(localized: "Privacy & data", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "lock.shield") { showingPrivacy = true }
                     .accessibilityIdentifier("setup.privacy")
                 DisclosureGroup("Availability & device details") {
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Label("Apple Intelligence", systemImage: "sparkles").font(.headline)
+                            Label(french ? "Intelligence" : "Intelligence", systemImage: "sparkles").font(.headline)
                             Text(store.modelSummary)
                             Button("Check again") { store.refreshCapabilities() }.buttonStyle(SecondaryButtonStyle())
                         }
@@ -474,6 +541,8 @@ struct SetupView: View {
         .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
         .task { if store.privacyNeedsCleanup { showingPrivacy = true } }
         .fullScreenCover(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
+        .sheet(isPresented: $choosingHealth) { MorningHealthView(store: store) }
+        .sheet(isPresented: $choosingConversation) { MorningConversationView(store: store) }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $preparingVoiceAccess) { MorningVoicePreparationView(store: store) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
@@ -518,9 +587,19 @@ struct SetupView: View {
                     .accessibilityIdentifier("morning.completeSummary")
                 if let summary = store.executionSummary { Text(summary).accessibilityIdentifier("morning.executionSummary") }
                 if store.shouldOfferCompletionReflection {
+                    if let question = store.currentClosingQuestion {
+                        Text(verbatim: question.prompt(french: french))
+                            .accessibilityIdentifier("morning.closingQuestion")
+                    }
                     Button { store.openCompletionCapture() } label: {
                         Label(french ? "Dire une pensée" : "Speak a thought", systemImage: "mic")
                     }.disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
+                    Button(french ? "Écrire" : "Write") { store.answerClosingQuestionInWriting() }
+                        .accessibilityIdentifier("morning.reflect")
+                    if store.currentClosingQuestion != nil {
+                        Button(french ? "Passer" : "Skip") { store.skipClosingQuestion() }
+                            .accessibilityIdentifier("morning.skipQuestion")
+                    }
                     Button(french ? "Plus tard" : "Not now") { store.discardCompletionReflection() }
                         .accessibilityIdentifier("morning.dismissReflection")
                 }

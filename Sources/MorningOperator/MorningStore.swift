@@ -20,110 +20,6 @@ enum MorningTab: String, CaseIterable, Identifiable {
     }
 }
 
-/// Legacy derived output is optional. An unsupported model payload must not make
-/// the person's valid routine and original observation impossible to restore.
-private struct RecoverableObservationClassification: Codable, Sendable {
-    let value: ObservationContextClassification?
-    let wasInvalid: Bool
-    init(_ value: ObservationContextClassification) { self.value = value; wasInvalid = false }
-    init(from decoder: any Decoder) throws {
-        do { value = try ObservationContextClassification(from: decoder); wasInvalid = false }
-        catch { value = nil; wasInvalid = true }
-    }
-    func encode(to encoder: any Encoder) throws {
-        if let value { try value.encode(to: encoder) }
-        else { var container = encoder.singleValueContainer(); try container.encodeNil() }
-    }
-}
-
-/// A damaged derived suggestion must not strand the current routine or original
-/// observations. Restored proposals are also checked against live source revisions.
-private struct RecoverableRoutineProposal: Codable, Sendable {
-    let value: EvidenceRoutineProposal?
-    let wasInvalid: Bool
-    init(_ value: EvidenceRoutineProposal) { self.value = value; wasInvalid = false }
-    init(from decoder: any Decoder) throws {
-        do { value = try EvidenceRoutineProposal(from: decoder); wasInvalid = false }
-        catch { value = nil; wasInvalid = true }
-    }
-    func encode(to encoder: any Encoder) throws {
-        if let value { try value.encode(to: encoder) }
-        else { var container = encoder.singleValueContainer(); try container.encodeNil() }
-    }
-}
-
-private struct WorkspaceSnapshot: Codable, Sendable {
-    var schemaVersion = 1
-    var routine: RoutineVersion?
-    var session: RoutineSession?
-    var previousRoutine: RoutineVersion?
-    var history: MorningHistory?
-    var captures: [QuickCapture]?
-    var receipts: [String: String]?
-    var sessionTimeZone: String?
-    var automatic: Bool?
-    var readAloud: Bool?
-    var handsFreeListeningSuppressedSessionID: UUID?
-    var showMorningOnLockScreen: Bool?
-    var sessionTimingInterrupted: Bool?
-    var budgetAndFeedback: RoutineBudgetAndFeedback?
-    var pendingCaptures: [String: String]?
-    var voiceIdentifier: String?
-    var observationNotes: String?
-    var observationSource: String?
-    var observationVideoEvidence: ObservationVideoEvidence?
-    var observationContextClassification: RecoverableObservationClassification?
-    var observationArchive: ObservationArchive?
-    var selectedObservationID: UUID?
-    var pendingRoutineProposal: RecoverableRoutineProposal?
-    var pendingScreenTimeProposal: ScreenTimeRoutineProposal?
-    var consumedMorningEntryIDs: [UUID]?
-    var routinePreferences: RecoverableRoutinePreferences?
-    /// Which morning sessions were already greeted (issue #28). Session identifiers only.
-    var greeting: MorningGreetingState?
-    var executionRecords: [RoutineExecutionRecord]?
-}
-
-private extension WorkspaceSnapshot {
-    init(from decoder: any Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-        schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
-        routine = try values.decodeIfPresent(RoutineVersion.self, forKey: .routine)
-        session = try values.decodeIfPresent(RoutineSession.self, forKey: .session)
-        previousRoutine = try values.decodeIfPresent(RoutineVersion.self, forKey: .previousRoutine)
-        history = try values.decodeIfPresent(MorningHistory.self, forKey: .history)
-        captures = try values.decodeIfPresent([QuickCapture].self, forKey: .captures)
-        receipts = try values.decodeIfPresent([String: String].self, forKey: .receipts)
-        executionRecords = try values.decodeIfPresent([RoutineExecutionRecord].self, forKey: .executionRecords)
-        sessionTimeZone = try values.decodeIfPresent(String.self, forKey: .sessionTimeZone)
-        automatic = try values.decodeIfPresent(Bool.self, forKey: .automatic)
-        readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
-        handsFreeListeningSuppressedSessionID = try values.decodeIfPresent(UUID.self, forKey: .handsFreeListeningSuppressedSessionID)
-        showMorningOnLockScreen = try values.decodeIfPresent(Bool.self, forKey: .showMorningOnLockScreen)
-        sessionTimingInterrupted = try values.decodeIfPresent(Bool.self, forKey: .sessionTimingInterrupted)
-        budgetAndFeedback = try values.decodeIfPresent(RoutineBudgetAndFeedback.self, forKey: .budgetAndFeedback)
-        pendingCaptures = try values.decodeIfPresent([String: String].self, forKey: .pendingCaptures)
-        voiceIdentifier = try values.decodeIfPresent(String.self, forKey: .voiceIdentifier)
-        observationNotes = try values.decodeIfPresent(String.self, forKey: .observationNotes)
-        observationSource = try values.decodeIfPresent(String.self, forKey: .observationSource)
-        observationVideoEvidence = try values.decodeIfPresent(ObservationVideoEvidence.self, forKey: .observationVideoEvidence)
-        observationContextClassification = try values.decodeIfPresent(RecoverableObservationClassification.self, forKey: .observationContextClassification)
-        observationArchive = try values.decodeIfPresent(ObservationArchive.self, forKey: .observationArchive)
-        selectedObservationID = try values.decodeIfPresent(UUID.self, forKey: .selectedObservationID)
-        pendingRoutineProposal = try values.decodeIfPresent(RecoverableRoutineProposal.self, forKey: .pendingRoutineProposal)
-        // A damaged derived proposal must not make the person's routine unreadable.
-        pendingScreenTimeProposal = try? values.decodeIfPresent(ScreenTimeRoutineProposal.self, forKey: .pendingScreenTimeProposal)
-        consumedMorningEntryIDs = try values.decodeIfPresent([UUID].self, forKey: .consumedMorningEntryIDs)
-        // Missing is an older workspace. Present-but-null is damaged saved data;
-        // keep it unreadable until the user explicitly resets their choices.
-        routinePreferences = values.contains(.routinePreferences)
-            ? try values.decode(RecoverableRoutinePreferences.self, forKey: .routinePreferences) : nil
-        // Missing is an older workspace. An unreadable value must not close the whole
-        // workspace: at worst a morning in progress is treated as not greeted yet.
-        greeting = (try? values.decodeIfPresent(MorningGreetingState.self, forKey: .greeting)) ?? nil
-    }
-}
-
 /// Retain privacy outcomes and their original error objects, not translated snapshots.
 private enum PrivacyNotice {
     case finishingRemoval, controlsUnreadable(any Error), removalDidNotStart(any Error)
@@ -156,6 +52,9 @@ final class MorningStore {
     private(set) var approvalCount = 0
     /// Counts mornings that began and were saved in this launch; resuming does not count.
     private(set) var morningStartCount = 0
+    /// Counts mornings that finished and were saved in this launch (issue #80). A finish
+    /// whose save failed, a repeated command and a finished morning read at launch do not count.
+    private(set) var morningCompletionCount = 0
     private(set) var notes = ""
     private(set) var observationVideoEvidence: ObservationVideoEvidence?
     private(set) var observationContextClassification: ObservationContextClassification?
@@ -163,6 +62,7 @@ final class MorningStore {
     private(set) var observationArchive = ObservationArchive()
     private(set) var selectedObservationID: UUID?
     private(set) var pendingRoutineProposal: EvidenceRoutineProposal?
+    /// Built from Screen Time; changes nothing until approved (`approvePendingScreenTimeProposal`).
     private(set) var pendingScreenTimeProposal: ScreenTimeRoutineProposal?
     var screenTimeBusy = false
     var screenTimeMessage: String?
@@ -175,6 +75,10 @@ final class MorningStore {
     private(set) var routinePreferences = RoutinePreferenceJournal()
     private(set) var routinePreferencesIssue: String?
     private var unreadablePreferences: RecoverableRoutinePreferences?
+    /// Saved elements that could not be read, kept verbatim and written back on every save
+    /// until all local data is forgotten (issue #94). Never interpreted.
+    private var setAsideWorkspaceElements: [PreservedJSONValue] = []
+    var setAsideWorkspaceCount: Int { setAsideWorkspaceElements.count }
 
     var selectedObservation: ObservationAcquisition? { selectedObservationID.flatMap { observationArchive.entry(id: $0) } }
     private var observationEditsNeedSave = false
@@ -217,6 +121,16 @@ final class MorningStore {
     var capturePresented = false
     var capturePrefill = ""
     var captureSource: QuickCaptureSource = .typed
+    /// The kind the review starts with when a closing question asked for it. The words still
+    /// decide: "I dreamed…" stays a dream after the reminder question.
+    var captureKindHint: QuickCaptureKind?
+    /// The closing questions of the completed morning (memory only). Nil before completion,
+    /// after "Not now" and once every question was answered or skipped.
+    private(set) var closingQuestions: MorningClosingQuestions?
+    /// The question whose answer is in review. Closing the review, saved or not, moves on.
+    private var closingQuestionInReview: MorningClosingQuestion?
+    /// The short extras for this build, their choices and rotation (Settings → Your day).
+    let extras: MorningExtrasProvider
     private(set) var captureBusy = false
     private(set) var history = MorningHistory()
     private(set) var captures: [QuickCapture] = []
@@ -313,6 +227,13 @@ final class MorningStore {
     var executionRecords: [RoutineExecutionRecord] = []
     var webExecutionEvent: WebMorningExecutionEvent?
     @ObservationIgnored var executionSpeechTask: Task<Void, Never>?
+    #if MORE_JURY_DEMO
+    let juryDemoVoice = JuryDemoVoiceSession()
+    let juryDemoBrowser = JuryDemoBrowser()
+    var juryDemoCaption = ""
+    var juryDemoWebURL: URL?
+    var juryDemoPendingWebURL: URL?
+    #endif
     let handsFreeVoice = MorningHandsFreeVoiceCoordinator()
     let voiceAccess = MorningVoiceAccess()
     var voiceStartRequest: MorningVoiceStartRequest?
@@ -379,10 +300,14 @@ final class MorningStore {
     private let media = MediaObservationService()
     private let fingerprintService = ObservationFileFingerprintService()
     private let contextClassifier = ObservationContextClassifier()
-    private var notesSourceLabel = AppLanguage.localized("Your written observation")
+    private let visualAppRecognizer = ObservationVisualAppRecognizer()
+    /// Whether Apple's on-device model can look at sampled images to name apps.
+    var canRecognizeAppsInImages: Bool { visualAppRecognizer.isAvailable }
+    private var notesSourceLabel = String(localized: "Your written observation", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     private let snapshot: AtomicJSONFile<WorkspaceSnapshot>
     private let recordingRecovery: PendingScreenRecordingStore
     @ObservationIgnored private var snapshotRecoveryError: String?
+    @ObservationIgnored private var snapshotRecoveryPart: UnreadableWorkspacePart?
     private var analysisTask: Task<Void, Never>?
     private var analysisAttempt: UUID?
     @ObservationIgnored private var repeatTask: Task<Void, Never>?
@@ -402,6 +327,10 @@ final class MorningStore {
     private(set) var privacyCompletedID: UUID?
     private(set) var activityLoggingAllowed = true
     var privacyBlocksWork: Bool { privacyIsForgetting || privacyNeedsCleanup }
+    // Evidence retention and forgetting one observation (#8). Change these through MorningStore+Retention.swift.
+    var evidenceRetentionDays: Int?
+    var evidenceRemovalStatus: String?
+    var evidenceRemovalInProgress = false
     var privacyInventoryIsReadable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
 
     #if DEBUG
@@ -427,6 +356,25 @@ final class MorningStore {
         return try document.importedDraft(replacing: nil)
     }
     #endif
+    @ObservationIgnored lazy var cloudVoice = MorningCloudVoiceSession(
+        tokenProvider: { [weak self] in
+            guard let self else { throw CancellationError() }
+            return try await self.composio.morningVoiceToken()
+        }, makeTransport: { ElevenLabsMorningVoiceTransport() },
+        control: { [weak self] action, binding in
+            guard let self else { throw CancellationError() }
+            return try await self.applyCloudVoiceControl(action, binding: binding)
+        }, request: { [weak self] request, binding in
+            self?.acceptCloudVoiceRequest(request, binding: binding) ?? false
+        })
+    @ObservationIgnored var cloudVoiceRequestTask: Task<Void, Never>?
+    @ObservationIgnored var cloudVoiceRequestTurnID: UUID?
+    @ObservationIgnored var cloudVoiceMemoryTask: Task<Void, Never>?
+    @ObservationIgnored var cloudVoiceMemoryTurnID: UUID?
+    @ObservationIgnored var cloudVoiceConsentGeneration: UUID?
+    @ObservationIgnored var cloudVoiceConsentSession: UUID?
+    var cloudVoiceReleasing = false
+    var cloudVoiceStartIssue: String?
 
     init() {
         let fixtureMode = ProcessInfo.processInfo.arguments.contains("--ui-testing")
@@ -441,15 +389,18 @@ final class MorningStore {
         snapshot = AtomicJSONFile(url: directory.appendingPathComponent("workspace.json"))
         recordingRecovery = PendingScreenRecordingStore(directory: directory)
         invitation = MorningInvitationService(directory: directory)
+        extras = Self.makeExtras(directory: directory, testing: fixtureMode)
         #if DEBUG
         let testBriefing = MorningBriefingFixture.makeController(directory: directory)
         usesSyntheticBriefing = testBriefing != nil
         briefing = testBriefing ?? MorningBriefingController(directory: directory,
-            sleep: SleepObservationService(provider: HealthKitSleepReader()))
+            sleep: SleepObservationService(provider: HealthKitSleepReader()),
+            healthMetrics: HealthMetricsObservationService(provider: HealthKitMetricsReader()))
         #else
         usesSyntheticBriefing = false
         briefing = MorningBriefingController(directory: directory,
-            sleep: SleepObservationService(provider: HealthKitSleepReader()))
+            sleep: SleepObservationService(provider: HealthKitSleepReader()),
+            healthMetrics: HealthMetricsObservationService(provider: HealthKitMetricsReader()))
         #endif
         #if DEBUG
         if !parsedRoutineFixtureRequested { repairPrivacyFixtureIfRequested(directory: directory) }
@@ -589,6 +540,15 @@ final class MorningStore {
             if let archive = ObservationReviewUITestFixture.archive(directory: directory) {
                 observationArchive = archive
             }
+            // Synthetic: the message a model failure shows, without asking a model (issue #89).
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-model-not-ready") {
+                notice = AppleIntelligenceError.modelDidNotAnswer(.notReady).localizedDescription
+            }
+            if let retention = EvidenceRetentionUITestFixture.workspace() {
+                observationArchive = retention.archive; routine = retention.routine
+                session = RoutineSession(routine: retention.routine); pendingRoutineProposal = retention.proposal
+                persist()
+            }
             // A sample run stopped after its first moment and saved, for the recap screenshots (#10).
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-stopped-run"), let approved = routine?.approved() {
                 routine = approved; session = RoutineSession(routine: approved)
@@ -609,6 +569,7 @@ final class MorningStore {
                     pendingScreenTimeProposal = proposal
                 }
                 session = saved.session
+                setAsideWorkspaceElements = saved.setAside ?? []
                 savedCompletionSessionID = saved.session?.status == .completed ? saved.session?.id : nil
                 previousRoutine = saved.previousRoutine
                 if let stored = saved.routinePreferences {
@@ -676,6 +637,9 @@ final class MorningStore {
                 if !restorationWarnings.isEmpty {
                     notice = restorationWarnings.sorted { $0.rawValue < $1.rawValue }.map(\.message).joined(separator: " ")
                 }
+                if let proposal = saved.pendingScreenTimeProposal, proposal.baseRoutineID == routine?.id {
+                    pendingScreenTimeProposal = proposal
+                }
                 if routinePreferencesIssue == nil, let proposal = saved.pendingRoutineProposal?.value,
                    proposal.isCurrent(archive: observationArchive, baseRoutine: routine, preferences: routinePreferences) {
                     pendingRoutineProposal = proposal
@@ -686,11 +650,12 @@ final class MorningStore {
                 pendingCaptures = saved.pendingCaptures ?? [:]
                 consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
                 greetingState = saved.greeting ?? MorningGreetingState()
-                if !pendingCaptures.isEmpty { notice = AppLanguage.localized("A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again.") }
+                evidenceRetentionDays = saved.evidenceRetentionDays.flatMap { EvidenceRemovalReview.maximumAgeChoices.contains($0) ? $0 : nil }
+                if !pendingCaptures.isEmpty { notice = String(localized: "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
                 if session?.status == .running, currentStep?.target == nil || activeStepTimer == nil || currentStep?.webBehavior != nil {
                     sessionTimingInterrupted = true
                     try session?.pause()
-                    notice = AppLanguage.localized("Your previous morning is paused. Resume when you're ready.")
+                    notice = String(localized: "Your previous morning is paused. Resume when you're ready.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                     persist()
                 }
                 if saved.observationArchive == nil, !observationArchive.entries.isEmpty {
@@ -698,13 +663,25 @@ final class MorningStore {
                     // another launch. A write failure leaves the original intact.
                     persist()
                 }
+                // Last, so an earlier notice on this launch is not replaced. A save above
+                // writes the set-aside elements back with everything else.
+                if let setAside = SetAsideWorkspacePart.notice(for: saved.newlySetAside) {
+                    notice = [notice, setAside].compactMap { $0 }.joined(separator: " ")
+                }
             } catch {
-                let message = AppLanguage.localized("Couldn't restore your saved workspace: \(error.moreDescription)")
-                snapshotRecoveryError = message
-                notice = AppLanguage.localized("\(message) Your existing file is protected from changes.")
+                // Name the part that failed, never the raw error, and say what the person can do.
+                let part = UnreadableWorkspacePart(error: error)
+                snapshotRecoveryPart = part
+                snapshotRecoveryError = part.sentence()
+                notice = "\(part.sentence()) \(UnreadableWorkspacePart.advice())"
             }
         }
         refreshNativeActionCount()
+        // A confirmed removal interrupted before it finished (#8).
+        resumeEvidenceRemovalIfNeeded()
+        #if MORE_JURY_DEMO
+        configureJuryDemo()
+        #endif
     }
 
     /// Unsaved typed notes have no archive entry yet and are never imported evidence.
@@ -724,7 +701,8 @@ final class MorningStore {
             routinePreferencesIssue = String(localized: "Your saved choices need review. Your routine is intact. Reset saved choices before making new suggestions.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
         if snapshotRecoveryError != nil {
-            snapshotRecoveryError = String(localized: "Your saved workspace could not be restored. Its file is protected from changes.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            snapshotRecoveryError = snapshotRecoveryPart.map { "\($0.sentence()) \(UnreadableWorkspacePart.advice())" }
+                ?? String(localized: "Your saved workspace could not be restored. Its file is protected from changes.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             notice = snapshotRecoveryError
         }
         if morningActivityIssue != nil {
@@ -792,8 +770,13 @@ final class MorningStore {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let enabled = self.showMorningOnLockScreen && self.storageIsAvailable && !self.morningActivitySaveBlocked
+            #if MORE_JURY_DEMO
+            let needsAttention = self.juryDemoVoice.state == .failed
+            #else
+            let needsAttention = self.automation.status != .executing
+            #endif
             let snapshot = MorningActivityProjection.snapshot(session: self.session,
-                needsAttention: self.automation.status != .executing, timer: self.activeStepTimer)
+                needsAttention: needsAttention, timer: self.activeStepTimer)
             let generation = self.dataGeneration
             do {
                 try await self.morningActivity.synchronize(snapshot: snapshot, enabled: enabled,
@@ -1101,7 +1084,12 @@ final class MorningStore {
             // (issue #99). A resumed one continues.
             if beginsMorning {
                 morningStartCount += 1
+                #if MORE_JURY_DEMO
+                _ = mayGreet
+                beginJuryDemo()
+                #else
                 beginOpening(mayGreet: mayGreet)
+                #endif
             } else {
                 runCurrentIfEnabled()
             }
@@ -1134,6 +1122,9 @@ final class MorningStore {
     }
 
     func pause() {
+        #if MORE_JURY_DEMO
+        juryDemoVoice.pause()
+        #endif
         handsFreePauseRevision = UUID()
         guard !privacyBlocksWork else { return }
         preserveMailExecutionBeforeInterruption()
@@ -1173,6 +1164,10 @@ final class MorningStore {
 
     func advance(skipping: Bool = false, commandID: UUID = UUID()) {
         guard !privacyBlocksWork else { return }
+        #if MORE_JURY_DEMO
+        juryDemoVoice.send(text: skipping ? "Passe cette étape" : "Suivant")
+        return
+        #endif
         guard !voiceInputBlocksPlayback else { return }
         preserveMailExecutionBeforeInterruption()
         finishExecutionIfNeeded(skipping: skipping)
@@ -1184,6 +1179,7 @@ final class MorningStore {
         endOpening()
         cancelStepPlayback()
         let previousSession = session
+        let wasCompleted = session?.status == .completed
         do {
             try session?.advance(skipping: skipping, commandID: commandID)
             guard endStepTimer() else { session = previousSession; return }
@@ -1194,12 +1190,18 @@ final class MorningStore {
             }
             archiveTerminalSession()
             guard persist() else { pauseAfterSaveFailure(); return }
-            if session?.status == .completed { stopHandsFreeVoice(); queueCompletionInvitation() }
+            if session?.status == .completed { stopHandsFreeVoice(); completedMorningSaved(wasCompleted: wasCompleted) }
             else { runCurrentIfEnabled() }
         } catch { notice = error.moreDescription }
     }
 
     func stop() {
+        #if MORE_JURY_DEMO
+        juryDemoVoice.stop()
+        juryDemoBrowser.close()
+        juryDemoWebURL = nil
+        juryDemoPendingWebURL = nil
+        #endif
         guard !privacyBlocksWork else { return }
         preserveMailExecutionBeforeInterruption()
         if sessionActive, currentExecutionRecord?.outcome == .running || currentExecutionRecord == nil {
@@ -1221,6 +1223,11 @@ final class MorningStore {
     /// Reading again never advances the session. A sourced moment reuses its
     /// pinned text, while a moment not yet prepared goes through freshness checks.
     func readCurrent() {
+        #if MORE_JURY_DEMO
+        guard !privacyBlocksWork else { return }
+        juryDemoVoice.send(text: "Répète")
+        return
+        #endif
         guard !privacyBlocksWork, !voiceInputBlocksPlayback,
               let session, let step = currentStep else { return }
         endOpening()
@@ -1324,9 +1331,7 @@ final class MorningStore {
     func addBriefingToRoutine() -> Bool {
         guard let routine, !sessionActive, !privacyBlocksWork else { return false }
         if routine.steps.contains(where: { $0.automation == .morningBriefing }) { return true }
-        let step = RoutineStep(title: AppLanguage.localized("Your day"), detail: AppLanguage.isFrench
-            ? "Écoutez le récapitulatif des sources choisies dans Votre journée."
-            : "Hear the recap from the sources you choose in Your day.",
+        let step = RoutineStep(title: AppLanguage.localized( "Your day", bundle: .main), detail: AppLanguage.localized( "Hear the recap from the sources you choose in Your day.", bundle: .main),
             kind: .briefing, durationMinutes: 2, automation: .morningBriefing)
         return updateSteps([step] + routine.steps)
     }
@@ -1428,15 +1433,30 @@ final class MorningStore {
                       !voiceCommands.isBusy, !voiceCommands.needsAudioRelease else { throw CancellationError() }
                 // Mic release is confirmed before any command can request new speech.
                 voiceCommandPreparing = false
+                #if MORE_JURY_DEMO
+                voiceCommandFeedback = String(localized: "Heard: \(result.transcript)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                voiceCommandPresented = false
+                switch command {
+                case .pause: pause()
+                case .stop: stop()
+                case .resume: resume()
+                case .next, .skip, .repeatStep:
+                    resume()
+                    guard session?.status == .running else { return }
+                    juryDemoVoice.send(text: result.transcript)
+                }
+                #else
+                let wasCompleted = session?.status == .completed
                 try session?.applyVoiceCommand(command: command, commandID: result.id)
                 archiveTerminalSession()
                 guard persist() else { pauseAfterSaveFailure(); return }
                 if command == .resume { synchronizeMorningActivity(allowStart: true) }
                 voiceCommandFeedback = AppLanguage.localized("Heard: \(result.transcript)")
                 voiceCommandPresented = false
-                if session?.status == .completed { queueCompletionInvitation() }
+                if session?.status == .completed { completedMorningSaved(wasCompleted: wasCompleted) }
                 if command == .repeatStep { readCurrent() }
                 else if session?.status == .running { runCurrentIfEnabled() }
+                #endif
             } catch {
                 guard voiceCommandAttempt == attempt else { return }
                 voiceCommandFeedback = error is CancellationError
@@ -1479,13 +1499,26 @@ final class MorningStore {
         }
     }
 
+    /// A cloud microphone owner must also wait for manual dictation cancellation.
+    func waitForVoiceInputRelease() async { await voiceInputReleaseTask?.value }
+
     /// Called only after the completion transition has been saved successfully.
     /// Restoring a completed session never queues speech or microphone access.
+    /// Called only after the finished session was saved. Feedback and the invitation follow
+    /// the change to finished, once: a repeated command on a finished morning adds nothing.
+    private func completedMorningSaved(wasCompleted: Bool) {
+        guard !wasCompleted else { return }
+        stopCloudVoice()
+        morningCompletionCount += 1
+        queueCompletionInvitation()
+    }
+
     private func queueCompletionInvitation() {
         guard hasSavedCompletedSession, let session, lastCompletionOffered != session.id else { return }
         lastCompletionOffered = session.id
         dismissedReflectionSessionID = nil
         completionInvitationSessionID = session.id
+        closingQuestions = MorningClosingQuestions()
     }
 
     func speakQueuedCompletionInvitation() {
@@ -1508,9 +1541,10 @@ final class MorningStore {
                       !voiceInputBlocksPlayback, !capturePresented, !captureVoicePresented,
                       UIApplication.shared.applicationState == .active else { return }
                 let french = AppLanguage.isFrench
+                let question = closingQuestions?.current ?? .dream
                 speech.speak(french
-                    ? "Votre matinée est terminée. Y a-t-il une pensée, un rêve ou un rappel que vous aimeriez garder ? Touchez Parler quand vous voulez."
-                    : "Your morning is complete. Is there a thought, a dream or a reminder you'd like to keep? Tap Speak whenever you're ready.")
+                    ? "Votre matinée est terminée. \(question.prompt(french: true)) Touchez Parler pour répondre, ou Passer."
+                    : "Your morning is complete. \(question.prompt(french: false)) Tap Speak to answer, or Skip.")
                 completionInvitationPlaybackID = speech.playbackID
             } catch {
                 // A failed microphone release must not start a competing player.
@@ -1559,13 +1593,19 @@ final class MorningStore {
             do {
                 try Task.checkCancellation()
                 try await prepareForManualVoiceInput()
+                if let question = closingQuestions?.current, readAloud, !usesSyntheticCompletionCapture {
+                    // The question is heard before the microphone opens. Stopped or failed
+                    // speech still leaves the question on screen.
+                    try? await speech.speakAndWait(question.prompt(french: language == .french))
+                    try Task.checkCancellation()
+                }
                 try await speech.stopAndRelease()
                 try Task.checkCancellation()
                 guard captureVoicePresented, completionCaptureAttempt == attempt,
                       completionVoiceSessionID == id, session?.id == id, session?.status == .completed else { throw CancellationError() }
                 let text: String
                 #if DEBUG
-                if let sample = completionCaptureTestSample {
+                if let sample = takeCompletionCaptureTestSample() {
                     // Synthetic UI handoff evidence only; never a microphone pass.
                     // The late fixture deliberately returns after cancellation so
                     // the real ownership guards below must reject it.
@@ -1586,8 +1626,17 @@ final class MorningStore {
                 guard captureVoicePresented, completionCaptureAttempt == attempt,
                       completionVoiceSessionID == id, session?.id == id, session?.status == .completed,
                       !voiceCommands.isBusy, !voiceCommands.needsAudioRelease else { throw CancellationError() }
+                if closingQuestions != nil, MorningClosingQuestions.interpret(text) == .declined {
+                    skipClosingQuestionWhileListening(language: language)
+                    return
+                }
+                closingQuestionInReview = closingQuestions?.current
                 pendingSpokenCapture = (id, text)
                 captureVoicePresented = false
+            } catch where closingQuestions != nil && isSilence(error) {
+                // Silence skips a closing question, as "no" does.
+                guard completionCaptureAttempt == attempt else { return }
+                skipClosingQuestionWhileListening(language: language)
             } catch {
                 guard completionCaptureAttempt == attempt else { return }
                 completionCaptureFeedback = error is CancellationError
@@ -1596,11 +1645,73 @@ final class MorningStore {
         }
     }
 
+    /// No words at all, or none heard before the listening deadline. A deadline after some
+    /// words were heard is not silence: the question stays and the person can try again.
+    private func isSilence(_ error: any Error) -> Bool {
+        if (error as? MorningCaptureTurnError) == .empty { return true }
+        return (error as? MorningVoiceListeningError) == .captureTimedOut && !voiceCommands.lastFailedCaptureHeardWords
+    }
+
+    /// "No" or silence in the listening sheet: the next question is asked in the same sheet,
+    /// once this turn has released the microphone. After the last one the sheet closes.
+    private func skipClosingQuestionWhileListening(language: MorningVoiceCommandLanguage) {
+        closingQuestions?.advance()
+        guard let closingQuestions, !closingQuestions.isFinished else {
+            finishClosingQuestions()
+            captureVoicePresented = false
+            return
+        }
+        let attempt = completionCaptureAttempt
+        Task { [weak self] in
+            // Runs after the finished turn's own cleanup.
+            guard let self, captureVoicePresented, completionCaptureAttempt == nil || completionCaptureAttempt == attempt else { return }
+            listenForCompletionCapture(language: language)
+        }
+    }
+
+    /// The question on the completed morning's card, or nil when there is none to ask.
+    var currentClosingQuestion: MorningClosingQuestion? {
+        shouldOfferCompletionReflection ? closingQuestions?.current : nil
+    }
+
+    /// "Skip" on the card. After the last question the card says the morning is complete.
+    func skipClosingQuestion() {
+        guard currentClosingQuestion != nil else { return }
+        stopCompletionInvitation()
+        completionInvitationSessionID = nil
+        closingQuestions?.advance()
+        if closingQuestions?.isFinished == true { finishClosingQuestions() }
+    }
+
+    /// "Write" on the card: the typed review, starting with the question's kind.
+    func answerClosingQuestionInWriting() {
+        guard let question = currentClosingQuestion else { openCapture(); return }
+        openCapture(kindHint: question.captureKind)
+        if capturePresented { closingQuestionInReview = question }
+    }
+
+    /// The review of an answer closed, saved or cancelled. The next question becomes current.
+    func closingReviewEnded() {
+        captureKindHint = nil
+        guard let question = closingQuestionInReview else { return }
+        closingQuestionInReview = nil
+        guard closingQuestions?.current == question else { return }
+        closingQuestions?.advance()
+        if closingQuestions?.isFinished == true { finishClosingQuestions() }
+    }
+
+    private func finishClosingQuestions() {
+        closingQuestions = nil
+        closingQuestionInReview = nil
+        if session?.status == .completed { dismissedReflectionSessionID = session?.id }
+    }
+
     /// Called after the voice sheet has actually left the screen. A canceled,
     /// backgrounded or superseded turn cannot open another sheet with stale text.
     func completionCaptureDismissed(allowReview: Bool) {
         let pending = pendingSpokenCapture
         cancelCompletionCapture()
+        let question = closingQuestionInReview
         guard allowReview, let pending, session?.id == pending.sessionID,
               session?.status == .completed, !capturePresented else { return }
         let generation = dataGeneration, reviewID = UUID()
@@ -1615,7 +1726,8 @@ final class MorningStore {
                   completionCaptureReviewID == reviewID, UIApplication.shared.applicationState == .active,
                   session?.id == pending.sessionID, session?.status == .completed,
                   !capturePresented, !captureVoicePresented, !voiceCommands.isBusy else { return }
-            openCapture(text: pending.text, source: .voice)
+            openCapture(text: pending.text, source: .voice, kindHint: question?.captureKind)
+            closingQuestionInReview = question
         }
     }
 
@@ -1653,6 +1765,7 @@ final class MorningStore {
 
     func discardCompletionReflection() {
         if session?.status == .completed { dismissedReflectionSessionID = session?.id }
+        closingQuestions = nil; closingQuestionInReview = nil
         completionInvitationSessionID = nil
         stopCompletionInvitation()
         cancelCompletionCapture()
@@ -1660,12 +1773,15 @@ final class MorningStore {
     }
 
     func completionSessionChanged() {
+        if cloudVoiceConsentGeneration != nil,
+           cloudVoiceConsentSession != session?.id { stopCloudVoice() }
         let current = session?.status == .completed ? session?.id : nil
         if completionInvitationSessionID != current { completionInvitationSessionID = nil; stopCompletionInvitation() }
         if let expected = completionVoiceSessionID, expected != current { discardCompletionReflection() }
     }
 
     #if DEBUG
+    @ObservationIgnored private var closingTestAnswerIndex = 0
     private var completionCaptureTestSample: (text: String, delay: Double)? {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("--ui-testing"),
@@ -1680,7 +1796,18 @@ final class MorningStore {
         if args.contains("--ui-testing-capture-dream") {
             return ("I dreamed of a blue garden. SYNTHETIC_VOICE_CAPTURE", 1)
         }
+        if args.contains("--ui-testing-closing-answers") {
+            // One synthetic answer per listening turn: "no" to the dream question, then a
+            // reminder with a time. Never a microphone pass and never an EventKit write.
+            let answers = ["No", "Remind me at 5 to call the bank. SYNTHETIC_CLOSING_REMINDER"]
+            return (answers[min(closingTestAnswerIndex, answers.count - 1)], 1)
+        }
         return nil
+    }
+    private func takeCompletionCaptureTestSample() -> (text: String, delay: Double)? {
+        let sample = completionCaptureTestSample
+        if sample != nil { closingTestAnswerIndex += 1 }
+        return sample
     }
     var usesSyntheticCompletionCapture: Bool { completionCaptureTestSample != nil }
     #else
@@ -1984,6 +2111,46 @@ final class MorningStore {
     /// Returns true only after accepting ownership or starting an ordinary file import.
     /// The recorder must keep its ready URL until this returns true. Import saves
     /// evidence only and never starts routine inference.
+    /// Names the app on each sampled screen while the frames are still in memory:
+    /// Shortcuts "opened/closed" times for a recording made in MORE, then Apple's
+    /// on-device image model where available. Images are discarded afterward.
+    private func recognizeApps(in observation: MediaObservation, recordingContext: ObservationRecordingContext?,
+                               attempt: UUID) async throws -> [ObservationFrameAppSignal] {
+        guard let evidence = observation.videoEvidence else { return [] }
+        var signals: [ObservationFrameAppSignal] = []
+        var candidates = ObservedApp.suggested
+        if let events = try? await AppTransitionLogStore.shared.events() {
+            for app in events.map(\.app) where !candidates.contains(app) { candidates.append(app) }
+            if let recordingContext {
+                signals += ShortcutAppAlignment.signals(frames: evidence.frames,
+                    recordingStartedAt: recordingContext.startedAt, events: events)
+            }
+        }
+        // Frames already named by known apps' interface phrases skip the image model; review
+        // recomputes those phrases each time, so they are not saved here.
+        let named = Set(evidence.frames.filter {
+            $0.outcome == .observed && !ObservationVisualAppRecognizer.screenListsApps($0.text, candidates: candidates)
+                && ObservationAppSignatures.app(in: $0.text) != nil
+        }.map(\.id))
+        try Task.checkCancellation()
+        guard acceptsAnalysis(attempt), visualAppRecognizer.isAvailable else { return signals }
+        // Skip undecoded frames, frames already named by their text, and screens that list
+        // many apps (App Library, an app picker).
+        let decoded = Set(evidence.frames.filter {
+            $0.outcome != .decodeFailed && !named.contains($0.id)
+                && !ObservationVisualAppRecognizer.screenListsApps($0.text, candidates: candidates)
+        }.map(\.id))
+        let images = observation.frameImages.filter { decoded.contains($0.sampleID) }
+        guard !images.isEmpty else { return signals }
+        analysisStatus = String(localized: "Recognizing the apps on your screens…")
+        let texts = Dictionary(uniqueKeysWithValues: evidence.frames.map { ($0.id, $0.text) })
+        signals += try await visualAppRecognizer.recognize(frames: images, candidates: candidates, screenText: texts) { [weak self] done, total in
+            guard let self, self.acceptsAnalysis(attempt), total > 0 else { return }
+            self.progress = Double(done) / Double(total)
+        }
+        return signals
+    }
+
     /// Suggesting a routine is a separate explicit action after provenance review.
     @discardableResult
     func importObservation(_ url: URL) -> Bool {
@@ -2072,13 +2239,15 @@ final class MorningStore {
                     try ObservationObservedDate(date: $0.startedAt, timeZoneIdentifier: $0.timeZoneIdentifier,
                         provenance: .recordingSession)
                 }
+                let appSignals = try await recognizeApps(in: observation, recordingContext: recordingContext, attempt: attempt)
+                guard acceptsAnalysis(attempt) else { return }
                 let entry = try ObservationAcquisition(id: recordingContext?.id ?? UUID(),
                     fileSHA256: fingerprint.sha256, observedDate: observedDate,
                     origin: ProcessInfo.processInfo.arguments.contains("--ui-testing") ? .synthetic : .unknown,
                     sourceKind: ObservationAcquisitionSourceKind(rawValue: observation.kind.rawValue) ?? .unknown,
                     sourceLabel: ownedRecording ? AppLanguage.localized("Your explicitly shared screen recording") : String(AppLanguage.localized("Selected file: \(selectedURL.lastPathComponent)").prefix(256)),
                     originalText: extracted, videoEvidence: observation.videoEvidence,
-                    recordingContext: recordingContext)
+                    recordingContext: recordingContext, appSignals: appSignals)
                 let id = try observationArchive.insert(entry)
                 projectObservation(id)
                 observationEditsNeedSave = true
@@ -2328,6 +2497,33 @@ final class MorningStore {
             return changeObservationArchive(selecting: entry.id) { _ = try $0.insert(entry) }
         } catch { notice = error.moreDescription; return false }
     }
+
+    /// Evidence retention (#8): the one write MorningStore+Retention.swift makes. It replaces
+    /// the parts a confirmed removal changes in a single save; a failed save changes nothing.
+    func commitEvidenceRemoval(_ next: EvidenceRetentionWorkspace, removing ids: Set<UUID>) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !busy, !sessionActive else { return false }
+        let old = (observationArchive, routine, previousRoutine, session, pendingRoutineProposal)
+        let oldSelection = (selectedObservationID, notes, observationVideoEvidence, observationContextClassification,
+                            notesSourceLabel, observationEditsNeedSave)
+        observationArchive = next.archive
+        routine = next.currentRoutine; previousRoutine = next.previousRoutine; session = next.session
+        pendingRoutineProposal = next.pendingProposal
+        projectObservation(selectedObservationID.flatMap { ids.contains($0) ? nil : $0 })
+        observationEditsNeedSave = true
+        guard persist() else {
+            (observationArchive, routine, previousRoutine, session, pendingRoutineProposal) = old
+            (selectedObservationID, notes, observationVideoEvidence, observationContextClassification,
+             notesSourceLabel, observationEditsNeedSave) = oldSelection
+            return false
+        }
+        return true
+    }
+
+    /// Evidence retention (#8): a removal waits for the running analysis, which may hold an observation.
+    func waitForRunningAnalysis() async { await analysisTask?.value }
+
+    /// Evidence retention (#8): saves the "Keep raw evidence for…" choice.
+    func saveEvidenceRetentionSetting() -> Bool { persist() }
 
     private func projectObservation(_ id: UUID?) {
         let entry = id.flatMap { observationArchive.entry(id: $0) }
@@ -2629,6 +2825,11 @@ final class MorningStore {
 
     func executionPreferencesChanged() {
         guard !privacyBlocksWork else { return }
+        #if MORE_JURY_DEMO
+        if !automatic || !readAloud { juryDemoVoice.pause() }
+        guard persist() else { pauseAfterSaveFailure(); return }
+        return
+        #endif
         if automatic { startHandsFreeVoice() } else { stopHandsFreeVoice() }
         cancelStepPlayback()
         speech.stop()
@@ -2638,13 +2839,21 @@ final class MorningStore {
         if !openingListeningSettingsChanged() { runCurrentIfEnabled() }
     }
 
-    func openCapture(text: String = "", source: QuickCaptureSource = .typed) {
+    func healthExtraWasDisabled() {
+        if session?.status == .running { pause() }
+        endOpening()
+        speech.stop()
+        stopHandsFreeVoice()
+    }
+
+    func openCapture(text: String = "", source: QuickCaptureSource = .typed, kindHint: QuickCaptureKind? = nil) {
         guard !privacyBlocksWork else { return }
         completionCaptureReviewID = nil
         completionInvitationSessionID = nil
         stopCompletionInvitation()
         capturePrefill = text
         captureSource = source
+        captureKindHint = kindHint
         capturePresented = true
     }
 
@@ -2724,6 +2933,11 @@ final class MorningStore {
     var weekSummary: SevenDaySummary? { try? history.sevenDaySummary(endingOn: Date()) }
 
     func runCurrentIfEnabled() {
+        #if MORE_JURY_DEMO
+        guard !privacyBlocksWork, session?.status == .running else { return }
+        beginJuryDemo()
+        return
+        #endif
         guard !privacyBlocksWork else { return }
         guard openingPresentation == nil else { return }
         guard !voiceInputBlocksPlayback else { return }
@@ -2767,8 +2981,13 @@ final class MorningStore {
     private func archiveTerminalSession() {
         guard let session, session.status == .completed || session.status == .stopped else { return }
         do {
+            #if MORE_JURY_DEMO
+            let isSynthetic = true
+            #else
+            let isSynthetic = session.routine.isSynthetic
+            #endif
             history.upsert(try MorningRunRecord(session: session, timeZoneIdentifier: sessionTimeZone,
-                isSynthetic: session.routine.isSynthetic,
+                isSynthetic: isSynthetic,
                 timingInterrupted: sessionTimingInterrupted))
         } catch { notice = AppLanguage.localized("This morning could not be added to history: \(error.moreDescription)") }
     }
@@ -2794,6 +3013,7 @@ final class MorningStore {
             let validProposal = routinePreferencesIssue == nil ? pendingRoutineProposal.flatMap {
                 $0.isCurrent(archive: observationArchive, baseRoutine: routine, preferences: routinePreferences) ? $0 : nil
             } : nil
+            // A Screen Time suggestion was made against one routine; any other routine makes it stale.
             try privacyControl.withReadyAccess { _ in
                 try snapshot.save(WorkspaceSnapshot(routine: routine, session: session, previousRoutine: previousRoutine,
                 history: history, captures: captures, receipts: receipts, sessionTimeZone: sessionTimeZone,
@@ -2811,7 +3031,7 @@ final class MorningStore {
                 pendingScreenTimeProposal: pendingScreenTimeProposal.flatMap { $0.baseRoutineID == routine?.id && $0.isCurrent(preferences: routinePreferences) ? $0 : nil },
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences),
-                greeting: greetingState, executionRecords: executionRecords))
+                greeting: greetingState, executionRecords: executionRecords, evidenceRetentionDays: evidenceRetentionDays, setAside: setAsideWorkspaceElements))
             }
             pendingRoutineProposal = validProposal
             if let proposal = pendingScreenTimeProposal,
@@ -2838,6 +3058,13 @@ final class MorningStore {
     /// removal stays closed on launch and is retried; old snapshots are never
     /// restored as a rollback after any deletion has begun.
     func forgetLocalData() async {
+        #if MORE_JURY_DEMO
+        juryDemoVoice.stop()
+        juryDemoBrowser.close()
+        juryDemoCaption = ""
+        juryDemoWebURL = nil
+        juryDemoPendingWebURL = nil
+        #endif
         guard !privacyIsForgetting else { return }
         let control: LocalDataControlState
         do {
@@ -2847,12 +3074,23 @@ final class MorningStore {
             return
         }
         guard let generation = control.generation else { return }
+        #if MORE_JURY_DEMO
+        dataGeneration = generation
+        do { try JuryDemoReminder.forget(directory: LocalDataControl.defaultDirectory) }
+        catch {
+            privacyNeedsCleanup = true
+            privacyHasInterruptedRemoval = true
+            privacyNotice = .removalFailed(error)
+            return
+        }
+        #endif
         permissionSetup.cancelForPrivacy()
         privacyIsForgetting = true
         privacyHasInterruptedRemoval = true
         privacyNeedsCleanup = true
         activityLoggingAllowed = false
         dataGeneration = generation
+        MorePersonalMemory.shared.invalidatePendingUpdates()
         privacyNotice = .removing
         showMorningOnLockScreen = false
         morningActivityStartSessionID = nil
@@ -2886,6 +3124,8 @@ final class MorningStore {
         releaseVoiceInput()
         MorningIntentRouter.shared.resetPendingRequests()
         do {
+            await cloudVoice.stopAndRelease()
+            try MoreLanguageModel.shared.forget()
             try await handsFreeVoice.stopAndRelease()
             try await morningActivity.endAllForPrivacy()
             // SDK streams may ignore cancellation. Never report successful
@@ -2931,7 +3171,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "gmail-send-journal.json", "gmail-attention-preferences.json", "native-moment-journal.json", "slack-reply-journal.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "personal-memory.json", "gmail-send-journal.json", "gmail-attention-preferences.json", "native-moment-journal.json", "slack-reply-journal.json", EvidenceRemovalMarker.fileName, MorningExtrasPreferencesStore.fileName] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2953,6 +3193,7 @@ final class MorningStore {
             try morningActivity.resetAfterPrivacyCleanup()
             briefing.reloadSettings()
             permissionSetup.resetAfterPrivacy()
+            extras.reload()
             privacyNeedsCleanup = false
             privacyHasInterruptedRemoval = false
             privacyIsForgetting = false
@@ -3000,6 +3241,8 @@ final class MorningStore {
         pendingScreenTimeProposal = nil
         screenTimeBusy = false; screenTimeMessage = nil; screenTimeAccess = .notAsked
         screenTimeDailyUsage = []; screenTimeLearning = nil
+        evidenceRetentionDays = nil; evidenceRemovalStatus = nil; evidenceRemovalInProgress = false
+        setAsideWorkspaceElements = []
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         executionRecords = []; webExecutionEvent = nil
@@ -3017,6 +3260,7 @@ final class MorningStore {
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
         pendingRecordingInterruption = nil; pendingRecordingContext = nil
         captureBusy = false; capturePresented = false; capturePrefill = ""; captureSource = .typed
+        captureKindHint = nil; closingQuestions = nil; closingQuestionInReview = nil
         voiceCommandPresented = false; captureVoicePresented = false
         voiceCommandFeedback = nil; completionCaptureFeedback = nil
         voiceCommandDeduplicator = MorningVoiceCommandDeduplicator()
@@ -3025,11 +3269,12 @@ final class MorningStore {
         morningDetailPresented = false; observationDetailPresented = false
         observationSelectionPresented = false; routineProposalPresented = false
         consumedMorningEntryIDs = []; sessionTimingInterrupted = false; sessionTimeZone = TimeZone.current.identifier
+        setAsideWorkspaceElements = []
         readAloud = true; automatic = true; speech.voiceIdentifier = nil
         showMorningOnLockScreen = false; morningActivityIssue = nil; morningActivitySaveBlocked = false
         morningActivityStartSessionID = nil
         morningActivityStartRequestID = nil
-        busy = false; progress = 0; analysisStatus = ""; snapshotRecoveryError = nil; notice = nil
+        busy = false; progress = 0; analysisStatus = ""; snapshotRecoveryError = nil; snapshotRecoveryPart = nil; notice = nil
         MorningIntentRouter.shared.resetPendingRequests()
         tab = .today
     }
@@ -3097,3 +3342,133 @@ final class MorningStore {
     #endif
 
 }
+
+#if MORE_JURY_DEMO
+extension MorningStore {
+    /// The prepared routine belongs only to this bundle's container. It is never
+    /// presented as a learned observation or installed in ordinary MORE.
+    private func configureJuryDemo() {
+        guard storageIsAvailable else { return }
+        if routine == nil {
+            routine = RoutineVersion(sourceLabel: "Routine de démonstration préparée", steps: [
+                RoutineStep(title: "Mon réveil", detail: "Sommeil et météo préparés pour cette démonstration.", kind: .wellbeing, durationMinutes: 1),
+                RoutineStep(title: "Mes messages", detail: "Conversation et réponse Gmail réelle au destinataire configuré.", kind: .messages, durationMinutes: 2),
+                RoutineStep(title: "Mon moment Instagram", detail: "Mon compte dans le navigateur de MORE.", kind: .entertainment, durationMinutes: 1),
+                RoutineStep(title: "Prêt à partir", detail: "Retrouver les actions réellement confirmées.", kind: .calendar, durationMinutes: 1)
+            ], isApproved: true)
+            persist()
+        }
+        juryDemoVoice.onText = { [weak self] text in
+            guard let self, !privacyBlocksWork, sessionActive else { return }
+            juryDemoCaption = text
+        }
+        juryDemoBrowser.onClose = { [weak self] in self?.juryDemoWebURL = nil }
+        juryDemoVoice.onUserRequest = { [weak self] text in
+            guard let self, !privacyBlocksWork, session?.status == .running else { return false }
+            let context = juryDemoVoice.sessionID, generation = dataGeneration
+            return juryDemoBrowser.handle(text) { [weak self] answer in
+                guard let self, !privacyBlocksWork, dataGeneration == generation,
+                      juryDemoVoice.sessionID == context else { return }
+                juryDemoVoice.announce(answer)
+            }
+        }
+        juryDemoVoice.onStateChange = { [weak self] _ in
+            Task { @MainActor [weak self] in self?.juryDemoVoiceStateChanged() }
+        }
+        juryDemoVoice.onResponse = { [weak self] response in
+            guard let self, !privacyBlocksWork, sessionActive, response.stage != "stopped" else { return }
+            let index: Int
+            switch response.stage {
+            case "morning": index = 0
+            case "mail", "draft": index = 1
+            case "social": index = 2
+            default: index = 3
+            }
+            // Stage projection records progress; it never dispatches a second action.
+            if session?.status == .running {
+                while session?.status == .running, let current = session?.currentStepIndex,
+                      current < min(index, max(0, (session?.routine.steps.count ?? 1) - 1)) {
+                    try? session?.advance()
+                }
+                persist()
+            }
+            if let receipt = response.receipt, receipt.status == "sent" {
+                connectedActionStatus = response.text
+            }
+            if let action = response.action, action.type == "createReminder" {
+                let generation = dataGeneration
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let result = await JuryDemoReminder.perform(action, service: reminders,
+                        directory: LocalDataControl.defaultDirectory) { [weak self] in
+                            guard let self else { return false }
+                            return !privacyBlocksWork && dataGeneration == generation &&
+                                juryDemoVoice.sessionID == response.sessionID && session?.status == .running
+                        }
+                    guard !privacyBlocksWork, dataGeneration == generation,
+                          juryDemoVoice.sessionID == response.sessionID, let requestID = action.requestID else { return }
+                    juryDemoVoice.acknowledgeAction(requestID: requestID, status: result.status, receiptID: result.receiptID)
+                }
+            }
+            if let action = response.action, action.type == "openURL", let address = action.url,
+               let url = URL(string: address), ["www.instagram.com", "www.tiktok.com"].contains(url.host ?? "") {
+                if UIApplication.shared.applicationState == .active { presentJuryDemoBrowser(url) }
+                else { juryDemoPendingWebURL = url }
+            }
+            synchronizeMorningActivity()
+        }
+        juryDemoVoice.onCompleted = { [weak self] in
+            guard let self, !privacyBlocksWork, sessionActive else { return }
+            juryDemoBrowser.close()
+            juryDemoWebURL = nil
+            juryDemoPendingWebURL = nil
+            if session?.status == .paused { try? session?.resume() }
+            while session?.status == .running { try? session?.advance() }
+            archiveTerminalSession()
+            persist()
+            synchronizeMorningActivity()
+        }
+        JuryDemoPlaybackControls.receive = { [weak self] sessionID, command in
+            guard let self, self.session?.id.uuidString == sessionID, sessionActive else { return false }
+            switch command {
+            case "pause": pause()
+            case "resume": resume()
+            case "stop": stop()
+            case "next": advance()
+            default: return false
+            }
+            return true
+        }
+    }
+
+    func presentJuryDemoBrowser(_ url: URL) {
+        guard !privacyBlocksWork, sessionActive else { return }
+        juryDemoBrowser.open(url)
+        juryDemoWebURL = url
+    }
+
+    func juryDemoVoiceStateChanged() {
+        guard !privacyBlocksWork, sessionActive else { return }
+        switch juryDemoVoice.state {
+        case .paused, .failed:
+            if session?.status == .running { pause() }
+        case .idle:
+            if session?.status == .running { stop() }
+        default: break
+        }
+        synchronizeMorningActivity()
+    }
+
+    func beginJuryDemo() {
+        guard !privacyBlocksWork, session?.status == .running else { return }
+        guard handsFreeListeningSuppressedSessionID != session?.id, automatic, readAloud else {
+            juryDemoCaption = "L’écoute ou la lecture est désactivée pour ce matin. Vous pouvez les préparer dans les paramètres."
+            return
+        }
+        if juryDemoVoice.state == .paused { juryDemoVoice.resume(language: AppLanguage.isFrench ? .french : .english) }
+        else if !juryDemoVoice.isActive {
+            juryDemoVoice.start(language: AppLanguage.isFrench ? .french : .english)
+        }
+    }
+}
+#endif

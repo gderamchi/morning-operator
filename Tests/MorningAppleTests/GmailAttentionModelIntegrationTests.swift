@@ -46,7 +46,7 @@ private enum GmailAttentionModelGate {
     static func isReady() async -> Bool {
         guard ProcessInfo.processInfo.environment["MO_RUN_MODEL_INTEGRATION"] == "1" else { return false }
         return await MainActor.run {
-            let model = AppleIntelligenceService()
+            let model = AppleIntelligenceService(model: .localOnly())
             if !model.isAvailable {
                 print("GMAIL_ATTENTION_MODEL_UNAVAILABLE: \(model.capabilitySummary) Semantic selection is skipped, not passed.")
             }

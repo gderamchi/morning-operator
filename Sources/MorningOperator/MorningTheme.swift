@@ -43,11 +43,9 @@ final class MorningThemeClock {
     var isUsingReferenceDay: Bool { location == nil }
     var solarSourceDescription: String {
         if let location {
-            return MorningPermissionSetup.text(
-                "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone.",
-                "L’accueil suit le lever et le coucher du soleil à \(location.displayName), calculés sur cet iPhone selon sa date et son fuseau horaire.")
+            return String(localized: "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
-        return AppLanguage.localized("Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.")
+        return String(localized: "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
     /// A pinned phase for previews, snapshots and tests. `nil` follows the clock.
     var pinnedPhase: MorningDayPhase? {

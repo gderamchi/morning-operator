@@ -1,0 +1,66 @@
+# Shares the current app sources and UX; generates a separate installable app.
+include:
+  - project.yml
+name: MorningOperatorDemo
+configFiles:
+  Debug: Configuration/JuryDemo.xcconfig
+  Release: Configuration/JuryDemo.xcconfig
+settings:
+  base:
+    MORNING_API_BASE_URL: $(MORE_DEMO_API_BASE_URL)
+targets:
+  MorningOperator:
+    # All app code/assets stay shared; privacy text alone describes demo background audio.
+    sources:REPLACE:
+      - path: Sources/MorningOperator
+      - path: Sources/MorningSharedActivity
+      - path: Resources/Assets.xcassets
+      - path: Resources/Localizable.xcstrings
+      - path: Configuration/JuryDemoResources/InfoPlist.xcstrings
+      - path: Resources/AppShortcuts.xcstrings
+      - path: Resources/Fonts/DMSerifDisplay.ttf
+      - path: Resources/Fonts/Raleway.ttf
+    settings:
+      base:
+        CODE_SIGN_STYLE: $(MORE_DEMO_CODE_SIGN_STYLE)
+        PRODUCT_BUNDLE_IDENTIFIER: $(MORE_DEMO_BUNDLE_IDENTIFIER)
+        PRODUCT_NAME: MorningOperatorDemo
+        INFOPLIST_FILE: Configuration/JuryDemo-Info.plist
+        CODE_SIGN_ENTITLEMENTS: $(MORE_DEMO_ENTITLEMENTS_FILE)
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) MORE_JURY_DEMO"
+        MORE_GOOGLE_CLIENT_ID: $(MORE_DEMO_GOOGLE_CLIENT_ID)
+        MORE_GOOGLE_CALLBACK_SCHEME: $(MORE_DEMO_GOOGLE_CALLBACK_SCHEME)
+  MorningActivityWidget:
+    settings:
+      base:
+        CODE_SIGN_STYLE: $(MORE_DEMO_CODE_SIGN_STYLE)
+        PRODUCT_BUNDLE_IDENTIFIER: $(MORE_DEMO_BUNDLE_IDENTIFIER).liveactivity
+        INFOPLIST_FILE: Configuration/JuryDemoActivityWidget-Info.plist
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) MORE_JURY_DEMO"
+  MorningOperatorUITests:
+    sources:REPLACE:
+      - path: UITests/JuryDemoJourneyTests.swift
+    settings:
+      base:
+        CODE_SIGN_STYLE: $(MORE_DEMO_CODE_SIGN_STYLE)
+        PRODUCT_BUNDLE_IDENTIFIER: $(MORE_DEMO_BUNDLE_IDENTIFIER).uitests
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) MORE_JURY_DEMO"
+schemes:REPLACE:
+  MorningOperatorDemo:
+    build:
+      targets:
+        MorningOperator: all
+        MorningOperatorUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - name: MorningOperatorUITests
+          parallelizable: false
+          randomExecutionOrder: false
+          selectedTests:
+            - JuryDemoJourneyTests
+    archive:
+      config: Release

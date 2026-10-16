@@ -18,7 +18,7 @@ const toolkits = {
 
 // Every outbound request is intercepted. These tests exercise workerd, the actual
 // native Fetch router and D1 SQL, with synthetic provider accounts and effects only.
-async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase = true, slack = false } = {}) {
+async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase = true, slack = false, voice = false, voiceInstallations = [] } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'more-worker-test-'));
   const configured = { ...toolkits, ...(slack ? { slack: { authConfigID: 'ac_synthetic_slack', name: 'Slack', version: '20261014_00' } } : {}) };
   const state = { accounts: new Map(), calls: [], executions: 0, mode: 'success', executionGate: null, executionStarted: null,
@@ -27,6 +27,14 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
   const tool = { slug: 'GMAIL_SEND_EMAIL', toolkit: { slug: 'gmail' }, name: 'Send email', description: 'Synthetic email action', version: '20261001_00', input_parameters: { recipient: { type: 'string', required: true } } };
   async function upstream(request) {
     const url = new URL(request.url);
+    if (url.origin === 'https://api.elevenlabs.io') {
+      assert.equal(url.pathname, '/v1/convai/conversation/token');
+      assert.equal(url.searchParams.get('agent_id'), 'synthetic-agent');
+      assert.equal(request.headers.get('xi-api-key'), 'synthetic-voice-key');
+      assert.equal(request.method, 'GET');
+      state.calls.push({ method: request.method, url });
+      return json(200, { token: 'synthetic-webrtc-token', conversation_id: 'private-provider-session' });
+    }
     assert.equal(url.origin, 'https://backend.composio.dev');
     assert.equal(request.headers.get('x-api-key'), 'synthetic-worker-key');
     const raw = await request.text();
@@ -58,7 +66,7 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
     if (url.pathname === '/api/v3.1/tools/execute/SLACK_SEND_MESSAGE') {
       state.executions++; state.slackSends++; state.executionStarted?.resolve();
       if (state.executionGate) await state.executionGate.promise;
-      if (state.mode === 'timeout') await new Promise(resolve => setTimeout(resolve, 250));
+      if (state.mode === 'timeout') await new Promise(resolve => setTimeout(resolve, 2000));
       const args = input.arguments, ts = '1792058400.000123';
       return json(200, { successful: true, data: { ok: true, channel: args.channel, ts, message: { ts,
         user: state.slackAuth.user_id, bot_id: state.slackAuth.bot_id, thread_ts: args.thread_ts,
@@ -68,7 +76,7 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
       state.executions++;
       state.executionStarted?.resolve();
       if (state.executionGate) await state.executionGate.promise;
-      if (state.mode === 'timeout') await new Promise(resolve => setTimeout(resolve, 250));
+      if (state.mode === 'timeout') await new Promise(resolve => setTimeout(resolve, 2000));
       return json(200, state.mode === 'malformed' ? { data: 'unverified-result' } : { successful: true, data: { status: 'queued', privateResult: 'private-provider-result-sentinel' } });
     }
     assert.fail(`Unexpected synthetic upstream path: ${url.pathname}`);
@@ -77,10 +85,12 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
     const workers = ['primary', 'secondary'].map(name => ({
       name,
       modulesRoot: root,
-      modules: ['cloudflare/worker.mjs', 'server.mjs', 'cloudflare/storage.mjs'].map(path => ({ type: 'ESModule', path: join(root, path) })),
+      modules: ['cloudflare/worker.mjs', 'server.mjs', 'morning-voice.mjs', 'cloudflare/storage.mjs'].map(path => ({ type: 'ESModule', path: join(root, path) })),
       compatibilityDate: '2026-10-15',
       compatibilityFlags: ['nodejs_compat', 'enable_nodejs_http_server_modules'],
-      bindings: { COMPOSIO_API_KEY: 'synthetic-worker-key', COMPOSIO_TOOLKITS_JSON: JSON.stringify(configured), MORE_PUBLIC_BASE_URL: 'https://connector.example', MORE_AUTH_CALLBACK_URL: callbacks[0], MORE_CALLBACK_URLS_JSON: JSON.stringify(callbacks), COMPOSIO_TIMEOUT_MS: '100' },
+      bindings: { COMPOSIO_API_KEY: 'synthetic-worker-key', COMPOSIO_TOOLKITS_JSON: JSON.stringify(configured), MORE_PUBLIC_BASE_URL: 'https://connector.example', MORE_AUTH_CALLBACK_URL: callbacks[0], MORE_CALLBACK_URLS_JSON: JSON.stringify(callbacks),
+        // Reach the intended post-dispatch deadline even on a loaded development machine.
+        COMPOSIO_TIMEOUT_MS: '1000', ...(voice ? { ELEVENLABS_API_KEY: 'synthetic-voice-key', ELEVENLABS_AGENT_ID: 'synthetic-agent', MORE_VOICE_INSTALLATIONS_JSON: JSON.stringify(voiceInstallations) } : {}) },
       ...(withDatabase ? { d1Databases: { DB: 'synthetic-shared-database' } } : {}),
       ...(limiters ? { ratelimits: {
         ENROLLMENT_LIMITER: { namespace_id: '1001', simple: { limit: enrollmentLimit, period: 60 } },
@@ -98,7 +108,7 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
   const database = async (worker = 'primary') => runtime.getD1Database('DB', worker);
   if (withDatabase) {
     const db = await database();
-    for (const name of ['0001_storage.sql', '0002_public_catalogs.sql']) {
+    for (const name of ['0001_storage.sql', '0002_public_catalogs.sql', '0003_voice_activation.sql']) {
       const migration = await readFile(join(root, 'cloudflare/migrations', name), 'utf8');
       await db.batch(migration.split(';').map(sql => sql.trim()).filter(Boolean).map(sql => db.prepare(sql)));
     }
@@ -128,6 +138,46 @@ async function fixture(t, { enrollmentLimit = 100, limiters = true, withDatabase
   const rows = async table => (await (await database()).prepare(`SELECT * FROM ${table}`).all()).results;
   return { api, install, addAccount, database, rows, state, ready: async () => runtime.ready, restart: async () => { await runtime.dispose(); runtime = new Miniflare(options()); await runtime.ready; } };
 }
+
+test('Worker voice refuses unapproved installations and persists only D1 activation metadata without provider calls', async t => {
+  const f = await fixture(t, { voice: true });
+  assert.equal((await f.api('/v1/voice/token', { method: 'POST', data: {} })).status, 401);
+  assert.deepEqual(await f.rows('voice_activation_requests'), []);
+  const bearer = await f.install();
+  assert.equal((await f.api('/v1/voice/token', { method: 'POST', bearer, data: { agent_id: 'client-selected' } })).status, 400);
+  assert.deepEqual(await f.rows('voice_activation_requests'), []);
+  for (const worker of ['primary', 'secondary']) {
+    const refused = await f.api('/v1/voice/token', { method: 'POST', bearer, data: {}, worker });
+    assert.equal(refused.status, 503);
+    assert.equal(refused.data.error.code, 'voice_not_configured');
+    assert.equal(refused.headers.get('cache-control'), 'no-store');
+  }
+  const rows = await f.rows('voice_activation_requests');
+  assert.equal(rows.length, 1);
+  assert.deepEqual(Object.keys(rows[0]).sort(), ['requested_at', 'user_id']);
+  const installation = await (await f.database()).prepare('SELECT user_id FROM installations WHERE token_hash = ?').bind(hash(bearer)).first();
+  assert.equal(rows[0].user_id, installation.user_id);
+  assert.ok(Number.isFinite(Date.parse(rows[0].requested_at)));
+  assert.ok(!JSON.stringify(rows).includes(bearer) && !JSON.stringify(rows).includes('synthetic-voice-key'));
+  await f.restart();
+  assert.equal((await f.rows('voice_activation_requests')).length, 1);
+  assert.equal(f.state.calls.length, 0);
+  assert.equal(f.state.mockError, undefined);
+});
+
+test('Worker returns only a WebRTC token for an explicitly activated installation', async t => {
+  const userID = 'more_00000000-0000-0000-0000-000000000001';
+  const f = await fixture(t, { voice: true, voiceInstallations: [userID] });
+  const bearer = 'a'.repeat(43);
+  await new D1Storage(await f.database()).createInstallation(hash(bearer), userID);
+  const result = await f.api('/v1/voice/token', { method: 'POST', bearer, data: {} });
+  assert.equal(result.status, 200, JSON.stringify({ response: result.data, calls: f.state.calls, mockError: f.state.mockError }));
+  assert.deepEqual(result.data, { conversationToken: 'synthetic-webrtc-token' });
+  assert.equal(result.headers.get('cache-control'), 'no-store');
+  assert.equal(f.state.calls.length, 1);
+  assert.equal(f.state.mockError, undefined);
+  assert.deepEqual(await f.rows('voice_activation_requests'), []);
+});
 
 test('D1 reservations are atomic across sessions, scoped by installation and immutable after completion', async t => {
   const f = await fixture(t);

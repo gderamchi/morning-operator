@@ -1,0 +1,78 @@
+<!doctype html><html><head><meta charset="utf-8"><title>11 Terminal dawn</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+/* A quiet terminal. The prompt is the morning; the cursor blinks; a dithered
+   dawn strip at the bottom is the only picture. */
+.screen { background:#101410; color:#d9e4cf; font-family:"JetBrains Mono",monospace; font-weight:300; font-size:15px; line-height:1.75; }
+.content { position:absolute; inset:0; padding:58px 24px 40px; display:flex; flex-direction:column; }
+.dim { color:#6f7f68; } .acc { color:#e8a35d; } .g { color:#8fc48a; }
+.cur::after { content:"▌"; color:#e8a35d; animation:b 1s steps(1) infinite; } @keyframes b { 50% { opacity:0 } }
+pre { margin:0; font:inherit; white-space:pre-wrap; }
+.strip { position:absolute; left:0; right:0; bottom:0; height:120px; width:100%; opacity:.9; }
+.keys { position:absolute; left:24px; right:24px; bottom:34px; display:flex; gap:8px; font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }
+.keys span { flex:1; text-align:center; padding:13px 0; border:1px solid #3a4a36; background:#101410; }
+.keys span.p { background:#d9e4cf; color:#101410; border-color:#d9e4cf; }
+.big { font-size:64px; font-weight:300; line-height:1; letter-spacing:-.03em; margin:8px 0 10px; color:#e8a35d; }
+</style></head><body>
+<div class="phone"><div class="screen">
+  <canvas class="strip" id="t1"></canvas>
+  <div class="content"><pre><span class="dim">tue 14 oct · 07:12</span>
+
+<span class="g">$</span> good morning
+<span class="dim">42 min planned, 7 moments</span>
+
+  <span class="dim">1</span>  your day              <span class="dim">3m</span>
+  <span class="dim">2</span>  people and messages   <span class="dim">8m</span>
+  <span class="dim">3</span>  mail                  <span class="dim">7m</span>
+  <span class="dim">4</span>  make some tea         <span class="dim">5m</span>
+  <span class="dim">5</span>  a little reading      <span class="dim">6m</span>
+  <span class="dim">6</span>  a moment to move     <span class="dim">10m</span>
+  <span class="dim">7</span>  one thought for later <span class="dim">3m</span>
+
+<span class="g">$</span> <span class="cur"></span></pre></div>
+  <div class="keys"><span>learn</span><span>history</span><span class="p">play</span></div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <canvas class="strip" id="t2"></canvas>
+  <div class="content"><pre><span class="dim">now · 4 of 7</span>
+
+<span class="g">$</span> make some tea
+<span class="dim">a moment you’ve made room for.</span>
+</pre><div class="big">3:40</div><pre>
+  <span class="dim">✓  mail                  7m</span>
+  <span class="acc">▶  make some tea         5m</span>
+     a little reading      <span class="dim">6m</span>
+
+<span class="g">$</span> <span class="cur"></span></pre></div>
+  <div class="keys"><span class="p">pause</span><span>next</span><span>again</span></div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <canvas class="strip" id="t3"></canvas>
+  <div class="content"><pre><span class="dim">your day</span>
+
+<span class="g">$</span> here is your briefing for
+  tuesday 14 october.
+
+  weather in paris: <span class="acc">mostly cloudy,
+  11 degrees celsius.</span>
+
+  at 10:00: standup.
+  at 14:30: call with sou.
+  plus 2 more events today.
+
+  precipitation is likely
+  before 16:00. <span class="acc">take an umbrella.</span>
+
+<span class="g">$</span> <span class="cur"></span></pre></div>
+  <div class="keys"><span class="p">hear my recap</span><span>start</span><span>stop</span></div>
+</div></div>
+<script src="pix.js"></script>
+<script>
+pix.ditherSky(document.getElementById('t1'),49,15,['#101410','#2a2f24','#6a4a3a','#e8a35d'],{horizon:.75,bias:-.15});
+pix.ditherSky(document.getElementById('t2'),49,15,['#101410','#3a3a3a','#9a5a3a','#e8a35d','#f3e6c8'],{horizon:.8,bias:0});
+pix.ditherSky(document.getElementById('t3'),49,15,['#101410','#4a5a6a','#9fb6c6','#f3e6c8'],{horizon:.8,bias:.1});
+</script>
+</body></html>
