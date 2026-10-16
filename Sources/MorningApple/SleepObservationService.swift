@@ -52,10 +52,14 @@ public struct SleepSample: Sendable, Equatable {
     /// The source's bundle identifier. Used only to count distinct sources; never shown or spoken.
     public let sourceID: String
     public let sourceKind: SleepSourceKind
+    public let sourceName: String?
+    public let sourceProductType: String?
 
-    public init(stage: SleepStage, start: Date, end: Date, sourceID: String, sourceKind: SleepSourceKind) {
+    public init(stage: SleepStage, start: Date, end: Date, sourceID: String, sourceKind: SleepSourceKind,
+                sourceName: String? = nil, sourceProductType: String? = nil) {
         self.stage = stage; self.start = start; self.end = end
         self.sourceID = sourceID; self.sourceKind = sourceKind
+        self.sourceName = sourceName; self.sourceProductType = sourceProductType
     }
 }
 
@@ -74,6 +78,7 @@ public struct SleepObservation: Sendable, Equatable {
     public let sourceKinds: [SleepSourceKind]
     /// How many distinct sources contributed. Above one, see the overlap rule.
     public let sourceCount: Int
+    public let sources: [HealthObservationSource]
     public let readAt: Date
 
     /// Whole minutes, rounded to the nearest. This is the number that is shown and spoken.
@@ -156,7 +161,12 @@ public enum SleepNight {
             let observation = SleepObservation(windowStart: first.start,
                 windowEnd: recent.map(\.end).max() ?? first.end, asleepDuration: total,
                 sourceKinds: Set(recent.map(\.sourceKind)).sorted(),
-                sourceCount: Set(recent.map(\.sourceID)).count, readAt: readAt)
+                sourceCount: Set(recent.map(\.sourceID)).count,
+                sources: Set(recent.map {
+                    HealthObservationSource(bundleIdentifier: $0.sourceID, name: $0.sourceName,
+                        productType: $0.sourceProductType, wasUserEntered: $0.sourceKind == .manualEntry)
+                }).sorted { ($0.name ?? "", $0.bundleIdentifier) < ($1.name ?? "", $1.bundleIdentifier) },
+                readAt: readAt)
             return observation.asleepMinutes > 0 ? .recorded(observation) : .noRecord
         }
         if let latest = asleep.filter({ $0.end <= cutoff }).map(\.end).max() { return .olderRecord(endedAt: latest) }
