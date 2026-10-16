@@ -113,3 +113,9 @@ extension MorningStore {
         }
     }
 }
+
+#if DEBUG
+extension MorningStore {
+    static var screenTimeAutoLearnRequested: Bool { ProcessInfo.processInfo.arguments.contains("--screen-time-learn-auto") }
+}
+#endif

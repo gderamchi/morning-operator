@@ -1,0 +1,100 @@
+<!doctype html><html><head><meta charset="utf-8"><title>10 Cross-stitch</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Nunito:wght@400;600&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+/* Pixels as embroidery on linen. Each moment is a stitched square; the sun is a
+   stitched motif. Text is a plain serif, because thread spells slowly. */
+.screen { background:#efe6d6; color:#3b2e25; font-family:Lora,serif; }
+.screen::before { content:""; position:absolute; inset:0; pointer-events:none; opacity:.55;
+  background-image:linear-gradient(90deg,rgba(59,46,37,.06) 1px,transparent 1px),linear-gradient(0deg,rgba(59,46,37,.06) 1px,transparent 1px); background-size:6px 6px; }
+.content { position:absolute; inset:0; padding:60px 28px 36px; display:flex; flex-direction:column; }
+.date { font-family:Nunito,sans-serif; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:#8b6f5c; }
+h1 { font-weight:500; font-size:40px; margin:10px 0 0; line-height:1; font-style:italic; }
+.total { font-family:Nunito,sans-serif; font-size:13px; color:#8b6f5c; margin-top:8px; }
+.motif { position:absolute; right:26px; top:52px; width:72px; height:72px; }
+ol { list-style:none; margin:30px 0 0; padding:0; }
+li { display:flex; align-items:center; gap:14px; padding:8px 0; font-size:20px; }
+li canvas { width:24px; height:24px; flex:none; }
+li small { margin-left:auto; font-family:Nunito,sans-serif; font-size:13px; color:#8b6f5c; }
+li.done span { color:#8b6f5c; text-decoration:line-through; }
+li.now { font-weight:500; color:#b5533c; }
+.foot { margin-top:auto; display:flex; justify-content:space-between; align-items:center; font-family:Nunito,sans-serif; font-weight:600; font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:#8b6f5c; }
+.foot b { color:#efe6d6; background:#3b2e25; padding:14px 24px; border-radius:4px; }
+.big { font-size:112px; line-height:1; margin:20px 0 0; font-weight:400; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+.now-title { font-size:36px; font-style:italic; margin:10px 0 6px; }
+.purpose { font-family:Nunito,sans-serif; font-size:15px; color:#6d584a; }
+.strip { width:100%; height:96px; margin-top:20px; }
+.ctrl { margin-top:auto; display:flex; gap:10px; font-family:Nunito,sans-serif; font-weight:600; font-size:13px; letter-spacing:.06em; text-transform:uppercase; }
+.ctrl span { flex:1; text-align:center; padding:15px 0; border:2px solid #3b2e25; border-radius:4px; }
+.ctrl span.p { background:#b5533c; border-color:#b5533c; color:#efe6d6; }
+.rec p { margin:0 0 14px; font-size:22px; line-height:1.35; }
+.rec p.w { font-style:italic; font-size:30px; line-height:1.15; margin:16px 0 22px; }
+.rec p em { font-style:normal; color:#b5533c; }
+.stack { margin-top:auto; display:flex; flex-direction:column; gap:10px; font-family:Nunito,sans-serif; font-weight:600; font-size:13px; letter-spacing:.06em; text-transform:uppercase; }
+.stack span { text-align:center; padding:15px 0; border:2px solid #3b2e25; border-radius:4px; }
+.stack span.p { background:#3b2e25; color:#efe6d6; }
+</style></head><body>
+<div class="phone"><div class="screen">
+  <canvas class="motif" id="m1"></canvas>
+  <div class="content">
+    <div class="date">Tuesday 14 October</div>
+    <h1>good morning</h1>
+    <div class="total">42 min planned</div>
+    <ol id="l1">
+      <li><canvas></canvas><span>Your day</span><small>3 min</small></li>
+      <li><canvas></canvas><span>People and messages</span><small>8 min</small></li>
+      <li><canvas></canvas><span>Mail</span><small>7 min</small></li>
+      <li><canvas></canvas><span>Make some tea</span><small>5 min</small></li>
+      <li><canvas></canvas><span>A little reading</span><small>6 min</small></li>
+      <li><canvas></canvas><span>A moment to move</span><small>10 min</small></li>
+      <li><canvas></canvas><span>One thought for later</span><small>3 min</small></li>
+    </ol>
+    <div class="foot"><span>Learn</span><span>History</span><b>Play</b></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <div class="content">
+    <div class="date">Now · 4 of 7</div>
+    <div class="big">3:40</div>
+    <div class="now-title">Make some tea</div>
+    <div class="purpose">A moment you’ve made room for.</div>
+    <canvas class="strip" id="st2"></canvas>
+    <ol id="l2" style="margin-top:16px">
+      <li class="done"><canvas></canvas><span>Mail</span><small>7 min</small></li>
+      <li class="now"><canvas></canvas><span>Make some tea</span><small>5 min</small></li>
+      <li><canvas></canvas><span>A little reading</span><small>6 min</small></li>
+    </ol>
+    <div class="ctrl"><span class="p">Pause</span><span>Next</span><span>Again</span></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <div class="content rec">
+    <div class="date">Your day</div>
+    <canvas class="strip" id="st3" style="margin-top:14px;height:110px"></canvas>
+    <p class="w">Here is your briefing for Tuesday 14 October.</p>
+    <p>Weather in Paris: <em>mostly cloudy, 11 degrees.</em></p>
+    <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+    <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+    <div class="stack"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+  </div>
+</div></div>
+<script>
+// A "stitch" is an X drawn in a cell; filled cells are the motif.
+function stitches(c, cols, rows, cells, color, cell=6){
+  c.width=cols*cell; c.height=rows*cell; const x=c.getContext('2d'); x.strokeStyle=color; x.lineWidth=1.4; x.lineCap='round';
+  cells.forEach(([i,j,col])=>{ x.strokeStyle=col||color; const px=i*cell,py=j*cell; x.beginPath(); x.moveTo(px+1,py+1); x.lineTo(px+cell-1,py+cell-1); x.moveTo(px+cell-1,py+1); x.lineTo(px+1,py+cell-1); x.stroke(); });
+}
+function disc(cx,cy,r,col){ const out=[]; for(let j=0;j<40;j++)for(let i=0;i<60;i++){ if(Math.hypot(i+.5-cx,j+.5-cy)<=r) out.push([i,j,col]); } return out; }
+stitches(document.getElementById('m1'),12,12,[...disc(6,8,4.5,'#d58a3a'),[6,1,'#d58a3a'],[1,6,'#d58a3a'],[10,6,'#d58a3a'],[2,2,'#d58a3a'],[10,2,'#d58a3a'],...Array.from({length:12},(_,i)=>[i,11,'#5f7a4b'])],'#d58a3a');
+document.querySelectorAll('ol li canvas').forEach((c,i)=>{ const done=c.parentElement.classList.contains('done'), now=c.parentElement.classList.contains('now');
+  const col=done?'#8b6f5c':now?'#b5533c':'#5f7a4b'; const cells=done||now?[[0,0],[1,0],[0,1],[1,1]]:[[0,0],[1,1]]; stitches(c,2,2,cells.map(a=>[...a,col]),col,12); });
+// strips: a stitched horizon with the sun at a given height; rain stitches on the last
+function strip(id,rise,rain){ const c=document.getElementById(id); const cells=[]; const sunY=12-Math.round(rise*8);
+  cells.push(...disc(30,sunY,5,'#d58a3a').filter(([i,j])=>j<12)); for(let i=0;i<60;i++){ cells.push([i,12,'#5f7a4b']); if(i%3==0) cells.push([i,13,'#5f7a4b']); }
+  if(rain){ for(let k=0;k<22;k++) cells.push([(k*13)%60,(k*5)%10,'#7a8fb0']); }
+  stitches(c,60,15,cells,'#5f7a4b'); }
+strip('st2',0.5,false); strip('st3',1,true);
+</script>
+</body></html>

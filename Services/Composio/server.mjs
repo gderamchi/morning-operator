@@ -2,6 +2,7 @@ import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { mkdir, open, readFile, rename } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { morningVoiceToken } from './morning-voice.mjs';
 
 const token = () => randomBytes(32).toString('base64url');
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -94,7 +95,11 @@ export function configFromEnv(env = process.env) {
   const timeout = Number(env.COMPOSIO_TIMEOUT_MS ?? 20000);
   const port = Number(env.PORT ?? 8787);
   if (!Number.isInteger(timeout) || timeout < 100 || timeout > 60000 || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid timeout or PORT.');
-  return { apiKey: env.COMPOSIO_API_KEY, toolkits, callbacks, callbackURL, publicURL: publicURL?.origin, upstream: 'https://backend.composio.dev/api/v3.1/', dataDir: resolve(env.MORE_DATA_DIR ?? './data'), timeout, port, host: env.HOST ?? '127.0.0.1' };
+  const voiceInstallations = JSON.parse(env.MORE_VOICE_INSTALLATIONS_JSON ?? '[]');
+  if (!Array.isArray(voiceInstallations) || !voiceInstallations.every(value => typeof value === 'string' && /^more_[0-9a-f-]{36}$/i.test(value))) throw new Error('Voice installations must be explicit installation IDs.');
+  const voice = { apiKey: env.ELEVENLABS_API_KEY, agentID: env.ELEVENLABS_AGENT_ID, installations: voiceInstallations };
+  if (voice.agentID && !/^[a-zA-Z0-9_-]{1,160}$/.test(voice.agentID)) throw new Error('Invalid ElevenLabs agent ID.');
+  return { apiKey: env.COMPOSIO_API_KEY, toolkits, callbacks, callbackURL, publicURL: publicURL?.origin, upstream: 'https://backend.composio.dev/api/v3.1/', dataDir: resolve(env.MORE_DATA_DIR ?? './data'), timeout, port, host: env.HOST ?? '127.0.0.1', voice };
 }
 
 async function syncDirectory(path) {
@@ -121,10 +126,13 @@ export class FileStorage {
   installationPath(tokenHash) { return join(this.directory, 'installations', `${tokenHash}.json`); }
   executionPath(userID, requestID) { return join(this.directory, 'journal', userID, `${requestID}.json`); }
   async initialize() {
-    for (const directory of ['installations', 'journal']) await mkdir(join(this.directory, directory), { recursive: true, mode: 0o700 });
+    for (const directory of ['installations', 'journal', 'voice-activation']) await mkdir(join(this.directory, directory), { recursive: true, mode: 0o700 });
   }
   async createInstallation(tokenHash, userID) { await durableJSON(this.installationPath(tokenHash), { userID }, true); }
   async getInstallation(tokenHash) { return loadJSON(this.installationPath(tokenHash)); }
+  async requestVoiceActivation(userID) {
+    await durableJSON(join(this.directory, 'voice-activation', `${userID}.json`), { requestedAt: new Date().toISOString() });
+  }
   async reserveExecution(userID, requestID, fingerprint) {
     await mkdir(join(this.directory, 'journal', userID), { recursive: true, mode: 0o700 });
     try { await durableJSON(this.executionPath(userID, requestID), { fingerprint, state: 'pending' }, true); return true; }
@@ -392,6 +400,14 @@ export async function createRequestHandler(config, { storage = new FileStorage(c
         return reply(302, undefined, { Location: callback.href });
       }
       const userID = await identity(request);
+      if (request.method === 'POST' && url.pathname === '/v1/voice/token') {
+        const input = await body(request); exactKeys(input, []);
+        const result = await morningVoiceToken(config.voice, userID);
+        if (result.status === 503 && config.voice?.apiKey && config.voice?.agentID) {
+          await storage.requestVoiceActivation(userID);
+        }
+        return reply(result.status, result.payload);
+      }
       if (request.method === 'GET' && url.pathname === '/v1/slack/reply-identity') {
         if ([...url.searchParams.keys()].some(key => key !== 'connectionID') || url.searchParams.getAll('connectionID').length !== 1) {
           fail(400, 'invalid_slack_reply', 'Choose one Slack account for this reply.');

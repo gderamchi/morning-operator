@@ -138,6 +138,10 @@ enum OwnInterfaceWording {
         Phrase(catalogKey: nil, isPart: false, [en, fr])
     }
 
+    static let privacyIntroduction = sourceLiteral(
+        "Learning stays local by default. If you enable OpenAI, relevant excerpts and context are processed by OpenAI. You control access and saved personal facts.",
+        fr: "L’apprentissage reste local par défaut. Si vous activez OpenAI, les extraits et le contexte utiles sont traités par OpenAI. Vous gardez le contrôle des accès et des données mémorisées.")
+
     // MARK: - Wording
 
     /// Titles and controls distinctive enough that one complete line identifies the screen.
@@ -948,11 +952,10 @@ enum OwnInterfaceWording {
         ]),
         Screen(name: "Privacy", copy: [
             shown("Your mornings stay close.", fr: "Vos matinées restent à portée de main."),
-            part("MORE keeps its learning on this device", fr: "MORE garde son apprentissage sur cet appareil",
-                 of: "MORE keeps its learning on this device. You choose when to connect Apple apps and what to keep."),
-            part("You choose when to connect Apple apps and what to keep",
-                 fr: "Vous choisissez quand connecter les apps Apple et ce que vous gardez",
-                 of: "MORE keeps its learning on this device. You choose when to connect Apple apps and what to keep."),
+            privacyIntroduction,
+            earlier("MORE keeps its learning on this device", "MORE garde son apprentissage sur cet appareil"),
+            earlier("You choose when to connect Apple apps and what to keep",
+                    "Vous choisissez quand connecter les apps Apple et ce que vous gardez"),
             part("Only Shortcuts you configure can log app names and entry/exit times",
                  fr: "Seuls les raccourcis que vous configurez peuvent enregistrer les noms d’apps et les heures d’entrée et de sortie",
                  of: "Only Shortcuts you configure can log app names and entry/exit times. This doesn't record taps or read messages. Removing local data turns this off until you enable it again."),

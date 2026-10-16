@@ -96,6 +96,9 @@ private struct MorningActivityLockScreen: View {
                 Text(presentation.status).font(.caption.weight(.medium)).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            #if MORE_JURY_DEMO
+            JuryDemoIslandControls(sessionID: sessionID, paused: state.status == .paused)
+            #endif
             if let timer = state.stepTimer {
                 if dynamicTypeSize.isAccessibilitySize {
                     VStack(alignment: .leading, spacing: 8) {
@@ -174,6 +177,11 @@ private struct MorningActivityIslandDetail: View {
                 }
             }
         }
+        #if MORE_JURY_DEMO
+        .safeAreaInset(edge: .bottom, spacing: 10) {
+            JuryDemoIslandControls(sessionID: sessionID, paused: presentation.state.status == .paused)
+        }
+        #endif
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilitySummary)
@@ -413,3 +421,32 @@ private func activityText(_ value: String.LocalizationValue, locale: Locale) -> 
     AppLanguage.localized(value, bundle: AppLanguage.bundle(for: .main,
         languageCode: locale.language.languageCode?.identifier), locale: locale)
 }
+
+#if MORE_JURY_DEMO
+private struct JuryDemoIslandControls: View {
+    let sessionID: UUID
+    let paused: Bool
+    var body: some View {
+        HStack(spacing: 24) {
+            if paused {
+                // iOS needs the foreground to reacquire a released microphone.
+                Link(destination: URL(string: "more-demo://resume?session=\(sessionID.uuidString)")!) {
+                    Image(systemName: "play.fill")
+                }.accessibilityLabel("Reprendre dans MORE")
+            } else {
+                Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "pause")) {
+                    Image(systemName: "pause.fill")
+                }.accessibilityLabel("Pause")
+            }
+            Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "next")) {
+                Image(systemName: "forward.end.fill")
+            }.accessibilityLabel("Suivant")
+            Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "stop")) {
+                Image(systemName: "stop.fill")
+            }.accessibilityLabel("Arrêter")
+        }
+        .buttonStyle(.plain).font(.title3).frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+}
+#endif

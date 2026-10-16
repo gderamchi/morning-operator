@@ -28,7 +28,7 @@ Sources were opened on 13 October 2026. The project deploys to iOS 26.0 and is b
 | The audio session is `.playback`, mode `.spokenAudio`, option `.duckOthers`. | `SpeechCoordinator.activateAudioSession` |
 | The app never calls `requestPersonalVoiceAuthorization`. It never writes synthesized speech to a buffer or file. It sends no text to a speech service. | No such call exists in `Sources/` |
 | Purpose strings present: microphone, speech recognition, calendars (full and write-only), reminders, screen capture. None concerns speech output. | [iOS-Info.plist](../Configuration/iOS-Info.plist) |
-| Background modes: `screen-capture` only. There is no `audio` background mode. | [iOS-Info.plist](../Configuration/iOS-Info.plist) |
+| Background modes: `audio` and `screen-capture`. `audio` was added for the DEBUG-only live-demo voice host (docs/DEVICE-SETUP.md); the ordinary routine still pauses when MORE leaves the foreground. | [iOS-Info.plist](../Configuration/iOS-Info.plist) |
 | Entitlements: WeatherKit only. | [MorningOperator.entitlements](../Configuration/MorningOperator.entitlements) |
 
 The exclusion of Personal Voice is deliberate. The code comment reads: "Personal Voice stays excluded even if another app flow previously authorized it."

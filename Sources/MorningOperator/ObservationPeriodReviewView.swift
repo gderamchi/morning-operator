@@ -50,8 +50,11 @@ private struct ObservationPeriodReviewView: View {
                     if let report, let first = report.dayKeys.first, let last = report.dayKeys.last {
                         Text("\(first) – \(last)").font(.raleway(.subheadline).monospacedDigit())
                     }
+                    // Wraps in full instead of being cut to one line in the list row (issue #89).
                     Text("Screens that appeared across your mornings.")
                         .font(.serif(.title2, .medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("review.recordedPatterns.heading")
                     Text("These labels describe sampled screens. They don't measure time in apps, reads or scrolls. Missing samples stay unknown.")
                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     #if DEBUG

@@ -1,0 +1,79 @@
+<!doctype html><html><head><meta charset="utf-8"><title>07 Dot matrix</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+.screen { background:#0b0b0b; color:#ffb347; font-family:"DM Mono",monospace; font-weight:300; }
+.content { position:absolute; inset:0; padding:62px 28px 40px; display:flex; flex-direction:column; }
+.date { font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:rgba(255,179,71,.55); }
+.clock { width:100%; margin-top:16px; }
+.clock canvas { width:100%; height:auto; }
+.greet { font-size:22px; margin-top:16px; color:#f1e7d6; }
+.total { font-size:12px; color:rgba(255,179,71,.6); margin-top:6px; letter-spacing:.1em; }
+ol { list-style:none; margin:28px 0 0; padding:0; }
+li { display:flex; justify-content:space-between; padding:10px 0; font-size:16px; color:#f1e7d6; border-bottom:1px dotted rgba(255,179,71,.25); }
+li small { color:rgba(255,179,71,.7); font-size:12px; letter-spacing:.1em; }
+li::before { content:"○ "; color:rgba(255,179,71,.5); }
+li.done::before { content:"● "; color:#ffb347; } li.done { color:rgba(241,231,214,.4); }
+li.now::before { content:"◐ "; color:#ffb347; } li.now { color:#ffb347; }
+.foot { margin-top:auto; display:flex; justify-content:space-between; font-size:11px; letter-spacing:.22em; text-transform:uppercase; }
+.foot span { padding:14px 0; }
+.foot b { font-weight:500; background:#ffb347; color:#0b0b0b; padding:14px 18px; }
+.now-title { font-size:28px; color:#f1e7d6; margin-top:18px; }
+.purpose { font-size:12.5px; line-height:1.7; color:rgba(241,231,214,.6); margin-top:6px; }
+.ctrl { margin-top:auto; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; font-size:11px; letter-spacing:.22em; text-transform:uppercase; }
+.ctrl span { text-align:center; padding:15px 0; border:1px solid rgba(255,179,71,.35); }
+.ctrl span.p { background:#ffb347; color:#0b0b0b; border-color:#ffb347; }
+.rec p { margin:0 0 16px; font-size:17px; line-height:1.55; color:#f1e7d6; }
+.rec p em { font-style:normal; color:#ffb347; }
+.ticker { width:100%; margin:14px 0 22px; }
+.ticker canvas { width:100%; height:auto; }
+.stack { margin-top:auto; display:flex; flex-direction:column; gap:8px; font-size:11px; letter-spacing:.22em; text-transform:uppercase; }
+.stack span { text-align:center; padding:15px 0; border:1px solid rgba(255,179,71,.35); }
+.stack span.p { background:#ffb347; color:#0b0b0b; border-color:#ffb347; }
+</style></head><body>
+<div class="phone"><div class="screen"><div class="content">
+  <div class="date">Tuesday 14 October</div>
+  <div class="clock"><canvas id="k1"></canvas></div>
+  <div class="greet">good morning</div>
+  <div class="total">42 MIN PLANNED</div>
+  <ol>
+    <li><span>Your day</span><small>3 MIN</small></li>
+    <li><span>People and messages</span><small>8 MIN</small></li>
+    <li><span>Mail</span><small>7 MIN</small></li>
+    <li><span>Make some tea</span><small>5 MIN</small></li>
+    <li><span>A little reading</span><small>6 MIN</small></li>
+    <li><span>A moment to move</span><small>10 MIN</small></li>
+    <li><span>One thought for later</span><small>3 MIN</small></li>
+  </ol>
+  <div class="foot"><span>Learn</span><span>History</span><b>Play</b></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content">
+  <div class="date">Now · 4 of 7</div>
+  <div class="clock"><canvas id="k2"></canvas></div>
+  <div class="now-title">Make some tea</div>
+  <div class="purpose">A moment you’ve made room for.</div>
+  <ol style="margin-top:24px">
+    <li class="done"><span>Mail</span><small>7 MIN</small></li>
+    <li class="now"><span>Make some tea</span><small>5 MIN</small></li>
+    <li><span>A little reading</span><small>6 MIN</small></li>
+  </ol>
+  <div class="ctrl"><span class="p">Pause</span><span>Next</span><span>Again</span></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content rec">
+  <div class="date">Your day</div>
+  <div class="ticker"><canvas id="k3"></canvas></div>
+  <p>Here is your briefing for Tuesday 14 October.</p>
+  <p>Weather in Paris: <em>mostly cloudy, 11 degrees</em> Celsius.</p>
+  <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+  <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+  <div class="stack"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+</div></div></div>
+<script src="pix.js"></script>
+<script>
+pix.dotMatrix(document.getElementById('k1'),'07:12','#ffb347','#1c1409');
+pix.dotMatrix(document.getElementById('k2'),'03:40','#ffb347','#1c1409');
+pix.dotMatrix(document.getElementById('k3'),'11 ','#ffb347','#1c1409');
+</script>
+</body></html>

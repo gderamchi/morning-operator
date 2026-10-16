@@ -1,0 +1,81 @@
+<!doctype html><html><head><meta charset="utf-8"><title>03 Handwritten</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600&family=Homemade+Apple&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+.screen { background:#f6f1e6; color:#2b2622; font-family:Caveat,cursive; }
+.screen::before { content:""; position:absolute; inset:0; opacity:.5; pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E"); mix-blend-mode:multiply; }
+.content { position:absolute; inset:0; padding:62px 30px 36px; display:flex; flex-direction:column; }
+.date { font-family:"Source Serif 4",serif; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:#8a7f72; }
+h1 { font-family:"Homemade Apple",cursive; font-weight:400; font-size:34px; margin:10px 0 0; color:#2b2622; transform:rotate(-1.5deg); transform-origin:left; }
+.total { font-size:22px; color:#8a7f72; margin-top:4px; }
+ol { list-style:none; margin:28px 0 0; padding:0; }
+li { display:flex; align-items:baseline; gap:12px; padding:7px 0; font-size:29px; line-height:1.15; border-bottom:1px solid rgba(43,38,34,.12); }
+li .n { font-size:20px; color:#c4653f; width:20px; }
+li small { margin-left:auto; font-size:20px; color:#8a7f72; }
+li.done span:not(.n) { position:relative; color:#8a7f72; }
+li.done span:not(.n):not(small)::after { content:""; position:absolute; left:-2px; right:-4px; top:55%; height:3px; background:#c4653f; transform:rotate(-2deg); border-radius:2px; opacity:.8; }
+li.now { color:#c4653f; }
+.foot { margin-top:auto; display:flex; align-items:center; justify-content:space-between; font-size:24px; }
+.foot .p { font-family:"Homemade Apple",cursive; font-size:22px; color:#f6f1e6; background:#2b2622; padding:10px 26px 14px; border-radius:50% 45% 48% 50%/55% 50% 50% 45%; transform:rotate(-2deg); }
+.sun { position:absolute; right:26px; top:48px; width:76px; height:76px; }
+.big { font-family:"Homemade Apple",cursive; font-size:88px; line-height:1.1; margin:20px 0 0; color:#c4653f; transform:rotate(-2deg); transform-origin:left; }
+.now-title { font-size:46px; font-weight:500; line-height:1; margin:8px 0 4px; }
+.purpose { font-family:"Source Serif 4",serif; font-size:16px; line-height:1.6; color:#5b534a; max-width:30ch; }
+.ctrl { margin-top:auto; display:flex; justify-content:space-between; align-items:center; font-size:26px; }
+.ctrl .p { font-family:"Homemade Apple",cursive; font-size:22px; color:#f6f1e6; background:#c4653f; padding:10px 24px 14px; border-radius:48% 52% 50% 50%/55% 45% 55% 45%; transform:rotate(1.5deg); }
+.rec p { margin:0 0 10px; font-size:30px; line-height:1.2; }
+.rec p.w { font-family:"Homemade Apple",cursive; font-size:24px; line-height:1.5; color:#2b2622; margin:22px 0 18px; }
+.rec p em { font-style:normal; color:#c4653f; }
+.stack { margin-top:auto; display:flex; justify-content:space-between; align-items:center; font-size:24px; flex-wrap:wrap; gap:10px; }
+.stack .p { font-family:"Homemade Apple",cursive; font-size:20px; color:#f6f1e6; background:#2b2622; padding:10px 22px 14px; border-radius:50% 45% 48% 50%/55% 50% 50% 45%; transform:rotate(-1.5deg); }
+.umb { width:70px; height:70px; margin:0 0 6px; }
+</style></head><body>
+<div class="phone"><div class="screen">
+  <svg class="sun" viewBox="0 0 76 76" fill="none" stroke="#c4653f" stroke-width="2.2" stroke-linecap="round">
+    <path d="M12 52 C 18 30, 58 30, 64 52" /><path d="M6 54 Q 38 50 70 54" /><path d="M38 14 l0 8"/><path d="M18 22 l5 6"/><path d="M58 22 l-5 6"/><path d="M8 40 l7 2"/><path d="M68 40 l-7 2"/>
+  </svg>
+  <div class="content">
+    <div class="date">Tuesday 14 October</div>
+    <h1>good morning</h1>
+    <div class="total">about 42 minutes</div>
+    <ol>
+      <li><span class="n">1</span><span>Your day</span><small>3 min</small></li>
+      <li><span class="n">2</span><span>People and messages</span><small>8 min</small></li>
+      <li><span class="n">3</span><span>Mail</span><small>7 min</small></li>
+      <li><span class="n">4</span><span>Make some tea</span><small>5 min</small></li>
+      <li><span class="n">5</span><span>A little reading</span><small>6 min</small></li>
+      <li><span class="n">6</span><span>A moment to move</span><small>10 min</small></li>
+      <li><span class="n">7</span><span>One thought for later</span><small>3 min</small></li>
+    </ol>
+    <div class="foot"><span>Learn</span><span>History</span><span class="p">Play</span></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <div class="content">
+    <div class="date">Now · 4 of 7</div>
+    <div class="big">3:40</div>
+    <div class="now-title">Make some tea</div>
+    <div class="purpose">A moment you’ve made room for.</div>
+    <ol style="margin-top:34px">
+      <li class="done"><span class="n">3</span><span>Mail</span><small>7 min</small></li>
+      <li class="now"><span class="n">4</span><span>Make some tea</span><small>5 min</small></li>
+      <li><span class="n">5</span><span>A little reading</span><small>6 min</small></li>
+    </ol>
+    <div class="ctrl"><span>Again</span><span>Next</span><span class="p">Pause</span></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <div class="content rec">
+    <div class="date">Your day</div>
+    <p class="w">Here is your briefing for Tuesday 14 October.</p>
+    <svg class="umb" viewBox="0 0 70 70" fill="none" stroke="#2b2622" stroke-width="2" stroke-linecap="round"><path d="M8 36 C 14 14, 56 14, 62 36 Q 56 30 50 36 Q 44 30 38 36 Q 32 30 26 36 Q 20 30 14 36 Q 10 30 8 36z"/><path d="M35 36 v24 q0 6 -6 6"/><path d="M35 12 v4"/><path d="M14 56 l-2 6 M22 60 l-2 6 M48 58 l-2 6"/></svg>
+    <p>Weather in Paris: <em>mostly cloudy, 11°</em>.</p>
+    <p>At 10:00, Standup. At 14:30, Call with Léa. Plus 2 more events today.</p>
+    <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+    <div class="stack"><span>Stop</span><span>Start my routine</span><span class="p">Hear my recap</span></div>
+  </div>
+</div></div>
+</body></html>

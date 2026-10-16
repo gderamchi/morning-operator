@@ -10,6 +10,7 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
     public private(set) var pinnedBriefing: PreparedMorningBriefing?
     public private(set) var pinnedExecutionID: MorningExecutionID?
     @ObservationIgnored private let prepare: @MainActor () async -> PreparedMorningBriefing?
+    @ObservationIgnored private let advice: @MainActor (PreparedMorningBriefing) async throws -> String
     @ObservationIgnored private let speak: @MainActor (String) async throws -> Void
     @ObservationIgnored private let stop: @MainActor () -> Void
     @ObservationIgnored private let now: @MainActor () -> Date
@@ -25,7 +26,11 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
         self.init(prepare: { await briefing.refresh() },
                   speak: { try await speech.speakAndWait($0) }, stop: { speech.stop() },
                   configurationID: { briefing.playbackRevision },
-                  permitsPlayback: { briefing.permitsPlayback(of: $0) }, resolveObservation: resolveObservation)
+                  permitsPlayback: { briefing.permitsPlayback(of: $0) }, resolveObservation: resolveObservation,
+                  advice: { document in
+                      guard MoreLanguageModel.shared.usesOpenAI, document.weather.status == .fresh else { return "" }
+                      return try await MorningVoiceConversation().morningAdvice(context: document.weather.text)
+                  })
     }
 
     public init(prepare: @escaping @MainActor () async -> PreparedMorningBriefing?,
@@ -35,11 +40,13 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
                 timeZone: @escaping @MainActor () -> String = { TimeZone.current.identifier },
                 configurationID: @escaping @MainActor () -> UUID? = { nil },
                 permitsPlayback: @escaping @MainActor (PreparedMorningBriefing) -> Bool = { _ in true },
-                resolveObservation: @escaping @MainActor (RoutineStep) -> String? = { _ in nil }) {
+                resolveObservation: @escaping @MainActor (RoutineStep) -> String? = { _ in nil },
+                advice: @escaping @MainActor (PreparedMorningBriefing) async throws -> String = { _ in "" }) {
         self.prepare = prepare; self.speak = speak; self.stop = stop
         self.now = now; self.timeZone = timeZone
         self.configurationID = configurationID; self.permitsPlayback = permitsPlayback
         self.resolveObservation = resolveObservation
+        self.advice = advice
     }
 
     public func execute(step: RoutineStep, context: MorningStepContext) async throws -> MorningStepOutcome {
@@ -89,8 +96,21 @@ public final class MorningAppStepExecutor: MorningStepExecuting {
             }
             let text = Self.text(for: step.automation, in: document)
             guard !text.isEmpty else { return .unavailable(AppLanguage.localized("There is no current briefing to read.", bundle: .module)) }
+            var spoken = text
+            if step.automation == .morningBriefing, document.weather.status == .fresh {
+                do {
+                    let suggestion = try await advice(document)
+                    try checkAttempt(token)
+                    if !suggestion.isEmpty { spoken += " " + suggestion }
+                } catch {
+                    try checkAttempt(token)
+                    // Optional advice may fail; verified source facts remain readable.
+                }
+            }
             try checkAttempt(token)
-            try await speak(text)
+            guard pinnedConfigurationID == configurationID(), permitsPlayback(document),
+                  document.isCurrent(at: now(), timeZoneIdentifier: timeZone()) else { throw CancellationError() }
+            try await speak(spoken)
         case nil:
             return .needsUser(AppLanguage.localized("Enjoy this moment. Tap Next when you're ready.", bundle: .module))
         case .timedMoment, .gmailInbox:

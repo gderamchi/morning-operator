@@ -1,0 +1,84 @@
+<!doctype html><html><head><meta charset="utf-8"><title>04 Risograph</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+.screen { background:#f3ecdc; color:#1d3a8a; font-family:Fraunces,serif; font-variation-settings:"SOFT" 60,"WONK" 1; }
+.screen::before { content:""; position:absolute; inset:0; pointer-events:none; opacity:.6; mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E"); }
+.content { position:absolute; inset:0; padding:60px 28px 36px; display:flex; flex-direction:column; }
+.date { font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+h1 { font-weight:600; font-size:62px; line-height:.92; letter-spacing:-.03em; margin:12px 0 0; font-variation-settings:"SOFT" 100,"WONK" 1,"opsz" 144; }
+h1 span { display:block; color:#e2552f; font-style:italic; font-weight:400; position:relative; }
+h1 span::before { content:attr(data-t); position:absolute; left:2px; top:1.5px; color:#1d3a8a; opacity:.35; mix-blend-mode:multiply; z-index:-1; }
+.total { font-family:"Space Mono",monospace; font-size:12px; margin-top:12px; }
+ol { list-style:none; margin:26px 0 0; padding:0; }
+li { display:flex; align-items:baseline; gap:12px; padding:9px 0; font-size:22px; font-weight:400; }
+li .dot { width:14px; height:14px; border-radius:50%; background:#e2552f; flex:none; position:relative; top:0; }
+li.done .dot { background:#1d3a8a; }
+li.done span:not(.dot):not(small) { text-decoration:line-through; opacity:.55; }
+li.now span:not(.dot):not(small) { font-style:italic; color:#e2552f; }
+li small { margin-left:auto; font-family:"Space Mono",monospace; font-size:12px; }
+.foot { margin-top:auto; display:flex; justify-content:space-between; align-items:center; font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
+.foot .p { background:#e2552f; color:#f3ecdc; padding:16px 22px; border-radius:999px; font-weight:700; box-shadow:3px 3px 0 #1d3a8a; }
+.half { position:absolute; right:-40px; top:-60px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle at 40% 40%,#e2552f 0 2.2px,transparent 2.6px) 0 0/9px 9px; opacity:.9; }
+.half::after { content:""; position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle,#e2552f 0 2.2px,transparent 2.6px) 3px 3px/9px 9px; opacity:.6; transform:translate(3px,2px); }
+.big { font-size:130px; line-height:.9; letter-spacing:-.05em; margin:20px 0 0; font-weight:300; font-variation-settings:"opsz" 144; font-variant-numeric:tabular-nums; color:#e2552f; }
+.now-title { font-size:40px; line-height:1; margin:12px 0 8px; font-weight:600; }
+.purpose { font-family:"Space Mono",monospace; font-size:12.5px; line-height:1.7; max-width:30ch; }
+.ctrl { margin-top:auto; display:flex; gap:10px; font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
+.ctrl span { flex:1; text-align:center; padding:16px 0; border:2px solid #1d3a8a; border-radius:999px; }
+.ctrl span.p { background:#1d3a8a; color:#f3ecdc; box-shadow:3px 3px 0 #e2552f; }
+.rec p { margin:0 0 14px; font-size:23px; line-height:1.3; }
+.rec p.w { font-size:38px; line-height:1.02; font-weight:600; letter-spacing:-.02em; margin:14px 0 22px; }
+.rec p em { font-style:italic; color:#e2552f; }
+.stack { margin-top:auto; display:flex; flex-direction:column; gap:10px; font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
+.stack span { text-align:center; padding:16px 0; border:2px solid #1d3a8a; border-radius:999px; }
+.stack span.p { background:#e2552f; color:#f3ecdc; border-color:#e2552f; box-shadow:3px 3px 0 #1d3a8a; }
+.cloud { width:160px; height:70px; margin:6px 0 10px; background:radial-gradient(circle,#1d3a8a 0 1.8px,transparent 2.2px) 0 0/7px 7px; border-radius:40px 40px 10px 10px; }
+</style></head><body>
+<div class="phone"><div class="screen">
+  <div class="half"></div>
+  <div class="content">
+    <div class="date">Tuesday 14 October</div>
+    <h1>good<span data-t="morning">morning</span></h1>
+    <div class="total">42 MIN PLANNED</div>
+    <ol>
+      <li><span class="dot"></span><span>Your day</span><small>3</small></li>
+      <li><span class="dot"></span><span>People and messages</span><small>8</small></li>
+      <li><span class="dot"></span><span>Mail</span><small>7</small></li>
+      <li><span class="dot"></span><span>Make some tea</span><small>5</small></li>
+      <li><span class="dot"></span><span>A little reading</span><small>6</small></li>
+      <li><span class="dot"></span><span>A moment to move</span><small>10</small></li>
+      <li><span class="dot"></span><span>One thought for later</span><small>3</small></li>
+    </ol>
+    <div class="foot"><span>Learn</span><span>History</span><span class="p">Play</span></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <div class="content">
+    <div class="date">Now · 4 of 7</div>
+    <div class="big">3:40</div>
+    <div class="now-title">Make some tea</div>
+    <div class="purpose">A moment you’ve made room for.</div>
+    <ol style="margin-top:34px">
+      <li class="done"><span class="dot"></span><span>Mail</span><small>7</small></li>
+      <li class="now"><span class="dot"></span><span>Make some tea</span><small>5</small></li>
+      <li><span class="dot"></span><span>A little reading</span><small>6</small></li>
+    </ol>
+    <div class="ctrl"><span class="p">Pause</span><span>Next</span><span>Again</span></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <div class="content rec">
+    <div class="date">Your day</div>
+    <div class="cloud"></div>
+    <p class="w">Here is your briefing for Tuesday 14 October.</p>
+    <p>Weather in Paris: <em>mostly cloudy, 11 degrees.</em></p>
+    <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+    <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+    <div class="stack"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+  </div>
+</div></div>
+</body></html>

@@ -1,0 +1,11 @@
+/* Three iPhone-sized frames (393×852 pt) side by side. Explorations only style
+   what is inside .screen; this file never styles app content. */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: #1a1a1a; padding: 24px; display: flex; gap: 24px; width: max-content; font-family: system-ui, sans-serif; }
+.phone { width: 393px; height: 852px; position: relative; overflow: hidden; flex: none; border-radius: 2px; }
+.screen { position: absolute; inset: 0; overflow: hidden; }
+.status { position: absolute; top: 18px; left: 32px; right: 32px; display: flex; justify-content: space-between; font-size: 15px; font-weight: 600; pointer-events: none; }
+.home-bar { position: absolute; bottom: 8px; left: 50%; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; opacity: .55; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+.label { position: absolute; left: 0; right: 0; bottom: -22px; color: #777; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }

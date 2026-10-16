@@ -249,6 +249,18 @@ private struct ObservationSampleDetail: View {
                              : String(localized: "Your description stays separate from the model's interpretation.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
+                    ForEach(acquisition.appSignals.filter { $0.sampleID == sample.id }) { signal in
+                        LabeledContent(signal.source == .shortcut ? "Opened, per your Shortcuts"
+                                       : signal.source == .screenText ? "Recognized from screen text" : "Seen in the image",
+                                       value: signal.app.displayName)
+                            .accessibilityIdentifier("observation.sample.appSignal.\(signal.source.rawValue).\(sample.id.uuidString)")
+                        Text(signal.source == .shortcut
+                             ? "Your Shortcuts automation logged this app as open at this moment of the recording."
+                             : signal.source == .screenText
+                             ? "Words that belong to this app's own screens appear in the sampled text."
+                             : "Apple's on-device model recognized this app from the screenshot. It can be wrong; your label takes priority.")
+                            .font(.caption).foregroundStyle(MorningStyle.muted)
+                    }
                     if case .identified(let context, _) = originalDecision?.evidence {
                         LabeledContent(userReview == nil ? String(localized: "Proposed visual label", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Original proposed label", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: context.displayName)
                     } else if case .ambiguous = originalDecision?.evidence {

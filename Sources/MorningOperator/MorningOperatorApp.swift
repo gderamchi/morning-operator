@@ -13,13 +13,20 @@ struct MorningOperatorApp: App {
     init() {
         AppLanguage.initialize()
         MorningAppShortcuts.updateAppShortcutParameters()
+        #if DEBUG
+        LiveDemoVoiceHost.startIfRequested()
+        #endif
     }
 
     var body: some Scene {
         WindowGroup {
             Group {
-            #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
+            #if MORE_JURY_DEMO
+            MorningRootView(store: store)
+            #elseif DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--design-preview") {
+                HorizonDesignPreview()
+            } else if ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
                 MorningWelcomePreview()
             } else if let site = Self.webMorningLaunchSite, showingWebPreview {
                 WebMorningView(site: site, minutes: 10, onClose: { showingWebPreview = false })

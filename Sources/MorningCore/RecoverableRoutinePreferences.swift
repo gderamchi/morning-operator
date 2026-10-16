@@ -6,7 +6,7 @@ import Foundation
 /// use contains(_:) followed by decode(_:forKey:), not decodeIfPresent.
 public struct RecoverableRoutinePreferences: Codable, Sendable {
     public let value: RoutinePreferenceJournal?
-    private let original: PreferenceJSONValue?
+    private let original: PreservedJSONValue?
 
     public init(_ value: RoutinePreferenceJournal) { self.value = value; original = nil }
 
@@ -19,7 +19,7 @@ public struct RecoverableRoutinePreferences: Codable, Sendable {
             original = nil
         } else {
             value = nil
-            original = try PreferenceJSONValue(from: decoder)
+            original = try PreservedJSONValue(from: decoder)
         }
     }
 
@@ -30,12 +30,13 @@ public struct RecoverableRoutinePreferences: Codable, Sendable {
 }
 
 /// Preserves JSON values and unknown fields, not whitespace, key order or a
-/// numeric token's spelling. Nothing from this recovery payload drives learning.
-private indirect enum PreferenceJSONValue: Codable, Sendable {
+/// numeric token's spelling. Nothing from a recovery payload drives learning.
+/// Used for unreadable saved choices and to carry the workspace's list of set-aside elements.
+public indirect enum PreservedJSONValue: Codable, Sendable, Equatable {
     case null, bool(Bool), integer(Int64), unsigned(UInt64), number(Double), string(String)
-    case array([PreferenceJSONValue]), object([String: PreferenceJSONValue])
+    case array([PreservedJSONValue]), object([String: PreservedJSONValue])
 
-    init(from decoder: any Decoder) throws {
+    public init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
         if container.decodeNil() { self = .null }
         else if let v = try? container.decode(Bool.self) { self = .bool(v) }
@@ -43,11 +44,11 @@ private indirect enum PreferenceJSONValue: Codable, Sendable {
         else if let v = try? container.decode(UInt64.self) { self = .unsigned(v) }
         else if let v = try? container.decode(Double.self) { self = .number(v) }
         else if let v = try? container.decode(String.self) { self = .string(v) }
-        else if let v = try? container.decode([PreferenceJSONValue].self) { self = .array(v) }
-        else { self = .object(try container.decode([String: PreferenceJSONValue].self)) }
+        else if let v = try? container.decode([PreservedJSONValue].self) { self = .array(v) }
+        else { self = .object(try container.decode([String: PreservedJSONValue].self)) }
     }
 
-    func encode(to encoder: any Encoder) throws {
+    public func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
         case .null: try container.encodeNil()

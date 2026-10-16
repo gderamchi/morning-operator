@@ -680,6 +680,36 @@ struct OwnInterfaceWordingTests {
         #expect(!isOwnInterface("Updates\nKeep current\nApprove update\n09:00 Team planning meeting"))
     }
 
+    @Test("Current OpenAI privacy copy matches the live bilingual source and retains earlier recordings", arguments: ["en", "fr"])
+    func currentAndEarlierPrivacyIntroductionsRemainExcluded(language: String) throws {
+        let sources = try ShippedCatalogs.appSources()
+        let phrase = OwnInterfaceWording.privacyIntroduction
+        #expect(phrase.wordings.count == 2)
+        for wording in phrase.wordings {
+            #expect(sources.contains("\"\(wording)\""), "Privacy no longer shows this literal: \(wording)")
+        }
+        let index = language == "fr" ? 1 : 0
+        let prior = [
+            "MORE keeps its learning on this device. You choose when to connect Apple apps and what to keep.",
+            "MORE garde son apprentissage sur cet appareil. Vous choisissez quand connecter les apps Apple et ce que vous gardez."
+        ][index]
+        let catalogs = try ShippedCatalogs.load()
+        let heading = try catalogs.text("Your mornings stay close.", language)
+        let control = try catalogs.text("Saved in MORE", language)
+        for introduction in [phrase.wordings[index], prior] {
+            for width in [18, 26, 38] {
+                let screen = ([heading] + OwnScreenFixtures.wrapped(introduction, width: width) + [control]).joined(separator: "\n")
+                #expect(isOwnInterface(screen))
+                #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                    try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+                }
+            }
+        }
+        let retired = try #require(OwnInterfaceWording.all.first { $0.wordings.contains(index == 0
+            ? "MORE keeps its learning on this device" : "MORE garde son apprentissage sur cet appareil") })
+        #expect(retired.catalogKey == nil, "Earlier privacy wording must not depend on the current catalog.")
+    }
+
     @Test("Earlier browser-learning recordings remain excluded after semantic preview wording")
     func earlierBrowserLearningRemainsExcluded() {
         #expect(isOwnInterface("Learning your scroll and tap rhythm\nOnly this page. This estimate does not replay your gestures.\nSave to Learn"))

@@ -1,374 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "Your Calendly appointments, each morning": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your Calendly appointments, each morning"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos rendez-vous Calendly, chaque matin"
-          }
-        }
-      }
-    },
-    "Choose an account. MORE reads appointments starting today in this iPhone’s time zone.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose an account. MORE reads appointments starting today in this iPhone’s time zone."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone."
-          }
-        }
-      }
-    },
-    "Local recognition availability will be checked after your permission. Listening has not started.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Local recognition availability will be checked after your permission. Listening has not started."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La disponibilité de la reconnaissance locale sera vérifiée après votre autorisation. Aucune écoute n’a commencé."
-          }
-        }
-      }
-    },
-    "Your calendar, each morning": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your calendar, each morning"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre calendrier, chaque matin"
-          }
-        }
-      }
-    },
-    "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez un calendrier. MORE lit le jour courant dans le fuseau de cet iPhone à chaque matin."
-          }
-        }
-      }
-    },
-    "Prepare listening": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prepare listening"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Préparer l’écoute"
-          }
-        }
-      }
-    },
-    "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette préparation n’enregistre aucun son et ne teste pas le microphone. La lecture à voix haute et l’enchaînement de votre routine restent des choix distincts."
-          }
-        }
-      }
-    },
-    "Slack in your morning": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Slack in your morning"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Slack dans votre matin"
-          }
-        }
-      }
-    },
-    "Choose a workspace and channel. MORE can read its messages and prepare a reply for your review.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose a workspace and channel. MORE can read its messages and prepare a reply for your review."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez un espace et un canal. MORE pourra lire ses messages et préparer une réponse à relire."
-          }
-        }
-      }
-    },
-    "Reply in Slack": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reply in Slack"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Répondre dans Slack"
-          }
-        }
-      }
-    },
-    "Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez un message et dites ce que vous souhaitez répondre. MORE relit le compte, le canal, le message et la réponse avant votre instruction d’envoi."
-          }
-        }
-      }
-    },
-    "Bring your saved mornings together": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bring your saved mornings together"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Réunir les matinées que vous avez enregistrées"
-          }
-        }
-      }
-    },
-    "This saved excerpt has changed or was removed.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This saved excerpt has changed or was removed."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cet extrait enregistré a changé ou a été supprimé."
-          }
-        }
-      }
-    },
-    "Your day is not ready. Check Calendar & weather in Settings.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your day is not ready. Check Calendar & weather in Settings."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre journée n’est pas prête. Vérifiez Calendrier et météo dans Réglages."
-          }
-        }
-      }
-    },
-    "Your selected calendars are not ready. Check Calendar & weather in Settings.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your selected calendars are not ready. Check Calendar & weather in Settings."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les calendriers choisis ne sont pas prêts. Vérifiez Calendrier et météo dans Réglages."
-          }
-        }
-      }
-    },
-    "This recap needs an update before it can be read.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This recap needs an update before it can be read."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce bilan doit être actualisé avant sa lecture."
-          }
-        }
-      }
-    },
-    "Your sources changed. This recap needs an update.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your sources changed. This recap needs an update."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos sources ont changé. Ce bilan doit être actualisé."
-          }
-        }
-      }
-    },
-    "There is no current briefing to read.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "There is no current briefing to read."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun bilan à jour n’est disponible pour le moment."
-          }
-        }
-      }
-    },
-    "This moment could not finish. You can retry or continue your morning.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This moment could not finish. You can retry or continue your morning."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce moment n’a pas pu se terminer. Vous pouvez réessayer ou continuer votre matin."
-          }
-        }
-      }
-    },
-    "Your morning is paused. Say resume to retry, next to continue, or stop.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your morning is paused. Say resume to retry, next to continue, or stop."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre matin est en pause. Dites reprends pour réessayer, suivant pour continuer ou arrête."
-          }
-        }
-      }
-    },
-    "Adjust this suggestion": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adjust this suggestion"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajuster cette proposition"
-          }
-        }
-      }
-    },
-    "Adjust this suggestion before delegating it. Your saved source observations stay unchanged.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adjust this suggestion before delegating it. Your saved source observations stay unchanged."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajustez cette proposition avant de la confier à MORE. Vos observations sources restent inchangées."
-          }
-        }
-      }
-    },
-    "Suggestion saved as a draft. Adjust it, then delegate it to MORE when ready.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suggestion saved as a draft. Adjust it, then delegate it to MORE when ready."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proposition enregistrée comme brouillon. Ajustez-la, puis confiez-la à MORE quand elle vous convient."
-          }
-        }
-      }
-    },
     "%02d:%02d in this recording": {
       "localizations": {
         "en": {
@@ -433,6 +65,16 @@
         }
       }
     },
+    "%@ closes right after opening. In Shortcuts, check that its closing automation has only Is Closed selected; until then recordings can't use its times.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ se ferme juste après s’être ouvert. Dans Raccourcis, vérifiez que son automatisation de fermeture n’a que « Est fermée » coché ; d’ici là, les enregistrements ne peuvent pas utiliser ses heures."
+          }
+        }
+      }
+    },
     "%@ · %@": {
       "localizations": {
         "en": {
@@ -445,6 +87,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ · #%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ · #%@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ · #%3$@"
           }
         }
       }
@@ -525,6 +183,36 @@
         }
       }
     },
+    "%@ · Screen text": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Texte à l’écran"
+          }
+        }
+      }
+    },
+    "%@ · Seen in image": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Vu dans l’image"
+          }
+        }
+      }
+    },
+    "%@ · Shortcuts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Raccourcis"
+          }
+        }
+      }
+    },
     "%@ · Your label": {
       "localizations": {
         "fr": {
@@ -553,6 +241,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ · requested time only"
+          }
+        }
+      }
+    },
+    "%@ · screen text": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · texte à l’écran"
+          }
+        }
+      }
+    },
+    "%@ · seen in image": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · vu dans l’image"
           }
         }
       }
@@ -621,6 +329,22 @@
         }
       }
     },
+    "%@: %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ : %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@."
+          }
+        }
+      }
+    },
     "%lld": {
       "localizations": {
         "fr": {
@@ -670,6 +394,66 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld observations d’apps"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld copies": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg copy"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg copies"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg copie"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg copies"
+                    }
+                  }
                 }
               }
             }
@@ -981,6 +765,22 @@
         }
       }
     },
+    "%lld min · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld min · %2$@"
+          }
+        }
+      }
+    },
     "%lld minutes": {
       "localizations": {
         "en": {
@@ -1277,6 +1077,22 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld moments · %lld min": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld moments · %lld min"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld moments · %2$lld min"
           }
         }
       }
@@ -1617,6 +1433,66 @@
         }
       }
     },
+    "%lld observations have no saved import date. They are never removed by age.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation has no saved import date. It is never removed by age."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations have no saved import date. They are never removed by age."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation n’a pas de date d’importation enregistrée. Elle n’est jamais supprimée en raison de son âge."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations n’ont pas de date d’importation enregistrée. Elles ne sont jamais supprimées en raison de leur âge."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld observations need an observed day": {
       "localizations": {
         "en": {
@@ -1728,6 +1604,66 @@
                     "stringUnit": {
                       "state": "translated",
                       "value": "%arg observations n’ont pas encore de date"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld observations would be removed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation would be removed."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations would be removed."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation serait supprimée."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations seraient supprimées."
                     }
                   }
                 }
@@ -3189,6 +3125,22 @@
         }
       }
     },
+    "%lld. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld. %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld. %2$@"
+          }
+        }
+      }
+    },
     "%lld. %@, %lld minutes": {
       "localizations": {
         "en": {
@@ -3269,6 +3221,16 @@
         }
       }
     },
+    "1 year": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 an"
+          }
+        }
+      }
+    },
     "1 · See your rhythm": {
       "localizations": {
         "fr": {
@@ -3317,6 +3279,22 @@
         }
       }
     },
+    "3 · Connect your apps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 · Connectez vos apps"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 · Connect your apps"
+          }
+        }
+      }
+    },
     "3 · Make yourself at home": {
       "localizations": {
         "fr": {
@@ -3329,6 +3307,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "3 · Make yourself at home"
+          }
+        }
+      }
+    },
+    "30 days": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 jours"
+          }
+        }
+      }
+    },
+    "90 days": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 jours"
           }
         }
       }
@@ -3541,6 +3539,16 @@
         }
       }
     },
+    "A moment you chose to keep": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un moment que vous avez choisi de garder"
+          }
+        }
+      }
+    },
     "A morning saved. Time still unknown.": {
       "localizations": {
         "fr": {
@@ -3685,6 +3693,26 @@
         }
       }
     },
+    "A removal is already in progress. Nothing more was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression est déjà en cours. Rien de plus n’a été supprimé."
+          }
+        }
+      }
+    },
+    "A removal you confirmed was interrupted, and your saved data has changed since. Nothing more was removed. Review it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression que vous aviez confirmée a été interrompue, et vos données enregistrées ont changé depuis. Rien de plus n’a été supprimé. Vérifiez-la de nouveau."
+          }
+        }
+      }
+    },
     "A reply could not be prepared. You can write one below.": {
       "localizations": {
         "fr": {
@@ -3713,6 +3741,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "A saved moment"
+          }
+        }
+      }
+    },
+    "A saved morning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une matinée enregistrée"
+          }
+        }
+      }
+    },
+    "A saved morning still holds this draft. Approve or edit your routine first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une matinée enregistrée contient encore ce brouillon. Approuvez ou modifiez d’abord votre routine. Rien n’a été supprimé."
           }
         }
       }
@@ -3777,6 +3825,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "A selected observation was removed. Clear the selection and choose again."
+          }
+        }
+      }
+    },
+    "A step quoting one of these observations also holds words you keep, so nothing can be removed yet. Edit that step in your routine first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une étape qui cite l’une de ces observations contient aussi des mots que vous gardez : rien ne peut encore être supprimé. Modifiez d’abord cette étape dans votre routine."
+          }
+        }
+      }
+    },
+    "A step quoting this observation also holds words you keep. Edit that step in your routine first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une étape qui cite cette observation contient aussi des mots que vous gardez. Modifiez d’abord cette étape dans votre routine. Rien n’a été supprimé."
           }
         }
       }
@@ -3857,6 +3925,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "A word from you."
+          }
+        }
+      }
+    },
+    "API action · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action API · %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API action · %@"
+          }
+        }
+      }
+    },
+    "API connections": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexions API"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API connections"
+          }
+        }
+      }
+    },
+    "API requests and results pass through our connection service and Composio. Screen recordings and local model inference aren't sent there.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les requêtes et résultats API transitent par notre service de connexion et Composio. Les enregistrements d’écran et l’inférence locale n’y sont pas envoyés."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API requests and results pass through our connection service and Composio. Screen recordings and local model inference aren't sent there."
           }
         }
       }
@@ -4018,6 +4134,38 @@
         }
       }
     },
+    "Action added to your draft. Review and approve the routine before starting.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action ajoutée au brouillon. Vérifiez et approuvez la routine avant de démarrer."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action added to your draft. Review and approve the routine before starting."
+          }
+        }
+      }
+    },
+    "Action · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action · %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action · %@"
+          }
+        }
+      }
+    },
     "Active routine time": {
       "localizations": {
         "fr": {
@@ -4082,6 +4230,22 @@
         }
       }
     },
+    "Add API actions from Connections → API. Browser activities such as stories and scrolling stay on their visible pages.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez les actions API depuis Connexions → API. Les stories et le défilement restent dans leurs pages visibles."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add API actions from Connections → API. Browser activities such as stories and scrolling stay on their visible pages."
+          }
+        }
+      }
+    },
     "Add Morning Operator": {
       "localizations": {
         "fr": {
@@ -4126,6 +4290,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add a moment"
+          }
+        }
+      }
+    },
+    "Add and authorize the shortcut in Shortcuts first. Its name alone does not verify a connection.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez et autorisez d’abord le raccourci dans Raccourcis. Son nom seul ne vérifie pas une connexion."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add and authorize the shortcut in Shortcuts first. Its name alone does not verify a connection."
           }
         }
       }
@@ -4206,6 +4386,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add the action Log an app transition. Choose that same app and Opened or switched to. Leave Event ID empty for ordinary use."
+          }
+        }
+      }
+    },
+    "Add the action Log an app transition. Tap App and pick that same app, or type its name; if you leave it empty, iOS asks you every time. Choose Opened or switched to. Leave Event ID empty for ordinary use.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez l’action Enregistrer un passage d’app. Touchez App et choisissez cette même app, ou tapez son nom ; si vous le laissez vide, iOS vous le demandera à chaque fois. Choisissez Ouverte ou affichée. Laissez l’identifiant d’événement vide pour un usage normal."
           }
         }
       }
@@ -4338,6 +4528,23 @@
         }
       }
     },
+    "Added as a draft. Review and approve your routine.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added as a draft. Review and approve your routine."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouté comme brouillon. Relisez et approuvez votre routine."
+          }
+        }
+      }
+    },
     "Added to Apple Calendar": {
       "localizations": {
         "fr": {
@@ -4386,6 +4593,38 @@
         }
       }
     },
+    "Adding an API action to a routine saves its parameters. Local forgetting removes the connection token and saved shortcut names; remote grants and server receipt metadata remain separately managed. Disconnect accounts in Connections → API to request revocation.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une action API à une routine enregistre ses paramètres. L’oubli local supprime le jeton de connexion et les noms des raccourcis ; les autorisations distantes et les métadonnées du serveur restent gérées séparément. Déconnectez les comptes dans Connexions → API pour demander leur révocation."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding an API action to a routine saves its parameters. Local forgetting removes the connection token and saved shortcut names; remote grants and server receipt metadata remain separately managed. Disconnect accounts in Connections → API to request revocation."
+          }
+        }
+      }
+    },
+    "Adding an account action to your routine saves its details. Forgetting local data removes access from this iPhone; service permissions and server receipts are managed separately. To disconnect an account, open its page in Apps & accounts.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une action d’un compte à votre routine enregistre ses détails. L’oubli des données locales retire l’accès depuis cet iPhone ; les autorisations des services et les reçus du serveur se gèrent séparément. Pour déconnecter un compte, ouvrez sa page dans Apps et comptes."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding an account action to your routine saves its details. Forgetting local data removes access from this iPhone; service permissions and server receipts are managed separately. To disconnect an account, open its page in Apps & accounts."
+          }
+        }
+      }
+    },
     "Adding this excerpt needs room in your routine. Remove a moment in Routine first.": {
       "localizations": {
         "fr": {
@@ -4398,6 +4637,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Adding this excerpt needs room in your routine. Remove a moment in Routine first."
+          }
+        }
+      }
+    },
+    "Adjust this suggestion": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust this suggestion"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajuster cette proposition"
+          }
+        }
+      }
+    },
+    "Adjust this suggestion before delegating it. Your saved source observations stay unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust this suggestion before delegating it. Your saved source observations stay unchanged."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustez cette proposition avant de la confier à MORE. Vos observations sources restent inchangées."
           }
         }
       }
@@ -4482,6 +4753,40 @@
         }
       }
     },
+    "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisez la localisation ou choisissez une ville pour adapter l’accueil aux heures locales de lever et de coucher du soleil. En attendant, le ciel suit un cycle de référence de 7 h à 19 h selon l’horloge de cet iPhone ; ce ne sont pas vos heures locales de jour."
+          }
+        }
+      }
+    },
+    "Allow location access or choose a city in Your day to show its weather on Home.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow location access or choose a city in Your day to show its weather on Home."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisez la localisation ou choisissez une ville dans Votre journée pour afficher sa météo sur l’accueil."
+          }
+        }
+      }
+    },
     "Allow notifications for MORE in iPhone Settings.": {
       "localizations": {
         "fr": {
@@ -4514,6 +4819,16 @@
         }
       }
     },
+    "Allow Health for sleep and steps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autoriser Santé pour le sommeil et les pas"
+          }
+        }
+      }
+    },
     "Already in your morning": {
       "localizations": {
         "fr": {
@@ -4542,6 +4857,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ambiguous screen"
+          }
+        }
+      }
+    },
+    "An earlier removal still needs to finish. Choose Finish the interrupted removal in Privacy first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression précédente doit encore se terminer. Choisissez d’abord « Terminer la suppression interrompue » dans Confidentialité. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
+    "An interrupted removal couldn't be read, so nothing more was removed. Review your observations again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression interrompue n’a pas pu être lue, donc rien de plus n’a été supprimé. Vérifiez de nouveau vos observations."
           }
         }
       }
@@ -4642,6 +4977,16 @@
         }
       }
     },
+    "Answer in your own words, or say “no” to skip.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondez avec vos mots, ou dites « non » pour passer."
+          }
+        }
+      }
+    },
     "Any text below belongs to the named saved observation; it may be from an earlier import.": {
       "localizations": {
         "fr": {
@@ -4735,6 +5080,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "App observations"
+          }
+        }
+      }
+    },
+    "App recognition in screen recordings: available on this device.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnaissance des apps dans les enregistrements d’écran : disponible sur cet appareil."
+          }
+        }
+      }
+    },
+    "App recognition in screen recordings: unavailable here. Apps can still come from your Shortcuts automations or your labels.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnaissance des apps dans les enregistrements d’écran : indisponible ici. Les apps peuvent toujours venir de vos automatisations Raccourcis ou de vos libellés."
           }
         }
       }
@@ -4883,6 +5248,16 @@
         }
       }
     },
+    "Apple's on-device model recognized this app from the screenshot. It can be wrong; your label takes priority.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle d’Apple sur l’appareil a reconnu cette app dans la capture. Il peut se tromper ; votre libellé reste prioritaire."
+          }
+        }
+      }
+    },
     "Apple’s voice settings guide": {
       "localizations": {
         "fr": {
@@ -4975,6 +5350,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Approved"
+          }
+        }
+      }
+    },
+    "Apps & accounts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps et comptes"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps & accounts"
           }
         }
       }
@@ -5419,6 +5810,16 @@
         }
       }
     },
+    "Birthdays among contacts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anniversaires de vos contacts"
+          }
+        }
+      }
+    },
     "Bring a recording you've made": {
       "localizations": {
         "fr": {
@@ -5435,6 +5836,22 @@
         }
       }
     },
+    "Bring your saved mornings together": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bring your saved mornings together"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réunir les matinées que vous avez enregistrées"
+          }
+        }
+      }
+    },
     "Bringing your morning together…": {
       "localizations": {
         "fr": {
@@ -5447,6 +5864,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bringing your morning together…"
+          }
+        }
+      }
+    },
+    "Browser": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigateur"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browser"
           }
         }
       }
@@ -5515,6 +5948,16 @@
         }
       }
     },
+    "Calendar clash or tight gap": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conflit ou battement serré dans l’agenda"
+          }
+        }
+      }
+    },
     "Calendar events and prepared recaps stay in memory. MORE saves only the calendars you select, your chosen weather city and temperature unit.": {
       "localizations": {
         "fr": {
@@ -5543,6 +5986,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Calendar idea"
+          }
+        }
+      }
+    },
+    "Calendar, weather & sleep": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar, weather & sleep"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendrier, météo et sommeil"
           }
         }
       }
@@ -5869,6 +6329,32 @@
         }
       }
     },
+    "Choose a city in Your day to show its weather on Home.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une ville dans Votre journée pour adapter le ciel à sa météo."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a city in Your day to show its weather on Home."
+          }
+        }
+      }
+    },
+    "Choose a city above first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez d’abord une ville ci-dessus."
+          }
+        }
+      }
+    },
     "Choose a date and time for the calendar event.": {
       "localizations": {
         "fr": {
@@ -5897,6 +6383,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose a different excerpt from its observation in Review. Switching to Read this text aloud makes it an ordinary note."
+          }
+        }
+      }
+    },
+    "Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a message and say what you want to reply. MORE reviews the account, channel, message and reply before your send instruction."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un message et dites ce que vous souhaitez répondre. MORE relit le compte, le canal, le message et la réponse avant votre instruction d’envoi."
           }
         }
       }
@@ -5933,6 +6435,22 @@
         }
       }
     },
+    "Choose a speaker or HomePod from your Mac's sound controls, then try the voice here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a speaker or HomePod from your Mac's sound controls, then try the voice here."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un haut-parleur ou un HomePod dans les réglages audio de votre Mac, puis essayez la voix ici."
+          }
+        }
+      }
+    },
     "Choose a speaker or HomePod.": {
       "localizations": {
         "fr": {
@@ -5945,6 +6463,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose a speaker or HomePod."
+          }
+        }
+      }
+    },
+    "Choose a workspace and channel. MORE can read its messages and prepare a reply for your review.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a workspace and channel. MORE can read its messages and prepare a reply for your review."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un espace et un canal. MORE pourra lire ses messages et préparer une réponse à relire."
+          }
+        }
+      }
+    },
+    "Choose an account. MORE reads appointments starting today in this iPhone’s time zone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an account. MORE reads appointments starting today in this iPhone’s time zone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone."
+          }
+        }
+      }
+    },
+    "Choose an action from Apps & accounts, then add it to your routine.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une action dans Apps et comptes, puis ajoutez-la à votre routine."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an action from Apps & accounts, then add it to your routine."
           }
         }
       }
@@ -5962,6 +6528,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose an app or page in your routine."
+          }
+        }
+      }
+    },
+    "Choose an app name of up to 60 characters.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un nom d’app de 60 caractères maximum."
           }
         }
       }
@@ -6042,6 +6618,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose calendars"
+          }
+        }
+      }
+    },
+    "Choose calendars above first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez d’abord des calendriers ci-dessus."
           }
         }
       }
@@ -6158,6 +6744,22 @@
         }
       }
     },
+    "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose one calendar. MORE reads the current day in this iPhone’s time zone each morning."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un calendrier. MORE lit le jour courant dans le fuseau de cet iPhone à chaque matin."
+          }
+        }
+      }
+    },
     "Choose one to five observations.": {
       "localizations": {
         "fr": {
@@ -6170,6 +6772,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose one to five observations."
+          }
+        }
+      }
+    },
+    "Choose output in Control Center": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose output in Control Center"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir la sortie dans le centre de contrôle"
           }
         }
       }
@@ -6250,6 +6868,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose the saved words that help you recognize this screen. Your label is your interpretation; it doesn't prove an app was opened or a message was read."
+          }
+        }
+      }
+    },
+    "Choose what you want to bring into your morning.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez ce qui vous accompagne le matin."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose what you want to bring into your morning."
           }
         }
       }
@@ -6833,6 +7467,16 @@
         }
       }
     },
+    "Connect any app once with Apple's Shortcuts app, such as WhatsApp, Instagram or Mail. Only app names and times are saved locally.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez n’importe quelle app une fois avec l’app Raccourcis d’Apple, comme WhatsApp, Instagram ou Mail. Seuls les noms d’apps et les heures sont enregistrés, sur l’appareil."
+          }
+        }
+      }
+    },
     "Connect app activity": {
       "localizations": {
         "fr": {
@@ -6881,6 +7525,22 @@
         }
       }
     },
+    "Connect the apps you use": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez les apps que vous utilisez"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect the apps you use"
+          }
+        }
+      }
+    },
     "Connect the apps you want to understand. Their entries and repeated returns will appear here.": {
       "localizations": {
         "fr": {
@@ -6893,6 +7553,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Connect the apps you want to understand. Their entries and repeated returns will appear here."
+          }
+        }
+      }
+    },
+    "Connected accounts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptes connectés"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected accounts"
           }
         }
       }
@@ -6945,6 +7621,16 @@
         }
       }
     },
+    "Contacts access is off. Allow it in the Settings app.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès aux contacts est désactivé. Autorisez-le dans l’app Réglages."
+          }
+        }
+      }
+    },
     "Continue": {
       "localizations": {
         "fr": {
@@ -6973,6 +7659,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copied."
+          }
+        }
+      }
+    },
+    "Copies kept separately": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copies gardées à part"
           }
         }
       }
@@ -7073,6 +7769,16 @@
         }
       }
     },
+    "Counted by your iPhone, compared with your 7-day average.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptés par votre iPhone, comparés à votre moyenne sur 7 jours."
+          }
+        }
+      }
+    },
     "Coverage unknown": {
       "localizations": {
         "fr": {
@@ -7101,6 +7807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Create a separate Is Closed automation for the same app. Choose Closed or switched from in our action. Repeat for any other supported apps you want to include."
+          }
+        }
+      }
+    },
+    "Create a separate automation for the same app with only Is Closed selected. Choose Closed or switched from in our action. Repeat for any other apps you want to include.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créez une autre automatisation pour la même app avec seulement « Est fermée » coché. Dans notre action, choisissez Fermée ou quittée. Recommencez pour chaque app à inclure."
           }
         }
       }
@@ -8246,6 +8962,16 @@
         }
       }
     },
+    "Finish or stop this morning and wait for current work to end, then try again. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminez ou arrêtez cette matinée et attendez la fin du travail en cours, puis réessayez. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "Finish or stop this morning before changing the routine.": {
       "localizations": {
         "fr": {
@@ -8322,6 +9048,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finish the current activity, or retry or discard the saved recording, before starting another."
+          }
+        }
+      }
+    },
+    "Finish the interrupted removal": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer la suppression interrompue"
           }
         }
       }
@@ -8438,6 +9174,22 @@
         }
       }
     },
+    "Follow MORE’s language": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow MORE’s language"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivre la langue de MORE"
+          }
+        }
+      }
+    },
     "Follow this device’s language": {
       "localizations": {
         "fr": {
@@ -8514,6 +9266,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Forget local data?"
+          }
+        }
+      }
+    },
+    "Forget this observation": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier cette observation"
+          }
+        }
+      }
+    },
+    "Forget this observation?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier cette observation ?"
+          }
+        }
+      }
+    },
+    "Forget this observation…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier cette observation…"
           }
         }
       }
@@ -8671,6 +9453,22 @@
         }
       }
     },
+    "From your accounts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depuis vos comptes"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From your accounts"
+          }
+        }
+      }
+    },
     "From your observations": {
       "localizations": {
         "fr": {
@@ -8683,6 +9481,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "From your observations"
+          }
+        }
+      }
+    },
+    "Full text": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texte complet"
           }
         }
       }
@@ -8863,6 +9671,22 @@
         }
       }
     },
+    "HTTP event reads: %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTP event reads: %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lectures d’événements HTTP : %lld"
+          }
+        }
+      }
+    },
     "Hands free": {
       "localizations": {
         "fr": {
@@ -8875,6 +9699,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hands free"
+          }
+        }
+      }
+    },
+    "Health access couldn't be asked. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès à Santé n’a pas pu être demandé. %@"
           }
         }
       }
@@ -8907,6 +9741,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hear preview"
+          }
+        }
+      }
+    },
+    "Hear the recap from the sources you choose in Your day.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hear the recap from the sources you choose in Your day."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écoutez le récapitulatif des sources choisies dans Votre journée."
           }
         }
       }
@@ -9019,6 +9869,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Home"
+          }
+        }
+      }
+    },
+    "Home follows sunrise and sunset in %@, calculated on this iPhone using its date and time zone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Home follows sunrise and sunset in %@, calculated on this iPhone using its date and time zone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accueil suit le lever et le coucher du soleil à %@, calculés sur cet iPhone avec sa date et son fuseau horaire."
           }
         }
       }
@@ -9183,6 +10050,26 @@
         }
       }
     },
+    "Imported before %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importées avant le %@."
+          }
+        }
+      }
+    },
+    "Imported: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importée : %@"
+          }
+        }
+      }
+    },
     "In MORE": {
       "localizations": {
         "fr": {
@@ -9211,6 +10098,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "In Settings → Accessibility → Read & Speak → Voices, choose your language and download an Enhanced or Premium voice if offered. Return here after the download finishes."
+          }
+        }
+      }
+    },
+    "In Shortcuts, open Automation and create an App automation. Choose any app and Is Opened. Select Run Immediately if you want it to work automatically.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dans Raccourcis, ouvrez Automatisation et créez une automatisation App. Choisissez n’importe quelle app et « Est ouverte ». Sélectionnez Exécuter immédiatement pour qu’elle fonctionne automatiquement."
           }
         }
       }
@@ -9247,6 +10144,22 @@
         }
       }
     },
+    "Inbox reads: %lld · message reads: %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox reads: %lld · message reads: %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lectures de la boîte : %1$lld · lectures de messages : %2$lld"
+          }
+        }
+      }
+    },
     "Include notes": {
       "localizations": {
         "fr": {
@@ -9259,6 +10172,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Include notes"
+          }
+        }
+      }
+    },
+    "Input (optional)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrée (facultative)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input (optional)"
           }
         }
       }
@@ -9298,6 +10227,22 @@
     "Instagram": {
       "localizations": {},
       "shouldTranslate": false
+    },
+    "Installed shortcut name": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom du raccourci installé"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed shortcut name"
+          }
+        }
+      }
     },
     "Installed voices": {
       "localizations": {
@@ -9343,6 +10288,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "It stopped at “%@”."
+          }
+        }
+      }
+    },
+    "It was prepared from what changes here, so it is set aside and has to be worked out again. Your current routine is unchanged by this.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elle a été préparée à partir de ce qui change ici : elle est mise de côté et devra être refaite. Votre routine actuelle n’en est pas modifiée."
           }
         }
       }
@@ -9443,6 +10398,16 @@
         }
       }
     },
+    "Keep raw evidence for": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conserver les éléments bruts pendant"
+          }
+        }
+      }
+    },
     "Keep this duration": {
       "localizations": {
         "fr": {
@@ -9487,6 +10452,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep your place on the Lock Screen."
+          }
+        }
+      }
+    },
+    "Keep your routine within ten moments before adding another action.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limitez votre routine à dix moments avant d’ajouter une action."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep your routine within ten moments before adding another action."
           }
         }
       }
@@ -9539,6 +10520,16 @@
         }
       }
     },
+    "Kept separately": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gardé à part"
+          }
+        }
+      }
+    },
     "Kind": {
       "localizations": {
         "fr": {
@@ -9567,6 +10558,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Labels come from recognition or your review. Samples can miss activity and don't measure time spent, taps, reads or scrolls."
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue"
+          }
+        }
+      }
+    },
+    "Language changed. Your morning is paused. Resume when you are ready.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language changed. Your morning is paused. Resume when you are ready."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La langue a changé. Votre matin est en pause. Reprenez quand vous le souhaitez."
           }
         }
       }
@@ -9828,6 +10851,16 @@
         }
       }
     },
+    "Links and suggestions set aside": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liens et suggestions mis de côté"
+          }
+        }
+      }
+    },
     "Listen through your current audio output. These are Apple system speech voices; Siri may use a different voice.": {
       "localizations": {
         "fr": {
@@ -9924,6 +10957,22 @@
         }
       }
     },
+    "Local data removal needs attention. Open Privacy to finish it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local data removal needs attention. Open Privacy to finish it."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suppression des données locales doit être vérifiée. Ouvrez Confidentialité pour la terminer."
+          }
+        }
+      }
+    },
     "Local read at %@": {
       "localizations": {
         "fr": {
@@ -9936,6 +10985,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Local read at %@"
+          }
+        }
+      }
+    },
+    "Local recognition availability will be checked after your permission. Listening has not started.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local recognition availability will be checked after your permission. Listening has not started."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La disponibilité de la reconnaissance locale sera vérifiée après votre autorisation. Aucune écoute n’a commencé."
           }
         }
       }
@@ -10245,6 +11310,22 @@
         }
       }
     },
+    "Matches MORE’s language, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matches MORE’s language, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suit la langue de MORE, puis privilégie une voix installée de meilleure qualité. Votre choix s’applique aux moments lus à voix haute."
+          }
+        }
+      }
+    },
     "Matches your device’s language and dialect, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps.": {
       "localizations": {
         "fr": {
@@ -10306,6 +11387,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Measured: Screen Time counted these minutes inside your morning. Estimated: an hour ran past the end of your morning, so its minutes were shared out."
+          }
+        }
+      }
+    },
+    "Message %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message %lld"
           }
         }
       }
@@ -10450,6 +11547,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "More shortcuts soon."
+          }
+        }
+      }
+    },
+    "More voices can be downloaded through the accessibility voice controls in System Settings. Return here when the download finishes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More voices can be downloaded through the accessibility voice controls in System Settings. Return here when the download finishes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez télécharger d’autres voix dans les réglages d’accessibilité des Réglages Système. Revenez ici une fois le téléchargement terminé."
           }
         }
       }
@@ -10678,6 +11791,16 @@
         }
       }
     },
+    "Names are spoken, never saved.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les noms sont dits, jamais enregistrés."
+          }
+        }
+      }
+    },
     "New app activity will no longer be saved. Existing activity stays until you remove local data.": {
       "localizations": {
         "fr": {
@@ -10822,6 +11945,32 @@
         }
       }
     },
+    "No Enhanced or Premium voice is available here for MORE’s language yet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Enhanced or Premium voice is available here for MORE’s language yet."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune voix améliorée ou premium n’est encore disponible ici dans la langue de MORE."
+          }
+        }
+      }
+    },
+    "No Apple Watch needed: an iPhone with a Sleep schedule records time in bed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas besoin d’Apple Watch : un iPhone avec un horaire de sommeil enregistre le temps au lit."
+          }
+        }
+      }
+    },
     "No Enhanced or Premium voice is available here for your device’s language yet.": {
       "localizations": {
         "fr": {
@@ -10850,6 +11999,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "No dated observations in this period."
+          }
+        }
+      }
+    },
+    "No import date saved": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune date d’importation enregistrée"
+          }
+        }
+      }
+    },
+    "No installed voice is available for MORE’s language.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No installed voice is available for MORE’s language."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune voix installée n’est disponible dans la langue de MORE."
+          }
+        }
+      }
+    },
+    "No longer linked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus reliés à l’observation"
           }
         }
       }
@@ -11362,6 +12547,26 @@
         }
       }
     },
+    "Not available in this build.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas disponible dans cette version de l’app."
+          }
+        }
+      }
+    },
+    "Not available in this version.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas disponible dans cette version."
+          }
+        }
+      }
+    },
     "Not completed": {
       "localizations": {
         "fr": {
@@ -11538,6 +12743,16 @@
         }
       }
     },
+    "Nothing is older than this right now.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien n’est plus ancien pour l’instant."
+          }
+        }
+      }
+    },
     "Nothing saved": {
       "localizations": {
         "fr": {
@@ -11682,6 +12897,16 @@
         }
       }
     },
+    "Observations to remove": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Observations à supprimer"
+          }
+        }
+      }
+    },
     "Observed app": {
       "localizations": {
         "fr": {
@@ -11748,16 +12973,26 @@
     },
     "Off": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Désactivé"
           }
-        },
-        "en": {
+        }
+      }
+    },
+    "Off keeps every observation until you remove it. When an age is chosen, nothing is removed until you review the list and confirm. Quotations in a routine you approved and moments you chose to keep stay.": {
+      "localizations": {
+        "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Off"
+            "value": "Désactivé : chaque observation reste jusqu’à ce que vous la supprimiez. Si vous choisissez une durée, rien n’est supprimé avant que vous ayez vérifié la liste et confirmé. Les citations d’une routine que vous avez approuvée et les moments que vous avez choisi de garder restent."
           }
         }
       }
@@ -11774,6 +13009,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Off. Your morning stays inside MORE."
+          }
+        }
+      }
+    },
+    "Older than this": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus anciennes"
           }
         }
       }
@@ -11834,6 +13079,22 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "On this iPhone": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur cet iPhone"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On this iPhone"
           }
         }
       }
@@ -12046,6 +13307,22 @@
         }
       }
     },
+    "Only voices that match MORE’s language are shown. Your own routine text is preserved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only voices that match MORE’s language are shown. Your own routine text is preserved."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seules les voix correspondant à la langue de MORE sont proposées. Le texte de vos routines est conservé."
+          }
+        }
+      }
+    },
     "Open": {
       "localizations": {
         "fr": {
@@ -12206,6 +13483,16 @@
         }
       }
     },
+    "Opened %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouverture de %@"
+          }
+        }
+      }
+    },
     "Opened or switched to": {
       "localizations": {
         "fr": {
@@ -12218,6 +13505,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Opened or switched to"
+          }
+        }
+      }
+    },
+    "Opened, per your Shortcuts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouverte, d’après vos Raccourcis"
           }
         }
       }
@@ -12591,6 +13888,16 @@
         }
       }
     },
+    "Part of this can't be removed safely here. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie ne peut pas être supprimée ici en toute sécurité. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "Partial observation window": {
       "localizations": {
         "fr": {
@@ -12823,6 +14130,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play morning"
+          }
+        }
+      }
+    },
+    "Prepare listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepare listening"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparer l’écoute"
           }
         }
       }
@@ -13063,6 +14386,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quick capture"
+          }
+        }
+      }
+    },
+    "Quotations removed with them": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Citations supprimées avec elles"
           }
         }
       }
@@ -13515,6 +14848,26 @@
         }
       }
     },
+    "Recognized from screen text": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnue grâce au texte à l’écran"
+          }
+        }
+      }
+    },
+    "Recognizing the apps on your screens…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnaissance des apps sur vos écrans…"
+          }
+        }
+      }
+    },
     "Recognizing the screens we sampled…": {
       "localizations": {
         "fr": {
@@ -13527,6 +14880,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recognizing the screens we sampled…"
+          }
+        }
+      }
+    },
+    "Reconnect this account in Apps & accounts.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnectez ce compte dans Apps et comptes."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect this account in Apps & accounts."
           }
         }
       }
@@ -14046,6 +15415,16 @@
         }
       }
     },
+    "Removal couldn't start. Nothing was removed. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suppression n’a pas pu commencer. Rien n’a été supprimé. %@"
+          }
+        }
+      }
+    },
     "Removal needs another try. Some local data may already be gone; remaining data stays unavailable. %@": {
       "localizations": {
         "fr": {
@@ -14058,6 +15437,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Removal needs another try. Some local data may already be gone; remaining data stays unavailable. %@"
+          }
+        }
+      }
+    },
+    "Remove %lld observations": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Remove %arg observation"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Remove %arg observations"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Supprimer %arg observation"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Supprimer %arg observations"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -14106,6 +15545,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove my correction"
+          }
+        }
+      }
+    },
+    "Remove old observations?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer les anciennes observations ?"
           }
         }
       }
@@ -14190,6 +15639,86 @@
         }
       }
     },
+    "Removed %lld observations. Everything listed as kept is still there.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Removed %arg observation. Everything listed as kept is still there."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Removed %arg observations. Everything listed as kept is still there."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation supprimée. Tout ce qui était indiqué comme gardé est toujours là."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations supprimées. Tout ce qui était indiqué comme gardé est toujours là."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Removed from MORE’s saved data. A leftover temporary copy couldn’t be removed yet; MORE tries again the next time it opens. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimé des données enregistrées de MORE. Une copie temporaire restante n’a pas encore pu être supprimée ; MORE réessaiera à sa prochaine ouverture. %@"
+          }
+        }
+      }
+    },
+    "Removed with them": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimé avec elles"
+          }
+        }
+      }
+    },
     "Removes the saved routine and its learning, stops MORE’s current work and cancels its morning invitation. You can start fresh afterward.": {
       "localizations": {
         "fr": {
@@ -14254,6 +15783,32 @@
         }
       }
     },
+    "Removing…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suppression…"
+          }
+        }
+      }
+    },
+    "Reply in Slack": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply in Slack"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondre dans Slack"
+          }
+        }
+      }
+    },
     "Requested sample": {
       "localizations": {
         "fr": {
@@ -14298,6 +15853,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Requested time; exact frame time unavailable."
+          }
+        }
+      }
+    },
+    "Requesting the connected service…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requête au service connecté…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requesting the connected service…"
+          }
+        }
+      }
+    },
+    "Requests to connected accounts and their results pass through our connection service and Composio. Screen recordings and local learning stay on this iPhone.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les demandes à vos comptes connectés et leurs résultats passent par notre service de connexion et Composio. Les enregistrements d’écran et l’apprentissage local restent sur cet iPhone."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requests to connected accounts and their results pass through our connection service and Composio. Screen recordings and local learning stay on this iPhone."
           }
         }
       }
@@ -14671,6 +16258,16 @@
         }
       }
     },
+    "Review before removing…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifier avant de supprimer…"
+          }
+        }
+      }
+    },
     "Review saved text": {
       "localizations": {
         "fr": {
@@ -14843,6 +16440,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Review this week and previous mornings"
+          }
+        }
+      }
+    },
+    "Review unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review unavailable"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification indisponible"
           }
         }
       }
@@ -15119,6 +16732,22 @@
         }
       }
     },
+    "Run an installed Shortcut": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer un raccourci installé"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run an installed Shortcut"
+          }
+        }
+      }
+    },
     "Runs with incomplete timing are excluded from this average.": {
       "localizations": {
         "fr": {
@@ -15131,6 +16760,134 @@
           "stringUnit": {
             "state": "translated",
             "value": "Runs with incomplete timing are excluded from this average."
+          }
+        }
+      }
+    },
+    "SYNTHETIC local fixture · no Apple data is changed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SYNTHETIC local fixture · no Apple data is changed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXEMPLE SIMULÉ local · aucune donnée Apple n’est modifiée"
+          }
+        }
+      }
+    },
+    "SYNTHETIC local fixture · no Calendly account is read or changed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SYNTHETIC local fixture · no Calendly account is read or changed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXEMPLE SIMULÉ local · aucun compte Calendly n’est lu ni modifié"
+          }
+        }
+      }
+    },
+    "SYNTHETIC local fixture · no Calendly account is used": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SYNTHETIC local fixture · no Calendly account is used"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXEMPLE SIMULÉ local · aucun compte Calendly n’est utilisé"
+          }
+        }
+      }
+    },
+    "SYNTHETIC local fixture · no Google account is read or changed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SYNTHETIC local fixture · no Google account is read or changed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXEMPLE SIMULÉ local · aucun compte Google n’est lu ni modifié"
+          }
+        }
+      }
+    },
+    "SYNTHETIC local fixture · no Google account is used": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SYNTHETIC local fixture · no Google account is used"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXEMPLE SIMULÉ local · aucun compte Google n’est utilisé"
+          }
+        }
+      }
+    },
+    "SYNTHETIC local fixture · no Outlook account is read or changed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SYNTHETIC local fixture · no Outlook account is read or changed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXEMPLE SIMULÉ local · aucun compte Outlook n’est lu ni modifié"
+          }
+        }
+      }
+    },
+    "SYNTHETIC local fixture · no Outlook account is used": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SYNTHETIC local fixture · no Outlook account is used"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXEMPLE SIMULÉ local · aucun compte Outlook n’est utilisé"
+          }
+        }
+      }
+    },
+    "SYNTHETIC local fixture · no Slack message is posted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SYNTHETIC local fixture · no Slack message is posted"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EXEMPLE SIMULÉ local · aucun message Slack n’est publié"
           }
         }
       }
@@ -15615,6 +17372,22 @@
         }
       }
     },
+    "Saved action details": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détails de l’action enregistrée"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved action details"
+          }
+        }
+      }
+    },
     "Saved as a new draft. Review and approve when ready.": {
       "localizations": {
         "fr": {
@@ -15723,6 +17496,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Saved data couldn’t be read. You can still choose to remove it."
+          }
+        }
+      }
+    },
+    "Saved data is unavailable right now. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données enregistrées sont indisponibles pour le moment. Rien n’a été supprimé."
           }
         }
       }
@@ -16011,6 +17794,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Saved samples"
+          }
+        }
+      }
+    },
+    "Saved service action": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Action de service enregistrée"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved service action"
           }
         }
       }
@@ -16338,6 +18137,16 @@
         }
       }
     },
+    "Screen time yesterday": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran d’hier"
+          }
+        }
+      }
+    },
     "Screens that appeared across your mornings.": {
       "localizations": {
         "fr": {
@@ -16478,6 +18287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "See your place in the morning on the Lock Screen and Dynamic Island. Anyone who can see your screen may see the category and progress."
+          }
+        }
+      }
+    },
+    "Seen in the image": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vue dans l’image"
           }
         }
       }
@@ -16974,6 +18793,22 @@
         }
       }
     },
+    "Shortcut returned. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retour du raccourci reçu. %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shortcut returned. %@"
+          }
+        }
+      }
+    },
     "Shortcuts": {
       "localizations": {
         "fr": {
@@ -17002,6 +18837,32 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shortcuts & timers"
+          }
+        }
+      }
+    },
+    "Shortcuts couldn't open. Check the installed shortcut before trying again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shortcuts couldn't open. Check the installed shortcut before trying again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raccourcis n’a pas pu s’ouvrir. Vérifiez le raccourci installé avant de réessayer."
+          }
+        }
+      }
+    },
+    "Short extras": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Petits plus"
           }
         }
       }
@@ -17166,6 +19027,16 @@
         }
       }
     },
+    "Shows every copy of it first. Quotations in an unapproved draft go too; what you approved or kept stays.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montre d’abord toutes ses copies. Ses citations dans un brouillon non approuvé partent aussi ; ce que vous avez approuvé ou gardé reste."
+          }
+        }
+      }
+    },
     "Shows original text and quoted evidence": {
       "localizations": {
         "fr": {
@@ -17262,6 +19133,16 @@
         }
       }
     },
+    "Skip": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer"
+          }
+        }
+      }
+    },
     "Skip this moment": {
       "localizations": {
         "fr": {
@@ -17290,6 +19171,32 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skipped"
+          }
+        }
+      }
+    },
+    "Slack in your morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slack in your morning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slack dans votre matin"
+          }
+        }
+      }
+    },
+    "Sleep last night": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sommeil de la nuit"
           }
         }
       }
@@ -17454,6 +19361,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Source version"
+          }
+        }
+      }
+    },
+    "Sources": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sources"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sources"
           }
         }
       }
@@ -17811,6 +19734,16 @@
         }
       }
     },
+    "Steps yesterday": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas d’hier"
+          }
+        }
+      }
+    },
     "Stop": {
       "localizations": {
         "fr": {
@@ -17935,6 +19868,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stop this morning before creating another routine."
+          }
+        }
+      }
+    },
+    "Stopped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopped"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêté"
           }
         }
       }
@@ -18099,6 +20048,22 @@
         }
       }
     },
+    "Suggestion saved as a draft. Adjust it, then delegate it to MORE when ready.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestion saved as a draft. Adjust it, then delegate it to MORE when ready."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proposition enregistrée comme brouillon. Ajustez-la, puis confiez-la à MORE quand elle vous convient."
+          }
+        }
+      }
+    },
     "Suivant · pause · reprends · passe cette étape · répète · arrête": {
       "localizations": {
         "fr": {
@@ -18111,6 +20076,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Suivant · pause · reprends · passe cette étape · répète · arrête"
+          }
+        }
+      }
+    },
+    "Synthetic preparation · actual system permissions · microphone not simulated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synthetic preparation · actual system permissions · microphone not simulated"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation de démonstration · autorisations système réelles · microphone non simulé"
           }
         }
       }
@@ -18415,6 +20396,16 @@
         }
       }
     },
+    "Text read on screen": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texte lu à l’écran"
+          }
+        }
+      }
+    },
     "Text was limited; identity remains unknown.": {
       "localizations": {
         "fr": {
@@ -18667,6 +20658,16 @@
         }
       }
     },
+    "The interrupted removal can't finish yet. Nothing more was removed. Try again from Privacy.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suppression interrompue ne peut pas encore se terminer. Rien de plus n’a été supprimé. Réessayez depuis Confidentialité."
+          }
+        }
+      }
+    },
     "The local data controls couldn't be read. Open Privacy to retry removing local data. %@": {
       "localizations": {
         "fr": {
@@ -18739,6 +20740,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "The morning saved with your routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La matinée enregistrée avec votre routine"
           }
         }
       }
@@ -18835,6 +20846,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The recording is kept for retry or discard."
+          }
+        }
+      }
+    },
+    "The removal you confirmed has finished.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suppression que vous avez confirmée est terminée."
           }
         }
       }
@@ -18951,6 +20972,38 @@
         }
       }
     },
+    "The service did not confirm this action. Check its result before trying again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service n’a pas confirmé cette action. Vérifiez son résultat avant de réessayer."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The service did not confirm this action. Check its result before trying again."
+          }
+        }
+      }
+    },
+    "The service returned successfully.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le service a répondu avec succès."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The service returned successfully."
+          }
+        }
+      }
+    },
     "The seven days": {
       "localizations": {
         "fr": {
@@ -18963,6 +21016,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "The seven days"
+          }
+        }
+      }
+    },
+    "The shortcut did not finish. Check its outcome before running it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le raccourci n’a pas terminé. Vérifiez son résultat avant de le relancer."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The shortcut did not finish. Check its outcome before running it again."
           }
         }
       }
@@ -19063,6 +21132,32 @@
         }
       }
     },
+    "Their original text, corrections, sampled screens and screen labels leave MORE on this device. Nothing else is removed unless it is listed below as removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leur texte d’origine, leurs corrections, les écrans échantillonnés et leurs libellés quittent MORE sur cet appareil. Rien d’autre n’est supprimé, sauf ce qui est indiqué ci-dessous comme supprimé."
+          }
+        }
+      }
+    },
+    "There is no current briefing to read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no current briefing to read."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun bilan à jour n’est disponible pour le moment."
+          }
+        }
+      }
+    },
     "There is no current step timer.": {
       "localizations": {
         "fr": {
@@ -19075,6 +21170,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "There is no current step timer."
+          }
+        }
+      }
+    },
+    "There is nothing left to remove here. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il n’y a plus rien à supprimer ici. Rien n’a été supprimé."
           }
         }
       }
@@ -19175,6 +21280,16 @@
         }
       }
     },
+    "These stay. Remove them where they live if you want them gone too.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ces copies restent. Supprimez-les là où elles se trouvent si vous voulez qu’elles disparaissent aussi."
+          }
+        }
+      }
+    },
     "This Gmail session, messages and local replies clear when you leave this screen or background MORE. Manage Google access in your Google Account.": {
       "localizations": {
         "fr": {
@@ -19187,6 +21302,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "This Gmail session, messages and local replies clear when you leave this screen or background MORE. Manage Google access in your Google Account."
+          }
+        }
+      }
+    },
+    "This account needs reconnecting. Open Connections → API.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnectez ce compte depuis Connexions → API."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account needs reconnecting. Open Connections → API."
           }
         }
       }
@@ -19239,6 +21370,22 @@
         }
       }
     },
+    "This count needs a refresh.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This count needs a refresh."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce nombre doit être actualisé."
+          }
+        }
+      }
+    },
     "This day could not be displayed in the current time zone.": {
       "localizations": {
         "fr": {
@@ -19251,6 +21398,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This day could not be displayed in the current time zone."
+          }
+        }
+      }
+    },
+    "This choice couldn't be saved or the permission couldn't be asked. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce choix n’a pas pu être enregistré ou l’autorisation n’a pas pu être demandée. %@"
           }
         }
       }
@@ -19399,6 +21556,54 @@
         }
       }
     },
+    "This moment could not finish. You can retry or continue your morning.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This moment could not finish. You can retry or continue your morning."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce moment n’a pas pu se terminer. Vous pouvez réessayer ou continuer votre matin."
+          }
+        }
+      }
+    },
+    "This moment couldn't start: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette étape n’a pas pu démarrer : %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This moment couldn't start: %@"
+          }
+        }
+      }
+    },
+    "This moment couldn’t start: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette étape n’a pas pu démarrer : %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This moment couldn’t start: %@"
+          }
+        }
+      }
+    },
     "This morning could not be added to history: %@": {
       "localizations": {
         "fr": {
@@ -19427,6 +21632,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This morning is not saved yet."
+          }
+        }
+      }
+    },
+    "This observation belongs to a recorded session, which can't be removed here yet. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette observation fait partie d’une session enregistrée, qui ne peut pas encore être supprimée ici. Rien n’a été supprimé."
           }
         }
       }
@@ -19511,6 +21726,16 @@
         }
       }
     },
+    "This observation will be removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette observation sera supprimée."
+          }
+        }
+      }
+    },
     "This period could not be displayed. Saved observations remain in Review.": {
       "localizations": {
         "fr": {
@@ -19571,6 +21796,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "This plan-only file has no notes or source label."
+          }
+        }
+      }
+    },
+    "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This preparation records no audio and does not test the microphone. Reading aloud and continuing your routine remain separate choices."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette préparation n’enregistre aucun son et ne teste pas le microphone. La lecture à voix haute et l’enchaînement de votre routine restent des choix distincts."
+          }
+        }
+      }
+    },
+    "This recap needs an update before it can be read.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This recap needs an update before it can be read."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce bilan doit être actualisé avant sa lecture."
           }
         }
       }
@@ -19735,6 +21992,22 @@
         }
       }
     },
+    "This saved excerpt has changed or was removed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This saved excerpt has changed or was removed."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet extrait enregistré a changé ou a été supprimé."
+          }
+        }
+      }
+    },
     "This saved routine uses a newer format. Your file has been kept intact.": {
       "localizations": {
         "fr": {
@@ -19795,6 +22068,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This setting couldn't be saved. %@"
+          }
+        }
+      }
+    },
+    "This setting couldn't be saved. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce réglage n’a pas pu être enregistré. Rien n’a été supprimé."
           }
         }
       }
@@ -20247,6 +22530,16 @@
         }
       }
     },
+    "Try opening two connected apps and returning to the first, then open Review. Counts appear after those automations actually run. Screen recordings you make in MORE also use these times to name the app on each sampled screen. This setup does not start screen recording or read messages.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essayez d’ouvrir deux apps connectées puis de revenir à la première, puis ouvrez Relire. Les comptes apparaissent une fois les automatisations exécutées. Les enregistrements d’écran faits dans MORE utilisent aussi ces heures pour nommer l’app de chaque écran échantillonné. Cette configuration ne lance pas d’enregistrement d’écran et ne lit pas vos messages."
+          }
+        }
+      }
+    },
     "Try opening two connected apps and returning to the first, then open Review. Counts appear after those automations actually run. This setup does not start screen recording or read messages.": {
       "localizations": {
         "fr": {
@@ -20535,6 +22828,32 @@
         }
       }
     },
+    "Unread messages in Inbox: %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unread messages in Inbox: %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages non lus dans la boîte : %lld"
+          }
+        }
+      }
+    },
+    "Unreadable parts kept": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parties illisibles conservées"
+          }
+        }
+      }
+    },
     "Unresolved at this timestamp": {
       "localizations": {
         "fr": {
@@ -20655,6 +22974,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Up to 30 seconds, understood on this device. Review the words before saving anything. No audio recording is kept."
+          }
+        }
+      }
+    },
+    "Up to three short facts after the opening, about ten seconds in all. Nothing read for them is saved; only these choices are. When a source has nothing, MORE says nothing about it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jusqu’à trois faits courts après l’ouverture, environ dix secondes en tout. Rien de ce qui est lu n’est enregistré, seulement ces choix. Quand une source n’a rien, MORE n’en dit rien."
           }
         }
       }
@@ -20867,6 +23196,22 @@
         }
       }
     },
+    "Voice language: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice language: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue de la voix : %@"
+          }
+        }
+      }
+    },
     "Voice, calendar and preferences": {
       "localizations": {
         "fr": {
@@ -20879,6 +23224,32 @@
           "stringUnit": {
             "state": "translated",
             "value": "Voice, calendar and preferences"
+          }
+        }
+      }
+    },
+    "Waiting for the current analysis to finish…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de la fin de l’analyse en cours…"
+          }
+        }
+      }
+    },
+    "Waiting stopped. If the action had started, check the account before doing it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attente arrêtée. Si l’action avait démarré, vérifiez le compte avant de la refaire."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting stopped. If the action had started, check the account before doing it again."
           }
         }
       }
@@ -20931,6 +23302,16 @@
         }
       }
     },
+    "Weather change worth knowing": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changement de météo utile"
+          }
+        }
+      }
+    },
     "Weather data sources": {
       "localizations": {
         "fr": {
@@ -20943,6 +23324,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "Weather data sources"
+          }
+        }
+      }
+    },
+    "Weather for %@ is not available yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La météo de %@ n’est pas encore disponible."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather for %@ is not available yet."
+          }
+        }
+      }
+    },
+    "Weather for %@ is unavailable right now.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La météo de %@ est indisponible pour le moment."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather for %@ is unavailable right now."
+          }
+        }
+      }
+    },
+    "Weather for %@ needs an update.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La météo de %@ doit être actualisée."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather for %@ needs an update."
+          }
+        }
+      }
+    },
+    "Weather preview: %@ (sample).": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aperçu météo : %@ (exemple)."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weather preview: %@ (sample)."
           }
         }
       }
@@ -21236,6 +23681,16 @@
         }
       }
     },
+    "Words that belong to this app's own screens appear in the sampled text.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le texte échantillonné contient des mots propres aux écrans de cette app."
+          }
+        }
+      }
+    },
     "Write": {
       "localizations": {
         "fr": {
@@ -21504,6 +23959,32 @@
         }
       }
     },
+    "Your Calendly appointments, each morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Calendly appointments, each morning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos rendez-vous Calendly, chaque matin"
+          }
+        }
+      }
+    },
+    "Your Shortcuts automation logged this app as open at this moment of the recording.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre automatisation Raccourcis a noté cette app comme ouverte à ce moment de l’enregistrement."
+          }
+        }
+      }
+    },
     "Your answer is saved with this morning. It changes nothing else.": {
       "localizations": {
         "fr": {
@@ -21536,6 +24017,38 @@
         }
       }
     },
+    "Your apps, in one place.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos apps, au même endroit."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your apps, in one place."
+          }
+        }
+      }
+    },
+    "Your apps, together.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos apps, au même endroit."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your apps, together."
+          }
+        }
+      }
+    },
     "Your calendar": {
       "localizations": {
         "fr": {
@@ -21548,6 +24061,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your calendar"
+          }
+        }
+      }
+    },
+    "Your calendar, each morning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your calendar, each morning"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre calendrier, chaque matin"
           }
         }
       }
@@ -21616,6 +24145,22 @@
         }
       }
     },
+    "Your connected routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine connectée"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your connected routine"
+          }
+        }
+      }
+    },
     "Your connection stays saved. Messages and local replies clear when you leave this screen or background MORE.": {
       "localizations": {
         "fr": {
@@ -21628,6 +24173,32 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your connection stays saved. Messages and local replies clear when you leave this screen or background MORE."
+          }
+        }
+      }
+    },
+    "Your connections": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos connexions"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your connections"
+          }
+        }
+      }
+    },
+    "Your current routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine actuelle"
           }
         }
       }
@@ -21712,6 +24283,16 @@
         }
       }
     },
+    "Your data couldn't be saved, so nothing was removed. Try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos données n’ont pas pu être enregistrées, donc rien n’a été supprimé. Réessayez."
+          }
+        }
+      }
+    },
     "Your day": {
       "localizations": {
         "fr": {
@@ -21724,6 +24305,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your day"
+          }
+        }
+      }
+    },
+    "Your day is not ready. Check Calendar & weather in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your day is not ready. Check Calendar & weather in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre journée n’est pas prête. Vérifiez Calendrier et météo dans Réglages."
           }
         }
       }
@@ -21936,6 +24533,22 @@
         }
       }
     },
+    "Your morning is paused. Say resume to retry, next to continue, or stop.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your morning is paused. Say resume to retry, next to continue, or stop."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre matin est en pause. Dites reprends pour réessayer, suivant pour continuer ou arrête."
+          }
+        }
+      }
+    },
     "Your morning is ready when you are. Tap Start to begin.": {
       "localizations": {
         "fr": {
@@ -22096,6 +24709,22 @@
         }
       }
     },
+    "Your observation has unsaved changes. Retry saving before continuing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your observation has unsaved changes. Retry saving before continuing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre observation contient des modifications non enregistrées. Réessayez de les enregistrer avant de continuer."
+          }
+        }
+      }
+    },
     "Your observation needs attention": {
       "localizations": {
         "fr": {
@@ -22124,6 +24753,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your observed mornings"
+          }
+        }
+      }
+    },
+    "Your other changes couldn't be saved first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos autres modifications n’ont pas pu être enregistrées d’abord. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
+    "Your pending suggestion": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre suggestion en attente"
           }
         }
       }
@@ -22204,6 +24853,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your previous morning is paused. Resume when you're ready."
+          }
+        }
+      }
+    },
+    "Your previous routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine précédente"
           }
         }
       }
@@ -22432,6 +25091,16 @@
         }
       }
     },
+    "Your routine changed. Review the list again. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine a changé. Vérifiez de nouveau la liste. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "Your routine may have changed. Learn from Screen Time again for a fresh suggestion.": {
       "localizations": {
         "fr": {
@@ -22528,6 +25197,42 @@
         }
       }
     },
+    "Your saved choices need review. Your routine is intact. Reset saved choices before making new suggestions.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved choices need review. Your routine is intact. Reset saved choices before making new suggestions."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos choix enregistrés doivent être vérifiés. Votre routine est intacte. Réinitialisez ces choix avant de créer de nouvelles propositions."
+          }
+        }
+      }
+    },
+    "Your saved data changed after this list was shown, so nothing was removed. This is the updated list.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos données enregistrées ont changé après l’affichage de cette liste, donc rien n’a été supprimé. Voici la liste à jour."
+          }
+        }
+      }
+    },
+    "Your saved data changed, so nothing was removed. Review the updated list.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos données enregistrées ont changé, donc rien n’a été supprimé. Vérifiez la liste à jour."
+          }
+        }
+      }
+    },
     "Your saved recording is still on this device. Retry understanding it, or discard it.": {
       "localizations": {
         "fr": {
@@ -22540,6 +25245,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your saved recording is still on this device. Retry understanding it, or discard it."
+          }
+        }
+      }
+    },
+    "Your saved recording needs attention. Review it before trying again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved recording needs attention. Review it before trying again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre enregistrement conservé demande une vérification. Relisez-le avant de réessayer."
           }
         }
       }
@@ -22576,6 +25297,38 @@
         }
       }
     },
+    "Your saved workspace could not be restored. Its file is protected from changes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your saved workspace could not be restored. Its file is protected from changes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre espace enregistré n’a pas pu être restauré. Son fichier est protégé contre les modifications."
+          }
+        }
+      }
+    },
+    "Your selected calendars are not ready. Check Calendar & weather in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your selected calendars are not ready. Check Calendar & weather in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les calendriers choisis ne sont pas prêts. Vérifiez Calendrier et météo dans Réglages."
+          }
+        }
+      }
+    },
     "Your selected saved observation": {
       "localizations": {
         "fr": {
@@ -22588,6 +25341,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your selected saved observation"
+          }
+        }
+      }
+    },
+    "Your sources changed. This recap needs an update.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your sources changed. This recap needs an update."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos sources ont changé. Ce bilan doit être actualisé."
           }
         }
       }
@@ -22688,6 +25457,38 @@
         }
       }
     },
+    "iOS native": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS natif"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS native"
+          }
+        }
+      }
+    },
+    "iOS, browser and API connections": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS, navigateur et connexions API"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS, browser and API connections"
+          }
+        }
+      }
+    },
     "incomplete timing": {
       "localizations": {
         "fr": {
@@ -22752,1447 +25553,84 @@
         }
       }
     },
-    "Weather preview: %@ (sample).": {
+    "Review Health access for enabled extras": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aperçu météo : %@ (exemple)."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weather preview: %@ (sample)."
-          }
-        }
-      }
-    },
-    "Choose a city in Your day to show its weather on Home.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez une ville dans Votre journée pour adapter le ciel à sa météo."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose a city in Your day to show its weather on Home."
-          }
-        }
-      }
-    },
-    "%@: %@.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ : %@."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@: %@."
-          }
-        }
-      }
-    },
-    "Weather for %@ needs an update.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La météo de %@ doit être actualisée."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weather for %@ needs an update."
-          }
-        }
-      }
-    },
-    "Weather for %@ is not available yet.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La météo de %@ n’est pas encore disponible."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weather for %@ is not available yet."
-          }
-        }
-      }
-    },
-    "Weather for %@ is unavailable right now.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La météo de %@ est indisponible pour le moment."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Weather for %@ is unavailable right now."
-          }
-        }
-      }
-    },
-    "API action · %@": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action API · %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "API action · %@"
-          }
-        }
-      }
-    },
-    "API connections": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connexions API"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "API connections"
-          }
-        }
-      }
-    },
-    "API requests and results pass through our connection service and Composio. Screen recordings and local model inference aren't sent there.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les requêtes et résultats API transitent par notre service de connexion et Composio. Les enregistrements d’écran et l’inférence locale n’y sont pas envoyés."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "API requests and results pass through our connection service and Composio. Screen recordings and local model inference aren't sent there."
-          }
-        }
-      }
-    },
-    "Action added to your draft. Review and approve the routine before starting.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action ajoutée au brouillon. Vérifiez et approuvez la routine avant de démarrer."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action added to your draft. Review and approve the routine before starting."
-          }
-        }
-      }
-    },
-    "Add API actions from Connections → API. Browser activities such as stories and scrolling stay on their visible pages.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajoutez les actions API depuis Connexions → API. Les stories et le défilement restent dans leurs pages visibles."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add API actions from Connections → API. Browser activities such as stories and scrolling stay on their visible pages."
-          }
-        }
-      }
-    },
-    "Add and authorize the shortcut in Shortcuts first. Its name alone does not verify a connection.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajoutez et autorisez d’abord le raccourci dans Raccourcis. Son nom seul ne vérifie pas une connexion."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add and authorize the shortcut in Shortcuts first. Its name alone does not verify a connection."
-          }
-        }
-      }
-    },
-    "Adding an API action to a routine saves its parameters. Local forgetting removes the connection token and saved shortcut names; remote grants and server receipt metadata remain separately managed. Disconnect accounts in Connections → API to request revocation.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajouter une action API à une routine enregistre ses paramètres. L’oubli local supprime le jeton de connexion et les noms des raccourcis ; les autorisations distantes et les métadonnées du serveur restent gérées séparément. Déconnectez les comptes dans Connexions → API pour demander leur révocation."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adding an API action to a routine saves its parameters. Local forgetting removes the connection token and saved shortcut names; remote grants and server receipt metadata remain separately managed. Disconnect accounts in Connections → API to request revocation."
-          }
-        }
-      }
-    },
-    "Browser": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Navigateur"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Browser"
-          }
-        }
-      }
-    },
-    "Input (optional)": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entrée (facultative)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Input (optional)"
-          }
-        }
-      }
-    },
-    "Installed shortcut name": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nom du raccourci installé"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Installed shortcut name"
-          }
-        }
-      }
-    },
-    "Keep your routine within ten moments before adding another action.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Limitez votre routine à dix moments avant d’ajouter une action."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep your routine within ten moments before adding another action."
-          }
-        }
-      }
-    },
-    "Requesting the connected service…": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Requête au service connecté…"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Requesting the connected service…"
-          }
-        }
-      }
-    },
-    "Run an installed Shortcut": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lancer un raccourci installé"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Run an installed Shortcut"
-          }
-        }
-      }
-    },
-    "Saved action details": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Détails de l’action enregistrée"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved action details"
-          }
-        }
-      }
-    },
-    "Saved service action": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action de service enregistrée"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved service action"
-          }
-        }
-      }
-    },
-    "Shortcut returned. %@": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retour du raccourci reçu. %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shortcut returned. %@"
-          }
-        }
-      }
-    },
-    "The service did not confirm this action. Check its result before trying again.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le service n’a pas confirmé cette action. Vérifiez son résultat avant de réessayer."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The service did not confirm this action. Check its result before trying again."
-          }
-        }
-      }
-    },
-    "The service returned successfully.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le service a répondu avec succès."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The service returned successfully."
-          }
-        }
-      }
-    },
-    "The shortcut did not finish. Check its outcome before running it again.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le raccourci n’a pas terminé. Vérifiez son résultat avant de le relancer."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The shortcut did not finish. Check its outcome before running it again."
-          }
-        }
-      }
-    },
-    "This account needs reconnecting. Open Connections → API.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reconnectez ce compte depuis Connexions → API."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This account needs reconnecting. Open Connections → API."
-          }
-        }
-      }
-    },
-    "This moment couldn't start: %@": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette étape n’a pas pu démarrer : %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This moment couldn't start: %@"
-          }
-        }
-      }
-    },
-    "This moment couldn’t start: %@": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette étape n’a pas pu démarrer : %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This moment couldn’t start: %@"
-          }
-        }
-      }
-    },
-    "Waiting stopped. If the action had started, check the account before doing it again.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Attente arrêtée. Si l’action avait démarré, vérifiez le compte avant de la refaire."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Waiting stopped. If the action had started, check the account before doing it again."
-          }
-        }
-      }
-    },
-    "Your connected routine": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine connectée"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your connected routine"
-          }
-        }
-      }
-    },
-    "Your connections": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos connexions"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your connections"
-          }
-        }
-      }
-    },
-    "iOS native": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iOS natif"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iOS native"
-          }
-        }
-      }
-    },
-    "iOS, browser and API connections": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iOS, navigateur et connexions API"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iOS, browser and API connections"
-          }
-        }
-      }
-    },
-    "Apps & accounts": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apps et comptes"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apps & accounts"
-          }
-        }
-      }
-    },
-    "3 · Connect your apps": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3 · Connectez vos apps"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3 · Connect your apps"
-          }
-        }
-      }
-    },
-    "Connect the apps you use": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connectez les apps que vous utilisez"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connect the apps you use"
-          }
-        }
-      }
-    },
-    "Connected accounts": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comptes connectés"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connected accounts"
-          }
-        }
-      }
-    },
-    "On this iPhone": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sur cet iPhone"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On this iPhone"
-          }
-        }
-      }
-    },
-    "From your accounts": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Depuis vos comptes"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "From your accounts"
-          }
-        }
-      }
-    },
-    "Choose an action from Apps & accounts, then add it to your routine.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez une action dans Apps et comptes, puis ajoutez-la à votre routine."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose an action from Apps & accounts, then add it to your routine."
-          }
-        }
-      }
-    },
-    "Reconnect this account in Apps & accounts.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reconnectez ce compte dans Apps et comptes."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reconnect this account in Apps & accounts."
-          }
-        }
-      }
-    },
-    "Action · %@": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action · %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action · %@"
-          }
-        }
-      }
-    },
-    "Requests to connected accounts and their results pass through our connection service and Composio. Screen recordings and local learning stay on this iPhone.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les demandes à vos comptes connectés et leurs résultats passent par notre service de connexion et Composio. Les enregistrements d’écran et l’apprentissage local restent sur cet iPhone."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Requests to connected accounts and their results pass through our connection service and Composio. Screen recordings and local learning stay on this iPhone."
-          }
-        }
-      }
-    },
-    "Adding an account action to your routine saves its details. Forgetting local data removes access from this iPhone; service permissions and server receipts are managed separately. To disconnect an account, open its page in Apps & accounts.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajouter une action d’un compte à votre routine enregistre ses détails. L’oubli des données locales retire l’accès depuis cet iPhone ; les autorisations des services et les reçus du serveur se gèrent séparément. Pour déconnecter un compte, ouvrez sa page dans Apps et comptes."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adding an account action to your routine saves its details. Forgetting local data removes access from this iPhone; service permissions and server receipts are managed separately. To disconnect an account, open its page in Apps & accounts."
-          }
-        }
-      }
-    },
-    "Choose what you want to bring into your morning.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez ce qui vous accompagne le matin."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose what you want to bring into your morning."
-          }
-        }
-      }
-    },
-    "Your apps, together.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos apps, au même endroit."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your apps, together."
-          }
-        }
-      }
-    },
-    "Your apps, in one place.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos apps, au même endroit."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your apps, in one place."
-          }
-        }
-      }
-    },
-    "Language": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Language"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Langue"
-          }
-        }
-      }
-    },
-    "Stopped": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stopped"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrêté"
-          }
-        }
-      }
-    },
-    "Review unavailable": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Review unavailable"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vérification indisponible"
-          }
-        }
-      }
-    },
-    "This count needs a refresh.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This count needs a refresh."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce nombre doit être actualisé."
-          }
-        }
-      }
-    },
-    "Shortcuts couldn't open. Check the installed shortcut before trying again.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shortcuts couldn't open. Check the installed shortcut before trying again."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Raccourcis n’a pas pu s’ouvrir. Vérifiez le raccourci installé avant de réessayer."
-          }
-        }
-      }
-    },
-    "Choose output in Control Center": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose output in Control Center"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisir la sortie dans le centre de contrôle"
-          }
-        }
-      }
-    },
-    "Choose a speaker or HomePod from your Mac's sound controls, then try the voice here.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose a speaker or HomePod from your Mac's sound controls, then try the voice here."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choisissez un haut-parleur ou un HomePod dans les réglages audio de votre Mac, puis essayez la voix ici."
-          }
-        }
-      }
-    },
-    "More voices can be downloaded through the accessibility voice controls in System Settings. Return here when the download finishes.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "More voices can be downloaded through the accessibility voice controls in System Settings. Return here when the download finishes."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous pouvez télécharger d’autres voix dans les réglages d’accessibilité des Réglages Système. Revenez ici une fois le téléchargement terminé."
-          }
-        }
-      }
-    },
-    "SYNTHETIC local fixture · no Outlook account is read or changed": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SYNTHETIC local fixture · no Outlook account is read or changed"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXEMPLE SIMULÉ local · aucun compte Outlook n’est lu ni modifié"
-          }
-        }
-      }
-    },
-    "SYNTHETIC local fixture · no Apple data is changed": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SYNTHETIC local fixture · no Apple data is changed"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXEMPLE SIMULÉ local · aucune donnée Apple n’est modifiée"
-          }
-        }
-      }
-    },
-    "SYNTHETIC local fixture · no Outlook account is used": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SYNTHETIC local fixture · no Outlook account is used"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXEMPLE SIMULÉ local · aucun compte Outlook n’est utilisé"
-          }
-        }
-      }
-    },
-    "SYNTHETIC local fixture · no Calendly account is used": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SYNTHETIC local fixture · no Calendly account is used"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXEMPLE SIMULÉ local · aucun compte Calendly n’est utilisé"
-          }
-        }
-      }
-    },
-    "SYNTHETIC local fixture · no Slack message is posted": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SYNTHETIC local fixture · no Slack message is posted"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXEMPLE SIMULÉ local · aucun message Slack n’est publié"
-          }
-        }
-      }
-    },
-    "SYNTHETIC local fixture · no Calendly account is read or changed": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SYNTHETIC local fixture · no Calendly account is read or changed"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXEMPLE SIMULÉ local · aucun compte Calendly n’est lu ni modifié"
-          }
-        }
-      }
-    },
-    "SYNTHETIC local fixture · no Google account is used": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SYNTHETIC local fixture · no Google account is used"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXEMPLE SIMULÉ local · aucun compte Google n’est utilisé"
-          }
-        }
-      }
-    },
-    "SYNTHETIC local fixture · no Google account is read or changed": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SYNTHETIC local fixture · no Google account is read or changed"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "EXEMPLE SIMULÉ local · aucun compte Google n’est lu ni modifié"
-          }
-        }
-      }
-    },
-    "Matches MORE’s language, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Matches MORE’s language, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suit la langue de MORE, puis privilégie une voix installée de meilleure qualité. Votre choix s’applique aux moments lus à voix haute."
-          }
-        }
-      }
-    },
-    "Only voices that match MORE’s language are shown. Your own routine text is preserved.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Only voices that match MORE’s language are shown. Your own routine text is preserved."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seules les voix correspondant à la langue de MORE sont proposées. Le texte de vos routines est conservé."
-          }
-        }
-      }
-    },
-    "No installed voice is available for MORE’s language.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No installed voice is available for MORE’s language."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune voix installée n’est disponible dans la langue de MORE."
-          }
-        }
-      }
-    },
-    "No Enhanced or Premium voice is available here for MORE’s language yet.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Enhanced or Premium voice is available here for MORE’s language yet."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune voix améliorée ou premium n’est encore disponible ici dans la langue de MORE."
-          }
-        }
-      }
-    },
-    "Follow MORE’s language": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Follow MORE’s language"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suivre la langue de MORE"
-          }
-        }
-      }
-    },
-    "Voice language: %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voice language: %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Langue de la voix : %@"
-          }
-        }
-      }
-    },
-    "Language changed. Your morning is paused. Resume when you are ready.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Language changed. Your morning is paused. Resume when you are ready."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La langue a changé. Votre matin est en pause. Reprenez quand vous le souhaitez."
-          }
-        }
-      }
-    },
-    "Synthetic preparation · actual system permissions · microphone not simulated": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Synthetic preparation · actual system permissions · microphone not simulated"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Préparation de démonstration · autorisations système réelles · microphone non simulé"
-          }
-        }
-      }
-    },
-    "Inbox reads: %lld · message reads: %lld": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inbox reads: %lld · message reads: %lld"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lectures de la boîte : %1$lld · lectures de messages : %2$lld"
-          }
-        }
-      }
-    },
-    "Message %lld": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Message %lld"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Message %lld"
-          }
-        }
-      }
-    },
-    "%lld. %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld. %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$lld. %2$@"
-          }
-        }
-      }
-    },
-    "%lld min · %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld min · %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$lld min · %2$@"
-          }
-        }
-      }
-    },
-    "Unread messages in Inbox: %lld": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unread messages in Inbox: %lld"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Messages non lus dans la boîte : %lld"
-          }
-        }
-      }
-    },
-    "%@ · %@ · #%@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · %@ · #%@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@ · #%3$@"
-          }
-        }
-      }
-    },
-    "%lld moments · %lld min": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld moments · %lld min"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$lld moments · %2$lld min"
-          }
-        }
-      }
-    },
-    "HTTP event reads: %lld": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HTTP event reads: %lld"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lectures d’événements HTTP : %lld"
-          }
-        }
-      }
-    },
-    "Your observation has unsaved changes. Retry saving before continuing.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your observation has unsaved changes. Retry saving before continuing."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre observation contient des modifications non enregistrées. Réessayez de les enregistrer avant de continuer."
-          }
-        }
-      }
-    },
-    "Your saved recording needs attention. Review it before trying again.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your saved recording needs attention. Review it before trying again."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre enregistrement conservé demande une vérification. Relisez-le avant de réessayer."
-          }
-        }
-      }
-    },
-    "Your saved choices need review. Your routine is intact. Reset saved choices before making new suggestions.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your saved choices need review. Your routine is intact. Reset saved choices before making new suggestions."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos choix enregistrés doivent être vérifiés. Votre routine est intacte. Réinitialisez ces choix avant de créer de nouvelles propositions."
-          }
-        }
-      }
-    },
-    "Your saved workspace could not be restored. Its file is protected from changes.": {
-      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your saved workspace could not be restored. Its file is protected from changes."
+            "value": "Review Health access for enabled extras"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre espace enregistré n’a pas pu être restauré. Son fichier est protégé contre les modifications."
+            "value": "Revoir l’accès Santé des compléments activés"
           }
         }
       }
     },
-    "Local data removal needs attention. Open Privacy to finish it.": {
+    "Apple Health, read-only: asleep stages or explicitly labelled time in bed.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Local data removal needs attention. Open Privacy to finish it."
+            "value": "Apple Health, read-only: asleep stages or explicitly labelled time in bed."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La suppression des données locales doit être vérifiée. Ouvrez Confidentialité pour la terminer."
+            "value": "Santé Apple, en lecture seule : sommeil enregistré ou temps au lit clairement indiqué."
           }
         }
       }
     },
-    "Sources": {
+    "Apple Health step count, compared with your 7-day average. Enabled separately from sleep.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sources"
+            "value": "Apple Health step count, compared with your 7-day average. Enabled separately from sleep."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sources"
+            "value": "Pas de Santé Apple, comparés à votre moyenne sur 7 jours. Activation distincte du sommeil."
           }
         }
       }
     },
-    "Allow location access or choose a city in Your day to show its weather on Home.": {
+    "Your messages, stories and feed, in MORE.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow location access or choose a city in Your day to show its weather on Home."
+            "value": "Your messages, stories and feed, in MORE."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorisez la localisation ou choisissez une ville dans Votre journée pour afficher sa météo sur l’accueil."
+            "value": "Vos messages, vos stories et votre fil, dans MORE."
           }
         }
       }
     },
-    "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.": {
+    "Read your unread email and prepare replies.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight."
+            "value": "Read your unread email and prepare replies."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorisez la localisation ou choisissez une ville pour adapter l’accueil aux heures locales de lever et de coucher du soleil. En attendant, le ciel suit un cycle de référence de 7 h à 19 h selon l’horloge de cet iPhone ; ce ne sont pas vos heures locales de jour."
-          }
-        }
-      }
-    },
-    "Home follows sunrise and sunset in %@, calculated on this iPhone using its date and time zone.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Home follows sunrise and sunset in %@, calculated on this iPhone using its date and time zone."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’accueil suit le lever et le coucher du soleil à %@, calculés sur cet iPhone avec sa date et son fuseau horaire."
-          }
-        }
-      }
-    },
-    "Added as a draft. Review and approve your routine.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Added as a draft. Review and approve your routine."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajouté comme brouillon. Relisez et approuvez votre routine."
-          }
-        }
-      }
-    },
-    "Calendar, weather & sleep": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calendar, weather & sleep"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calendrier, météo et sommeil"
+            "value": "Lisez vos e-mails non lus et préparez vos réponses."
           }
         }
       }

@@ -167,12 +167,12 @@ final class LocalizationJourneyTests: XCTestCase {
         openSettings(app)
         let sources = app.buttons["setup.briefing"]
         scrollTo(sources, in: app, upward: false)
-        XCTAssertEqual(sources.label, "Calendar, weather & sleep")
+        XCTAssertEqual(sources.label, "Calendar & weather")
         sources.tap()
         XCTAssertTrue(app.staticTexts["briefing.synthetic"].waitForExistence(timeout: 5), app.debugDescription)
         let sleep = app.switches["briefing.healthIncluded"].firstMatch
         scrollTo(sleep, in: app)
-        XCTAssertEqual(sleep.label, "Include recorded sleep")
+        XCTAssertEqual(sleep.label, "Health in my morning")
         XCTAssertEqual(sleep.value as? String, "0")
         let issue = app.staticTexts["briefing.healthError"]
         XCTAssertFalse(issue.exists)
@@ -190,11 +190,11 @@ final class LocalizationJourneyTests: XCTestCase {
 
         choose("Français", in: app)
         scrollTo(sources, in: app, upward: false)
-        XCTAssertEqual(sources.label, "Calendrier, météo et sommeil")
+        XCTAssertEqual(sources.label, "Calendrier et météo")
         sources.tap()
         XCTAssertTrue(app.navigationBars["Votre journée"].waitForExistence(timeout: 5), app.debugDescription)
         scrollTo(sleep, in: app)
-        XCTAssertEqual(sleep.label, "Inclure le sommeil enregistré")
+        XCTAssertEqual(sleep.label, "La santé dans mon matin")
         XCTAssertEqual(sleep.value as? String, "0")
         XCTAssertTrue(issue.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertEqual(issue.label, "La lecture du sommeil n’est pas disponible dans cette version.")
@@ -210,11 +210,11 @@ final class LocalizationJourneyTests: XCTestCase {
         XCTAssertTrue(picker.buttons["Français"].isSelected, app.debugDescription)
         let restoredSources = app.buttons["setup.briefing"]
         scrollTo(restoredSources, in: app, upward: false)
-        XCTAssertEqual(restoredSources.label, "Calendrier, météo et sommeil")
+        XCTAssertEqual(restoredSources.label, "Calendrier et météo")
         restoredSources.tap()
         let restoredSleep = app.switches["briefing.healthIncluded"].firstMatch
         scrollTo(restoredSleep, in: app)
-        XCTAssertEqual(restoredSleep.label, "Inclure le sommeil enregistré")
+        XCTAssertEqual(restoredSleep.label, "La santé dans mon matin")
         XCTAssertEqual(restoredSleep.value as? String, "0")
         XCTAssertFalse(app.staticTexts["briefing.healthError"].exists, "Connection failures stay transient across relaunch.")
         XCTAssertEqual(app.alerts.count, 0)
