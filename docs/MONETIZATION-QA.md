@@ -17,6 +17,7 @@ Apple references: [reported StoreKit CLI failure and DTS replies](https://develo
 ## Local evidence
 
 - Final build: `/tmp/more-onboarding-final-build.log` (passed after the declined-request recovery fix).
+- Latest-main integration: `/tmp/more-onboarding-main-build.log` passed; `/tmp/more-onboarding-main-smoke-fresh.xcresult` and `.log` contain one passing native night-appearance permission-screen smoke. The first launch failed destination discovery and a cached runner enumerated zero tests; neither was counted as a pass. Reinstalling only this isolated UI-test runner ran the actual case successfully.
 - First full UI run: `/tmp/more-onboarding-ui-verified.xcresult` and `.log` (4 passed, 8 explicitly skipped).
 - Combined UI run: `/tmp/more-onboarding-integrated-ui.xcresult` and `.log` (5 passed, 0 failures).
 - Final targeted UI and StoreKit environment check: `/tmp/more-onboarding-final-ui.xcresult` and `.log` (3 UI cases passed, 9 native StoreKit cases explicitly skipped). This rerun covers the compact intro layout, large-text navigation and explicit pending-request recovery.
