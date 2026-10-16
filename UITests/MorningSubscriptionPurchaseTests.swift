@@ -121,6 +121,12 @@ final class MorningSubscriptionPurchaseTests: XCTestCase {
 
     private func makeSession() throws -> SKTestSession {
         continueAfterFailure = false
+        #if targetEnvironment(simulator)
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        if version.majorVersion == 26 && version.minorVersion == 5 {
+            throw XCTSkip("iOS 26.5 Simulator cannot connect SKTestSession to its local store (Apple FB22237318 / FB22500243). Run MORESubscriptions on iOS 26.6 or later; native purchases remain unverified here.")
+        }
+        #endif
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "MORE", withExtension: "storekit"))
         let session = try SKTestSession(contentsOf: url)
         session.resetToDefaultState()
@@ -129,6 +135,7 @@ final class MorningSubscriptionPurchaseTests: XCTestCase {
         session.storefront = "FRA"
         session.locale = Locale(identifier: "fr_FR")
         session.timeRate = .realTime
+        XCTAssertTrue(session.disableDialogs, "The local StoreKit test configuration was not accepted. Do not launch an App Store purchase flow.")
         return session
     }
 

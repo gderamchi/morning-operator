@@ -161,6 +161,23 @@ schemes:
           randomExecutionOrder: false
     archive:
       config: Release
+  MORESubscriptions:
+    build:
+      targets:
+        MorningOperator: all
+        MorningOperatorUITests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: Configuration/MORE.storekit
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - name: MorningOperatorUITests
+          parallelizable: false
+          randomExecutionOrder: false
+          selectedTests:
+            - MorningSubscriptionPurchaseTests
   MorningObservationBenchmark:
     build:
       targets:

@@ -60,15 +60,13 @@ struct MorningSubscriptionLegalSheet: View {
     private var french: Bool { AppLanguage.isFrench }
     private func text(_ fr: String, _ en: String) -> String { french ? fr : en }
     private var night: Bool { MorningThemeClock.shared.celestial.moon.opacity > 0.57 }
-    private var values: MorningPaletteValues { .resolve(MorningThemeClock.shared.blend, dark: night) }
-    private func color(_ value: MorningRGB) -> Color { Color(red: value.red, green: value.green, blue: value.blue) }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text(document == .terms ? text("Votre abonnement", "Your subscription") : text("Vos données, vos choix.", "Your data, your choices."))
-                        .font(.serif(.largeTitle)).accessibilityAddTraits(.isHeader)
+                        .font(MorningTheme.Typography.display).accessibilityAddTraits(.isHeader)
                     if document == .terms {
                         Text(text("L’offre affichée avant l’achat indique le prix, la durée et l’essai auquel votre compte est éligible. L’App Store confirme ces conditions avant toute souscription.",
                                   "The offer shown before purchase includes the price, duration and trial your account is eligible for. The App Store confirms these terms before you subscribe."))
@@ -97,17 +95,17 @@ struct MorningSubscriptionLegalSheet: View {
                 .font(MorningTheme.Typography.body).lineSpacing(5)
                 .frame(maxWidth: 520, alignment: .leading).padding(28).frame(maxWidth: .infinity)
             }
-            .background(color(values.paper).ignoresSafeArea())
-            .foregroundStyle(color(values.ink)).tint(color(values.ink))
+            .background(MorningStyle.background.ignoresSafeArea())
+            .foregroundStyle(MorningStyle.ink).tint(MorningStyle.ink)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(text("Fermer", "Close")) { dismiss() }.font(.raleway(.body, .semibold))
+                    Button(text("Fermer", "Close")) { dismiss() }.font(.system(.body, weight: .semibold))
                 }
             }
             .navigationDestination(isPresented: $showingData) {
                 if let store {
                     MorningPrivacyView(store: store)
-                        .preferredColorScheme(.light).foregroundStyle(MorningStyle.ink)
+                        .preferredColorScheme(night ? .dark : .light).foregroundStyle(MorningStyle.ink)
                 }
             }
         }
@@ -139,7 +137,7 @@ struct MorningWelcomePreview: View {
             .sheet(item: $legalDocument) { MorningSubscriptionLegalSheet(document: $0) }
             .overlay(alignment: .top) {
                 Text(french ? "APERÇU · AUCUN ACHAT" : "PREVIEW · NO PURCHASE")
-                    .font(.raleway(.caption2)).padding(3)
+                    .font(.system(.caption2)).padding(3)
                     .background(.regularMaterial).allowsHitTesting(false)
                     .accessibilityIdentifier("onboarding.preview")
             }

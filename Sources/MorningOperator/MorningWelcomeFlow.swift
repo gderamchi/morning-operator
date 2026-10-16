@@ -39,11 +39,9 @@ struct MorningWelcomeFlow: View {
     private func text(_ fr: String, _ en: String) -> String { french ? fr : en }
     private var clock: MorningThemeClock { .shared }
     private var night: Bool { clock.celestial.moon.opacity > 0.57 }
-    private var palette: MorningPaletteValues { .resolve(clock.blend, dark: night) }
-    private func color(_ value: MorningRGB) -> Color { Color(red: value.red, green: value.green, blue: value.blue) }
-    private var ink: Color { color(palette.ink) }
-    private var muted: Color { color(contrast == .increased ? palette.ink : palette.inkSoft) }
-    private var surface: Color { color(palette.surface) }
+    private var ink: Color { MorningStyle.ink }
+    private var muted: Color { contrast == .increased ? MorningStyle.ink : MorningStyle.muted }
+    private var surface: Color { MorningStyle.surface }
     private var isPaywall: Bool { page == 3 }
     private var still: Bool {
         #if DEBUG
@@ -81,7 +79,7 @@ struct MorningWelcomeFlow: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
-                color(palette.paper).ignoresSafeArea()
+                MorningStyle.background.ignoresSafeArea()
                 VStack(spacing: 0) {
                     navigation
                     ScrollView {
@@ -93,7 +91,7 @@ struct MorningWelcomeFlow: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                             VStack(alignment: .leading, spacing: 16) {
                                 Text(heading)
-                                    .font(.serif(.largeTitle))
+                                    .font(MorningTheme.Typography.display)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .accessibilityAddTraits(.isHeader)
                                     .accessibilityFocused($headingFocused)
@@ -133,7 +131,7 @@ struct MorningWelcomeFlow: View {
                 .accessibilityLabel(text("Retour", "Back"))
                 .accessibilityIdentifier("onboarding.back")
             } else {
-                Text(verbatim: "MORE").font(.raleway(.subheadline, .semibold)).tracking(4)
+                Text(verbatim: "MORE").font(.system(.subheadline, weight: .semibold)).tracking(4)
                     .frame(minHeight: 44)
             }
             Spacer()
@@ -149,10 +147,10 @@ struct MorningWelcomeFlow: View {
             Spacer()
             if !isPaywall {
                 Button(text("Voir l’offre", "View offer")) { move(to: 3) }
-                    .font(.raleway(.caption, .medium)).frame(minHeight: 44)
+                    .font(.system(.caption, weight: .medium)).frame(minHeight: 44)
                     .accessibilityIdentifier("onboarding.offer")
             } else {
-                Text(verbatim: "MORE").font(.raleway(.caption, .semibold)).tracking(3)
+                Text(verbatim: "MORE").font(.system(.caption, weight: .semibold)).tracking(3)
             }
         }
         .buttonStyle(.plain)
@@ -164,7 +162,7 @@ struct MorningWelcomeFlow: View {
     private var illustration: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(text("UN APERÇU DE VOTRE MATIN", "A GLIMPSE OF YOUR MORNING"))
-                .font(.raleway(.caption2, .medium)).tracking(1.4).foregroundStyle(muted)
+                .font(.system(.caption2, weight: .medium)).tracking(1.4).foregroundStyle(muted)
             if page == 0 {
                 sourceRow("chart.bar.xaxis", text("Temps d’écran", "Screen Time"), text("Vos habitudes prennent forme", "Your habits take shape"))
                 dottedRule
@@ -179,28 +177,28 @@ struct MorningWelcomeFlow: View {
                 routineRow("03", text("Un moment pour moi", "A moment for me"), "8 min")
             } else {
                 Image(systemName: "waveform").font(.system(size: 34, weight: .ultraLight))
-                    .foregroundStyle(color(palette.accentText)).accessibilityHidden(true)
+                    .foregroundStyle(MorningStyle.accent).accessibilityHidden(true)
                 Text(text("« MORE, qu’est-ce qui m’attend aujourd’hui ? »", "“MORE, what’s ahead today?”"))
-                    .font(.serif(.title2)).fixedSize(horizontal: false, vertical: true)
+                    .font(.system(.title2, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                 Text(text("Posez une question. Changez d’avis. Votre matin continue à votre rythme.",
                           "Ask a question. Change your mind. Your morning keeps moving at your pace."))
-                    .font(.raleway(.subheadline)).foregroundStyle(muted).lineSpacing(3)
+                    .font(.system(.subheadline)).foregroundStyle(muted).lineSpacing(3)
             }
             Text(text("Exemple · vous choisirez votre propre routine", "Example · you’ll choose your own routine"))
-                .font(.raleway(.caption)).foregroundStyle(muted)
+                .font(.system(.caption)).foregroundStyle(muted)
         }
         .padding(22).frame(maxWidth: .infinity, alignment: .leading)
         .background(surface, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(MorningDottedFrame(cornerRadius: 10, spacing: 6, dotRadius: 0.8).fill(ink.opacity(0.45)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(MorningStyle.line, lineWidth: 0.5))
         .padding(.top, 12)
     }
 
     private func sourceRow(_ symbol: String, _ title: String, _ detail: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: symbol).font(.raleway(.title3)).frame(width: 26).accessibilityHidden(true)
+            Image(systemName: symbol).font(.system(.title3)).frame(width: 26).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.raleway(.subheadline, .semibold))
-                Text(detail).font(.raleway(.caption)).foregroundStyle(muted)
+                Text(title).font(.system(.subheadline, weight: .semibold))
+                Text(detail).font(.system(.caption)).foregroundStyle(muted)
             }
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -208,10 +206,10 @@ struct MorningWelcomeFlow: View {
 
     private func routineRow(_ number: String, _ title: String, _ duration: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(number).font(.raleway(.caption).monospacedDigit()).foregroundStyle(muted)
-            Text(title).font(.raleway(.subheadline)).fixedSize(horizontal: false, vertical: true)
+            Text(number).font(.system(.caption).monospacedDigit()).foregroundStyle(muted)
+            Text(title).font(.system(.subheadline)).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            Text(duration).font(.raleway(.caption).monospacedDigit()).fixedSize()
+            Text(duration).font(.system(.caption).monospacedDigit()).fixedSize()
         }
     }
 
@@ -224,30 +222,30 @@ struct MorningWelcomeFlow: View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 14) {
                 Text(text("MORE · ABONNEMENT MENSUEL", "MORE · MONTHLY MEMBERSHIP"))
-                    .font(.raleway(.caption, .medium)).tracking(1.1).foregroundStyle(muted)
+                    .font(.system(.caption, weight: .medium)).tracking(1.1).foregroundStyle(muted)
                 if let offer {
                     if offer.includesFreeTrial {
-                        Text(text("7 jours gratuits", "7 days free")).font(.serif(.title))
+                        Text(text("7 jours gratuits", "7 days free")).font(MorningTheme.Typography.title)
                         Text(text("Puis \(offer.monthlyPrice) par mois", "Then \(offer.monthlyPrice) per month"))
-                            .font(.raleway(.body, .semibold)).accessibilityIdentifier("paywall.price")
+                            .font(.system(.body, weight: .semibold)).accessibilityIdentifier("paywall.price")
                     } else {
                         Text(text("\(offer.monthlyPrice) par mois", "\(offer.monthlyPrice) per month"))
-                            .font(.serif(.title)).accessibilityIdentifier("paywall.price")
+                            .font(MorningTheme.Typography.title).accessibilityIdentifier("paywall.price")
                     }
                     dottedRule
                     benefit("checkmark", text("Une routine qui vous ressemble", "A routine that feels like you"))
                     benefit("checkmark", text("Vos matins délégués à MORE", "Your mornings entrusted to MORE"))
                     benefit("checkmark", text("La liberté d’interrompre à tout moment", "The freedom to interrupt anytime"))
                 } else {
-                    Text(text("Votre offre se prépare", "Getting your offer ready")).font(.serif(.title2))
+                    Text(text("Votre offre se prépare", "Getting your offer ready")).font(.system(.title2, weight: .semibold))
                     Text(text("Le prix et l’essai disponibles s’afficheront ici après la connexion à l’App Store.",
                               "Your available price and trial will appear here after connecting to the App Store."))
-                        .font(.raleway(.subheadline)).foregroundStyle(muted)
+                        .font(.system(.subheadline)).foregroundStyle(muted)
                 }
             }
             .padding(22).frame(maxWidth: .infinity, alignment: .leading)
             .background(surface, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(MorningDottedFrame(cornerRadius: 10, spacing: 5, dotRadius: 1).fill(ink))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(ink.opacity(0.5), lineWidth: 1))
 
             if let offer, offer.includesFreeTrial {
                 VStack(alignment: .leading, spacing: 14) {
@@ -257,14 +255,14 @@ struct MorningWelcomeFlow: View {
             }
             Text(text("Après l’abonnement, vous choisirez les accès utiles à votre routine. Chaque accès vous sera expliqué avant de l’autoriser.",
                       "After subscribing, choose the access your routine needs. Each request will be explained before you allow it."))
-                .font(.raleway(.subheadline)).foregroundStyle(muted).lineSpacing(3)
+                .font(.system(.subheadline)).foregroundStyle(muted).lineSpacing(3)
             if let offer {
                 Text(offer.includesFreeTrial
                      ? text("7 jours gratuits, puis \(offer.monthlyPrice)/mois. Renouvellement automatique, sauf résiliation au moins 24 h avant la fin de l’essai ou de la période en cours. Gérez votre abonnement dans les réglages de l’App Store.",
                             "7 days free, then \(offer.monthlyPrice)/month. Automatically renews unless cancelled at least 24 hours before the trial or current period ends. Manage your subscription in App Store settings.")
                      : text("\(offer.monthlyPrice)/mois. Renouvellement automatique, sauf résiliation au moins 24 h avant la fin de la période en cours. Gérez votre abonnement dans les réglages de l’App Store.",
                             "\(offer.monthlyPrice)/month. Automatically renews unless cancelled at least 24 hours before the current period ends. Manage your subscription in App Store settings."))
-                    .font(.raleway(.caption)).foregroundStyle(muted).lineSpacing(3)
+                    .font(.system(.caption)).foregroundStyle(muted).lineSpacing(3)
             }
             legalActions
         }
@@ -275,38 +273,34 @@ struct MorningWelcomeFlow: View {
             Image(systemName: symbol).frame(width: 18).accessibilityHidden(true)
             Text(title).fixedSize(horizontal: false, vertical: true)
         }
-        .font(.raleway(.subheadline))
+        .font(.system(.subheadline))
     }
 
     private var footer: some View {
         VStack(spacing: 10) {
             if isPaywall, let notice {
-                Text(notice).font(.raleway(.subheadline))
+                Text(notice).font(.system(.subheadline))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("paywall.notice")
             }
             Button(action: primaryAction) {
                 HStack(spacing: 10) {
-                    if isPaywall && purchaseState.isBusy { ProgressView().tint(ink) }
+                    if isPaywall && purchaseState.isBusy { ProgressView().tint(MorningStyle.onControl) }
                     Text(primaryTitle).fixedSize(horizontal: false, vertical: true)
                     if !isPaywall { Spacer(); Image(systemName: "arrow.right") }
                 }
                 .font(MorningTheme.Typography.control)
                 .frame(maxWidth: .infinity, minHeight: 26)
-                .padding(.horizontal, 20).padding(.vertical, 16)
-                .background(surface, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(MorningDottedFrame(cornerRadius: 8, spacing: 5, dotRadius: 1).fill(ink))
-                .contentShape(RoundedRectangle(cornerRadius: 8))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PrimaryButtonStyle())
             .disabled(isPaywall && (purchaseState.isBusy || purchaseState == .pending))
             .accessibilityIdentifier(isPaywall ? "paywall.subscribe" : "onboarding.next")
             Text(isPaywall ? paymentSummary
                           : text("À votre rythme. Vous gardez la main.", "At your pace. You stay in control."))
-                .font(.raleway(.caption)).foregroundStyle(muted)
+                .font(.system(.caption)).foregroundStyle(muted)
             if isPaywall {
                 Button(text("Déjà abonné ? Restaurer mes achats", "Already subscribed? Restore purchases"), action: restore)
-                    .font(.raleway(.caption, .medium)).frame(minHeight: 44)
+                    .font(.system(.caption, weight: .medium)).frame(minHeight: 44)
                     .disabled(purchaseState.isBusy)
                     .accessibilityIdentifier("paywall.restore")
             }
@@ -317,7 +311,7 @@ struct MorningWelcomeFlow: View {
         .frame(maxWidth: .infinity)
         .background {
             // Reading and purchasing controls stay opaque over the landscape.
-            color(palette.paper).ignoresSafeArea(edges: .bottom)
+            MorningStyle.background.ignoresSafeArea(edges: .bottom)
         }
     }
 
@@ -326,7 +320,7 @@ struct MorningWelcomeFlow: View {
             HStack(spacing: 24) { legalButtons }
             VStack(alignment: .leading, spacing: 4) { legalButtons }
         }
-        .font(.raleway(.caption, .medium)).buttonStyle(.plain)
+        .font(.system(.caption, weight: .medium)).buttonStyle(.plain)
     }
     @ViewBuilder private var legalButtons: some View {
         Button(text("Conditions", "Terms")) { showLegal(.terms) }
