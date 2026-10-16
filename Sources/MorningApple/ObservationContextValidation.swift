@@ -368,7 +368,9 @@ enum ObservationContextValidation {
     }
 
     private static func isSafeLabel(_ label: String) -> Bool {
-        let allowed = CharacterSet.letters.union(.decimalDigits).union(CharacterSet(charactersIn: " -_&'’"))
+        // These separators can belong to a literal brand/header. Do not admit
+        // URL/bundle syntax, controls, or repair the exact source citation.
+        let allowed = CharacterSet.letters.union(.decimalDigits).union(CharacterSet(charactersIn: " -_&'’•·–—"))
         return (2...80).contains(label.count) && label == label.trimmingCharacters(in: .whitespacesAndNewlines) &&
             label.unicodeScalars.contains(where: CharacterSet.letters.contains) &&
             label.unicodeScalars.allSatisfy(allowed.contains)

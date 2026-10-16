@@ -121,6 +121,15 @@ public final class ObservationContextClassifier {
     in an app identity. Layout may be absent or incomplete; missing lines have unknown geometry.
     Use it only as visual context. A location alone cannot prove which app is foreground or resolve
     competing catalog names. The highest text can be a status bar or previous-app breadcrumb.
+    Distinguish an app/service brand header from provenance watermarks, recording or language
+    labels, dates, clocks, subtitles, item/article titles, authors and status badges. Those
+    descriptive lines are not additional app brands merely because they appear near a header.
+    A brand with a descriptive qualifier may form one header line; punctuation alone does not
+    make its parts competing apps. This is not permission to ignore a second distinct app brand,
+    a catalog competitor or a previous-app breadcrumb. If the visible text does not resolve
+    whether a line is a brand/header or just descriptive content, return ambiguous or unknown.
+    A sign-in screen does not establish authentication; without a supported brand/header do not
+    invent an app from its fields. A provenance label alone does not identify the content's app.
     Order and media times only locate evidence; they do not reveal hidden switches or expected patterns.
     If the optional catalog is nonempty, choose only an exact catalog label whose headerText visibly
     occurs as a complete early header line in THIS frame. Only leading punctuation/symbol decorations
@@ -130,6 +139,9 @@ public final class ObservationContextClassifier {
     an OCR-damaged header, return ambiguous or unknown; do not select a presumed current app.
     If the catalog is empty, an identified contextLabel must be an exact short visible header line,
     not a paraphrase or a guessed app name. Generic visual contexts are permitted only as literal text.
+    Copy the complete chosen header into BOTH contextLabel and evidenceQuote, including visible
+    separators and qualifiers. Do not shorten it to a familiar brand, remove a subtitle from that
+    same line, substitute punctuation or invent a cleaner header.
     Copy evidenceQuote exactly from the same supplied excerpt: the complete raw matching header line
     INCLUDING decorations for catalog identities, or the identical literal header line for generic
     contexts. Generic labels are not normalized by removing decorations. Never invent a cleaned quote
