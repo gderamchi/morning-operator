@@ -139,7 +139,7 @@ public final class ObservationContextClassifier {
     an OCR-damaged header, return ambiguous or unknown; do not select a presumed current app.
     If the catalog is empty, an identified contextLabel must be an exact short visible header line,
     not a paraphrase or a guessed app name. Generic visual contexts are permitted only as literal text.
-    Copy the complete chosen header into BOTH contextLabel and evidenceQuote, including visible
+    With an empty catalog, copy the complete chosen header into BOTH contextLabel and evidenceQuote, including visible
     separators and qualifiers. Do not shorten it to a familiar brand, remove a subtitle from that
     same line, substitute punctuation or invent a cleaner header.
     Copy evidenceQuote exactly from the same supplied excerpt: the complete raw matching header line
