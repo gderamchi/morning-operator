@@ -7660,6 +7660,23 @@
           }
         }
       }
+    },
+    "Cloud speech could not finish. Try again or continue with the controls.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud speech could not finish. Try again or continue with the controls."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture en ligne n’a pas pu se terminer. Réessayez ou continuez avec les commandes."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -42,6 +42,27 @@ struct SpeechCloudOutputTests {
         #expect(speech.state == .idle && speech.lastError != nil && speech.currentText == nil)
         speech.externalSpeech = nil
     }
+
+    @Test func externalFailureFollowsFrenchThenEnglishWithoutChangingGlobalLanguage() async {
+        struct SyntheticFailure: Error {}
+        var locale = Locale(identifier: "fr_FR"), attempts = 0
+        let speech = SpeechCoordinator(externalSpeechLocale: { locale })
+        speech.externalSpeech = { _ in attempts += 1; throw SyntheticFailure() }
+        defer { speech.externalSpeech = nil }
+        let messages = [
+            ("fr_FR", "La lecture en ligne n’a pas pu se terminer. Réessayez ou continuez avec les commandes."),
+            ("en_US", "Cloud speech could not finish. Try again or continue with the controls.")
+        ]
+        for (index, message) in messages.enumerated() {
+            locale = Locale(identifier: message.0)
+            await #expect(throws: SpeechPlaybackError.self) {
+                try await speech.speakAndWait("SYNTHETIC_FAILED_TEXT")
+            }
+            #expect(speech.lastError == message.1)
+            #expect(speech.state == .idle && speech.currentText == nil && speech.playbackID == nil)
+            #expect(attempts == index + 1)
+        }
+    }
 }
 
 @MainActor

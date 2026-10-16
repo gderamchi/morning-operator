@@ -336,88 +336,89 @@ final class LocalizationJourneyTests: XCTestCase {
 /// override, permission grant, provider call or routine execution is injected.
 @MainActor
 final class PhysicalLocalizationAcceptanceTests: XCTestCase {
-    func testFrenchEnglishVoiceAndRelaunchInOrdinaryApp() throws {
+    func testFrenchEnglishVoiceChoicePersistsInOrdinaryApp() throws {
         guard ProcessInfo.processInfo.environment["MORE_PHYSICAL_LOCALIZATION_ACCEPTANCE"] == "1" else {
             throw XCTSkip("Physical language acceptance requires its explicit runner opt-in.")
         }
         #if targetEnvironment(simulator)
         throw XCTSkip("This acceptance requires a physical iPhone.")
         #else
-        continueAfterFailure = false
+        // Swift errors let the best-effort preference restoration run on failures too.
+        continueAfterFailure = true
         let app = XCUIApplication(bundleIdentifier: "com.gibouu.morningoperator")
         app.launchArguments = []
         app.launchEnvironment = [:]
         try relaunchAndOpenSettings(app)
         let picker = app.segmentedControls["setup.language"]
         try reveal(picker, in: app)
-        XCTAssertEqual(picker.buttons.count, 2)
-        let originalLanguage = picker.buttons["Français"].isSelected ? "Français" : "English"
+        let selectedLanguages = ["Français", "English"].filter { picker.buttons[$0].isSelected }
+        let originalLanguage = try XCTUnwrap(selectedLanguages.count == 1 ? selectedLanguages.first : nil)
         try openVoices(app)
-        let originalVoice = try selectedVoice(in: app)
+        let originalGender = try selectedGender(in: app)
         app.buttons["voice.done"].tap()
+        var restored = false
+        defer { if !restored { try? restore(language: originalLanguage, gender: originalGender, in: app) } }
 
         for language in ["Français", "English"] {
             try reveal(picker, in: app)
+            XCTAssertEqual(picker.buttons.count, 2)
             picker.buttons[language].tap()
             XCTAssertTrue(picker.buttons[language].isSelected)
             XCTAssertTrue(app.staticTexts[language == "Français" ? "Langue" : "Language"].exists)
-            try openVoices(app)
-            let footer = app.staticTexts["voice.currentLanguage"]
-            try reveal(footer, in: app)
-            XCTAssertTrue(footer.label.contains(language))
-            let installed = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "voice.option.")).firstMatch
-            try reveal(installed, in: app)
-            let chosenVoice = installed.identifier
-            installed.tap()
-            XCTAssertEqual(installed.value as? String, language == "Français" ? "Sélectionné" : "Selected")
-            let preview = app.buttons["voice.preview"]
-            try reveal(preview, in: app)
-            preview.tap()
-            let speaking = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "value == %@", language == "Français" ? "Lecture en cours…" : "Speaking…"),
-                object: preview)
-            XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 12), .completed,
-                           "The physical Apple synthesizer did not enter speaking state.")
-            let capture = XCTAttachment(screenshot: app.screenshot())
-            capture.name = language == "Français" ? "physical-fr-voice-speaking" : "physical-en-voice-speaking"
-            capture.lifetime = .keepAlways
-            add(capture)
-            app.buttons["voice.done"].tap()
+            for gender in ["male", "female"] {
+                try openVoices(app)
+                let male = app.buttons["voice.gender.male"], female = app.buttons["voice.gender.female"]
+                XCTAssertEqual(male.label, language == "Français" ? "Homme" : "Male")
+                XCTAssertEqual(female.label, language == "Français" ? "Femme" : "Female")
+                XCTAssertFalse(app.buttons["voice.default"].exists)
+                XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "voice.option.")).firstMatch.exists)
+                let chosen = app.buttons["voice.gender.\(gender)"]
+                chosen.tap()
+                XCTAssertEqual(try selectedGender(in: app), gender)
+                let capture = XCTAttachment(screenshot: app.screenshot())
+                capture.name = "physical-\(language == "Français" ? "fr" : "en")-voice-\(gender)"
+                capture.lifetime = .keepAlways
+                add(capture)
+                app.buttons["voice.done"].tap()
 
-            try relaunchAndOpenSettings(app)
-            try reveal(picker, in: app)
-            XCTAssertTrue(picker.buttons[language].isSelected,
-                          "The ordinary app did not retain its language across relaunch.")
-            try openVoices(app)
-            let retained = app.buttons[chosenVoice]
-            try reveal(retained, in: app)
-            XCTAssertEqual(retained.value as? String, language == "Français" ? "Sélectionné" : "Selected",
-                           "The ordinary app did not retain its selected installed voice.")
-            app.buttons["voice.done"].tap()
+                try relaunchAndOpenSettings(app)
+                try reveal(picker, in: app)
+                XCTAssertTrue(picker.buttons[language].isSelected,
+                              "The ordinary app did not retain its language across relaunch.")
+                try openVoices(app)
+                XCTAssertEqual(try selectedGender(in: app), gender,
+                               "The ordinary app did not retain its voice choice across relaunch.")
+                app.buttons["voice.done"].tap()
+            }
         }
+        try restore(language: originalLanguage, gender: originalGender, in: app)
+        restored = true
+        #endif
+    }
 
-        // Restore the owner's original preferences, then verify one final relaunch.
+    private func restore(language: String, gender: String, in app: XCUIApplication) throws {
+        try relaunchAndOpenSettings(app)
+        let picker = app.segmentedControls["setup.language"]
         try reveal(picker, in: app)
-        picker.buttons[originalLanguage].tap()
+        picker.buttons[language].tap()
         try openVoices(app)
-        let original = app.buttons[originalVoice]
-        try reveal(original, in: app)
-        original.tap()
+        app.buttons["voice.gender.\(gender)"].tap()
         app.buttons["voice.done"].tap()
         try relaunchAndOpenSettings(app)
         try reveal(picker, in: app)
-        XCTAssertTrue(picker.buttons[originalLanguage].isSelected)
+        XCTAssertTrue(picker.buttons[language].isSelected)
         try openVoices(app)
-        XCTAssertEqual(try selectedVoice(in: app), originalVoice)
+        XCTAssertEqual(try selectedGender(in: app), gender)
         app.buttons["voice.done"].tap()
         app.navigationBars.buttons.firstMatch.tap()
-        #endif
     }
 
     private func relaunchAndOpenSettings(_ app: XCUIApplication) throws {
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
+        guard app.wait(for: .runningForeground, timeout: 15) else {
+            throw unreachable("The ordinary app did not reach the foreground.")
+        }
         XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
         XCTAssertFalse(app.staticTexts["onboarding.preview"].exists)
         let landscape = app.buttons["morning.actions"]
@@ -430,9 +431,11 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
             landscape.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.65)).tap()
             if settings.waitForExistence(timeout: 2) { break }
         }
-        XCTAssertTrue(settings.exists && settings.isHittable)
+        guard settings.exists && settings.isHittable else { throw unreachable("Settings was not reachable.") }
         settings.tap()
-        XCTAssertTrue(app.buttons["setup.connections"].waitForExistence(timeout: 10))
+        guard app.buttons["setup.connections"].waitForExistence(timeout: 10) else {
+            throw unreachable("The ordinary Settings did not appear.")
+        }
     }
 
     private func openVoices(_ app: XCUIApplication) throws {
@@ -442,15 +445,17 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
             throw XCTSkip("Voice selection is unavailable during the existing morning session; it was not stopped or reset.")
         }
         voice.tap()
-        XCTAssertTrue(app.buttons["voice.default"].waitForExistence(timeout: 15))
+        guard app.buttons["voice.gender.male"].waitForExistence(timeout: 15) else {
+            throw unreachable("The ordinary voice choices did not appear.")
+        }
     }
 
-    private func selectedVoice(in app: XCUIApplication) throws -> String {
-        let selected = app.buttons.matching(NSPredicate(format:
-            "(identifier == %@ OR identifier BEGINSWITH %@) AND (value == %@ OR value == %@)",
-            "voice.default", "voice.option.", "Selected", "Sélectionné")).firstMatch
-        try reveal(selected, in: app)
-        return selected.identifier
+    private func selectedGender(in app: XCUIApplication) throws -> String {
+        let selected = ["male", "female"].filter { gender in
+            let button = app.buttons["voice.gender.\(gender)"]
+            return button.isSelected || ["Selected", "Sélectionné"].contains(button.value as? String ?? "")
+        }
+        return try XCTUnwrap(selected.count == 1 ? selected.first : nil)
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) throws {
@@ -462,7 +467,11 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
                 if upward { container.swipeUp() } else { container.swipeDown() }
             }
         }
-        throw NSError(domain: "MOREPhysicalLocalization", code: 1,
-                      userInfo: [NSLocalizedDescriptionKey: "The language or voice control was not reachable."])
+        throw unreachable("The language or voice control was not reachable.")
+    }
+
+    private func unreachable(_ message: String) -> NSError {
+        NSError(domain: "MOREPhysicalLocalization", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: message])
     }
 }

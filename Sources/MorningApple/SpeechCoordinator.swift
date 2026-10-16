@@ -168,6 +168,7 @@ public final class SpeechCoordinator: NSObject {
     @ObservationIgnored private var routeTask: Task<Void, Never>?
     @ObservationIgnored private var interruptionTask: Task<Void, Never>?
     @ObservationIgnored private var activationTask: Task<Void, Never>?
+    @ObservationIgnored private var externalSpeechLocale: @MainActor () -> Locale = { AppLanguage.locale }
     @ObservationIgnored private lazy var audioSession = SpeechAudioSessionGate(
         activate: { [weak self] in
             try await Self.activateAudioSession(handsFree: self?.handsFreeAudioSessionIsOwned == true)
@@ -205,6 +206,11 @@ public final class SpeechCoordinator: NSObject {
             }
         }
         #endif
+    }
+
+    convenience init(externalSpeechLocale: @escaping @MainActor () -> Locale) {
+        self.init()
+        self.externalSpeechLocale = externalSpeechLocale
     }
 
     deinit {
@@ -416,7 +422,8 @@ public final class SpeechCoordinator: NSObject {
         switch result {
         case .success: lastError = nil; pending?.resume()
         case .failure(let error):
-            lastError = error is CancellationError ? nil : String(localized: "Cloud speech could not finish. Try again or continue with the controls.", bundle: .module)
+            let locale = externalSpeechLocale()
+            lastError = error is CancellationError ? nil : String(localized: "Cloud speech could not finish. Try again or continue with the controls.", bundle: AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier), locale: locale)
             pending?.resume(throwing: error is CancellationError ? CancellationError() : SpeechPlaybackError.audioUnavailable(lastError!))
         }
     }

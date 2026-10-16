@@ -88,6 +88,7 @@ extension MorningStore {
 
     func stopCloudVoice() {
         cloudVoiceStartAttempt = nil
+        cloudVoiceStartIssue = nil
         guard cloudVoice.isActive || cloudVoiceConsentGeneration != nil ||
                 speech.externalSpeech != nil || cloudVoiceReleasing else { return }
         cloudVoiceRequestTask?.cancel()
