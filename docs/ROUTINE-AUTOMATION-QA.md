@@ -70,55 +70,64 @@ The later Home decision (`99ef99d`, `3dfed93`) replaces scrolling history with a
 
 ## Latest checkpoint — 16 October 2026: separate execution and learning gates
 
-- **Package v17, compiled from `7666fdd`: zero issues, 2,086 reported tests**
-  (51 LiveDemo, 8 Health, 768 Core, 1,259 Apple), with **13 optional skips**;
-  two real OCR checks were separately excluded. The new private-news/DOM/article
-  and OCR boundaries also pass their targeted run. Nineteen Python scorer
-  regressions pass. These checks do not execute an iPhone or infer the movie.
-- **Frozen9i / `110b189`: strict Calendar smoke passes in 77.619s.** Real native
-  Select All replaces the editor text; Continue leaves the opening; the pinned
-  Calendar passage/date/fact and Pause are visibly present without overlap.
-  Independent UX review accepts this portrait prerequisite. Acoustic listening,
-  TTS completion, XXXL and landscape are not established by that capture.
-- **Long10 still has no accepted session.** The 9i attempt fails in 201.244s
-  before approval/Start: a reorder gesture ends at y73 inside the actual
-  navigation bar (y62–116). The exact position assertion rejects it. The next
-  helper observes the real index after each bounded native gesture and requires
-  both whole rows to be visible; its final third position/full order remain
-  mandatory. This correction has not run. Thirteen follow-up journeys remain
-  unrun. Seven moments of this path are explicitly time-only, not executed web,
-  media or reminder actions.
-- **Frozen9d / `06f9848` mixed3 remains passed:** 444.017s, no failures/skips,
-  UI configuration/approval/relaunch, read-only synthetic Gmail, one uncertain
-  simulated Slack attempt without retry, real one-minute timer pause/relaunch,
-  and restored recap. This is an older source/binary boundary, not a pass of
-  later Home, recap or long-routine changes.
-- **Video learning remains failed.** V9 reads all 24 frames and has nine readable
-  activity groups, but its ten proposal responses abstain. Compact v10 has eight
-  OCR failures, seven readable groups and five empty responses. The independent
-  citation-coverage scorer reports **0/9 and 0/7**, respectively, preserving exit
-  4 and the capture gaps. Presence-only diagnostics recognize the agenda under a
-  different output task; an assessment-before-selection contrast does not
-  improve proposals and is reverted, with its failed schema-projection test
-  retained in the ledger. No model decision is repaired or counted as learning.
-  A fresh complete compact v11 on `7542d49` then observes all24 frames without
-  OCR failure, but all7 actual proposal SDK responses abstain (65.445s, coverage
-  **0/9**, exit4). The flat steps-first diagnostic also fails to improve proposals
-  and is reverted. Learning remains blocked with complete extraction.
-- **Closed news2 is implemented, not natively proved.** A DEBUG-only workspace
-  capability, four local resources and the ordinary DOM executor are covered by
-  Core contracts and a source review. EN/FR WebKit journeys require execution;
-  Repeat completion/viewport assertions are being tightened first. No real news
-  service, feed, story, like or media playback is certified by this slice.
+- **Package v18, compiled from `ae231e0`: zero issues, 2,093 reported tests**
+  (51 LiveDemo, 8 Health, 774 Core, 1,260 Apple), including **15 optional skips**.
+  Two real OCR checks were separately excluded. Thirty-four targeted tests pass
+  for assignment, retained choices, fixture contracts, Slack and recap. Neither
+  check executes the iPhone app or certifies the movie.
+- **Frozen9j / `9cf39c3`: strict Calendar smoke passes in 77.812s.** Independent
+  visual review accepts the real Calendar prefix/date/fact clear of Pause with
+  the pinned identity. Acoustic listening, TTS completion, XXXL and landscape
+  remain unproved. EN/FR private news fail before the delegated article action
+  (57.145s/57.767s): the browser is already foreground, while the test taps Home
+  behind the sheet. An incidental DOM tap is not an agent action. The corrected
+  test requires the actual foreground browser and observed ordinal control.
+- **Long10 has still not reached approval/Start.** Frozen9j fails in 324.803s.
+  Its seven native reorder gestures reach the required third position; later,
+  row6 remains partly below the pinned Approve control. The tap opens no Form,
+  then a premature field-label query fails. No long session or timer is credited.
+  The new test requires the real Form after a visible row tap. Thirteen follow-up
+  journeys remain unexecuted. Seven long-path moments are explicitly time-only,
+  not executed browser, media or reminder actions.
+- **Assigning Slack to an existing moment is implemented, pending native proof.**
+  Ordinary verified setup changes the editor copy; Save replaces the pinned ID,
+  preserving order, title, duration, note, Keep and provenance. It creates an
+  unapproved revision. Human source names survive serialization only for the
+  exact target; portable exports remain manual. Stale version/step/privacy pins
+  cannot append a row. Source review and Core tests pass; build9k is next.
+- **The global summary now shares the per-moment projection.** A finished browser
+  budget is distinguished from a verified operation. A service budget needs its
+  confirmed receipt; source review and FR/EN restoration contracts pass. Native
+  verification of the integrated summary is still pending.
+- **Frozen9d / `06f9848` mixed3 remains passed:** 444.017s, UI configuration and
+  approval/relaunch, read-only synthetic Gmail, one uncertain simulated Slack
+  attempt without retry, and a real one-minute pause/relaunch timer. This older
+  source does not certify the later Home, recap or editor changes.
+- **Video learning remains failed.** Compact v11 on `7542d49` observes all24
+  frames with no OCR failure, but all7 actual proposal SDK responses abstain:
+  65.445s, independent citation coverage **0/9**, exit4. Original v9 also has
+  coverage0/9; compact v10 has eight OCR failures and coverage0/7. Failed prompt
+  and schema experiments were reverted, never repaired into acceptance.
+- **Matched local diagnostics narrow the learning failure.** The unchanged
+  simple event/message pair under the retained contract yields two proposals
+  covering two source frames in both EN and FR (12.763s, pub control0). Exact
+  citations and planned5-minute budgets do not make all titles impeccable: one
+  title changes a message about an agenda into the agenda document. Adding the
+  existing full-disclosure text to the same bodies yields zero proposals in both
+  languages (4.863s, pub0). This affects these constructed inputs; it does not
+  explain compactv11 or establish learning from a video. The full-disclosure
+  contrast has no new OCR, action or product-acceptance claim.
 
-Count correction: the earlier v16 summary conflated two excluded OCR checks
-with optional skips. Its log has **12 optional skips plus two excluded checks**,
-not 14 optional skips. V17 above records those categories separately.
+Literal log audit supersedes earlier manual skip counts: **v16 has14 optional
+skips, v17 and v18 have15**. Each separately excludes two OCR tests; those two
+checks are absent from the reported optional-skip lines. The previous correction
+subtracting them from those log counts was wrong. Nineteen Python scorer
+regressions pass, separately from these Swift and native gates.
 
-Main through `d5d9b0e` is freshly fetched/integrated into the task branch, but
-this task has not updated remote main. Draft PR #211 has skipped CI checks,
-not executed green checks. Full MORE §10, ordinary-iPhone acoustic/provider
-proof and the single authorized self-mail remain open in [issue #173](https://github.com/gibouu/morning-operator/issues/173).
+Main through `d5d9b0e` is integrated into the task branch, but this task has not
+updated remote main. Draft PR #211 has skipped CI checks, not executed green
+checks. Full MORE §10, ordinary-iPhone acoustic/provider proof and the single
+authorized self-mail remain open in [issue #173](https://github.com/gibouu/morning-operator/issues/173).
 See the [fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md) for source-specific receipts,
 failed experiments, immutable media and the distinct manual-oracle path.
 

@@ -49,6 +49,10 @@ changes. Ordinary HTTP destination/status refusals remain in their existing
 tests. No browser feed, media, story, like, real account or provider send is
 included in this slice.
 
-Validation status: source and contracts prepared only. No build, package test,
-native execution, model call, HTTP check or audible reading has been run for
-this slice. Integration and runtime gates are coordinated by the parent task.
+Validation status: targeted Core/Apple contracts and integrated packagev18 pass.
+Frozen9j builds, but both EN/FR WebKit journeys fail before the delegated action:
+the test inspects Home behind an already open browser and taps through the sheet.
+An incidentally opened second article is not credited as an agent action. The
+corrected test first observes the foreground close/title controls and registered
+headlines resource. Fresh native validation is pending in build9k; no successful
+article, Repeat, return, real-service or acoustic proof is claimed yet.

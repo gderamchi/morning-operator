@@ -657,9 +657,9 @@ remain. Presence-only output is a different task/schema/response budget with
 fresh unit IDs; its earlier positive agenda answer is not a causal explanation
 or a production pass.
 
-Package v17 on `7666fdd` reports **2,086 tests, zero issues, 13 optional skips**,
+Package v17 on `7666fdd` reports **2,086 tests, zero issues, 15 optional skips**,
 with two real OCR checks separately excluded. Earlier v16 text saying 14
-optional skips conflated its **12 optional skips and two excluded OCR checks**.
+optional skips was correct: the literal log has **14 optional skips**, separately from two excluded OCR checks.
 The new targeted contracts report 36 Core tests plus five Apple tests including
 one optional skip. Nineteen Python scorer regressions pass. None of these
 counts is a native, acoustic or real-provider result.
@@ -706,3 +706,32 @@ Only completed9h/9i compilation/index/SDK caches were removed before v11; all
 sealed Products, manifests, xcresults, captures and media remain. The active
 SwiftPM cache was preserved. The [QA ledger](ROUTINE-AUTOMATION-QA.md) retains
 native pre-Start failures separately from learning and execution evidence.
+
+### Current parsed-input and matched diagnostic checkpoint
+
+Frozen9j / `9cf39c3` passes the strict Calendar smoke in77.812s. The private news
+EN/FR cases fail before their delegated action because the harness taps Home
+behind the browser; neither the incidental link navigation nor article reading
+is credited. Long10 fails in324.803s before approval/Start: reorder succeeds,
+but a partially footer-covered row tap opens no editor. Products and all local
+proofs remain sealed. Thirteen follow-ups remain unexecuted.
+
+Integrated `ae231e0` adds ordinary Slack selection for an existing moment with
+its ID/choices retained, a target-bound source label, and a truthful global
+budget summary. Packagev18 reports2,093 tests/zero issues/15 optional skips;
+two OCR checks are excluded separately. Thirty-four targeted contracts pass.
+These changes and their corrected native tests still await build9k runtime.
+
+Unchanged simple explicit EN/FR event/message bodies each yield two local
+proposals covering two frames under the retained contract (12.763s, pub0).
+Exact citations and planned5-minute budgets pass; one title incorrectly changes
+the message into the agenda document, so semantic quality remains imperfect.
+The same bodies with the existing full-disclosure factor each abstain (4.863s,
+pub0). Neither constructed-text diagnostic establishes video learning or explains
+the compactv11 failure. Their private reports are `paired-explicit-baseline-union42-v1.json`
+and `paired-full-disclosure-union42-v1.json` in `work/routine-fixture-validation/`.
+
+Literal-log count audit: v16 has14 optional skips, v17/v18 have15; all separately
+exclude two OCR tests. Earlier counts that subtracted those excluded checks from
+the optional log lines were incorrect. Current counts include skipped tests in
+the reported totals; they are not all executed passes.
