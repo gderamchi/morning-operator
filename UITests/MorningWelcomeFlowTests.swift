@@ -299,7 +299,8 @@ final class MorningWelcomeFlowTests: XCTestCase {
     }
 
     private func attach(_ name: String, _ app: XCUIApplication) {
-        let screenshot = app.screenshot()
+        // XCTest's app crop can stay in portrait after rotation on the iOS 26.5 runtime.
+        let screenshot = app.frame.width > app.frame.height ? XCUIScreen.main.screenshot() : app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
