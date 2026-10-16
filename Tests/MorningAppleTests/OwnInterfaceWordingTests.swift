@@ -759,6 +759,32 @@ struct OwnInterfaceWordingTests {
         #expect(try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + ordinary, as: .recording).count == 1)
     }
 
+    @Test("Screen Time app choices are MORE only with their two exact live anchors", arguments: ["en", "fr"])
+    func screenTimePickerNeedsItsPairedCopy(language: String) throws {
+        let pair = OwnInterfaceWording.screenTimePickerPair, index = language == "fr" ? 1 : 0
+        let sources = try ShippedCatalogs.appSources()
+        #expect(pair.count == 2)
+        for phrase in pair {
+            #expect(phrase.wordings.count == 2)
+            for wording in phrase.wordings { #expect(sources.contains("\"\(wording)\""), "Screen Time picker no longer shows this literal: \(wording)") }
+        }
+        let copy = pair.map { $0.wordings[index] }
+        let activity = language == "fr" ? "Instagram · 8 minutes\n09:00 Réunion de planification de l’équipe" : "Instagram · 8 minutes\n09:00 Team planning meeting"
+        for width in [18, 26, 38] {
+            let screen = (copy.flatMap { OwnScreenFixtures.wrapped($0, width: width) } + [activity]).joined(separator: "\n")
+            #expect(isOwnInterface(screen))
+            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+            }
+        }
+        for lonePhrase in copy {
+            let external = "Screen Time\n\(lonePhrase)\n\(activity)"
+            #expect(!isOwnInterface(external))
+            #expect(try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + external, as: .recording).count == 1)
+        }
+        #expect(!isOwnInterface("Screen Time\nApp usage\n\(activity)"))
+    }
+
     @Test("Sentences are specific enough to count; short labels are kept as controls")
     func copyIsLongEnoughToBeDistinctive() {
         for screen in OwnInterfaceWording.screens {

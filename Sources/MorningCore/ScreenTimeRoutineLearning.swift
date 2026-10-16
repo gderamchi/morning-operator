@@ -456,8 +456,8 @@ public extension ScreenTimeAppCatalog {
 /// routine and changes nothing until the owner approves it; he can leave steps out and
 /// change minutes first.
 public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifiable {
-    public static let maximumSteps = 8
-    public static let minutesRange = 1...240
+    public static let maximumSteps = ScreenTimeRoutineSelection.maximumSuggestedApps
+    public static let minutesRange = ScreenTimeRoutineSelection.plannedMinutesRange
     /// Minutes from which a social, video or game app gets a long-use budget prompt.
     /// Duration does not establish scrolling, scroll speed or what was viewed.
     public static let attentionSinkMinutes = 15
@@ -525,64 +525,25 @@ public struct ScreenTimeRoutineProposal: Codable, Equatable, Sendable, Identifia
 
     /// Builds the suggestion from mornings of the same kind as `nextMorning` (weekday or
     /// weekend) when at least two exist, otherwise from all of them. Apps used on at least
-    /// half of those mornings are kept, with their median minutes; apps under a minute are dropped.
+    /// half of those mornings qualify after a 30-second per-window filter; their
+    /// median minutes are rounded to the nearest minute.
     /// Returns nil when no morning or no app qualifies.
     public static func make(from learning: ScreenTimeLearning, nextMorning: Date, baseRoutineID: UUID?,
                             calendar: Calendar = .current, now: Date = .now) -> ScreenTimeRoutineProposal? {
-        let all = learning.mornings.filter { !$0.apps.isEmpty }
-        guard !all.isEmpty else { return nil }
-        let weekend = calendar.isDateInWeekend(nextMorning)
-        let sameKind = all.filter { morning in
-            var local = calendar
-            local.timeZone = morning.timeZone
-            return local.isDateInWeekend(morning.start) == weekend
-        }
-        let mornings = sameKind.count >= 2 ? sameKind : all
-        let needed = max(1, (mornings.count + 1) / 2)
-
-        struct Seen { var seconds: [TimeInterval] = []; var hours: [Int] = []; var first = 0; var measured = true; var category: String? }
-        var seen: [String: Seen] = [:]
-        for morning in mornings {
-            for app in morning.apps where app.seconds >= 30 {
-                var item = seen[app.bundleIdentifier] ?? Seen()
-                item.seconds.append(app.seconds)
-                item.hours.append(app.firstHourIndex)
-                if app.isFirstPickupApp { item.first += 1 }
-                item.measured = item.measured && app.secondsMeasured
-                item.category = item.category ?? app.categoryName
-                seen[app.bundleIdentifier] = item
-            }
-        }
-        struct Candidate { let id: String; let minutes: Int; let hour: Double; let first: Int; let item: Seen }
-        let candidates = seen.compactMap { id, item -> Candidate? in
-            guard item.seconds.count >= needed else { return nil }
-            let minutes = Int((median(item.seconds) / 60).rounded())
-            guard minutes >= 1 else { return nil }
-            return Candidate(id: id, minutes: min(minutes, minutesRange.upperBound), hour: median(item.hours.map(Double.init)), first: item.first, item: item)
-        }
-        guard !candidates.isEmpty else { return nil }
-        // The app opened first on the most mornings leads; ties keep hourly order.
-        let leader = candidates.filter { $0.first > 0 }.max { $0.first != $1.first ? $0.first < $1.first : $0.hour > $1.hour }?.id
-        let ordered = candidates.sorted { lhs, rhs in
-            if (lhs.id == leader) != (rhs.id == leader) { return lhs.id == leader }
-            if lhs.hour != rhs.hour { return lhs.hour < rhs.hour }
-            if lhs.minutes != rhs.minutes { return lhs.minutes > rhs.minutes }
-            return lhs.id < rhs.id
-        }.prefix(maximumSteps)
-        let steps = ordered.map { candidate in
-            let entry = ScreenTimeAppCatalog.entry(for: candidate.id, categoryName: candidate.item.category)
-            return Step(id: UUID(), bundleIdentifier: candidate.id, title: entry.name, kind: entry.kind,
-                        medianMinutes: candidate.minutes, morningsSeen: candidate.item.seconds.count,
-                        minutesMeasured: candidate.item.measured,
-                        orderMeasured: false,
+        let selection = ScreenTimeRoutineSelection.from(mornings: learning.mornings, nextMorning: nextMorning, calendar: calendar)
+        guard !selection.candidates.isEmpty else { return nil }
+        let steps = selection.candidates.prefix(maximumSteps).map { candidate in
+            let entry = ScreenTimeAppCatalog.entry(for: candidate.bundleIdentifier, categoryName: candidate.categoryName)
+            return Step(id: UUID(), bundleIdentifier: candidate.bundleIdentifier, title: entry.name, kind: entry.kind,
+                        medianMinutes: candidate.minutes, morningsSeen: candidate.morningsSeen,
+                        minutesMeasured: candidate.minutesMeasured, orderMeasured: false,
                         isAttentionSink: entry.kind.isAttentionSink && candidate.minutes >= attentionSinkMinutes,
                         included: true, minutes: candidate.minutes)
         }
-        let starts = mornings.map { Double($0.startMinuteOfDay) }
         return ScreenTimeRoutineProposal(id: UUID(), createdAt: now, baseRoutineID: baseRoutineID,
-            typicalStartMinuteOfDay: Int(median(starts).rounded()) % (24 * 60),
-            timeZoneIdentifier: calendar.timeZone.identifier, morningsUsed: mornings.count,
-            morningsFound: all.count, daysOfData: learning.daysOfData, steps: Array(steps))
+            typicalStartMinuteOfDay: selection.typicalStartMinuteOfDay,
+            timeZoneIdentifier: calendar.timeZone.identifier, morningsUsed: selection.morningsUsed,
+            morningsFound: selection.morningsFound, daysOfData: learning.daysOfData, steps: Array(steps))
     }
 
     /// Reconcile before review. Kept moments remain complete and visible; exclusions

@@ -3,6 +3,60 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    func testFrenchLargestScreenTimeOverflowKeepsTheSourceAndLetsMeChooseEightApps() {
+        let app = launch(["--ui-testing-approved", "--ui-testing-learning-source-join", "--ui-testing-evidence-proposals",
+                          "--ui-testing-learning-source-many-apps", "-UIPreferredContentSizeCategoryName",
+                          "UICTContentSizeCategoryAccessibilityXXXL"], french: true)
+        defer { app.terminate() }
+        openScreenTimeObservationChoices(app)
+        enabledVisibleButton("observation.select.44444444-4444-4444-8444-444444444444", in: app).tap()
+        enabledVisibleButton("observations.suggestUpdate", in: app).tap()
+        let notice = app.staticTexts["observations.notice"]
+        scrollTo(notice, identifier: "observations.notice", in: app)
+        XCTAssertTrue(notice.label.contains("8"), notice.label)
+        XCTAssertTrue(notice.label.contains("Choisissez les apps"), notice.label)
+        XCTAssertFalse(app.buttons["proposal.approve"].exists)
+        XCTAssertTrue(app.buttons["observations.suggestUpdate"].isEnabled)
+        attach("automation-learning-many-apps-french-largest-recoverable-limit", app)
+        for id in ["net.whatsapp.WhatsApp", "com.google.Gmail", "com.chess.iphone", "com.google.ios.youtube"] {
+            let choice = visibleScreenTimeSwitch(id, in: app)
+            XCTAssertEqual(choice.value as? String, "1", "The overflow must preserve the choices.")
+            choice.tap()
+            XCTAssertEqual(choice.value as? String, "0")
+        }
+        enabledVisibleButton("observations.suggestUpdate", in: app).tap()
+        XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["proposal.approve"].isEnabled)
+        let omissions = visibleButton("proposal.screenTime.omissions", in: app)
+        omissions.tap()
+        for name in ["WhatsApp", "Gmail", "Chess.com", "YouTube"] {
+            let retained = app.staticTexts[name]
+            scrollTo(retained, identifier: "retained-source-\(name)", in: app)
+            XCTAssertTrue(retained.exists)
+        }
+        attach("automation-learning-many-apps-four-not-chosen-retained-in-sources", app)
+        for index in 0..<8 {
+            let step = app.descendants(matching: .any).matching(identifier: "proposal.step.\(index)").firstMatch
+            scrollTo(step, identifier: "proposal.step.\(index)", in: app)
+        }
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "proposal.step.8").firstMatch.exists)
+        enabledVisibleButton("proposal.source.44444444-4444-4444-8444-444444444444", in: app).tap()
+        tapVisible("Texte extrait d’origine", in: app)
+        let original = app.staticTexts["observation.originalText"]
+        XCTAssertTrue(original.waitForExistence(timeout: 5))
+        for name in ["Instagram", "WhatsApp", "Calendrier", "Mail", "Safari", "Météo", "Musique", "Plans", "Rappels", "Gmail", "Chess.com", "YouTube"] {
+            XCTAssertTrue(original.label.contains(name), "The complete source must retain \(name).")
+        }
+        attach("automation-learning-many-apps-complete-original-retained", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        enabledVisibleButton("proposal.edit", in: app).tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.approve"].isEnabled)
+        _ = visibleButton("routine.step.7", in: app)
+        XCTAssertFalse(app.buttons["routine.step.8"].exists)
+        attach("automation-learning-eight-chosen-apps-unapproved-editable-draft", app)
+    }
+
     func testLearningCombinesExplicitScreenTimeBrowserAndVideoSourcesBeforeDelegation() {
         let app = launch(["--ui-testing-approved", "--ui-testing-learning-source-join", "--ui-testing-evidence-proposals"])
         defer { app.terminate() }
@@ -21,8 +75,12 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["proposal.approve"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["proposal.fixtureMode"].label.contains("no Apple model call"))
         XCTAssertTrue(app.staticTexts["proposal.sources"].label.contains("3 observations"))
-        for index in 0..<3 {
-            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "proposal.step.\(index)").firstMatch.exists)
+        let expected = [("A morning to review", 3), ("1. Instagram · browsing the feed", 1), ("2. Instagram · browsing stories", 2)]
+        for (index, moment) in expected.enumerated() {
+            let step = app.descendants(matching: .any).matching(identifier: "proposal.step.\(index)").firstMatch
+            scrollTo(step, identifier: "proposal.step.\(index)", in: app)
+            XCTAssertEqual(step.value as? String, moment.0)
+            XCTAssertTrue(app.staticTexts["\(moment.1) minutes planned"].exists)
         }
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "proposal.step.3").firstMatch.exists,
                        "Whole-app Screen Time minutes must not invent a separate activity or split the observed sequence.")
@@ -30,7 +88,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         enabledVisibleButton("proposal.edit", in: app).tap()
         XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["routine.approve"].isEnabled, "Opening the proposal must not delegate it.")
-        XCTAssertTrue(app.buttons["routine.step.2"].exists)
+        _ = visibleButton("routine.step.2", in: app)
         XCTAssertFalse(app.buttons["routine.step.3"].exists)
         attach("automation-learning-combined-source-editable-draft", app)
     }
@@ -63,6 +121,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(identity.label.contains("SYNTHETIC Camille, compte Outlook de préparation du matin avec un nom volontairement très long"))
         XCTAssertTrue(identity.label.contains("camille@synthetic.invalid"))
         _ = visibleButton("outlook.setup.account.0", in: app)
+        scrollTo(identity, identifier: "outlook.setup.identity", in: app)
         assertNoOutlookTechnicalDetails(app)
         attach("automation-outlook-french-largest-named-mailbox", app)
         enabledVisibleButton("outlook.setup.add", in: app).tap()
@@ -78,6 +137,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["routine.approve"].isEnabled)
         XCTAssertTrue(app.buttons["routine.step.0"].label.contains("SYNTHETIC Camille"))
         XCTAssertTrue(app.buttons["routine.step.0"].label.contains("camille@synthetic.invalid"))
+        _ = visibleButton("routine.step.0", in: app)
         assertNoOutlookTechnicalDetails(app)
         attach("automation-outlook-unapproved-draft", app)
     }
@@ -976,6 +1036,56 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         attach("automation-real-public-feed-reopened", app)
     }
 
+    /// Real public Reddit; a cold process restores progress, not the live document.
+    func testPublicFeedColdRelaunchKeepsItsMorningAndDeduplicatesKnownContent() throws {
+        let app = launch(["--ui-testing-public-feed", "--ui-testing-approved", "--ui-testing-hands-free"])
+        defer { app.terminate() }
+        reveal(app); app.buttons["morning.begin"].tap()
+        XCTAssertTrue(app.buttons["web.pause"].waitForExistence(timeout: 20))
+        let result = app.staticTexts["web.result"]
+        let observed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label MATCHES %@", ".*· ([2-9]|[1-9][0-9]+) contents viewed.*"), object: result)
+        let ready = XCTWaiter.wait(for: [observed], timeout: 45)
+        if ready != .completed { captureFailure("public-feed-cold-before-no-content", app) }
+        XCTAssertEqual(ready, .completed)
+        app.buttons["web.pause"].tap()
+        XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 5))
+        let savedCount = observedContents(result.label)
+        let remaining = app.staticTexts["web.remaining"].label
+        let workspace = try XCTUnwrap(app.launchArguments.first { $0.hasPrefix("--ui-testing-workspace=") }
+            .map { String($0.dropFirst("--ui-testing-workspace=".count)) })
+        attach("automation-real-public-feed-before-cold-relaunch", app)
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.staticTexts["qa.testWorkspace"].waitForExistence(timeout: 8))
+        XCTAssertEqual(app.staticTexts["qa.testWorkspace"].value as? String, workspace)
+        reveal(app)
+        XCTAssertFalse(app.buttons["morning.begin"].exists)
+        XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
+        XCTAssertTrue(app.staticTexts["morning.currentStep"].label.contains("Reddit"))
+        XCTAssertEqual(app.staticTexts["morning.remaining"].label, remaining,
+                       "Cold restoration must keep this paused morning's remaining budget.")
+        attach("automation-real-public-feed-cold-morning-restored", app)
+        app.buttons["morning.playback"].tap()
+        XCTAssertTrue(app.buttons["web.pause"].waitForExistence(timeout: 15))
+        let firstObservation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (result.value as? String)?.contains("newContent=") == true
+        }, object: result)
+        let received = XCTWaiter.wait(for: [firstObservation], timeout: 30)
+        if received != .completed { captureFailure("public-feed-cold-observation-unavailable", app) }
+        XCTAssertEqual(received, .completed)
+        app.buttons["web.pause"].tap()
+        XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["web.host"].label, "www.reddit.com")
+        let restoredCount = observedContents(result.label)
+        XCTAssertGreaterThanOrEqual(restoredCount, savedCount)
+        XCTAssertEqual(browserDiagnostic(result, key: "savedCount"), restoredCount)
+        attach("automation-real-public-feed-first-observation-after-cold-relaunch", app)
+        // A provider can change its first post between reads. That cannot prove
+        // deduplication of the same content, and is never relabeled a product pass.
+        try XCTSkipIf(browserDiagnostic(result, key: "newContent") == 1,
+                      "The live feed presented new content after cold launch. Morning/budget/progress restoration was checked; same-content deduplication needs a stable provider observation. No viewport/document continuity is claimed.")
+        XCTAssertEqual(restoredCount, savedCount)
+    }
+
     private func launch(_ flags: [String], french: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -1076,6 +1186,23 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         app.buttons["observations.choose"].tap()
         XCTAssertTrue(app.staticTexts["observations.fixtureMode"].exists)
         XCTAssertFalse(app.buttons["observations.suggestUpdate"].isEnabled)
+    }
+    private func visibleScreenTimeSwitch(_ bundleID: String, in app: XCUIApplication) -> XCUIElement {
+        let identifier = "observations.screenTime.app.\(bundleID)"
+        let choice = app.switches[identifier]
+        // A List may unload distant rows. Search back from the recovery notice,
+        // then forward again; never assume an offscreen switch has an AX frame.
+        for downward in [true, false] {
+            for _ in 0..<24 {
+                if choice.exists && choice.isHittable { return choice }
+                let candidates = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex + app.scrollViews.allElementsBoundByIndex
+                let scroll = candidates.first { $0.isHittable } ?? app
+                if downward { scroll.swipeDown() } else { scroll.swipeUp() }
+            }
+        }
+        captureFailure("unreachable-\(identifier)", app)
+        XCTAssertTrue(choice.exists); XCTAssertTrue(choice.isHittable)
+        return choice
     }
     private func openCalendlySetup(_ app: XCUIApplication) {
         reveal(app)

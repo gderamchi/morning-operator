@@ -60,6 +60,34 @@ struct RoutineEvidenceProposalView: View {
                             }
                         }
                     }
+                    if let selection = proposal.screenTimeSelection {
+                        let sources = proposal.sourceSnapshots.compactMap { store.observationArchive.entry(id: $0.acquisitionID) }
+                        let choices = (try? LearningEvidencePreparation.screenTimeAppChoices(acquisitions: sources, selection: selection)) ?? []
+                        let omitted = choices.filter { !$0.isEligible || !$0.isIncluded }
+                        Section {
+                            Text(ScreenTimeAppMomentChoice.policyExplanation)
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                            if !omitted.isEmpty {
+                                DisclosureGroup(AppLanguage.isFrench ? "Apps sans nouveau moment distinct (\(omitted.count))" : "Apps without a new separate moment (\(omitted.count))") {
+                                    ForEach(omitted) { choice in
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(choice.name).font(.raleway(.subheadline))
+                                            Text(choice.isAmbiguous
+                                                ? (AppLanguage.isFrench ? "Nom d’app ambigu ; source conservée sans nouveau moment." : "Ambiguous app name; source retained without a new moment.")
+                                                : choice.isEligible
+                                                ? (AppLanguage.isFrench ? "Écartée des nouveaux moments selon votre sélection." : "Left out of new moments by your selection.")
+                                                : (AppLanguage.isFrench ? "Ne remplit pas la règle commune de sélection d’apps." : "Does not meet the shared app-selection rule."))
+                                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                        }
+                                    }
+                                    Text(AppLanguage.isFrench
+                                        ? "Les agrégats restent dans les sources et peuvent soutenir une séquence observée de la même app. Aucun geste observé ni rituel gardé n’a été retiré."
+                                        : "Aggregates remain in the sources and may support an observed sequence of the same app. No observed gesture or kept ritual was removed.")
+                                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                }.accessibilityIdentifier("proposal.screenTime.omissions")
+                            }
+                        } header: { Text("Screen Time") }
+                    }
                     ForEach(Array(proposal.routine.steps.enumerated()), id: \.element.id) { index, step in
                         Section {
                             VStack(alignment: .leading, spacing: 8) {

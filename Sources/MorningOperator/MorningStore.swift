@@ -1568,7 +1568,7 @@ final class MorningStore {
 
     /// Selection is independent of the Learn editor. A bounded snapshot goes to
     /// inference; a current, validated result becomes a pending proposal only.
-    func suggestRoutine(from observationIDs: Set<UUID>) {
+    func suggestRoutine(from observationIDs: Set<UUID>, screenTimeSelection: ScreenTimeMomentSelection? = nil) {
         guard routinePreferencesIssue == nil else { notice = routinePreferencesIssue; return }
         guard !busy, !sessionActive, storageIsAvailable, saveObservationEdits() else { return }
         do {
@@ -1577,7 +1577,7 @@ final class MorningStore {
                 notice = String(localized: "An observation was removed. Choose the mornings again.")
                 return
             }
-            let evidence = try LearningEvidencePreparation.prepare(acquisitions: acquisitions)
+            let evidence = try LearningEvidencePreparation.prepare(acquisitions: acquisitions, screenTimeSelection: screenTimeSelection)
             let base = routine
             let preferences = routinePreferences
             let attempt = beginAnalysis()
@@ -2273,12 +2273,19 @@ final class MorningStore {
         calendar.timeZone = TimeZone(identifier: "Europe/Paris")!
         let at = { (day: Int, hour: Int) in calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour))! }
         let readAt = at(14, 14)
+        var apps = [ScreenTimeAppHour(bundleIdentifier: "com.burbn.instagram", seconds: 480)]
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--ui-testing-learning-source-many-apps") || arguments.contains("--ui-testing-learning-source-brief-apps") {
+            let seconds: Double = arguments.contains("--ui-testing-learning-source-many-apps") ? 60 : 10
+            apps += ["net.whatsapp.WhatsApp", "com.apple.mobilecal", "com.apple.mobilemail", "com.apple.mobilesafari",
+                "com.apple.weather", "com.apple.Music", "com.apple.Maps", "com.apple.reminders", "com.google.Gmail",
+                "com.chess.iphone", "com.google.ios.youtube"].map { ScreenTimeAppHour(bundleIdentifier: $0, seconds: seconds) }
+        }
         let hours: [ScreenTimeHour] = [
             .init(interval: .init(start: at(13, 22), duration: 3600), firstPickup: at(13, 22),
                 apps: [.init(bundleIdentifier: "com.apple.mobilemail", seconds: 300)]),
             .init(interval: .init(start: at(14, 7), duration: 3600), firstPickup: at(14, 7),
-                longestActivity: .init(start: at(14, 7), duration: 480),
-                apps: [.init(bundleIdentifier: "com.burbn.instagram", seconds: 480)])]
+                longestActivity: .init(start: at(14, 7), duration: apps.reduce(0) { $0 + $1.seconds }), apps: apps)]
         let reports = try ScreenTimeObservationEvidence.make(hours: hours, queryStart: at(13, 18), now: readAt, calendar: calendar)
         let report = reports.first { $0.day == at(14, 0) }!
         let unknown = try ScreenTimeObservationEvidence.make(hours: [
