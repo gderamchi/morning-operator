@@ -484,3 +484,23 @@ pass. `4ec210f` adapts native assertions to these rows. The separate Calendar
 speech smoke, long10 and follow-up lot still require new native execution.
 The [QA ledger](ROUTINE-AUTOMATION-QA.md) records package/source boundaries;
 full video-to-routine acceptance and MORE §10 remain open.
+
+### Explicit selection and full movie v9
+
+The disjoint selection schema `42dc82b` preserves the model's explicit outcome
+and native strict validation. Package v16 is green: **2,077 reported tests**
+(51 LiveDemo, 8 Health, 764 Core, 1,254 Apple), including 14 optional skips; two
+real OCR checks are separately excluded. Actual declared-activity and advert
+controls both pass (5.838s). Its single agenda-frame replay remains explicitly
+empty, and the actual full movie v9 **fails after 72.747s** at proposal:
+classification completes 12/12 requests, then all ten actual proposal SDK
+responses explicitly abstain, with zero resolved steps. The scorer exits 4,
+`pipeline-not-complete-no-execution-proof`. Completion of schema validation or
+classification requests establishes no semantic identity accuracy.
+
+A shorter dedicated instruction experiment `7c3df12` then makes both positive
+controls abstain (while the advert remains excluded). It is reverted in
+`30b8d4b`; retained source equals `42dc82b` for Sources/Tests. These failed
+experiments do not change the movie, manual oracle, negative stimuli or native
+validation. The next native build exercises the independent downstream manual
+path and cannot be credited as fixing video learning.

@@ -99,8 +99,13 @@ The per-moment recap correction `e81cada` passes four Core projection tests,
 23 Apple grounding/guidance checks, and 16 Slack contract tests including exact
 reply attribution after relaunch. UI expectations were adapted in `4ec210f`;
 new native Calendar speech smoke, long10 and follow-up lot remain pending.
-Fresh main through `d5d9b0e` is integrated separately; combined final checks are
-still required. Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
+Fresh main through `d5d9b0e` is integrated separately. Package v16 on
+`42dc82b` passes its declared selection (2,077 reported, 14 optional skips,
+two real OCR tests excluded). Actual written/advert controls pass, but full
+movie v9 still fails: all ten proposal responses abstain (72.747s, scorer 4).
+The shorter-instruction experiment regresses both positive controls and is
+reverted in `30b8d4b`; retained Sources/Tests equal `42dc82b`. The new native
+build still has to validate the downstream manual path. Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
 and [issue #173](https://github.com/gibouu/morning-operator/issues/173).
 
 ## Earlier source-specific checkpoint — `830e9cd`, 16 October 2026
