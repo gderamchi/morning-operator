@@ -344,3 +344,49 @@ diagnostics are prepared for the next iteration; neither has run yet.
 Do not change production read deadlines or translate unrelated expectations to
 hide a process-wide test-preference leak. Preserve the failed logs, the immutable
 movie and independent oracle while repairing that test boundary.
+
+### Controlled positive/negative checks and native fixture repair
+
+Package v12 (`08057f5`) passed after isolating the test-only argument and
+registration defaults per instance: **4 Health, 725 Core and 1,002 Apple
+reported**, ten optional skips, zero issues. Package v13 (`6c51a6c`) likewise
+passed: **4 Health, 725 Core and 1,004 Apple reported**, eleven optional skips,
+zero issues. Both runs explicitly excluded the two real OCR tests; the separate
+real OCR result above remains scoped to its unchanged media source. No
+production reader deadline, application language choice or media-warning copy
+was changed to hide the earlier leak.
+
+Full movie v7 (`08057f5`) still failed after **93.999s** with ten explicit
+`insufficientEvidence` responses, ten validated batches and zero steps. Context
+completed 12/12 batches with zero technical failures, two identified frames and
+22 ambiguities. The frozen movie hash still matched and its scorer exited **4**.
+On `6c51a6c`, three actual local-model controls returned: the manually reported
+activity produced one validated synthetic draft; the visual-content positive
+control still abstained; and the advertisement negative control correctly
+abstained. These visual controls use **constructed OCR text**, not real images,
+Vision extraction or the long movie. They disprove neither missing video
+coverage nor semantic defects in a returned draft.
+
+Full movie v8 on `6c51a6c` was **operator-interrupted**, exit 130, without a
+pipeline report or model verdict. At the last observation the helper had run
+8m33s; a one-second process sample showed TextRecognition waiting for ANE
+compilation through XPC. That sample does not prove a permanent hang or its
+cause. The log, sample and separate interruption receipt remain under `/tmp/`
+and ignored `work/`; this attempt is not scored as a completed pipeline.
+
+The first mixed native run on frozen build9b **failed before approval**. The
+actual screen said the synthetic import was refused: its three JSON steps
+omitted the `detail` fields required by its declared portable format. This was
+an invalid test input, correctly refused by the application, rather than proof
+of a broken approval button. Test-only corrections add the fields, predecode
+and import with the real MorningCore contract before launch, and report missing
+elements without trying to read their identifiers. Build9c on `6c51a6c`
+**TEST BUILD SUCCEEDED** and was frozen; its new mixed runtime remains pending.
+
+An opt-in, test-only eight-case diagnostic now varies the original versus
+explicit event/message text, English versus French, banner presence and native
+video versus manual evidence type. All sources retain synthetic origin. It
+never receives the long oracle, changes a source to human, or requires a
+positive model output to make the diagnostic green. Validated proposals are
+logged separately for semantic review. The diagnostic has not run at this
+checkpoint; a technical pass with abstentions would not be product acceptance.
