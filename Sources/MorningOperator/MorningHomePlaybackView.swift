@@ -223,6 +223,18 @@ struct MorningRoutineControlsView: View {
             return opening.briefText ?? opening.opening?.displayText
                 ?? (french ? "Je prépare votre journée…" : "Preparing your day…")
         }
+        if let session = store.session, let step = store.currentStep, step.automation == .gmailInbox {
+            let mail = store.mailMorning
+            if mail.context == MorningExecutionID(sessionID: session.id, routineVersionID: session.routine.id, stepID: step.id),
+               mail.state == .askingToReply, mail.attentionSelection != nil, !mail.isComposingSelfMessage,
+               let first = mail.messageChoices.first, mail.selectedMessageID == first.id {
+                // The attributed summaries and quotes are already in the message list.
+                // Keep the full narration and every draft/error/result in their own state.
+                return french
+                    ? "Choisissez un mail à examiner. Vous pouvez aussi préparer une note à vous-même ou continuer votre matin."
+                    : "Choose a message to review. You can also prepare a note to yourself or continue your morning."
+            }
+        }
         return store.connectedActionStatus ?? store.currentStep?.detail ?? ""
     }
 
