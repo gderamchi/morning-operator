@@ -68,6 +68,35 @@ The corrected snapshot `c9332ca`, including Home changes through `554a614`, pass
 
 The later Home decision (`99ef99d`, `3dfed93`) replaces scrolling history with a single short passage and tap-revealed controls that disappear after five seconds. It is integrated with the action-state correction, using the same passage instead of a permanent status/button panel. Build6 of the previous scene succeeds, but its six runtime journeys were deliberately not started after this product change. The new scene, its speech-chunk changes and adapted runtime journeys require fresh validation; the 1,598-test checkpoint above does not cover them.
 
+## Delivery handoff — 16 October 2026
+
+The owner requested immediate delivery and no further tests. Local full-packagev22
+and the Native9m build were stopped cleanly; neither is a completed validation.
+Native9m ran no UI journey and produced no sealed accepted build. This chat made
+no phone installation or additional mail attempt.
+
+Full-packagev21 on `e5f79b6` reported2,141 tests and14 issues: nine retired voice
+wording references, two assertions relying on the old title-only merge, and
+three functional extras reads expiring under concurrent wall-clock scheduling.
+The same compiled extras suite passed25 tests in0.039s when isolated. Historical
+wording, explicit multi-citation retention and controlled functional-test clocks
+were subsequently corrected, but the stopped v22 does not prove them green.
+The old-SDK audio compilation incompatibility was also corrected without
+changing its graph. The synthetic voice/server Node checks passed31 tests.
+
+The second authorized OCR-only replay on the frozen `e5f79b6` binary returned
+seven HTTP200 responses in94.469s, but native evidence policy refused the final
+proposal. Its recorded category is generic; no more specific cause is assigned
+retrospectively. A bounded test-only diagnostic now retains validated structured
+batch summaries and static refusal categories, but its proposed next replay was
+not run. No input scope, inference default or execution permission was expanded.
+
+The final merge with current main preserves its live input captions alongside
+the routine action states, caption boundaries, privacy clearing and reachable
+Home controls. It has not been rebuilt or retested after this stop instruction.
+Delivery is tracked in PR211. The remaining acceptance work stays open in issue173;
+this handoff does not establish MORE §10 or any unobserved provider effect.
+
 ## Latest native checkpoint — 16 October 2026, frozen9l / `bb759d7`
 
 Six of seven planned cases ran in eight XCTest attempts: **0 passed, 8 failed,
@@ -205,7 +234,7 @@ verify compilation. Neither earlier failure is reclassified as green.
 
 Full MORE §10, movie learning, the 28-minute Long10, ordinary-iPhone acoustic
 proof and the single authorized self-mail remain open in issue173. The task
-branch is pushed in PR211; this task has not yet updated remote main.
+branch is pushed in PR211; remote main was not yet updated at that checkpoint.
 
 ## Prior package and learning checkpoint — 16 October 2026
 
