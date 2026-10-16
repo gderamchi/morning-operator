@@ -45,6 +45,9 @@ extension MorningStore {
                 !self.nativeMoment.isActive && !self.slackReply.isActive && UIApplication.shared.applicationState == .active
         }
         guard authorized() else { return true }
+        // Touch controls enter the same route without a recognition interruption.
+        // Retiring the current reading also prevents it continuing over the list.
+        speech.stop()
         switch command {
         case .select(let ordinal, let read):
             let body = await controller.openNewsArticle(ordinal: ordinal, context: context, privacy: generation, authorized: authorized)
