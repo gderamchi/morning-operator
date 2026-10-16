@@ -126,10 +126,13 @@ export class FileStorage {
   installationPath(tokenHash) { return join(this.directory, 'installations', `${tokenHash}.json`); }
   executionPath(userID, requestID) { return join(this.directory, 'journal', userID, `${requestID}.json`); }
   async initialize() {
-    for (const directory of ['installations', 'journal']) await mkdir(join(this.directory, directory), { recursive: true, mode: 0o700 });
+    for (const directory of ['installations', 'journal', 'voice-activation']) await mkdir(join(this.directory, directory), { recursive: true, mode: 0o700 });
   }
   async createInstallation(tokenHash, userID) { await durableJSON(this.installationPath(tokenHash), { userID }, true); }
   async getInstallation(tokenHash) { return loadJSON(this.installationPath(tokenHash)); }
+  async requestVoiceActivation(userID) {
+    await durableJSON(join(this.directory, 'voice-activation', `${userID}.json`), { requestedAt: new Date().toISOString() });
+  }
   async reserveExecution(userID, requestID, fingerprint) {
     await mkdir(join(this.directory, 'journal', userID), { recursive: true, mode: 0o700 });
     try { await durableJSON(this.executionPath(userID, requestID), { fingerprint, state: 'pending' }, true); return true; }
@@ -400,6 +403,9 @@ export async function createRequestHandler(config, { storage = new FileStorage(c
       if (request.method === 'POST' && url.pathname === '/v1/voice/token') {
         const input = await body(request); exactKeys(input, []);
         const result = await morningVoiceToken(config.voice, userID);
+        if (result.status === 503 && config.voice?.apiKey && config.voice?.agentID) {
+          await storage.requestVoiceActivation(userID);
+        }
         return reply(result.status, result.payload);
       }
       if (request.method === 'GET' && url.pathname === '/v1/slack/reply-identity') {

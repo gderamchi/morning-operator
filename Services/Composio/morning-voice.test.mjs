@@ -19,7 +19,7 @@ test('voice requests only the fixed private agent and returns only the ephemeral
     assert.equal(url.pathname, '/v1/convai/conversation/token');
     assert.equal(url.searchParams.get('agent_id'), config.agentID);
     assert.equal(request.headers['xi-api-key'], config.apiKey);
-    assert.equal(request.redirect, 'error');
+    assert.equal(request.redirect, 'manual');
     assert.equal(request.body, undefined);
     return Response.json({ token: 'synthetic-ephemeral', conversation_id: 'private-provider-session', extra: 'private' });
   });
@@ -27,7 +27,7 @@ test('voice requests only the fixed private agent and returns only the ephemeral
 });
 
 test('voice failures never expose provider bodies or secrets', async () => {
-  for (const response of [new Response('private-provider-body', { status: 401 }), Response.json({ token: '' }), Response.json({ token: 'x'.repeat(65_537) }), new Response('invalid-json')]) {
+  for (const response of [new Response(null, { status: 302, headers: { Location: 'https://untrusted.example' } }), new Response('private-provider-body', { status: 401 }), Response.json({ token: '' }), Response.json({ token: 'x'.repeat(65_537) }), new Response('invalid-json')]) {
     const result = await morningVoiceToken(config, 'synthetic-owner', async () => response);
     assert.equal(result.status, 502);
     assert.ok(!JSON.stringify(result).includes('private-provider-body'));

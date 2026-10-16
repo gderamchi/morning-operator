@@ -24,6 +24,8 @@ final class MorningBriefingTests: XCTestCase {
         openSettings(app)
         tap("setup.conversation", app)
         XCTAssertTrue(app.buttons["cloudVoice.start"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["cloudVoice.start"].isEnabled, "A new morning requires its own explicit conversation choice.")
+        XCTAssertTrue(app.staticTexts["Start your morning, then return here to talk with MORE."].exists)
         XCTAssertFalse(app.buttons["cloudVoice.stop"].exists)
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "ElevenLabs", "Google Gemini")).firstMatch.exists)
         XCTAssertEqual(app.alerts.count, 0, "Viewing the choice must not open a microphone permission sheet.")

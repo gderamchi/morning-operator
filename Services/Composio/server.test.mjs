@@ -129,6 +129,12 @@ test('voice token route requires installation auth and refuses client agent or c
   assert.equal(result.status, 503);
   assert.equal(result.data.error.code, 'voice_not_configured');
   assert.equal(f.state.calls.length, 0);
+  f.config.voice = { apiKey: 'synthetic-only', agentID: 'synthetic-agent', installations: [] };
+  assert.equal((await f.api('/v1/voice/token', { method: 'POST', bearer, data: {} })).status, 503);
+  const pending = await readdir(join(f.directory, 'voice-activation'));
+  assert.equal(pending.length, 1);
+  const metadata = JSON.parse(await readFile(join(f.directory, 'voice-activation', pending[0]), 'utf8'));
+  assert.deepEqual(Object.keys(metadata), ['requestedAt']);
 });
 
 test('connections enforce configured services and exact native callbacks', async t => {
@@ -236,7 +242,7 @@ test('concurrent duplicate execution reserves once, replays receipt and rejects 
 
 test('an execution timeout remains uncertain across restart and is never retried', async t => {
   const f = await fixture(t); const bearer = await f.install(); const account = await f.addAccount(bearer);
-  f.config.timeout = 30; f.state.delay = 100;
+  f.config.timeout = 500; f.state.delay = 1000;
   const data = { tool: 'GMAIL_SEND_EMAIL', arguments: {}, connectionID: account.id, requestID: randomUUID() };
   const result = await f.api('/v1/execute', { method: 'POST', bearer, data });
   assert.equal(result.status, 409);
@@ -384,7 +390,7 @@ test('Slack transport timeout and unmatched receipts remain uncertain and cannot
   for (const mode of ['timeout', 'innerFailure', 'wrongReceipt']) {
     await t.test(mode, async t => {
       const f = await slackFixture(t), input = f.request();
-      if (mode === 'timeout') { f.config.timeout = 30; f.state.slackSendDelay = 120; }
+      if (mode === 'timeout') { f.config.timeout = 500; f.state.slackSendDelay = 1000; }
       else f.state.slackSendMode = mode;
       assert.equal((await f.post(input)).data.error.code, 'execution_uncertain');
       await f.restart();
