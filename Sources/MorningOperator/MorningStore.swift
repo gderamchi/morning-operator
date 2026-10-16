@@ -1181,6 +1181,8 @@ final class MorningStore {
     func disableHealthInBriefing() {
         do { try briefing.disableHealth() }
         catch { return } // The controller retains the previous choice and reports the failure.
+        suspendHandsFreeVoice()
+        handsFreePauseRevision = UUID()
         if session?.status == .running { pause() }
         endOpening()
         cancelStepPlayback()

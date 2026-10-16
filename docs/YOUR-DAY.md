@@ -64,7 +64,7 @@ No sentence says that permission was refused or granted. HealthKit answers a ref
 
 **Expected sources.** An Apple Watch worn at night records sleep stages. An iPhone alone records mostly "in bed" time from a sleep schedule, which is not counted. Other apps and entries typed in the Health app may record asleep time. The source kind (watch, phone, another app, manual entry, unknown) is worked out from the source's bundle identifier, its hardware model string and the "entered by the user" flag; HealthKit has no field that states it. An iPad or a Mac may have no health data store. Physical source coverage must be verified separately from the tested sample mapping.
 
-The reader looks back seven days to distinguish an older record from no returned record. Reads have a ten-second publication deadline; late/cancelled results cannot repopulate cleared state. Samples, the total and the sentence stay in memory. Only the on/off choice is saved, in `briefing-settings.json`.
+The reader looks back seven days to distinguish an older record from no returned record. Reads have a ten-second publication deadline; late/cancelled results cannot repopulate cleared state. Samples, the total and the sentence stay in memory. During a hands-free question, the current admitted recap can be supplied as transient context to the existing on-device conversation model; it is not sent to a remote model. Disabling sleep cancels a pending voice answer and clears that context. Only the on/off choice is saved, in `briefing-settings.json`.
 
 ## What is saved and sent
 
