@@ -282,5 +282,34 @@ negative scenes in the unchanged long movie.
 
 The separate ten-timed-moment runtime test is prepared, not yet a runtime pass.
 It uses short declared timer budgets and claims no service action; it cannot be
-reported as ten automated actions from the 28-minute story. **Pipeline v4 and
-native build8 are in progress at this checkpoint, with no result recorded.**
+reported as ten automated actions from the 28-minute story.
+
+## Follow-up checkpoint — unchanged movie, remaining failures
+
+The later runs below do not replace the failed results above or establish MORE
+§10. Generated media and reports remain local and ignored by Git.
+
+| Route and source | Result | Evidence boundary |
+| --- | --- | --- |
+| Full movie v4, products from `70427b4`; `full-pipeline-realistic-fr-v4.json` | Failed after **393.306s**, `localRoutineProposal` / `insufficientEvidence`; source hash still matches | No draft or execution. Ten completed validation callbacks did not reveal why every batch was empty; no SDK-attempt count was available then |
+| Context-only v2, products from `5a3feec`; `context-realistic-fr-v2.json` | **381.933s**, 12 attempted/12 responded/0 failed; **7 identified, 17 ambiguous** | Technical completion only. Ten ambiguities quoted the provenance banner alone; this is not semantic acceptance |
+| Full movie v5, products from `f64a175`; `full-pipeline-realistic-fr-v5.json` | Failed after **104.086s**, `localRoutineProposal` / `insufficientEvidence`; unchanged **6,054,068-byte** source/hash | Nine SDK invocations, nine returns, nine validated batches, all explicitly `insufficientEvidence` with zero steps despite 10–15 admissible anchors per batch. Failure occurs at empty-list assembly; no SDK/citation failure or useful draft was demonstrated |
+| Package v9, `f64a175`; `/tmp/more-integrated-synthetic-full-v9.log` | Build passed in **422.42s**. Health: **4 passed**. Core: **724 reported, 3 issues**. Apple: **997 reported, 22 issues**, eight optional skips | Full run failed. Core expectations assumed unpersisted malformed defaults and an English label. Two Apple issues concerned obsolete Connections wording; twenty involved real reader deadlines. Fixes require their own validation |
+| Three reader suites alone, the **same `f64a175` products**; `/tmp/more-readers-isolated-f64-v1.log` | **31 passed**, 0.346s | No source or product deadline change. This distinguishes isolated contract success from the failed concurrent lot; it does not prove live provider availability or erase v9 |
+| Native build8, frozen `75bb105` products; `acceptance-ux-golden-75bb105-round1.xcresult` | Build passed. Five journeys finished: **3 passed, 2 failed**; a sixth was interrupted, six were not run | Three Gmail cases passed, including the French largest-text fifth choice. Home failed during a testmanager accessibility snapshot, before business assertions. Outlook reached Settings but its helper scrolled away from the lazy routine row. The canceled lot is not accepted |
+
+V5 context inference completed twelve batches with zero technical failures but
+only **two identified and 22 ambiguous** frames. The two MORE frames were omitted
+before proposal generation. Context decisions do not themselves grant proposal
+citations or execution authority. V5's scorer exits **4**,
+`pipeline-not-complete-no-execution-proof`; its newly recorded structure narrows
+the defect to explicit model abstention, without proving its cause. In
+particular, the synthetic source's task content must not be silently replaced
+with the independently authored oracle.
+
+The private three-moment journey imports a manual synthetic draft, configures
+Gmail and Slack through ordinary UI, approves and relaunches, then tests one
+session and a real timed remainder. Its Slack transport is explicitly simulated
+and deliberately loses one response, which must remain uncertain without a
+retry. It is prepared for native execution, **not a runtime pass**, voice proof,
+video-import proof or live-provider proof.
