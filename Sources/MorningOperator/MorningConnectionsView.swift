@@ -106,12 +106,11 @@ struct MorningConnectionsView: View {
                 websiteButton(.news, detail: text("Keep a moment for the news.", "Gardez un moment pour l’actualité."), symbol: "newspaper")
                 if professionalServices.contains(where: isAvailable) {
                     DisclosureGroup(text("Professional accounts", "Comptes professionnels")) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(text("For publishing and professional tools. Instagram requires a professional account; WhatsApp requires a Business Cloud account; Facebook uses your Pages.",
-                                "Pour les publications et outils professionnels. Instagram demande un compte professionnel, WhatsApp un compte Business Cloud et Facebook une Page."))
-                                .font(.footnote).foregroundStyle(MorningStyle.muted)
-                            ForEach(professionalServices.filter(isAvailable), id: \.self) { providerRow($0) }
-                        }.padding(.top, 12)
+                        Text(text("For publishing and professional tools. Instagram requires a professional account; WhatsApp requires a Business Cloud account; Facebook uses your Pages.",
+                            "Pour les publications et outils professionnels. Instagram demande un compte professionnel, WhatsApp un compte Business Cloud et Facebook une Page."))
+                            .font(.footnote).foregroundStyle(MorningStyle.muted).padding(.top, 12)
+                        // Each NavigationLink needs its own list row to open its own account.
+                        ForEach(professionalServices.filter(isAvailable), id: \.self) { providerRow($0) }
                     }.tint(MorningStyle.ink).accessibilityIdentifier("connections.professional")
                 }
             }
