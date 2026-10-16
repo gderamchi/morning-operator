@@ -465,6 +465,9 @@ struct SetupView: View {
                                detail: "ElevenLabs", symbol: "sparkles") { choosingConversation = true }
                     .accessibilityIdentifier("setup.conversation")
                 #endif
+                NavigationLink { MorningIntelligenceView(store: store) } label: {
+                    settingsLabel(french ? "Intelligence et mémoire" : "Intelligence & memory", symbol: "sparkles")
+                }.accessibilityIdentifier("setup.intelligence")
                 settingsButton(String(localized: "Voice", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: store.speech.selectedVoiceSummary,
                                symbol: "waveform") { choosingVoice = true }
                     .disabled(store.sessionActive).accessibilityIdentifier("setup.voice")
@@ -521,7 +524,7 @@ struct SetupView: View {
                 DisclosureGroup("Availability & device details") {
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Label("Apple Intelligence", systemImage: "sparkles").font(.headline)
+                            Label(french ? "Intelligence" : "Intelligence", systemImage: "sparkles").font(.headline)
                             Text(store.modelSummary)
                             Button("Check again") { store.refreshCapabilities() }.buttonStyle(SecondaryButtonStyle())
                         }

@@ -269,7 +269,7 @@ extension MorningStore {
                 guard stillAsked() else { return }
                 if let fresh { document = fresh }
             }
-            let text = playable(document) ? MorningAppStepExecutor.text(for: .morningBriefing, in: document) : ""
+            var text = playable(document) ? MorningAppStepExecutor.text(for: .morningBriefing, in: document) : ""
             guard !text.isEmpty else {
                 // No recap can be read. Say so, show what is out of date, and stop offering it.
                 // Shown, not spoken: a morning is greeted aloud once.
@@ -282,6 +282,23 @@ extension MorningStore {
                 notice = String(localized: "This recap needs an update before playback.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                 handOverOpening(after: .failed)
                 return
+            }
+            if MoreLanguageModel.shared.usesOpenAI, document.weather.status == .fresh {
+                if let advice = try? await MorningVoiceConversation().morningAdvice(context: document.weather.text), !advice.isEmpty {
+                    text += " " + advice
+                }
+                guard stillAsked() else { return }
+                guard playable(document) else {
+                    openingTask = nil
+                    openingPresentation?.phase = .choosing
+                    openingPresentation?.briefWithdrawn = true
+                    openingPresentation?.document = document
+                    openingPresentation?.opening = MorningOpeningComposer.compose(briefing: document, at: Date(),
+                        timeZoneIdentifier: TimeZone.current.identifier, offersBrief: false)
+                    notice = String(localized: "This recap needs an update before playback.")
+                    handOverOpening(after: .failed)
+                    return
+                }
             }
             openingPresentation?.document = document
             openingPresentation?.briefText = text

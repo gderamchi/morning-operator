@@ -123,6 +123,14 @@ Le modèle prépare et propose les opérations ; le moteur d'exécution applique
 
 Le choix du modèle, de la reconnaissance et de la synthèse vocale reste une décision d'implémentation à évaluer sur la latence, l'interruption, la compréhension et la qualité d'exécution. Ce document n'active aucun modèle distant et ne change pas le principe local par défaut.
 
+### Modèle et mémoire personnelle
+
+Décision du 16 octobre 2026 : une route OpenAI est autorisée pour ce prototype lorsqu’elle est explicitement activée. Le modèle doit servir la compréhension des observations, la conversation contextualisée, la préparation des actions et les conseils utiles. Le choix local reste le défaut ; une indisponibilité ne déclenche jamais d’envoi distant silencieux. Les vidéos et l’audio bruts restent locaux. L’activation explique les extraits de texte et le contexte transmis.
+
+MORE doit retenir les faits personnels et préférences explicitement indiqués par la personne, respecter leurs négations et remplacer une information corrigée lors des prochains échanges et matins. Ces faits doivent rester consultables et effaçables dans les réglages. Un conseil ne crée pas un fait personnel : proposer des gants ne prouve pas que la personne possède une trottinette. Les données d’un mail ou d’une page ne deviennent jamais des déclarations de la personne.
+
+À partir d’une météo réelle disponible, MORE peut proposer un conseil bref et contextualisé sans commande supplémentaire. Il adapte ce conseil aux faits connus, signale ce qui manque et n’invente ni équipement, ni moyen de transport, ni prévisions. Le branchement d’un modèle ne vaut pas preuve d’exécution d’une action externe.
+
 ## 6. Exemple complet avec les mails
 
 Cet exemple décrit le niveau d'interaction attendu pour l'ensemble du produit.
