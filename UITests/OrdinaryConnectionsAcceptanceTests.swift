@@ -164,28 +164,49 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
             return text.localizedCaseInsensitiveContains("Paris") && text.localizedCaseInsensitiveContains("France")
         }
 
-        // The picker saves immediately. Restore it even if search, weather or an assertion fails.
+        // The picker saves immediately. Verify city removal before hiding it with another source.
         continueAfterFailure = true
         defer {
+            var canRestoreSource = !attemptedOurCity
             if attemptedOurCity {
                 try? reveal(city, in: app)
+                var removalVerified = true
                 if city.exists {
+                    removalVerified = false
                     if showsOurCity() {
                         let remove = app.buttons["briefing.removeWeather"]
                         try? reveal(remove, in: app)
-                        if remove.exists && remove.isHittable { remove.tap() }
+                        let tappedRemove = remove.exists && remove.isHittable
+                        if tappedRemove { remove.tap() }
                         else { try? require(false, "The temporary city's Remove weather control was unavailable.") }
-                        try? require(city.waitForNonExistence(timeout: 5), "The temporary public city must be removed.")
+                        let removed = city.waitForNonExistence(timeout: 5)
+                        try? require(removed, "The temporary public city must be removed.")
+                        removalVerified = tappedRemove && removed
                     } else {
                         try? require(false, "An unexpected city is present; it was preserved rather than removed.")
                     }
                 }
+                let emptySearch = app.textFields["briefing.citySearch"]
+                try? reveal(emptySearch, in: app)
+                let choosingCity = ["Choose a city", "Choisir une ville"].contains(readSource() ?? "")
+                // Check the empty city UI before Current location can hide a saved fallback.
+                let noResidue = choosingCity && emptySearch.exists && emptySearch.isHittable &&
+                    !city.exists && !showsOurCity() && !app.buttons["briefing.removeWeather"].exists
+                try? require(noResidue, "The temporary city must be absent in Choose a city mode before restoring the source.")
+                canRestoreSource = removalVerified && noResidue
             }
-            try? require(selectSource([originalSource]), "The original weather-source selection must be restored.")
-            try? require(readSource() == originalSource, "The original weather-source selection must match exactly.")
-            if attemptedOurCity { try? require(!showsOurCity(), "Paris must not remain configured after this read.") }
-            let done = app.navigationBars.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Done", "Terminé")).firstMatch
-            if done.exists && done.isHittable { done.tap() }
+            if canRestoreSource {
+                let restored = selectSource([originalSource])
+                try? require(restored, "The original weather-source selection must be restored.")
+                let matchesOriginal = readSource() == originalSource
+                try? require(matchesOriginal, "The original weather-source selection must match exactly.")
+                if restored && matchesOriginal {
+                    let done = app.navigationBars.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Done", "Terminé")).firstMatch
+                    if done.exists && done.isHittable { done.tap() }
+                }
+            } else {
+                try? require(false, "Weather cleanup could not be verified; the city and its source were left visible for reconciliation.")
+            }
         }
 
         try require(selectSource(["Choose a city", "Choisir une ville"]), "The ordinary picker did not select Choose a city.")
