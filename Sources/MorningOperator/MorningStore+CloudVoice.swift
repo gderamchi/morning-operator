@@ -41,6 +41,9 @@ extension MorningStore {
                 if self.session?.status == .running { self.pause() }
                 else { self.speech.stop() }
             }
+            cloudVoice.onUserText = { [weak self] text, turn in
+                self?.receiveCloudVoiceOwnerText(text, turn: turn)
+            }
             await cloudVoice.start(context: cloudVoiceContext,
                                    language: AppLanguage.isFrench ? "fr" : "en", consented: true)
             guard cloudVoice.isActive, cloudVoiceConsentGeneration == generation,
@@ -55,12 +58,14 @@ extension MorningStore {
                 guard let self, self.cloudVoice.isActive, !self.privacyBlocksWork,
                       self.cloudVoiceConsentGeneration == self.dataGeneration,
                       self.cloudVoiceConsentSession == self.session?.id else { throw CancellationError() }
+                let turn = self.cloudVoice.userTurnID
                 await self.cloudVoice.updateContext(self.cloudVoiceContext)
                 try Task.checkCancellation()
                 guard self.cloudVoice.isActive, !self.privacyBlocksWork,
                       self.cloudVoiceConsentGeneration == self.dataGeneration,
-                      self.cloudVoiceConsentSession == self.session?.id else { throw CancellationError() }
-                try await self.cloudVoice.narrate(text)
+                      self.cloudVoiceConsentSession == self.session?.id,
+                      self.cloudVoice.userTurnID == turn else { throw CancellationError() }
+                try await self.cloudVoice.narrate(text, forUserTurn: turn)
             }
             speech.cancelExternalSpeech = { [weak self] in self?.cloudVoice.cancelNarration() }
         } catch {
@@ -74,6 +79,8 @@ extension MorningStore {
         guard cloudVoice.isActive || cloudVoiceConsentGeneration != nil ||
                 speech.externalSpeech != nil || cloudVoiceReleasing else { return }
         cloudVoiceRequestTask?.cancel()
+        cloudVoiceMemoryTask?.cancel()
+        cloudVoice.onUserText = nil
         if session?.status == .running { pause() }
         cloudVoiceConsentGeneration = nil; cloudVoiceConsentSession = nil
         speech.stop()
@@ -88,29 +95,88 @@ extension MorningStore {
         }
     }
 
+    /// The SDK microphone callback is the only cloud provenance accepted for
+    /// learning. Extraction follows the already selected Apple/OpenAI route;
+    /// remembered facts are never added to the ElevenLabs context payload.
+    private func receiveCloudVoiceOwnerText(_ text: String?, turn: UUID) {
+        cloudVoiceRequestTask?.cancel()
+        cloudVoiceMemoryTask?.cancel()
+        speech.stop()
+        let generation = dataGeneration, sessionID = session?.id
+        let languageGeneration = voiceLanguageGeneration
+        let modelConfiguration = MoreLanguageModel.shared.configurationID
+        guard let text, cloudVoiceTurnIsCurrent(turn, generation: generation, sessionID: sessionID,
+            languageGeneration: languageGeneration, modelConfiguration: modelConfiguration) else { return }
+        cloudVoiceMemoryTurnID = turn
+        cloudVoiceMemoryTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if cloudVoiceMemoryTurnID == turn { cloudVoiceMemoryTask = nil; cloudVoiceMemoryTurnID = nil }
+            }
+            guard !Task.isCancelled, cloudVoiceTurnIsCurrent(turn, generation: generation, sessionID: sessionID,
+                languageGeneration: languageGeneration, modelConfiguration: modelConfiguration) else { return }
+            await MorePersonalMemory.shared.remember(fromOwnerUtterance: text, whileCurrent: { [weak self] in
+                self?.cloudVoiceTurnIsCurrent(turn, generation: generation, sessionID: sessionID,
+                    languageGeneration: languageGeneration, modelConfiguration: modelConfiguration) == true
+            })
+        }
+    }
+
+    private func cloudVoiceTurnIsCurrent(_ turn: UUID, generation: UUID, sessionID: UUID?,
+                                        languageGeneration: UUID, modelConfiguration: UUID) -> Bool {
+        !privacyBlocksWork && cloudVoice.isCurrentUserTurn(turn) && dataGeneration == generation &&
+            cloudVoiceConsentGeneration == generation && cloudVoiceConsentSession == sessionID &&
+            session?.id == sessionID && voiceLanguageGeneration == languageGeneration &&
+            MoreLanguageModel.shared.configurationID == modelConfiguration &&
+            UIApplication.shared.applicationState == .active
+    }
+
     /// Uses the existing source-bound dialogues and their explicit send policies.
     /// The cloud tool receives pending only; provider success comes from app narration.
     func acceptCloudVoiceRequest(_ request: String, binding: MorningVoiceCommandContext) -> Bool {
-        guard !privacyBlocksWork, cloudVoice.isActive, cloudVoiceRequestTask == nil,
+        guard !privacyBlocksWork, cloudVoice.isActive,
+              cloudVoiceRequestTask == nil || cloudVoiceRequestTask?.isCancelled == true,
               cloudVoiceConsentGeneration == dataGeneration, cloudVoiceConsentSession == session?.id,
-              handsFreeContext == binding, UIApplication.shared.applicationState == .active else { return false }
-        let generation = dataGeneration
+              let turn = cloudVoice.userTurnID, handsFreeContext == binding,
+              UIApplication.shared.applicationState == .active else { return false }
+        let generation = dataGeneration, sessionID = session?.id
+        let languageGeneration = voiceLanguageGeneration
+        let modelConfiguration = MoreLanguageModel.shared.configurationID
+        let memoryTask = cloudVoiceMemoryTask
+        cloudVoiceRequestTurnID = turn
         cloudVoiceRequestTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { cloudVoiceRequestTask = nil }
-            guard !Task.isCancelled, !privacyBlocksWork, dataGeneration == generation,
-                  handsFreeContext == binding, cloudVoice.isActive else { return }
+            defer {
+                if cloudVoiceRequestTurnID == turn { cloudVoiceRequestTask = nil; cloudVoiceRequestTurnID = nil }
+            }
+            guard !Task.isCancelled, handsFreeContext == binding,
+                  cloudVoiceTurnIsCurrent(turn, generation: generation, sessionID: sessionID,
+                    languageGeneration: languageGeneration, modelConfiguration: modelConfiguration) else { return }
             if handleGoogleCalendarDayUtterance(request) { return }
             if handleCalendlyDayUtterance(request) { return }
             if handleOutlookInboxUtterance(request) { return }
             if await handleSlackUtterance(request) { return }
             if await handleNativeMomentUtterance(request) { return }
             if let handler = handsFreeUtteranceHandler, await handler(request) { return }
-            guard !Task.isCancelled, dataGeneration == generation, handsFreeContext == binding,
-                  cloudVoice.isActive else { return }
-            try? await speech.speakAndWait(AppLanguage.isFrench
-                ? "Cette action n’est pas disponible dans le moment actuel. Vous pouvez continuer votre matin ou préciser votre demande."
-                : "That action is not available in the current moment. You can continue your morning or clarify the request.")
+            await memoryTask?.value
+            guard !Task.isCancelled, handsFreeContext == binding,
+                  cloudVoiceTurnIsCurrent(turn, generation: generation, sessionID: sessionID,
+                    languageGeneration: languageGeneration, modelConfiguration: modelConfiguration) else { return }
+            let answer: String
+            do {
+                answer = try await handsFreeVoice.conversation.answer(request, context: handsFreeMomentContext,
+                    language: voicePreparationLanguage, learnFromOwner: false)
+            } catch {
+                guard !(error is CancellationError), !Task.isCancelled, handsFreeContext == binding,
+                      cloudVoiceTurnIsCurrent(turn, generation: generation, sessionID: sessionID,
+                        languageGeneration: languageGeneration, modelConfiguration: modelConfiguration) else { return }
+                try? await speech.speakAndWait((error as? MorningVoiceConversationError ?? .failed).moreDescription)
+                return
+            }
+            guard !Task.isCancelled, handsFreeContext == binding,
+                  cloudVoiceTurnIsCurrent(turn, generation: generation, sessionID: sessionID,
+                    languageGeneration: languageGeneration, modelConfiguration: modelConfiguration) else { return }
+            try? await speech.speakAndWait(answer)
         }
         return true
     }

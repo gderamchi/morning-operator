@@ -123,6 +123,8 @@ public final class MoreLanguageModel {
     @ObservationIgnored private var credential: MoreModelCredential?
     private var credentialStorageFailed = false
     @ObservationIgnored private var generation = UUID()
+    /// Identifies the explicit route choice without exposing its credentials.
+    public var configurationID: UUID { generation }
     @ObservationIgnored private var pending: [UUID: Task<String, any Error>] = [:]
 
     public convenience init() {

@@ -22,6 +22,8 @@ The model has three client tools, with no provider action tools:
 
 Only one effect is accepted for a microphone event, even if the model emits multiple tool-call IDs. Service requests do not receive arbitrary backend tools or credentials. Pending requests suppress voice and captions until an app narration or a new actual microphone turn authorizes output again.
 
+Final microphone transcripts also reach MORE's existing personal-fact extractor, including outside a morning. It uses the already selected Apple model or the separately enabled OpenAI route; unavailable extraction leaves memory unchanged. Agent replies, approved narrations and service text never enter this learning callback. The raw saved-fact store is not added to Gemini's context; relevant facts can appear in the app's consented narrated answer. An app-delegated contextual answer uses the selected model and existing memory once, then follows the consented narration route; general OpenAI context excludes both sleep and other Health measurements. A new microphone turn, model choice, language, session or privacy generation rejects an outdated answer or pending memory update.
+
 ## Lifecycle
 
 Consent is memory-only and bound to the current session identity, including the absence of a morning, and privacy generation. Without an active morning, conversation and requested narrations remain available but effect tools are refused. Creating a new morning identity closes the existing conversation before its context can be uploaded; sharing does not transfer automatically to a new morning. Leaving the foreground, ending the morning, changing language, withdrawing Health, losing subscription access or forgetting local data stops the online owner and invalidates pending work. Hooks remain closed during asynchronous SDK release, preventing an accidental return to Apple speech while the online microphone is still owned. A manual dictation turn waits for release before taking the microphone.
@@ -30,6 +32,7 @@ The SDK's interruption method has no public cancellation acknowledgement or rend
 
 ## Evidence and remaining checks
 
+- Model/memory compatibility selection: **65 tests in five shared suites passed**, covering final microphone provenance, duplicate extraction, stale-turn narration, invalidated memory admission and exclusion of both sleep and other Health segments from general OpenAI context. Injected models/transports only; no provider call or microphone in this selection.
 - Shared lifecycle/output checks: 17 tests passed, including pending-output suppression, explicit reopening, duplicate-event protection and cancellation. Synthetic transports only; no microphone or provider call in those tests.
 - Real provider French test: private connection and clean close; 37 PCM chunks, about 14.7 seconds of synthetic audio. First audio arrived in 1.10 seconds; an approved narration and all three client tools were observed with synthetic IDs and no app effects.
 - Real provider English test: private connection and clean close; eight PCM chunks. First audio arrived in 0.96 seconds. No subscription change or blocking quota was encountered during these bounded checks.

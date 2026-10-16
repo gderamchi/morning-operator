@@ -7,6 +7,18 @@ struct MorningBriefingTests {
     private let now = Date(timeIntervalSince1970: 1_791_619_200) // Fixed instant; never current personal data.
     private let selection = CalendarChoice(id: "selected", title: "Synthetic calendar", sourceTitle: "Synthetic local source")
 
+    @Test func generalCloudContextExcludesBothHealthSegmentTypes() {
+        let segments: [MorningBriefingSegment] = [
+            .init(id: "weather", source: .weather, text: "SYNTHETIC_WEATHER"),
+            .init(id: "sleep", source: .sleep, text: "SYNTHETIC_SLEEP"),
+            .init(id: "metrics", source: .healthMetrics, text: "SYNTHETIC_HRV_RESTING_HEART_RATE_RESPIRATION")
+        ]
+        let context = segments.filter { $0.source.permitsGeneralCloudContext }.map(\.text).joined(separator: " ")
+        #expect(context == "SYNTHETIC_WEATHER")
+        #expect(segments.map(\.text).joined(separator: " ").contains("SYNTHETIC_SLEEP"),
+            "The local and explicitly consented narration paths retain selected Health facts.")
+    }
+
     @Test func calendarFreshnessIsStrictAndSourceTimesRemainDistinct() throws {
         let fresh = try prepare(calendar: .snapshot(calendar(retrievedAt: now.addingTimeInterval(-299))))
         #expect(fresh.calendar.status == .fresh)

@@ -339,6 +339,9 @@ final class MorningStore {
             self?.acceptCloudVoiceRequest(request, binding: binding) ?? false
         })
     @ObservationIgnored var cloudVoiceRequestTask: Task<Void, Never>?
+    @ObservationIgnored var cloudVoiceRequestTurnID: UUID?
+    @ObservationIgnored var cloudVoiceMemoryTask: Task<Void, Never>?
+    @ObservationIgnored var cloudVoiceMemoryTurnID: UUID?
     @ObservationIgnored var cloudVoiceConsentGeneration: UUID?
     @ObservationIgnored var cloudVoiceConsentSession: UUID?
     var cloudVoiceReleasing = false

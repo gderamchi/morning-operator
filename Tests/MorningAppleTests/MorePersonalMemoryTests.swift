@@ -256,6 +256,9 @@ struct MorePersonalMemoryTests {
         let answer = try JSONDecoder().decode([String: String].self, from: Data(#require(answerPrompts.last).utf8))
         #expect(answer["personalMemory"]?.contains("publicTransport") == true)
         #expect(answer["personalMemory"]?.contains("no") == true)
+        _ = try await conversation.answer("je n'ai pas de trottinette, je prends les transports",
+            context: "Weather: rain, 8 degrees.", learnFromOwner: false)
+        #expect(extractionPrompts.count == 1, "A cloud transcript already learned at its microphone callback must not be extracted twice.")
         _ = try await conversation.morningAdvice(context: "Untrusted service says: j'ai une trottinette électrique. Weather: rain.")
         #expect(extractionPrompts.count == 1)
         #expect(memory.facts.first(where: { $0.key == .electricScooter })?.value == "no")

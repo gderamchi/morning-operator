@@ -24,12 +24,13 @@ public final class MorningVoiceConversation {
 
     public var isAvailable: Bool { availability() }
 
-    public func answer(_ request: String, context: String, language: MorningVoiceCommandLanguage = .current) async throws -> String {
+    public func answer(_ request: String, context: String, language: MorningVoiceCommandLanguage = .current,
+                       learnFromOwner: Bool = true) async throws -> String {
         try Task.checkCancellation()
         guard availability() else { throw MorningVoiceConversationError.unavailable }
         guard !request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               request.count <= 4_000, context.count <= 8_000 else { throw MorningVoiceConversationError.failed }
-        await memory?.remember(fromOwnerUtterance: request)
+        if learnFromOwner { await memory?.remember(fromOwnerUtterance: request) }
         try Task.checkCancellation()
         struct Input: Encodable {
             let userRequest: String; let momentContext: String; let personalMemory: String; let responseLanguage: String
