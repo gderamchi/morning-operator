@@ -84,6 +84,12 @@ unproven, not classifier mistakes and not zero usage. All nine broad activities
 are expected to have at least one sample; no tap, send, exact foreground duration
 or implicit habit can be inferred from that fact.
 
+The unchanged realistic timeline's forecast misses `agenda-detail`,
+`gmail-choice`, `gmail-sent`, `news-list`, `feed-pause`, `reminder-edit`, `login`,
+`ambiguous` and `homonyms`. The accelerated forecast misses `gmail-list`,
+`feed-pause`, `reminder-edit` and `ambiguous`. A missing scene never gets marked
+as seen just because another scene from the same broad activity was sampled.
+
 ## Reproduce locally
 
 Already-installed Python with Pillow, ffmpeg and ffprobe are required. Nothing
@@ -100,6 +106,19 @@ ffprobe receipts, per-profile timelines, manifest hashes and two portable drafts
 An existing run is never overwritten. `--images-only`, `--languages fr` and
 `--profiles accelerated` bound an optional smaller generation. No server is
 started and no `.invalid` link is requested.
+
+Short negative diagnostics use a separate declared clock, for example:
+
+```sh
+python3 scripts/make-routine-fixture.py --run negative-more-v1 \
+  --scene more-front --scene-seconds 12
+```
+
+Repeat separately for `login`, `ambiguous` and `homonyms`. Each diagnostic has
+its own MP4, timeline, hash and `isIsolatedDiagnostic=true`. The default 12-second
+clip should yield six requested samples under the current policy. It never
+replaces or extends the long source's coverage. These controlled explicit
+examples establish neither general classifier accuracy nor ordinary service UI.
 
 The manifest records generator/scenario/oracle hashes, exact source revision,
 dirty status, movie hashes and ffprobe durations. Media bytes stay local and are
@@ -143,3 +162,56 @@ Paramètres/Settings are the entry points; commands and interaction live in
 Settings. This corpus introduces no permanent transcript, form or action panel.
 Physical voice/acoustics, account behavior and real external effects remain
 unverified by both synthetic paths.
+
+## First retained checkpoint — 16 October 2026
+
+The fixed corpus/oracle and portable drafts were pushed as `8242faf` and
+`3e0e7f0`. The two tracked portable JSON files can be consumed through
+`#filePath` by a separately coordinated Core contract test. No package test or
+app source was changed in this fixture worktree.
+
+- First render attempt `work/routine-fixture/long-v1/` stopped on the long
+  visible news URL instead of truncating it. Its failure receipt and incomplete
+  pictures remain local. Soft wrapping was corrected without changing source
+  text or any scene duration; the successful attempt used a new directory.
+- Immutable `work/routine-fixture/long-v1b/realistic-fr.mp4`: ffprobe **1,680.0s**,
+  6,054,068 bytes, five fps, no audio. SHA-256
+  `ae1e088bcb8230d027ecea57498c38afc9ce0901db5b28c8f40b34b0f2dcd683`.
+- Immutable `accelerated-fr.mp4` in the same directory: **180.0s**, 2,070,883
+  bytes, five fps, no audio. SHA-256
+  `828554d4ae2ecd75b0a286432c0e572fb7992c2c2f4c068026f6f97e012860fe`.
+- The source's scenario/oracle hashes and generator hash are retained in its
+  final `manifest.json`. Later script fixes do not retroactively change that
+  receipt or its movie bytes. The eight isolated FR/EN negative clips each
+  finalized at **12.0s**, five fps, no audio; their absolute paths and hashes are
+  indexed in ignored `work/routine-fixture/negative-assets-v1.json`.
+- An independent FFmpeg decode retained frames with actual PTS **0, 300 and
+  700 seconds** in `work/routine-fixture/pixel-review-v1/`. Visual inspection
+  confirmed the MORE text, corrected eight-green-card Gmail draft and attributed
+  article. This is a pixel review, not OCR, inference or action validation.
+
+Root then ran the existing **real Vision extraction** against the complete
+1,680-second movie: 24 observed samples, 260 OCR lines, no truncated sample, no
+missing actual timestamp, 19.650s test time. The retained report is
+`work/routine-fixture-validation/vision-realistic-fr-v1.json` in the acceptance
+worktree, with `score-vision-realistic-fr-v1.json` from the separate scorer.
+
+The actual samples cover **18 of 27 scenes**, missing exactly the nine scenes
+forecast above. **17 of 18 sampled literal checkpoints** match; across the whole
+source there are still **27 checkpoints**, not 18. The real OCR error is preserved:
+at actual PTS 1,387.6 and 1,460.6, `cinq feuilles` was recognized as `cind feuilles`.
+The oracle and matcher were not altered to accept that mistake. These are literal
+checkpoint counts, not overall OCR character accuracy or semantic fact accuracy.
+
+That extraction-only scorer correctly exits **4**, with classification `not-run`.
+Root is coordinating the separate actual local-model attempt without the oracle
+or a fixture catalogue. Its result is not assessed by this checkpoint, and no
+unavailable/failed generation is replaced with oracle output.
+
+Current generator revisions also provide a separate corrected offline DOM in
+`work/routine-fixture/offline-news-v2/`: FR/EN lists each contain three actual
+anchors, with ordinal two pointing at the frozen article URL. Only static markup
+was checked; no browser, HTTPS response, article navigation or return occurred.
+This directory does not mutate the earlier long movie or its manifest. Runtime
+browser, voice, approval, privacy and simulated-effect assertions remain for the
+explicit downstream adapter, followed by separate real-provider validation.

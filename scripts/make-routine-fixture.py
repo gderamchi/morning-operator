@@ -167,8 +167,15 @@ def pages(scenario, language, destination):
     article = common + f'<article><h1>{title}</h1><p>Camille Vernet · Cedar News</p>'
     article += ''.join('<p>' + html.escape(part.strip()) + '.</p>' for part in source['articleBody'][language].split('.') if part.strip())
     (destination / 'reading-corner.html').write_text(article + '</article>', encoding='utf-8')
-    listing = common + '<h1>Cedar News</h1><h2>1 · Greenhouse seedlings</h2>'
-    listing += f'<h2><a href="{html.escape(source["origin"] + source["articlePath"])}">2 · {title}</a></h2><h2>3 · Workshop maps</h2>'
+    listing = common + '<h1>Cedar News</h1><ol>'
+    headlines = next(scene for scene in scenario['scenes'] if scene['id'] == 'news-list')['blocks']
+    for index, block in enumerate(headlines, start=1):
+        text = block['heading'][language].split(' · ', maxsplit=1)[-1]
+        # All three observed anchors exist. Only the declared second article has
+        # a body; other synthetic routes require an honest unavailable response.
+        path = source['articlePath'] if index == 2 else f'/unavailable/{index}'
+        listing += f'<li><h2><a href="{html.escape(source["origin"] + path)}">{html.escape(text)}</a></h2></li>'
+    listing += '</ol>'
     (destination / 'index.html').write_text(listing, encoding='utf-8')
 
 
@@ -181,6 +188,7 @@ def render_movie(tool, probe, timeline, destination, fps):
             output.write(f"file '{path}'\nduration {scene['endSeconds'] - scene['startSeconds']}\n")
         output.write(f"file '{timeline[-1]['image']}'\n")
     subprocess.run([tool, '-hide_banner', '-loglevel', 'error', '-nostdin', '-n', '-threads', '1',
+                    '-filter_threads', '1', '-filter_complex_threads', '1',
                     '-f', 'concat', '-safe', '0', '-i', str(concat), '-vf', f'fps={fps}',
                     '-t', str(timeline[-1]['endSeconds']), '-an', '-c:v', 'libx264',
                     '-threads', '1', '-preset', 'ultrafast', '-tune', 'stillimage', '-crf', '28',
@@ -224,6 +232,7 @@ def main():
                     scenarioSHA256=digest(CORPUS / 'scenario.json'), oracleSHA256=digest(CORPUS / 'expected-parsed.json'),
                     sourceGitRevision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                     sourceGitDirty=bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip()),
+                    stageStatusScope='At generation only; later real pipeline results are separate immutable reports.',
                     createdAt=datetime.now(timezone.utc).isoformat(), output=str(out), timelines=[], movies=[],
                     stageStatus=dict(rendering='in-progress', nativeCapture='not-run', realOCR='not-run',
                                      realClassification='not-run', directOracleImport='not-run', runtimeEffects='not-run'),

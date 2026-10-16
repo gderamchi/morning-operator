@@ -108,6 +108,105 @@ struct ObservationContextClassifierTests {
         #expect(report.apps.first?.app.key == "visual-context:cedar mail")
     }
 
+    @Test("Literal punctuated headers remain visual evidence with their original citations")
+    func literalPunctuatedHeaders() throws {
+        for (raw, canonical) in [
+            ("Cedar News • Browser SIMULATED", "cedar news • browser simulated"),
+            ("Cedar News · Browser SIMULATED", "cedar news · browser simulated"),
+            ("Boreal — Actualités", "boreal — actualites"),
+            ("Atelier – Édition du matin", "atelier – edition du matin")
+        ] {
+            let source = try frame("Recording metadata\nFrench\n\(raw)\nFriday 16 October\nCurrent reading", at: 4)
+            let input = try ObservationContextValidation.prepare(frames: [source], catalog: [])
+            let batch = try #require(input.batches.first)
+            let result = ObservationContextValidation.validate(json: try json([proposal(source, label: raw)]),
+                batch: batch, catalog: [])
+            let decision = try #require(result.decisions.first)
+            #expect(decision.evidence == .identified(app: .init(key: "visual-context:\(canonical)", displayName: canonical),
+                reference: source.evidenceReference))
+            #expect(decision.evidenceQuote == raw)
+            #expect(result.diagnostics.isEmpty)
+            #expect(input.frames[0].text == source.text, "No source line, separator or qualifier is rewritten.")
+        }
+    }
+
+    @Test("A punctuated header cannot be shortened, repaired or cited from omitted body text")
+    func punctuatedQuotesStayStrict() throws {
+        let raw = "Cedar News • Browser SIMULATED"
+        let source = try frame(raw + "\nArticle title", at: 0)
+        let batch = try #require(ObservationContextValidation.prepare(frames: [source], catalog: []).batches.first)
+        for (label, quote) in [("Cedar News", raw), (raw, "Cedar News"),
+                               (raw, "Cedar News · Browser SIMULATED"),
+                               (raw, "Cedar News Browser SIMULATED")] {
+            let result = ObservationContextValidation.validate(json: try json([proposal(source, label: label, quote: quote)]),
+                batch: batch, catalog: [])
+            #expect(result.decisions[0].evidence == .unknown)
+            #expect(!result.diagnostics.isEmpty)
+        }
+        let body = try frame("One\nTwo\nThree\nFour\nFive\nSix\n" + raw, at: 1)
+        let bodyBatch = try #require(ObservationContextValidation.prepare(frames: [body], catalog: []).batches.first)
+        let result = ObservationContextValidation.validate(json: try json([proposal(body, label: raw)]),
+            batch: bodyBatch, catalog: [])
+        #expect(result.decisions[0].evidence == .unknown)
+        #expect(result.diagnostics.contains { $0.kind == .invalidEvidence })
+    }
+
+    @Test("Header punctuation does not admit identifiers, URLs, controls or an invented login brand")
+    func punctuationDoesNotBroadenIdentitySyntax() throws {
+        for raw in ["com.apple.mobilemail", "https://mail.example.invalid", "Mail/Inbox", "Mail@example",
+                    "Mail: Inbox", "<Mail>", "Mail\u{202e}", "Mail\u{200b}", String(repeating: "M", count: 81) + "•"] {
+            let source = try frame(raw + "\nInbox", at: 0)
+            let batch = try #require(ObservationContextValidation.prepare(frames: [source], catalog: []).batches.first)
+            let result = ObservationContextValidation.validate(json: try json([proposal(source, label: raw)]),
+                batch: batch, catalog: [])
+            #expect(result.decisions[0].evidence == .unknown)
+            #expect(result.diagnostics.contains { $0.kind == .unsupportedIdentity })
+        }
+        let login = try frame("Sign in\nEmail address\nPassword", at: 0)
+        let batch = try #require(ObservationContextValidation.prepare(frames: [login], catalog: []).batches.first)
+        let invented = ObservationContextValidation.validate(json: try json([
+            proposal(login, label: "Morning Mail • Personal", quote: "Sign in")
+        ]), batch: batch, catalog: [])
+        #expect(invented.decisions[0].evidence == .unknown)
+        let abstained = ObservationContextValidation.validate(json: try json([
+            proposal(login, label: "", quote: "", outcome: "unknown")
+        ]), batch: batch, catalog: [])
+        #expect(abstained.decisions[0].evidence == .unknown && abstained.diagnostics.isEmpty)
+    }
+
+    @Test("Provenance text cannot resolve competing punctuated catalog brands or namesake headers")
+    func punctuatedCatalogCompetitionRemainsUnknown() throws {
+        let entries = [ObservationContextCatalogEntry(label: "Morning Mail · Personal"),
+                       ObservationContextCatalogEntry(label: "Garden Calendar — Shared")]
+        let oneHeader = "• Morning Mail · Personal"
+        let oneSource = try frame("Recording metadata\nFrench\n" + oneHeader + "\nInbox", at: 0)
+        let oneBatch = try #require(ObservationContextValidation.prepare(frames: [oneSource], catalog: entries).batches.first)
+        let oneResult = ObservationContextValidation.validate(json: try json([
+            proposal(oneSource, label: entries[0].label, quote: oneHeader)
+        ]), batch: oneBatch, catalog: entries)
+        #expect(oneResult.decisions[0].evidence == .identified(app: .init(
+            key: "visual-context:morning mail · personal", displayName: entries[0].label), reference: oneSource.evidenceReference))
+        #expect(oneResult.decisions[0].evidenceQuote == oneHeader)
+        let raw = "• Morning Mail · Personal\n< Garden Calendar — Shared"
+        let source = try frame("Recording metadata\nFrench\n" + raw + "\nToday", at: 0)
+        let batch = try #require(ObservationContextValidation.prepare(frames: [source], catalog: entries).batches.first)
+        for (entry, quote) in zip(entries, raw.split(separator: "\n").map(String.init)) {
+            let result = ObservationContextValidation.validate(json: try json([proposal(source, label: entry.label, quote: quote)]),
+                batch: batch, catalog: entries)
+            #expect(result.decisions[0].evidence == .unknown)
+            #expect(result.diagnostics.contains { $0.kind == .unsupportedIdentity })
+        }
+        let ambiguous = ObservationContextValidation.validate(json: try json([
+            proposal(source, label: "", quote: raw, outcome: "ambiguous")
+        ]), batch: batch, catalog: entries)
+        #expect(ambiguous.decisions[0].evidence == .ambiguous(reference: source.evidenceReference))
+        let namesakes = [ObservationContextCatalogEntry(label: "Journal · Personal", headerText: "Journal"),
+                         ObservationContextCatalogEntry(label: "Journal · Work", headerText: "Journal")]
+        #expect(throws: ObservationContextClassificationError.invalidCatalog) {
+            try ObservationContextValidation.prepare(frames: [source], catalog: namesakes)
+        }
+    }
+
     @Test("Blank, failed, truncated and overlong first-line frames survive as unknown with original times")
     func excludedFramesArePreserved() throws {
         let frames = try [
