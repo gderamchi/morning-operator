@@ -14,6 +14,10 @@ export class D1Storage {
     const row = await this.session().prepare('SELECT user_id FROM installations WHERE token_hash = ?').bind(tokenHash).first();
     return row ? { userID: row.user_id } : null;
   }
+  async requestVoiceActivation(userID) {
+    const result = await this.session().prepare('INSERT INTO voice_activation_requests (user_id) VALUES (?) ON CONFLICT (user_id) DO UPDATE SET requested_at = CURRENT_TIMESTAMP').bind(userID).run();
+    if (!result.success) throw new Error('Voice activation could not be requested.');
+  }
   async getCatalog(slug, version) {
     return this.session().prepare('SELECT payload_json FROM public_catalogs WHERE toolkit_slug = ? AND toolkit_version = ?').bind(slug, version).first('payload_json');
   }

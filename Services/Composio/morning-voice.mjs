@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 // Long-lived credentials stay on the server. The mobile app receives one WebRTC token.
 export async function morningVoiceToken(config, userID, fetcher = fetch) {
   if (!config?.apiKey || !config?.agentID || !config.installations?.includes(userID)) {
@@ -8,7 +10,7 @@ export async function morningVoiceToken(config, userID, fetcher = fetch) {
     url.searchParams.set('agent_id', config.agentID);
     const response = await fetcher(url, {
       method: 'GET', headers: { 'xi-api-key': config.apiKey },
-      redirect: 'error', signal: AbortSignal.timeout(10_000),
+      redirect: 'manual', signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok || !response.body) throw new Error('Voice token unavailable');
     const reader = response.body.getReader();
