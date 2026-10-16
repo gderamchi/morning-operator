@@ -11,6 +11,25 @@ struct SyntheticOpenAIComparisonTests {
     private static let allowedReportSHA256 = "fcad0666217a3638c6e786d88a9554a98285448e2539f9c0ad08a4cb7c536e20"
     private static let allowedMovieSHA256 = "82d0dd41e50654186b7848b6463aebdd1e1013977a6da2bab4593f98d3a67815"
 
+    @Test func localInputRefusesSymbolicLinksAndOversizedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("MoreSyntheticInput-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                                               attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("input.json"), link = directory.appendingPathComponent("alias.json")
+        try Data("{}".utf8).write(to: file)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        #expect(try Self.readPrivateFile(file.path, maximumBytes: 1_024, failure: .invalidInputFile) == Data("{}".utf8))
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+        #expect(throws: ComparisonFailure.invalidInputFile) {
+            try Self.readPrivateFile(link.path, maximumBytes: 1_024, failure: .invalidInputFile)
+        }
+        try Data(repeating: 65, count: 1_025).write(to: file)
+        #expect(throws: ComparisonFailure.invalidInputFile) {
+            try Self.readPrivateFile(file.path, maximumBytes: 1_024, failure: .invalidInputFile)
+        }
+    }
+
     @Test @MainActor func egressRequiresTheExactPreparedTextAndSchema() throws {
         let prompt = "Invented OCR task: review a fictional agenda."
         let instructions = "Test-only instructions."
@@ -58,8 +77,8 @@ struct SyntheticOpenAIComparisonTests {
         var client: MoreLanguageModel?
         defer { try? client?.forget(); storage.clear() }
         do {
-            let data = try Data(contentsOf: input)
-            guard data.count <= 1_024 * 1_024, Self.digest(data) == Self.allowedReportSHA256 else { throw ComparisonFailure.unapprovedInput }
+            let data = try Self.readPrivateFile(input.path, maximumBytes: 1_024 * 1_024, failure: .invalidInputFile)
+            guard Self.digest(data) == Self.allowedReportSHA256 else { throw ComparisonFailure.unapprovedInput }
             let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
             let source = try decoder.decode(FrozenInput.self, from: data), acquisition = source.acquisition
             guard source.schemaVersion == 2, source.mode == nil,
@@ -132,17 +151,23 @@ struct SyntheticOpenAIComparisonTests {
     }
     private static func readProtectedKey(_ path: String?) throws -> String {
         guard let path, path.hasPrefix("/") else { throw ComparisonFailure.credentialUnavailable }
-        let descriptor = Darwin.open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
-        guard descriptor >= 0 else { throw ComparisonFailure.credentialUnavailable }
-        let file = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true); defer { try? file.close() }
-        var info = stat()
-        guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG, info.st_uid == getuid(),
-              info.st_mode & 0o077 == 0, info.st_size > 0, info.st_size <= 1_024,
-              let bytes = try file.read(upToCount: 1_025), bytes.count <= 1_024,
-              let key = String(data: bytes, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+        let bytes = try readPrivateFile(path, maximumBytes: 1_024, failure: .credentialUnavailable)
+        guard let key = String(data: bytes, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
             throw ComparisonFailure.credentialUnavailable
         }
         return key
+    }
+    private static func readPrivateFile(_ path: String, maximumBytes: Int, failure: ComparisonFailure) throws -> Data {
+        let descriptor = Darwin.open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard descriptor >= 0 else { throw failure }
+        let file = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true); defer { try? file.close() }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG, info.st_uid == getuid(),
+              info.st_mode & 0o077 == 0, info.st_size > 0, info.st_size <= Int64(maximumBytes),
+              let bytes = try file.read(upToCount: maximumBytes + 1), bytes.count <= maximumBytes else {
+            throw failure
+        }
+        return bytes
     }
     private static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
     private static func category(_ error: any Error) -> String {
@@ -188,4 +213,4 @@ private struct ComparisonReport: Encodable {
     var fingerprint: ObservationFileFingerprint?, acquisition: ObservationAcquisition?, videoEvidence: ObservationVideoEvidence?
     var proposal: EvidenceRoutineProposal?
 }
-private enum ComparisonFailure: String, Error { case invalidPath, unapprovedInput, egressRefused, credentialUnavailable, invalidProposal, reportNotSaved, failed }
+private enum ComparisonFailure: String, Error { case invalidPath, invalidInputFile, unapprovedInput, egressRefused, credentialUnavailable, invalidProposal, reportNotSaved, failed }
