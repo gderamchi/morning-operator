@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import MorningCore
+import MorningApple
 
 struct LearnView: View {
     @Bindable var store: MorningStore
@@ -97,10 +98,20 @@ struct LearnView: View {
                         Text(observation.sourceLabel).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("learn.observationSource")
                     }
-                    notesEditor
+                    if let observation = store.selectedObservation, store.observationVideoEvidence != nil,
+                       case let openings = ObservationAppTimeline.openings(for: observation), !openings.isEmpty {
+                        // A recording reads as the apps it opened; the raw screen text stays
+                        // available to correct, folded away.
+                        appOpenings(openings)
+                        DisclosureGroup("Text read on screen") { notesEditor.padding(.top, 8) }
+                            .font(.subheadline).tint(MorningStyle.accent)
+                    } else {
+                        notesEditor
+                    }
                     if let evidence = store.observationVideoEvidence {
                         ObservationEvidenceView(evidence: evidence,
                             classification: store.observationContextClassification,
+                            acquisition: store.selectedObservation,
                             isBusy: store.busy, canAnalyze: !store.sessionActive,
                             analyze: store.recognizeObservationScreens)
                     }
@@ -127,6 +138,10 @@ struct LearnView: View {
                 DisclosureGroup("About on-device learning") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.modelSummary)
+                        Text(store.canRecognizeAppsInImages
+                             ? String(localized: "App recognition in screen recordings: available on this device.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                             : String(localized: "App recognition in screen recordings: unavailable here. Apps can still come from your Shortcuts automations or your labels.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                            .accessibilityIdentifier("setup.imageAppRecognition")
                         Text("Each observation is saved on this device, with its original text and your corrections kept separately. Find earlier observations in Review. Clear this observation removes its original, corrections, sampled text and screen interpretation. Evidence already attached to a saved routine remains with it.")
                         Text("A recording is sampled at up to 24 moments, so short clips work best and quick actions may be missed. Visible text helps suggest a routine; it doesn't reveal every tap or intention.")
                         Text("Analysis uses Apple's on-device model when available. It doesn't run other apps or approve a routine for you.")
@@ -342,6 +357,19 @@ struct LearnView: View {
                 }
             }
         }
+    }
+
+    private func appOpenings(_ openings: [ObservationAppOpening]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(openings) { opening in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(opening.wallClock.map { $0.formatted(.dateTime.hour().minute().locale(AppLanguage.locale)) }
+                         ?? String(format: "%d:%02d", Int(opening.timeSeconds) / 60, Int(opening.timeSeconds) % 60))
+                        .monospacedDigit().foregroundStyle(MorningStyle.muted)
+                    Text("Opened \(opening.app.displayName)").foregroundStyle(MorningStyle.ink)
+                }.font(.raleway(.subheadline))
+            }
+        }.accessibilityElement(children: .combine).accessibilityIdentifier("learn.appOpenings")
     }
 
     private func sectionTitle(_ title: String, symbol: String) -> some View {

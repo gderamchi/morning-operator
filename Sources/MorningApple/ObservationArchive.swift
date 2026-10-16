@@ -137,6 +137,9 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
     public let classification: ObservationContextClassification?
     /// User reviews override the projection only; original model output remains separate.
     public let frameReviews: [ObservationFrameReview]
+    /// Apps attributed to sampled frames by Shortcuts timing or the on-device image model.
+    /// Separate from quoted text interpretations; at most one signal per frame and source.
+    public let appSignals: [ObservationFrameAppSignal]
     public let warnings: [ObservationAcquisitionWarning]
     /// Set when this observation is one segment of a longer recording session. Entries
     /// sharing its `sessionID` are one recording kept as several files, in index order.
@@ -160,7 +163,8 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                 sessionSegment: ObservationSessionSegmentReference? = nil,
                 windowCapture: ObservationWindowCapture? = nil,
                 browserLearning: BrowserLearningTrace? = nil,
-                screenTimeEvidence: ScreenTimeObservationEvidence? = nil) throws {
+                screenTimeEvidence: ScreenTimeObservationEvidence? = nil,
+                appSignals: [ObservationFrameAppSignal] = []) throws {
         guard (sourceKind == .screenTime) == (screenTimeEvidence != nil) else { throw ObservationArchiveError.invalidSource }
         if let report = screenTimeEvidence {
             try report.validate()
@@ -201,6 +205,8 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
             }
         }
         try Self.validateFrameReviews(frameReviews, evidence: videoEvidence, correctedText: correctedText)
+        try Self.validateAppSignals(appSignals, evidence: videoEvidence)
+        self.appSignals = appSignals
         let frameOrder = Dictionary(uniqueKeysWithValues: (videoEvidence?.frames ?? []).enumerated().map { ($0.element.id, $0.offset) })
         self.frameReviews = frameReviews.sorted { frameOrder[$0.sampleID, default: 0] < frameOrder[$1.sampleID, default: 0] }
         self.id = id
@@ -289,6 +295,20 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
         }
     }
 
+    private static func validateAppSignals(_ signals: [ObservationFrameAppSignal],
+                                           evidence: ObservationVideoEvidence?) throws {
+        guard !signals.isEmpty else { return }
+        guard let evidence, signals.count <= evidence.frames.count * ObservationAppSignalSource.allCases.count else {
+            throw ObservationArchiveError.invalidFrameReview
+        }
+        let frames = Dictionary(uniqueKeysWithValues: evidence.frames.map { ($0.id, $0) })
+        var seen = Set<String>()
+        for signal in signals {
+            guard seen.insert(signal.id).inserted, let frame = frames[signal.sampleID],
+                  frame.outcome != .decodeFailed else { throw ObservationArchiveError.invalidFrameReview }
+        }
+    }
+
     private static func recordingContextIsValid(_ context: ObservationRecordingContext,
                                                 sourceKind: ObservationAcquisitionSourceKind) -> Bool {
         guard sourceKind == .video else { return false }
@@ -334,7 +354,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                   correctedText: correctedText, videoEvidence: videoEvidence,
                   classification: classification, warnings: warnings, recordingContext: recordingContext,
                   frameReviews: frameReviews ?? self.frameReviews, sessionSegment: sessionSegment,
-                  windowCapture: windowCapture, browserLearning: browserLearning, screenTimeEvidence: screenTimeEvidence)
+                  windowCapture: windowCapture, browserLearning: browserLearning, screenTimeEvidence: screenTimeEvidence, appSignals: appSignals)
     }
 
     fileprivate func declaring(_ capture: ObservationWindowCapture) throws -> Self {
@@ -343,7 +363,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                   correctedText: correctedText, videoEvidence: videoEvidence,
                   classification: classification, warnings: warnings, recordingContext: recordingContext,
                   frameReviews: frameReviews, sessionSegment: sessionSegment, windowCapture: capture,
-                  browserLearning: browserLearning, screenTimeEvidence: screenTimeEvidence)
+                  browserLearning: browserLearning, screenTimeEvidence: screenTimeEvidence, appSignals: appSignals)
     }
 
     /// Derived interpretation can be discarded independently of valid source. Exact source
@@ -418,6 +438,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
         for review in frameReviews { total += (review.label?.utf8.count ?? 0) + (review.evidenceQuote?.utf8.count ?? 0) }
         if let browserLearning { total += (try? JSONEncoder().encode(browserLearning).count) ?? 0 }
         if let screenTimeEvidence { total += (try? JSONEncoder().encode(screenTimeEvidence).count) ?? 0 }
+        for signal in appSignals { total += signal.app.displayName.utf8.count }
         return total
     }
     fileprivate var lineCount: Int { videoEvidence?.frames.reduce(0) { $0 + ($1.ocrLines?.count ?? 0) } ?? 0 }
@@ -425,7 +446,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
     private enum CodingKeys: String, CodingKey {
         case id, importedAt, fileSHA256, observedDate, origin, sourceKind, sourceLabel, originalText
         case correctedText, videoEvidence, classification, warnings, recordingContext, frameReviews, windowCapture
-        case sessionSegment, browserLearning, screenTimeEvidence
+        case sessionSegment, browserLearning, screenTimeEvidence, appSignals
     }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -473,6 +494,12 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
             restoredClassification = nil
             if !warnings.contains(.invalidFrameReviewsRemoved) { warnings.append(.invalidFrameReviewsRemoved) }
         }
+        // Signals are derived; unreadable or unsupported ones are dropped, never the source.
+        let decodedSignals = (try? values.decodeIfPresent([ObservationFrameAppSignal].self, forKey: .appSignals)) ?? nil
+        let restoredSignals: [ObservationFrameAppSignal]
+        if let decodedSignals, (try? Self.validateAppSignals(decodedSignals, evidence: videoEvidence)) != nil {
+            restoredSignals = decodedSignals
+        } else { restoredSignals = [] }
         try self.init(id: values.decode(UUID.self, forKey: .id),
                       importedAt: values.decodeIfPresent(Date.self, forKey: .importedAt),
                       fileSHA256: values.decodeIfPresent(String.self, forKey: .fileSHA256),
@@ -491,7 +518,7 @@ public struct ObservationAcquisition: Codable, Identifiable, Sendable, Equatable
                           ? (try? values.decodeIfPresent(ObservationSessionSegmentReference.self, forKey: .sessionSegment))
                           : nil,
                       windowCapture: restoredCapture, browserLearning: restoredBrowserLearning,
-                      screenTimeEvidence: values.decodeIfPresent(ScreenTimeObservationEvidence.self, forKey: .screenTimeEvidence))
+                      screenTimeEvidence: values.decodeIfPresent(ScreenTimeObservationEvidence.self, forKey: .screenTimeEvidence), appSignals: restoredSignals)
     }
 }
 
@@ -588,7 +615,9 @@ public struct ObservationArchive: Codable, Sendable, Equatable {
             sourceKind: current.sourceKind, sourceLabel: current.sourceLabel, originalText: current.originalText,
             correctedText: current.correctedText, videoEvidence: current.videoEvidence,
             classification: current.classification, warnings: current.warnings, recordingContext: context,
-            frameReviews: current.frameReviews, sessionSegment: current.sessionSegment)
+            frameReviews: current.frameReviews, sessionSegment: current.sessionSegment,
+            windowCapture: current.windowCapture, browserLearning: current.browserLearning,
+            screenTimeEvidence: current.screenTimeEvidence, appSignals: current.appSignals)
         guard current.recordingContext == nil else { return false }
         try replace(enriched)
         return true
