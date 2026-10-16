@@ -164,6 +164,9 @@ public final class ConnectedMomentState {
         else { phase = .idle }
     }
 
+    /// Retain verified facts and effect receipts; only generated prose needs re-rendering.
+    public func invalidateSummaryForLanguageChange() { document?.summary = nil }
+
     public func clear() {
         attemptID = nil; document = nil; executionID = nil
         wasDispatched = false; effectConfirmed = false; phase = .idle

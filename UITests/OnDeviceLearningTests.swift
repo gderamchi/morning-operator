@@ -103,7 +103,7 @@ final class OnDeviceLearningTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
             "--ui-testing-workspace=\(UUID().uuidString)"]
         if useSyntheticProposal { app.launchArguments.append("--ui-testing-evidence-proposals") }
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 

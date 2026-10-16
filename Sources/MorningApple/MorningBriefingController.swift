@@ -64,11 +64,11 @@ public enum MorningBriefingControllerError: Error, LocalizedError, Sendable, Equ
 
     public var errorDescription: String? {
         switch self {
-        case .invalidSettings: String(localized: "Choose valid calendars and a city for the briefing.", bundle: .module)
-        case .unreadableSettings: String(localized: "Saved briefing settings couldn't be read. Reset them to choose sources again.", bundle: .module)
-        case .staleGeneration: String(localized: "Local data changed. Reopen briefing settings before continuing.", bundle: .module)
-        case .timedOut: String(localized: "The source took too long to respond. Your morning can continue without it.", bundle: .module)
-        case .settingsTooLarge: String(localized: "These briefing choices are too large to save. Your previous choices are unchanged. Choose fewer calendars.", bundle: .module)
+        case .invalidSettings: String(localized: "Choose valid calendars and a city for the briefing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .unreadableSettings: String(localized: "Saved briefing settings couldn't be read. Reset them to choose sources again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .staleGeneration: String(localized: "Local data changed. Reopen briefing settings before continuing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .timedOut: String(localized: "The source took too long to respond. Your morning can continue without it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .settingsTooLarge: String(localized: "These briefing choices are too large to save. Your previous choices are unchanged. Choose fewer calendars.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }
@@ -105,7 +105,12 @@ public final class MorningBriefingController {
         settings.usesCurrentLocation ? (deviceLocation.authorization == .authorized ? resolvedLocation : nil) : settings.weatherLocation
     }
     public var locationAuthorization: WeatherLocationAuthorization { deviceLocation.authorization }
-    public private(set) var locationIssue: String?
+    public var locationIssue: String? {
+        if let error = locationError as? WeatherDeviceLocationError {
+            return error.message(locale: Locale(identifier: localeIdentifier))
+        }
+        return locationError?.moreDescription
+    }
     /// The same memory-only observation used by the briefing, admitted for the
     /// currently selected city. Reading it never contacts the provider.
     public var currentWeatherSnapshot: WeatherObservationSnapshot? {
@@ -151,6 +156,7 @@ public final class MorningBriefingController {
     @ObservationIgnored private let calendar: CalendarObservationService
     @ObservationIgnored private let deviceLocation: any WeatherDeviceLocationProviding
     private var resolvedLocation: WeatherLocation?
+    private var locationError: (any Error)?
     @ObservationIgnored private var locationResolvedAt: Date?
     @ObservationIgnored private var locationTask: Task<Void, Never>?
     @ObservationIgnored private var locationAttempt: UUID?
@@ -160,7 +166,7 @@ public final class MorningBriefingController {
     @ObservationIgnored private let file: AtomicJSONFile<MorningBriefingSettings>
     @ObservationIgnored private let now: @Sendable () -> Date
     @ObservationIgnored private let timeZone: @Sendable () -> TimeZone
-    @ObservationIgnored private let localeIdentifier: String
+    private var localeIdentifier: String
     @ObservationIgnored private let policy: MorningBriefingFreshnessPolicy
     @ObservationIgnored private let sourceTimeout: Duration
     @ObservationIgnored private let suggestionDelay: Duration
@@ -220,6 +226,21 @@ public final class MorningBriefingController {
         reloadSettings()
     }
 
+    /// Invalidates only prepared prose and local read work; source choices remain saved.
+    public func appLanguageDidChange(locale: Locale = AppLanguage.locale) {
+        localeIdentifier = locale.identifier
+        // Only the native provider creates this app-owned label; city/provider names stay exact.
+        if deviceLocation is WeatherDeviceLocation, let location = resolvedLocation {
+            resolvedLocation = try? WeatherLocation(latitude: location.latitude, longitude: location.longitude,
+                displayName: WeatherDeviceLocation.currentLocationName(locale: locale))
+        }
+        invalidateWork(clearChoices: false)
+        if settingsRecoveryError != nil {
+            settingsRecoveryError = MorningBriefingControllerError.unreadableSettings.moreDescription
+            errorMessage = settingsRecoveryError
+        } else { errorMessage = nil }
+    }
+
     /// Explicitly rereads connection choices after a completed local-data reset.
     /// Corrupt/future/unsafe files remain intact and block ordinary updates.
     public func reloadSettings() {
@@ -237,7 +258,7 @@ public final class MorningBriefingController {
             errorMessage = nil
         } catch {
             settings = .init()
-            settingsRecoveryError = MorningBriefingControllerError.unreadableSettings.localizedDescription
+            settingsRecoveryError = MorningBriefingControllerError.unreadableSettings.moreDescription
             errorMessage = settingsRecoveryError
         }
     }
@@ -280,7 +301,7 @@ public final class MorningBriefingController {
     /// The suggestion source forgets its earlier typing as well.
     public func cancelAndClear() {
         cancelLocationRequest()
-        resolvedLocation = nil; locationResolvedAt = nil; locationIssue = nil
+        resolvedLocation = nil; locationResolvedAt = nil; locationError = nil
         invalidateWork(clearChoices: true)
     }
 
@@ -304,7 +325,7 @@ public final class MorningBriefingController {
             await resolveCurrentLocationIfNeeded(force: true)
             return currentWeatherLocation != nil
         } catch {
-            if !(error is CancellationError) { locationIssue = error.localizedDescription }
+            if !(error is CancellationError) { locationError = error }
             return false
         }
     }
@@ -315,7 +336,7 @@ public final class MorningBriefingController {
         guard deviceLocation.authorization == .authorized else {
             if resolvedLocation != nil { invalidateWork(clearChoices: false) }
             resolvedLocation = nil; locationResolvedAt = nil
-            if deviceLocation.authorization == .denied { locationIssue = WeatherDeviceLocationError.denied.localizedDescription }
+            if deviceLocation.authorization == .denied { locationError = WeatherDeviceLocationError.denied }
             return
         }
         if let task = locationTask { await task.value; return }
@@ -339,11 +360,11 @@ public final class MorningBriefingController {
                     return hypot(latitudeMeters, longitudeMeters) >= 1_000
                 } ?? true
                 if moved { invalidateWork(clearChoices: false); resolvedLocation = location }
-                locationResolvedAt = now(); locationIssue = nil
+                locationResolvedAt = now(); locationError = nil
             } catch {
                 guard locationAttempt == id, revision == expectedRevision else { return }
                 if !(error is CancellationError) {
-                    locationIssue = error.localizedDescription
+                    locationError = error
                     // A failed new fix must not masquerade as a current position.
                     resolvedLocation = nil; locationResolvedAt = now()
                     invalidateWork(clearChoices: false)
@@ -550,7 +571,7 @@ public final class MorningBriefingController {
                 guard revision == expectedRevision, searchAttempt == attempt else { return nil }
                 try withCurrentAccess { }
                 guard let location else {
-                    errorMessage = WeatherObservationError.searchUnavailable.localizedDescription
+                    errorMessage = WeatherObservationError.searchUnavailable.moreDescription
                     return nil
                 }
                 searchAttempt = nil; searchTask = nil; isSearchingCities = false
@@ -608,7 +629,7 @@ public final class MorningBriefingController {
         guard prepareForAccess(), !Task.isCancelled else { return nil }
         let instant = date ?? now(), zone = timeZone()
         guard instant.timeIntervalSinceReferenceDate.isFinite else {
-            cancelAndClear(); errorMessage = MorningBriefingError.invalidDate.localizedDescription; return nil
+            cancelAndClear(); errorMessage = MorningBriefingError.invalidDate.moreDescription; return nil
         }
         var dayCalendar = Calendar(identifier: .gregorian); dayCalendar.timeZone = zone
         let key = PreparationKey(settings: settings, weatherLocation: currentWeatherLocation, dayStart: dayCalendar.startOfDay(for: instant),
@@ -698,7 +719,7 @@ public final class MorningBriefingController {
                     sleepPlaybackAdmissions[document.id] = .init(revision: sleepPlaybackRevision, validUntil: validUntil)
                 }
                 calendarInput = nextCalendar; weatherInput = nextWeather; sleepInput = nextSleep; prepared = document
-                if !document.hasUsableFacts { errorMessage = String(localized: "No current briefing facts are available. Review your sources or try refreshing.", bundle: .module) }
+                if !document.hasUsableFacts { errorMessage = String(localized: "No current briefing facts are available. Review your sources or try refreshing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
                 return document
             } catch {
                 guard revision == expectedRevision, refreshAttempt == attempt else { return nil }
@@ -819,11 +840,11 @@ public final class MorningBriefingController {
     }
 
     private func safeMessage(_ error: any Error) -> String {
-        if let error = error as? MorningBriefingControllerError { return error.localizedDescription }
-        if let error = error as? MorningBriefingError { return error.localizedDescription }
-        if let error = error as? CalendarObservationError { return error.localizedDescription }
-        if let error = error as? WeatherObservationError { return error.localizedDescription }
-        return String(localized: "Briefing data is unavailable. Check your sources and local privacy settings.", bundle: .module)
+        if let error = error as? MorningBriefingControllerError { return error.moreDescription }
+        if let error = error as? MorningBriefingError { return error.moreDescription }
+        if let error = error as? CalendarObservationError { return error.moreDescription }
+        if let error = error as? WeatherObservationError { return error.moreDescription }
+        return String(localized: "Briefing data is unavailable. Check your sources and local privacy settings.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     }
 
     private func healthMessage(_ error: any Error) -> String {

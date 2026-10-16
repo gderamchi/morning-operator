@@ -236,7 +236,7 @@ extension MorningStore {
                 openingPresentation?.document = document
                 openingPresentation?.opening = MorningOpeningComposer.compose(briefing: document, at: Date(),
                     timeZoneIdentifier: TimeZone.current.identifier, offersBrief: false)
-                notice = String(localized: "This recap needs an update before playback.")
+                notice = String(localized: "This recap needs an update before playback.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                 handOverOpening(after: .failed)
                 return
             }
@@ -251,7 +251,7 @@ extension MorningStore {
                 openingPresentation?.phase = .choosing
                 openingPresentation?.briefText = nil
                 if !(error is CancellationError) {
-                    notice = error.localizedDescription
+                    notice = error.moreDescription
                     handOverOpening(after: .failed)
                 }
                 return

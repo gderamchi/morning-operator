@@ -16,17 +16,17 @@ public enum AppleIntelligenceError: LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case .unavailable(let reason):
-            String(localized: "Apple's local model is unavailable. \(reason) You can still write and edit your routine manually.", bundle: .module)
+            String(localized: "Apple's local model is unavailable. \(reason) You can still write and edit your routine manually.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         case .emptyInput:
-            String(localized: "Add observations or import a readable screen recording before analyzing.", bundle: .module)
+            String(localized: "Add observations or import a readable screen recording before analyzing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         case .inputTooLong(let maximum):
-            String(localized: "These observations exceed the saved-source limit of \(maximum) characters. Longer saved observations within that limit are analyzed in smaller requests.", bundle: .module)
+            String(localized: "These observations exceed the saved-source limit of \(maximum) characters. Longer saved observations within that limit are analyzed in smaller requests.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         case .alreadyAnalyzing:
-            String(localized: "An analysis is already running. Wait for it to finish or cancel it.", bundle: .module)
+            String(localized: "An analysis is already running. Wait for it to finish or cancel it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         case .noGroundedSteps:
-            String(localized: "The local model did not produce steps supported by these observations. Add clearer notes or edit a routine manually.", bundle: .module)
+            String(localized: "The local model did not produce steps supported by these observations. Add clearer notes or edit a routine manually.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         case .insufficientActivityEvidence:
-            String(localized: "Not enough activity evidence yet. Show a real activity or describe what you did; setup screens, sharing controls and app lists do not establish a routine.", bundle: .module)
+            String(localized: "Not enough activity evidence yet. Show a real activity or describe what you did; setup screens, sharing controls and app lists do not establish a routine.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }
@@ -36,7 +36,7 @@ public enum AppleIntelligenceError: LocalizedError, Sendable, Equatable {
 @Observable
 public final class AppleIntelligenceService {
     public private(set) var isAvailable = false
-    public private(set) var capabilitySummary = String(localized: "Checking Apple's local model…", bundle: .module)
+    public private(set) var capabilitySummary = String(localized: "Checking Apple's local model…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     public private(set) var isAnalyzing = false
     public static let maximumInputCharacters = ObservationArchive.maximumOriginalTextCharacters
 
@@ -50,26 +50,26 @@ public final class AppleIntelligenceService {
         case .available:
             isAvailable = true
             #if os(macOS)
-            capabilitySummary = String(localized: "Apple Foundation Models is available. Analysis runs locally on this Mac.", bundle: .module)
+            capabilitySummary = String(localized: "Apple Foundation Models is available. Analysis runs locally on this Mac.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             #else
-            capabilitySummary = String(localized: "Apple Foundation Models is available. Analysis runs locally on this device.", bundle: .module)
+            capabilitySummary = String(localized: "Apple Foundation Models is available. Analysis runs locally on this device.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             #endif
         case .unavailable(let reason):
             isAvailable = false
             switch reason {
             case .deviceNotEligible:
-                capabilitySummary = String(localized: "This device does not support Apple's local model.", bundle: .module)
+                capabilitySummary = String(localized: "This device does not support Apple's local model.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             case .appleIntelligenceNotEnabled:
-                capabilitySummary = String(localized: "Enable Apple Intelligence in system settings to use local analysis.", bundle: .module)
+                capabilitySummary = String(localized: "Enable Apple Intelligence in system settings to use local analysis.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             case .modelNotReady:
-                capabilitySummary = String(localized: "Apple's local model is not ready. It may still be downloading.", bundle: .module)
+                capabilitySummary = String(localized: "Apple's local model is not ready. It may still be downloading.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             @unknown default:
-                capabilitySummary = String(localized: "Apple's local model is currently unavailable.", bundle: .module)
+                capabilitySummary = String(localized: "Apple's local model is currently unavailable.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             }
         }
         #else
         isAvailable = false
-        capabilitySummary = String(localized: "Foundation Models is not supported by this build.", bundle: .module)
+        capabilitySummary = String(localized: "Foundation Models is not supported by this build.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         #endif
     }
 
@@ -143,7 +143,7 @@ public final class AppleIntelligenceService {
         try Task.checkCancellation()
         guard !accepted.isEmpty else { throw AppleIntelligenceError.insufficientActivityEvidence }
         return RoutineVersion(
-            sourceLabel: String((sourceLabel ?? String(localized: "Selected observation", bundle: .module)).prefix(160)),
+            sourceLabel: String((sourceLabel ?? String(localized: "Selected observation", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)).prefix(160)),
             steps: accepted,
             isApproved: false
         )

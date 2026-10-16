@@ -73,7 +73,7 @@ struct StepTargetEditor: View {
                     Text(details).font(.subheadline).textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text(ConnectedActionReviewError.unreadable.localizedDescription)
+                    Text(ConnectedActionReviewError.unreadable.moreDescription)
                         .font(.footnote).foregroundStyle(MorningStyle.muted)
                 }
             }
@@ -116,11 +116,11 @@ struct StepTargetEditor: View {
     private func prompt(_ kind: StepAppDetailKind) -> String {
         switch kind {
         case .none: ""
-        case .phoneNumber: String(localized: "Phone number (optional)")
-        case .messageID: String(localized: "Mail Message-ID (optional)")
-        case .username: String(localized: "Username (optional)")
-        case .place: String(localized: "Place (optional)")
-        case .webAddress: String(localized: "Web address")
+        case .phoneNumber: String(localized: "Phone number (optional)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .messageID: String(localized: "Mail Message-ID (optional)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .username: String(localized: "Username (optional)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .place: String(localized: "Place (optional)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .webAddress: String(localized: "Web address", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
 }

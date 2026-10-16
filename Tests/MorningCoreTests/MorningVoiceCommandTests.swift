@@ -4,6 +4,20 @@ import Testing
 
 @Suite("Explicit morning voice commands")
 struct MorningVoiceCommandTests {
+    @Test("The selected app language pins command grammar and rejects a foreign-language alternate")
+    func selectedLanguageGrammar() {
+        #expect(MorningVoiceCommandParser.parse("résume", language: .french) == nil)
+        #expect(MorningVoiceCommandParser.parse("resume", language: .english) == .resume)
+        #expect(MorningVoiceCommandParser.parse("reprends", language: .french) == .resume)
+        #expect(MorningVoiceCommandParser.parse("continue", language: .french) == .resume)
+        #expect(MorningVoiceCommandParser.parse("reprends", language: .english) == nil)
+        #expect(MorningVoiceCommandParser.parse("next", language: .french) == nil)
+        #expect(MorningVoiceCommandParser.parse("MORE suivant", language: .french) == .next)
+        var turn = MorningVoiceCommandTurn(context: context(), language: .french)
+        #expect(turn.accept(transcript: "suivant", isFinal: true, alternatives: ["next"]) == nil)
+        #expect(turn.isFinished)
+    }
+
     @Test("Exact English and French commands accept an optional MORE prefix")
     func exactGrammar() {
         let cases: [(String, MorningVoiceCommand)] = [

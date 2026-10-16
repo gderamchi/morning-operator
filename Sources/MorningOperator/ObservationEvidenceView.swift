@@ -36,7 +36,7 @@ struct ObservationEvidenceView: View {
                         Text(classificationStatus(classification))
                             .accessibilityIdentifier("learn.contextStatus")
                     }
-                    Button(classification == nil ? "Recognize sampled screens" : "Try recognizing screens again", action: analyze)
+                    Button(classification == nil ? String(localized: "Recognize sampled screens", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Try recognizing screens again", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), action: analyze)
                         .buttonStyle(.borderless).foregroundStyle(MorningStyle.accent)
                         .disabled(isBusy || !canAnalyze || readableCount == 0)
                         .accessibilityIdentifier("learn.recognizeScreens")
@@ -63,11 +63,11 @@ struct ObservationEvidenceView: View {
 
     private func classificationStatus(_ value: ObservationContextClassification) -> String {
         switch value.status {
-        case .noEligibleFrames: String(localized: "No samples have enough usable text to recognize a screen.")
-        case .unavailable: String(localized: "On-device screen recognition is unavailable. The saved samples are still here.")
-        case .completed: String(localized: "On-device recognition finished. Unclear screens remain unknown.")
-        case .partialFailure: String(localized: "Some screens could not be analyzed. Those samples remain unknown.")
-        case .failed: String(localized: "Screen recognition did not finish. Samples remain unknown; you can retry.")
+        case .noEligibleFrames: String(localized: "No samples have enough usable text to recognize a screen.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .unavailable: String(localized: "On-device screen recognition is unavailable. The saved samples are still here.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .completed: String(localized: "On-device recognition finished. Unclear screens remain unknown.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .partialFailure: String(localized: "Some screens could not be analyzed. Those samples remain unknown.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .failed: String(localized: "Screen recognition did not finish. Samples remain unknown; you can retry.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
 
@@ -75,15 +75,15 @@ struct ObservationEvidenceView: View {
         if let decision = classification?.decisions.first(where: { $0.sampleID == frame.id }) {
             switch decision.evidence {
             case .identified(let app, _): return app.displayName
-            case .ambiguous: return String(localized: "Unclear screen")
+            case .ambiguous: return String(localized: "Unclear screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             case .unknown: break
             }
         }
         switch frame.outcome {
-        case .observed: return classification == nil ? String(localized: "Text found · screen not yet recognized") : String(localized: "Unknown screen")
-        case .blank: return String(localized: "No readable text")
-        case .decodeFailed: return String(localized: "Frame unavailable")
-        case .ocrFailed: return String(localized: "Text extraction failed")
+        case .observed: return classification == nil ? String(localized: "Text found · screen not yet recognized", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Unknown screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .blank: return String(localized: "No readable text", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .decodeFailed: return String(localized: "Frame unavailable", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .ocrFailed: return String(localized: "Text extraction failed", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
 

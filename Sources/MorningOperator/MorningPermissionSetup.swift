@@ -15,8 +15,26 @@ final class MorningPermissionSetup {
     private var learnAfterDismiss = false
     private(set) var remaining: [MorningPermission] = []
     private(set) var isRequesting = false
-    private(set) var lastOutcome: String?
-    private(set) var saveIssue: String?
+    private enum Outcome { case skipped, allowed, denied, unavailable }
+    private enum SaveIssue { case restore, save }
+    private var outcome: Outcome?
+    private var issue: SaveIssue?
+    var lastOutcome: String? {
+        switch outcome {
+        case .skipped: Self.text("You can enable this access later in iPhone Settings.", "Vous pourrez activer cet accès plus tard dans les réglages de l’iPhone.")
+        case .allowed: Self.text("Access is ready. You remain in control of when MORE uses it.", "L’accès est prêt. Vous gardez le contrôle de son utilisation par MORE.")
+        case .denied: Self.text("Access wasn't enabled. Your morning can continue, and you can change this later in Settings.", "L’accès n’a pas été activé. Votre matinée peut continuer ; vous pourrez le modifier dans les réglages.")
+        case .unavailable: Self.text("This access isn't available right now. Continue and review it later in Settings.", "Cet accès est indisponible pour le moment. Continuez et retrouvez-le plus tard dans les réglages.")
+        case nil: nil
+        }
+    }
+    var saveIssue: String? {
+        switch issue {
+        case .restore: Self.text("Your access choices couldn't be restored. You can still review them; the saved file stays intact.", "Vos choix d’accès n’ont pas pu être relus. Vous pouvez les revoir ; le fichier enregistré reste intact.")
+        case .save: Self.text("These access choices couldn't be saved. MORE may ask you to review them next time.", "Ces choix d’accès n’ont pas pu être enregistrés. MORE pourra vous les présenter à la prochaine ouverture.")
+        case nil: nil
+        }
+    }
     private var progress = MorningPermissionProgress()
     private let file: AtomicJSONFile<MorningPermissionProgress>
     private let control: LocalDataControl
@@ -49,8 +67,7 @@ final class MorningPermissionSetup {
             }
         } catch {
             canSave = false
-            saveIssue = Self.text("Your access choices couldn't be restored. You can still review them; the saved file stays intact.",
-                "Vos choix d’accès n’ont pas pu être relus. Vous pouvez les revoir ; le fichier enregistré reste intact.")
+            issue = .restore
         }
     }
 
@@ -73,7 +90,7 @@ final class MorningPermissionSetup {
 
     func revisit() {
         guard !isRequesting else { return }
-        remaining = supported; lastOutcome = nil
+        remaining = supported; outcome = nil
         isRevisiting = true; learnAfterDismiss = false
         var transaction = Transaction(); transaction.disablesAnimations = true
         withTransaction(transaction) { isPresented = true }
@@ -81,8 +98,7 @@ final class MorningPermissionSetup {
 
     func skip() {
         guard let current, !isRequesting else { return }
-        resolve(current, outcome: Self.text("You can enable this access later in iPhone Settings.",
-            "Vous pourrez activer cet accès plus tard dans les réglages de l’iPhone."))
+        resolve(current, outcome: .skipped)
     }
 
     func allow(store: MorningStore) {
@@ -133,15 +149,12 @@ final class MorningPermissionSetup {
                 }
                 guard attempt == id, !Task.isCancelled, !store.privacyBlocksWork else { return }
                 isRequesting = false; requestTask = nil; attempt = nil
-                resolve(permission, outcome: allowed
-                    ? Self.text("Access is ready. You remain in control of when MORE uses it.", "L’accès est prêt. Vous gardez le contrôle de son utilisation par MORE.")
-                    : Self.text("Access wasn't enabled. Your morning can continue, and you can change this later in Settings.", "L’accès n’a pas été activé. Votre matinée peut continuer ; vous pourrez le modifier dans les réglages."))
+                resolve(permission, outcome: allowed ? .allowed : .denied)
             } catch {
                 guard attempt == id, !store.privacyBlocksWork else { return }
                 isRequesting = false; requestTask = nil; attempt = nil
                 if !(error is CancellationError) {
-                    resolve(permission, outcome: Self.text("This access isn't available right now. Continue and review it later in Settings.",
-                        "Cet accès est indisponible pour le moment. Continuez et retrouvez-le plus tard dans les réglages."))
+                    resolve(permission, outcome: .unavailable)
                 }
             }
         }
@@ -166,15 +179,15 @@ final class MorningPermissionSetup {
     /// Privacy cleanup cancels publication before the app removes the owned file.
     func cancelForPrivacy() {
         attempt = nil; requestTask?.cancel(); requestTask = nil
-        isRequesting = false; isPresented = false; remaining = []; lastOutcome = nil
+        isRequesting = false; isPresented = false; remaining = []; outcome = nil
         learnAfterDismiss = false
     }
     func resetAfterPrivacy() {
         progress = MorningPermissionProgress(); generation = try? control.status().generation
-        canSave = true; saveIssue = nil; isRevisiting = false; learnAfterDismiss = false
+        canSave = true; issue = nil; isRevisiting = false; learnAfterDismiss = false
     }
 
-    private func resolve(_ permission: MorningPermission, outcome: String) {
+    private func resolve(_ permission: MorningPermission, outcome: Outcome) {
         guard remaining.first == permission else { return }
         var next = progress; next.resolve(permission)
         do {
@@ -185,12 +198,11 @@ final class MorningPermissionSetup {
             }
             progress = next
         } catch {
-            saveIssue = Self.text("These access choices couldn't be saved. MORE may ask you to review them next time.",
-                "Ces choix d’accès n’ont pas pu être enregistrés. MORE pourra vous les présenter à la prochaine ouverture.")
+            issue = .save
             // Keep this launch usable even when persistence is unavailable.
             progress = next
         }
-        remaining.removeFirst(); lastOutcome = outcome
+        remaining.removeFirst(); self.outcome = outcome
     }
 
     private static var screenTimeCapabilityAvailable: Bool {

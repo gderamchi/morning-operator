@@ -40,7 +40,9 @@ public enum ConnectedActionReview {
         try render(value, schema: schema, french: french, depth: 0)
     }
 
-    public static func label(for key: String, definition: ComposioJSONValue? = nil) -> String {
+    public static func label(for key: String, definition: ComposioJSONValue? = nil,
+                             french: Bool = AppLanguage.isFrench) -> String {
+        if french, let label = frenchFieldLabels[key.lowercased().filter(\.isLetter)] { return label }
         if let title = definition?.objectValue?["title"]?.stringValue,
            !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            !title.contains(where: { $0.isNewline }), !title.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
@@ -51,12 +53,30 @@ public enum ConnectedActionReview {
         return spaced.capitalized
     }
 
+    /// App-owned labels for common fields; unfamiliar provider metadata remains verbatim.
+    private static let frenchFieldLabels: [String: String] = [
+        "subject": "Objet", "body": "Texte", "message": "Message", "text": "Texte",
+        "to": "Destinataire", "recipient": "Destinataire", "recipients": "Destinataires",
+        "email": "Adresse mail", "emailaddress": "Adresse mail", "sender": "Expéditeur",
+        "cc": "Copie", "bcc": "Copie cachée", "replyto": "Répondre à", "replytoaddress": "Adresse de réponse",
+        "title": "Titre", "name": "Nom", "description": "Description", "content": "Contenu",
+        "start": "Début", "starttime": "Heure de début", "startdate": "Date de début",
+        "end": "Fin", "endtime": "Heure de fin", "enddate": "Date de fin",
+        "timezone": "Fuseau horaire", "duration": "Durée", "date": "Date", "duedate": "Échéance",
+        "location": "Lieu", "attendees": "Participants", "calendar": "Calendrier", "calendarid": "Calendrier",
+        "query": "Recherche", "search": "Recherche", "limit": "Nombre maximal", "maxresults": "Nombre maximal de résultats",
+        "channel": "Canal", "channelid": "Canal", "thread": "Fil", "threadid": "Fil",
+        "attachments": "Pièces jointes", "attachment": "Pièce jointe", "filename": "Nom du fichier",
+        "url": "Adresse web", "link": "Lien", "notes": "Notes", "completed": "Terminé",
+        "reminder": "Rappel", "priority": "Priorité", "status": "État", "labels": "Libellés"
+    ]
+
     private static func render(_ value: ComposioJSONValue, schema: ComposioJSONValue?, french: Bool, depth: Int) throws -> String {
         guard depth <= 12 else { throw ConnectedActionReviewError.tooLarge }
         let text: String
         switch value {
         case .string(let string): text = string.isEmpty ? (french ? "Texte vide" : "Empty text") : try checked(string)
-        case .number(let number): text = NSDecimalNumber(decimal: number).stringValue
+        case .number(let number): text = number.formatted(.number.locale(Locale(identifier: french ? "fr_FR" : "en_US")))
         case .bool(let flag): text = french ? (flag ? "Oui" : "Non") : (flag ? "Yes" : "No")
         case .null: text = french ? "Aucune valeur" : "No value"
         case .array(let values):
@@ -74,7 +94,7 @@ public enum ConnectedActionReview {
                 let properties = schema?.objectValue?["properties"]?.objectValue ?? [:]
                 text = try values.keys.sorted().map { key in
                     let childSchema = properties[key]
-                    let title = try checked(label(for: key, definition: childSchema))
+                    let title = try checked(label(for: key, definition: childSchema, french: french))
                     guard !title.isEmpty else { throw ConnectedActionReviewError.unreadable }
                     let rendered = try render(values[key]!, schema: childSchema, french: french, depth: depth + 1)
                     return title + (french ? " : " : ": ") + rendered.replacingOccurrences(of: "\n", with: "\n  ")

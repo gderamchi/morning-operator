@@ -41,7 +41,7 @@ public struct SlackReplyActionCounts: Sendable, Equatable {
 
     /// The entire utterance is drafting guidance, even when it also contains the word "send".
     public func prepare(intention: String, source: SlackReplySource, context: MorningExecutionID) async {
-        guard phase != .sending, phase != .uncertain else { message = SlackReplyError.uncertain.localizedDescription; return }
+        guard phase != .sending, phase != .uncertain else { message = SlackReplyError.uncertain.moreDescription; return }
         clear()
         self.context = context; self.source = source; operationID = UUID(); phase = .preparing
         await run { token in
@@ -81,7 +81,7 @@ public struct SlackReplyActionCounts: Sendable, Equatable {
         guard source != nil, destination != nil, ![.sending, .uncertain, .completed].contains(phase) else { return }
         cancel()
         self.body = String(body.prefix(4_000)); operationID = UUID(); phase = .reviewing
-        message = (try? SlackReplyContract.reply(self.body)) == nil ? SlackReplyError.invalidReply.localizedDescription : reviewNeeded
+        message = (try? SlackReplyContract.reply(self.body)) == nil ? SlackReplyError.invalidReply.moreDescription : reviewNeeded
     }
 
     public func review() async {
@@ -104,7 +104,7 @@ public struct SlackReplyActionCounts: Sendable, Equatable {
     @discardableResult public func respond(_ text: String, context: MorningExecutionID) async -> Bool {
         guard self.context == context, phase != .idle else { return false }
         if phase == .completed { return true }
-        if phase == .sending || phase == .uncertain { message = SlackReplyError.uncertain.localizedDescription; return true }
+        if phase == .sending || phase == .uncertain { message = SlackReplyError.uncertain.moreDescription; return true }
         let words = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "fr_FR"))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if ["repete", "relis", "repeat", "read it again"].contains(words) { await review(); return true }
@@ -124,10 +124,10 @@ public struct SlackReplyActionCounts: Sendable, Equatable {
                 catch SlackReplyDispatchError.notDispatched(let reason) {
                     try self.journal.releaseNotDispatched(id: id, fingerprint: fingerprint, generation: generation)
                     if self.context == context, self.source == reply.source, self.operationID == id, self.phase == .uncertain {
-                        self.phase = .reviewing; self.message = reason.localizedDescription
+                        self.phase = .reviewing; self.message = reason.moreDescription
                     }
                     try self.check(token)
-                    self.phase = .reviewing; self.message = reason.localizedDescription
+                    self.phase = .reviewing; self.message = reason.moreDescription
                     return
                 }
                 // A known effect is durable before narration and survives a changed UI context.
@@ -145,8 +145,20 @@ public struct SlackReplyActionCounts: Sendable, Equatable {
 
     public func cancel() {
         work?.cancel(); work = nil; attempt = UUID(); reviewedAttempt = nil; reviewedAt = nil
-        if phase == .sending { phase = .uncertain; message = SlackReplyError.uncertain.localizedDescription }
+        if phase == .sending { phase = .uncertain; message = SlackReplyError.uncertain.moreDescription }
         else if ![.completed, .uncertain, .idle].contains(phase) { phase = .reviewing }
+    }
+
+    /// Keeps source, draft and durable effect claims; no provider call or spoken review occurs.
+    public func appLanguageDidChange() {
+        reviewedAttempt = nil; reviewedAt = nil
+        if phase == .uncertain || phase == .sending { message = SlackReplyError.uncertain.moreDescription }
+        else if phase != .idle {
+            if phase != .completed { phase = .reviewing }
+            message = phase == .completed
+                ? (AppLanguage.isFrench ? "La réponse a été publiée dans Slack." : "The reply was posted in Slack.")
+                : reviewNeeded
+        }
     }
 
     /// Call on advance, background, account changes and privacy reset. The journal remains content-free.
@@ -202,8 +214,8 @@ public struct SlackReplyActionCounts: Sendable, Equatable {
     private func fail(_ error: any Error, token: UUID) {
         guard token == attempt else { return }
         reviewedAttempt = nil; reviewedAt = nil
-        if phase == .sending || error as? SlackReplyError == .uncertain { phase = .uncertain; message = SlackReplyError.uncertain.localizedDescription }
-        else if !(error is CancellationError) { phase = body.isEmpty ? .unavailable : .reviewing; message = (error as? SlackReplyError)?.localizedDescription ?? SlackReplyError.unavailable.localizedDescription }
+        if phase == .sending || error as? SlackReplyError == .uncertain { phase = .uncertain; message = SlackReplyError.uncertain.moreDescription }
+        else if !(error is CancellationError) { phase = body.isEmpty ? .unavailable : .reviewing; message = (error as? SlackReplyError)?.moreDescription ?? SlackReplyError.unavailable.moreDescription }
     }
     private var journal: SlackReplyJournal { SlackReplyJournal(control: control) }
     private func target(_ source: SlackReplySource) -> String { SlackReplyContract.digest([source.origin.connectionID, source.channelID, source.threadTS]) }

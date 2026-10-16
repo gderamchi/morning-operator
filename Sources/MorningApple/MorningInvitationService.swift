@@ -47,9 +47,9 @@ public enum MorningInvitationForgetError: LocalizedError, Sendable, Equatable {
     case alreadyForgetting, cleanupUnconfirmed, staleGeneration
     public var errorDescription: String? {
         switch self {
-        case .alreadyForgetting: String(localized: "Invitation cleanup is already in progress.", bundle: .module)
-        case .cleanupUnconfirmed: String(localized: "The invitation could not be fully removed. Retry forgetting your local data.", bundle: .module)
-        case .staleGeneration: String(localized: "Your local data changed. Open Morning again before scheduling an invitation.", bundle: .module)
+        case .alreadyForgetting: String(localized: "Invitation cleanup is already in progress.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .cleanupUnconfirmed: String(localized: "The invitation could not be fully removed. Retry forgetting your local data.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .staleGeneration: String(localized: "Your local data changed. Open Morning again before scheduling an invitation.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }
@@ -94,8 +94,14 @@ public final class MorningInvitationService {
     public private(set) var isBusy = false
     public private(set) var isScheduled = false
     public private(set) var errorMessage: String?
-    public private(set) var statusText = String(localized: "No invitation is scheduled.", bundle: .module)
+    public private(set) var statusText = String(localized: "No invitation is scheduled.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     public var needsRecovery: Bool { !storageAvailable }
+
+    private enum StatusPresentation {
+        case message(String.LocalizationValue, isError: Bool)
+        case failure(any Error)
+    }
+    @ObservationIgnored private var statusPresentation: StatusPresentation = .message("No invitation is scheduled.", isError: false)
 
     @ObservationIgnored private let storage: any MorningInvitationStorage
     @ObservationIgnored private let notifications: any MorningInvitationNotificationClient
@@ -204,7 +210,7 @@ public final class MorningInvitationService {
             throw error
         }
         errorMessage = nil
-        statusText = String(localized: "No invitation is scheduled.", bundle: .module)
+        setStatus("No invitation is scheduled.")
     }
 
     /// Consume only after the app's foreground/busy policy says it can accept the entry.
@@ -291,9 +297,9 @@ public final class MorningInvitationService {
                 guard revision == id else { return }
                 isScheduled = false
                 switch invitation?.disposition {
-                case .consumed: statusText = String(localized: "Invitation used. Open Morning to continue.", bundle: .module)
-                case .expired: statusText = String(localized: "This invitation has expired. Choose another time.", bundle: .module)
-                default: statusText = String(localized: "No invitation is scheduled.", bundle: .module)
+                case .consumed: setStatus("Invitation used. Open Morning to continue.")
+                case .expired: setStatus("This invitation has expired. Choose another time.")
+                default: setStatus("No invitation is scheduled.")
                 }
                 return
             }
@@ -316,9 +322,9 @@ public final class MorningInvitationService {
                 guard revision == id else { return }
                 isScheduled = false
                 switch latestSettings.authorization {
-                case .notDetermined: statusText = String(localized: "Allow notifications to schedule this invitation.", bundle: .module)
-                case .provisional: statusText = String(localized: "Notifications are quiet. Allow alerts for a morning invitation.", bundle: .module)
-                default: statusText = String(localized: "Notifications are off. Your chosen time is saved but is not scheduled.", bundle: .module)
+                case .notDetermined: setStatus("Allow notifications to schedule this invitation.")
+                case .provisional: setStatus("Notifications are quiet. Allow alerts for a morning invitation.")
+                default: setStatus("Notifications are off. Your chosen time is saved but is not scheduled.")
                 }
                 return
             }
@@ -326,7 +332,7 @@ public final class MorningInvitationService {
             // or remove it until consumed, cancelled or expired.
             guard current.scheduledAt > now() else {
                 isScheduled = false
-                statusText = String(localized: "The invitation time has passed. Open Morning when you are ready.", bundle: .module)
+                setStatus("The invitation time has passed. Open Morning when you are ready.")
                 return
             }
             let pending = await notifications.pendingInvitation()
@@ -346,12 +352,11 @@ public final class MorningInvitationService {
             isScheduled = registered?.matches(current) == true
             if isScheduled {
                 errorMessage = nil
-                statusText = String(localized: "One-time invitation scheduled. Delivery follows your notification settings.", bundle: .module)
+                setStatus("One-time invitation scheduled. Delivery follows your notification settings.")
             } else if current.scheduledAt <= now() {
-                statusText = String(localized: "The invitation time has passed. Open Morning when you are ready.", bundle: .module)
+                setStatus("The invitation time has passed. Open Morning when you are ready.")
             } else {
-                errorMessage = String(localized: "The invitation could not be confirmed. Try scheduling it again.", bundle: .module)
-                statusText = errorMessage!
+                setStatus("The invitation could not be confirmed. Try scheduling it again.", isError: true)
             }
         } catch {
             // A replacement waits for this job, so cleanup cannot remove its newer add.
@@ -395,10 +400,32 @@ public final class MorningInvitationService {
         }
     }
 
+    /// Presentation only: no permission prompt, scheduling, reconciliation or storage access.
+    public func appLanguageDidChange() {
+        refreshStatusPresentation(locale: AppLanguage.locale)
+    }
+
+    func refreshStatusPresentation(locale: Locale) {
+        switch statusPresentation {
+        case .message(let key, let isError):
+            statusText = String(localized: key,
+                bundle: AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier), locale: locale)
+            if isError { errorMessage = statusText }
+        case .failure(let error):
+            statusText = error.moreDescription
+            errorMessage = statusText
+        }
+    }
+
+    private func setStatus(_ key: String.LocalizationValue, isError: Bool = false) {
+        statusPresentation = .message(key, isError: isError)
+        appLanguageDidChange()
+    }
+
     private func report(_ error: any Error) {
         isScheduled = false
-        errorMessage = error.localizedDescription
-        statusText = error.localizedDescription
+        statusPresentation = .failure(error)
+        appLanguageDidChange()
     }
 }
 
@@ -446,14 +473,14 @@ private final class NativeMorningInvitationNotificationClient: MorningInvitation
     func add(_ invitation: MorningInvitation, sound: Bool) async throws {
         let content = UNMutableNotificationContent()
         if invitation.learningTarget == nil {
-            content.title = String(localized: "Ready for your morning?", bundle: .module)
-            content.body = String(localized: "Tap to begin with MORE.", bundle: .module)
+            content.title = String(localized: "Ready for your morning?", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            content.body = String(localized: "Tap to begin with MORE.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             content.categoryIdentifier = MorningInvitationService.categoryIdentifier
         } else {
             // A reminder to record, without the Start morning action: nothing begins
             // until the person opens MORE and starts the recording themselves.
-            content.title = String(localized: "Your learning window is open", bundle: .module)
-            content.body = String(localized: "Open MORE and start the recording when you are ready.", bundle: .module)
+            content.title = String(localized: "Your learning window is open", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            content.body = String(localized: "Open MORE and start the recording when you are ready.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             content.categoryIdentifier = MorningInvitationService.learningReminderCategoryIdentifier
         }
         content.userInfo = invitation.payload.dictionary

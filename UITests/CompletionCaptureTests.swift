@@ -70,7 +70,7 @@ final class CompletionCaptureTests: XCTestCase {
         app.buttons["captureVoice.cancel"].tap()
         waitAbsent(app.buttons["captureVoice.cancel"])
         assertNoReviewAppears(for: lateCallbackWait, in: app)
-        XCTAssertEqual(app.staticTexts["run.state"].value as? String, "completed")
+        XCTAssertTrue(MorningUITestState.labels(for: "completed").contains(app.staticTexts["run.state"].value as? String ?? ""))
         XCTAssertTrue(app.buttons["morning.speakReflection"].isHittable)
         openThoughts(in: app)
         assertNoSavedReflection(in: app)
@@ -105,7 +105,7 @@ final class CompletionCaptureTests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         assertNoReviewAppears(for: 2, in: app)
         XCTAssertFalse(app.buttons["captureVoice.cancel"].exists)
-        XCTAssertEqual(app.staticTexts["run.state"].value as? String, "completed")
+        XCTAssertTrue(MorningUITestState.labels(for: "completed").contains(app.staticTexts["run.state"].value as? String ?? ""))
         openThoughts(in: app)
         assertNoSavedReflection(in: app)
         attach("synthetic-backgrounded-late-turn-cannot-reopen-capture", app)
@@ -117,7 +117,7 @@ final class CompletionCaptureTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
             "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-approved", sample]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 
@@ -128,10 +128,10 @@ final class CompletionCaptureTests: XCTestCase {
             let step = app.staticTexts["run.step"]
             let current = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", title), object: step)
             XCTAssertEqual(XCTWaiter.wait(for: [current], timeout: 5), .completed)
-            XCTAssertEqual(app.staticTexts["run.state"].value as? String, "running")
+            XCTAssertTrue(MorningUITestState.labels(for: "running").contains(app.staticTexts["run.state"].value as? String ?? ""))
             tap("run.next", in: app)
         }
-        let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "completed"),
+        let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value IN %@", MorningUITestState.labels(for: "completed")),
                                                 object: app.staticTexts["run.state"])
         XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 5), .completed)
         XCTAssertTrue(app.buttons["morning.speakReflection"].exists)
@@ -202,7 +202,7 @@ final class CompletionCaptureTests: XCTestCase {
     private func relaunch(_ app: XCUIApplication) {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-approved" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
     }
 
     private func tap(_ identifier: String, in app: XCUIApplication) {

@@ -8,7 +8,7 @@ import XCTest
 @MainActor
 final class InterfaceTourTests: XCTestCase {
     func testFrenchTourOfHomeLearnReviewAndSettings() {
-        let french = ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]
+        let french = ["-more.appLanguage", "fr", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]
         tour(named: "tour-fr-light", arguments: ["--light-preview"] + french)
         // One dark home is enough to see the French text on the dark palette.
         let app = launch(["--dark-preview"] + french, workspace: UUID())
@@ -84,6 +84,7 @@ final class InterfaceTourTests: XCTestCase {
         // The briefing fixture labels itself on screen and makes no Calendar, Maps or Weather request.
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved", "--ui-testing-briefing-fixture",
                                "--ui-testing-workspace=\(workspace.uuidString)"] + arguments
+        if !arguments.contains("-more.appLanguage") { app.launchArguments += ["-more.appLanguage", "en"] }
         app.launch()
         return app
     }

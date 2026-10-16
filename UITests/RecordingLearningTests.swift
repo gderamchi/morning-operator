@@ -13,7 +13,7 @@ final class RecordingLearningTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         try tap("learn.refine", in: app)
         try tap("learn.record", in: app)
         try tap("record.start", in: app)

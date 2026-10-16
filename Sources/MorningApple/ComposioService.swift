@@ -1,6 +1,6 @@
 import Foundation
-import CryptoKit
 import MorningCore
+import CryptoKit
 import Security
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -81,6 +81,39 @@ public struct ComposioAuthorization: Codable, Sendable, Equatable {
 public struct ComposioFailure: Codable, Sendable, Equatable {
     public let code: String
     public let message: String
+
+    /// The server code is the contract; its diagnostic prose may use another language.
+    /// Never surface raw provider text here, which can also contain private request data.
+    public var localizedMessage: String {
+        switch code {
+        case "unauthorized":
+            String(localized: "This installation is no longer authorized. Reconnect your account.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "connection_inactive", "connection_not_found", "invalid_connection":
+            String(localized: "Reconnect this account before using it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "unsupported_service", "auth_not_configured":
+            String(localized: "This connection is not available in this build yet.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "slack_identity_changed", "slack_identity_unavailable":
+            String(localized: "The Slack account could not be verified or has changed. Reconnect and review this reply again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "slack_receipt_unverified", "request_mismatch", "execution_uncertain", "execution_pending":
+            String(localized: "The action may already have run. Check its outcome in the connected account before another attempt. MORE will not repeat it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "tool_failed":
+            String(localized: "The provider reported that the action failed. Check its outcome before another attempt.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "invalid_slack_reply":
+            String(localized: "Review the Slack account, channel, thread and reply text before continuing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "tool_account_mismatch":
+            String(localized: "This action does not match the selected account. Choose the account and review it again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "invalid_auth_session", "invalid_callback", "auth_identity_mismatch":
+            String(localized: "This connection could not be verified. Return to MORE and start a new connection.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "catalog_unavailable", "catalog_too_large", "tool_version_mismatch":
+            String(localized: "The available actions could not be loaded completely. Try again later.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "json_required", "invalid_json", "invalid_arguments", "unexpected_field", "invalid_execution", "body_too_large":
+            String(localized: "Review the action details before trying again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case "provider_timeout", "provider_unavailable", "provider_rejected", "provider_response_too_large", "invalid_provider_response":
+            String(localized: "The provider did not return a verified result. Check the connected account before trying the action again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        default:
+            String(localized: "The connection service could not complete this request. Try again later.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        }
+    }
 }
 
 public struct ComposioExecutionResult: Codable, Sendable, Equatable {
@@ -96,7 +129,7 @@ public enum ComposioServiceError: LocalizedError, Sendable, Equatable {
     case requestFailed(Int), backend(ComposioFailure), executionUncertain(UUID)
 
     public var errorDescription: String? {
-        let french = Locale.current.language.languageCode?.identifier == "fr"
+        let french = AppLanguage.isFrench
         switch self {
         case .notConfigured: return french ? "Les connexions en ligne ne sont pas encore disponibles dans cette version." : "Online connections are not available in this build yet."
         case .insecureURL: return french ? "Le service de connexion doit utiliser une adresse HTTPS sécurisée." : "The connection service must use a secure HTTPS address."
@@ -105,7 +138,7 @@ public enum ComposioServiceError: LocalizedError, Sendable, Equatable {
         case .invalidArguments: return french ? "Vérifiez les champs de l’action. Les paramètres doivent former un objet JSON de moins de 64 Ko." : "Review the action fields. Parameters must form a JSON object within 64 KB."
         case .invalidResponse: return french ? "Le service de connexion a renvoyé une réponse illisible." : "The connection service returned an unreadable response."
         case .requestFailed(let status): return french ? "Le service de connexion n’a pas pu terminer cette demande (\(status))." : "The connection service could not complete this request (\(status))."
-        case .backend(let failure): return String(failure.message.prefix(500))
+        case .backend(let failure): return failure.localizedMessage
         case .executionUncertain(let requestID): return french ? "Le résultat de l’action est inconnu. Vérifiez le compte connecté avant de recommencer. Demande : \(requestID.uuidString)." : "The action's outcome is unknown. Check the connected account before doing it again. Request: \(requestID.uuidString)."
         }
     }

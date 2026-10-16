@@ -61,6 +61,10 @@ struct MorningHomePlaybackView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: toggleControls)
                 .accessibilityIdentifier("morning.captions")
+                #if DEBUG
+                .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--ui-testing")
+                    ? "\(store.session?.id.uuidString ?? "")|\(store.currentStep?.id.uuidString ?? "")" : "")
+                #endif
                 .accessibilityAction(named: Text(controlsLabel), toggleControls)
 
                 if controlsVisible {
@@ -76,6 +80,7 @@ struct MorningHomePlaybackView: View {
             displayedCaption = text.hasPrefix(prefix)
                 ? String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines) : text
         }
+        .onChange(of: AppLanguage.code) { _, _ in displayedCaption = nil; controlsVisible = false }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { displayedCaption = nil; controlsVisible = false }
         }
@@ -193,6 +198,7 @@ struct MorningRoutineControlsView: View {
             if presented { store.pause() }
         }
         .onChange(of: scenePhase) { _, phase in if phase == .background { showingDetails = false } }
+        .onChange(of: AppLanguage.code) { _, _ in showingDetails = false }
         .onChange(of: store.currentStep?.id) { _, _ in showingDetails = false }
         .onChange(of: store.sessionActive) { _, active in if !active { showingDetails = false } }
         .onChange(of: store.dataGeneration) { _, _ in showingDetails = false }
@@ -216,7 +222,7 @@ struct MorningRoutineControlsView: View {
                     if store.currentOutlookInboxContext != nil { OutlookInboxMomentView(store: store) }
                     if store.session?.status == .paused,
                        store.currentStep?.automation == .todayCalendar || store.currentStep?.automation == .morningBriefing {
-                        Button("Update this recap") { store.updateCurrentBriefing() }
+                        Button(String(localized: "Update this recap", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) { store.updateCurrentBriefing() }
                             .disabled(store.nativeMoment.isActive || store.voiceInputBlocksPlayback)
                             .accessibilityIdentifier("briefing.updateCurrent")
                     }

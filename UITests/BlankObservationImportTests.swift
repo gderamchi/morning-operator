@@ -19,14 +19,14 @@ final class BlankObservationImportTests: XCTestCase {
 
         // Seed the last successful observation through the ordinary asynchronous importer.
         app.launchArguments = baseArguments + ["--ui-testing-import-observation"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearn(in: app)
         assertNotes(expected, in: app)
         app.terminate()
 
         // Reuse the same workspace. The blank path must never inject substitute text.
         app.launchArguments = baseArguments + ["--ui-testing-import-blank-video"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearn(in: app)
         let failure = app.staticTexts.matching(NSPredicate(
             format: "label CONTAINS %@ AND label CONTAINS %@",
@@ -42,7 +42,7 @@ final class BlankObservationImportTests: XCTestCase {
 
         // No import hook remains: the preserved observation must come from durable storage.
         app.launchArguments = baseArguments
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearn(in: app)
         assertNotes(expected, in: app)
         XCTAssertFalse(app.staticTexts["learn.videoEvidence"].exists)

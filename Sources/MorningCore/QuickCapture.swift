@@ -4,10 +4,10 @@ public enum QuickCaptureKind: String, Codable, Sendable, CaseIterable {
     case dream, thought, reminder, calendarIdea
     public var displayName: String {
         switch self {
-        case .dream: String(localized: "Dream", bundle: .module)
-        case .thought: String(localized: "Thought", bundle: .module)
-        case .reminder: String(localized: "Reminder", bundle: .module)
-        case .calendarIdea: String(localized: "Calendar idea", bundle: .module)
+        case .dream: String(localized: "Dream", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .thought: String(localized: "Thought", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .reminder: String(localized: "Reminder", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .calendarIdea: String(localized: "Calendar idea", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }
@@ -18,9 +18,9 @@ public enum QuickCaptureError: Error, LocalizedError, Sendable, Equatable {
     case emptyText, invalidTimeZone, invalidDate
     public var errorDescription: String? {
         switch self {
-        case .emptyText: String(localized: "Add a few words before saving this capture.", bundle: .module)
-        case .invalidTimeZone: String(localized: "Choose a valid time zone for this request.", bundle: .module)
-        case .invalidDate: String(localized: "The requested date could not be understood.", bundle: .module)
+        case .emptyText: String(localized: "Add a few words before saving this capture.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidTimeZone: String(localized: "Choose a valid time zone for this request.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidDate: String(localized: "The requested date could not be understood.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }

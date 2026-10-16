@@ -75,7 +75,7 @@ final class ObservationReviewJourneyTests: XCTestCase {
         app.navigationBars["Learn my morning"].buttons["Done"].tap()
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-observation-review" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
         MorningUITestNavigation.reviewAction("review.observations", in: app)
         tap(app.buttons["observation.row.\(id)"], in: app)
         let status = app.staticTexts["\(prefix).status"]
@@ -96,7 +96,7 @@ final class ObservationReviewJourneyTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
             "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-observation-review"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {

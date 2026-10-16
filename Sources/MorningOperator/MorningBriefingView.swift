@@ -104,7 +104,7 @@ struct MorningBriefingView: View {
         Section {
             if controller.isConnectingCalendar { ProgressView("Opening your calendars…") }
             else if controller.calendarChoices.isEmpty {
-                Button(controller.isCalendarAuthorized ? "Choose calendars" : "Connect Calendar") {
+                Button(controller.isCalendarAuthorized ? String(localized: "Choose calendars", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Connect Calendar", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
                     Task { await controller.requestCalendarAccess() }
                 }.accessibilityIdentifier("briefing.calendarConnect")
             } else {
@@ -286,8 +286,8 @@ struct MorningBriefingView: View {
                     }
                     if let outcome = controller.citySearchOutcome, !controller.isSearchingCities, controller.cityResults.isEmpty,
                        controller.citySuggestions.isEmpty, controller.errorMessage == nil {
-                        Text(outcome == .noMatch ? String(localized: "No matching cities. Try a nearby city or include the country.")
-                             : WeatherObservationError.searchUnavailable.localizedDescription)
+                        Text(outcome == .noMatch ? String(localized: "No matching cities. Try a nearby city or include the country.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                             : WeatherObservationError.searchUnavailable.moreDescription)
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                 }
@@ -306,7 +306,7 @@ struct MorningBriefingView: View {
     }
 
     @ViewBuilder private func currentWeatherDetails(_ weather: WeatherObservationSnapshot) -> some View {
-        LabeledContent(weather.conditionDescription, value: temperature(weather.temperatureCelsius))
+        LabeledContent(weather.localizedConditionDescription(), value: temperature(weather.temperatureCelsius))
         if let value = weather.apparentTemperatureCelsius {
             LabeledContent(MorningPermissionSetup.text("Feels like", "Ressenti"), value: temperature(value))
         }
@@ -407,14 +407,14 @@ struct MorningBriefingDocumentView: View {
                 Text(MorningAppStepExecutor.text(for: operation, in: document))
                     .textSelection(.enabled).accessibilityIdentifier("briefing.text")
             }
-            Text("Prepared \(document.preparedAt.formatted(date: .abbreviated, time: .shortened))")
+            Text("Prepared \(document.preparedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(AppLanguage.locale)))")
                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted).accessibilityIdentifier("briefing.preparedAt")
             if !document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier) {
                 Text("This recap needs an update before playback.").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             }
-            if document.calendar.status != .notConfigured { source(String(localized: "Calendar"), section: document.calendar, isCalendar: true) }
+            if document.calendar.status != .notConfigured { source(String(localized: "Calendar", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), section: document.calendar, isCalendar: true) }
             if operation != .todayCalendar, document.weather.status != .notConfigured {
-                source(String(localized: "Weather"), section: document.weather, isCalendar: false)
+                source(String(localized: "Weather", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), section: document.weather, isCalendar: false)
             }
             if operation != .todayCalendar, document.sleep.status != .notConfigured {
                 MorningSleepDetailsView(section: document.sleep)
@@ -430,10 +430,10 @@ struct MorningBriefingDocumentView: View {
                 Text(section.sourceLabels.joined(separator: " · ")).font(.raleway(.caption2))
             }
             if let retrievedAt = section.retrievedAt {
-                Text(isCalendar ? "Local read at \(retrievedAt.formatted(date: .omitted, time: .standard))" : "Retrieved at \(retrievedAt.formatted(date: .omitted, time: .standard))").font(.raleway(.caption2))
+                Text(isCalendar ? String(localized: "Local read at \(retrievedAt.formatted(Date.FormatStyle(date: .omitted, time: .standard).locale(AppLanguage.locale)))", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Retrieved at \(retrievedAt.formatted(Date.FormatStyle(date: .omitted, time: .standard).locale(AppLanguage.locale)))", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)).font(.raleway(.caption2))
             }
             if let observedAt = section.observationAt {
-                Text("Conditions at \(observedAt.formatted(date: .omitted, time: .standard))").font(.raleway(.caption2))
+                Text("Conditions at \(observedAt.formatted(Date.FormatStyle(date: .omitted, time: .standard).locale(AppLanguage.locale)))").font(.raleway(.caption2))
             }
         }.foregroundStyle(MorningStyle.muted)
     }

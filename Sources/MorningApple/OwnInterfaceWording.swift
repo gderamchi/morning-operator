@@ -584,13 +584,15 @@ enum OwnInterfaceWording {
             shown("You're in control", fr: "C’est vous qui décidez")
         ]),
         Screen(name: "Voice", copy: [
-            part("Your choice applies to spoken morning steps", fr: "Votre choix s’applique aux étapes lues à voix haute",
-                 of: "Matches your device’s language and dialect, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps."),
+            part("Your choice applies to spoken morning steps", fr: "Votre choix s’applique aux moments lus à voix haute",
+                 of: "Matches MORE’s language, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps.",
+                 earlier: "Votre choix s’applique aux étapes lues à voix haute"),
             part("These are Apple system speech voices; Siri may use a different voice",
                  fr: "Ce sont les voix système d’Apple ; Siri peut utiliser une voix différente",
                  of: "Listen through your current audio output. These are Apple system speech voices; Siri may use a different voice."),
-            part("Choosing it does not translate your routine", fr: "La choisir ne traduit pas votre routine",
-                 of: "A voice’s language affects pronunciation. Choosing it does not translate your routine.")
+            earlier("Choosing it does not translate your routine", "La choisir ne traduit pas votre routine"),
+            part("Your own routine text is preserved", fr: "Le texte de vos routines est conservé",
+                 of: "Only voices that match MORE’s language are shown. Your own routine text is preserved.")
         ], controls: [
             shown("More natural voices", fr: "Des voix plus naturelles"),
             shown("Installed voices", fr: "Voix installées"),

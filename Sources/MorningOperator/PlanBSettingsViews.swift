@@ -48,8 +48,8 @@ struct ShortcutTemplatesView: View {
                     Task {
                         do {
                             let allowed = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-                            alertStatus = allowed ? String(localized: "Alerts allowed") : String(localized: "Allow notifications for MORE in iPhone Settings.")
-                        } catch { alertStatus = String(localized: "Notification permission couldn't be checked.") }
+                            alertStatus = allowed ? String(localized: "Alerts allowed", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Allow notifications for MORE in iPhone Settings.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                        } catch { alertStatus = String(localized: "Notification permission couldn't be checked.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
                     }
                 }
                 if !alertStatus.isEmpty { Text(alertStatus).font(.raleway(.footnote)) }

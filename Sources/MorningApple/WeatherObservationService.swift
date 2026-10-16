@@ -74,6 +74,11 @@ public struct WeatherObservationSnapshot: Sendable, Equatable {
     public let temperatureCelsius: Double
     public let conditionDescription: String
     public let symbolName: String
+    /// Known condition codes use MORE's chosen language, independently of WeatherKit's process language.
+    /// An injected/unknown source description remains exact source data.
+    public func localizedConditionDescription(locale: Locale = AppLanguage.locale) -> String {
+        condition == .unknown ? conditionDescription : condition.displayName(locale: locale)
+    }
     public let condition: MorningWeatherCondition
     /// Apple's reported cloud fraction, not a value inferred from the description or icon.
     public let cloudCover: Double?
@@ -156,14 +161,14 @@ public enum WeatherObservationError: LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidLocation: String(localized: "Choose a valid city for the weather.", bundle: .module)
-        case .invalidSearchQuery: String(localized: "Enter a city name of up to 200 characters.", bundle: .module)
-        case .permissionDenied: String(localized: "Apple Weather denied access. This build's WeatherKit capability and developer setup need checking.", bundle: .module)
-        case .networkUnavailable: String(localized: "Weather couldn't connect to Apple. Try again when a connection is available.", bundle: .module)
-        case .serviceUnavailable: String(localized: "Apple Weather is unavailable right now. Your morning can continue without it.", bundle: .module)
-        case .searchUnavailable: String(localized: "Apple Maps couldn't search for cities right now. Try again later.", bundle: .module)
-        case .attributionUnavailable: String(localized: "Apple Weather's required source information couldn't be loaded. Try refreshing the weather.", bundle: .module)
-        case .invalidResponse: String(localized: "Apple Weather returned incomplete current conditions. Try refreshing the weather.", bundle: .module)
+        case .invalidLocation: String(localized: "Choose a valid city for the weather.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidSearchQuery: String(localized: "Enter a city name of up to 200 characters.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .permissionDenied: String(localized: "Apple Weather denied access. This build's WeatherKit capability and developer setup need checking.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .networkUnavailable: String(localized: "Weather couldn't connect to Apple. Try again when a connection is available.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .serviceUnavailable: String(localized: "Apple Weather is unavailable right now. Your morning can continue without it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .searchUnavailable: String(localized: "Apple Maps couldn't search for cities right now. Try again later.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .attributionUnavailable: String(localized: "Apple Weather's required source information couldn't be loaded. Try refreshing the weather.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidResponse: String(localized: "Apple Weather returned incomplete current conditions. Try refreshing the weather.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
         }
     }
 }
