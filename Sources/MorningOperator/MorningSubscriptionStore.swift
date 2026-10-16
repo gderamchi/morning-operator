@@ -76,6 +76,7 @@ final class MorningSubscriptionStore {
                 return
             }
             offer = currentOffer
+            guard !hasAccess else { state = .ready; return }
             // A changed price or trial needs a fresh tap after the terms update.
             guard presentedOffer.monthlyPrice == currentOffer.monthlyPrice,
                   presentedOffer.includesFreeTrial == currentOffer.includesFreeTrial else {
@@ -106,6 +107,18 @@ final class MorningSubscriptionStore {
             await refreshAccess()
             state = hasAccess ? .ready : .failed(purchaseMessage)
         }
+    }
+
+    /// Ask to Buy declines have no transaction callback; recovery needs a new tap.
+    func retryPendingPurchase() async {
+        guard !isBusy, state == .pending else { return }
+        isBusy = true
+        state = .purchasing
+        await refreshAccess()
+        isBusy = false
+        state = .ready
+        guard !hasAccess else { return }
+        await purchase()
     }
 
     func restore() async {

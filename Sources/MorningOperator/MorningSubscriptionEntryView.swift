@@ -22,7 +22,12 @@ struct MorningSubscriptionEntryView: View {
                 MorningWelcomeFlow(offer: subscription.offer, purchaseState: subscription.state,
                                    subscribe: { Task { await subscription.purchase() } },
                                    restore: { Task { await subscription.restore() } },
-                                   retry: { Task { await subscription.load() } },
+                                   retry: {
+                                       Task {
+                                           if subscription.state == .pending { await subscription.retryPendingPurchase() }
+                                           else { await subscription.load() }
+                                       }
+                                   },
                                    showLegal: { legalDocument = $0 })
             }
         }

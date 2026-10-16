@@ -81,10 +81,14 @@ final class MorningWelcomeFlowTests: XCTestCase {
                 XCTAssertTrue(app.staticTexts["paywall.notice"].exists)
             default:
                 assertOffer(in: app, french: false)
-                XCTAssertFalse(subscribe.isEnabled, "A pending purchase must not allow another purchase attempt.")
+                XCTAssertFalse(subscribe.isEnabled, "A pending purchase keeps the ordinary Subscribe action disabled.")
                 let notice = app.staticTexts["paywall.notice"]
                 XCTAssertTrue(notice.waitForExistence(timeout: 5), app.debugDescription)
                 XCTAssertFalse(notice.label.isEmpty)
+                attach("onboarding-pending-explicit-recovery", app)
+                tap("paywall.retryPending", in: app)
+                XCTAssertTrue(subscribe.isEnabled, "A declined request has an explicit recovery action.")
+                XCTAssertFalse(notice.exists)
             }
             assertNoPermissionOrHome(in: app)
             attach("onboarding-\(flag.dropFirst(2))", app)

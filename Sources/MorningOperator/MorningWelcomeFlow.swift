@@ -87,7 +87,7 @@ struct MorningWelcomeFlow: View {
                             MorningQuietLandscape(scene: clock.celestial, animated: !still,
                                                   active: scenePhase == .active,
                                                   strongInk: strongInk)
-                                .frame(height: isPaywall ? 100 : 150)
+                                .frame(height: isPaywall ? 100 : 110)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                             VStack(alignment: .leading, spacing: 16) {
                                 Text(heading)
@@ -163,7 +163,7 @@ struct MorningWelcomeFlow: View {
     }
 
     private var illustration: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             Text(text("UN APERÇU DE VOTRE MATIN", "A GLIMPSE OF YOUR MORNING"))
                 .font(.system(.caption2, weight: .medium)).tracking(1.4).foregroundStyle(muted)
             if page == 0 {
@@ -193,7 +193,6 @@ struct MorningWelcomeFlow: View {
         .padding(22).frame(maxWidth: .infinity, alignment: .leading)
         .background(surface, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(MorningStyle.line, lineWidth: 0.5))
-        .padding(.top, 12)
     }
 
     private func sourceRow(_ symbol: String, _ title: String, _ detail: String) -> some View {
@@ -285,6 +284,11 @@ struct MorningWelcomeFlow: View {
                 Text(notice).font(.system(.subheadline))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("paywall.notice")
+            }
+            if isPaywall && purchaseState == .pending {
+                Button(text("Demande refusée ? Réessayer", "Request declined? Try again"), action: retry)
+                    .font(.system(.caption, weight: .medium)).frame(minHeight: 44)
+                    .accessibilityIdentifier("paywall.retryPending")
             }
             Button(action: primaryAction) {
                 HStack(spacing: 10) {

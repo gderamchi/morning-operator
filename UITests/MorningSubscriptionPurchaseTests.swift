@@ -119,6 +119,34 @@ final class MorningSubscriptionPurchaseTests: XCTestCase {
         XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 20), app.debugDescription)
     }
 
+    func testDeclinedPendingPurchaseNeedsExplicitRetryBeforeAnotherRequest() throws {
+        let session = try makeSession()
+        defer { session.clearTransactions() }
+        session.askToBuyEnabled = true
+        let app = launch()
+        defer { app.terminate() }
+        showPaywall(in: app)
+        tap("paywall.subscribe", in: app)
+        let button = app.buttons["paywall.subscribe"]
+        let pending = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false AND label CONTAINS 'attente'"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [pending], timeout: 15), .completed)
+        let declined = try XCTUnwrap(session.allTransactions().first)
+        try session.declineAskToBuyTransaction(identifier: declined.identifier)
+        XCTAssertFalse(app.buttons["morning.actions"].exists)
+        XCTAssertFalse(button.isEnabled, "A decline must not automatically request another purchase.")
+        tap("paywall.retryPending", in: app)
+        let newRequest = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            session.allTransactions().contains { $0.identifier != declined.identifier }
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [newRequest], timeout: 15), .completed)
+        XCTAssertFalse(app.buttons["morning.actions"].exists)
+        let retryPending = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false AND label CONTAINS 'attente'"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [retryPending], timeout: 15), .completed)
+        let retried = try XCTUnwrap(session.allTransactions().first { $0.identifier != declined.identifier })
+        try session.approveAskToBuyTransaction(identifier: retried.identifier)
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 20), app.debugDescription)
+    }
+
     private func makeSession() throws -> SKTestSession {
         continueAfterFailure = false
         #if targetEnvironment(simulator)
