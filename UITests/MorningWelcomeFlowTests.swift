@@ -183,7 +183,11 @@ final class MorningWelcomeFlowTests: XCTestCase {
     private func reach(_ element: XCUIElement, in app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 5), app.debugDescription)
         for _ in 0..<10 where !element.isHittable {
-            if app.scrollViews.firstMatch.exists { app.scrollViews.firstMatch.swipeUp() }
+            if app.scrollViews.firstMatch.exists {
+                let scroll = app.scrollViews.firstMatch
+                if element.frame.midY < scroll.frame.minY { scroll.swipeDown() }
+                else { scroll.swipeUp() }
+            }
             else { app.swipeUp() }
         }
         XCTAssertTrue(element.isHittable, "The control must remain reachable: \(app.debugDescription)")

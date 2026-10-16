@@ -142,6 +142,7 @@ struct MorningWelcomePreview: View {
             .overlay(alignment: .top) {
                 Text(french ? "APERÇU · AUCUN ACHAT" : "PREVIEW · NO PURCHASE")
                     .font(.system(.caption2)).padding(3)
+                    .dynamicTypeSize(.medium)
                     .background(.regularMaterial).allowsHitTesting(false)
                     .accessibilityIdentifier("onboarding.preview")
             }

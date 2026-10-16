@@ -126,12 +126,13 @@ struct MorningWelcomeFlow: View {
         HStack(spacing: 16) {
             if page > 0 {
                 Button { move(to: page - 1) } label: {
-                    Image(systemName: "arrow.left").frame(width: 44, height: 44)
+                    Image(systemName: "arrow.left").font(.system(size: 20, weight: .medium)).frame(width: 44, height: 44)
                 }
                 .accessibilityLabel(text("Retour", "Back"))
                 .accessibilityIdentifier("onboarding.back")
             } else {
                 Text(verbatim: "MORE").font(.system(.subheadline, weight: .semibold)).tracking(4)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge).fixedSize()
                     .frame(minHeight: 44)
             }
             Spacer()
@@ -146,11 +147,13 @@ struct MorningWelcomeFlow: View {
             .accessibilityIdentifier("onboarding.progress")
             Spacer()
             if !isPaywall {
-                Button(text("Voir l’offre", "View offer")) { move(to: 3) }
+                Button(typeSize.isAccessibilitySize ? text("Offre", "Offer") : text("Voir l’offre", "View offer")) { move(to: 3) }
                     .font(.system(.caption, weight: .medium)).frame(minHeight: 44)
+                    .fixedSize(horizontal: true, vertical: false)
                     .accessibilityIdentifier("onboarding.offer")
             } else {
                 Text(verbatim: "MORE").font(.system(.caption, weight: .semibold)).tracking(3)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge).fixedSize()
             }
         }
         .buttonStyle(.plain)
