@@ -425,7 +425,7 @@ public final class JuryDemoVoiceSession {
         let route = AVAudioSession.sharedInstance().currentRoute
         let inputPorts = route.inputs.map { $0.portType.rawValue }.joined(separator: ",")
         let outputPorts = route.outputs.map { $0.portType.rawValue }.joined(separator: ",")
-        JuryDemoAudioDiagnostic.log.info("prepare_route inputType=\(inputPorts, privacy: .public) outputType=\(outputPorts, privacy: .public) inputMuted=\(input.isVoiceProcessingInputMuted, privacy: .public)")
+        JuryDemoAudioDiagnostic.log.info("prepare_route inputType=\(inputPorts, privacy: .public) outputType=\(outputPorts, privacy: .public) inputMuted=\(input.isVoiceProcessingInputMuted, privacy: .public) appInputMuted=\(AVAudioApplication.shared.isInputMuted, privacy: .public)")
         #endif
         observeInterruptions(run: id)
     }
@@ -586,7 +586,9 @@ private final class JuryDemoAudioSink: @unchecked Sendable {
     #if DEBUG
     private var diagnosticBuffers: UInt64 = 0
     private var diagnosticFrames: UInt64 = 0
-    private var diagnosticPeak: Float = 0
+    private var diagnosticPeak: Double = 0
+    private var diagnosticNonZero: UInt64 = 0
+    private var diagnosticFormat: AVAudioFormat?
     private var diagnosticLoggedAt: TimeInterval = 0
     #endif
     func replace(_ request: SFSpeechAudioBufferRecognitionRequest) {
@@ -595,22 +597,33 @@ private final class JuryDemoAudioSink: @unchecked Sendable {
     }
     func append(_ buffer: AVAudioPCMBuffer) {
         lock.lock(); defer { lock.unlock() }
-        request?.append(buffer)
         #if DEBUG
         diagnosticBuffers += 1
         diagnosticFrames += UInt64(buffer.frameLength)
-        if let samples = buffer.floatChannelData?[0] {
-            let stride = buffer.format.isInterleaved ? Int(buffer.format.channelCount) : 1
+        let stride = buffer.stride
+        if diagnosticFormat?.isEqual(buffer.format) != true {
+            diagnosticFormat = buffer.format
+            JuryDemoAudioDiagnostic.log.info("tap_format commonFormat=\(buffer.format.commonFormat.rawValue, privacy: .public) sampleRate=\(buffer.format.sampleRate, privacy: .public) channels=\(buffer.format.channelCount, privacy: .public) stride=\(stride, privacy: .public) interleaved=\(buffer.format.isInterleaved, privacy: .public) floatPresent=\(buffer.floatChannelData != nil, privacy: .public) int16Present=\(buffer.int16ChannelData != nil, privacy: .public) int32Present=\(buffer.int32ChannelData != nil, privacy: .public)")
+        }
+        for channel in 0..<Int(buffer.format.channelCount) {
             for frame in 0..<Int(buffer.frameLength) {
-                diagnosticPeak = max(diagnosticPeak, abs(samples[frame * stride]))
+                let offset = frame * stride
+                let sample: Double
+                if let channels = buffer.floatChannelData { sample = Double(channels[channel][offset]) }
+                else if let channels = buffer.int16ChannelData { sample = Double(channels[channel][offset]) / 32_768 }
+                else if let channels = buffer.int32ChannelData { sample = Double(channels[channel][offset]) / 2_147_483_648 }
+                else { continue }
+                if sample != 0 { diagnosticNonZero += 1 }
+                diagnosticPeak = max(diagnosticPeak, abs(sample))
             }
         }
         let now = Date.timeIntervalSinceReferenceDate
         if now - diagnosticLoggedAt >= 1 {
-            JuryDemoAudioDiagnostic.log.info("tap_buffers total=\(self.diagnosticBuffers, privacy: .public) frames=\(self.diagnosticFrames, privacy: .public) peak=\(self.diagnosticPeak, privacy: .public) requestActive=\(self.request != nil, privacy: .public)")
+            JuryDemoAudioDiagnostic.log.info("tap_buffers total=\(self.diagnosticBuffers, privacy: .public) frames=\(self.diagnosticFrames, privacy: .public) peakMicro=\(self.diagnosticPeak * 1_000_000, privacy: .public) nonZeroSamples=\(self.diagnosticNonZero, privacy: .public) requestActive=\(self.request != nil, privacy: .public)")
             diagnosticLoggedAt = now; diagnosticPeak = 0
         }
         #endif
+        request?.append(buffer)
     }
     func end() { lock.lock(); defer { lock.unlock() }; request?.endAudio(); request = nil }
 }
