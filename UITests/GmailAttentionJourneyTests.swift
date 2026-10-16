@@ -68,7 +68,7 @@ import XCTest
         let app = XCUIApplication(), workspace = UUID().uuidString
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-workspace=\(workspace)",
             "--ui-testing-gmail-attention", "--ui-testing-approved", "--ui-testing-hands-free", "--light-preview", "--theme-phase=morning",
-            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"] + extra
+            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US", "-more.appLanguage", french ? "fr" : "en"] + extra
         app.launch()
         if !app.staticTexts["qa.testWorkspace"].waitForExistence(timeout: 5) { app.terminate(); app.launch() }
         XCTAssertEqual(app.staticTexts["qa.testWorkspace"].value as? String, workspace)
