@@ -56,6 +56,7 @@ struct MorningSubscriptionLegalSheet: View {
     var store: MorningStore? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var showingData = false
+    @State private var exportSnapshot: RoutineVersion?
     private var french: Bool { AppLanguage.isFrench }
     private func text(_ fr: String, _ en: String) -> String { french ? fr : en }
     private var night: Bool { MorningThemeClock.shared.celestial.moon.opacity > 0.57 }
@@ -86,6 +87,11 @@ struct MorningSubscriptionLegalSheet: View {
                             Button(text("Gérer mes données sur cet iPhone", "Manage my data on this iPhone")) { showingData = true }
                                 .frame(minHeight: 44).accessibilityIdentifier("paywall.manageData")
                         }
+                        if let store, let routine = store.routine {
+                            Button(text("Exporter ma routine", "Export my routine")) { exportSnapshot = routine }
+                                .frame(minHeight: 44).disabled(store.privacyBlocksWork)
+                                .accessibilityIdentifier("paywall.exportData")
+                        }
                     }
                 }
                 .font(MorningTheme.Typography.body).lineSpacing(5)
@@ -106,25 +112,30 @@ struct MorningSubscriptionLegalSheet: View {
             }
         }
         .preferredColorScheme(night ? .dark : .light)
+        .sheet(item: $exportSnapshot) { RoutineExportView(routine: $0) }
     }
 }
 
 #if DEBUG
 /// An explicit preview can never buy a product or unlock the permission flow.
 struct MorningWelcomePreview: View {
-    @State private var state: MorningPurchasePresentation = .ready
+    @State private var state: MorningPurchasePresentation = ProcessInfo.processInfo.arguments.contains("--preview-onboarding-unavailable")
+        ? .unavailable : ProcessInfo.processInfo.arguments.contains("--preview-onboarding-pending") ? .pending : .ready
     @State private var legalDocument: MorningSubscriptionLegalDocument?
     private var french: Bool { AppLanguage.isFrench }
+    private var offer: MorningSubscriptionOffer? {
+        guard !ProcessInfo.processInfo.arguments.contains("--preview-onboarding-unavailable") else { return nil }
+        return .init(monthlyPrice: french ? "4,99 €" : "€4.99",
+                     includesFreeTrial: !ProcessInfo.processInfo.arguments.contains("--preview-onboarding-no-trial"))
+    }
     var body: some View {
-        MorningWelcomeFlow(offer: .init(monthlyPrice: french ? "4,99 €" : "€4.99", includesFreeTrial: true),
+        MorningWelcomeFlow(offer: offer,
                            purchaseState: state,
                            subscribe: { state = .failed(french ? "Aperçu : aucun achat effectué. Vous pouvez réessayer."
                                                        : "Preview: no purchase made. You can try again.") },
                            restore: { state = .failed(french ? "Aperçu : aucun abonnement à restaurer."
                                                      : "Preview: no subscription to restore.") },
                            retry: { state = .ready }, showLegal: { legalDocument = $0 })
-            .environment(\.accessibilityReduceMotion, ProcessInfo.processInfo.arguments.contains("--ui-testing-reduce-motion"))
-            .environment(\.accessibilityReduceTransparency, ProcessInfo.processInfo.arguments.contains("--ui-testing-reduce-transparency"))
             .sheet(item: $legalDocument) { MorningSubscriptionLegalSheet(document: $0) }
             .overlay(alignment: .top) {
                 Text(french ? "APERÇU · AUCUN ACHAT" : "PREVIEW · NO PURCHASE")

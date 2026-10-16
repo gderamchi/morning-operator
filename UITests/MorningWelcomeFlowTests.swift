@@ -25,6 +25,16 @@ final class MorningWelcomeFlowTests: XCTestCase {
         tap("onboarding.next", in: app)
         assertOffer(in: app, french: true)
 
+        for (identifier, title) in [("paywall.terms", "Votre abonnement"),
+                                    ("paywall.privacy", "Vos données, vos choix.")] {
+            tap(identifier, in: app)
+            XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), app.debugDescription)
+            let close = app.buttons["Fermer"]
+            XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
+            close.tap()
+            assertOffer(in: app, french: true)
+        }
+
         tap("paywall.subscribe", in: app)
         let notice = app.staticTexts["paywall.notice"]
         XCTAssertTrue(notice.waitForExistence(timeout: 5), app.debugDescription)
@@ -49,6 +59,37 @@ final class MorningWelcomeFlowTests: XCTestCase {
         assertOffer(in: skipped, french: true)
         assertNoPermissionOrHome(in: skipped)
         skipped.terminate()
+    }
+
+    func testNoTrialUnavailableAndPendingOffersStayHonestAndGated() {
+        for flag in ["--preview-onboarding-no-trial", "--preview-onboarding-unavailable", "--preview-onboarding-pending"] {
+            let app = launch(extra: [flag])
+            tap("onboarding.offer", in: app)
+            let subscribe = app.buttons["paywall.subscribe"]
+            XCTAssertTrue(subscribe.waitForExistence(timeout: 5), app.debugDescription)
+            switch flag {
+            case "--preview-onboarding-no-trial":
+                assertOffer(in: app, french: false)
+                XCTAssertFalse(subscribe.label.contains("7"), "An ineligible account must not be offered a free trial.")
+                XCTAssertTrue(subscribe.isEnabled)
+            case "--preview-onboarding-unavailable":
+                XCTAssertFalse(app.staticTexts["paywall.price"].exists, "An unavailable product must not display a fabricated price.")
+                XCTAssertEqual(subscribe.label, "Try again")
+                XCTAssertTrue(subscribe.isEnabled)
+                reach(subscribe, in: app)
+                reach(app.buttons["paywall.restore"], in: app)
+                XCTAssertTrue(app.staticTexts["paywall.notice"].exists)
+            default:
+                assertOffer(in: app, french: false)
+                XCTAssertFalse(subscribe.isEnabled, "A pending purchase must not allow another purchase attempt.")
+                let notice = app.staticTexts["paywall.notice"]
+                XCTAssertTrue(notice.waitForExistence(timeout: 5), app.debugDescription)
+                XCTAssertFalse(notice.label.isEmpty)
+            }
+            assertNoPermissionOrHome(in: app)
+            attach("onboarding-\(flag.dropFirst(2))", app)
+            app.terminate()
+        }
     }
 
     func testIntroductionAndOfferAcrossDayNightAndFrenchEnglish() {

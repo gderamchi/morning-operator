@@ -45,26 +45,27 @@ final class MorningSubscriptionStore {
 
     func load() async {
         guard !isBusy else { return }
+        let wasPending = state == .pending
         isBusy = true
         state = .loading
         defer { isBusy = false }
         await refreshAccess()
         do {
             guard let (_, loadedOffer) = try await loadProduct() else {
-                offer = nil
-                state = .unavailable
+                if !wasPending { offer = nil }
+                state = wasPending && !hasAccess ? .pending : .unavailable
                 return
             }
             offer = loadedOffer
-            state = .ready
+            state = wasPending && !hasAccess ? .pending : .ready
         } catch {
-            offer = nil
-            state = .failed(text("The subscription could not be loaded. Please try again.", "L’abonnement n’a pas pu être chargé. Réessayez dans un instant."))
+            if !wasPending { offer = nil }
+            state = wasPending && !hasAccess ? .pending : .failed(text("The subscription could not be loaded. Please try again.", "L’abonnement n’a pas pu être chargé. Réessayez dans un instant."))
         }
     }
 
     func purchase() async {
-        guard !isBusy, let presentedOffer = offer, !hasAccess else { return }
+        guard !isBusy, state != .pending, let presentedOffer = offer, !hasAccess else { return }
         isBusy = true
         state = .purchasing
         defer { isBusy = false }
@@ -96,31 +97,34 @@ final class MorningSubscriptionStore {
             case .userCancelled:
                 state = .ready
             @unknown default:
-                state = .failed(purchaseMessage)
+                await refreshAccess()
+                state = hasAccess ? .ready : .failed(purchaseMessage)
             }
         } catch StoreKitError.userCancelled {
             state = .ready
         } catch {
-            state = .failed(purchaseMessage)
+            await refreshAccess()
+            state = hasAccess ? .ready : .failed(purchaseMessage)
         }
     }
 
     func restore() async {
         guard !isBusy else { return }
+        let wasPending = state == .pending
         isBusy = true
         state = .restoring
         defer { isBusy = false }
         do {
             try await AppStore.sync()
             await refreshAccess()
-            state = hasAccess ? .ready : .failed(text(
+            state = hasAccess ? .ready : wasPending ? .pending : .failed(text(
                 "No active MORE subscription was found for this Apple Account.",
                 "Aucun abonnement MORE actif n’a été trouvé pour ce compte Apple."
             ))
         } catch StoreKitError.userCancelled {
-            state = offer == nil ? .unavailable : .ready
+            state = wasPending ? .pending : offer == nil ? .unavailable : .ready
         } catch {
-            state = .failed(text("Purchases could not be restored. Please try again.", "Les achats n’ont pas pu être restaurés. Réessayez dans un instant."))
+            state = wasPending ? .pending : .failed(text("Purchases could not be restored. Please try again.", "Les achats n’ont pas pu être restaurés. Réessayez dans un instant."))
         }
     }
 
@@ -182,7 +186,7 @@ final class MorningSubscriptionStore {
             guard transaction.productID == productID else { return }
             await transaction.finish()
             await refreshAccess()
-            if !isBusy, hasAccess { state = .ready }
+            if !isBusy { state = offer == nil ? .unavailable : .ready }
         case .unverified(let transaction, _):
             guard transaction.productID == productID else { return }
             await refreshAccess()

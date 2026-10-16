@@ -97,6 +97,28 @@ final class MorningSubscriptionPurchaseTests: XCTestCase {
         XCTAssertTrue(session.allTransactions().isEmpty)
     }
 
+    func testPendingPurchaseSurvivesForegroundUntilStoreKitApprovesIt() throws {
+        let session = try makeSession()
+        defer { session.clearTransactions() }
+        session.askToBuyEnabled = true
+        let app = launch()
+        defer { app.terminate() }
+        showPaywall(in: app)
+        tap("paywall.subscribe", in: app)
+        let button = app.buttons["paywall.subscribe"]
+        let pending = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false AND label CONTAINS 'attente'"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [pending], timeout: 15), .completed)
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(app.staticTexts["paywall.price"].waitForExistence(timeout: 10))
+        let stillPending = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false AND label CONTAINS 'attente'"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [stillPending], timeout: 15), .completed)
+        XCTAssertFalse(app.buttons["morning.actions"].exists)
+        let transaction = try XCTUnwrap(session.allTransactions().first)
+        try session.approveAskToBuyTransaction(identifier: transaction.identifier)
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 20), app.debugDescription)
+    }
+
     private func makeSession() throws -> SKTestSession {
         continueAfterFailure = false
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "MORE", withExtension: "storekit"))

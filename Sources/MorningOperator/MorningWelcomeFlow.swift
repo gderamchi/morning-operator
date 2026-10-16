@@ -45,6 +45,18 @@ struct MorningWelcomeFlow: View {
     private var muted: Color { color(contrast == .increased ? palette.ink : palette.inkSoft) }
     private var surface: Color { color(palette.surface) }
     private var isPaywall: Bool { page == 3 }
+    private var still: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing-reduce-motion") { return true }
+        #endif
+        return reduceMotion
+    }
+    private var strongInk: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing-reduce-transparency") { return true }
+        #endif
+        return reduceTransparency || contrast == .increased
+    }
     private var heading: String {
         switch page {
         case 0: text("Retrouvez\nvotre matin.", "Meet your\nmorning.")
@@ -74,9 +86,9 @@ struct MorningWelcomeFlow: View {
                     navigation
                     ScrollView {
                         VStack(alignment: .leading, spacing: 24) {
-                            MorningQuietLandscape(scene: clock.celestial, animated: !reduceMotion,
+                            MorningQuietLandscape(scene: clock.celestial, animated: !still,
                                                   active: scenePhase == .active,
-                                                  strongInk: reduceTransparency || contrast == .increased)
+                                                  strongInk: strongInk)
                                 .frame(height: isPaywall ? 100 : 150)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                             VStack(alignment: .leading, spacing: 16) {
@@ -361,6 +373,6 @@ struct MorningWelcomeFlow: View {
         else { subscribe() }
     }
     private func move(to next: Int) {
-        withAnimation(.easeOut(duration: reduceMotion ? 0 : 0.15)) { page = next }
+        withAnimation(.easeOut(duration: still ? 0 : 0.15)) { page = next }
     }
 }
