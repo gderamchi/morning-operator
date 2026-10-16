@@ -1,6 +1,20 @@
 # Home routine playback — 16 October 2026
 
-## Current design: floating glass glyphs
+## Current design: adaptive native Settings
+
+Settings now uses a compact native grouped list and system typography, with neutral semantic colors instead of the Home landscape's cream, serif headings and separate oversized cards. Home keeps its existing landscape and floating glass glyphs. The same solar cycle selects light or dark appearance throughout navigation, independently of whether Home is visible; the interaction and iPhone-access presentations no longer force light appearance. Explicit artwork previews retain their own palette.
+
+The combined source retains the latest automatic/manual weather location, provider attribution and persisted access choices from `cba5130`, together with the minimalist Home. Five focused simulator UI tests passed: day Settings through routine/accounts/voice, standard night Settings and weather sheet, French largest text with Reduce Motion, idle Home controls and Settings navigation, and active Home controls/Next in Settings. Day, night, weather, voice and largest-text captures were inspected. Evidence: `.build/adaptive-settings-ui.xcresult` and `.build/adaptive-settings-attachments/`. Sources in these UI checks are isolated fixtures; they do not establish real provider behavior or a full inherited-suite pass.
+
+After the final iPhone-access appearance correction, the simulator test build passed again and the dedicated Settings → iPhone permissions night check passed (1 test, zero failures). Its inspected capture confirms a black surface and readable text/buttons; no Allow or Not now action was pressed. Evidence: `.build/adaptive-settings-permissions-ui.xcresult` and `.build/adaptive-settings-permissions-attachments/`. This brings the focused UI evidence to six passing checks across the two runs.
+
+### Physical installation: build 1551
+
+Both existing copies were updated in place to 0.1.0 (1551), built from `b7b6a02`, on the iPhone 17 / iOS 27.2. Both launched without test arguments or injected fixture environment; ordinary MORE was launched last in the foreground, and its new executable/PID was confirmed in a subsequent process query. Live inventory confirms both 1551 versions. Both workspaces remain byte-for-byte identical to fresh backups in `.build/iphone-before-adaptive-settings-1550-20261016T012223Z/`. The ordinary copy's eight persisted access choices are also byte-for-byte unchanged. The older personal copy had no permission-setup file; no choices were fabricated or copied between bundles.
+
+All 68 production and 60 personal artifact checks passed, including final source/object freshness, app/widget versions, deep/strict signatures and retained profiles/certificates/configuration. Production keeps its signed WeatherKit/Family Controls capabilities and `.liveactivity` widget; personal keeps its reduced capabilities and `.activity` override. Google/API boundaries are unchanged. Private evidence: `.build/home-minimal-device/verification-settings1551.json`, `.build/relaunch-personal/1551/` and `.build/adaptive-settings1551-device/`. No uninstall, data reset, real routine or provider mutation was performed on the phone. Owner acceptance of physical display/listening comfort and a real third-party handoff remains #171/#158; inherited selector updates remain #168.
+
+## Earlier design: floating glass glyphs
 
 The fourth review removes the enclosing circles. Native Liquid Glass follows the rounded Play triangle, the two Pause bars and the Settings gear itself, including its open center. No capsule, plate or extra SF Symbol sits behind or above the material. The visible glyphs are 48/28 points; the invisible touch targets remain 88/48 points. The opaque accessibility fallback uses the same glyph silhouettes. Placement, five-second lifetime and navigation are unchanged.
 

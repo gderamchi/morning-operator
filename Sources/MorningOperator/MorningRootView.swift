@@ -139,6 +139,7 @@ struct MorningRootView: View {
             Task { await store.prepareDayIfConfigured(); synchronizeHomeWeather() }
         }) {
             MorningPermissionSetupView(store: store)
+                .preferredColorScheme(nightAppearance ? .dark : .light)
                 .onAppear { store.suspendHandsFreeVoice() }
         }
         .sheet(isPresented: $showingInvitation, onDismiss: {
