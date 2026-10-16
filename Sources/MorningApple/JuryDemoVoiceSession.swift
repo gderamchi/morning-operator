@@ -713,12 +713,14 @@ private enum JuryDemoAudioDiagnostic {
 #if DEBUG
 /// An explicit capture-control experiment. Its private, protected temporary file
 /// exists only while recording; no data or transcript leaves this helper.
-private final class JuryDemoRecorderMicrophoneDiagnostic: @unchecked Sendable {
+private final class JuryDemoRecorderMicrophoneDiagnostic: NSObject, AVAudioRecorderDelegate, @unchecked Sendable {
     private struct Report: Codable {
         // 0 waiting, 1 preparing, 2 recording, 3 stopped, 4 failed, 5 activation timeout.
         var state: Int
         var startedAt = Date().timeIntervalSince1970
         var duration = 0.0
+        var recordedDuration = 0.0
+        var recordedFrames: Int64 = 0
         var meterCount = 0
         var maxPeakDB = -160.0
         var audioCleanup = false
@@ -785,6 +787,7 @@ private final class JuryDemoRecorderMicrophoneDiagnostic: @unchecked Sendable {
         let session = AVAudioSession.sharedInstance()
         previousCategory = session.category; previousMode = session.mode; previousOptions = session.categoryOptions
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("jury-mic-\(UUID().uuidString)", isDirectory: true)
+        super.init()
         Self.beginReport()
         Self.write(report)
         JuryDemoAudioDiagnostic.log.info("recorder_prepare")
@@ -800,6 +803,7 @@ private final class JuryDemoRecorderMicrophoneDiagnostic: @unchecked Sendable {
                 AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false
             ])
             self.recorder = recorder
+            recorder.delegate = self
             recorder.isMeteringEnabled = true
             guard recorder.prepareToRecord() else { throw JuryDemoError.localVoiceUnavailable }
             try FileManager.default.setAttributes([.posixPermissions: 0o600,
@@ -814,12 +818,15 @@ private final class JuryDemoRecorderMicrophoneDiagnostic: @unchecked Sendable {
                     guard let self, let recorder = self.recorder else { return }
                     recorder.updateMeters()
                     self.report.meterCount += 1
-                    self.report.duration = max(self.report.duration, recorder.currentTime)
+                    self.report.duration = Date().timeIntervalSince(self.recordingStartedAt ?? Date())
+                    self.report.recordedDuration = max(self.report.recordedDuration, recorder.currentTime)
                     let peak = Double(recorder.peakPower(forChannel: 0))
                     if peak.isFinite { self.report.maxPeakDB = max(self.report.maxPeakDB, peak) }
                     Self.write(self.report)
                     JuryDemoAudioDiagnostic.log.info("recorder_meter recording=\(recorder.isRecording, privacy: .public) elapsed=\(recorder.currentTime, privacy: .public) averageDB=\(recorder.averagePower(forChannel: 0), privacy: .public) peakDB=\(recorder.peakPower(forChannel: 0), privacy: .public)")
-                    if !recorder.isRecording { self.stop(); onExpired(); return }
+                    if self.report.duration >= 30 || self.report.state == 4 || !recorder.isRecording {
+                        self.stop(); onExpired(); return
+                    }
                 }
             }
         } catch {
@@ -833,13 +840,33 @@ private final class JuryDemoRecorderMicrophoneDiagnostic: @unchecked Sendable {
 
     deinit { stop() }
 
+    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: (any Error)?) {
+        recordFailure((error as NSError?)?.code ?? -3)
+    }
+
+    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        if !flag { recordFailure(-3) }
+    }
+
+    private func recordFailure(_ code: Int) {
+        Task { @MainActor [weak self] in
+            guard let self, !restored else { return }
+            report.state = 4; report.errorCode = code
+        }
+    }
+
     func stop() {
         meters?.cancel(); meters = nil
         if !restored {
-            if let recorder { report.duration = max(report.duration, recorder.currentTime) }
-            if let recordingStartedAt { report.duration = max(report.duration, min(30, Date().timeIntervalSince(recordingStartedAt))) }
+            if let recorder { report.recordedDuration = max(report.recordedDuration, recorder.currentTime) }
+            if let recordingStartedAt { report.duration = Date().timeIntervalSince(recordingStartedAt) }
         }
         recorder?.stop(); recorder = nil
+        let audioURL = directory.appendingPathComponent("capture.caf")
+        if FileManager.default.fileExists(atPath: audioURL.path) {
+            do { report.recordedFrames = try AVAudioFile(forReading: audioURL).length }
+            catch { report.state = 4; report.errorCode = (error as NSError).code }
+        }
         var fileRemoved = false
         do {
             if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
