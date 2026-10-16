@@ -133,9 +133,11 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
         }
         attach("ordinary-home-weather-status")
         outcome.append("HOME_WEATHER_STATUS_AFTER_RELAUNCH: \(app.buttons["morning.actions"].value ?? "not exposed")")
+        XCTAssertEqual(app.state, .runningForeground, "Another device operation must not replace this live-weather check.")
         attach("ordinary-live-sky-0s")
         for index in 1...4 {
             Thread.sleep(forTimeInterval: 3)
+            XCTAssertEqual(app.state, .runningForeground, "The ordinary app must remain foreground throughout animation capture.")
             attach("ordinary-live-sky-\(index * 3)s")
         }
         outcome.append("ANIMATION_FRAMES_RECORDED: visual review must relate movement to the measured weather; frame differences alone do not prove wind.")
