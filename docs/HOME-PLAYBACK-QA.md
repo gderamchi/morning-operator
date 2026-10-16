@@ -1,6 +1,22 @@
 # Home routine playback — 16 October 2026
 
-## Current design: text only by default
+## Current design: two transient glass controls
+
+The owner's third review removes the idle Home panel too. A tap reveals only an 88-point central Play button and a 48-point Settings button at the top right, using the existing native Liquid Glass surface. Both disappear after five seconds without interaction; VoiceOver keeps revealed controls available. During playback, the central button becomes Pause/Resume. No close, Next, overflow menu, heading or countdown appears on Home. Reduced Transparency receives the existing opaque system surface.
+
+Routine editing, learning, history, thoughts and completion details are reachable through Settings. Session commands (Next, extend, Interact, Stop) also live there; Interact still pauses the routine and preserves its explicit sheet. Required live weather attribution and meaningful execution notices remain visible.
+
+Implementation: `31070db`. Simulator build-for-testing passed, followed by all five focused Home UI tests (0 failures): idle two-button layout and timeout, Settings-to-routine navigation, active control timeout/reset, largest text with Reduce Motion and Next in Settings, automatic progression, and actual local speech replacing the passage. Idle glass controls and largest-text playback captures were inspected. Xcode again emitted its diagnostic-collection warning after successful execution; this does not establish a full inherited-suite pass. Evidence: `.build/home-glass-ui.xcresult`, `.build/home-glass-ui.log`, `.build/home-glass-attachments/`.
+
+### Physical installation: build 1537
+
+Both existing MORE copies on the iPhone 17 / iOS 27.2 were updated in place to 0.1.0 (1537): ordinary `com.gibouu.morningoperator` and personal `com.gibouu.morningoperator.personal44jg2p8zr8`. No app was uninstalled. Both were launched without fixture arguments or injected test environment; the ordinary copy was relaunched last in the foreground. The two fresh container backups are private under `.build/iphone-before-glass-home-20261016T005144Z/`. Each saved workspace after launch is byte-for-byte identical to its own baseline.
+
+The signed production build passed 13 current artifact checks and the personal build passed 29. Both contain the final Root, Home playback and Settings objects. Existing configuration and signing boundaries were preserved: production WeatherKit/Family Controls entitlements, personal reduced capabilities, personal Google configuration, common API origin. Native Google remains unconfigured in the production bundle. Private receipts and logs: `.build/home-minimal-device/*glass1537*` and `.build/relaunch-personal/1537/`. No credentials, private data or captures are committed.
+
+No real routine or provider action was started on the physical phone. Owner acceptance of physical display/listening comfort and real third-party handoff remains under #171/#158. Inherited old Home selectors remain tracked in #168.
+
+## Earlier design and installation: build 1536
 
 The owner's second review removes the persistent step heading, countdown and transport row. Home shows only the current short spoken passage (up to 110 characters) with a gentle crossfade. Previous passages do not accumulate. Full speech content is preserved; ordinary speech remains one utterance, while duplex speech uses the same bounded passages as its existing sequential audio chunks.
 
