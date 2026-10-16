@@ -60,6 +60,108 @@ final class MorningHomePlaybackTests: XCTestCase {
         assertSettingsAppearance("night", in: app)
     }
 
+    func testConnectionsExplainProfessionalLimitsAndReturnFromWebsiteNativeAndAccountDestinations() {
+        let app = launch(["--ui-testing-connections-catalog", "--ui-testing-briefing-fixture"])
+        defer { app.terminate() }
+        openIdleSettings(app)
+        settingsButton("setup.connections", in: app).tap()
+        let title = app.navigationBars["Apps & accounts"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        app.buttons["connections.instagram"].tap()
+        XCTAssertTrue(app.buttons["web.close"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "web.page").firstMatch.exists)
+        XCTAssertTrue(app.buttons["connections.confirmReady"].exists)
+        attach("connections-website-destination-only", app)
+        app.buttons["web.close"].tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["connections.instagram"].label.contains("Website · Sign in"))
+
+        connectionControl("connections.calendar", in: app).tap()
+        let done = app.navigationBars["Your day"].buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        attach("connections-native-day-destination", app)
+        done.tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        connectionControl("connections.account.notion", in: app).tap()
+        XCTAssertTrue(app.buttons["accounts.connect.notion"].waitForExistence(timeout: 5))
+        attach("connections-synthetic-empty-account-destination", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+
+        connectionControl("connections.professional", in: app).tap()
+        let limits = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Instagram requires a professional account")).firstMatch
+        XCTAssertTrue(limits.waitForExistence(timeout: 5))
+        XCTAssertTrue(limits.label.contains("WhatsApp requires a Business Cloud account"))
+        XCTAssertTrue(limits.label.contains("Facebook uses your Pages"))
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "connections-synthetic-professional-accessibility"
+        tree.lifetime = .keepAlways
+        add(tree)
+        for name in ["Instagram professional", "WhatsApp Business Cloud", "Facebook Pages"] {
+            // DisclosureGroup gives its links the same accessibility identifier.
+            let row = app.staticTexts[name]
+            scrollConnectionControl(row, in: app)
+            assertFitsOnScreen(row, in: app)
+        }
+        attach("connections-synthetic-professional-limits-and-rows", app)
+        for (name, service) in [("Instagram professional", "instagram"), ("WhatsApp Business Cloud", "whatsapp"), ("Facebook Pages", "facebook")] {
+            let row = app.staticTexts[name]
+            scrollConnectionControl(row, in: app)
+            row.tap()
+            XCTAssertTrue(app.navigationBars[service.capitalized].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["accounts.connect.\(service)"].waitForExistence(timeout: 5))
+            attach("connections-synthetic-professional-\(service)-destination", app)
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(title.waitForExistence(timeout: 5))
+        }
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("day", in: app)
+    }
+
+    func testFrenchLargestNightProfessionalConnectionsKeepTheirTitlesReachable() {
+        let app = launch(["--ui-testing-connections-catalog", "--ui-testing-reduce-motion",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true, night: true)
+        defer { app.terminate() }
+        openIdleSettings(app)
+        settingsButton("setup.connections", in: app).tap()
+        let professional = app.staticTexts["Comptes professionnels"]
+        for _ in 0..<20 where !professional.exists || !professional.isHittable { app.swipeUp(velocity: .fast) }
+        scrollConnectionControl(professional, in: app)
+        professional.tap()
+        for (index, name) in ["Instagram professionnel", "WhatsApp Business Cloud", "Facebook Pages"].enumerated() {
+            let row = app.staticTexts[name]
+            scrollConnectionControl(row, in: app)
+            assertFitsOnScreen(row, in: app)
+            attach("connections-french-largest-night-professional-\(index)", app)
+        }
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("night", in: app)
+    }
+
+    func testFrenchLargestNightConnectionsExplainUnavailableAccountsAndKeepRetryReachable() {
+        let app = launch(["--ui-testing-connections-unavailable", "--ui-testing-reduce-motion",
+                          "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], french: true, night: true)
+        defer { app.terminate() }
+        openIdleSettings(app)
+        settingsButton("setup.connections", in: app).tap()
+        XCTAssertTrue(app.navigationBars["Apps et comptes"].waitForExistence(timeout: 5))
+        let issue = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Impossible de charger vos comptes")).firstMatch
+        scrollConnectionControl(issue, in: app)
+        attach("connections-french-largest-night-unavailable-accounts", app)
+        let retry = app.buttons["Réessayer"]
+        scrollConnectionControl(retry, in: app)
+        XCTAssertTrue(retry.isEnabled)
+        assertFitsOnScreen(retry, in: app)
+        retry.tap()
+        scrollConnectionControl(issue, in: app)
+        XCTAssertFalse(app.buttons["connections.account.slack"].exists)
+        attach("connections-french-largest-night-unavailable-retry", app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        assertSettingsAppearance("night", in: app)
+    }
+
     func testNightSettingsAndWeatherSheetUseDarkAppearanceAtStandardTextSize() {
         let app = launch(["--ui-testing-briefing-fixture"], night: true)
         defer { app.terminate() }
@@ -290,6 +392,33 @@ final class MorningHomePlaybackTests: XCTestCase {
         }
         XCTAssertTrue(button.exists && button.isHittable, "Settings keeps \(identifier) reachable.")
         return button
+    }
+
+    private func connectionControl(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let control = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        scrollConnectionControl(control, in: app)
+        return control
+    }
+
+    private func scrollConnectionControl(_ control: XCUIElement, in app: XCUIApplication) {
+        let top = app.navigationBars.firstMatch.frame.maxY + 8
+        let bottom = app.frame.maxY - 24
+        for attempt in 0..<20 {
+            let frame = control.exists ? control.frame : .zero
+            let fits = frame.height > bottom - top || (frame.minY >= top && frame.maxY <= bottom)
+            if control.exists && control.isHittable && fits { return }
+            if frame.height > 0 {
+                // A full swipe can jump over a tall accessibility row forever.
+                // Move its nearest clipped edge into the visible content area.
+                let distance = frame.minY < top
+                    ? min(160, top - frame.minY + 12)
+                    : -min(160, frame.maxY - bottom + 12)
+                let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                start.press(forDuration: 0.02, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)))
+            } else if attempt < 10 { app.swipeUp() }
+            else { app.swipeDown() }
+        }
+        XCTAssertTrue(control.exists && control.isHittable)
     }
 
     private func setFirstMomentDetails(_ text: String, in app: XCUIApplication) -> String {
