@@ -41,7 +41,7 @@ final class MorningPermissionSetupTests: XCTestCase {
             skip.tap()
         }
         XCTAssertTrue(app.staticTexts["permissions.title.microphone"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["permissions.title.microphone"].label, "Hear you during your morning")
+        XCTAssertEqual(app.staticTexts["permissions.title.microphone"].label, "Make your voice heard.")
         XCTAssertEqual(app.alerts.count, 0)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "synthetic-permission-explanation-microphone"
