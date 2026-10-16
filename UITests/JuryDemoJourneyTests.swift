@@ -292,6 +292,117 @@ final class JuryDemoJourneyTests: XCTestCase {
         #endif
     }
 
+    /// The compact activity is opened only by its observed MORE accessibility
+    /// label. Every action then requires a demo-only control identifier.
+    func testLivePhysicalPhoneDynamicIslandPauseResumeAndStop() async throws {
+        guard ProcessInfo.processInfo.environment["MORE_JURY_ISLAND_PHONE"] == "1" else {
+            throw XCTSkip("Set MORE_JURY_ISLAND_PHONE=1 only for the authorized Dynamic Island iPhone check.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Dynamic Island acceptance requires a physical iPhone.")
+        #else
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = try demoApplication()
+        app.launchArguments = ["-AppleLanguages", "(fr)"]
+        defer { app.terminate() }
+        app.launch()
+        if app.buttons["permissions.allow"].waitForExistence(timeout: 3) {
+            finishRealPermissionSetup(app)
+            returnToLiveHome(app)
+        }
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
+        assertNoSpecialPresentation(app)
+
+        openSettings(app)
+        let previousStop = app.buttons["morning.stop"]
+        if previousStop.exists {
+            previousStop.tap()
+            XCTAssertTrue(previousStop.waitForNonExistence(timeout: 10))
+        }
+        let listening = app.buttons["setup.voiceAccess"]
+        reveal(listening, in: app); listening.tap()
+        let access = app.staticTexts["voice.access.status"].firstMatch
+        XCTAssertTrue(access.waitForExistence(timeout: 5))
+        if app.buttons["voice.access.prepare"].exists {
+            app.buttons["voice.access.prepare"].tap()
+            handleRealSystemGrants()
+        }
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let value = access.label
+            return value.contains("Reconnaissance vocale : autorisée.") &&
+                value.contains("Microphone : autorisé.") && value.contains("Reconnaissance locale disponible")
+        }, object: access)
+        let accessResult = await XCTWaiter.fulfillment(of: [ready], timeout: 20)
+        XCTAssertEqual(accessResult, .completed, "The Island check requires real iOS voice authorization.")
+        app.buttons["voice.access.close"].tap()
+        returnToLiveHome(app)
+
+        app.buttons["morning.actions"].tap()
+        let begin = app.buttons["morning.begin"]
+        XCTAssertTrue(begin.waitForExistence(timeout: 5)); begin.tap()
+        handleRealSystemGrants()
+        await waitForLiveSpokenPassage(app)
+        let captionBeforePause = app.staticTexts["morning.caption"].label
+        attachLive("jury-island-real-audio-started", app)
+
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        XCUIDevice.shared.press(.home)
+        try await Task.sleep(for: .seconds(9))
+        let pause = expandedJuryIslandControl("jury.demo.island.pause", in: springboard)
+        pause.tap()
+        let resume = expandedJuryIslandControl("jury.demo.island.resume", in: springboard)
+        XCTAssertFalse(springboard.descendants(matching: .any)
+            .matching(identifier: "jury.demo.island.pause").firstMatch.exists,
+                       "The demo activity must publish its paused state before resuming.")
+        resume.tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10),
+                      "The Island resume link must bring the app to the foreground itself.")
+        let playback = revealLivePlayback(app)
+        XCTAssertEqual(playback.label, "Pause")
+        await waitForLiveSpokenPassage(app, replacing: captionBeforePause)
+        attachLive("jury-island-foreground-resume-real-audio", app)
+
+        XCUIDevice.shared.press(.home)
+        try await Task.sleep(for: .seconds(9))
+        let stop = expandedJuryIslandControl("jury.demo.island.stop", in: springboard)
+        stop.tap()
+        app.activate()
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10),
+                      "The demo Island Stop must end the actual morning.")
+        XCTAssertFalse(app.staticTexts["morning.caption"].exists)
+        XCTAssertFalse(app.buttons["morning.playback"].exists)
+        attachLive("jury-island-stopped-through-live-activity", app)
+        #endif
+    }
+
+    private func expandedJuryIslandControl(_ identifier: String, in springboard: XCUIApplication) -> XCUIElement {
+        let control = springboard.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if !control.waitForExistence(timeout: 5) || !control.isHittable {
+            let compact = springboard.otherElements.matching(NSPredicate(format:
+                "identifier == %@ AND label BEGINSWITH[c] %@", "regular.view", "MORE."))
+            XCTAssertTrue(compact.firstMatch.waitForExistence(timeout: 10),
+                          "The observed compact MORE activity must be present; no coordinate fallback is allowed.")
+            XCTAssertEqual(compact.count, 1, "An ambiguous MORE activity is not safe to open automatically.")
+            compact.firstMatch.press(forDuration: 1.2)
+        }
+        let expanded = control.waitForExistence(timeout: 10)
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = identifier
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        if !expanded {
+            let hierarchy = XCTAttachment(string: springboard.debugDescription)
+            hierarchy.name = "jury-island-missing-demo-controls"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        XCTAssertTrue(expanded && control.isHittable,
+                      "Only the demo-specific Island control may be tapped; the ordinary MORE activity is never controlled.")
+        return control
+    }
+
     private func launchDemo() throws -> XCUIApplication {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
