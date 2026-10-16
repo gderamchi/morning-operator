@@ -1046,7 +1046,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.gibouu.morningoperator.activity;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gibouu.morningoperator.liveactivity;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
@@ -1214,7 +1214,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.gibouu.morningoperator.activity;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gibouu.morningoperator.liveactivity;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SUPPORTS_MACCATALYST = NO;
