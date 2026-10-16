@@ -1355,6 +1355,19 @@ final class MorningStore {
                       !voiceCommands.isBusy, !voiceCommands.needsAudioRelease else { throw CancellationError() }
                 // Mic release is confirmed before any command can request new speech.
                 voiceCommandPreparing = false
+                #if MORE_JURY_DEMO
+                voiceCommandFeedback = String(localized: "Heard: \(result.transcript)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                voiceCommandPresented = false
+                switch command {
+                case .pause: pause()
+                case .stop: stop()
+                case .resume: resume()
+                case .next, .skip, .repeatStep:
+                    resume()
+                    guard session?.status == .running else { return }
+                    juryDemoVoice.send(text: result.transcript)
+                }
+                #else
                 let wasCompleted = session?.status == .completed
                 try session?.applyVoiceCommand(command: command, commandID: result.id)
                 archiveTerminalSession()
@@ -1365,6 +1378,7 @@ final class MorningStore {
                 if session?.status == .completed { completedMorningSaved(wasCompleted: wasCompleted) }
                 if command == .repeatStep { readCurrent() }
                 else if session?.status == .running { runCurrentIfEnabled() }
+                #endif
             } catch {
                 guard voiceCommandAttempt == attempt else { return }
                 voiceCommandFeedback = error is CancellationError
@@ -2889,8 +2903,13 @@ final class MorningStore {
     private func archiveTerminalSession() {
         guard let session, session.status == .completed || session.status == .stopped else { return }
         do {
+            #if MORE_JURY_DEMO
+            let isSynthetic = true
+            #else
+            let isSynthetic = session.routine.isSynthetic
+            #endif
             history.upsert(try MorningRunRecord(session: session, timeZoneIdentifier: sessionTimeZone,
-                isSynthetic: session.routine.isSynthetic,
+                isSynthetic: isSynthetic,
                 timingInterrupted: sessionTimingInterrupted))
         } catch { notice = String(localized: "This morning could not be added to history: \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
     }
@@ -3368,7 +3387,7 @@ extension MorningStore {
             juryDemoCaption = "L’écoute ou la lecture est désactivée pour ce matin. Vous pouvez les préparer dans les paramètres."
             return
         }
-        if juryDemoVoice.state == .paused { juryDemoVoice.resume() }
+        if juryDemoVoice.state == .paused { juryDemoVoice.resume(language: AppLanguage.isFrench ? .french : .english) }
         else if !juryDemoVoice.isActive {
             juryDemoVoice.start(language: AppLanguage.isFrench ? .french : .english)
         }

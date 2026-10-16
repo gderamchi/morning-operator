@@ -2,6 +2,7 @@
 import Foundation
 import MorningCore
 import Observation
+import SwiftUI
 
 /// Owns the real, visible page; the ordinary browser policy still decides whether
 /// a spoken request may run. No likes, stories or inferred playback are reported.
@@ -77,6 +78,20 @@ final class JuryDemoBrowser {
 
     private func localized(_ french: String, _ english: String) -> String {
         AppLanguage.isFrench ? french : english
+    }
+}
+
+struct JuryDemoBrowserPresenter: ViewModifier {
+    @Bindable var store: MorningStore
+    func body(content: Content) -> some View {
+        content.fullScreenCover(isPresented: Binding(get: { store.juryDemoWebURL != nil },
+            set: { if !$0 { store.juryDemoBrowser.close() } })) {
+            if let url = store.juryDemoWebURL, let site = WebMorningSite(url: url) {
+                WebMorningView(site: site, minutes: 1, initialURL: url,
+                    retainedController: store.juryDemoBrowser.controller,
+                    onClose: { store.juryDemoBrowser.close() })
+            }
+        }
     }
 }
 #endif

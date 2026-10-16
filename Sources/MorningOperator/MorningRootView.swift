@@ -217,14 +217,7 @@ struct MorningRootView: View {
         .modifier(MorningHaptics(store: store))
         .routineWebStep(store: store)
         #if MORE_JURY_DEMO
-        .onChange(of: store.juryDemoVoice.state) { store.juryDemoVoiceStateChanged() }
-        .fullScreenCover(isPresented: Binding(get: { store.juryDemoWebURL != nil }, set: { if !$0 { store.juryDemoWebURL = nil } })) {
-            if let url = store.juryDemoWebURL, let site = WebMorningSite(url: url) {
-                WebMorningView(site: site, minutes: 1, initialURL: url,
-                    retainedController: store.juryDemoBrowser.controller,
-                    onClose: { store.juryDemoBrowser.close() })
-            }
-        }
+        .modifier(JuryDemoBrowserPresenter(store: store))
         #endif
         .modifier(MorningVoicePreparationPresenter(store: store))
         .onChange(of: store.speech.state) { store.handleSpeechInterruption() }

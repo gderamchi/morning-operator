@@ -16,7 +16,7 @@ build_log="$derived_data/build.log"
 demo_swift_flags='$(inherited) -j1'
 if ! xcodebuild -quiet -jobs "${MORE_DEMO_JOBS:-2}" -project "$repo_dir/MorningOperatorDemo.xcodeproj" \
     -scheme MorningOperatorDemo -configuration Debug -destination "$destination" \
-    -derivedDataPath "$derived_data" -allowProvisioningUpdates build >"$build_log" 2>&1; then
+    -derivedDataPath "$derived_data" "OTHER_SWIFT_FLAGS=$demo_swift_flags" -allowProvisioningUpdates build >"$build_log" 2>&1; then
     printf 'Demo build failed. Inspect the local log: %s\n' "$build_log" >&2
     exit 1
 fi

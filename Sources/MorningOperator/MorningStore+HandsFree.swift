@@ -104,9 +104,13 @@ extension MorningStore {
     /// Await this inside the existing manual command/capture Task before it
     /// activates its microphone. Merely presenting a sheet is not a release barrier.
     func prepareForManualVoiceInput() async throws {
+        #if MORE_JURY_DEMO
+        try await juryDemoVoice.pauseAndRelease()
+        #else
         stopCloudVoice()
         await cloudVoice.stopAndRelease()
         try await handsFreeVoice.stopAndRelease()
+        #endif
         try Task.checkCancellation()
     }
 
@@ -341,6 +345,9 @@ extension MorningStore {
     func appLanguageDidChange() {
         guard appliedLanguageCode != AppLanguage.code else { return }
         appliedLanguageCode = AppLanguage.code
+        #if MORE_JURY_DEMO
+        juryDemoCaption = ""
+        #endif
         voiceLanguageGeneration = UUID()
         cancelVoicePreparation()
         handsFreePauseRevision = UUID()

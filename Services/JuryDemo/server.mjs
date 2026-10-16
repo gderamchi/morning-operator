@@ -291,14 +291,18 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
     try { proposal = await propose(session, input.text, controller.signal); }
     finally { if (controllers.get(session.id) === controller) controllers.delete(session.id); }
     current(session, generation);
-    if (['draft', 'revise'].includes(proposal.intent) && ['morning', 'mail', 'draft'].includes(session.stage) && !session.mailReceipt) {
+    if (session.stage === 'morning' && ['next', 'draft', 'revise'].includes(proposal.intent)) {
+      session.stage = 'mail';
+      return speechReceipt(session, mailPrompt());
+    }
+    if (['draft', 'revise'].includes(proposal.intent) && ['mail', 'draft'].includes(session.stage) && !session.mailReceipt) {
       if (!textValue(proposal.body) || /@/.test(proposal.body)) fail(502, 'draft_unverified', 'Je n’ai pas pu préparer un brouillon correct. Redis-moi ta réponse.');
       session.draft = proposal.body.trim(); session.draftRevision += 1; session.reviewedRevision = session.draftRevision; session.stage = 'draft';
       return speechReceipt(session, `Je lui répondrais : ${session.draft} Tu peux modifier ma réponse ou me dire « envoie ».`);
     }
     if (proposal.intent === 'next') {
-      if (session.stage === 'morning') { session.stage = 'mail'; return speechReceipt(session, mailPrompt()); }
-      return session.stage === 'social' ? (session.stage = 'complete', speechReceipt(session, conclusion(session))) : social(session);
+      if (['mail', 'draft'].includes(session.stage)) return social(session);
+      if (session.stage === 'social') { session.stage = 'complete'; return speechReceipt(session, conclusion(session)); }
     }
     if (proposal.intent === 'repeat') return speechReceipt(session, session.draft ? `Le brouillon : ${session.draft} Tu peux le corriger ou me dire « envoie ».` : mailPrompt());
     if (proposal.intent === 'reminder') {
