@@ -8,6 +8,7 @@ final class MorningDeveloperAccessTests: XCTestCase {
         let app = launch(workspace: workspace)
         let access = app.buttons["onboarding.developerAccess"]
         assertDeveloperButton(access, label: "Accès développeur")
+        attach("developer-access-introduction-fr", app)
         access.tap()
         assertHome(app)
         app.terminate()
@@ -31,6 +32,7 @@ final class MorningDeveloperAccessTests: XCTestCase {
         offer.tap()
         let access = app.buttons["paywall.developerAccess"]
         assertDeveloperButton(access, label: "Developer access")
+        attach("developer-access-paywall-en-largest-text", app)
         access.tap()
         assertHome(app)
         app.terminate()
@@ -62,6 +64,13 @@ final class MorningDeveloperAccessTests: XCTestCase {
         XCTAssertTrue(button.isHittable)
         XCTAssertGreaterThanOrEqual(button.frame.width, 44)
         XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+    }
+
+    private func attach(_ name: String, _ app: XCUIApplication) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func assertHome(_ app: XCUIApplication) {
