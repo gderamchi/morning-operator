@@ -1,6 +1,6 @@
 # Intelligence and personal memory — 16 October 2026
 
-MORE already called Apple's Foundation Models for routine proposals, contextual questions and drafting. The old prototype still depended on Apple model readiness and had no durable personal-fact memory. Speech synthesis uses Apple, independently of the reasoning model.
+MORE already called Apple's Foundation Models for routine proposals, contextual questions and drafting. The old prototype still depended on Apple model readiness and had no durable personal-fact memory. Speech uses Apple by default; the separately consented ElevenLabs conversation can also narrate app-prepared answers.
 
 ## Explicit model route
 
@@ -18,6 +18,8 @@ The model has no execution authority. Existing routine validation, explicit send
 ## Personal corrections and proactive advice
 
 Direct owner statements can produce short, source-quoted facts and preferences. Stable keys let the next statement replace an earlier fact. The bounded journal retains 24 recent facts, can be reloaded after relaunch, and is visible/individually removable in Settings. It does not train a model or store a raw voice transcript. Unsupported or ambiguous extraction leaves memory unchanged. Mail/page context never becomes an owner declaration.
+
+The same extraction accepts final microphone transcripts from an explicitly started ElevenLabs conversation, even without an active morning. It follows the existing model choice and OpenAI consent; it never silently enables OpenAI or sends the saved memory to Gemini. MORE's narration and the agent's responses cannot teach personal facts. App-delegated contextual answers reuse the selected model and memory without extracting the same utterance twice. General OpenAI context excludes sleep and the other selected Health measurements; consented ElevenLabs narration remains a separate route.
 
 For example, “I have an electric scooter” followed by “I don't have an electric scooter; I take public transport” removes the earlier assumption. A new commute correction can invalidate an old transport fact without inventing ownership. Other explicit facts, such as a coffee preference, use the same model extraction and correction mechanism.
 

@@ -269,7 +269,7 @@ extension MorningStore {
         }
     }
 
-    private var handsFreeMomentContext: String {
+    var handsFreeMomentContext: String {
         guard let session, let step = currentStep else { return "" }
         var parts = ["Current moment: \(step.title)", "Approved description: \(step.detail)",
                      "Session state: \(session.status.rawValue)"]
@@ -320,8 +320,8 @@ extension MorningStore {
     }
 
     private func conversationText(_ document: PreparedMorningBriefing) -> String {
-        // Sleep remains local; enabling the general cloud model does not export Health data.
-        document.segments.filter { !MoreLanguageModel.shared.usesOpenAI || $0.source != .sleep }
+        // General cloud-model consent excludes both sleep and the selected Health metrics.
+        document.segments.filter { !MoreLanguageModel.shared.usesOpenAI || $0.source.permitsGeneralCloudContext }
             .map(\.text).joined(separator: " ")
     }
 

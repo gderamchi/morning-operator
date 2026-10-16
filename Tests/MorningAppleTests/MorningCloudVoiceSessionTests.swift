@@ -96,6 +96,115 @@ struct MorningCloudVoiceSessionTests {
         }
     }
 
+    @Test func ownerCallbacksExcludeAgentNarrationDuplicatesAndStoppedConnections() async throws {
+        let transport = CloudVoiceFixture(), session = makeSession(transport)
+        var ownerTexts: [String?] = [], turns: [UUID] = []
+        session.onUserText = { text, turn in ownerTexts.append(text); turns.append(turn) }
+        await session.start(context: .init(binding: nil), language: "fr", consented: true)
+        transport.emit(.agentText("je prends les transports"))
+        let reading = Task { try await session.narrate("je prends les transports") }
+        await transport.waitForMessages()
+        #expect(ownerTexts.isEmpty)
+        session.cancelNarration()
+        await #expect(throws: CancellationError.self) { try await reading.value }
+        transport.emit(.userText("je prends les transports", eventID: 31))
+        let first = try #require(turns.first)
+        transport.emit(.userText("je prends les transports", eventID: 31))
+        #expect(ownerTexts == ["je prends les transports"] && session.isCurrentUserTurn(first))
+        transport.emit(.userText(String(repeating: "x", count: 4_001), eventID: 32))
+        #expect(ownerTexts.count == 2 && ownerTexts[1] == nil)
+        #expect(!session.isCurrentUserTurn(first) && session.transcript == nil)
+        let late = transport.onEvent
+        await session.stopAndRelease()
+        late?(.userText("je préfère le vélo", eventID: 33))
+        #expect(ownerTexts.count == 2 && session.userTurnID == nil)
+    }
+
+    @Test func aCloudOwnerStatementAndItsDelegatedAnswerExtractMemoryOnlyOnce() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CloudOwnerMemory-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var extractions = 0
+        let memory = MorePersonalMemory(directory: directory, extractor: { _ in
+            extractions += 1
+            return #"{"facts":[{"key":"usualTransport","value":"publicTransport","evidence":"je prends les transports"}]}"#
+        })
+        let conversation = MorningVoiceConversation(generator: { prompt in
+            #expect(prompt.contains("publicTransport"))
+            return "SYNTHETIC_ANSWER"
+        }, memory: memory)
+        let transport = CloudVoiceFixture()
+        var learning: Task<Void, Never>?, answer: Task<String, any Error>?
+        let session = MorningCloudVoiceSession(tokenProvider: { "SYNTHETIC_TOKEN_123456" }, makeTransport: { transport },
+            control: { _, _ in "SYNTHETIC_RECEIPT" }, request: { text, _ in
+                let memoryBarrier = learning
+                answer = Task {
+                    await memoryBarrier?.value
+                    return try await conversation.answer(text, context: "SYNTHETIC_WEATHER", learnFromOwner: false)
+                }
+                return true
+            })
+        session.onUserText = { text, _ in
+            guard let text else { return }
+            learning = Task { await memory.remember(fromOwnerUtterance: text) }
+        }
+        await session.start(context: .init(binding: binding), language: "fr", consented: true)
+        let text = "je prends les transports"
+        transport.emit(.userText(text, eventID: 34))
+        let parameters = String(decoding: try JSONEncoder().encode([
+            "request": text, "session_id": binding.sessionID.uuidString, "step_id": binding.stepID.uuidString]), as: UTF8.self)
+        transport.emit(.tool(.init(id: "SYNTHETIC_MEMORY_REQUEST", name: "more_request", parametersJSON: parameters, eventID: 34)))
+        await transport.waitForReplies(1)
+        let response = try #require(answer)
+        #expect(try await response.value == "SYNTHETIC_ANSWER")
+        #expect(extractions == 1 && memory.facts.first?.value == "publicTransport")
+        #expect(transport.contexts.allSatisfy { !$0.contains("publicTransport") })
+        await session.stopAndRelease()
+    }
+
+    @Test func aDelayedAnswerCannotNarrateAfterANewMicrophoneTurn() async throws {
+        let transport = CloudVoiceFixture(), gate = CloudVoiceGate(), session = makeSession(transport)
+        await session.start(context: .init(binding: binding), language: "en", consented: true)
+        transport.emit(.userText("SYNTHETIC_FIRST_QUESTION", eventID: 35))
+        let firstTurn = try #require(session.userTurnID)
+        let conversation = MorningVoiceConversation(generator: { _ in await gate.value(); return "SYNTHETIC_OLD_ANSWER" })
+        let response = Task {
+            let text = try await conversation.answer("SYNTHETIC_FIRST_QUESTION", context: "SYNTHETIC_CONTEXT", learnFromOwner: false)
+            try await session.narrate(text, forUserTurn: firstTurn)
+        }
+        await gate.waitUntilCalled()
+        transport.emit(.userText("SYNTHETIC_NEW_QUESTION", eventID: 36))
+        gate.release()
+        await #expect(throws: CancellationError.self) { try await response.value }
+        #expect(transport.messages.isEmpty && !session.isCurrentUserTurn(firstTurn))
+        await session.stopAndRelease()
+    }
+
+    @Test(arguments: [false, true]) func delayedMemoryCannotPersistAfterItsTurnOrConnectionEnds(stopped: Bool) async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("StaleCloudMemory-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let transport = CloudVoiceFixture(), gate = CloudVoiceGate(), session = makeSession(transport)
+        let memory = MorePersonalMemory(directory: directory, extractor: { _ in
+            await gate.value()
+            return #"{"facts":[{"key":"usualTransport","value":"publicTransport","evidence":"je prends les transports"}]}"#
+        })
+        await session.start(context: .init(binding: nil), language: "fr", consented: true)
+        transport.emit(.userText("je prends les transports", eventID: 37))
+        let turn = try #require(session.userTurnID)
+        let learning = Task {
+            await memory.remember(fromOwnerUtterance: "je prends les transports", whileCurrent: {
+                session.isCurrentUserTurn(turn)
+            })
+        }
+        await gate.waitUntilCalled()
+        if stopped { await session.stopAndRelease() }
+        else { transport.emit(.userText("SYNTHETIC_NEW_TURN", eventID: 38)) }
+        gate.release()
+        await learning.value
+        #expect(memory.facts.isEmpty && memory.promptContext == "{}")
+        #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("personal-memory.json").path))
+        await session.stopAndRelease()
+    }
+
     @Test func modelToolsCannotReadHealthSendMailOrTargetAnotherStep() throws {
         let valid = call("next")
         #expect(MorningCloudVoiceSession.control(from: valid, binding: binding) == .next)

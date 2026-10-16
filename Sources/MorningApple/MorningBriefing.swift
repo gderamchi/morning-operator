@@ -63,7 +63,18 @@ public struct MorningBriefingFreshnessPolicy: Sendable, Equatable {
 }
 
 public struct MorningBriefingSegment: Identifiable, Sendable, Equatable {
-    public enum Source: String, Sendable, Equatable { case introduction, calendar, weather, sleep, healthMetrics }
+    public enum Source: String, Sendable, Equatable {
+        case introduction, calendar, weather, sleep, healthMetrics
+
+        /// General model consent does not authorize Health sharing. Explicit
+        /// ElevenLabs narration consent is a separate, app-owned route.
+        public var permitsGeneralCloudContext: Bool {
+            switch self {
+            case .introduction, .calendar, .weather: true
+            case .sleep, .healthMetrics: false
+            }
+        }
+    }
     public let id: String
     public let source: Source
     /// This same sentence is displayed and sent to speech. There is no second

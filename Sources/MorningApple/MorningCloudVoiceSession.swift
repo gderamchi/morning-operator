@@ -68,9 +68,13 @@ public final class MorningCloudVoiceSession {
     public private(set) var state: MorningCloudVoiceState = .off
     public private(set) var caption: String?
     public private(set) var transcript: String?
+    public private(set) var userTurnID: UUID?
     public private(set) var errorMessage: String?
     public var isActive: Bool { state == .connecting || state == .listening || state == .speaking }
     @ObservationIgnored public var onInterruption: (@MainActor () -> Void)?
+    /// Only microphone transcripts enter here. Nil invalidates an oversized/empty
+    /// turn without retaining its text; agent responses and app narrations never enter.
+    @ObservationIgnored public var onUserText: (@MainActor (String?, UUID) -> Void)?
 
     public typealias TokenProvider = @MainActor () async throws -> String
     public typealias ControlHandler = @MainActor (MorningCloudVoiceControl, MorningVoiceCommandContext) async throws -> String
@@ -157,8 +161,9 @@ public final class MorningCloudVoiceSession {
 
     /// The caller has separately consented to sending this approved spoken source text.
     /// A tool marker after speech AND the SDK's playback transition must agree before success.
-    public func narrate(_ text: String) async throws {
+    public func narrate(_ text: String, forUserTurn expectedTurn: UUID? = nil) async throws {
         try Task.checkCancellation()
+        if let expectedTurn, !isCurrentUserTurn(expectedTurn) { throw CancellationError() }
         guard isActive, state != .connecting, let transport, !text.isEmpty,
               text.utf8.count <= 32_768 else { throw MorningCloudVoiceError.unavailable }
         awaitingAppResponse = false
@@ -179,7 +184,8 @@ public final class MorningCloudVoiceSession {
                     guard let self else { return }
                     do {
                         try check(session)
-                        guard narrationID == id else { throw CancellationError() }
+                        guard narrationID == id,
+                              expectedTurn.map({ isCurrentUserTurn($0) }) ?? true else { throw CancellationError() }
                         try await transport.sendUserMessage(message)
                         if attempt == session, narrationID == id { narrationSendTask = nil }
                     }
@@ -219,6 +225,7 @@ public final class MorningCloudVoiceSession {
         cleanupTask = Task { await previous?.value; await client?.stop(); await connecting?.value }
         caption = nil; transcript = nil; errorMessage = nil; state = .off
         lastUserEventID = nil
+        userTurnID = nil
         userEventReceipts = [:]
         awaitingAppResponse = false
         context = .init(binding: nil)
@@ -226,6 +233,8 @@ public final class MorningCloudVoiceSession {
 
     /// Await before handing the microphone back to Apple's local listener.
     public func stopAndRelease() async { stop(); await cleanupTask?.value }
+
+    public func isCurrentUserTurn(_ id: UUID) -> Bool { isActive && userTurnID == id }
 
     private func check(_ id: UUID) throws {
         try Task.checkCancellation()
@@ -244,9 +253,14 @@ public final class MorningCloudVoiceSession {
         case .agentText(let text):
             if !awaitingAppResponse { caption = Self.captionText(String(text.prefix(2_000))) }
         case .userText(let text, let eventID):
+            let bounded = text.count <= 4_000 && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? text : nil
+            guard lastUserEventID != eventID || transcript != bounded else { return }
+            if narrationID != nil { cancelNarration() }
             awaitingAppResponse = false
-            transcript = text.count <= 4_000 ? text : nil
+            transcript = bounded
             lastUserEventID = eventID
+            let turn = UUID(); userTurnID = turn
+            onUserText?(bounded, turn)
         case .interruption: caption = nil; cancelNarration(); onInterruption?()
         case .tool(let call): handle(call, attempt: id)
         case .ended: stop()

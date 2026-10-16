@@ -112,9 +112,10 @@ public final class MorePersonalMemory {
         return (try? JSONEncoder().encode(values)).map { String(decoding: $0, as: UTF8.self) } ?? ""
     }
 
-    public func remember(fromOwnerUtterance utterance: String) async {
+    public func remember(fromOwnerUtterance utterance: String,
+                         whileCurrent: @MainActor () -> Bool = { true }) async {
         guard available(), !Task.isCancelled, utterance.count <= 4_000,
-              Self.isEligible(utterance) else { return }
+              whileCurrent(), Self.isEligible(utterance) else { return }
         do {
             try reload()
             let privacyGeneration = generation
@@ -126,7 +127,7 @@ public final class MorePersonalMemory {
                 currentMemory: currentMemory)), as: UTF8.self)
             let response = try await extractor(input)
             try Task.checkCancellation()
-            guard token == revision, response.utf8.count <= 8_192 else { return }
+            guard token == revision, whileCurrent(), response.utf8.count <= 8_192 else { return }
             let proposals = try Self.parse(response, utterance: utterance)
             guard !proposals.isEmpty else { return }
             try privacy.withReadyAccess { state in
