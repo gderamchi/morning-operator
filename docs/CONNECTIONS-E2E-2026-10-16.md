@@ -332,10 +332,18 @@ The task's production change is the independent professional connection rows;
 the concurrent-success deadline change affects synthetic fixtures only. Exact
 English source entries were restored without changing existing French strings.
 Local builds, targeted runtime tests, live provider calls and their failures/skips
-are recorded separately above. GitHub CI was still queued at the last inspection
-and is not claimed green. GitHub reports main as unprotected. Delivery is tracked
-in [PR #207](https://github.com/gibouu/morning-operator/pull/207); remote-main
-containment is a separate delivery check, and no admin bypass is used.
+are recorded separately above. [PR #207](https://github.com/gibouu/morning-operator/pull/207)
+was merged at `a94cdf3`; the later physical Weather and Worker acceptance additions
+require a follow-up delivery. GitHub reports main as unprotected; no admin bypass
+is used.
+
+The CI package job at that merged head actually failed:
+[`aHangingSourceIsSilentAfterTheDeadline`](https://github.com/gibouu/morning-operator/actions/runs/38850390646/job/116810090322)
+returned after 26.901 seconds against a 20-second wall-clock assertion. The test's
+source deadline is only 50 ms, but parallel Apple tests share the main actor and
+held multiple checks for 23–27 seconds. This is a failed CI check, separate from
+the two local Vision failures. The app-build job was still queued at inspection;
+CI is not claimed green.
 
 ## Synthetic backend regression
 
@@ -403,6 +411,32 @@ strings missing explicit English translations (104 app, 29 Apple package).
 Adding each exact English source unit preserved all previous French and catalog
 metadata/forms. The required suite then passed **34/34**, and all seven string
 catalogs, 23 JSON resources and eight plist/entitlement files parsed successfully.
+
+### CI deadline regression
+
+The observed CI failure in `aHangingSourceIsSilentAfterTheDeadline` used real
+elapsed time to judge a 50 ms asynchronous deadline. `MorningExtrasProvider` now
+accepts the same injectable `Clock<Duration>` pattern used by other briefing
+controllers. Its production default remains `ContinuousClock`; the 4-second
+default, 1 ms–10 second clamp, six source races, late-answer rejection and
+cancellation policy are unchanged.
+
+The regression holds the reader on a continuation, verifies it is still waiting
+at 49 ms, advances to 50 ms and requires an empty result **before releasing the
+reader**. It then checks cancellation and the discarded late result. Separate
+cases verify caller cancellation and cleanup of an unused deadline after an
+early successful answer. No longer wall-clock allowance or disabled assertion
+was used.
+
+`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/test.sh --jobs 2 --parallel --filter 'MorningExtrasProviderTests|MorningOpeningTests'`
+passed **39/39**, zero failures/skips, in 0.014 test seconds (11.14 seconds including
+the cached build). This targeted correction does not retroactively turn the old
+CI failure or the earlier full local run green.
+
+After integrating main `297ec1a`, the retained Jury client identity and typed
+browser-command contracts passed **19/19**, zero failures/skips. The new Jury
+microphone graph is iOS-only and guarded by `MORE_JURY_DEMO`; these Mac package
+tests do not prove its acoustic behavior or ordinary cloud voice acceptance.
 
 ## Connections UI acceptance
 
