@@ -8,9 +8,11 @@ Avant de commencer, préciser oralement : **« Le sommeil, la météo et le mess
 
 - **Services réels :** rédaction libre puis révision avec OpenAI, synthèse ElevenLabs, un seul mail envoyé au compte lui-même et relu avec label SENT, destinataire et contenu exacts. La reprise serveur retrouve le reçu sans nouvel envoi.
 - **iPhone :** deux tests d’interface avec données de test passent. Un autre test utilise le vrai audio : neuf secondes en arrière-plan, pause, reprise avec lecture effective, puis arrêt. Il passe en 76,52 s ; résultat local non versionné : `work/jury-demo-final-lifecycle-verified.xcresult`.
-- **Dynamic Island :** rendu réel observé par capture et accessibilité. La validation de ses commandes reste en cours ; l’affichage seul ne prouve pas leur exécution.
-- **Contrôles locaux :** 1 000 tests Swift dans 108 suites après intégration de `main` (`8ea78c4`), 34 tests du service et 34 tests Python réussis.
-- **Encore non prouvés :** conversation acoustique interactive complète, création réelle d’un rappel, connexion et navigation dans un fil Instagram. Le microphone fait encore l’objet d’un diagnostic. La démo complète devant jury n’est donc pas déclarée validée.
+- **Dynamic Island :** rendu réel observé par capture et accessibilité. Les commandes restent à valider : le premier harnais mettait l’activité en pause avant d’interroger ses actions et utilisait un ancien libellé d’accessibilité. Il est adapté ; aucun défaut produit n’est établi par cet essai.
+- **Logique partagée :** commande Swift réussie après intégration de `main` (`e8312a9`), avec 1 961 tests rapportés dans 226 suites et 7 tests optionnels ignorés ; 36 tests du service réussis. Le graphe audio iOS a changé depuis (`f1878ab`) : le package macOS ne couvre pas ce code conditionnel iOS, dont le nouvel essai téléphone reste en cours.
+- **Python :** 33 méthodes réussies et une en échec, avec 133 sous-échecs pour des ressources anglaises absentes : 104 dans le catalogue principal et 29 dans MorningApple. Ces catalogues sont identiques à `main` (`463af5f`) ; défaut préexistant suivi dans [l’issue 208](https://github.com/gibouu/morning-operator/issues/208).
+- **Conversion audio numérique :** quatre cas Float32 à 44,1 kHz, mono/stéréo vers 48 kHz mono, passent sur des signaux d’une seconde et de 8,4 secondes : écart de durée nul et fin conservée. Cela ne valide pas la reconnaissance acoustique.
+- **Encore non prouvés :** conversation acoustique interactive complète, création réelle d’un rappel, connexion et navigation dans un fil Instagram. L’entrée audio examinée contient uniquement des zéros en Float32 mono 48 kHz, malgré les autorisations accordées et les indicateurs muet désactivés. Le diagnostic et l’essai du nouveau graphe continuent. La démo complète devant jury n’est pas déclarée validée.
 
 ## Préparer la répétition
 
