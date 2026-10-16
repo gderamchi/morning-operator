@@ -42,7 +42,7 @@ Release access requires verified StoreKit entitlement. Four fresh ordinary physi
 
 ### Current connections UI validation
 
-The generic **arm64 iOS Simulator build-for-testing passed**, including after integrating the latest `origin/main`. The app, widget and UI-test targets compile. Static checks cover 20 bundled service logos / 60 image scale variants. Actual screenshots were inspected at normal/day and largest-French/night settings: compact service rows use the intended logos, and long labels wrap without horizontal clipping.
+The generic **arm64 iOS Simulator build-for-testing passed**, including after integrating the latest `origin/main`. The app, widget and UI-test targets compile. Static checks cover 20 bundled service logos / 60 image scale variants. Actual screenshots were inspected at normal/day and largest-French/night settings. Normal-size rows are compact and use the intended logos. At the largest accessibility size, rows become tall and wrap across several lines; titles and actions remain reachable by scrolling. This does not establish a compact full-row layout at that size.
 
 The dedicated simulator recovered without a global service restart or data reset. Initial day/night checks passed **2/2**, then French-largest Google Calendar/Slack setup and empty-account recovery passed **4/4**. Testing found a real navigation bug: three professional links shared one List row, so Instagram/WhatsApp could open Facebook. Each link now has its own row. After integrating main `4bd789f`, the final focused run passed **4/4**, zero failures, in 280.722 seconds: standard-day navigation, all three professional destinations and returns, French-largest/night professional reachability, and French-largest/night unavailable accounts plus Retry. Earlier separate inspection also observed an actual Instagram cookie dialog rendered inside MORE; no sign-in, Ready confirmation or cookie choice was performed. These fixtures and public-page observations do not prove authenticated provider journeys. [#201](https://github.com/gibouu/morning-operator/issues/201) records the UI acceptance; [the dated ledger](CONNECTIONS-E2E-2026-10-16.md) preserves all validation boundaries.
 
@@ -104,6 +104,12 @@ The Cloudflare Workers plan page confirms Free ($0), with no paid upgrade applie
 ## Privacy
 
 API arguments/results transit the connection service, Composio and the provider. Apple inference and captured screens remain local. MORE's backend D1 journal stores hashes, IDs, execution state and sanitized receipts, never raw arguments or provider results; app results are volatile. Exact arguments become local routine/history content when the person saves an action.
+
+Explicit OpenAI selection shares the disclosed text/context; raw recordings are
+excluded and unavailability never enables a silent remote fallback. ElevenLabs
+conversation has its own per-session consent for microphone audio and MORE's
+readings. Apple Health permission alone does not enable cloud sharing. The fresh
+provider probes used fixed synthetic text, not the owner's data.
 
 **This is not an end-to-end zero-retention guarantee.** Composio's default execution logging can retain request arguments and results. Its [Zero Data Retention option](https://docs.composio.dev/docs/security/zero-data-retention) requires paid eligibility and has coverage restrictions, including Enterprise requirements for managed OAuth apps. No applicable ZDR guarantee has been established for this project. Provider and hosting policies remain separate; disabling MORE's Worker observability does not change them.
 
