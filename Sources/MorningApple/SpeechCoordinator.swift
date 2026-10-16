@@ -81,6 +81,9 @@ public final class SpeechCoordinator: NSObject {
     /// Session-only duplex ownership. The listener releases the shared session
     /// after playback has stopped; ordinary speech keeps its existing ownership.
     public var handsFreeAudioSessionIsOwned = false
+    /// Installed only after explicit cloud narration consent; failure never falls back to system speech.
+    @ObservationIgnored public var externalSpeech: (@MainActor (String) async throws -> Void)?
+    @ObservationIgnored public var cancelExternalSpeech: (@MainActor () -> Void)?
     public private(set) var currentText: String?
     /// Only the passage currently being spoken; never persisted as a transcript.
     public var currentCaption: String? { captionProgress.currentCaption }
@@ -242,6 +245,19 @@ public final class SpeechCoordinator: NSObject {
         speechRequestID = requestID
         captionProgress.begin(text, requestID: requestID)
         state = .preparing
+        if let externalSpeech {
+            activationTask = Task { @MainActor [weak self] in
+                guard let self, !Task.isCancelled, speechRequestID == requestID else { return }
+                state = .speaking
+                captionProgress.showChunk(text, requestID: requestID)
+                do {
+                    try await externalSpeech(text)
+                    try Task.checkCancellation()
+                    finishExternalSpeech(requestID: requestID, result: .success(()))
+                } catch { finishExternalSpeech(requestID: requestID, result: .failure(error)) }
+            }
+            return
+        }
         activationTask = Task { [weak self] in
             guard let self, !Task.isCancelled, speechRequestID == requestID else { return }
             do {
@@ -307,6 +323,8 @@ public final class SpeechCoordinator: NSObject {
     }
 
     public func pause() {
+        // Cloud streaming cannot be resumed from an exact audio position.
+        if externalSpeech != nil { stop(); return }
         if let duplexOutput {
             if duplexOutput.pause() { state = .paused }
             return
@@ -365,6 +383,7 @@ public final class SpeechCoordinator: NSObject {
         speechRequestID = nil
         activationTask?.cancel()
         activationTask = nil
+        cancelExternalSpeech?()
         let pending = completion
         completion = nil
         duplexOutput?.cancel()
@@ -374,6 +393,19 @@ public final class SpeechCoordinator: NSObject {
         let release = audioSession.cancel()
         pending?.resume(throwing: CancellationError())
         return release
+    }
+
+    private func finishExternalSpeech(requestID: UUID, result: Result<Void, any Error>) {
+        guard speechRequestID == requestID else { return }
+        currentText = nil; captionProgress.reset(); playbackID = nil; speechRequestID = nil
+        activationTask = nil; state = .idle
+        let pending = completion; completion = nil
+        switch result {
+        case .success: lastError = nil; pending?.resume()
+        case .failure(let error):
+            lastError = error is CancellationError ? nil : String(localized: "Cloud speech could not finish. Try again or continue with the controls.", bundle: .module)
+            pending?.resume(throwing: error is CancellationError ? CancellationError() : SpeechPlaybackError.audioUnavailable(lastError!))
+        }
     }
 
     /// Notification handlers must not invent a resumable session after playback has ended.
