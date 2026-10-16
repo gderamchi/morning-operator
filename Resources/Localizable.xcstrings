@@ -26578,6 +26578,70 @@
           }
         }
       }
+    },
+    "Show installation code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show installation code"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le code d’installation"
+          }
+        }
+      }
+    },
+    "Installation code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installation code"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code d’installation"
+          }
+        }
+      }
+    },
+    "This code identifies this installation for MORE support. It does not grant account access.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This code identifies this installation for MORE support. It does not grant account access."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce code permet à l’assistance MORE d’identifier cette installation. Il ne donne pas accès à vos comptes."
+          }
+        }
+      }
+    },
+    "No saved installation yet. Refresh your accounts first.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No saved installation yet. Refresh your accounts first."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune installation enregistrée. Actualisez d’abord vos comptes."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

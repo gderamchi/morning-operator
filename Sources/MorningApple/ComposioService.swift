@@ -252,6 +252,19 @@ public final class ComposioService {
         return response.services
     }
 
+    /// Correlates an existing installation with support without exposing its bearer or enrolling one.
+    public func existingInstallationSupportCode() throws -> String? {
+        do {
+            guard let token = try tokenStore.load() else { return nil }
+            guard (16...2048).contains(token.utf8.count), !token.contains(where: \.isWhitespace) else {
+                throw ComposioServiceError.credentialsUnavailable
+            }
+            return SHA256.hash(data: Data(token.utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
+        } catch {
+            throw ComposioServiceError.credentialsUnavailable
+        }
+    }
+
     /// Called only after explicit cloud-conversation consent. No source text is sent.
     public func morningVoiceToken() async throws -> String {
         struct VoiceToken: Decodable { let conversationToken: String }
