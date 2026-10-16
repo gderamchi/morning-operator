@@ -55,6 +55,7 @@ public enum MorningCloudVoiceEvent: Sendable {
     func updateContext(_ context: String) async throws
     func sendUserMessage(_ text: String) async throws
     func reply(to callID: String, result: String, isError: Bool) async throws
+    func suspendReply()
     func cancelPlayback()
     func stop() async
 }
@@ -98,6 +99,7 @@ public final class MorningCloudVoiceSession {
     @ObservationIgnored private var narrationFinishing = false
     @ObservationIgnored private var lastUserEventID: Int?
     @ObservationIgnored private var userEventReceipts: [Int: (String, Bool)] = [:]
+    @ObservationIgnored private var awaitingAppResponse = false
 
     public init(tokenProvider: @escaping TokenProvider,
                 makeTransport: @escaping @MainActor () -> any MorningCloudVoiceTransport,
@@ -159,6 +161,7 @@ public final class MorningCloudVoiceSession {
         try Task.checkCancellation()
         guard isActive, state != .connecting, let transport, !text.isEmpty,
               text.utf8.count <= 32_768 else { throw MorningCloudVoiceError.unavailable }
+        awaitingAppResponse = false
         cancelNarration()
         let id = UUID(), session = attempt
         narrationID = id; narrationSpoke = false; narrationStopped = false; narrationFinishing = false
@@ -217,6 +220,7 @@ public final class MorningCloudVoiceSession {
         caption = nil; transcript = nil; errorMessage = nil; state = .off
         lastUserEventID = nil
         userEventReceipts = [:]
+        awaitingAppResponse = false
         context = .init(binding: nil)
     }
 
@@ -237,8 +241,10 @@ public final class MorningCloudVoiceSession {
         case .speaking:
             state = .speaking
             if narrationID != nil { narrationSpoke = true; narrationStopped = false }
-        case .agentText(let text): caption = String(text.prefix(2_000))
+        case .agentText(let text):
+            if !awaitingAppResponse { caption = Self.captionText(String(text.prefix(2_000))) }
         case .userText(let text, let eventID):
+            awaitingAppResponse = false
             transcript = text.count <= 4_000 ? text : nil
             lastUserEventID = eventID
         case .interruption: caption = nil; cancelNarration(); onInterruption?()
@@ -287,9 +293,14 @@ public final class MorningCloudVoiceSession {
                         if action != nil || requestText != nil {
                             // Reserve before an async handler: one spoken turn cannot cause two effects.
                             userEventReceipts[call.eventID] = ("This spoken request is already pending. No additional action was applied.", false)
-                            if let requestText, let request, request(requestText, binding) {
-                                result = "Request accepted and pending. Wait silently for the app's next narration; no external success is confirmed."
-                                isError = false
+                            if let requestText {
+                                // Close both surfaces before the app handler can start its own async work.
+                                awaitingAppResponse = true; caption = nil
+                                transport.suspendReply()
+                                if let request, request(requestText, binding) {
+                                    result = "Request accepted and pending. Wait silently for the app's next narration; no external success is confirmed."
+                                    isError = false
+                                }
                             } else if let action {
                                 result = String(try await control(action, binding).prefix(1_000))
                                 try check(id)
@@ -352,6 +363,14 @@ public final class MorningCloudVoiceSession {
               values["step_id"].flatMap(UUID.init(uuidString:)) == binding.stepID,
               let text = values["request"], !text.isEmpty, text.count <= 4_000, text == transcript else { return nil }
         return text
+    }
+
+    /// These two voice direction tags were returned by the configured TTS model.
+    /// Other brackets remain source text, including titles and quoted data.
+    public static func captionText(_ text: String) -> String {
+        ["[happy]", "[slow]"].reduce(text) {
+            $0.replacingOccurrences(of: $1, with: "", options: .caseInsensitive)
+        }.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func fail(_ error: MorningCloudVoiceError) {

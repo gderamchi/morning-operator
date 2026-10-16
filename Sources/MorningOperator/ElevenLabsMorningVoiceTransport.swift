@@ -95,10 +95,17 @@ final class ElevenLabsMorningVoiceTransport: MorningCloudVoiceTransport {
     }
 
     func cancelPlayback() {
-        guard let conversation, !playbackMuted else { return }
+        guard let conversation else { return }
+        let needsInterruption = !playbackMuted
         playbackMuted = true; playbackRevision = UUID()
         conversation.agentAudioTrack?.volume = 0
+        guard needsInterruption else { return }
         interruptionTask = Task { _ = try? await conversation.interruptAgent() }
+    }
+
+    func suspendReply() {
+        playbackMuted = true; playbackRevision = UUID()
+        conversation?.agentAudioTrack?.volume = 0
     }
 
     /// A delayed response never resumes canceled audio by itself. Only a new

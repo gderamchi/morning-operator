@@ -141,6 +141,43 @@ struct MorningCloudVoiceSessionTests {
         #expect(transport.replies.isEmpty && session.state == .off)
     }
 
+    @Test(arguments: [false, true]) func pendingRequestClosesAudioAndCaptionsBeforeTheHandlerUntilANewTurn(appNarration: Bool) async throws {
+        let transport = CloudVoiceFixture()
+        let session = MorningCloudVoiceSession(tokenProvider: { "SYNTHETIC_TOKEN_123456" }, makeTransport: { transport },
+            control: { _, _ in "SYNTHETIC_RECEIPT" }, request: { _, _ in
+                #expect(transport.replySuppressions == 1, "The output gate must close before app work starts.")
+                return true
+            })
+        await session.start(context: .init(binding: binding), language: "en", consented: true)
+        let parameters = String(decoding: try JSONEncoder().encode([
+            "request": "SYNTHETIC_REQUEST", "session_id": binding.sessionID.uuidString, "step_id": binding.stepID.uuidString]), as: UTF8.self)
+        transport.emit(.agentText("SYNTHETIC_PREVIOUS_CAPTION"))
+        transport.emit(.userText("SYNTHETIC_REQUEST", eventID: 7))
+        transport.emit(.tool(.init(id: "SYNTHETIC_PENDING", name: "more_request", parametersJSON: parameters, eventID: 7)))
+        await transport.waitForReplies(1)
+        transport.emit(.agentText("SYNTHETIC_UNCONFIRMED_SUCCESS"))
+        #expect(session.caption == nil && transport.replySuppressions == 1)
+        if appNarration {
+            let reading = Task { try await session.narrate("SYNTHETIC_APP_RESULT") }
+            await transport.waitForMessages()
+            transport.emit(.agentText("SYNTHETIC_APP_FACTS"))
+            #expect(session.caption == "SYNTHETIC_APP_FACTS")
+            session.cancelNarration()
+            await #expect(throws: CancellationError.self) { try await reading.value }
+        } else {
+            transport.emit(.userText("SYNTHETIC_NEW_QUESTION", eventID: 8))
+            transport.emit(.agentText("SYNTHETIC_NEW_REPLY"))
+            #expect(session.caption == "SYNTHETIC_NEW_REPLY")
+        }
+        await session.stopAndRelease()
+    }
+
+    @Test func captionsRemoveOnlyTheObservedVoiceTagsAndPreserveOtherBrackets() {
+        #expect(MorningCloudVoiceSession.captionText("[happy] Hello [Project Blue].") == "Hello [Project Blue].")
+        #expect(MorningCloudVoiceSession.captionText("[SLOW] Bring [one, two] pencils.") == "Bring [one, two] pencils.")
+        #expect(MorningCloudVoiceSession.captionText("[Quoted source] Keep this.") == "[Quoted source] Keep this.")
+    }
+
     @Test func narrationRequiresBothBoundCompletionMarkerAndPlaybackEnd() async throws {
         let transport = CloudVoiceFixture()
         let session = makeSession(transport)
@@ -219,6 +256,7 @@ private final class CloudVoiceFixture: MorningCloudVoiceTransport {
     private(set) var contexts: [String] = []
     private(set) var replies: [(String, String, Bool)] = []
     private(set) var messages: [String] = []
+    private(set) var replySuppressions = 0
     private var replyWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
     private var messageWaiters: [CheckedContinuation<Void, Never>] = []
     func connect(token: String, language: String) async throws { connections += 1 }
@@ -231,6 +269,7 @@ private final class CloudVoiceFixture: MorningCloudVoiceTransport {
         for waiter in current { waiter.resume() }
     }
     func cancelPlayback() { }
+    func suspendReply() { replySuppressions += 1 }
     func reply(to callID: String, result: String, isError: Bool) async throws {
         replies.append((callID, result, isError))
         let ready = replyWaiters.filter { $0.0 <= replies.count }
