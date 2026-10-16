@@ -85,6 +85,8 @@
 	</array>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>MORE schedules your morning alarm and opens your approved morning when you stop it.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MORE uses your current location while open for local weather and a sky that follows the sun. An approximate location is enough.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>MORE listens on this device during your hands-free morning so you can interrupt, pause or request an action. Listening stops when you end the morning or leave the app.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

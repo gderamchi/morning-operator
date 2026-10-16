@@ -4,7 +4,7 @@ import WeatherKit
 import MorningCore
 @preconcurrency import MapKit
 
-/// A deliberately selected place, never a request for the device's current location.
+/// A weather place selected explicitly or resolved from authorized device location.
 public struct WeatherLocation: Codable, Sendable, Equatable, Identifiable {
     public let latitude: Double
     public let longitude: Double
@@ -77,17 +77,45 @@ public struct WeatherObservationSnapshot: Sendable, Equatable {
     public let condition: MorningWeatherCondition
     /// Apple's reported cloud fraction, not a value inferred from the description or icon.
     public let cloudCover: Double?
+    public let windSpeedMetersPerSecond: Double?
+    public let windGustMetersPerSecond: Double?
+    /// Meteorological direction: clockwise from true north, where the wind comes from.
+    public let windDirectionDegrees: Double?
+    public let precipitationIntensityMillimetersPerHour: Double?
+    public let humidity: Double?
+    public let visibilityMeters: Double?
+    public let apparentTemperatureCelsius: Double?
+    public let dewPointCelsius: Double?
+    public let uvIndex: Int?
+    public let pressureHectopascals: Double?
+    public let isDaylight: Bool?
     public let attribution: WeatherAttributionInfo
     public let expiresAt: Date?
 
     public init(location: WeatherLocation, retrievedAt: Date, observationAt: Date,
                 temperatureCelsius: Double, conditionDescription: String, symbolName: String,
                 attribution: WeatherAttributionInfo, expiresAt: Date? = nil,
-                condition: MorningWeatherCondition = .unknown, cloudCover: Double? = nil) throws {
+                condition: MorningWeatherCondition = .unknown, cloudCover: Double? = nil,
+                windSpeedMetersPerSecond: Double? = nil, windGustMetersPerSecond: Double? = nil,
+                windDirectionDegrees: Double? = nil, precipitationIntensityMillimetersPerHour: Double? = nil,
+                humidity: Double? = nil, visibilityMeters: Double? = nil,
+                apparentTemperatureCelsius: Double? = nil, dewPointCelsius: Double? = nil,
+                uvIndex: Int? = nil, pressureHectopascals: Double? = nil, isDaylight: Bool? = nil) throws {
         guard retrievedAt.timeIntervalSince1970.isFinite, observationAt.timeIntervalSince1970.isFinite,
               expiresAt?.timeIntervalSince1970.isFinite != false,
               temperatureCelsius.isFinite, temperatureCelsius >= -273.15,
               cloudCover.map({ $0.isFinite && (0...1).contains($0) }) != false,
+              [windSpeedMetersPerSecond, windGustMetersPerSecond,
+               precipitationIntensityMillimetersPerHour, visibilityMeters].allSatisfy({
+                  $0.map { $0.isFinite && $0 >= 0 } != false
+              }),
+              windDirectionDegrees.map({ $0.isFinite && (0...360).contains($0) }) != false,
+              humidity.map({ $0.isFinite && (0...1).contains($0) }) != false,
+              [apparentTemperatureCelsius, dewPointCelsius].allSatisfy({
+                  $0.map { $0.isFinite && $0 >= -273.15 } != false
+              }),
+              uvIndex.map({ $0 >= 0 }) != false,
+              pressureHectopascals.map({ $0.isFinite && $0 > 0 }) != false,
               WeatherLocation.validLabel(conditionDescription, maximum: 240),
               WeatherLocation.validLabel(symbolName, maximum: 120) else {
             throw WeatherObservationError.invalidResponse
@@ -100,6 +128,17 @@ public struct WeatherObservationSnapshot: Sendable, Equatable {
         self.symbolName = symbolName
         self.condition = condition
         self.cloudCover = cloudCover
+        self.windSpeedMetersPerSecond = windSpeedMetersPerSecond
+        self.windGustMetersPerSecond = windGustMetersPerSecond
+        self.windDirectionDegrees = windDirectionDegrees.map { $0 == 360 ? 0 : $0 }
+        self.precipitationIntensityMillimetersPerHour = precipitationIntensityMillimetersPerHour
+        self.humidity = humidity
+        self.visibilityMeters = visibilityMeters
+        self.apparentTemperatureCelsius = apparentTemperatureCelsius
+        self.dewPointCelsius = dewPointCelsius
+        self.uvIndex = uvIndex
+        self.pressureHectopascals = pressureHectopascals
+        self.isDaylight = isDaylight
         self.attribution = attribution
         self.expiresAt = expiresAt
     }
@@ -289,7 +328,16 @@ public final class WeatherObservationService {
             temperatureCelsius: current.temperature.converted(to: .celsius).value,
             conditionDescription: current.condition.description, symbolName: current.symbolName,
             attribution: attribution, expiresAt: current.metadata.expirationDate,
-            condition: MorningWeatherCondition(weatherKit: current.condition), cloudCover: current.cloudCover)
+            condition: MorningWeatherCondition(weatherKit: current.condition), cloudCover: current.cloudCover,
+            windSpeedMetersPerSecond: current.wind.speed.converted(to: .metersPerSecond).value,
+            windGustMetersPerSecond: current.wind.gust?.converted(to: .metersPerSecond).value,
+            windDirectionDegrees: current.wind.direction.converted(to: .degrees).value,
+            precipitationIntensityMillimetersPerHour: current.precipitationIntensity.converted(to: .kilometersPerHour).value * 1_000_000,
+            humidity: current.humidity, visibilityMeters: current.visibility.converted(to: .meters).value,
+            apparentTemperatureCelsius: current.apparentTemperature.converted(to: .celsius).value,
+            dewPointCelsius: current.dewPoint.converted(to: .celsius).value,
+            uvIndex: current.uvIndex.value, pressureHectopascals: current.pressure.converted(to: .hectopascals).value,
+            isDaylight: current.isDaylight)
     }
 
     private static func nativeCitySearch(_ query: String) async throws -> [WeatherLocation] {

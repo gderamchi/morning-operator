@@ -220,6 +220,7 @@ final class MorningBriefingTests: XCTestCase {
         let nativeSwitch = calendar.switches.firstMatch
         if nativeSwitch.exists { nativeSwitch.tap() } else { calendar.tap() }
         XCTAssertEqual(calendar.value as? String, "1")
+        MorningUITestNavigation.chooseManualWeatherCity(in: app)
         let search = app.textFields["briefing.citySearch"]
         reveal(search, app)
         search.tap(); search.typeText("Synthetic\n")

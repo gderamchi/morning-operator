@@ -469,8 +469,8 @@ struct MorningDottedFrame: Shape {
     }
 }
 
-/// Decorative time never moves the solar clock. Static paper, celestial bodies and ground
-/// stay outside the ambient timelines.
+/// Decorative time never moves the solar clock. Paper and celestial bodies stay
+/// outside the ambient timeline; the same passing breath bends the little trees.
 struct MorningQuietLandscape: View {
     let scene: MorningCelestialScene
     var weather: MorningWeatherScene?
@@ -507,7 +507,8 @@ struct MorningQuietLandscape: View {
                     // The expensive dot grids are traced once, outside the timeline.
                     let stamps = cloudStamps(size: size, weather: weather)
                     let moves = weather.cloudCoverage > 0 || weather.precipitation != .none
-                        || weather.windIntensity > 0 || weather.atmosphere != .clear || weather.condition == .hot
+                        || weather.windIntensity > 0 || weather.windGustIntensity > 0 || weather.atmosphericVeil > 0
+                        || weather.atmosphere != .clear || weather.condition == .hot
                     TimelineView(.animation(minimumInterval: 1 / 24,
                                             paused: !MorningSkyAnimation.runs(animated && active && moves))) { timeline in
                         let seconds = MorningSkyAnimation.time(at: pausedAt ?? timeline.date, animated: animated,
@@ -517,11 +518,13 @@ struct MorningQuietLandscape: View {
                             atmosphere(in: context, size: canvas, weather: weather, night: night, seconds: seconds)
                             precipitation(in: context, size: canvas, weather: weather, night: night, seconds: seconds)
                             wind(in: context, size: canvas, weather: weather, night: night, seconds: seconds)
+                            ground(in: context, size: canvas, night: night, weather: weather, seconds: seconds)
                         }
                     }
-                }
-                Canvas(opaque: false, rendersAsynchronously: true) { context, canvas in
-                    ground(in: context, size: canvas, night: night)
+                } else {
+                    Canvas(opaque: false, rendersAsynchronously: true) { context, canvas in
+                        ground(in: context, size: canvas, night: night)
+                    }
                 }
             }
         }
@@ -591,7 +594,11 @@ struct MorningQuietLandscape: View {
             .opacity(strongInk ? 0.75 : 0.44 + weather.cloudCoverage * 0.20)
         for stamp in stamps {
             let span = size.width + stamp.width + 40
-            let x = MorningSkyAnimation.wrap(stamp.origin.x + stamp.width + 20 + seconds * stamp.speed, span: span)
+            // Wind is reported as the direction it comes FROM. A westerly
+            // weather observation therefore carries cloud and rain to the right.
+            let drift = seconds * stamp.speed + sin(seconds * 0.28) * weather.windGustIntensity * 8
+            let x = MorningSkyAnimation.wrap(stamp.origin.x + stamp.width + 20
+                + drift * weather.windHorizontalDirection, span: span)
                 - stamp.width - 20
             // Wrap only while the whole cloud is beyond the edge; no visible pop.
             for copy in [-span, 0, span] where x + copy < size.width && x + copy + stamp.width > 0 {
@@ -603,10 +610,12 @@ struct MorningQuietLandscape: View {
     }
 
     private func precipitation(in context: GraphicsContext, size: CGSize, weather: MorningWeatherScene, night: Double, seconds: Double) {
-        guard weather.precipitation != .none else { return }
+        guard weather.precipitation != .none, weather.precipitationIntensity > 0 else { return }
         var random = MorningSeededRandom(seed: 731)
         var dots = Path()
         let count = Int(25 + 125 * weather.precipitationIntensity)
+        let gust = passingBreath(seconds: seconds, intensity: weather.windIntensity,
+                                 gust: weather.windGustIntensity)
         for index in 0..<count {
             let seedX = random.range(0.025, 0.975) * size.width
             let seedY = random.range(0.10, 0.94) * size.height
@@ -616,7 +625,7 @@ struct MorningQuietLandscape: View {
                 || (weather.precipitation == .sleet && index.isMultiple(of: 3))
             let depth = 0.65 + Double(index % 7) / 10
             let speed = (snow ? 13 : 70 + weather.precipitationIntensity * 75) * depth
-            let slant = snow ? 0.12 + weather.windIntensity * 0.7 : 0.24 + weather.windIntensity * 0.7
+            let slant = (0.07 + weather.windIntensity * 0.85 + gust * 0.22) * weather.windHorizontalDirection
             let sway = snow ? sin(seconds * 0.55 + Double(index)) * 9 : 0
             let x = MorningSkyAnimation.wrap(seedX + 32 + seconds * speed * slant + sway,
                                             span: size.width + 64) - 32
@@ -637,7 +646,7 @@ struct MorningQuietLandscape: View {
                 let length = 3 + Int(weather.precipitationIntensity * 4)
                 for step in 0..<length {
                     let distance = Double(step) * 2.8
-                    dot(&dots, x: x + distance * (0.24 + weather.windIntensity * 0.7),
+                    dot(&dots, x: x + distance * slant,
                         y: y + distance, radius: icy ? 0.88 : 0.64)
                 }
                 if icy { dot(&dots, x: x - 1, y: y + 8, radius: 1.1) }
@@ -679,16 +688,19 @@ struct MorningQuietLandscape: View {
     }
 
     private func atmosphere(in context: GraphicsContext, size: CGSize, weather: MorningWeatherScene, night: Double, seconds: Double) {
-        guard weather.atmosphere != .clear || weather.condition == .hot || weather.condition == .frigid else { return }
+        guard weather.atmosphere != .clear || weather.atmosphericVeil > 0
+                || weather.condition == .hot || weather.condition == .frigid else { return }
         var dots = Path()
         let fog = weather.atmosphere == .fog
-        for band in 0..<(fog ? 7 : 4) {
-            let y = size.height * (0.32 + Double(band) * 0.085)
+        let veil = max(fog ? 0.6 : 0, weather.atmosphericVeil)
+        let bands = 3 + Int(veil * 6)
+        for band in 0..<bands {
+            let y = size.height * (0.29 + Double(band) * 0.068)
             for column in -4...Int(size.width / 4.8 + 4) {
-                for row in 0..<(fog ? 5 : 2) {
+                for row in 0..<(2 + Int(veil * 5)) {
                     let x = Double(column) * 4.8
                     let wave = sin(x / 50 + Double(band) + seconds * 0.18) * (weather.condition == .hot ? 9 : 2)
-                    dot(&dots, x: x + sin(seconds * 0.09 + Double(band)) * 8,
+                    dot(&dots, x: x + sin(seconds * 0.09 + Double(band)) * (8 + veil * 8),
                         y: y + Double(row) * 4 + wave,
                         radius: 0.43 + Double(abs(column * 7 + row) % 5) * 0.07)
                 }
@@ -697,7 +709,7 @@ struct MorningQuietLandscape: View {
         let warm = weather.atmosphere == .dust || weather.condition == .hot
         let ink = warm ? Color(red: 0.65, green: 0.42, blue: 0.21)
             : Color(red: 0.48 + night * 0.2, green: 0.51 + night * 0.2, blue: 0.55 + night * 0.22)
-        context.fill(dots, with: .color(ink.opacity(strongInk ? 0.7 : 0.4)))
+        context.fill(dots, with: .color(ink.opacity(strongInk ? 0.7 : 0.18 + veil * 0.33)))
         if weather.condition == .frigid {
             var frost = Path()
             for x in stride(from: 18.0, to: size.width, by: 35) {
@@ -711,23 +723,70 @@ struct MorningQuietLandscape: View {
     }
 
     private func wind(in context: GraphicsContext, size: CGSize, weather: MorningWeatherScene, night: Double, seconds: Double) {
-        guard weather.windIntensity > 0 else { return }
-        var dots = Path()
-        let count = Int(2 + weather.windIntensity * 6)
-        for band in 0..<count {
-            let origin = CGPoint(x: size.width * (band.isMultiple(of: 2) ? 0.04 : 0.64),
-                                 y: size.height * (0.19 + Double(band) * 0.093))
-            for step in 0...22 {
-                let t = Double(step) / 22
-                let x = MorningSkyAnimation.wrap(origin.x + t * size.width * 0.30 + 32
-                    + seconds * (5 + weather.windIntensity * 10), span: size.width + 64) - 32
-                dot(&dots, x: x, y: origin.y + sin(t * .pi * 1.3 + seconds * 0.24) * 9, radius: 0.65)
+        // Calm sustained wind can still carry measured gusts. Keep those breaths
+        // occasional and smaller than an equally strong sustained wind.
+        let intensity = max(weather.windIntensity, weather.windGustIntensity * 0.35)
+        guard intensity > 0 else { return }
+        let gust = weather.windGustIntensity
+        let count = 2 + Int(ceil(intensity * 5))
+        let ink = Color(red: 0.40 + night * 0.27, green: 0.44 + night * 0.26, blue: 0.49 + night * 0.29)
+        var random = MorningSeededRandom(seed: 2913)
+        for lane in 0..<count {
+            // A breeze leaves long quiet gaps. Stronger wind sends larger,
+            // overlapping breaths more often, rather than speeding up a loop.
+            let period = 19 - intensity * 11 + Double(random.range(-1.5, 1.5))
+            let duration = 5.7 - intensity * 1.4
+            let offset = Double(random.range(0, 1)) * period
+            let elapsed = MorningSkyAnimation.wrap(seconds + offset, span: period)
+            let progress = elapsed / duration
+            let height = size.height * Double(random.range(0.17, 0.80))
+            let phase = Double(random.range(0, .pi * 2))
+            guard progress < 1 else { continue }
+            let swell = pow(sin(progress * .pi), 1.3)
+            let length = size.width * (0.12 + intensity * 0.29 + gust * 0.07)
+            let amplitude = 3 + intensity * 12 + swell * gust * 9
+            let travel = -length + progress * (size.width + length * 2)
+            let strands = 2 + Int(intensity * 2)
+            for strand in 0..<strands {
+                var ribbon = Path()
+                var down = Path()
+                let separation = Double(strand) * (3 + intensity * 4)
+                let steps = 28 + Int(intensity * 25)
+                for step in 0...steps {
+                    let t = Double(step) / Double(steps)
+                    let turn = max(0, (t - 0.68) / 0.32) * .pi * 1.35
+                    let curl = (4 + intensity * 12) * (1 - Double(strand) * 0.12)
+                    let localX = (t - 0.5) * length + (cos(turn) - 1) * curl
+                    let x = weather.windHorizontalDirection > 0 ? travel + localX : size.width - travel - localX
+                    let y = height + sin(t * .pi * 1.25 + phase) * amplitude
+                        - sin(turn) * curl + separation
+                    let taper = pow(sin(t * .pi), 0.55)
+                    dot(&ribbon, x: x, y: y, radius: (0.35 + intensity * 0.47) * taper)
+                    if step.isMultiple(of: 3) {
+                        // A few detached impressions make each breath feel soft
+                        // and airborne, while retaining the printed dot language.
+                        dot(&down, x: x - weather.windHorizontalDirection * 5,
+                            y: y + 5 + sin(t * 9 + Double(lane)) * 3,
+                            radius: (0.29 + intensity * 0.35) * taper)
+                    }
+                }
+                let opacity = swell * (strongInk ? 0.85 : 0.48 + intensity * 0.20)
+                    * (1 - Double(strand) * 0.16)
+                context.fill(ribbon, with: .color(ink.opacity(opacity)))
+                context.fill(down, with: .color(ink.opacity(opacity * 0.38)))
             }
         }
-        context.fill(dots, with: .color(Color(red: 0.45 + night * 0.2, green: 0.48 + night * 0.2, blue: 0.52 + night * 0.2).opacity(0.6)))
     }
 
-    private func ground(in context: GraphicsContext, size: CGSize, night: Double) {
+    /// One slow, smooth pressure wave links the falling rain, grass and trees.
+    /// There is no stateful particle simulation to jump on pause or resume.
+    private func passingBreath(seconds: Double, intensity: Double, gust: Double) -> Double {
+        let wave = (1 + sin(seconds * (0.42 + intensity * 0.28) - 1.2)) / 2
+        return pow(wave, 3) * max(intensity, gust)
+    }
+
+    private func ground(in context: GraphicsContext, size: CGSize, night: Double,
+                        weather: MorningWeatherScene? = nil, seconds: Double = 0) {
         let horizon = size.height * 0.91
         let scale = min(1.4, size.width / 360)
         var land = Path()
@@ -740,7 +799,15 @@ struct MorningQuietLandscape: View {
             let x = size.width * fraction
             let base = horizon - 1
             let tree = scale * proportion * 1.17
-            for row in 0...11 { dot(&land, x: x, y: base - Double(row) * 3.5 * tree, radius: 0.85 * tree) }
+            let intensity = weather?.windIntensity ?? 0
+            let breath = passingBreath(seconds: seconds - fraction * 1.5, intensity: intensity,
+                                      gust: weather?.windGustIntensity ?? 0)
+            let direction = weather?.windHorizontalDirection ?? 1
+            let lean = direction * (intensity * 2 + breath * 8) * tree
+            for row in 0...11 {
+                let growth = Double(row) / 18
+                dot(&land, x: x + lean * growth * growth, y: base - Double(row) * 3.5 * tree, radius: 0.85 * tree)
+            }
             for row in 0...14 {
                 let y = base - (23 + Double(row) * 2.6) * tree
                 let halfWidth = sqrt(max(0, 1 - pow((Double(row) - 7) / 7.5, 2))) * 18 * tree
@@ -748,15 +815,37 @@ struct MorningQuietLandscape: View {
                     let dx = Double(column) * 2.7 * tree
                     guard abs(dx) <= halfWidth else { continue }
                     let grain = Double((row * 13 + (column + 8) * 7) % 9) / 9
-                    dot(&land, x: x + dx, y: y, radius: (0.55 + grain * 0.45) * tree)
+                    let height = (base - y) / (62 * tree)
+                    let flutter = sin(seconds * 1.8 + Double(row) * 0.4) * intensity * 0.6
+                    dot(&land, x: x + dx + lean * height * height + flutter,
+                        y: y + abs(lean) * height * 0.07, radius: (0.55 + grain * 0.45) * tree)
                 }
             }
         }
         for fraction in [0.29, 0.34, 0.66, 0.72] {
-            for step in 0...3 { dot(&land, x: size.width * fraction + Double(step), y: horizon - Double(step) * 2, radius: 0.55) }
+            let breath = passingBreath(seconds: seconds - fraction, intensity: weather?.windIntensity ?? 0,
+                                      gust: weather?.windGustIntensity ?? 0)
+            for step in 0...3 {
+                let growth = Double(step)
+                let lean = growth * breath * 1.7 * (weather?.windHorizontalDirection ?? 1)
+                dot(&land, x: size.width * fraction + growth + lean,
+                    y: horizon - growth * 2 + abs(lean) * 0.25, radius: 0.55)
+            }
         }
         let ink = Color(red: 0.43 - 0.03 * night, green: 0.35 + 0.12 * night, blue: 0.25 + 0.34 * night)
         context.fill(land, with: .color(ink.opacity(0.80)))
+        if let humidity = weather?.humidity, humidity > 0.82 {
+            var dew = Path()
+            for fraction in [0.29, 0.34, 0.66, 0.72] {
+                let breath = passingBreath(seconds: seconds - fraction, intensity: weather?.windIntensity ?? 0,
+                                          gust: weather?.windGustIntensity ?? 0)
+                let lean = 3 * breath * 1.7 * (weather?.windHorizontalDirection ?? 1)
+                dot(&dew, x: size.width * fraction + 3 + lean,
+                    y: horizon - 6 + abs(lean) * 0.25, radius: 1.05)
+            }
+            context.fill(dew, with: .color(Color(red: 0.71, green: 0.79, blue: 0.78)
+                .opacity(min(0.8, (humidity - 0.82) * 4))))
+        }
     }
 }
 
@@ -843,10 +932,16 @@ struct MorningQuietSky: View {
     var strongInk = false
     var body: some View {
         let clouds = weather?.cloudCoverage ?? 0
-        let cold = weather?.precipitation == .snow || weather?.condition == .frigid
+        let apparent = weather?.apparentTemperatureCelsius
+        let cold = weather?.precipitation == .snow || weather?.condition == .frigid || (apparent.map { $0 < 2 } ?? false)
+        let warmth = apparent.map { min(1, max(0, ($0 - 24) / 16)) } ?? 0
+        let sunStrength = min(1, Double(weather?.uvIndex ?? 0) / 11) * (1 - clouds) * (1 - night)
         ZStack {
-            Color(red: 1 - clouds * 0.07, green: 0.97 - clouds * 0.035, blue: cold ? 0.97 : 0.90 + clouds * 0.035)
+            Color(red: 1 - clouds * 0.07, green: 0.97 - clouds * 0.035 - warmth * 0.018,
+                  blue: cold ? 0.97 : 0.90 + clouds * 0.035 - warmth * 0.035)
             Color(red: 0.055 + clouds * 0.015, green: 0.065 + clouds * 0.015, blue: 0.12 + clouds * 0.025).opacity(night)
+            RadialGradient(colors: [Color(red: 1, green: 0.76, blue: 0.40).opacity(sunStrength * 0.13), .clear],
+                           center: UnitPoint(x: 0.5, y: 0.42), startRadius: 0, endRadius: 260)
             MorningHalftone(color: night > 0.5 ? Color(red: 0.75, green: 0.77, blue: 0.86) : Color(red: 0.35, green: 0.32, blue: 0.29),
                             opacity: strongInk ? 0.19 : 0.11, cell: 5, radius: 0.36)
         }

@@ -64,6 +64,48 @@ struct WeatherObservationServiceTests {
         #expect(expected.expiresAt == Date(timeIntervalSince1970: 1_800_001_000))
     }
 
+    @Test func detailedMeasurementsStayOptionalAndRetainTheirUnits() throws {
+        let legacy = try snapshot(location: place())
+        #expect(legacy.windSpeedMetersPerSecond == nil && legacy.windGustMetersPerSecond == nil)
+        #expect(legacy.precipitationIntensityMillimetersPerHour == nil && legacy.humidity == nil)
+        #expect(legacy.visibilityMeters == nil && legacy.apparentTemperatureCelsius == nil)
+        #expect(legacy.uvIndex == nil && legacy.pressureHectopascals == nil && legacy.isDaylight == nil)
+        let detailed = try detailedSnapshot(windSpeed: 3, windGust: 8, direction: 360, rainRate: 0.6,
+            humidity: 0.84, visibility: 2_500, apparent: 9, dewPoint: 8, uv: 3, pressure: 1_012, daylight: false)
+        #expect(detailed.windSpeedMetersPerSecond == 3 && detailed.windGustMetersPerSecond == 8)
+        #expect(detailed.windDirectionDegrees == 0 && detailed.precipitationIntensityMillimetersPerHour == 0.6)
+        #expect(detailed.humidity == 0.84 && detailed.visibilityMeters == 2_500)
+        #expect(detailed.apparentTemperatureCelsius == 9 && detailed.dewPointCelsius == 8)
+        #expect(detailed.uvIndex == 3 && detailed.pressureHectopascals == 1_012 && detailed.isDaylight == false)
+    }
+
+    @Test func detailedMeasurementValidationRejectsInvalidProviderValuesAtTheBoundary() throws {
+        let nonnegative: [(Double) throws -> WeatherObservationSnapshot] = [
+            { try self.detailedSnapshot(windSpeed: $0) }, { try self.detailedSnapshot(windGust: $0) },
+            { try self.detailedSnapshot(rainRate: $0) }, { try self.detailedSnapshot(visibility: $0) },
+            { try self.detailedSnapshot(humidity: $0) }, { try self.detailedSnapshot(direction: $0) },
+            { try self.detailedSnapshot(pressure: $0) }
+        ]
+        for make in nonnegative {
+            for invalid in [Double.nan, .infinity, -.infinity, -1] {
+                #expect(throws: WeatherObservationError.invalidResponse) { try make(invalid) }
+            }
+        }
+        let temperatures: [(Double) throws -> WeatherObservationSnapshot] = [
+            { try self.detailedSnapshot(apparent: $0) }, { try self.detailedSnapshot(dewPoint: $0) }
+        ]
+        for make in temperatures {
+            for invalid in [Double.nan, .infinity, -.infinity, -274] {
+                #expect(throws: WeatherObservationError.invalidResponse) { try make(invalid) }
+            }
+        }
+        #expect(throws: WeatherObservationError.invalidResponse) { try detailedSnapshot(humidity: 1.1) }
+        #expect(throws: WeatherObservationError.invalidResponse) { try detailedSnapshot(direction: 361) }
+        #expect(throws: WeatherObservationError.invalidResponse) { try detailedSnapshot(pressure: 0) }
+        #expect(throws: WeatherObservationError.invalidResponse) { try detailedSnapshot(uv: -1) }
+        #expect(try detailedSnapshot(windSpeed: 0, windGust: 0, rainRate: 0, humidity: 0, visibility: 0).humidity == 0)
+    }
+
     @Test func restoredLocationValidationRejectsInvalidCoordinatesAndLabel() throws {
         #expect(throws: WeatherObservationError.invalidLocation) {
             try WeatherLocation(latitude: .nan, longitude: 0, displayName: "Synthetic city")
@@ -210,6 +252,18 @@ struct WeatherObservationServiceTests {
 
     private func place() throws -> WeatherLocation {
         try WeatherLocation(latitude: 10, longitude: 20, displayName: "Synthetic test city")
+    }
+    private func detailedSnapshot(windSpeed: Double? = nil, windGust: Double? = nil,
+                                  direction: Double? = nil, rainRate: Double? = nil,
+                                  humidity: Double? = nil, visibility: Double? = nil,
+                                  apparent: Double? = nil, dewPoint: Double? = nil,
+                                  uv: Int? = nil, pressure: Double? = nil, daylight: Bool? = nil) throws -> WeatherObservationSnapshot {
+        try WeatherObservationSnapshot(location: place(), retrievedAt: .now, observationAt: .now,
+            temperatureCelsius: 12, conditionDescription: "Synthetic", symbolName: "cloud", attribution: attribution(),
+            condition: .rain, windSpeedMetersPerSecond: windSpeed, windGustMetersPerSecond: windGust,
+            windDirectionDegrees: direction, precipitationIntensityMillimetersPerHour: rainRate,
+            humidity: humidity, visibilityMeters: visibility, apparentTemperatureCelsius: apparent,
+            dewPointCelsius: dewPoint, uvIndex: uv, pressureHectopascals: pressure, isDaylight: daylight)
     }
     private func attribution() throws -> WeatherAttributionInfo {
         try WeatherAttributionInfo(legalURL: URL(string: "https://example.invalid/weather/legal")!,

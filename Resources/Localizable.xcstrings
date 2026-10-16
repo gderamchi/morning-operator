@@ -16196,6 +16196,40 @@
           }
         }
       }
+    },
+    "Allow location access or choose a city in Your day to show its weather on Home.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow location access or choose a city in Your day to show its weather on Home."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisez la localisation ou choisissez une ville dans Votre journée pour afficher sa météo sur l’accueil."
+          }
+        }
+      }
+    },
+    "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisez la localisation ou choisissez une ville pour adapter l’accueil aux heures locales de lever et de coucher du soleil. En attendant, le ciel suit un cycle de référence de 7 h à 19 h selon l’horloge de cet iPhone ; ce ne sont pas vos heures locales de jour."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

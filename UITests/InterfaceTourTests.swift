@@ -44,6 +44,7 @@ final class InterfaceTourTests: XCTestCase {
         tapAfterScrolling(app.buttons["setup.briefing"], in: app)
         XCTAssertTrue(app.staticTexts["briefing.synthetic"].waitForExistence(timeout: 10), app.debugDescription)
         attach("\(prefix)-your-day", app)
+        MorningUITestNavigation.chooseManualWeatherCity(in: app)
         // The city field is a row of a native list: below the fold it does not exist yet.
         let city = app.textFields["briefing.citySearch"]
         for _ in 0..<12 where !(city.exists && city.isHittable) { app.swipeUp() }
