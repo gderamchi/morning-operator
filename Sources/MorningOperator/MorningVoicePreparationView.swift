@@ -27,7 +27,7 @@ struct MorningVoicePreparationView: View {
                     MorningVoiceAccessStatusView(access: store.voiceAccess)
                     if let releaseIssue { Text(releaseIssue).font(.raleway(.subheadline)).accessibilityIdentifier("voice.access.releaseIssue") }
                     if store.forcesVoicePreparationReviewForUITests {
-                        Text("SYNTHETIC prestart entry · system permission statuses are real · no simulated microphone")
+                        Text("Synthetic preparation · actual system permissions · microphone not simulated")
                             .font(.raleway(.caption)).accessibilityIdentifier("voice.access.synthetic")
                     }
                     Text(french ? "Cette préparation n’enregistre aucun son et ne teste pas le microphone. La lecture à voix haute et l’enchaînement de votre routine restent des choix distincts."
@@ -78,6 +78,11 @@ struct MorningVoicePreparationView: View {
                 store.voiceAccess.refresh(language: store.voicePreparationLanguage)
                 completePreparedStart()
             }
+        }
+        .onChange(of: AppLanguage.code) { _, _ in
+            stopRequest()
+            store.voiceAccess.refresh(language: store.voicePreparationLanguage)
+            if startRequest != nil { dismiss() }
         }
         .onChange(of: store.dataGeneration) { _, _ in stopRequest(); dismiss() }
         .onChange(of: store.routine?.id) { _, _ in if startRequest != nil { stopRequest(); dismiss() } }

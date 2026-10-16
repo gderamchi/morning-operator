@@ -10,7 +10,7 @@ final class MorningLiveActivityTests: XCTestCase {
     override func tearDown() {
         if let app = runningApp {
             // A relaunch reconciles only this test's process-era activities.
-            app.terminate(); app.launch()
+            app.terminate(); MorningUITestNavigation.launch(app)
             _ = app.buttons["morning.actions"].waitForExistence(timeout: 10)
             app.terminate()
         }
@@ -41,7 +41,7 @@ final class MorningLiveActivityTests: XCTestCase {
         setEnabled(false, in: app)
         assertNative("count:0", in: app)
         closeSettings(app)
-        app.terminate(); app.launch()
+        app.terminate(); MorningUITestNavigation.launch(app)
         openSettings(app)
         XCTAssertEqual(app.switches["activity.enabled"].firstMatch.value as? String, "0")
         assertNative("count:0", in: app)
@@ -55,7 +55,7 @@ final class MorningLiveActivityTests: XCTestCase {
         openSettings(app)
         assertNative("count:1|status:needsAttention|complete:0|total:4|category:briefing", in: app)
         closeSettings(app)
-        app.terminate(); app.launch()
+        app.terminate(); MorningUITestNavigation.launch(app)
         XCTAssertTrue(app.buttons["run.resume"].waitForExistence(timeout: 10))
         openSettings(app)
         XCTAssertEqual(app.switches["activity.enabled"].firstMatch.value as? String, "1")
@@ -108,7 +108,7 @@ final class MorningLiveActivityTests: XCTestCase {
         XCTAssertTrue(app.buttons["privacy.confirmForget"].waitForExistence(timeout: 5))
         app.buttons["privacy.confirmForget"].tap()
         XCTAssertTrue(app.buttons["learn.begin"].waitForExistence(timeout: 20))
-        app.terminate(); app.launch()
+        app.terminate(); MorningUITestNavigation.launch(app)
         XCTAssertTrue(app.buttons["learn.begin"].waitForExistence(timeout: 10))
         openSettings(app)
         XCTAssertEqual(app.switches["activity.enabled"].firstMatch.value as? String, "0")
@@ -167,7 +167,7 @@ final class MorningLiveActivityTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--light-preview", "--fixture-mode", "--ui-testing-approved",
             "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-live-activity"]
         runningApp = app
-        app.launch()
+        MorningUITestNavigation.launch(app)
         XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10))
         return app
     }

@@ -15,7 +15,7 @@ private struct MorningAlarmFile: Codable {
 final class MorningAlarmService {
     static let shared = MorningAlarmService()
     private(set) var setting = MorningAlarmSetting()
-    private(set) var status = AppLanguage.localized("Off")
+    private(set) var status = String(localized: "Off", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     private(set) var busy = false
     private var recorded: ScheduledMorningAlarm?
     @ObservationIgnored private var systemObservers: [Task<Void, Never>] = []
@@ -46,7 +46,7 @@ final class MorningAlarmService {
     private init() {
         if let saved = try? LocalDataControl(directory: LocalDataControl.defaultDirectory).withReadyAccess({ _ in try file.load() }) {
             setting = saved.setting; recorded = saved.recorded
-            status = setting.isEnabled ? AppLanguage.localized("Check your scheduled alarm") : AppLanguage.localized("Off")
+            status = setting.isEnabled ? String(localized: "Check your scheduled alarm", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Off", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
         guard !isIsolatedTest else { return }
         refreshSystemStatus()
@@ -73,24 +73,24 @@ final class MorningAlarmService {
         guard !isIsolatedTest,
               let privacy = try? LocalDataControl(directory: LocalDataControl.defaultDirectory).status(),
               !privacy.forgetPending else { return }
-        guard setting.isEnabled else { status = AppLanguage.localized("Off"); return }
+        guard setting.isEnabled else { status = String(localized: "Off", bundle: AppLanguage.bundle(), locale: AppLanguage.locale); return }
         guard AlarmManager.shared.authorizationState == .authorized else {
-            status = AppLanguage.localized("Allow alarms for MORE in Settings, then save again."); return
+            status = String(localized: "Allow alarms for MORE in Settings, then save again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale); return
         }
         guard let alarms = try? AlarmManager.shared.alarms else {
-            status = AppLanguage.localized("The scheduled alarm couldn't be checked. Try saving again."); return
+            status = String(localized: "The scheduled alarm couldn't be checked. Try saving again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale); return
         }
         guard let recorded, alarms.contains(where: { $0.id == recorded.id }),
               recorded.hour == setting.hour, recorded.minute == setting.minute else {
-            status = AppLanguage.localized("Your morning alarm is missing. Save again to schedule it."); return
+            status = String(localized: "Your morning alarm is missing. Save again to schedule it.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale); return
         }
-        status = AppLanguage.localized("Scheduled every day")
+        status = String(localized: "Scheduled every day", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
 
     /// Permission is requested only from this explicit Save action.
     func save(_ desired: MorningAlarmSetting) async {
         guard !isIsolatedTest else {
-            status = AppLanguage.localized("System alarms are unavailable in an isolated test workspace."); return
+            status = String(localized: "System alarms are unavailable in an isolated test workspace.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale); return
         }
         guard !busy else { return }
         busy = true; defer { busy = false }
@@ -108,7 +108,7 @@ final class MorningAlarmService {
             let change = MorningAlarmPlan.change(setting: desired, recorded: recorded,
                 systemAlarmIDs: Set(alarms.map(\.id)), authorized: AlarmManager.shared.authorizationState == .authorized)
             guard !change.needsAuthorization else {
-                status = AppLanguage.localized("Allow alarms for MORE in Settings, then save again."); return
+                status = String(localized: "Allow alarms for MORE in Settings, then save again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale); return
             }
             for id in change.cancel { try AlarmManager.shared.cancel(id: id) }
             let newRecord: ScheduledMorningAlarm?
@@ -121,9 +121,12 @@ final class MorningAlarmService {
                     try requireGeneration(state)
                     try file.save(MorningAlarmFile(setting: desired, recorded: newRecord))
                 }
-                let alert = AlarmPresentation.Alert(title: "Good morning", stopButton:
-                    AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.fill"),
-                    secondaryButton: AlarmButton(text: "Start MORE", textColor: .white, systemImageName: "sun.horizon"),
+                let alert = AlarmPresentation.Alert(title: LocalizedStringResource("Good morning", locale: AppLanguage.locale,
+                    bundle: .atURL(AppLanguage.bundle(for: .main).bundleURL)), stopButton:
+                    AlarmButton(text: LocalizedStringResource("Stop", locale: AppLanguage.locale,
+                        bundle: .atURL(AppLanguage.bundle(for: .main).bundleURL)), textColor: .white, systemImageName: "stop.fill"),
+                    secondaryButton: AlarmButton(text: LocalizedStringResource("Start MORE", locale: AppLanguage.locale,
+                        bundle: .atURL(AppLanguage.bundle(for: .main).bundleURL)), textColor: .white, systemImageName: "sun.horizon"),
                     secondaryButtonBehavior: .custom)
                 let attributes = AlarmAttributes(presentation: AlarmPresentation(alert: alert),
                     metadata: MorningAlarmMetadata(), tintColor: .orange)
@@ -143,7 +146,7 @@ final class MorningAlarmService {
                 }
             recorded = newRecord; setting = desired
             refreshSystemStatus()
-        } catch { status = AppLanguage.localized("The alarm couldn't be saved. Check it and try again. \(error.localizedDescription)") }
+        } catch { status = String(localized: "The alarm couldn't be saved. Check it and try again. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
     }
 
     /// Errors must keep the app's forget marker pending so cleanup can be retried.
@@ -152,7 +155,7 @@ final class MorningAlarmService {
             for alarm in try AlarmManager.shared.alarms { try AlarmManager.shared.cancel(id: alarm.id) }
         }
         if FileManager.default.fileExists(atPath: file.url.path) { try FileManager.default.removeItem(at: file.url) }
-        recorded = nil; setting = MorningAlarmSetting(); status = AppLanguage.localized("Off")
+        recorded = nil; setting = MorningAlarmSetting(); status = String(localized: "Off", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
 }
 

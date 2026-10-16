@@ -70,9 +70,9 @@ private enum MorningIntentError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .dataRemovalPending: AppLanguage.localized("Finish removing local data in MORE before capturing another thought.")
-        case .emptyText: AppLanguage.localized("Add a few words to capture.")
-        case .captureWaiting: AppLanguage.localized("Review the capture already waiting in MORE, then try again.")
+        case .dataRemovalPending: String(localized: "Finish removing local data in MORE before capturing another thought.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .emptyText: String(localized: "Add a few words to capture.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .captureWaiting: String(localized: "Review the capture already waiting in MORE, then try again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
 }
@@ -86,7 +86,7 @@ struct StartMorningIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         MorningIntentRouter.shared.requestStart()
-        return .result(dialog: "Opening your morning in MORE.")
+        return .result(dialog: IntentDialog(stringLiteral: String(localized: "Opening your morning in MORE.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
     }
 }
 
@@ -100,10 +100,10 @@ enum MorningIntentCaptureKind: String, AppEnum {
 
     var textPrefix: String {
         switch self {
-        case .thought: AppLanguage.localized("Thought")
-        case .dream: AppLanguage.localized("Dream")
-        case .reminder: AppLanguage.localized("Reminder")
-        case .calendar: AppLanguage.localized("Calendar")
+        case .thought: String(localized: "Thought", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .dream: String(localized: "Dream", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .reminder: String(localized: "Reminder", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .calendar: String(localized: "Calendar", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
 }
@@ -130,7 +130,7 @@ struct CaptureMorningIntent: AppIntent {
         let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty else { throw MorningIntentError.emptyText }
         try MorningIntentRouter.shared.requestCapture("\(kind.textPrefix): \(content)")
-        return .result(dialog: "Ready for review in MORE.")
+        return .result(dialog: IntentDialog(stringLiteral: String(localized: "Ready for review in MORE.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
     }
 }
 

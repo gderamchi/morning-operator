@@ -8,10 +8,18 @@ Physical microphone recognition, HomePod routing and listener-confirmed speech q
 
 Start a reviewed approved routine with hands-free execution enabled. MORE listens while the app is foreground, including while paused, so Resume needs no new button. Pause, Resume, Next, Repeat, Stop and +2 minutes control the same session. Contextual questions use the local model; Gmail reply/send dialogue uses its own validated policy. Leaving the foreground or ending the morning releases the microphone. Permissions and hardware/model availability remain visible system gates. [Runtime contract and proof limits](ROUTINE-AUTOMATION.md).
 
+## One app language
+
+Settings → Language offers **Français** and **English**. That persisted choice controls the interface, permission preparation, command recognition, local-model response language and speech. The first launch follows a French or English system language and otherwise starts in French. Personal routine text, drafts, provider names and third-party page content are preserved.
+
+The voice chooser offers installed Apple voices only in MORE's selected language, including its search results. A saved incompatible or removed voice (for example Samantha after choosing French) returns to Automatic. There is no foreign-language fallback if a matching voice is unavailable. Speech preview uses the selected language. Device/system sheets and provider websites retain their own language behavior; iOS permission resources can follow the chosen app language after relaunch.
+
+Changing language pauses a running session and invalidates listening/model continuations without restarting a step or retrying an external effect. Prepared mail, Slack and native drafts remain intact; a send with an unknown outcome stays on its reconciliation path. App-owned guidance is rebuilt without speaking, fetching or sending. Recognized words from an interrupted capture remain available for local review without being saved automatically. Resuming the morning is explicit.
+
 ## Manual turns
 
 1. Start an approved routine. Open **Morning controls → Speak a command**. MORE pauses the run and cancels its current automatic operation.
-2. Choose **English** or **Français**, then **Tap to speak**. The app stops and releases its speech output before preparing the microphone. It requests Speech and microphone access when needed.
+2. Use **Tap to speak**. Recognition follows the language selected in Settings. The app stops and releases its speech output before preparing the microphone. It requests Speech and microphone access when needed.
 3. Wait for **Listening for one command…**, then say one command from the table below. The sheet shows the current microphone route and a temporary transcript. You may say “MORE next” or “MORE suivant”; MORE is an optional prefix during this turn, not a background wake word.
 4. Tap **I'm done speaking** to finish input early, or let the eight-second input limit finish it. MORE waits for a final recognition result, releases the microphone, checks that the same routine step is still active, then applies one accepted command.
 
@@ -19,11 +27,11 @@ Start a reviewed approved routine with hands-free execution enabled. MORE listen
 
 ## Capture something after your morning
 
-After the final routine step completes and that transition is saved, Morning offers **Speak**, **Write** and **Not now**. With read-aloud enabled, MORE can say one brief invitation to keep a thought, dream or reminder. The invitation waits until Morning is active and no conflicting sheet or operation owns the interaction. It is queued once for that newly completed session; loading a completed session after relaunch does not replay it. Stopped mornings do not queue it. The selected speech voice determines whether the invitation is spoken in English or French.
+After the final routine step completes and that transition is saved, Morning offers **Speak**, **Write** and **Not now**. With read-aloud enabled, MORE can say one brief invitation to keep a thought, dream or reminder. The invitation waits until Morning is active and no conflicting sheet or operation owns the interaction. It is queued once for that newly completed session; loading a completed session after relaunch does not replay it. Stopped mornings do not queue it. The selected app language determines whether the invitation is spoken in English or French.
 
 The invitation never opens the microphone. **Speak is the explicit request to begin one capture turn**: it opens the capture sheet, stops and releases speech output, requests permissions if needed, then prepares on-device recognition. This sheet starts the requested turn when it appears; no second start tap is required. **Write** opens the ordinary editable capture form. **Not now** dismisses the reflection choices for the current in-memory session and stops any owned invitation or capture turn.
 
-Speak naturally in English or French. The initial recognition language follows the app's current locale; after a turn ends or is refused, the language selector and **Try speaking again** allow another explicit attempt. Input is limited to **30 seconds**, followed by at most **3 seconds** for a final result. **I'm done speaking** ends input early and allows a final result; **Cancel** discards the turn. Setup, permission dialogs and microphone release are outside those limits. No audio file is kept.
+Speak naturally in the app's selected language. After a turn ends or is refused, **Try speaking again** allows another explicit attempt in that same language. Input is limited to **30 seconds**, followed by at most **3 seconds** for a final result. **I'm done speaking** ends input early and allows a final result; **Cancel** discards the turn. Setup, permission dialogs and microphone release are outside those limits. No audio file is kept.
 
 Dictation is a separate mode from routine commands. It uses Apple's dictation hint and punctuation, without the command phrase hints or parser. Saying “next”, “stop” or “remind me” during capture returns words for review; it never advances a routine or creates an Apple item. Only the first final transcript is accepted. Empty text or text longer than 4,000 Characters is refused rather than silently truncated; punctuation and content are retained apart from outer whitespace.
 
@@ -33,7 +41,7 @@ The completed-session ID and a fresh attempt ID are checked after speech shutdow
 
 ## Supported commands
 
-These are exact phrases after normalization of case, accents and punctuation. The language picker configures recognition for `en-US` or `fr-FR`; the parser accepts the listed English and French phrases. One optional leading “MORE” is allowed.
+These are exact phrases after normalization of case, accents and punctuation. MORE’s app language configures recognition for `en-US` or `fr-FR`; the parser accepts phrases only in that language. The French word “résume” does not activate the English Resume command. One optional leading “MORE” is allowed.
 
 | Command | English phrases | French phrases | Effect |
 |---|---|---|---|
@@ -42,7 +50,7 @@ These are exact phrases after normalization of case, accents and punctuation. Th
 | Resume | resume; continue; resume morning | reprends; reprendre; continuer | Resume the current step using its existing supported operation, if enabled. |
 | Skip | skip; skip step; skip this step | passe cette étape; passer cette étape | Mark the current step skipped and advance once. Resume if another step remains. |
 | Repeat | repeat; repeat that; repeat this step; again; read again | répète; répéter; répète cette étape | Repeat the current supported read using its source checks; keep the run paused. |
-| Stop | stop; stop morning | arrête; arrêter; arrête la routine | End the run. This is different from canceling the microphone turn. |
+| Stop | stop; stop morning | stop; arrête; arrêter; arrête la routine | End the run. This is different from canceling the microphone turn. |
 
 This is a command grammar, not conversational intent inference. “Don't go next”, “next and stop”, “send a message” and “MORE” alone are refused when recognized as those phrases. Partial transcripts never dispatch actions. The first final result is considered once; every supplied recognition alternative must resolve to the same command. Recognition can still mishear a person: the grammar does not authenticate a speaker or identify recorded speech.
 
@@ -87,8 +95,8 @@ The listener observes Apple's audio route and interruption notifications to canc
 | Check | Procedure and required outcome |
 |---|---|
 | Entry and consent | Start the synthetic routine, open Morning controls → Speak a command, and verify the run pauses. No microphone turn starts until Tap to speak. On a fresh permission state, observe the system prompts. Test denial separately: no advance or speech, a clear fallback, and ordinary buttons still work. |
-| One command | Select English, tap, wait for Listening, say “next”, then tap I'm done speaking. Confirm exactly one completion and the next step. Restart a clean synthetic run and repeat for each command; verify skip versus complete, repeat while paused, and stop as a terminal state. |
-| French and prefix | Select Français and exercise the displayed French commands. Test “MORE suivant” during an active turn. Saying MORE before tapping must not start a turn; saying MORE alone during a turn must not run a command. |
+| One command | Select English in Settings, open the command sheet, tap, wait for Listening, say “next”, then tap I'm done speaking. Confirm exactly one completion and the next step. Restart a clean synthetic run and repeat for each command; verify skip versus complete, repeat while paused, and stop as a terminal state. |
+| French and prefix | Select Français in Settings and exercise the displayed French commands. Test “MORE suivant” during an active turn. Saying MORE before tapping must not start a turn; saying MORE alone during a turn must not run a command. |
 | Refusal | In separate turns say “don't go next”, “next and stop” and “send a message”. Confirm the recognized text and no routine action. If recognition changes the words into an allowed command, record a recognition failure, not a successful refusal. Pause after “next” within a longer sentence and verify no partial result advances the routine. |
 | Silence and cancellation | Stay silent: capture ends at its limit and no command is applied without a valid final result. Close during preparation, listening and finalization; wait beyond the final timeout and confirm no late action. Contrast this with I'm done speaking, which may accept the final command. |
 | Permissions and offline capability | Test denied Speech access and denied microphone access independently, then restore access. With the required local language support available, test an offline turn. If on-device support is absent, the expected outcome is refusal and touch fallback, never a server fallback. |

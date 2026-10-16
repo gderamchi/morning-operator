@@ -6,25 +6,29 @@ import ActivityKit
 /// Closed vocabulary only: nothing from titles, notes, calendar facts or OCR.
 public enum MorningActivityCategory: String, Codable, Hashable, Sendable, CaseIterable {
     case briefing, messages, calendar, wellbeing, entertainment, custom
-    public var displayName: String {
-        switch self {
-        case .briefing: AppLanguage.localized("Briefing", bundle: .module)
-        case .messages: AppLanguage.localized("Messages", bundle: .module)
-        case .calendar: AppLanguage.localized("Calendar", bundle: .module)
-        case .wellbeing: AppLanguage.localized("Wellbeing", bundle: .module)
-        case .entertainment: AppLanguage.localized("Time to enjoy", bundle: .module)
-        case .custom: AppLanguage.localized("Your moment", bundle: .module)
+    public var displayName: String { displayName(locale: AppLanguage.locale) }
+    public func displayName(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        return switch self {
+        case .briefing: String(localized: "Briefing", bundle: bundle, locale: locale)
+        case .messages: String(localized: "Messages", bundle: bundle, locale: locale)
+        case .calendar: String(localized: "Calendar", bundle: bundle, locale: locale)
+        case .wellbeing: String(localized: "Wellbeing", bundle: bundle, locale: locale)
+        case .entertainment: String(localized: "Time to enjoy", bundle: bundle, locale: locale)
+        case .custom: String(localized: "Your moment", bundle: bundle, locale: locale)
         }
     }
 }
 
 public enum MorningActivityStatus: String, Codable, Hashable, Sendable, CaseIterable {
     case running, paused, needsAttention
-    public var displayName: String {
-        switch self {
-        case .running: AppLanguage.localized("In progress", bundle: .module)
-        case .paused: AppLanguage.localized("Paused", bundle: .module)
-        case .needsAttention: AppLanguage.localized("Your turn", bundle: .module)
+    public var displayName: String { displayName(locale: AppLanguage.locale) }
+    public func displayName(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        return switch self {
+        case .running: String(localized: "In progress", bundle: bundle, locale: locale)
+        case .paused: String(localized: "Paused", bundle: bundle, locale: locale)
+        case .needsAttention: String(localized: "Your turn", bundle: bundle, locale: locale)
         }
     }
 }
@@ -83,10 +87,12 @@ public struct MorningActivityStepTimer: Codable, Hashable, Sendable {
     }
 
     /// "Next: Instagram", "Next: MORE" or "Finish".
-    public var nextLabel: String {
-        guard hasNextStep else { return AppLanguage.localized("Finish", bundle: .module) }
-        let name = nextDestination?.displayName ?? "MORE"
-        return AppLanguage.localized("Next: \(name)", bundle: .module)
+    public var nextLabel: String { nextLabel(locale: AppLanguage.locale) }
+    public func nextLabel(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        guard hasNextStep else { return String(localized: "Finish", bundle: bundle, locale: locale) }
+        let name = nextDestination?.displayName(locale: locale) ?? "MORE"
+        return String(localized: "Next: \(name)", bundle: bundle, locale: locale)
     }
 }
 
@@ -100,11 +106,15 @@ public struct MorningActivityContentState: Codable, Hashable, Sendable {
     public let updatedAt: Date
     /// Present only while the current step has a target and its timer.
     public let stepTimer: MorningActivityStepTimer?
+    /// The app's selected language, carried across the widget process boundary.
+    /// Nil in older activities, whose interface falls back to the current app language.
+    public let languageIdentifier: String?
+    public var locale: Locale { Locale(identifier: languageIdentifier ?? AppLanguage.localeIdentifier) }
     public var currentStepNumber: Int { completedSteps + 1 }
 
     public init(category: MorningActivityCategory, status: MorningActivityStatus,
                 completedSteps: Int, totalSteps: Int, updatedAt: Date,
-                stepTimer: MorningActivityStepTimer? = nil) throws {
+                stepTimer: MorningActivityStepTimer? = nil, languageIdentifier: String? = nil) throws {
         guard (1...100).contains(totalSteps), completedSteps >= 0, completedSteps < totalSteps else {
             throw MorningActivityValidationError.invalidProgress
         }
@@ -114,8 +124,9 @@ public struct MorningActivityContentState: Codable, Hashable, Sendable {
         self.category = category; self.status = status
         self.completedSteps = completedSteps; self.totalSteps = totalSteps; self.updatedAt = updatedAt
         self.stepTimer = stepTimer
+        self.languageIdentifier = languageIdentifier.flatMap { ["fr", "en"].contains($0) ? $0 : nil }
     }
-    private enum CodingKeys: CodingKey { case category, status, completedSteps, totalSteps, updatedAt, stepTimer }
+    private enum CodingKeys: CodingKey { case category, status, completedSteps, totalSteps, updatedAt, stepTimer, languageIdentifier }
     public init(from decoder: any Decoder) throws {
         let value = try decoder.container(keyedBy: CodingKeys.self)
         try self.init(category: value.decode(MorningActivityCategory.self, forKey: .category),
@@ -123,11 +134,13 @@ public struct MorningActivityContentState: Codable, Hashable, Sendable {
             completedSteps: value.decode(Int.self, forKey: .completedSteps),
             totalSteps: value.decode(Int.self, forKey: .totalSteps),
             updatedAt: value.decode(Date.self, forKey: .updatedAt),
-            stepTimer: value.decodeIfPresent(MorningActivityStepTimer.self, forKey: .stepTimer))
+            stepTimer: value.decodeIfPresent(MorningActivityStepTimer.self, forKey: .stepTimer),
+            languageIdentifier: value.decodeIfPresent(String.self, forKey: .languageIdentifier))
     }
     public func hasSameProgress(as other: Self) -> Bool {
         category == other.category && status == other.status &&
-        completedSteps == other.completedSteps && totalSteps == other.totalSteps && stepTimer == other.stepTimer
+        completedSteps == other.completedSteps && totalSteps == other.totalSteps && stepTimer == other.stepTimer &&
+        languageIdentifier == other.languageIdentifier
     }
 
     /// When this content stops being trustworthy. A running step timer is exact until
@@ -167,7 +180,7 @@ public enum MorningActivityProjection {
         }
         guard let state = try? MorningActivityContentState(category: category, status: status,
             completedSteps: session.currentStepIndex, totalSteps: session.routine.steps.count, updatedAt: date,
-            stepTimer: stepTimer) else { return nil }
+            stepTimer: stepTimer, languageIdentifier: AppLanguage.code) else { return nil }
         return .init(sessionID: session.id, state: state)
     }
 }

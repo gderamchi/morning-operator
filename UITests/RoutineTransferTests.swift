@@ -339,7 +339,7 @@ final class RoutineTransferTests: XCTestCase {
             app.launchEnvironment["MO_ROUTINE_IMPORT_TEST"] = "1"
             app.launchEnvironment["MO_ROUTINE_IMPORT_FILE"] = importPath
         }
-        app.launch()
+        MorningUITestNavigation.launch(app)
         if savedBaseline {
             // Cancellation and rejected imports perform no workspace mutation.
             // Persist the approved baseline through the normal UI beforehand;
@@ -356,7 +356,7 @@ final class RoutineTransferTests: XCTestCase {
     private func relaunchWithoutSeed(_ app: XCUIApplication) {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-approved" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
     }
 
     private func openRoutine(in app: XCUIApplication) {

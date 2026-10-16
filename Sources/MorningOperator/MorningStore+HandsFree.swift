@@ -57,7 +57,7 @@ extension MorningStore {
         guard handsFreeListeningSuppressedSessionID != session?.id else { return }
         guard voiceAccess.refresh(language: voicePreparationLanguage).isReady else { return }
         let language: MorningVoiceCommandLanguage = handsFreeUsesFrench ? .french : .english
-        handsFreeVoice.start(language: language, speech: speech, context: { [weak self] in
+        handsFreeVoice.start(language: language, speech: speech, languageGeneration: voiceLanguageGeneration, context: { [weak self] in
             self?.handsFreeContext
         }, onSpeech: { [weak self] in
             guard let self, !privacyBlocksWork else { return }
@@ -92,10 +92,11 @@ extension MorningStore {
     func receiveHandsFreeUtterance(_ utterance: MorningHandsFreeUtterance) async {
         guard !privacyBlocksWork, !permissionSetup.isPresented, !permissionSetup.needsInitialSetup,
               !Task.isCancelled, handsFreeContext == utterance.context,
+              utterance.languageGeneration == voiceLanguageGeneration,
               !voiceInputBlocksPlayback else { return }
         let continuation = handsFreeVoice.continuation.ticket
         defer { handsFreeVoice.continuation.discard(continuation) }
-        if let control = MorningHandsFreeVoicePolicy.control(in: utterance.text) {
+        if let control = MorningHandsFreeVoicePolicy.control(in: utterance.text, language: voicePreparationLanguage) {
             let words = MorningHandsFreeVoicePolicy.normalized(utterance.text)
             // In a prepared-reply dialogue, Repeat reads that reply and Continue
             // can decline it. Stop/Pause/Next always retain session-level priority.
@@ -159,7 +160,7 @@ extension MorningStore {
         let generation = dataGeneration, pauseRevision = handsFreePauseRevision
         let answer: String
         do {
-            answer = try await handsFreeVoice.conversation.answer(utterance.text, context: context)
+            answer = try await handsFreeVoice.conversation.answer(utterance.text, context: context, language: voicePreparationLanguage)
         } catch {
             guard !Task.isCancelled, !privacyBlocksWork, dataGeneration == generation,
                   handsFreeContext == utterance.context, handsFreePauseRevision == pauseRevision else { return }
@@ -167,10 +168,10 @@ extension MorningStore {
                 privacyGeneration: dataGeneration, pauseRevision: handsFreePauseRevision) { return }
             if error as? MorningVoiceConversationError == .unavailable {
                 speakHandsFree(french: "La conversation locale n'est pas disponible sur cet appareil. Vous pouvez dire suivant, pause, reprends, répète, encore deux minutes ou arrête.",
-                    english: MorningVoiceConversationError.unavailable.localizedDescription)
+                    english: MorningVoiceConversationError.unavailable.moreDescription)
             } else {
                 speakHandsFree(french: "Je n'ai pas pu préparer de réponse. Réessayez ou dites reprends pour continuer.",
-                    english: MorningVoiceConversationError.failed.localizedDescription)
+                    english: MorningVoiceConversationError.failed.moreDescription)
             }
             return
         }
@@ -296,8 +297,49 @@ extension MorningStore {
         speech.speak(handsFreeUsesFrench ? french : english)
     }
 
-    var handsFreeUsesFrench: Bool {
-        guard speech.voiceIdentifier != nil, let language = speech.selectedVoice?.language else { return AppLanguage.isFrench }
-        return language.hasPrefix("fr")
+    var handsFreeUsesFrench: Bool { AppLanguage.isFrench }
+
+    func setAppLanguage(_ code: String) {
+        guard AppLanguage.supportedCodes.contains(code), AppLanguage.code != code else { return }
+        AppLanguage.setChosenLanguage(code)
+        // Invalidate before returning to the run loop: a queued old recognition
+        // result must not authorize an effect while SwiftUI is updating its views.
+        appLanguageDidChange()
+    }
+
+    /// A language switch changes presentation and local speech, never the approved
+    /// routine, prepared reply or an external operation's reconciliation state.
+    func appLanguageDidChange() {
+        guard appliedLanguageCode != AppLanguage.code else { return }
+        appliedLanguageCode = AppLanguage.code
+        voiceLanguageGeneration = UUID()
+        cancelVoicePreparation()
+        handsFreePauseRevision = UUID()
+        if session?.status == .running { pause() }
+        else { speech.stop() }
+        stopHandsFreeVoice()
+        cancelVoiceCommandTurn()
+        voiceCommandPresented = false
+        suspendCompletionCaptureForLanguageChange()
+        stopCompletionInvitation()
+        speech.repairVoiceSelection()
+        mailMorning.appLanguageDidChange()
+        nativeMoment.appLanguageDidChange()
+        slackReply.appLanguageDidChange()
+        invitation.appLanguageDidChange()
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        if #available(iOS 27.0, *) { ScreenRecordingService.shared.appLanguageDidChange() }
+        #endif
+        refreshConnectedPresentationLanguage()
+        refreshStoredPresentationLanguage()
+        briefing.appLanguageDidChange()
+        clearLanguageDependentPlayback()
+        refreshCapabilities()
+        voiceCommands.refreshLanguageStatus()
+        voiceAccess.refresh(language: voicePreparationLanguage)
+        if sessionActive {
+            notice = String(localized: "Language changed. Your morning is paused. Resume when you are ready.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        }
+        persist()
     }
 }

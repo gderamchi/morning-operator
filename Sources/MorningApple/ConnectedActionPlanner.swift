@@ -27,7 +27,7 @@ public final class ConnectedActionPlanner {
     public convenience init() {
         self.init(generator: { prompt in
             #if canImport(FoundationModels)
-            let session = LanguageModelSession(model: SystemLanguageModel.default, instructions: Self.instructions)
+            let session = LanguageModelSession(model: SystemLanguageModel.default, instructions: Self.instructions + "\nAny clarifying question must be in \(AppLanguage.isFrench ? "French" : "English"). Preserve personal values and tool identifiers exactly.")
             return try await session.respond(to: prompt,
                 options: GenerationOptions(temperature: 0, maximumResponseTokens: 1_500)).content
             #else

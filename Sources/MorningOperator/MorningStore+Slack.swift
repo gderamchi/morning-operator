@@ -20,7 +20,7 @@ extension MorningStore {
             notice = AppLanguage.isFrench ? "Moment Slack ajouté au brouillon. Relisez et validez votre routine."
                 : "Slack moment added to your draft. Review and approve your routine."
             return true
-        } catch { notice = error.localizedDescription; return false }
+        } catch { notice = error.moreDescription; return false }
     }
 
     var currentSlackContext: MorningExecutionID? {
