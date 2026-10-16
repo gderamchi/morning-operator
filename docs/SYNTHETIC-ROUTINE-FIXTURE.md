@@ -451,3 +451,36 @@ A byte-identical 43-file private copy of the FR corpus now also lives in this
 acceptance worktree's ignored `work/routine-fixture/long-v1b/`. Every copied file
 was SHA-256 verified; no media was rerendered or committed and the original
 manifest was not edited.
+
+## Mixed3 passed; separate learning gates remain open
+
+Frozen build9d on `06f9848` passed its single mixed3 test in **444.017s**, with
+no failures/skips and unchanged sealed binaries. It configured and approved the
+manual synthetic draft through UI, restored it, selected Gmail message four,
+retained exactly one uncertain simulated Slack attempt without retry, and
+preserved 32.155s of its real one-minute budget through pause/relaunch and a
+65-second paused wait. The recap restored. Narration of the Slack read remained
+incomplete; no external reply was confirmed. Voice was off in this run, so it
+proves no acoustic interaction. Captures/receipt/xcresult and exact timer/body
+values stay local under `work/acceptance-ux-golden-06f9848-mixed3-round1*`.
+
+Actual new Vision extraction on `003ba4a` passes the immutable full movie in
+28.753s: 24 frames, 260 lines. Their text, times, bounds, confidence and offsets
+match archived v7; only generated IDs differ. The two separate real OCR tests
+also pass. None of this establishes model semantics or coverage of every scene.
+
+Model diagnostics retain their failures. D9's cited agenda candidates describe
+the event tasks with 30/45-minute budgets; `003ba4a` improves budgets but returns
+an inconsistent agenda outcome, rejected before assembly. Its constructed EN
+contrast titles also include uncited context. The steps-only `b5ebe32`
+experiment fails the actual advertisement abstention control and is reverted
+in `49b04aa`; its green package run is not model acceptance. The schema stimuli,
+movie, oracle and native postvalidation were not relaxed to obtain a pass.
+
+`e81cada` attributes recap results to the exact pinned moment, keeps source
+read/restoration status separate from Slack reply receipts, and preserves
+browser counters per moment. Four Core + 23 Apple + 16 Slack targeted tests
+pass. `4ec210f` adapts native assertions to these rows. The separate Calendar
+speech smoke, long10 and follow-up lot still require new native execution.
+The [QA ledger](ROUTINE-AUTOMATION-QA.md) records package/source boundaries;
+full video-to-routine acceptance and MORE §10 remain open.

@@ -68,7 +68,42 @@ The corrected snapshot `c9332ca`, including Home changes through `554a614`, pass
 
 The later Home decision (`99ef99d`, `3dfed93`) replaces scrolling history with a single short passage and tap-revealed controls that disappear after five seconds. It is integrated with the action-state correction, using the same passage instead of a permanent status/button panel. Build6 of the previous scene succeeds, but its six runtime journeys were deliberately not started after this product change. The new scene, its speech-chunk changes and adapted runtime journeys require fresh validation; the 1,598-test checkpoint above does not cover them.
 
-## Latest source-specific checkpoint — 16 October 2026
+## Latest checkpoint — 16 October 2026: mixed3 passes, full learning remains open
+
+The frozen native **build9d / `06f9848`** mixed3 journey passed **1/1, no skips,
+444.017s**. It proves manual synthetic import → UI configuration → explicit
+approval/relaunch → read-only Gmail selection → one uncertain simulated Slack
+reply without retry → real one-minute budget retained across pause/relaunch →
+restored recap. Its 27.845s consumed / 32.155s remaining survive a further
+65-second paused wait. Source/app/UI bundle/xctestrun hashes were checked before
+and after. No real service write, voice/acoustic or video-learning acceptance is
+claimed. Slack result narration remained incomplete; its simulated write was
+not confirmed. One frame-dimension warning remains recorded.
+
+Package v14 on `0416ef9` was green: 2,066 reported tests including 14 optional
+skips, with two real OCR tests separately excluded. On `003ba4a`, the separately
+executed OCR image/bounds tests passed (26.380s / 0.146s); actual extraction of
+the immutable 28-minute movie passed in 28.753s (24 frames / 260 lines). Its text,
+times and layout values match archived v7; fresh UUIDs differ. This establishes
+extraction, not understood activities or gestures.
+
+The local model is still **not accepted**: D9 proposed the displayed events
+as 30/45-minute tasks; `003ba4a` improves review budgets but its agenda response
+contradicts its own outcome and is correctly refused. Constructed EN output
+also leaks uncited context into titles. The later steps-only experiment
+`b5ebe32` passed package checks but **failed the real advertisement negative
+control**; it was reverted in `49b04aa`. No incoherent response was repaired or
+credited as a learned routine.
+
+The per-moment recap correction `e81cada` passes four Core projection tests,
+23 Apple grounding/guidance checks, and 16 Slack contract tests including exact
+reply attribution after relaunch. UI expectations were adapted in `4ec210f`;
+new native Calendar speech smoke, long10 and follow-up lot remain pending.
+Fresh main through `d5d9b0e` is integrated separately; combined final checks are
+still required. Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
+and [issue #173](https://github.com/gibouu/morning-operator/issues/173).
+
+## Earlier source-specific checkpoint — `830e9cd`, 16 October 2026
 
 The Home contract has since changed to tap-revealed Play/Pause and Settings; commands and interaction live in Settings. The earlier single-passage and historical menu results above remain evidence for their own sources. The complete MORE §10 acceptance routine still has **not passed**.
 
