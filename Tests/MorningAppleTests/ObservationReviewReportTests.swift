@@ -258,3 +258,131 @@ struct ObservationReviewReportTests {
         }
     }
 }
+
+@Suite("App signals from Shortcuts and the image model")
+struct ObservationAppSignalReviewTests {
+    private func frames(_ texts: [String]) throws -> [ObservationFrameEvidence] {
+        try texts.enumerated().map { try ObservationFrameEvidence(requestedTimeSeconds: Double($0.offset), actualTimeSeconds: Double($0.offset),
+                                                                 outcome: .observed, text: $0.element) }
+    }
+
+    private func acquisition(_ frames: [ObservationFrameEvidence], decisions: [ObservationFrameIdentityDecision] = [],
+                             signals: [ObservationFrameAppSignal]) throws -> ObservationAcquisition {
+        let evidence = try ObservationVideoEvidence(durationSeconds: Double(frames.count) + 1, frames: frames)
+        let classification = decisions.isEmpty ? nil : ObservationContextClassification(decisions: decisions,
+            status: .completed, attemptedBatchCount: 1, respondedBatchCount: 1, failedBatchCount: 0,
+            diagnostics: [], modelAvailability: "Synthetic test result")
+        return try ObservationAcquisition(observedDate: .init(date: Date(timeIntervalSince1970: 1_791_000_000),
+            timeZoneIdentifier: "Europe/Paris", provenance: .userAssigned), origin: .human, sourceKind: .video,
+            sourceLabel: "Synthetic recording", originalText: evidence.renderedText, videoEvidence: evidence,
+            classification: classification, appSignals: signals)
+    }
+
+    @Test func shortcutsOutrankScreenTextAndTheImageModelFillsOnlyUnknownScreens() throws {
+        let source = try frames(["Discussions", "Feed", "Synthetic blank-ish screen"])
+        let whatsapp = try #require(ObservedApp(name: "WhatsApp"))
+        let text = ObservationFrameIdentityDecision(sampleID: source[0].id, timeSeconds: 0, timeBasis: source[0].timeBasis,
+            evidence: .identified(app: .init(key: "visual-context:discussions", displayName: "discussions"),
+                                  reference: source[0].evidenceReference), evidenceQuote: "Discussions")
+        let unknowns = source.dropFirst().map { ObservationFrameIdentityDecision(sampleID: $0.id, timeSeconds: $0.timeSeconds,
+            timeBasis: $0.timeBasis, evidence: .unknown) }
+        let entry = try acquisition(source, decisions: [text] + unknowns, signals: [
+            .init(sampleID: source[0].id, source: .shortcut, app: whatsapp),
+            .init(sampleID: source[1].id, source: .visualModel, app: .instagram)
+        ])
+        let review = try ObservationClipReview(acquisition: entry)
+        #expect(review.rows.map { $0.samples[0].provenance } == [.shortcut, .visualModel, .model])
+        #expect(review.rows.map { $0.resolvedContext?.displayName } == ["WhatsApp", "Instagram", nil])
+        #expect(review.traceReport?.visits.map(\.app.displayName) == ["WhatsApp", "Instagram"])
+    }
+
+    @Test func screenTextWinsOverTheImageModelAndKnownAppsShareOneSpelling() throws {
+        let source = try frames(["WhatsApp"])
+        let text = ObservationFrameIdentityDecision(sampleID: source[0].id, timeSeconds: 0, timeBasis: source[0].timeBasis,
+            evidence: .identified(app: .init(key: "visual-context:whatsapp", displayName: "whatsapp"),
+                                  reference: source[0].evidenceReference), evidenceQuote: "WhatsApp")
+        let entry = try acquisition(source, decisions: [text],
+                                    signals: [.init(sampleID: source[0].id, source: .visualModel, app: .instagram)])
+        let row = try #require(ObservationClipReview(acquisition: entry).rows.first)
+        #expect(row.samples[0].provenance == .model)
+        #expect(row.resolvedContext?.displayName == "WhatsApp")
+    }
+
+    @Test func signalOnlyDaysCountWithoutQuotesAndSurviveRoundTrip() throws {
+        let source = try frames(["Synthetic screen"])
+        let entry = try acquisition(source, signals: [.init(sampleID: source[0].id, source: .shortcut, app: .tiktok)])
+        let restored = try JSONDecoder().decode(ObservationAcquisition.self, from: JSONEncoder().encode(entry))
+        #expect(restored.appSignals == entry.appSignals)
+        let period = try ObservationReviewPeriod(archive: ObservationArchive(entries: [restored]),
+            endingOn: Date(timeIntervalSince1970: 1_791_000_000), calendarTimeZoneIdentifier: "Europe/Paris")
+        let recurrence = try #require(period.personalPartitions.first?.recurrence.first)
+        #expect(recurrence.context.displayName == "TikTok")
+        #expect(recurrence.seenDayCount == 1)
+        #expect(recurrence.citations.isEmpty)
+    }
+
+    @Test func signalsForUnknownOrDuplicateSamplesAreRejected() throws {
+        let source = try frames(["Synthetic screen"])
+        #expect(throws: ObservationArchiveError.self) {
+            try acquisition(source, signals: [.init(sampleID: UUID(), source: .shortcut, app: .tiktok)])
+        }
+        #expect(throws: ObservationArchiveError.self) {
+            try acquisition(source, signals: [.init(sampleID: source[0].id, source: .shortcut, app: .tiktok),
+                                              .init(sampleID: source[0].id, source: .shortcut, app: .instagram)])
+        }
+    }
+
+    @MainActor @Test func imageChoicesKeepAppsAndReservedAnswersSeparate() {
+        let choices = ObservationVisualAppRecognizer.choices([.instagram, .instagram, .tiktok])
+        #expect(choices.all == ["Instagram", "TikTok", "Home Screen", "MORE", "Unknown"])
+        #expect(choices.apps.keys.sorted() == ["Instagram", "TikTok"])
+    }
+}
+
+@Suite("Image answers on screens that list apps")
+struct VisualAppListGuardTests {
+    @Test func appLibraryAndAppPickersAreNotTreatedAsOneApp() {
+        let candidates = ObservedApp.suggested
+        #expect(ObservationVisualAppRecognizer.screenListsApps("09:43\nBibliothèque d'apps\nBeReal.", candidates: candidates))
+        #expect(ObservationVisualAppRecognizer.screenListsApps("App\nWhatsApp\nMessages\nMail\nGmail\nOutlook", candidates: candidates))
+        #expect(!ObservationVisualAppRecognizer.screenListsApps("Modifier\nMessages\nYnès\nÀ demain !", candidates: candidates))
+        #expect(!ObservationVisualAppRecognizer.screenListsApps("duolingo", candidates: candidates))
+    }
+}
+
+@Suite("App openings timeline")
+struct ObservationAppTimelineTests {
+    @Test func consecutiveAndInterruptedRepeatsBecomeOneOpeningWithClockTime() throws {
+        let frames = try ["Radio", "Library", "Unread", "Chats", "Story"].enumerated().map {
+            try ObservationFrameEvidence(requestedTimeSeconds: Double($0.offset) * 10, actualTimeSeconds: Double($0.offset) * 10,
+                                         outcome: .observed, text: $0.element)
+        }
+        let music = try #require(ObservedApp(name: "Music")), messages = try #require(ObservedApp(name: "Messages"))
+        let evidence = try ObservationVideoEvidence(durationSeconds: 50, frames: frames)
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let entry = try ObservationAcquisition(sourceKind: .video, sourceLabel: "Synthetic recording",
+            originalText: evidence.renderedText, videoEvidence: evidence,
+            recordingContext: .init(startedAt: start, timeZoneIdentifier: "UTC"),
+            appSignals: [.init(sampleID: frames[0].id, source: .visualModel, app: music),
+                         .init(sampleID: frames[1].id, source: .visualModel, app: music),
+                         .init(sampleID: frames[3].id, source: .shortcut, app: messages),
+                         .init(sampleID: frames[4].id, source: .visualModel, app: messages)])
+        let openings = ObservationAppTimeline.openings(for: entry)
+        #expect(openings.map(\.app.displayName) == ["Music", "Messages"])
+        #expect(openings.map(\.wallClock) == [start, start.addingTimeInterval(30)])
+        #expect(openings.map(\.provenance) == [.visualModel, .shortcut])
+        #expect(ObservationAppTimeline.labels(for: entry)[frames[2].id] == nil)
+    }
+}
+
+@Suite("Image answers checked against screen text")
+struct VisualAppPlausibilityTests {
+    @Test func messagesAnswerNeedsAppleMessagesWordsAndHomeScreensNameNoApp() throws {
+        let messages = try #require(ObservedApp(name: "Messages"))
+        #expect(!ObservationVisualAppRecognizer.plausible(messages, screenText: "Synthetic Contact\nen ligne aujourd'hui à 13:10"))
+        #expect(ObservationVisualAppRecognizer.plausible(messages, screenText: "Modifier\nMessages\nSynthetic"))
+        #expect(ObservationVisualAppRecognizer.plausible(.instagram, screenText: "anything"))
+        #expect(ObservationVisualAppRecognizer.screenListsApps("FaceTime\nHorloge\nMar.\n13\nTéléphone\nCalendrier", candidates: ObservedApp.suggested))
+        #expect(ObservationVisualAppRecognizer.screenListsApps("Réseaux sociaux\nf\nBeReal.\nDiscord\nFacebook\nInstagram", candidates: ObservedApp.suggested))
+    }
+}

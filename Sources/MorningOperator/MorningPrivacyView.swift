@@ -7,6 +7,7 @@ struct MorningPrivacyView: View {
     @Bindable var store: MorningStore
     @ViewState<Bool> private var confirmingRemoval = false
     @ViewState<Bool> private var removalApproved = false
+    @ViewState<EvidenceRemovalReview?> private var retentionReview = nil
 
     private static let removalAnchor = "privacy.removalSection"
 
@@ -30,6 +31,9 @@ struct MorningPrivacyView: View {
                     countRow(String(localized: "Observations", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: String(store.observationArchive.entries.count), identifier: "privacy.observations")
                     countRow(String(localized: "Saved thoughts & ideas", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: String(store.captures.count), identifier: "privacy.captures")
                     countRow(String(localized: "Saved choices", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: store.routinePreferencesIssue == nil ? String(store.routinePreferences.entries.count) : String(localized: "Unavailable", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), identifier: "privacy.choices")
+                    if store.setAsideWorkspaceCount > 0 {
+                        countRow(String(localized: "Unreadable parts kept", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: String(store.setAsideWorkspaceCount), identifier: "privacy.setAside")
+                    }
                 } else {
                     Text(store.privacyBlocksWork ? String(localized: "Saved data is unavailable while removal needs attention.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Saved data couldn’t be read. You can still choose to remove it.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 }
@@ -47,6 +51,7 @@ struct MorningPrivacyView: View {
             } footer: {
                 Text("Only Shortcuts you configure can log app names and entry/exit times. This doesn't record taps or read messages. Removing local data turns this off until you enable it again.")
             }
+            if !store.privacyBlocksWork { EvidenceRetentionSection(store: store, reviewing: $retentionReview) }
             Section("Your day") {
                 Text("Calendar events and prepared recaps stay in memory. MORE saves only the calendars you select, your chosen weather city and temperature unit.")
                 Text("City searches go to Apple Maps. Weather requests send the selected city’s coordinates to Apple Weather. Screen content and learning aren't sent with these requests.")
@@ -77,6 +82,7 @@ struct MorningPrivacyView: View {
             Task { @MainActor in proxy.scrollTo(Self.removalAnchor, anchor: .top) }
         }
       }
+        .evidenceRemovalSheet(store: store, review: $retentionReview)
         .navigationTitle("Privacy").navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(store.privacyBlocksWork)
         .interactiveDismissDisabled(store.privacyBlocksWork)

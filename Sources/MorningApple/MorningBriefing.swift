@@ -12,14 +12,14 @@ public enum MorningBriefingInput<Value: Sendable & Equatable>: Sendable, Equatab
 
 public enum MorningBriefingSourceStatus: String, Sendable, Equatable {
     case notConfigured, denied, unavailable, fresh, stale
-    /// The read worked as far as can be known and returned no record. Sleep only.
+    /// The health read returned no record, without disclosing read permission.
     case missing
 }
 
 public enum MorningBriefingSourceIssue: String, Sendable, Equatable {
     case notConfigured, permissionDenied, sourceUnavailable, expired
     case futureTimestamp, wrongDay, wrongTimeZone, invalidSelection, invalidSnapshot
-    /// Sleep only. There is no "permission denied" among these on purpose: a health
+    /// Health sources. There is no "permission denied" among these on purpose: a health
     /// read that was not permitted looks exactly like `noRecord`.
     case unavailableOnDevice, notReadable, noRecord, olderRecord
 }
@@ -63,7 +63,18 @@ public struct MorningBriefingFreshnessPolicy: Sendable, Equatable {
 }
 
 public struct MorningBriefingSegment: Identifiable, Sendable, Equatable {
-    public enum Source: String, Sendable, Equatable { case introduction, calendar, weather, sleep }
+    public enum Source: String, Sendable, Equatable {
+        case introduction, calendar, weather, sleep, healthMetrics
+
+        /// General model consent does not authorize Health sharing. Explicit
+        /// ElevenLabs narration consent is a separate, app-owned route.
+        public var permitsGeneralCloudContext: Bool {
+            switch self {
+            case .introduction, .calendar, .weather: true
+            case .sleep, .healthMetrics: false
+            }
+        }
+    }
     public let id: String
     public let source: Source
     /// This same sentence is displayed and sent to speech. There is no second
@@ -100,23 +111,25 @@ public struct PreparedMorningBriefing: Identifiable, Sendable, Equatable {
     public let temperatureUnit: MorningBriefingTemperatureUnit
     public let calendar: MorningBriefingSection
     public let weather: MorningBriefingSection
-    /// Sleep duration, the one health observation. `notConfigured` when health is excluded.
+    /// Sleep duration. `notConfigured` when health is excluded.
     public let sleep: MorningBriefingSection
     /// The recorded night behind a fresh sleep section; nil in every other state.
     public let sleepObservation: SleepObservation?
+    public let healthMetrics: [PreparedHealthMetric]
     public let selectedCalendarIDs: Set<String>
     public let weatherLocation: WeatherLocation?
     public let weatherAttribution: WeatherAttributionInfo?
     public let segments: [MorningBriefingSegment]
 
     public var hasUsableFacts: Bool {
-        calendar.status == .fresh || weather.status == .fresh || sleep.status == .fresh
+        calendar.status == .fresh || weather.status == .fresh || sleep.status == .fresh || healthMetrics.contains { $0.section.status == .fresh }
     }
     public var displayText: String { segments.map(\.text).joined(separator: "\n") }
     public var spokenText: String { segments.map(\.text).joined(separator: " ") }
     public var validUntil: Date? {
         guard hasUsableFacts else { return nil }
-        return ([dayEnd] + [calendar.validUntil, weather.validUntil, sleep.validUntil].compactMap { $0 }).min()
+        return ([dayEnd] + [calendar.validUntil, weather.validUntil, sleep.validUntil].compactMap { $0 }
+            + healthMetrics.compactMap { $0.section.validUntil }).min()
     }
 
     public func isCurrent(at date: Date, timeZoneIdentifier: String) -> Bool {
@@ -135,6 +148,7 @@ public enum MorningBriefingComposer {
         calendar inputCalendar: MorningBriefingInput<CalendarSnapshot>,
         weather inputWeather: MorningBriefingInput<WeatherObservationSnapshot>,
         sleep inputSleep: SleepBriefingInput = .excluded,
+        healthMetrics inputMetrics: [HealthMetric: HealthMetricBriefingInput] = [:],
         for day: Date, at now: Date, timeZoneIdentifier: String,
         localeIdentifier: String = AppLanguage.localeIdentifier,
         temperatureUnit: MorningBriefingTemperatureUnit = .celsius,
@@ -163,8 +177,10 @@ public enum MorningBriefingComposer {
             unit: temperatureUnit, policy: policy)
         var (sleepSection, sleepObservation) = Self.sleepSection(inputSleep, now: now, dayEnd: dayEnd,
             calendar: calendar, zone: zone, locale: locale, phrases: phrases, policy: policy)
+        var metrics = HealthMetricsBriefingComposer.prepare(inputMetrics, at: now, dayEnd: dayEnd,
+            zone: zone, locale: locale, readMaximumAge: policy.sleepMaximumAge)
         let hasFacts = calendarSection.status == .fresh || weatherSection.status == .fresh
-            || sleepSection.status == .fresh
+            || sleepSection.status == .fresh || metrics.contains { $0.section.status == .fresh }
         // Configure sources in Settings, not in every spoken morning. A failed
         // configured source gets one short sentence only when another can help.
         calendarSection = withFailureSegment(calendarSection, source: .calendar, include: hasFacts)
@@ -175,6 +191,16 @@ public enum MorningBriefingComposer {
         let silentSleep: [MorningBriefingSourceIssue?] = [.notConfigured, .sourceUnavailable, .unavailableOnDevice]
         sleepSection = withFailureSegment(sleepSection, source: .sleep,
             include: hasFacts && !silentSleep.contains(sleepSection.issue))
+        metrics = metrics.map { item in
+            let original = item.section
+            guard hasFacts, original.status != .fresh,
+                  !silentSleep.contains(original.issue) else { return item }
+            let section = MorningBriefingSection(status: original.status, issue: original.issue,
+                statusText: original.statusText, retrievedAt: original.retrievedAt, observationAt: original.observationAt,
+                sourceLabels: original.sourceLabels, omissionCount: 0,
+                segments: [.init(id: "health.\(item.metric.rawValue).status", source: .healthMetrics, text: original.statusText)], validUntil: nil)
+            return PreparedHealthMetric(metric: item.metric, section: section, observation: item.observation)
+        }
         if sleepSection.status != .fresh { sleepObservation = nil }
         var segments: [MorningBriefingSegment] = []
         if hasFacts {
@@ -183,7 +209,7 @@ public enum MorningBriefingComposer {
             formatter.dateStyle = .full; formatter.timeStyle = .none
             segments.append(.init(id: "introduction", source: .introduction,
                 text: phrases.introduction(formatter.string(from: day))))
-            segments += calendarSection.segments + weatherSection.segments + sleepSection.segments
+            segments += calendarSection.segments + weatherSection.segments + sleepSection.segments + metrics.flatMap { $0.section.segments }
         }
         let weatherSnapshot: WeatherObservationSnapshot?
         if case .snapshot(let snapshot) = inputWeather { weatherSnapshot = snapshot } else { weatherSnapshot = nil }
@@ -194,6 +220,7 @@ public enum MorningBriefingComposer {
             timeZoneIdentifier: timeZoneIdentifier, localeIdentifier: localeIdentifier,
             temperatureUnit: temperatureUnit, calendar: calendarSection, weather: weatherSection,
             sleep: sleepSection, sleepObservation: sleepObservation,
+            healthMetrics: metrics,
             selectedCalendarIDs: selectedCalendarIDs,
             weatherLocation: weatherSnapshot?.location,
             weatherAttribution: weatherSection.status == .fresh ? weatherSnapshot?.attribution : nil,
@@ -356,7 +383,12 @@ public enum MorningBriefingComposer {
                 from: moment(observation.windowStart), to: moment(observation.windowEnd))
             return (.init(status: .fresh, issue: nil, statusText: phrases.sleepStatus,
                 retrievedAt: snapshot.readAt, observationAt: observation.windowEnd,
-                sourceLabels: observation.sourceKinds.map(phrases.sleepSource), omissionCount: 0,
+                sourceLabels: observation.sources.contains(where: { $0.name != nil })
+                    ? Array(Set(observation.sources.map { source in
+                        guard let name = source.name else { return phrases.sleepSource(source.kind) }
+                        return source.wasUserEntered ? "\(name) (\(phrases.sleepSource(.manualEntry)))" : name
+                    })).sorted()
+                    : observation.sourceKinds.map(phrases.sleepSource), omissionCount: 0,
                 segments: [.init(id: "sleep.0", source: .sleep, text: text)], validUntil: expiry), observation)
         }
     }

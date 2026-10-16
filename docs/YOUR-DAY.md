@@ -4,10 +4,10 @@ A short recap of your chosen calendar, current weather and optional recorded sle
 
 ## Set it up
 
-1. Open **Settings → Sources → Calendar, weather & sleep**. This opens **Your day**.
+1. Open **Settings → Sources → Calendar & weather**. This opens **Your day**. **Health** also has its own direct entry under Sources.
 2. Choose **Connect Calendar** and approve Apple's read permission if you want calendar context. Then select the individual calendars to include. No calendar is selected automatically.
 3. Optionally search for a city and select a result. Choose Celsius or Fahrenheit. Device location isn't requested.
-4. Optionally turn on **Include recorded sleep**. MORE explains the purpose before opening Apple’s Health permission sheet, for sleep analysis only and read-only. A handled sheet does not establish read permission.
+4. Optionally turn on **Health in my morning**. Apple's sheet lets you select sleep, resting heart rate, heart rate variability (SDNN) and breathing rate. Existing sleep-only choices require a separate explicit upgrade before those additional measures are read. A handled sheet does not establish read permission.
 5. Read the prepared recap or choose **Hear this recap**. **Refresh recap** updates this preview without advancing your routine.
 6. If you already have a routine, choose **Add to my morning**. This creates a new draft with **Your day** first. Review and approve that draft before running it.
 
@@ -15,7 +15,7 @@ You can also edit a moment and choose **Read today's briefing**, or **Read today
 
 ## What it says
 
-The same prepared sentences appear on screen and go to Apple's system speech. Calendar context includes all-day events, events in progress and upcoming events in your selected calendars. Completed events are omitted. The recap includes up to five events and states how many remaining events were omitted. A valid empty result says there are no remaining events in the selected calendars; a denied or failed read never becomes an empty schedule.
+The prepared facts appear on screen and go to Apple's system speech by default. An explicitly chosen [online conversation](NATURAL-VOICE.md) can present those facts naturally after its separate sharing choice. Calendar context includes all-day events, events in progress and upcoming events in your selected calendars. Completed events are omitted. The recap includes up to five events and states how many remaining events were omitted. A valid empty result says there are no remaining events in the selected calendars; a denied or failed read never becomes an empty schedule.
 
 Weather describes current conditions in the chosen city, with an explicit temperature unit. It is not a whole-day forecast. The visible recap includes Apple Weather attribution and a data-sources link. The actual Apple image asset, live WeatherKit access and audio output still need signed-device verification.
 
@@ -38,9 +38,11 @@ During a routine, the recap is pinned to that session and moment. **Repeat** use
 
 ## Sleep duration
 
-Sleep duration is the one health observation chosen for [issue #15](https://github.com/gibouu/morning-operator/issues/15). The app links `MorningHealth`, requests only the standard HealthKit capability and explains read access in `NSHealthShareUsageDescription` (English/French). The widget does not link this module or request HealthKit. No clinical records, background delivery, health writes, score or diagnosis is requested.
+Sleep is one of the optional observations in [issue #15](https://github.com/gibouu/morning-operator/issues/15). The connection can also read resting heart rate, heart rate variability (SDNN) and breathing rate, after an explicit expanded permission action. The app links `MorningHealth`, requests only the standard HealthKit capability and explains read access in `NSHealthShareUsageDescription` (English/French). The widget does not link this module or request HealthKit. No clinical records, background delivery, health writes, score or diagnosis is requested.
 
-In **Settings → Calendar, weather & sleep → Apple Health · optional sleep**, turn on **Include recorded sleep** deliberately. Only this action requests Apple's sleep-analysis read permission. Then **Refresh sleep** shows the same recorded duration/window used in the recap, inferred source categories and local read time. **Hear this recap** uses the composed sentences; **Add to my morning** creates a draft requiring review/approval. The opening offers a recap when sleep alone supplies current facts; the routine's **Read today's briefing** operation includes it.
+In **Settings → Health**, turn on **Health in my morning** deliberately. Apple lets the person select the four read types. Existing sleep-only settings do not silently enable the extra three: choose **Connect heart and breathing data** to upgrade. **Refresh Health** reads the selected scope. The compact screen shows fresh measurements with their source app and recorded time; older sleep dates and access details live in a disclosure. Reading failures stay distinct from missing or older records.
+
+The extra measurements use the latest complete valid sample from seven days. A measurement is current for less than 24 hours, and its read cache expires within 30 minutes. Each type can fail independently. SDNN is identified explicitly; it is not relabeled as another tracker’s HRV metric. No recovery/readiness percentage, diagnosis or medical threshold is calculated. A proprietary tracker score requires a real supported source for that score. Source names identify the app that wrote into Health, not necessarily the physical tracker.
 
 Turning sleep off cancels pending setup/reads, withdraws transient and pinned sleep text and pauses a running morning. Other settings and Apple Health records are preserved. To change system access use **Apple Health → profile → Apps → MORE** (the Apps entry may be under Privacy on some iOS versions). On a real trip to the background, MORE drops the sleep cache and playback admission; the next foreground refresh rereads it. A refresh that returns empty or fails also withdraws earlier recorded sleep from playback. A system permission sheet merely making MORE inactive does not invalidate setup.
 
@@ -64,11 +66,49 @@ No sentence says that permission was refused or granted. HealthKit answers a ref
 
 **Expected sources.** An Apple Watch worn at night records sleep stages. An iPhone alone records mostly "in bed" time from a sleep schedule, which is not counted. Other apps and entries typed in the Health app may record asleep time. The source kind (watch, phone, another app, manual entry, unknown) is worked out from the source's bundle identifier, its hardware model string and the "entered by the user" flag; HealthKit has no field that states it. An iPad or a Mac may have no health data store. Physical source coverage must be verified separately from the tested sample mapping.
 
-The reader looks back seven days to distinguish an older record from no returned record. Reads have a ten-second publication deadline; late/cancelled results cannot repopulate cleared state. Samples, the total and the sentence stay in memory. During a hands-free question, the current admitted recap can be supplied as transient context to the existing on-device conversation model; it is not sent to a remote model. Disabling sleep cancels a pending voice answer and clears that context. Only the on/off choice is saved, in `briefing-settings.json`.
+The reader looks back seven days to distinguish an older record from no returned record. Reads have a ten-second publication deadline; late/cancelled results cannot repopulate cleared state. Samples, the total and the sentence stay in memory. During a local hands-free question, the admitted recap can be transient context for the on-device model. An explicitly started [online conversation](NATURAL-VOICE.md) can instead receive the text MORE pronounces after its separate sharing choice. Disabling sleep cancels a pending voice answer and clears that context. Only source choices, including the separate expanded-Health scope flag, are saved in `briefing-settings.json`.
+
+## Short extras
+
+After the opening's own facts, MORE can add up to three short sentences, about ten seconds in all, then asks its usual question. Turn each one on or off in **Settings → Your day → Short extras**. All extras start off. Source choices are independent; a sleep extra is suppressed when the recap already includes recorded sleep. Turning a Health extra off withdraws the opening and pauses active playback.
+
+| Extra | Source | Needs an Apple Watch? | On by default |
+|---|---|---|---|
+| Sleep last night | Health sleep analysis. Asleep stages when a watch recorded them; otherwise "time in bed" from an iPhone Sleep schedule, said as time in bed, never as sleep. | No | No |
+| Steps yesterday | Health step count (the iPhone counts steps), compared with the mean of the seven days before. | No | No |
+| Weather change | WeatherKit, for the city chosen above: rain or snow likely later today, or a daily high at least 5 °C (9 °F) away from yesterday's. | No | No |
+| Calendar clash | The calendars chosen above: the first overlap, or a gap under ten minutes, among today's timed events. | No | No |
+| Birthdays | Contacts, names spoken and never saved. | No | No |
+| Screen time | A hook for the Screen Time work. Shown as not available until that work provides a reader. | — | No |
+
+The rules:
+
+- **No data is silence.** A source that is off, not permitted, failed, late (four seconds) or has no record says nothing. A day without steps is left out of the mean, not counted as zero; the mean needs four recorded days.
+- **Units.** Temperature follows the unit chosen above. A difference converts by 9/5 only: 10 °C warmer is 18 °F warmer.
+- **Time.** Days are local midnights in the device's time zone (a day across a clock change is 23 or 25 hours). Clock times are in the device's time zone, like the recap.
+- **Choice.** Calendar clashes and birthdays come first when they exist. The other kinds rotate: a kind said yesterday steps back so another can speak.
+- **Weather attribution.** A weather extra is shown only when the recap's weather, with Apple Weather's attribution, is current.
+- **Prompts.** Reading never prompts. Each Health extra is off by default and requests only its chosen data type when you turn it on. Existing earlier default-on choices require explicit activation again; no new read is inherited. Contacts asks when you turn birthdays on. Until Health was asked, sleep and steps are not read at all.
+
+Only the choices and the day each kind was last said are saved, in `morning-extras.json`. Full local forgetting removes it.
+
+**Device setup.** The app's App ID needs the HealthKit capability (Xcode → Signing & Capabilities), as WeatherKit does. Without it the Health prompt fails and sleep and steps stay silent. None of these readers has been checked on a device yet.
+
+## Closing questions
+
+When the routine is complete, the closing card asks three questions, one at a time:
+
+1. "Did you have a dream you want to note?" → the dream capture.
+2. "Anything you want to remember today, or something you forgot?" → a reminder draft.
+3. "Any note to take?" → a thought.
+
+**Speak** opens the existing listening sheet, which reads the question aloud (when spoken guidance is on) and listens. "No", "nothing", "non merci" or silence moves to the next question in the same sheet. An answer opens the usual review screen, starting with the question's kind; the words still decide, so "I dreamed…" stays a dream. **Write** opens the same review typed. **Skip** moves on; **Not now** ends the questions.
+
+A reminder is created only by **Add to Reminders** in review, through the existing EventKit path. A spoken time ("remind me at 5 to call the bank", "à 17h") becomes a proposed alert time to review: without am or pm, the next of 05:00 and 17:00. Without a time, the reminder has no alert. Closing the review, saved or not, moves to the next question. The questions live in memory; a relaunch does not ask them again.
 
 ## What is saved and sent
 
-Only selected calendar identifiers, city name/coordinates, temperature unit and the health on/off choice are saved in `briefing-settings.json`. Calendar events, weather responses, attribution and prepared speech remain in memory; they are not added to observations, routine history or a training dataset. Full local forgetting removes these settings and clears the transient recap. Corrupt preferences block ordinary changes until you explicitly reset **Your day** settings.
+Only selected calendar identifiers, city name/coordinates, temperature unit and the Health inclusion/scope choices are saved in `briefing-settings.json`. Calendar events, weather responses, attribution and prepared speech remain in memory; they are not added to observations, routine history or a training dataset. Full local forgetting removes these settings and clears the transient recap. Corrupt preferences block ordinary changes until you explicitly reset **Your day** settings.
 
 City search sends the query to Apple Maps. Weather retrieval sends the selected coordinates to Apple Weather. These native services use a network connection; they are separate from local Foundation Models inference. No screen recording, OCR, message content or habit evidence is sent in those requests. See [Privacy](PRIVACY.md).
 

@@ -1,0 +1,88 @@
+<!doctype html><html><head><meta charset="utf-8"><title>09 Four-shade LCD</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+/* Four greens only, like a handheld LCD: #0f380f #306230 #8bac0f #9bbc0f */
+.screen { background:#9bbc0f; color:#0f380f; font-family:"Pixelify Sans",monospace; }
+.screen::after { content:""; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,rgba(15,56,15,.08) 0 1px,transparent 1px 3px); }
+.content { position:absolute; inset:0; padding:58px 26px 36px; display:flex; flex-direction:column; }
+.date { font-family:Silkscreen,monospace; font-size:10px; letter-spacing:.05em; }
+h1 { font-family:Silkscreen,monospace; font-weight:700; font-size:26px; margin:10px 0 0; line-height:1.1; }
+.total { font-size:16px; margin-top:8px; color:#306230; }
+.scene { width:100%; height:150px; margin-top:18px; }
+ol { list-style:none; margin:16px 0 0; padding:0; }
+li { display:flex; justify-content:space-between; padding:7px 0; font-size:20px; }
+li::before { content:"▸ "; color:#306230; }
+li.done { color:#306230; } li.done::before { content:"■ "; }
+li.now::before { content:"▶ "; color:#0f380f; } li.now { background:#8bac0f; margin:0 -8px; padding:7px 8px; }
+li small { font-size:16px; color:#306230; }
+.foot { margin-top:auto; display:flex; gap:8px; font-family:Silkscreen,monospace; font-size:11px; }
+.foot span { flex:1; text-align:center; padding:13px 0; border:3px solid #0f380f; }
+.foot span.p { background:#0f380f; color:#9bbc0f; }
+.big { font-family:Silkscreen,monospace; font-weight:700; font-size:70px; line-height:1; margin:14px 0 0; letter-spacing:-.02em; }
+.now-title { font-size:34px; font-weight:500; margin:12px 0 4px; }
+.purpose { font-size:17px; color:#306230; }
+.rec p { margin:0 0 12px; font-size:21px; line-height:1.3; }
+.rec p.w { font-family:Silkscreen,monospace; font-size:14px; line-height:1.6; margin:16px 0 18px; }
+.rec p em { font-style:normal; background:#8bac0f; }
+</style></head><body>
+<div class="phone"><div class="screen"><div class="content">
+  <div class="date">TUE 14 OCT</div>
+  <h1>GOOD MORNING</h1>
+  <div class="total">42 min planned</div>
+  <canvas class="scene" id="g1"></canvas>
+  <ol>
+    <li><span>Your day</span><small>3 min</small></li>
+    <li><span>People and messages</span><small>8 min</small></li>
+    <li><span>Mail</span><small>7 min</small></li>
+    <li><span>Make some tea</span><small>5 min</small></li>
+    <li><span>A little reading</span><small>6 min</small></li>
+    <li><span>A moment to move</span><small>10 min</small></li>
+    <li><span>One thought for later</span><small>3 min</small></li>
+  </ol>
+  <div class="foot"><span>LEARN</span><span>HISTORY</span><span class="p">PLAY</span></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content">
+  <div class="date">NOW · 4 OF 7</div>
+  <div class="big">3:40</div>
+  <div class="now-title">Make some tea</div>
+  <div class="purpose">A moment you’ve made room for.</div>
+  <canvas class="scene" id="g2"></canvas>
+  <ol>
+    <li class="done"><span>Mail</span><small>7 min</small></li>
+    <li class="now"><span>Make some tea</span><small>5 min</small></li>
+    <li><span>A little reading</span><small>6 min</small></li>
+  </ol>
+  <div class="foot"><span class="p">PAUSE</span><span>NEXT</span><span>AGAIN</span></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content rec">
+  <div class="date">YOUR DAY</div>
+  <canvas class="scene" id="g3" style="margin-top:12px"></canvas>
+  <p class="w">HERE IS YOUR BRIEFING FOR TUESDAY 14 OCTOBER.</p>
+  <p>Weather in Paris: <em>mostly cloudy, 11 degrees Celsius.</em></p>
+  <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+  <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+  <div class="foot"><span class="p">HEAR MY RECAP</span><span>START</span><span>STOP</span></div>
+</div></div></div>
+<script src="pix.js"></script>
+<script>
+// A little 4-shade landscape: sky, hills, a sun, rain on the third screen.
+function scene(id, rise, rain){
+  const c=document.getElementById(id); const W=68,H=30; c.width=W; c.height=H; const x=c.getContext('2d');
+  const P=['#9bbc0f','#8bac0f','#306230','#0f380f'];
+  x.fillStyle=P[0]; x.fillRect(0,0,W,H);
+  // sun
+  const r=6, cx=48, cy=18-Math.round(rise*10);
+  x.fillStyle=P[3]; for(let y=0;y<18;y++)for(let i=0;i<W;i++){ if(Math.hypot(i+.5-cx,y+.5-cy)<=r) x.fillRect(i,y,1,1); }
+  // hills
+  x.fillStyle=P[2]; for(let i=0;i<W;i++){ const h=18+Math.round(3*Math.sin(i/7)+2*Math.sin(i/3)); x.fillRect(i,h,1,H-h); }
+  x.fillStyle=P[3]; for(let i=0;i<W;i++){ const h=23+Math.round(2*Math.sin(i/5+1)); x.fillRect(i,h,1,H-h); }
+  // grass ticks
+  x.fillStyle=P[1]; for(let i=1;i<W;i+=4){ x.fillRect(i,19+((i*3)%3),1,1); }
+  if(rain){ x.fillStyle=P[2]; for(let i=0;i<40;i++){ x.fillRect((i*11)%W, (i*7)%16, 1, 2); } }
+}
+scene('g1',0.0,false); scene('g2',0.55,false); scene('g3',1,true);
+</script>
+</body></html>

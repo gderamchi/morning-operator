@@ -1,6 +1,8 @@
 # Voice with MORE
 
-MORE uses native system speech for approved notes, selected historical excerpts and prepared Calendar/Weather recaps. An active hands-free morning now owns continuous on-device recognition and duplex output. Speech can interrupt the current operation; final requests are bound to the session and step at speech onset. Manual command/capture sheets remain available as a fallback and first release the continuous microphone. There is no cloud recognition/model fallback.
+MORE uses native system speech and on-device listening by default. **Settings → Talk with MORE** offers an explicitly chosen ElevenLabs conversation with streamed audio, persistent dialogue and routine controls. Its data sharing, execution boundary and proof limits are described in [Natural conversation](NATURAL-VOICE.md). It is never an automatic fallback from local listening.
+
+For the local route, an active hands-free morning owns continuous on-device recognition and duplex output. Speech can interrupt the current operation; final requests are bound to the session and step at speech onset. Manual command/capture sheets remain available and first release the continuous microphone.
 
 Physical microphone recognition, HomePod routing and listener-confirmed speech quality remain open. An earlier phone greeting reached speech completion, but the owner did not confirm hearing it. [Verification](PHASE-ONE.md) separates native simulator speech callbacks, injected text tests and actual phone evidence.
 

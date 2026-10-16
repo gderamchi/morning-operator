@@ -7,6 +7,10 @@ normal_inputs=("$repo_dir/project.yml" "$repo_dir/Configuration/iOS-Info.plist" 
 normal_before="$(shasum -a 256 "${normal_inputs[@]}")"
 plutil -lint "$repo_dir/Configuration/JuryDemo-Info.plist" "$repo_dir/Configuration/JuryDemoActivityWidget-Info.plist" >/dev/null
 xcodegen generate --spec "$repo_dir/project.demo.yml" --project "$repo_dir"
+resolved_file="project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+[[ -f "$repo_dir/MorningOperator.xcodeproj/$resolved_file" ]] || { printf 'Generate the ordinary project with its committed package lock first.\n' >&2; exit 2; }
+mkdir -p "$(dirname "$repo_dir/MorningOperatorDemo.xcodeproj/$resolved_file")"
+cp "$repo_dir/MorningOperator.xcodeproj/$resolved_file" "$repo_dir/MorningOperatorDemo.xcodeproj/$resolved_file"
 [[ "$normal_before" == "$(shasum -a 256 "${normal_inputs[@]}")" ]] || { printf 'Generation unexpectedly changed the normal app.\n' >&2; exit 2; }
 python3 - "$repo_dir" <<'PY'
 import json, pathlib, plistlib, subprocess, sys

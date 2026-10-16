@@ -264,7 +264,7 @@ private actor JuryDemoTransportProbe {
         requests.append(request)
         let url = try #require(request.url)
         let response = try #require(HTTPURLResponse(url: url, statusCode: status,
-                                                    httpVersion: nil, headerFields: ["Content-Type": "application/json"]))
+                                                  httpVersion: nil, headerFields: ["Content-Type": "application/json"]))
         return (body, response)
     }
 }

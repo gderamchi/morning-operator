@@ -32,6 +32,8 @@ struct MorningHomePlaybackView: View {
         if store.juryDemoVoice.state == .failed { return store.juryDemoVoice.message }
         if !store.juryDemoCaption.isEmpty { return store.juryDemoCaption }
         if store.juryDemoVoice.isActive { return store.juryDemoVoice.message }
+        #else
+        if store.cloudVoice.isActive, let text = store.cloudVoice.caption, !text.isEmpty { return text }
         #endif
         if let notice = store.notice, !notice.isEmpty { return notice }
         if let displayedCaption { return displayedCaption }

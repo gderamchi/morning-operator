@@ -294,6 +294,52 @@ test('reminder GET and duplicate voice requests never replay a pending native wr
   assert.equal(recovered.payload.receipt.status, 'created');
 });
 
+test('reminder requests never substitute the prepared time for another explicit time or duration', async t => {
+  for (const text of [
+    'Rappelle-moi une heure avant le rendez-vous.',
+    'Rappelle-moi 1h avant le rendez-vous.',
+    'Rappelle-moi trente secondes avant le rendez-vous.',
+    'Rappelle-moi vingt minutes après le rendez-vous.',
+    'Rappelle-moi dans vingt minutes.',
+    'Rappelle-moi à 16 h.',
+    'Rappelle-moi à seize heures.',
+    'Rappelle-moi à 16:00.',
+    'Rappelle-moi à 14h40.',
+    'Rappelle-moi vingt et une minutes avant.',
+    'Rappelle-moi quatre-vingt minutes avant.',
+    'Rappelle-moi vingt minutes avant et une heure avant.',
+    'Rappelle-moi vingt minutes avant demain.',
+    'Rappelle-moi demain.',
+    'Rappelle-moi hier.',
+    'Rappelle-moi yesterday.',
+    'Rappelle-moi le 20 octobre 2026.',
+    'Rappelle-moi vingt minutes avant le rendez-vous du 20 octobre 2026.',
+  ]) {
+    const { state, start, turn } = await fixture(t);
+    const session = await start(); state.model = () => model('reminder');
+    const result = await turn(session.sessionID, text);
+    assert.equal(result.payload.action, undefined, text);
+    assert.equal(result.payload.receipt, undefined, text);
+    assert.equal(state.sendCount, 0);
+  }
+});
+
+test('default reminders and twenty-minute requests preserve the prepared native action', async t => {
+  for (const text of ['Rappelle-moi', 'Crée un rappel', 'Rappelle-moi vingt minutes avant le rendez-vous.',
+    'Rappelle-moi 20 min avant le point produit.', 'Rappelle-moi 20min avant.', 'Rappelle-moi 20 minutes.',
+    'Peux-tu créer un rappel vingt minutes avant le rendez-vous ?',
+    'Crée-moi un rappel vingt minutes avant le point produit, s’il te plaît.']) {
+    const { state, start, turn } = await fixture(t);
+    const session = await start(); state.model = () => model('reminder');
+    const result = await turn(session.sessionID, text);
+    const action = result.payload.action;
+    assert.deepEqual({ ...action, requestID: 'opaque' }, { type: 'createReminder', requestID: 'opaque',
+      title: 'Point produit', minutesBefore: 20, meetingHour: 15, meetingMinute: 0 }, text);
+    assert.equal(result.payload.receipt, undefined);
+    assert.equal(state.sendCount, 0);
+  }
+});
+
 test('a reminder classification never turns negated or conditional language into a native write', async t => {
   const { state, start, turn } = await fixture(t);
   const session = await start(); state.model = () => model('reminder');

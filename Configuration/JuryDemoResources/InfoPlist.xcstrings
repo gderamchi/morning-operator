@@ -146,19 +146,19 @@
       }
     },
     "NSHealthShareUsageDescription": {
-      "comment": "Read-only sleep, requested only after an explicit choice.",
+      "comment": "Explicitly chosen read scope; local by default, optional online voice conversation disclosed separately.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE reads your recorded sleep duration and its time window from Apple Health when you choose to include sleep in your morning recap. It never writes health data."
+            "value": "MORE reads only the sleep, optional steps, resting heart rate, heart rate variability (SDNN) and breathing rate you explicitly choose for your morning. Readings stay on this iPhone unless you start the optional online conversation. MORE never writes Health data."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "MORE lit la durée et la période de sommeil enregistrées dans Santé Apple quand vous choisissez de les inclure dans votre récapitulatif du matin. MORE ne modifie aucune donnée de santé."
+            "value": "MORE lit uniquement le sommeil, les pas facultatifs, la fréquence cardiaque au repos, sa variabilité (SDNN) et la fréquence respiratoire que vous choisissez pour votre matin. Ces lectures restent sur cet iPhone sauf si vous démarrez la conversation en ligne facultative. MORE ne modifie aucune donnée Santé."
           }
         }
       }

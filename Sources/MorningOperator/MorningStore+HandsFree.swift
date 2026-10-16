@@ -44,6 +44,27 @@ extension MorningStore {
         #if MORE_JURY_DEMO
         return
         #endif
+        if cloudVoice.isActive {
+            guard !privacyBlocksWork,
+                  cloudVoiceConsentGeneration == dataGeneration,
+                  cloudVoiceConsentSession == session?.id else { stopCloudVoice(); return }
+            let context = cloudVoiceContext, generation = dataGeneration, sessionID = session?.id
+            Task { [weak self] in
+                guard let self, !privacyBlocksWork, cloudVoice.isActive,
+                      dataGeneration == generation, session?.id == sessionID,
+                      cloudVoiceConsentGeneration == generation, cloudVoiceConsentSession == sessionID,
+                      handsFreeContext == context.binding else { return }
+                await cloudVoice.updateContext(context)
+            }
+            return
+        }
+        if cloudVoiceConsentGeneration != nil || speech.externalSpeech != nil {
+            let issue = cloudVoice.errorMessage
+            stopCloudVoice()
+            if let issue { cloudVoiceStartIssue = issue }
+            return
+        }
+        guard !cloudVoiceReleasing else { return }
         guard !privacyBlocksWork, !permissionSetup.isPresented, !permissionSetup.needsInitialSetup,
               automatic, sessionActive, !voiceInputBlocksPlayback,
               !voiceCommandPresented, !captureVoicePresented,
@@ -77,8 +98,8 @@ extension MorningStore {
         })
     }
 
-    func stopHandsFreeVoice() { handsFreeVoice.stop() }
-    func suspendHandsFreeVoice() { handsFreeVoice.stop() }
+    func stopHandsFreeVoice() { handsFreeVoice.stop(); stopCloudVoice() }
+    func suspendHandsFreeVoice() { handsFreeVoice.stop(); stopCloudVoice() }
 
     /// Await this inside the existing manual command/capture Task before it
     /// activates its microphone. Merely presenting a sheet is not a release barrier.
@@ -86,6 +107,8 @@ extension MorningStore {
         #if MORE_JURY_DEMO
         try await juryDemoVoice.pauseAndRelease()
         #else
+        stopCloudVoice()
+        await cloudVoice.stopAndRelease()
         try await handsFreeVoice.stopAndRelease()
         #endif
         try Task.checkCancellation()
@@ -246,7 +269,7 @@ extension MorningStore {
         }
     }
 
-    private var handsFreeMomentContext: String {
+    var handsFreeMomentContext: String {
         guard let session, let step = currentStep else { return "" }
         var parts = ["Current moment: \(step.title)", "Approved description: \(step.detail)",
                      "Session state: \(session.status.rawValue)"]
@@ -297,8 +320,8 @@ extension MorningStore {
     }
 
     private func conversationText(_ document: PreparedMorningBriefing) -> String {
-        // Sleep remains local; enabling the general cloud model does not export Health data.
-        document.segments.filter { !MoreLanguageModel.shared.usesOpenAI || $0.source != .sleep }
+        // General cloud-model consent excludes both sleep and the selected Health metrics.
+        document.segments.filter { !MoreLanguageModel.shared.usesOpenAI || $0.source.permitsGeneralCloudContext }
             .map(\.text).joined(separator: " ")
     }
 

@@ -415,6 +415,13 @@ private struct MorningWidgetProgressDots: Shape {
     }
 }
 
+/// The extension has its own defaults container; the app publishes the selected
+/// language with the activity instead of creating another preference.
+private func activityText(_ value: String.LocalizationValue, locale: Locale) -> String {
+    AppLanguage.localized(value, bundle: AppLanguage.bundle(for: .main,
+        languageCode: locale.language.languageCode?.identifier), locale: locale)
+}
+
 #if MORE_JURY_DEMO
 private struct JuryDemoIslandControls: View {
     let sessionID: UUID
@@ -447,9 +454,3 @@ private struct JuryDemoIslandControls: View {
     }
 }
 #endif
-/// The extension has its own defaults container; the app publishes the selected
-/// language with the activity instead of creating another preference.
-private func activityText(_ value: String.LocalizationValue, locale: Locale) -> String {
-    AppLanguage.localized(value, bundle: AppLanguage.bundle(for: .main,
-        languageCode: locale.language.languageCode?.identifier), locale: locale)
-}
