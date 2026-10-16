@@ -267,8 +267,11 @@ final class MorningWelcomeFlowTests: XCTestCase {
     private func reach(_ element: XCUIElement, in app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 5), app.debugDescription)
         let scroll = app.scrollViews.firstMatch
+        let scrollsTarget = scroll.exists
+            && scroll.descendants(matching: .any).matching(identifier: element.identifier).firstMatch.exists
         func viewport() -> CGRect {
-            (scroll.exists ? scroll.frame : app.frame).intersection(app.frame)
+            // Ordinary text pins the footer outside the scroll view; accessibility text scrolls it.
+            (scrollsTarget ? scroll.frame : app.frame).intersection(app.frame)
         }
         func visibleAndHittable() -> Bool {
             let frame = element.frame
