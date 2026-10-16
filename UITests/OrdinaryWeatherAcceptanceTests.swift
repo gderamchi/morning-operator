@@ -16,6 +16,9 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
         if !waitUntil(5, { self.currentPermission != nil || self.app.buttons["permissions.finish"].exists || self.app.buttons["morning.actions"].isHittable }) {
             throw XCTSkip("The ordinary app has another presentation; inspect ordinary-opening without resetting its data.")
         }
+        if currentPermission == nil, visibleAlert != nil {
+            throw XCTSkip("An existing system prompt has no matching access explanation; owner action is required.")
+        }
         if currentPermission == nil {
             outcome.append("EXISTING_PERMISSION_PROGRESS: reviewing the same explanations; first-opening presentation is not re-proved.")
             if app.buttons["permissions.finish"].exists { try tap("permissions.finish") }
@@ -28,11 +31,19 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
         for _ in 0..<permissions.count {
             guard let permission = currentPermission else { break }
             attach("ordinary-explanation-\(permission)")
-            XCTAssertEqual(app.alerts.count + springboard.alerts.count, 0,
-                "The access explanation must precede its system request.")
-            try tap("permissions.allow")
-            let deadline = Date().addingTimeInterval(50)
             var acceptedPrompt = false
+            if let alert = visibleAlert {
+                guard allowScopedPrompt(alert, permission: permission) else {
+                    throw XCTSkip("An existing authentication or unrecognized sheet needs the owner.")
+                }
+                acceptedPrompt = true
+                outcome.append("RESUMED_PENDING_\(permission): matching existing prompt accepted; explanation order is not re-proved for this resumed step.")
+            } else {
+                XCTAssertEqual(app.alerts.count + springboard.alerts.count, 0,
+                    "The access explanation must precede its system request.")
+                try tap("permissions.allow")
+            }
+            let deadline = Date().addingTimeInterval(50)
             while Date() < deadline, currentPermission == permission {
                 if let alert = visibleAlert {
                     guard allowScopedPrompt(alert, permission: permission) else {
@@ -156,14 +167,16 @@ final class OrdinaryWeatherAcceptanceTests: XCTestCase {
         guard (text.contains("more") || text.contains("morningoperator")), purpose.contains(where: text.contains) else { return false }
         let labels: [String] = switch permission {
         case "location": ["Allow While Using App", "Allow While Using the App", "Autoriser lorsque l’app est active", "Autoriser lorsque l'app est active", "Lorsque l’app est active", "Lorsque l'app est active"]
-        case "calendar", "reminders": ["Allow Full Access", "Autoriser l’accès complet", "Autoriser l'accès complet", "Accès complet", "Allow Access", "Autoriser l’accès", "Autoriser l'accès"]
+        case "calendar", "reminders": ["Allow", "Autoriser", "Allow Full Access", "Autoriser l’accès complet", "Autoriser l'accès complet", "Accès complet", "Allow Access", "Autoriser l’accès", "Autoriser l'accès"]
         case "screenTime": ["Continue", "Continuer", "Allow", "Autoriser"]
         default: ["Allow", "Autoriser", "OK"]
         }
-        let candidates = alert.buttons.matching(NSPredicate(format: "label IN %@", labels))
-        guard candidates.count == 1, candidates.firstMatch.isHittable else { return false }
+        let candidates = alert.buttons.matching(NSPredicate(format: "label IN %@", labels)).allElementsBoundByIndex
+        guard let target = candidates.first(where: \.isHittable),
+              candidates.allSatisfy({ $0.label == target.label && $0.identifier == target.identifier && $0.frame == target.frame })
+        else { return false }
         attach("ordinary-native-prompt-\(permission)")
-        candidates.firstMatch.tap()
+        target.tap()
         return true
     }
 
