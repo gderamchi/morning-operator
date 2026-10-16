@@ -921,9 +921,9 @@ public enum LearningEvidencePreparation {
                 if let preference, preference.presence == .keep {
                     keptID = preference.retainedStep?.id ?? preference.targetID
                 } else if preferences == nil {
-                    let matches = EvidenceRoutineProposal.keptSteps(in: base).filter {
-                        RoutineVersion.matchesActivity($0, baseline)
-                    }
+                    let kept = EvidenceRoutineProposal.keptSteps(in: base)
+                    let exact = kept.filter { $0.id == id }
+                    let matches = exact.isEmpty ? kept.filter { RoutineVersion.matchesActivity($0, baseline) } : exact
                     keptID = matches.count == 1 ? matches[0].id : nil
                 } else { keptID = nil }
                 if let position = steps.firstIndex(where: { $0.id == id && nativeOnlySavedIDs.contains(id) }) {

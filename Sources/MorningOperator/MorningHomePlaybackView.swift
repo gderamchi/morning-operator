@@ -55,10 +55,12 @@ struct MorningHomePlaybackView: View {
                                     .accessibilityIdentifier("morning.caption")
                             } else {
                                 ForEach(passages) { passage in
-                                    Text(verbatim: passage.text)
-                                        .opacity(passage.id == passages.last?.id ? 1 : 0.45)
-                                        .id(passage.id)
-                                        .accessibilityIdentifier(passage.id == passages.last?.id ? "morning.caption" : "morning.previousCaption")
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        Color.clear.frame(height: 1).id(passage.id.uuidString).accessibilityHidden(true)
+                                        Text(verbatim: passage.text)
+                                            .opacity(passage.id == passages.last?.id ? 1 : 0.45)
+                                            .accessibilityIdentifier(passage.id == passages.last?.id ? "morning.caption" : "morning.previousCaption")
+                                    }
                                 }
                             }
                         }
@@ -79,8 +81,8 @@ struct MorningHomePlaybackView: View {
                     .onChange(of: passages.last?.id) { _, id in
                         guard let id else { return }
                         let readingPosition = UnitPoint(x: 0.5, y: 0.15)
-                        if still { reader.scrollTo(id, anchor: readingPosition) }
-                        else { withAnimation(.easeOut(duration: 0.24)) { reader.scrollTo(id, anchor: readingPosition) } }
+                        if still { reader.scrollTo(id.uuidString, anchor: readingPosition) }
+                        else { withAnimation(.easeOut(duration: 0.24)) { reader.scrollTo(id.uuidString, anchor: readingPosition) } }
                     }
                 }
 

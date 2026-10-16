@@ -128,7 +128,7 @@ final class LocalizationJourneyTests: XCTestCase {
             let code = french ? "fr" : "en"
             let app = XCUIApplication()
             app.launchArguments = ["--ui-testing", "--web-morning", "--web-morning-site=news", "--light-preview",
-                                   "--ui-testing-workspace=\(UUID().uuidString)", "-more.appLanguage", code]
+                                   "--ui-testing-workspace=\(UUID().uuidString)", "-more.appLanguage", code, "-webMorning.explained", "NO"]
             app.launch()
             let explanation = app.buttons["web.aboutDone"]
             if explanation.waitForExistence(timeout: 4) {
@@ -202,6 +202,8 @@ final class LocalizationJourneyTests: XCTestCase {
         app.buttons["voice.preview"].tap()
         let stop = app.buttons["voice.stopPreview"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5), app.debugDescription)
+        let speaking = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", french ? "Lecture en cours…" : "Speaking…"), object: app.buttons["voice.preview"])
+        XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 8), .completed, app.debugDescription)
         stop.tap()
         app.buttons["voice.done"].tap()
     }

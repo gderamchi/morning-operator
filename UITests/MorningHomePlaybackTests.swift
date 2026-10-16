@@ -1,9 +1,54 @@
 import XCTest
 
-/// Isolated timed moments; no account, recording or network access is exercised.
+/// Isolated routine; the browser check opens a public page without signing in.
 @MainActor
 final class MorningHomePlaybackTests: XCTestCase {
     private let longPassage = "Take your time this morning. Let the light come into the room while you take a slow breath and prepare for the day ahead. There is nothing to press while MORE reads this passage. You can keep getting ready and return whenever you want to read along. The words should move gently through the landscape, leaving the previous passage visible above the one being spoken. Your routine stays here on the same home screen. If you need a little longer, the small controls remain available at the bottom. When this quiet moment ends, MORE will continue with the next part of your morning."
+
+    func testManualBrowserMomentReturnsToHomeAutomaticallyWhenItsTimeEnds() {
+        let app = launch(["--ui-testing-short-budgets"])
+        defer { app.terminate() }
+        app.buttons["morning.actions"].tap()
+        app.buttons["morning.review"].tap()
+        let first = app.buttons["routine.step.0"]
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        first.tap()
+        let target = app.buttons["step.targetApp"]
+        for _ in 0..<12 where !(target.exists && target.isHittable) { app.swipeUp() }
+        XCTAssertTrue(target.isHittable)
+        target.tap()
+        let site = app.buttons["Le Monde"].firstMatch
+        XCTAssertTrue(site.waitForExistence(timeout: 5))
+        site.tap()
+        let behavior = app.buttons["step.webBehavior"]
+        for _ in 0..<12 where !(behavior.exists && behavior.isHittable) { app.swipeUp() }
+        XCTAssertTrue(behavior.isHittable)
+        behavior.tap()
+        let manual = app.buttons["I browse myself"].firstMatch
+        XCTAssertTrue(manual.waitForExistence(timeout: 5))
+        manual.tap()
+        app.buttons["step.save"].tap()
+        let approve = app.buttons["routine.approve"]
+        XCTAssertTrue(approve.waitForExistence(timeout: 5))
+        approve.tap()
+        app.buttons["morning.actions"].tap()
+        app.buttons["morning.begin"].tap()
+        let browser = app.buttons.matching(NSPredicate(format: "identifier == %@ OR identifier == %@",
+                                                       "web.close", "web.aboutDone")).firstMatch
+        XCTAssertTrue(browser.waitForExistence(timeout: 5))
+        let about = app.buttons["web.aboutDone"]
+        if about.exists { about.tap() }
+        XCTAssertTrue(app.buttons["web.close"].exists)
+        attach("home-playback-manual-browser-open", app)
+
+        assertStep("Get ready", in: app, timeout: 15)
+        app.buttons["morning.playback"].tap()
+        assertPlaybackLabel("Continue", in: app)
+        XCTAssertFalse(app.buttons["web.close"].exists)
+        assertHomePlayback(app)
+        XCTAssertEqual(app.staticTexts["morning.caption"].label, "Your next moment.")
+        attach("home-playback-browser-budget-automatic-home", app)
+    }
 
     func testRealLocalSpeechMovesCaptionsThroughLongEditedText() {
         let app = launch(["--ui-testing-read-aloud"])
@@ -165,6 +210,7 @@ final class MorningHomePlaybackTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
             "--ui-testing-automation", "--ui-testing-hands-free", "--ui-testing-workspace=\(workspace)",
             night ? "--dark-preview" : "--light-preview", night ? "--theme-phase=night" : "--theme-phase=morning",
+            "-more.appLanguage", french ? "fr" : "en",
             "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"] + flags
         app.launch()
         let marker = app.staticTexts["qa.testWorkspace"]

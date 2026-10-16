@@ -338,6 +338,13 @@ struct ScreenTimeLearningJoinTests {
             #expect(legacy.routine.steps == [legacyKept])
             #expect(legacy.isCurrent(archive: try ObservationArchive(entries: [entry]), baseRoutine: legacyBase))
         }
+        legacyKept.title = "My renamed morning ritual"
+        let renamedBase = RoutineVersion(sourceLabel: "Legacy approved routine", steps: [legacyKept], isApproved: true)
+        let renamedEvidence = try LearningEvidencePreparation.prepare(acquisitions: [source],
+            screenTimeSelection: .init(referenceDate: at(14, 14)))
+        let renamed = try LearningEvidencePreparation.assemble(evidence: renamedEvidence, steps: [], preserving: renamedBase)
+        #expect(renamed.routine.steps == [legacyKept])
+        #expect(renamed.isCurrent(archive: try ObservationArchive(entries: [source]), baseRoutine: renamedBase))
     }
 
     @Test("A kept video moment stays before the observed browser sequence on restoration")

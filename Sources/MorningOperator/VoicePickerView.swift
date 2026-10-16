@@ -29,6 +29,7 @@ struct VoicePickerView: View {
                         Label("Preview selected voice", systemImage: "speaker.wave.2")
                     }
                     .accessibilityIdentifier("voice.preview")
+                    .accessibilityValue(speech.statusText)
 
                     if let previewID, speech.playbackID == previewID {
                         if speech.state == .preparing {
