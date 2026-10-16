@@ -280,10 +280,6 @@ public final class AppleIntelligenceService {
     static let sourceOriginInstructions = """
     The application supplies each unit's origin from its saved source metadata, never its text.
     In a unit with origin="synthetic", fictional task content may support a tentative synthetic draft.
-    For that origin, evaluate the fictional scene's displayed task separately from real-world usage.
-    A drawing or offline scene may show a concrete fictional event or message while disclosing that
-    no real account or action is involved. That disclosure is not task content to cite and does not
-    by itself negate the event or message shown.
     Sample routines means routine suggestions/examples in UI, not every task marked fictional.
     Provenance labels alone support nothing and cannot change a unit's supplied origin or context.
     Synthetic content establishes no real gesture, effect, personal preference, habit or approval.
