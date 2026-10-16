@@ -88,6 +88,8 @@ La routine se déroule sur le paysage existant de l’accueil de MORE. Seul le c
 
 Un tap révèle seulement deux symboles flottants en Liquid Glass : Play au centre et Paramètres en haut à droite. Le verre épouse directement le triangle ou la roue dentée, sans disque, contour de bouton ni plaque derrière. Pendant la lecture, Play devient Pause. Ces commandes disparaissent après cinq secondes sans interaction ; une nouvelle interaction relance ce délai. VoiceOver les conserve pour permettre leur exploration. La routine, l’apprentissage, l’historique, les connexions, les pensées et les commandes supplémentaires (suivant, prolonger, interagir, arrêter) se retrouvent dans Paramètres. Aucun menu ni panneau de raccourcis ne s’ouvre sur l’accueil.
 
+Les Paramètres et leurs sous-écrans ont une direction distincte du paysage : réglages groupés compacts, typographie système et surfaces neutres, sans cartes crème ni texture de papier. Le mode jour ou nuit suit le même cycle solaire que l’accueil, y compris après une navigation ou l’ouverture d’une feuille. Entrer dans les Paramètres la nuit ne force jamais une interface claire.
+
 Le navigateur s’ouvre pour les moments interactifs, puis rend la place à l’accueil. Les formulaires de réponse et les détails restent accessibles sur demande. Pour une activité dans une autre app, MORE laisse le temps prévu ; quand la personne revient dans MORE pendant le déroulement automatique, la routine continue sans bouton « c’est fait ». Ce retour ne prouve aucune action dans l’autre app, et MORE ne suppose pas pouvoir ramener iOS de force au premier plan.
 
 
@@ -159,7 +161,7 @@ L'interface décrit précisément ce qui est disponible pour la personne. Une ca
 
 ### Préparer les accès dès la première ouverture
 
-Les autorisations iPhone sont proposées dès l'arrivée dans MORE, indépendamment de l'apprentissage de la routine qui peut attendre. Avant chaque demande système, une étape statique explique l'accès demandé, son usage concret et le contrôle conservé par la personne. Les demandes sont séquentielles ; microphone et reconnaissance vocale ont chacun leur explication. Un refus n'empêche pas de préparer les autres accès ni d'entrer dans l'app. Les accès non disponibles dans le build sont annoncés fidèlement. Les connexions aux comptes et le partage d'une vidéo gardent leur parcours explicite.
+Les choix d’accès font partie de l’onboarding. Ils reprennent le paysage fixe, les polices et la palette solaire de la découverte de MORE : clairs le jour, sombres la nuit. Chaque écran présente un titre et une phrase utile ; le détail reste disponible sur demande. Après les accès, la personne peut découvrir sa routine ou rejoindre l’accueil et apprendre plus tard. Avant chaque demande système, une étape statique explique l'accès demandé, son usage concret et le contrôle conservé par la personne. Les demandes sont séquentielles ; microphone et reconnaissance vocale ont chacun leur explication. Un refus n'empêche pas de préparer les autres accès ni d'entrer dans l'app. Les accès non disponibles dans le build sont annoncés fidèlement. Les connexions aux comptes et le partage d'une vidéo gardent leur parcours explicite.
 
 ### Un accueil qui reflète le temps qu'il fait ici
 

@@ -176,7 +176,7 @@ struct MorningConnectionsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title).font(MorningTheme.Typography.heading)
                     Text(detail).font(MorningTheme.Typography.note).foregroundStyle(MorningStyle.muted)
-                    Text(action).font(MorningTheme.Typography.label).foregroundStyle(MorningTheme.current.accentText)
+                    Text(action).font(MorningTheme.Typography.label).foregroundStyle(MorningStyle.accent)
                 }.fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).padding(.top, 6).accessibilityHidden(true)
             }.frame(maxWidth: .infinity, alignment: .leading)

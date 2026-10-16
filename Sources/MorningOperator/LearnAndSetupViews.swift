@@ -355,221 +355,182 @@ struct LearnView: View {
 
 struct SetupView: View {
     @Bindable var store: MorningStore
-    /// Opens the routine screen; nil hides its card.
     var openRoutine: (() -> Void)? = nil
     var openHistory: (() -> Void)? = nil
-    @ViewState<Bool> private var choosingAlarm = false
-    @ViewState<Bool> private var choosingVoice = false
-    @ViewState<Bool> private var preparingVoiceAccess = false
-    @ViewState<Bool> private var choosingInvitation = false
-    @ViewState<Bool> private var showingPrivacy = false
-    @ViewState<Bool> private var choosingBriefing = false
+    @State private var choosingVoice = false
+    @State private var preparingVoiceAccess = false
+    @State private var choosingInvitation = false
+    @State private var showingPrivacy = false
+    @State private var choosingBriefing = false
+    @Environment(\.colorScheme) private var colorScheme
+    private var french: Bool { AppLanguage.isFrench }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        MorningForm {
             if store.sessionActive {
-                MorningRoutineControlsView(store: store)
-            }
-            if let completed = store.session?.completedAt, Calendar.current.isDateInToday(completed),
-               let session = store.session {
-                Card {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(AppLanguage.isFrench ? "Votre matin" : "Your morning")
-                            .font(MorningTheme.Typography.heading)
-                        let elapsed = MorningStyle.duration(session.activeDuration(until: completed))
-                        Text(AppLanguage.isFrench
-                             ? "\(session.completedStepIDs.count) moments · temps écoulé : \(elapsed)"
-                             : "\(session.completedStepIDs.count) moments · elapsed: \(elapsed)")
-                            .accessibilityIdentifier("morning.completeSummary")
-                        if let summary = store.executionSummary {
-                            Text(summary).accessibilityIdentifier("morning.executionSummary")
-                        }
-                        if store.shouldOfferCompletionReflection {
-                            Button { store.openCompletionCapture() } label: {
-                                Label(AppLanguage.isFrench ? "Dire une pensée" : "Speak a thought", systemImage: "mic")
-                                    .frame(minHeight: 44)
-                            }
-                            .disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
-                            Button(AppLanguage.isFrench ? "Plus tard" : "Not now") { store.discardCompletionReflection() }
-                                .frame(minHeight: 44).accessibilityIdentifier("morning.dismissReflection")
-                        }
-                    }
-                    .font(.raleway(.subheadline))
+                Section(french ? "Matin en cours" : "Current morning") {
+                    MorningRoutineControlsView(store: store)
                 }
             }
-            if let openRoutine {
-                CardButton(action: openRoutine) {
-                    LinkRow(title: String(localized: "Your routine"),
-                            detail: store.routine.map { String(localized: "\($0.steps.count) moments · \($0.totalDurationMinutes) min") } ?? "",
-                            symbol: "list.bullet")
-                }.accessibilityIdentifier("setup.routine")
+            completion
+            Section {
+                if let openRoutine {
+                    settingsButton(String(localized: "Your routine"),
+                        detail: store.routine.map { String(localized: "\($0.steps.count) moments · \($0.totalDurationMinutes) min") } ?? "",
+                        symbol: "list.bullet", action: openRoutine)
+                        .accessibilityIdentifier("setup.routine")
+                }
+                if let openHistory {
+                    settingsButton(String(localized: "History"), symbol: "clock.arrow.circlepath", action: openHistory)
+                        .accessibilityIdentifier("setup.history")
+                }
+                settingsButton(french ? "Noter une pensée" : "Note a thought", symbol: "square.and.pencil") { store.openCapture() }
+                    .accessibilityIdentifier("morning.reflect")
             }
-            if let openHistory {
-                CardButton(action: openHistory) {
-                    LinkRow(title: String(localized: "History"), detail: "", symbol: "clock.arrow.circlepath")
-                }.accessibilityIdentifier("setup.history")
+            Section("Sources") {
+                NavigationLink {
+                    ScrollView { MorningScreenTimeView(store: store, onEdit: openRoutine).padding(24) }
+                        .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
+                } label: {
+                    settingsLabel(String(localized: "Screen Time"), symbol: "clock")
+                }.accessibilityIdentifier("setup.screenTime")
+                NavigationLink { MorningConnectionsView(store: store) } label: {
+                    settingsLabel(String(localized: "Apps & accounts"), symbol: "link")
+                }.accessibilityIdentifier("setup.connections")
+                settingsButton(String(localized: "Calendar & weather"), symbol: "sun.max") { choosingBriefing = true }
+                    .accessibilityIdentifier("setup.briefing")
             }
-            CardButton { store.openCapture() } content: {
-                LinkRow(title: AppLanguage.isFrench ? "Noter une pensée" : "Note a thought", detail: "", symbol: "square.and.pencil")
-            }.accessibilityIdentifier("morning.reflect")
-            NavigationLink {
-                ScrollView { MorningScreenTimeView(store: store, onEdit: openRoutine).padding(24) }
-                    .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
-            } label: {
-                LinkRow(title: String(localized: "Screen Time"), detail: "", symbol: "clock")
-                    .padding(MorningTheme.Space.card)
-                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
-            }.buttonStyle(.plain).accessibilityIdentifier("setup.screenTime")
-            NavigationLink { MorningConnectionsView(store: store) } label: {
-                LinkRow(title: String(localized: "Apps & accounts"), detail: String(localized: "Connect the apps you use"), symbol: "link")
-                    .padding(MorningTheme.Space.card)
-                    .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
-            }.buttonStyle(.plain).accessibilityIdentifier("setup.connections")
-            CardButton { choosingInvitation = true } content: {
-                HStack(spacing: 14) {
-                    MorningDottedIcon(systemName: "sun.horizon").frame(width: 28, height: 28)
+            Section(french ? "Voix et lecture" : "Voice & playback") {
+                settingsButton(String(localized: "Voice"), detail: store.speech.selectedVoiceSummary,
+                               symbol: "waveform") { choosingVoice = true }
+                    .disabled(store.sessionActive).accessibilityIdentifier("setup.voice")
+                Toggle(isOn: $store.automatic) {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("Your next morning").font(MorningTheme.Typography.heading)
-                        Text(store.invitation.statusText).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                        Text("Hands free")
+                        Text(french
+                            ? "MORE enchaîne votre routine. Préparez l’écoute pour l’interrompre à la voix."
+                            : "MORE continues your routine. Prepare listening to interrupt it by voice.")
+                            .font(.footnote).foregroundStyle(MorningStyle.muted)
                     }
-                    Spacer()
-                    MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
+                }.tint(.green).accessibilityIdentifier("setup.handsFree")
+                Button {
+                    store.voiceAccess.refresh(language: store.voicePreparationLanguage)
+                    preparingVoiceAccess = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(french ? "Préparer l’écoute" : "Prepare listening")
+                        MorningVoiceAccessStatusView(access: store.voiceAccess)
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 4)
+                }.buttonStyle(.plain).disabled(store.sessionActive || store.privacyBlocksWork)
+                    .accessibilityIdentifier("setup.voiceAccess")
+                Toggle("Read each step aloud", isOn: $store.readAloud).tint(.green).accessibilityIdentifier("setup.readAloud")
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { voiceControls }
+                    VStack(alignment: .leading, spacing: 12) { voiceControls }
                 }
-            }.accessibilityIdentifier("setup.invitation")
-
-            CardButton { store.permissionSetup.revisit() } content: {
-                LinkRow(title: MorningPermissionSetup.text("iPhone permissions", "Accès iPhone"),
-                    detail: MorningPermissionSetup.text("Review location, voice and other access", "Revoir la localisation, la voix et les autres accès"), symbol: "hand.raised")
-            }.accessibilityIdentifier("setup.permissions")
-
-            CardButton { choosingBriefing = true } content: {
-                HStack(spacing: 14) {
-                    MorningDottedIcon(systemName: "sun.max").frame(width: 28, height: 28)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Calendar & weather").font(MorningTheme.Typography.heading)
-                    }
-                    Spacer()
-                    MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
-                }
-            }.accessibilityIdentifier("setup.briefing")
-
-            Card {
-                VStack(alignment: .leading, spacing: 18) {
-                    Button { choosingVoice = true } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("Voice").font(MorningTheme.Typography.heading)
-                                Text(store.speech.selectedVoiceSummary)
-                                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                            }
-                            Spacer()
-                            MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
-                        }.contentShape(Rectangle())
-                    }.buttonStyle(.plain).disabled(store.sessionActive)
-                        .accessibilityIdentifier("setup.voice")
-                    Toggle(isOn: $store.automatic) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Hands free").font(.raleway(.subheadline, .medium))
-                            Text(AppLanguage.isFrench
-                                ? "MORE enchaîne votre routine. Préparez l’écoute ci-dessous pour l’interrompre à la voix pendant que l’app reste ouverte."
-                                : "MORE continues your routine. Prepare listening below to interrupt it by voice while the app stays open.")
-                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .tint(MorningStyle.accent).accessibilityIdentifier("setup.handsFree")
-                    Button {
-                        store.voiceAccess.refresh(language: store.voicePreparationLanguage)
-                        preparingVoiceAccess = true
-                    } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(AppLanguage.isFrench ? "Préparer l’écoute" : "Prepare listening")
-                                .font(.raleway(.subheadline, .medium))
-                            MorningVoiceAccessStatusView(access: store.voiceAccess)
-                        }.frame(maxWidth: .infinity, alignment: .leading)
-                    }.buttonStyle(.plain).disabled(store.sessionActive || store.privacyBlocksWork)
-                        .accessibilityIdentifier("setup.voiceAccess")
-                    Toggle(isOn: $store.readAloud) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Read each step aloud").font(.raleway(.subheadline, .medium))
-                        }
-                    }
-                    .tint(MorningStyle.accent).accessibilityIdentifier("setup.readAloud")
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) { voiceControls }
-                        VStack(alignment: .leading, spacing: 12) { voiceControls }
-                    }
-                    Text(store.speech.statusText)
-                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("setup.speechStatus")
-                        .accessibilityValue(store.speech.state.rawValue)
-                    Divider().overlay(MorningStyle.line)
-                    DisclosureGroup("Audio output") {
-                        VStack(alignment: .leading, spacing: 9) {
+                Text(store.speech.statusText).font(.footnote).foregroundStyle(MorningStyle.muted)
+                    .accessibilityIdentifier("setup.speechStatus").accessibilityValue(store.speech.state.rawValue)
+                DisclosureGroup("Audio output") {
+                    VStack(alignment: .leading, spacing: 9) {
                         #if os(iOS)
                         HStack(alignment: .top, spacing: 12) {
-                            Text("Choose a speaker or HomePod.")
-                                .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
-                                .fixedSize(horizontal: false, vertical: true)
+                            Text("Choose a speaker or HomePod.").fixedSize(horizontal: false, vertical: true)
                             MorningAudioRoutePicker()
                         }
                         #else
                         Text(String(localized: "Choose a speaker or HomePod from your Mac's sound controls, then try the voice here."))
-                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
-                            .fixedSize(horizontal: false, vertical: true)
                         #endif
                         Text("Speaker output doesn't connect a HomePod microphone. Room-to-room listening isn't available yet.")
-                            .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                             .fixedSize(horizontal: false, vertical: true)
-                        }.padding(.top, 8)
-                    }
+                    }.font(.footnote).foregroundStyle(MorningStyle.muted).padding(.vertical, 8)
                 }
             }
-
-            CardButton { showingPrivacy = true } content: {
-                HStack(spacing: 14) {
-                    MorningDottedIcon(systemName: "lock.shield").frame(width: 28, height: 28)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Privacy & data").font(MorningTheme.Typography.heading)
-                    }
-                    Spacer()
-                    MorningDottedIcon(systemName: "chevron.right").frame(width: 18, height: 18)
+            Section {
+                settingsButton(String(localized: "Your next morning"), detail: store.invitation.statusText,
+                               symbol: "sun.horizon") { choosingInvitation = true }
+                    .accessibilityIdentifier("setup.invitation")
+                settingsButton(MorningPermissionSetup.text("iPhone permissions", "Accès iPhone"),
+                               symbol: "hand.raised") { store.permissionSetup.revisit() }
+                    .accessibilityIdentifier("setup.permissions")
+                settingsButton(String(localized: "Privacy & data"), symbol: "lock.shield") { showingPrivacy = true }
+                    .accessibilityIdentifier("setup.privacy")
+                DisclosureGroup("Availability & device details") {
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Apple Intelligence", systemImage: "sparkles").font(.headline)
+                            Text(store.modelSummary)
+                            Button("Check again") { store.refreshCapabilities() }.buttonStyle(SecondaryButtonStyle())
+                        }
+                        Text("You can capture thoughts and dreams, edit a routine, and use spoken guidance even while the on-device model is unavailable.")
+                        Text("MORE guides native app steps. Inside MORE’s browser, you can ask it to read supported pages or move to the next video.")
+                    }.font(.footnote).foregroundStyle(MorningStyle.muted)
+                        .fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)
                 }
-            }.accessibilityIdentifier("setup.privacy")
-
-            DisclosureGroup("Availability & device details") {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Apple Intelligence", systemImage: "sparkles").font(.raleway(.subheadline, .semibold))
-                        Text(store.modelSummary).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
-                        Button("Check again") { store.refreshCapabilities() }.buttonStyle(SecondaryButtonStyle())
-                    }
-                    Divider()
-                    Text("You can capture thoughts and dreams, edit a routine, and use spoken guidance even while the on-device model is unavailable.")
-                    Text("MORE guides native app steps. Inside MORE’s browser, you can ask it to read supported pages or move to the next video.")
-                }
-                .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
-                .fixedSize(horizontal: false, vertical: true).padding(.top, 16)
             }
-            .font(.raleway(.subheadline, .medium)).tint(MorningStyle.accent)
-            .padding(.horizontal, 4)
-        }.foregroundStyle(MorningStyle.ink)
+        }
+        .font(.body).foregroundStyle(MorningStyle.ink).tint(MorningStyle.accent)
+        .accessibilityIdentifier("settings.appearance")
+        .accessibilityValue(testAppearance)
         .navigationDestination(isPresented: $showingPrivacy) { MorningPrivacyView(store: store) }
         .task { if store.privacyNeedsCleanup { showingPrivacy = true } }
         .fullScreenCover(isPresented: $choosingBriefing) { MorningBriefingView(store: store) }
-        .fullScreenCover(isPresented: $choosingAlarm) { MorningAlarmView() }
         .sheet(isPresented: $choosingVoice) { VoicePickerView(speech: store.speech) }
         .sheet(isPresented: $preparingVoiceAccess) { MorningVoicePreparationView(store: store) }
-        .onAppear { store.voiceAccess.refresh(language: store.voicePreparationLanguage) }
         .sheet(isPresented: $choosingInvitation) { MorningInvitationView(service: store.invitation) }
+        .onAppear { store.voiceAccess.refresh(language: store.voicePreparationLanguage) }
+    }
+
+    private var testAppearance: String {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing") { return colorScheme == .dark ? "night" : "day" }
+        #endif
+        return ""
+    }
+
+    private func settingsLabel(_ title: String, detail: String = "", symbol: String) -> some View {
+        Label {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                if !detail.isEmpty { Text(detail).font(.footnote).foregroundStyle(MorningStyle.muted) }
+            }.fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: symbol).font(.body).frame(width: 24)
+        }.padding(.vertical, 4)
+    }
+
+    private func settingsButton(_ title: String, detail: String = "", symbol: String,
+                                action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                settingsLabel(title, detail: detail, symbol: symbol)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(MorningStyle.muted)
+            }.frame(maxWidth: .infinity, minHeight: 32, alignment: .leading).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
+
+    @ViewBuilder private var completion: some View {
+        if let session = store.session, let completed = session.completedAt, Calendar.current.isDateInToday(completed) {
+            Section(french ? "Votre matin" : "Your morning") {
+                let elapsed = MorningStyle.duration(session.activeDuration(until: completed))
+                Text(french ? "\(session.completedStepIDs.count) moments · temps écoulé : \(elapsed)"
+                            : "\(session.completedStepIDs.count) moments · elapsed: \(elapsed)")
+                    .accessibilityIdentifier("morning.completeSummary")
+                if let summary = store.executionSummary { Text(summary).accessibilityIdentifier("morning.executionSummary") }
+                if store.shouldOfferCompletionReflection {
+                    Button { store.openCompletionCapture() } label: {
+                        Label(french ? "Dire une pensée" : "Speak a thought", systemImage: "mic")
+                    }.disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
+                    Button(french ? "Plus tard" : "Not now") { store.discardCompletionReflection() }
+                        .accessibilityIdentifier("morning.dismissReflection")
+                }
+            }
+        }
     }
 
     @ViewBuilder private var voiceControls: some View {
-        Button("Try the voice") {
-            store.speech.speak(store.speech.previewText)
-        }
-        .buttonStyle(PrimaryButtonStyle()).disabled(store.sessionActive).accessibilityIdentifier("setup.testVoice")
+        Button("Try the voice") { store.speech.speak(store.speech.previewText) }
+            .buttonStyle(PrimaryButtonStyle()).disabled(store.sessionActive).accessibilityIdentifier("setup.testVoice")
         Button("Stop") { store.speech.stop() }.buttonStyle(SecondaryButtonStyle()).disabled(store.sessionActive)
     }
 }
