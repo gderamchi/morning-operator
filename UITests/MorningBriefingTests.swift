@@ -25,6 +25,9 @@ final class MorningBriefingTests: XCTestCase {
     func testYourDayPreviewShowsSelectedFactsWhileSleepRemainsOff() {
         let app = launchFixture()
         openBriefing(app)
+        let sleep = app.switches["briefing.healthIncluded"].firstMatch
+        reveal(sleep, app)
+        XCTAssertEqual(sleep.value as? String, "0")
         configureSources(app)
         let text = app.staticTexts["briefing.text"]
         reveal(text, app)
@@ -34,9 +37,6 @@ final class MorningBriefingTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [facts], timeout: 10), .completed)
         XCTAssertFalse(text.label.contains("Sleep recorded:"), "An excluded Health reader contributes no sleep fact.")
         attach("synthetic-your-day-selected-calendar-weather-preview", app)
-        let sleep = app.switches["briefing.healthIncluded"].firstMatch
-        reveal(sleep, app)
-        XCTAssertEqual(sleep.value as? String, "0")
         XCTAssertEqual(app.alerts.count, 0, "Preparing the preview never requests Health access.")
     }
 
