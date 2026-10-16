@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 import MorningCore
 import Testing
+import Vision
 @testable import MorningApple
 
 @Suite("Opt-in full selected movie to local routine proposal")
@@ -27,6 +28,18 @@ struct RoutineMovieProposalIntegrationTests {
                      "Keep the private report in this checkout's ignored work directory, separate from the input.")
         try #require(!FileManager.default.fileExists(atPath: destination.path), "Never overwrite previous evidence.")
         var report = RoutineMovieProposalReport()
+        let ocr = RoutineMovieOCRRecorder()
+        let extractor = MediaObservationService(ocr: .shared) { image in
+            let index = await ocr.started(), start = ContinuousClock.now
+            do {
+                let value = try await MediaObservationService.recognizeNativeFrame(in: image)
+                await ocr.finished(index, since: start, failure: nil)
+                return value
+            } catch {
+                await ocr.finished(index, since: start, failure: RoutineMovieOCRRecorder.Failure(error))
+                throw error
+            }
+        }
         let classifier = ObservationContextClassifier(), model = AppleIntelligenceService(model: .localOnly())
         report.contextCapability = classifier.capabilitySummary
         report.proposalCapability = model.capabilitySummary
@@ -34,7 +47,7 @@ struct RoutineMovieProposalIntegrationTests {
             report.stage = "fingerprintAndExtraction"
             let fingerprint = try await ObservationFileFingerprintService().fingerprint(of: source)
             report.fingerprint = fingerprint
-            let observation = try await MediaObservationService().extract(from: source)
+            let observation = try await extractor.extract(from: source)
             let finalFingerprint = try await ObservationFileFingerprintService().fingerprint(of: source)
             guard fingerprint == finalFingerprint else { throw ObservationFileFingerprintError.fileChanged }
             guard let video = observation.videoEvidence else { throw MediaObservationError.unsupportedFormat }
@@ -83,6 +96,7 @@ struct RoutineMovieProposalIntegrationTests {
             report.status = report.errorCategory == "localModelUnavailable" || report.classification?.status == .unavailable
                 ? "unavailable" : "failed"
         }
+        report.ocrDiagnostics = await ocr.snapshot()
         report.elapsedSeconds = Date().timeIntervalSince(report.createdAt)
         do { try report.writeNewPrivateFile(to: destination) }
         catch { throw RoutineMovieReportFailure.reportNotSaved }
@@ -121,6 +135,8 @@ private struct RoutineMovieProposalReport: Encodable {
     var fingerprint: ObservationFileFingerprint?
     var videoEvidence: ObservationVideoEvidence?
     var extractionWarnings: [String] = []
+    /// Private native-call measurements, never raw errors or source contents.
+    var ocrDiagnostics: [RoutineMovieOCRRecorder.Attempt] = []
     var classification: ObservationContextClassification?
     var acquisition: ObservationAcquisition?
     var preparedUnitCount: Int?, preparedSubmittedCharacterCount: Int?, preparedModelRequestCount: Int?
@@ -145,5 +161,76 @@ private struct RoutineMovieProposalReport: Encodable {
         defer { try? handle.close() }
         try handle.write(contentsOf: data)
         try handle.synchronize()
+    }
+}
+
+/// The real recognizer and shared lane are unchanged. This test-only observer
+/// preserves fixed error domains/codes that extraction deliberately hides in UI.
+private actor RoutineMovieOCRRecorder {
+    struct Failure: Encodable, Sendable {
+        enum Domain: String, Encodable { case vision, cocoa, posix, cancellation, other }
+        let domain: Domain
+        let code: Int?
+        init(_ error: any Error) {
+            if error is CancellationError { domain = .cancellation; code = nil; return }
+            let native = error as NSError
+            switch native.domain {
+            case VNErrorDomain: domain = .vision
+            case NSCocoaErrorDomain: domain = .cocoa
+            case NSPOSIXErrorDomain: domain = .posix
+            default: domain = .other
+            }
+            code = domain == .other ? nil : native.code
+        }
+    }
+    struct Attempt: Encodable, Sendable {
+        let index: Int
+        var elapsedSeconds: Double?
+        var failure: Failure?
+        var completed = false
+    }
+    private var attempts: [Attempt] = []
+    func started() -> Int? {
+        guard attempts.count < MediaObservationService.maximumFrames else { return nil }
+        let index = attempts.count
+        attempts.append(.init(index: index))
+        return index
+    }
+    func finished(_ index: Int?, since start: ContinuousClock.Instant, failure: Failure?) {
+        guard let index, attempts.indices.contains(index) else { return }
+        let duration = start.duration(to: .now).components
+        attempts[index].elapsedSeconds = max(0, Double(duration.seconds) + Double(duration.attoseconds) / 1e18)
+        attempts[index].failure = failure
+        attempts[index].completed = true
+    }
+    func snapshot() -> [Attempt] { attempts }
+}
+
+@Suite("Private movie OCR diagnostic boundaries")
+struct RoutineMovieOCRDiagnosticTests {
+    @Test func diagnosticsExcludeUnknownDomainsAndErrorContents() throws {
+        let secret = "private-content-must-not-appear"
+        let values = [
+            RoutineMovieOCRRecorder.Failure(NSError(domain: secret, code: 99,
+                userInfo: [NSLocalizedDescriptionKey: secret])),
+            RoutineMovieOCRRecorder.Failure(NSError(domain: VNErrorDomain, code: 9,
+                userInfo: [NSLocalizedDescriptionKey: secret])),
+            RoutineMovieOCRRecorder.Failure(CancellationError())
+        ]
+        let encoded = String(decoding: try JSONEncoder().encode(values), as: UTF8.self)
+        #expect(!encoded.contains(secret))
+        #expect(values[0].domain == .other && values[0].code == nil)
+        #expect(values[1].domain == .vision && values[1].code == 9)
+        #expect(values[2].domain == .cancellation && values[2].code == nil)
+    }
+    @Test func recordingIsBoundedAndDistinguishesPendingFromFinished() async {
+        let recorder = RoutineMovieOCRRecorder()
+        let first = await recorder.started()
+        #expect(await recorder.snapshot().first?.completed == false)
+        await recorder.finished(first, since: .now, failure: nil)
+        #expect(await recorder.snapshot().first?.completed == true)
+        for _ in 0..<MediaObservationService.maximumFrames { _ = await recorder.started() }
+        #expect(await recorder.snapshot().count == MediaObservationService.maximumFrames)
+        #expect(await recorder.started() == nil)
     }
 }

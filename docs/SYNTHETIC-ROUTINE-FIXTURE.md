@@ -616,3 +616,20 @@ remaining text, not successful recognition of all frames. The five proposal
 responses abstain on the resulting 15 units; no agenda/mail inference comparison
 is available from this compact run. V9's complete extraction and its separate
 model failure remain unchanged.
+
+The new opt-in task-presence probe runs three actual local SDK requests in
+**8.194s** without proposing or assembling any routine. It reuses the exact
+production instruction bytes (EN/FR hashes checked separately) and anchored
+input builder, but deliberately changes the output task/schema. It recognizes
+the archived agenda frame as task content, still rejects the existing visual
+positive as labels/controls, and excludes the advertisement. This narrows the
+next investigation; a short model declaration is not its internal cause and
+does not validate the production proposal schema. The private report is
+`work/routine-fixture-validation/task-presence-production-bytes-v1.json`.
+
+The full-movie test now observes its actual native OCR calls through the
+existing recognizer injection point and unchanged shared lane. A bounded private
+record stores completion, monotonic duration, a fixed error-domain category and
+an allowlisted numeric framework code. It excludes raw errors, unknown domain
+strings, descriptions, paths and source contents. Two pure boundary tests pass;
+no new extraction has yet used this observer and no earlier error is recovered.
