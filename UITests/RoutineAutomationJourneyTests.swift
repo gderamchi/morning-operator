@@ -42,11 +42,23 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(homeStatus.label.contains(french ? "ne la relance pas" : "will not retry"))
         XCTAssertFalse(app.staticTexts["morning.caption"].exists)
         XCTAssertFalse(app.staticTexts["morning.previousCaption"].exists)
-        for id in ["morning.actionDetails", "morning.playback", "morning.next", "morning.more"] {
-            XCTAssertTrue(app.buttons[id].isHittable, "The Home control must remain reachable at this text size: \(id)")
+        XCTAssertFalse(app.staticTexts["morning.currentStep"].exists)
+        XCTAssertFalse(app.staticTexts["morning.remaining"].exists)
+        XCTAssertFalse(app.buttons["morning.actionDetails"].exists)
+        revealHomeControls(app)
+        for id in ["morning.playback", "morning.next", "morning.more"] {
+            XCTAssertTrue(app.buttons[id].isHittable, "The revealed Home control must remain reachable at this text size: \(id)")
         }
         attach(largestText ? "automation-synthetic-slack-uncertain-french-largest-home" : "automation-synthetic-slack-uncertain-state-on-home", app)
-        enabledVisibleButton("morning.actionDetails", in: app).tap()
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["morning.more"])
+        let hiddenResult = XCTWaiter.wait(for: [hidden], timeout: 8)
+        if hiddenResult != .completed { captureFailure("synthetic-slack-home-controls-did-not-hide", app) }
+        XCTAssertEqual(hiddenResult, .completed, "Home commands must leave the landscape after five seconds without interaction.")
+        XCTAssertTrue(homeStatus.exists)
+        XCTAssertFalse(app.buttons["morning.playback"].exists)
+        XCTAssertFalse(app.buttons["morning.next"].exists)
+        attach(largestText ? "automation-synthetic-slack-uncertain-french-largest-quiet-home" : "automation-synthetic-slack-uncertain-quiet-home", app)
+        openHomeInteraction(app)
         XCTAssertTrue(status.waitForExistence(timeout: 5))
         XCTAssertTrue(status.label.contains(french ? "La publication Slack n’est pas confirmée" : "Slack post is unconfirmed"))
         XCTAssertFalse(app.buttons["slackMoment.send"].exists)
@@ -1107,14 +1119,22 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         app.terminate(); app.launch()
         XCTAssertTrue(app.staticTexts["qa.testWorkspace"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.staticTexts["qa.testWorkspace"].value as? String, workspace)
-        reveal(app)
+        revealHomeControls(app)
         XCTAssertFalse(app.buttons["morning.begin"].exists)
         XCTAssertTrue(app.buttons["morning.playback"].label.contains("Continue"))
-        XCTAssertTrue(app.staticTexts["morning.currentStep"].label.contains("Reddit"))
-        XCTAssertEqual(app.staticTexts["morning.remaining"].label, remaining,
-                       "Cold restoration must keep this paused morning's remaining budget.")
+        XCTAssertFalse(app.staticTexts["morning.currentStep"].exists)
+        XCTAssertFalse(app.staticTexts["morning.remaining"].exists)
         attach("automation-real-public-feed-cold-morning-restored", app)
-        app.buttons["morning.playback"].tap()
+        // Home deliberately has no title or timer. Open the same paused page
+        // through its ordinary menu to inspect the retained budget before resume.
+        enabledVisibleButton("morning.more", in: app).tap()
+        enabledVisibleButton("stepTimer.openPage", in: app).tap()
+        XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 15))
+        XCTAssertEqual(app.staticTexts["web.remaining"].label, remaining,
+                       "Cold restoration must keep this paused morning's remaining budget.")
+        XCTAssertEqual(app.staticTexts["web.host"].label, "www.reddit.com")
+        attach("automation-real-public-feed-cold-page-paused-budget-restored", app)
+        app.buttons["web.resume"].tap()
         XCTAssertTrue(app.buttons["web.pause"].waitForExistence(timeout: 15))
         let firstObservation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             (result.value as? String)?.contains("newContent=") == true
@@ -1155,11 +1175,28 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         return app
     }
     private func reveal(_ app: XCUIApplication) {
+        if app.descendants(matching: .any).matching(identifier: "morning.captions").firstMatch.exists {
+            revealHomeControls(app)
+            return
+        }
         let begin = app.buttons["morning.begin"]
-        if !begin.exists && !app.staticTexts["morning.complete"].exists && !app.buttons["morning.playback"].exists {
+        if !begin.exists && !app.staticTexts["morning.complete"].exists {
             let actions = app.buttons["morning.actions"]
             XCTAssertTrue(actions.waitForExistence(timeout: 10)); actions.tap()
         }
+    }
+    private func revealHomeControls(_ app: XCUIApplication) {
+        let more = app.buttons["morning.more"]
+        if more.exists && more.isHittable { return }
+        let passages = app.descendants(matching: .any).matching(identifier: "morning.captions").firstMatch
+        XCTAssertTrue(passages.waitForExistence(timeout: 10))
+        // The ordinary landscape passage receives this tap. Avoid its bottom
+        // edge, where a newly revealed command could otherwise be selected.
+        passages.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
+        let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: more)
+        let result = XCTWaiter.wait(for: [visible], timeout: 5)
+        if result != .completed { captureFailure("home-controls-not-revealed", app) }
+        XCTAssertEqual(result, .completed)
     }
     private func tapVisible(_ identifier: String, in app: XCUIApplication) {
         visibleButton(identifier, in: app).tap()
@@ -1239,13 +1276,9 @@ final class RoutineAutomationJourneyTests: XCTestCase {
     }
     private func openHomeInteraction(_ app: XCUIApplication) {
         if app.buttons["morning.closeDetails"].exists { return }
-        XCTAssertTrue(app.buttons["morning.playback"].waitForExistence(timeout: 10))
-        if app.buttons["morning.actionDetails"].exists {
-            enabledVisibleButton("morning.actionDetails", in: app).tap()
-        } else {
-            tapVisible("morning.more", in: app)
-            tapVisible("morning.details", in: app)
-        }
+        revealHomeControls(app)
+        enabledVisibleButton("morning.more", in: app).tap()
+        enabledVisibleButton("morning.details", in: app).tap()
         XCTAssertTrue(app.buttons["morning.closeDetails"].waitForExistence(timeout: 5))
     }
     private func visibleScreenTimeSwitch(_ bundleID: String, in app: XCUIApplication) -> XCUIElement {
