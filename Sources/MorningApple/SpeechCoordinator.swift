@@ -18,6 +18,54 @@ public enum SpeechPlaybackError: LocalizedError, Sendable, Equatable {
     }
 }
 
+/// UTF-16 ranges match AVSpeechSynthesizer's callbacks, including emoji and accents.
+struct SpeechCaptionProgress {
+    private(set) var currentCaption: String?
+    private(set) var revision: UInt = 0
+    private var requestID: UUID?
+    private var passages: [(range: NSRange, text: String)] = []
+    private var currentPassage: Int?
+
+    mutating func begin(_ text: String, requestID: UUID) {
+        reset()
+        self.requestID = requestID
+        let chunks = (try? LearningTextChunker.split(text, maximumCharacters: 200, maximumUTF8Bytes: 800)) ?? []
+        var offset = 0
+        passages = chunks.map { chunk in
+            let range = NSRange(location: offset, length: chunk.utf16.count)
+            offset += range.length
+            return (range, chunk.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    mutating func advance(to range: NSRange, requestID: UUID) {
+        guard self.requestID == requestID, range.location != NSNotFound, range.location >= 0,
+              range.length > 0, let last = passages.last,
+              range.location < NSMaxRange(last.range),
+              range.length <= NSMaxRange(last.range) - range.location,
+              let index = passages.firstIndex(where: { NSLocationInRange(range.location, $0.range) }),
+              currentPassage.map({ index > $0 }) ?? true else { return }
+        currentPassage = index
+        show(passages[index].text)
+    }
+
+    mutating func showChunk(_ text: String, requestID: UUID) {
+        guard self.requestID == requestID else { return }
+        show(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    mutating func reset() {
+        requestID = nil; passages.removeAll(); currentPassage = nil
+        if currentCaption != nil { currentCaption = nil; revision &+= 1 }
+    }
+
+    private mutating func show(_ text: String) {
+        guard !text.isEmpty else { return }
+        currentCaption = text
+        revision &+= 1
+    }
+}
+
 /// Local system text-to-speech. The system/user chooses the output route.
 @MainActor
 @Observable
@@ -30,6 +78,9 @@ public final class SpeechCoordinator: NSObject {
     /// after playback has stopped; ordinary speech keeps its existing ownership.
     public var handsFreeAudioSessionIsOwned = false
     public private(set) var currentText: String?
+    /// Only the passage currently being spoken; never persisted as a transcript.
+    public var currentCaption: String? { captionProgress.currentCaption }
+    public var captionRevision: UInt { captionProgress.revision }
     public var usesDuplexPlayback: Bool { duplexOutput != nil }
     /// A persisted choice may become unavailable after a system voice is removed.
     /// Nil, unknown, and unavailable choices use an available voice matching the system language.
@@ -89,6 +140,7 @@ public final class SpeechCoordinator: NSObject {
             }
     }
 
+    private var captionProgress = SpeechCaptionProgress()
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
     @ObservationIgnored private var duplexOutput: MorningDuplexSpeechOutput?
     @ObservationIgnored private var currentUtterance: ObjectIdentifier?
@@ -184,6 +236,7 @@ public final class SpeechCoordinator: NSObject {
         playbackID = requestID
         currentText = text
         speechRequestID = requestID
+        captionProgress.begin(text, requestID: requestID)
         state = .preparing
         activationTask = Task { [weak self] in
             guard let self, !Task.isCancelled, speechRequestID == requestID else { return }
@@ -212,14 +265,16 @@ public final class SpeechCoordinator: NSObject {
         }
         if let duplexOutput, let requestID = speechRequestID, let voice = utterance.voice {
             currentUtterance = nil
-            duplexOutput.play(text, voice: voice, onStarted: { [weak self] in
+            duplexOutput.play(text, voice: voice, onChunkStarted: { [weak self] chunk in
                 guard let self, speechRequestID == requestID else { return }
+                captionProgress.showChunk(chunk, requestID: requestID)
                 if state != .paused { state = .speaking }
             }, completion: { [weak self] result in
                 guard let self, speechRequestID == requestID else { return }
                 switch result {
                 case .success:
                     currentText = nil; playbackID = nil; speechRequestID = nil; state = .idle; lastError = nil
+                    captionProgress.reset()
                     let pending = completion; completion = nil
                     audioSession.cancel(); pending?.resume()
                 case .failure(let error):
@@ -301,6 +356,7 @@ public final class SpeechCoordinator: NSObject {
         // Invalidate first, so a late callback from the previous utterance cannot stop a new one.
         currentUtterance = nil
         currentText = nil
+        captionProgress.reset()
         playbackID = nil
         speechRequestID = nil
         activationTask?.cancel()
@@ -336,6 +392,7 @@ public final class SpeechCoordinator: NSObject {
     private func failBeforeSpeaking(_ error: SpeechPlaybackError) {
         lastError = error.localizedDescription
         currentText = nil
+        captionProgress.reset()
         currentUtterance = nil
         playbackID = nil
         speechRequestID = nil
@@ -356,6 +413,7 @@ public final class SpeechCoordinator: NSObject {
         self.state = state
         if finished {
             currentText = nil
+            captionProgress.reset()
             currentUtterance = nil
             playbackID = nil
             speechRequestID = nil
@@ -366,6 +424,11 @@ public final class SpeechCoordinator: NSObject {
             if cancelled { pending?.resume(throwing: CancellationError()) }
             else { pending?.resume() }
         }
+    }
+
+    private func receiveCaption(_ range: NSRange, utteranceID: ObjectIdentifier) {
+        guard currentUtterance == utteranceID, state != .paused, let requestID = speechRequestID else { return }
+        captionProgress.advance(to: range, requestID: requestID)
     }
 
     private static func activateAudioSession(handsFree: Bool) async throws {
@@ -412,6 +475,13 @@ public final class SpeechCoordinator: NSObject {
 }
 
 extension SpeechCoordinator: AVSpeechSynthesizerDelegate {
+    nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
+                                             willSpeakRangeOfSpeechString characterRange: NSRange,
+                                             utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.receiveCaption(characterRange, utteranceID: id) }
+    }
+
     nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
         let id = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in self?.receive(.speaking, utteranceID: id) }

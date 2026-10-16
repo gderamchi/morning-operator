@@ -99,6 +99,14 @@ public enum StepNextDecision: Equatable, Sendable {
 }
 
 public enum StepNavigation {
+    /// Returning ends the user's app moment, without certifying work in that app.
+    public static func mayAdvanceAfterExternalAppReturn(session: RoutineSession?, sessionID: UUID, stepID: UUID) -> Bool {
+        guard let session, session.status == .running, session.id == sessionID,
+              let step = session.currentStep, step.id == stepID,
+              case .externalApp = step.target else { return false }
+        return true
+    }
+
     public static func decide(session: RoutineSession?, sessionID: UUID?, stepID: UUID?) -> StepNextDecision {
         guard let session, session.status == .running || session.status == .paused,
               let current = session.currentStep else { return .unavailable }
