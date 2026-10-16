@@ -1,10 +1,12 @@
-# Routine execution — 15 October 2026
+# Routine execution — 16 October 2026
 
 [MORE.md](../MORE.md) remains the acceptance reference. This implementation closes several runtime gaps; its presence is not evidence that all services meet the product promise.
 
 ## The user journey
 
 Review each moment's actual operation, service, time and optional likes. The explicit **Let MORE take care of my morning** button approves that version. **Start my morning** starts it later; it cannot approve a draft. A running session retains its approved snapshot while future edits remain drafts.
+
+The Home landscape remains the playback scene, with scrolling spoken captions and discreet Pause, Next and More controls. Readers and action forms open through **Interact**. A current send/write or uncertain result has its own compact status on Home even when no new speech occurs; an old review instruction cannot hide that state. New result or question-answer captions remain available. Privacy blocking removes the playback view and its retained captions.
 
 Saved observations can be selected together in Learn. A sourced suggestion can be approved directly or opened with **Adjust this suggestion** in the ordinary editor. Saving those adjustments leaves a draft; it does not delegate the routine. The previous approved version remains restorable until the new version is explicitly approved.
 
@@ -61,6 +63,8 @@ The same action panel is available inside the routine browser, including when a 
 Package tests establish deterministic policy, encoding, stale-result/cancellation and injected-provider behavior. Simulator tests establish visible navigation, explicit delegation, clock/session transitions, recap persistence and actual public-page behavior where observed. Synthetic command injection is never microphone recognition. A loaded web page is never successful browsing.
 
 Reviewed video context, structured browser sequences and explicitly selected dated Screen Time aggregates feed the common proposal while preserving source revisions, citations and personal choices. Missing Screen Time coverage stays unknown; its app totals do not establish gestures or redistribute observed browser budgets. The legacy direct Screen Time suggestion remains compatible. The final MORE acceptance still needs real multi-morning source coverage, connected accounts and an ordinary iPhone: acoustic barge-in, local-model latency, social stories/video/likes, all provider operations and actual voice-directed mail sending. These gates remain open until individually observed.
+
+Native Screen Time app moments now retain a stable app identity across new acquisition days and edited titles. An old or manual personal choice whose app identity cannot be recovered requires explicit app review before new app-only moments are added. This review neither changes the saved Keep/Exclude/duration decisions nor approves the routine. The same rule is checked when a proposal is restored. Synthetic provenance follows retained sample moments independently of editable wording and remains declared in portable exports.
 
 ## Acceptance tracking
 
