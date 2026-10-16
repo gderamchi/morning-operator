@@ -15,7 +15,9 @@ struct MorningOperatorApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-            #if DEBUG
+            #if MORE_JURY_DEMO
+            MorningRootView(store: store)
+            #elseif DEBUG
             if ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
                 MorningWelcomePreview()
             } else if let site = Self.webMorningLaunchSite, showingWebPreview {

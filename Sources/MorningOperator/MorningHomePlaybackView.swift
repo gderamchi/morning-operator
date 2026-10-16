@@ -28,6 +28,11 @@ struct MorningHomePlaybackView: View {
         return store.connectedActionStatus ?? store.currentStep?.detail ?? ""
     }
     private var caption: String {
+        #if MORE_JURY_DEMO
+        if store.juryDemoVoice.state == .failed { return store.juryDemoVoice.message }
+        if !store.juryDemoCaption.isEmpty { return store.juryDemoCaption }
+        if store.juryDemoVoice.isActive { return store.juryDemoVoice.message }
+        #endif
         if let notice = store.notice, !notice.isEmpty { return notice }
         if let displayedCaption { return displayedCaption }
         let text = fallback.trimmingCharacters(in: .whitespacesAndNewlines)

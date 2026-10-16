@@ -23,3 +23,7 @@ docs/PROJECT-BRIEF.md
 __pycache__/
 *.py[cod]
 .build-*/
+
+# Isolated jury project and local signing/backend values
+MorningOperatorDemo.xcodeproj/
+Configuration/JuryDemo.local.xcconfig

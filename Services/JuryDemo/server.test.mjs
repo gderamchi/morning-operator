@@ -1,0 +1,252 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm, readFile, readdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { configFromEnv, createRequestHandler } from './server.mjs';
+
+const token = 'test-token-that-is-at-least-thirty-two-characters';
+const json = value => new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
+const deferred = () => { let accept; const promise = new Promise(resolve => { accept = resolve; }); return { promise, accept }; };
+const model = (intent, body = '', topic = 'unknown') => json({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ intent, body, topic }) }] }] });
+const toolInputs = {
+  GMAIL_GET_PROFILE: ['user_id'], GMAIL_SEND_EMAIL: ['recipient_email', 'subject', 'body', 'is_html'],
+  GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID: ['user_id', 'message_id', 'format'], GMAIL_FETCH_EMAILS: ['user_id', 'query', 'max_results', 'include_payload'],
+};
+
+async function fixture(t, overrides = {}) {
+  const dataDir = await mkdtemp(join(tmpdir(), 'more-jury-'));
+  t.after(() => rm(dataDir, { recursive: true, force: true }));
+  const config = { ...configFromEnv({ JURY_DEMO_TOKEN: token }), dataDir, openAIKey: 'not-an-api-key', elevenKey: 'not-an-api-key', voiceID: 'voice', composioKey: 'not-an-api-key', accountID: 'ca_owned', userID: 'owner', sender: 'owner@fixture.invalid', recipient: 'recipient@fixture.invalid', recipientName: 'Camille', binding: 'fixture', ...overrides };
+  const state = { sendCount: 0, modelCount: 0, sent: null, model: () => model('draft', 'Bonjour Camille, je serai là à 15 h. À tout à l’heure.'), send: null, fetchMessage: null, accountUserID: config.userID, accountUpdatedAt: '2026-10-16T08:00:00Z', profile: config.sender, schema: null, audio: null, requests: [] };
+  const fetchImpl = async (input, options) => {
+    const url = new URL(input), body = options.body ? JSON.parse(options.body) : null;
+    state.requests.push({ url: url.href, body, options });
+    if (url.hostname === 'api.openai.com') {
+      state.modelCount += 1;
+      assert.equal(body.store, false); assert.equal(body.text.format.strict, true);
+      assert.equal(body.tools, undefined);
+      return state.model(body, options);
+    }
+    if (url.hostname === 'api.elevenlabs.io') return state.audio ? state.audio() : new Response(Buffer.alloc(30, 1), { headers: { 'Content-Type': 'audio/mpeg' } });
+    assert.equal(url.hostname, 'backend.composio.dev', 'All provider URLs must be fixed in code.');
+    assert.equal(options.headers['x-api-key'], config.composioKey);
+    if (url.pathname.includes('connected_accounts/')) return json({ id: config.accountID, user_id: state.accountUserID, toolkit: { slug: 'gmail' }, auth_config: { id: 'ac_owned' }, status: 'ACTIVE', created_at: '2026-10-01T08:00:00Z', updated_at: state.accountUpdatedAt });
+    const slug = url.pathname.split('/').at(-1);
+    if (options.method === 'GET') return state.schema ? state.schema(slug) : json({ slug, version: config.version, toolkit: { slug: 'gmail' }, input_parameters: { type: 'object', properties: Object.fromEntries(toolInputs[slug].map(key => [key, {}])), required: [] } });
+    assert.equal(body.connected_account_id, config.accountID); assert.equal(body.user_id, config.userID); assert.equal(body.version, config.version);
+    let data;
+    if (slug === 'GMAIL_GET_PROFILE') data = { emailAddress: state.profile };
+    if (slug === 'GMAIL_SEND_EMAIL') {
+      state.sendCount += 1; state.sent = body.arguments;
+      if (state.send) return state.send(body.arguments);
+      data = { id: '19ba000000000001' };
+    }
+    if (slug === 'GMAIL_FETCH_EMAILS') data = { messages: state.sent ? [{ messageId: '19ba000000000001' }] : [] };
+    if (slug === 'GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID') {
+      if (state.fetchMessage) return state.fetchMessage();
+      data = { id: '19ba000000000001', labelIds: ['SENT'], payload: { mimeType: 'text/plain', headers: [
+        { name: 'From', value: `MORE Owner <${config.sender}>` }, { name: 'To', value: config.recipient }, { name: 'Subject', value: state.sent.subject },
+      ], body: { data: Buffer.from(state.sent.body).toString('base64url') } } };
+    }
+    return json({ successful: true, data });
+  };
+  const handler = await createRequestHandler(config, { fetchImpl });
+  const call = (path, payload = {}, options = {}) => handler(new Request(`http://localhost${path}`, { method: options.method ?? 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...options.headers }, ...(['GET', 'DELETE'].includes(options.method) ? {} : { body: JSON.stringify(payload) }) }));
+  const start = async (enterMail = true) => {
+    const result = await call('/v1/jury/session'); assert.equal(result.status, 201);
+    if (enterMail) return (await call('/v1/jury/turn', { sessionID: result.payload.sessionID, requestID: randomUUID(), text: 'On regarde mes messages' })).payload;
+    return result.payload;
+  };
+  const turn = (sessionID, text, requestID = randomUUID()) => call('/v1/jury/turn', { sessionID, requestID, text });
+  return { state, config, handler, call, start, turn, fetchImpl };
+}
+
+test('configuration rejects missing auth, placeholder addresses and arbitrary browser destinations', () => {
+  assert.throws(() => configFromEnv({}), /TOKEN/);
+  assert.throws(() => configFromEnv({ JURY_DEMO_TOKEN: token, JURY_DEMO_RECIPIENT: 'somebody@example.com' }), /real/);
+  assert.throws(() => configFromEnv({ JURY_DEMO_TOKEN: token, JURY_DEMO_SOCIAL_URL: 'https://instagram.com.attacker.invalid/' }), /HTTPS/);
+});
+
+test('health reveals capabilities only; authentication protects every session and speech request', async t => {
+  const { call, config } = await fixture(t);
+  const health = await call('/health', {}, { method: 'GET', headers: { Authorization: '' } });
+  assert.equal(health.status, 200); assert.deepEqual(health.payload.configured, { conversation: true, speech: true, mail: true });
+  assert.ok(!JSON.stringify(health.payload).includes(config.sender));
+  for (const path of ['/v1/jury/session', '/v1/jury/turn', '/v1/jury/speech']) assert.equal((await call(path, {}, { headers: { Authorization: '' } })).status, 401);
+});
+
+test('missing configured providers produce no simulated session', async t => {
+  const { call, state } = await fixture(t, { openAIKey: undefined });
+  const result = await call('/v1/jury/session');
+  assert.equal(result.status, 503); assert.equal(result.payload.error.code, 'demo_not_configured'); assert.equal(state.requests.length, 0);
+});
+
+test('mail is drafted, revised freely and only explicitly sent to the pinned recipient', async t => {
+  const { state, start, turn, config } = await fixture(t);
+  const session = await start();
+  assert.match(session.text, /point produit/);
+  const draft = await turn(session.sessionID, 'Oui, dis-lui que je serai là.');
+  assert.equal(draft.payload.stage, 'draft'); assert.equal(state.sendCount, 0);
+  assert.equal((await turn(session.sessionID, 'oui')).status, 200); assert.equal(state.sendCount, 0, 'A generic yes never sends a reviewed reply.');
+  state.model = () => model('revise', 'Bonjour Camille, est-ce que 15 h 30 te conviendrait ?');
+  await turn(session.sessionID, 'Propose plutôt 15 h 30 et fais plus court.');
+  const requestID = randomUUID();
+  const sent = await turn(session.sessionID, 'Envoie', requestID);
+  assert.equal(sent.status, 200); assert.equal(sent.payload.receipt.status, 'sent'); assert.equal(state.sendCount, 1);
+  assert.equal(state.sent.recipient_email, config.recipient); assert.match(state.sent.body, /15 h 30/); assert.equal(state.sent.is_html, false);
+  assert.match(state.sent.subject, /MORE-/);
+  assert.deepEqual(await turn(session.sessionID, 'Envoie', requestID), sent); assert.equal(state.sendCount, 1);
+  const again = await turn(session.sessionID, 'Envoie');
+  assert.match(again.payload.text, /déjà été envoyé/); assert.equal(state.sendCount, 1);
+  const social = await turn(session.sessionID, 'oui'); assert.equal(social.payload.action.type, 'openURL');
+  assert.match(social.payload.text, /navigation en main/);
+  const end = await turn(session.sessionID, 'continue'); assert.equal(end.payload.completed, true); assert.equal(end.payload.stage, 'complete');
+});
+
+test('sending before a draft and reusing a request ID with different content cannot send', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start();
+  const requestID = randomUUID();
+  assert.match((await turn(session.sessionID, 'envoie', requestID)).payload.text, /d’abord te lire/);
+  assert.equal((await turn(session.sessionID, 'oui', requestID)).status, 409);
+  assert.equal(state.sendCount, 0); assert.equal(state.modelCount, 0);
+});
+
+test('a remote timeout journals uncertainty durably and retries reconcile without sending again', async t => {
+  const { state, config, start, turn, fetchImpl } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.send = () => { throw new Error('socket closed after dispatch'); };
+  const result = await turn(session.sessionID, 'envoie');
+  assert.equal(result.status, 200); assert.match(result.payload.text, /pas pu vérifier/); assert.equal(state.sendCount, 1);
+  const ledger = JSON.parse(await readFile(join(config.dataDir, 'effects', `${session.sessionID}.json`), 'utf8'));
+  assert.equal(ledger.state, 'uncertain');
+  const restarted = await createRequestHandler(config, { fetchImpl });
+  const retry = await restarted(new Request('http://localhost/v1/jury/turn', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionID: session.sessionID, requestID: randomUUID(), text: 'envoie' }) }));
+  assert.equal(retry.payload.receipt.status, 'sent'); assert.match(retry.payload.text, /retrouvé/); assert.equal(state.sendCount, 1);
+  assert.equal(retry.payload.stage, 'mail', 'Reconciliation must restore a usable conversation after a restart.');
+  const social = await restarted(new Request('http://localhost/v1/jury/turn', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionID: session.sessionID, requestID: randomUUID(), text: 'oui' }) }));
+  assert.equal(social.payload.stage, 'social'); assert.equal(state.sendCount, 1);
+});
+
+test('uncertain mail not found remains uncertain and never repeats an external effect', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.send = () => { state.sent = null; throw new Error('timeout'); };
+  await turn(session.sessionID, 'envoie');
+  for (let index = 0; index < 2; index++) assert.match((await turn(session.sessionID, 'envoie')).payload.text, /reste incertain/);
+  assert.equal(state.sendCount, 1);
+});
+
+test('successful provider response with wrong recipient or missing SENT evidence is uncertain', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.fetchMessage = () => json({ successful: true, data: { id: '19ba000000000001', labelIds: ['INBOX'] } });
+  const result = await turn(session.sessionID, 'envoie');
+  assert.equal(result.payload.receipt, undefined); assert.match(result.payload.text, /pas pu vérifier/); assert.equal(state.sendCount, 1);
+});
+
+test('changed connected-account identity invalidates the reviewed draft before sending', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.accountUpdatedAt = '2026-10-16T08:01:00Z';
+  const result = await turn(session.sessionID, 'envoie');
+  assert.equal(result.status, 409); assert.equal(result.payload.error.code, 'identity_changed'); assert.equal(state.sendCount, 0);
+});
+
+test('another user Gmail account cannot start a session', async t => {
+  const { call, state } = await fixture(t); state.accountUserID = 'another-user';
+  const result = await call('/v1/jury/session'); assert.equal(result.status, 409); assert.equal(state.sendCount, 0);
+});
+
+test('model refusal or malformed output cannot change the session or send anything', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start();
+  state.model = () => json({ status: 'completed', output: [{ type: 'message', content: [{ type: 'refusal', refusal: 'No' }] }] });
+  assert.equal((await turn(session.sessionID, 'oui')).status, 502);
+  state.model = () => json({ status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ intent: 'send', body: 'Invented', topic: 'unknown' }) }] }] });
+  assert.equal((await turn(session.sessionID, 'oui')).status, 502);
+  assert.equal(state.sendCount, 0);
+});
+
+test('DELETE interrupts an in-flight model result and cannot revive the routine', async t => {
+  const { state, start, turn, call } = await fixture(t);
+  const session = await start(), started = deferred(), finish = deferred();
+  state.model = async () => { started.accept(); await finish.promise; return model('draft', 'Je serai là à 15 h.'); };
+  const pending = turn(session.sessionID, 'oui'); await started.promise;
+  const stopped = await call(`/v1/jury/session/${session.sessionID}`, {}, { method: 'DELETE' });
+  assert.equal(stopped.payload.stage, 'stopped'); finish.accept();
+  assert.equal((await pending).payload.stage, 'stopped');
+  assert.equal((await turn(session.sessionID, 'envoie')).payload.stage, 'stopped'); assert.equal(state.sendCount, 0);
+});
+
+test('stop during tool metadata lookup prevents the subsequent Gmail dispatch', async t => {
+  const { state, start, turn, call } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  const started = deferred(), finish = deferred();
+  state.schema = async slug => {
+    if (slug === 'GMAIL_SEND_EMAIL') { started.accept(); await finish.promise; }
+    return json({ slug, version: '20261010_00', toolkit: { slug: 'gmail' }, input_parameters: { type: 'object', properties: Object.fromEntries(toolInputs[slug].map(key => [key, {}])), required: [] } });
+  };
+  const pending = turn(session.sessionID, 'envoie'); await started.promise;
+  await call(`/v1/jury/session/${session.sessionID}`, {}, { method: 'DELETE' }); finish.accept();
+  assert.equal((await pending).payload.stage, 'stopped'); assert.equal(state.sendCount, 0);
+});
+
+test('pause invalidates the send context until the current draft is read again', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  await turn(session.sessionID, 'pause'); await turn(session.sessionID, 'envoie'); assert.equal(state.sendCount, 0);
+  await turn(session.sessionID, 'reprends'); await turn(session.sessionID, 'envoie'); assert.equal(state.sendCount, 1);
+});
+
+test('skipping a draft invalidates it and a later send cannot use the stale content', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.model = () => model('next'); await turn(session.sessionID, 'passe aux réseaux');
+  const result = await turn(session.sessionID, 'envoie'); assert.match(result.payload.text, /d’abord te lire/); assert.equal(state.sendCount, 0);
+});
+
+test('negated or conditional send language never causes a dispatch', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.model = () => model('question');
+  for (const text of ['N’envoie pas', 'Envoie si tu trouves le bon horaire', 'Dis-moi avant d’envoyer', 'Fais plus court puis envoie']) await turn(session.sessionID, text);
+  assert.equal(state.sendCount, 0);
+});
+
+test('rappel unavailable and prepared facts never claim fabricated external success', async t => {
+  const { state, start, turn } = await fixture(t);
+  const session = await start();
+  state.model = () => model('reminder'); assert.match((await turn(session.sessionID, 'rappelle-moi')).payload.text, /pas de rappel connecté/);
+  state.model = () => model('question', '', 'calendar'); assert.match((await turn(session.sessionID, 'suis-je libre ?')).payload.text, /pas lu ton agenda réel/);
+  assert.equal(state.sendCount, 0);
+});
+
+test('speech returns MP3 bytes and rejects provider JSON or missing voice', async t => {
+  const { state, call } = await fixture(t);
+  const result = await call('/v1/jury/speech', { text: 'Bonjour.' });
+  assert.equal(result.headers['Content-Type'], 'audio/mpeg'); assert.ok(Buffer.isBuffer(result.payload));
+  state.audio = () => json({ error: 'not-audio' }); assert.equal((await call('/v1/jury/speech', { text: 'Bonjour.' })).status, 502);
+});
+
+test('concurrent turns and durable pending requests cannot execute twice', async t => {
+  const { state, start, turn, config } = await fixture(t);
+  const session = await start(), started = deferred(), finish = deferred(), requestID = randomUUID();
+  state.model = async () => { started.accept(); await finish.promise; return model('draft', 'À 15 h.'); };
+  const first = turn(session.sessionID, 'oui', requestID); await started.promise;
+  assert.equal((await turn(session.sessionID, 'oui', requestID)).payload.error.code, 'request_uncertain');
+  assert.equal((await turn(session.sessionID, 'autre demande')).payload.error.code, 'turn_in_progress');
+  finish.accept(); await first;
+  assert.equal(state.modelCount, 1); assert.equal(state.sendCount, 0);
+  assert.equal((await readdir(join(config.dataDir, 'requests'))).length, 2);
+});
+
+test('morning starts with a short conversation then moves to the prepared message', async t => {
+  const { start, turn, state } = await fixture(t);
+  const session = await start(false);
+  assert.equal(session.stage, 'morning'); assert.match(session.text, /matin préparé/);
+  const mail = await turn(session.sessionID, 'oui');
+  assert.equal(mail.payload.stage, 'mail'); assert.match(mail.payload.text, /15 h/); assert.equal(state.modelCount, 0);
+});
