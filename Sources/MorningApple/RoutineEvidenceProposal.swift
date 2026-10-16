@@ -10,6 +10,7 @@ public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equat
     /// the front can be told from one that simply shows nothing usable.
     case ownInterfaceLeftNoEvidence
     case screenTimeSelectionRequired(availableSlots: Int)
+    case screenTimePersonalChoicesNeedReview
     public var errorDescription: String? {
         switch self {
         case .invalidSelection: String(localized: "Select one to five different saved observations.", bundle: .module)
@@ -28,6 +29,9 @@ public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equat
         case .screenTimeSelectionRequired(let slots): AppLanguage.isFrench
             ? "Ce plan peut accueillir encore \(slots) moment(s) d’app Screen Time. Choisissez les apps à ajouter dans la sélection d’observations. Les séquences observées et vos rituels gardés sont conservés."
             : "This plan has room for \(slots) additional Screen Time app moment(s). Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained."
+        case .screenTimePersonalChoicesNeedReview: AppLanguage.isFrench
+            ? "Certains choix personnels conservés ne peuvent pas être rapprochés des activités choisies. Relisez-les et confirmez les apps Screen Time de cette suggestion. Aucun choix Garder, Exclure ou de durée n’est modifié."
+            : "Some saved personal choices cannot be matched to the selected activities. Review them and confirm the Screen Time apps for this suggestion. No Keep, Exclude or duration choice is changed."
         case .invalidCitation: String(localized: "A proposed step could not be tied to the exact supplied evidence. Your current routine is unchanged.", bundle: .module)
         case .invalidProposal: String(localized: "This proposal is incomplete or inconsistent with its saved evidence. Create another proposal.", bundle: .module)
         }
@@ -181,11 +185,12 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
             // Browser lessons are an ordered native observation, not a model's
             // choice of which segments to retain. Rebuild every candidate before
             // preferences, assigning saved IDs only through exact citations.
-            var restoredCandidates = try LearningEvidencePreparation.restoredBrowserCandidates(
-                evidence: restoredEvidence, proposal: self)
             var restoredCitations = Dictionary(uniqueKeysWithValues: support.map { ($0.stepID, $0.citations) })
-            _ = try LearningEvidencePreparation.joiningScreenTime(evidence: restoredEvidence,
+            var restoredCandidates = try LearningEvidencePreparation.restoredBrowserCandidates(
+                evidence: restoredEvidence, proposal: self, citations: &restoredCitations)
+            let restoredNativeCandidates = try LearningEvidencePreparation.joiningScreenTime(evidence: restoredEvidence,
                 steps: &restoredCandidates, citations: &restoredCitations, preserving: baseRoutine, preferences: preferences, restoring: true)
+            let restoredNativeIDs = Set(restoredNativeCandidates.keys)
             let candidate = RoutineVersion(createdAt: routine.createdAt, sourceLabel: routine.sourceLabel,
                 steps: restoredCandidates)
             var inherited = Self.inferredDraft(from: candidate, preserving: baseRoutine,
@@ -200,6 +205,16 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
             let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: inherited.steps)
             guard try EvidenceRevision.hash(reconciled.steps) == EvidenceRevision.hash(routine.steps) else { return false }
             let keptIDs = Set(legacyKept.map(\.id)).union(reconciled.retainedStepIDs)
+            if baseRoutine?.isSynthetic == true,
+               baseRoutine?.steps.contains(where: { keptIDs.contains($0.id) }) == true,
+               !routine.isSynthetic { return false }
+            if screenTimeSelection?.includedBundleIdentifiers == nil,
+               reconciled.steps.contains(where: { restoredNativeIDs.contains($0.id) && !keptIDs.contains($0.id) }),
+               try LearningEvidencePreparation.hasUnmatchedPersonalChoices(candidates: restoredCandidates,
+                    citations: restoredCitations, nativeCandidates: restoredNativeCandidates,
+                    evidence: restoredEvidence, base: baseRoutine, preferences: preferences) {
+                return false
+            }
             for item in support {
                 guard let step = routine.steps.first(where: { $0.id == item.stepID }) else { return false }
                 let expectedReason: RoutineProposalSupportReason = keptIDs.contains(step.id) ? .preservedUserDecision
@@ -215,10 +230,13 @@ public struct EvidenceRoutineProposal: Codable, Equatable, Sendable, Identifiabl
                     // different activity; require the same conservative key as fallback.
                     let titleKey = step.title.folding(options: .caseInsensitive, locale: Locale(identifier: "en_US_POSIX"))
                         .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+                    let nativeBaseline = restoredNativeIDs.contains(step.id) && !item.citations.isEmpty &&
+                        item.citations.allSatisfy { $0.sourceLayer == .screenTimeAggregate }
                     guard expectedPreferences.allSatisfy({ id in
                         guard let preference = preferences?.entry(targetID: id) else { return false }
                         return preference.presence == nil && preference.durationMinutes == step.durationMinutes
-                            && preference.targetKind == step.kind && preference.normalizedTitle == titleKey
+                            && ((nativeBaseline && preference.targetID == step.id) ||
+                                (preference.targetKind == step.kind && preference.normalizedTitle == titleKey))
                     }) else { return false }
                 }
                 if item.reason != .preservedUserDecision {
@@ -662,8 +680,9 @@ public enum LearningEvidencePreparation {
             for index in browserAnchors { try insertBrowserGroup(index) }
         }
         for index in browserGroups.indices { try insertBrowserGroup(index) }
-        let screenTimeBaselineIDs = try joiningScreenTime(evidence: evidence, steps: &proposed, citations: &citationsByStep,
+        let nativeCandidates = try joiningScreenTime(evidence: evidence, steps: &proposed, citations: &citationsByStep,
             preserving: base, preferences: preferences)
+        let screenTimeBaselineIDs = Set(nativeCandidates.keys)
         // Pending receipts hold structured provenance. Keep bounded, exact quotations in
         // the routine too, so explicit approval does not erase the established source text.
         for index in proposed.indices {
@@ -694,19 +713,25 @@ public enum LearningEvidencePreparation {
         }
         let reconciled = try (preferences ?? RoutinePreferenceJournal()).reconcile(steps: routine.steps)
         routine.steps = reconciled.steps
+        let keptIDs = legacyKeptIDs.union(reconciled.retainedStepIDs)
         // An explicit Keep may reintroduce a synthetic excerpt even when every
         // newly selected source is personal. Preserve that provenance on the
         // whole plan before approval, export or run aggregation can use it.
-        if routine.isSynthetic && !routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
+        let keptFromSyntheticBase = base?.isSynthetic == true && (base?.steps.contains { keptIDs.contains($0.id) } ?? false)
+        if (routine.isSynthetic || keptFromSyntheticBase) && !routine.sourceLabel.localizedCaseInsensitiveContains("demo fixture") {
             routine.sourceLabel = "Demo fixture — includes a synthetic saved observation"
         }
         guard !routine.steps.isEmpty else { throw RoutineEvidenceProposalError.insufficientEvidence }
-        let keptIDs = legacyKeptIDs.union(reconciled.retainedStepIDs)
         let optionalAppCount = routine.steps.filter { screenTimeBaselineIDs.contains($0.id) && !keptIDs.contains($0.id) }.count
         let mandatoryCount = routine.steps.count - optionalAppCount
         guard mandatoryCount <= 10 else { throw RoutineEvidenceProposalError.tooManySteps }
         let available = min(ScreenTimeRoutineSelection.maximumSuggestedApps, 10 - mandatoryCount)
         if optionalAppCount > available { throw RoutineEvidenceProposalError.screenTimeSelectionRequired(availableSlots: available) }
+        if optionalAppCount > 0, evidence.screenTimeSelection?.includedBundleIdentifiers == nil,
+           try hasUnmatchedPersonalChoices(candidates: proposed, citations: citationsByStep,
+                nativeCandidates: nativeCandidates, evidence: evidence, base: base, preferences: preferences) {
+            throw RoutineEvidenceProposalError.screenTimePersonalChoicesNeedReview
+        }
         guard routine.steps.count <= 10 else { throw RoutineEvidenceProposalError.tooManySteps }
         let support = try routine.steps.map { step -> RoutineProposalSupport in
             let preferenceIDs = (reconciled.appliedPreferenceIDsByStepID[step.id] ?? []).sorted { $0.uuidString < $1.uuidString }
@@ -720,6 +745,36 @@ public enum LearningEvidencePreparation {
         }
         return try EvidenceRoutineProposal(base: base, routine: routine, sources: evidence.sourceSnapshots,
             support: support, omissions: evidence.omissions, preferences: preferences, screenTimeSelection: evidence.screenTimeSelection)
+    }
+
+    /// Compare with source-backed candidates before Keep reinsertion. A retained
+    /// ritual cannot supply its own evidence that an old renamed choice matched.
+    fileprivate static func hasUnmatchedPersonalChoices(candidates: [RoutineStep],
+        citations: [UUID: [RoutineEvidenceCitation]], nativeCandidates: [UUID: RoutineStep], evidence: PreparedLearningEvidence,
+        base: RoutineVersion?, preferences: RoutinePreferenceJournal?) throws -> Bool {
+        let legacyKept = preferences == nil ? EvidenceRoutineProposal.keptSteps(in: base) : []
+        let candidates = try candidates.filter { step in
+            let source = citations[step.id] ?? []
+            guard !source.isEmpty else { return false }
+            // Native candidates can be reconstructed even after Keep replaces
+            // their wording. A model/video row loses its citations on Keep; ask
+            // for explicit app review now rather than trusting that row later.
+            if source.allSatisfy({ $0.sourceLayer == .screenTimeAggregate || browserUnit(for: $0, evidence: evidence) != nil }) {
+                return true
+            }
+            if let preferences { return try preferences.matchingPreference(for: step)?.presence == nil }
+            return !legacyKept.contains { $0.id == step.id || RoutineVersion.matchesActivity($0, step) }
+        }
+        let sourced = candidates.filter { nativeCandidates[$0.id] == nil } + Array(nativeCandidates.values)
+        if let preferences {
+            let matched = Set(try sourced.compactMap { try preferences.matchingPreference(for: $0)?.id })
+            return preferences.entries.contains { !matched.contains($0.id) }
+        }
+        return legacyKept.contains { kept in
+            if sourced.contains(where: { $0.id == kept.id }) { return false }
+            return sourced.filter { RoutineVersion.matchesActivity($0, kept) }.count != 1 ||
+                (base?.steps.filter { RoutineVersion.matchesActivity($0, kept) }.count ?? 0) != 1
+        }
     }
 
     fileprivate static func applyingReviewedSuggestion(to step: RoutineStep,
@@ -793,7 +848,7 @@ public enum LearningEvidencePreparation {
     }
 
     fileprivate static func restoredBrowserCandidates(evidence: PreparedLearningEvidence,
-        proposal: EvidenceRoutineProposal) throws -> [RoutineStep] {
+        proposal: EvidenceRoutineProposal, citations: inout [UUID: [RoutineEvidenceCitation]]) throws -> [RoutineStep] {
         guard evidence.units.contains(where: { $0.browserContext != nil }) else { return proposal.routine.steps }
         let groups = browserLessonGroups(evidence: evidence)
         let browserSources = groups.reduce(into: Set<UUID>()) { $0.formUnion($1.acquisitionIDs) }
@@ -802,10 +857,11 @@ public enum LearningEvidencePreparation {
         for (index, group) in groups.enumerated() {
             var rows: [RoutineStep] = []
             for units in group.segmentUnits {
-                let citations = try units.map { try browserCitation(unit: $0, evidence: evidence) }
-                let matching = proposal.support.filter { $0.citations.filter { $0.sourceLayer != .screenTimeAggregate } == citations }
+                let sourceCitations = try units.map { try browserCitation(unit: $0, evidence: evidence) }
+                let matching = proposal.support.filter { $0.citations.filter { $0.sourceLayer != .screenTimeAggregate } == sourceCitations }
                 guard matching.count <= 1 else { throw RoutineEvidenceProposalError.invalidProposal }
                 let id = matching.first?.stepID ?? UUID()
+                citations[id] = sourceCitations + (citations[id] ?? []).filter { $0.sourceLayer == .screenTimeAggregate }
                 if matching.first != nil { groupByStepID[id] = index }
                 rows.append(try browserCandidate(units: units, id: id))
             }
@@ -860,9 +916,9 @@ public enum LearningEvidencePreparation {
     /// distribute its minutes among gestures or supply action authority.
     fileprivate static func joiningScreenTime(evidence: PreparedLearningEvidence,
         steps: inout [RoutineStep], citations: inout [UUID: [RoutineEvidenceCitation]],
-        preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal?, restoring: Bool = false) throws -> Set<UUID> {
+        preserving base: RoutineVersion?, preferences: RoutinePreferenceJournal?, restoring: Bool = false) throws -> [UUID: RoutineStep] {
         let units = evidence.units.filter { $0.screenTimeContext != nil }
-        guard !units.isEmpty else { return [] }
+        guard !units.isEmpty else { return [:] }
         guard let selection = evidence.screenTimeSelection else { throw RoutineEvidenceProposalError.invalidSelection }
         let reports = units.reduce(into: [ScreenTimeObservationEvidence]()) { values, unit in
             let report = unit.screenTimeContext!.report
@@ -871,7 +927,7 @@ public enum LearningEvidencePreparation {
         let policy = try ScreenTimeRoutineSelection.from(reports: reports, referenceDate: selection.referenceDate)
         let ambiguous = ScreenTimeAppMomentChoice.ambiguousIdentifiers(reports: reports)
         let candidates = Dictionary(uniqueKeysWithValues: policy.candidates.map { ($0.bundleIdentifier, $0) })
-        var baselineIDs = Set<UUID>()
+        var nativeCandidates: [UUID: RoutineStep] = [:]
         var baselinePositions: [Int] = []
         let savedCitations = citations
         // Native-only rows are reconstructed, including their stable identity, from
@@ -908,11 +964,13 @@ public enum LearningEvidencePreparation {
                 let entry = ScreenTimeAppCatalog.entry(for: identity)
                 // A baseline app moment is manual until a separate observed source
                 // or explicit user edit establishes a particular activity.
-                let id = try screenTimeStepID(identity: identity, sources: group.map(\.acquisitionID))
+                let id = try screenTimeStepID(identity: identity)
+                let synthetic = evidence.sourceSnapshots.first?.origin == .synthetic
                 let baseline = RoutineStep(id: id, title: context.app.displayName, detail: french
                     ? "Moment proposé depuis les minutes de l’app ; durée prévue à ajuster. Aucun geste proposé."
                     : "Proposed moment from app minutes; adjust the planned duration. No gesture proposed.",
-                    kind: entry.kind.stepKind, durationMinutes: candidate.minutes)
+                    kind: entry.kind.stepKind, durationMinutes: candidate.minutes, syntheticEvidence: synthetic ? true : nil)
+                nativeCandidates[id] = baseline
                 let preference = try preferences?.matchingPreference(for: baseline)
                 // Excluded candidates have no saved position. On restoration they
                 // need not displace surviving candidates or missing kept rituals;
@@ -939,7 +997,6 @@ public enum LearningEvidencePreparation {
                     steps.append(baseline); index = steps.count - 1
                 }
                 citations[id] = []
-                baselineIDs.insert(id)
                 baselinePositions.append(index)
             }
             let id = steps[index].id, before = citations[id] ?? []
@@ -958,8 +1015,8 @@ public enum LearningEvidencePreparation {
         if restoring, !zip(baselinePositions, baselinePositions.dropFirst()).allSatisfy({ $0 < $1 }) {
             throw RoutineEvidenceProposalError.invalidProposal
         }
-        steps.removeAll { nativeOnlySavedIDs.contains($0.id) && !baselineIDs.contains($0.id) }
-        return baselineIDs
+        steps.removeAll { nativeOnlySavedIDs.contains($0.id) && nativeCandidates[$0.id] == nil }
+        return nativeCandidates
     }
 
     private static func distinctQuotes(_ citations: [RoutineEvidenceCitation]) -> [String] {
@@ -975,8 +1032,8 @@ public enum LearningEvidencePreparation {
         return text
     }
 
-    private static func screenTimeStepID(identity: String, sources: [UUID]) throws -> UUID {
-        let digest = try EvidenceRevision.hash(["ScreenTime-app", identity] + sources.map(\.uuidString))
+    private static func screenTimeStepID(identity: String) throws -> UUID {
+        let digest = try EvidenceRevision.hash(["ScreenTime-app-v2", identity])
         let hex = String(digest.prefix(32))
         let sizes = [8, 4, 4, 4, 12]
         var cursor = hex.startIndex, parts: [String] = []

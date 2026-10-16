@@ -19,6 +19,7 @@ struct ObservationHistoryView: View {
     @ViewState<UUID?> private var proposalBeforeRequest = nil
     @ViewState<Date> private var screenTimeReferenceDate = Date()
     @ViewState<Set<String>?> private var includedScreenTimeApps = nil
+    @ViewState<Bool> private var showingPersonalChoices = true
 
     private var entries: [ObservationAcquisition] {
         store.observationArchive.entries
@@ -34,6 +35,10 @@ struct ObservationHistoryView: View {
     private var screenTimeChoices: [ScreenTimeAppMomentChoice] {
         guard let screenTimeSelection else { return [] }
         return (try? LearningEvidencePreparation.screenTimeAppChoices(acquisitions: selectedEntries, selection: screenTimeSelection)) ?? []
+    }
+    private var screenTimeReviewRevision: String? {
+        try? LearningEvidencePreparation.screenTimeSelectionReviewRevision(acquisitions: selectedEntries,
+            routine: store.routine, preferences: store.routinePreferences)
     }
     private var holdsEntry: Bool { choosingMornings || confirmingClear || learnAfterProposalDismissal || editAfterProposalDismissal }
     private var selectionIssue: String? {
@@ -146,6 +151,10 @@ struct ObservationHistoryView: View {
             screenTimeReferenceDate = Date()
             includedScreenTimeApps = nil
         }
+        .onChange(of: screenTimeReviewRevision) { _, _ in
+            screenTimeReferenceDate = Date()
+            includedScreenTimeApps = nil
+        }
         .sheet(isPresented: $showingProposal, onDismiss: {
             if editAfterProposalDismissal {
                 editAfterProposalDismissal = false
@@ -241,6 +250,28 @@ struct ObservationHistoryView: View {
                 ? "Choisissez les apps à ajouter comme moments distincts. Les séquences observées et vos rituels gardés restent dans le plan. Jusqu’à huit moments d’app peuvent être ajoutés."
                 : "Choose apps to add as separate moments. Observed sequences and your kept rituals stay in the plan. Up to eight app moments can be added.")
                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            if !store.routinePreferences.entries.isEmpty {
+                DisclosureGroup(AppLanguage.isFrench ? "Vos choix personnels conservés" : "Your saved personal choices",
+                    isExpanded: $showingPersonalChoices) {
+                    ForEach(store.routinePreferences.entries) { choice in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(choice.targetTitle).font(.raleway(.subheadline))
+                            Text(choice.presence == .keep ? (AppLanguage.isFrench ? "Garder" : "Keep")
+                                : choice.presence == .exclude ? (AppLanguage.isFrench ? "Exclure" : "Exclude")
+                                : (AppLanguage.isFrench ? "Durée personnalisée" : "Custom duration"))
+                                .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                            if let minutes = choice.durationMinutes ?? choice.retainedStep?.durationMinutes {
+                                Text(AppLanguage.isFrench ? "\(minutes) min conservées" : "\(minutes) min retained")
+                                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                            }
+                        }
+                    }
+                }.accessibilityIdentifier("observations.screenTime.personalChoices")
+                Text(AppLanguage.isFrench
+                    ? "Un ancien nom peut ne plus désigner une app connue. Relisez ces choix et les apps ci-dessous. Confirmer les apps de cette suggestion ne modifie aucun choix personnel et ne valide pas la routine."
+                    : "An earlier name may no longer identify a known app. Review these choices and the apps below. Confirming apps for this suggestion changes no personal choice and does not approve the routine.")
+                    .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+            }
             ForEach(screenTimeChoices.filter(\.isEligible)) { choice in
                 Toggle(isOn: Binding(get: { choice.isIncluded }, set: { included in
                     var ids = includedScreenTimeApps ?? Set(screenTimeChoices.filter { $0.isEligible && !$0.isAmbiguous }.map(\.id))
@@ -259,6 +290,18 @@ struct ObservationHistoryView: View {
                     }
                 }.disabled(store.busy || store.sessionActive || choice.isAmbiguous)
                     .accessibilityIdentifier("observations.screenTime.app.\(choice.id)")
+            }
+            if screenTimeChoices.contains(where: { $0.isEligible && !$0.isAmbiguous }) {
+                Button(AppLanguage.isFrench ? "Confirmer les apps de cette suggestion" : "Confirm apps for this suggestion") {
+                    includedScreenTimeApps = Set(screenTimeChoices.filter { $0.isIncluded }.map(\.id))
+                }.disabled(store.busy || store.sessionActive)
+                    .accessibilityIdentifier("observations.screenTime.confirmApps")
+                if includedScreenTimeApps != nil {
+                    Text(AppLanguage.isFrench ? "Choix d’apps confirmé pour cette suggestion. La routine attend toujours votre validation."
+                        : "App choices confirmed for this suggestion. The routine still needs your approval.")
+                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                        .accessibilityIdentifier("observations.screenTime.appsConfirmed")
+                }
             }
             if screenTimeChoices.contains(where: { !$0.isEligible }) {
                 DisclosureGroup(AppLanguage.isFrench ? "Apps conservées comme sources uniquement" : "Apps kept as sources only") {

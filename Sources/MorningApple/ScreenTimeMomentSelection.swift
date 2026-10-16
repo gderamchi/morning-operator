@@ -9,13 +9,13 @@ public struct ScreenTimeMomentSelection: Codable, Equatable, Sendable {
     /// Nil uses all eligible candidates; an explicit empty list adds no baseline.
     public let includedBundleIdentifiers: [String]?
     public init(referenceDate: Date, includedBundleIdentifiers: Set<String>? = nil) throws {
-        policyVersion = 1
+        policyVersion = 2
         self.referenceDate = referenceDate
         self.includedBundleIdentifiers = includedBundleIdentifiers.map { $0.sorted() }
         try validate()
     }
     public func validate() throws {
-        guard policyVersion == 1, referenceDate.timeIntervalSince1970.isFinite,
+        guard policyVersion == 2, referenceDate.timeIntervalSince1970.isFinite,
               referenceDate.timeIntervalSince1970 >= -62_135_596_800,
               referenceDate.timeIntervalSince1970 < 253_402_300_800,
               includedBundleIdentifiers.map({ ids in
@@ -67,6 +67,16 @@ public struct ScreenTimeAppMomentChoice: Equatable, Sendable, Identifiable {
 }
 
 extension LearningEvidencePreparation {
+    /// A confirmation belongs to these exact source bytes and personal choices.
+    /// The view uses this only to discard stale local selection, never as authority.
+    public static func screenTimeSelectionReviewRevision(acquisitions: [ObservationAcquisition],
+        routine: RoutineVersion?, preferences: RoutinePreferenceJournal) throws -> String {
+        var revisions = try acquisitions.map { try $0.id.uuidString + ":" + EvidenceRevision.source($0) }
+        revisions.append(try EvidenceRevision.hash(preferences))
+        revisions.append(try routine.map { try EvidenceRevision.hash($0) } ?? "no-routine")
+        return try EvidenceRevision.hash(revisions)
+    }
+
     public static func screenTimeAppChoices(acquisitions: [ObservationAcquisition], selection: ScreenTimeMomentSelection) throws -> [ScreenTimeAppMomentChoice] {
         try selection.validate(acquisitions: acquisitions)
         let reports = acquisitions.filter { $0.correctedText == nil }.compactMap(\.screenTimeEvidence)

@@ -48,7 +48,7 @@ struct MorningHomePlaybackView: View {
             case .unavailable: statuses.append(.init(text: french ? "Cette demande Slack est indisponible. Retrouvez les détails dans Interagir." : "This Slack request is unavailable. Open Interact for details.", hidesOldInstructions: true, priority: 0))
             case .completed: statuses.append(.init(text: french ? "La réponse Slack a été publiée. Retrouvez les détails dans Interagir." : "The Slack reply was posted. Open Interact for details.", hidesOldInstructions: true, priority: 1))
             case .preparing: statuses.append(.init(text: french ? "Préparation de votre réponse Slack…" : "Preparing your Slack reply…"))
-            case .reviewing, .awaitingConfirmation: statuses.append(.init(text: french ? "Une réponse Slack est prête à relire." : "A Slack reply is ready to review."))
+            case .reviewing, .awaitingConfirmation: statuses.append(.init(text: french ? "Une réponse Slack attend vos précisions ou votre relecture." : "A Slack reply is waiting for your details or review."))
             default: break
             }
         }
@@ -59,7 +59,7 @@ struct MorningHomePlaybackView: View {
             case .unavailable: statuses.append(.init(text: french ? "Cette demande Gmail est indisponible. Retrouvez les détails dans Interagir." : "This Gmail request is unavailable. Open Interact for details.", hidesOldInstructions: true, priority: 0))
             case .completed: statuses.append(.init(text: french ? "Cette demande Gmail est terminée." : "This Gmail request is finished.", hidesOldInstructions: true, priority: 1))
             case .preparingReply: statuses.append(.init(text: french ? "Préparation de votre mail…" : "Preparing your mail…"))
-            case .reviewingReply, .reviewingSelfMessage: statuses.append(.init(text: french ? "Un mail est prêt à relire." : "A mail draft is ready to review."))
+            case .reviewingReply, .reviewingSelfMessage: statuses.append(.init(text: french ? "Un brouillon Gmail attend vos précisions ou votre relecture." : "A Gmail draft is waiting for your details or review."))
             default: break
             }
         }

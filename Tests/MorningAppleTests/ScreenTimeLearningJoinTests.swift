@@ -25,6 +25,13 @@ struct ScreenTimeLearningJoinTests {
     private func day() throws -> ObservationObservedDate {
         try .init(date: at(14, 7), timeZoneIdentifier: "Europe/Paris", provenance: .userAssigned)
     }
+    private func following(_ old: ScreenTimeObservationEvidence) throws -> ScreenTimeObservationEvidence {
+        try .init(day: old.day.addingTimeInterval(86400), timeZoneIdentifier: old.timeZoneIdentifier,
+            requestedWindow: .init(start: old.requestedWindow.start.addingTimeInterval(86400), duration: old.requestedWindow.duration),
+            retrievedAt: old.retrievedAt.addingTimeInterval(86400),
+            returnedIntervals: old.returnedIntervals.map { .init(start: $0.start.addingTimeInterval(86400), duration: $0.duration) },
+            morningWindow: old.morningWindow.map { .init(start: $0.start.addingTimeInterval(86400), duration: $0.duration) }, apps: old.apps)
+    }
     private func lesson() throws -> ObservationAcquisition {
         var rhythm = BrowserRhythmAccumulator(site: .instagram)
         let totals = try #require(BrowserRhythmTotals(distance: 200, movingSeconds: 5, scrollBursts: 3, clicks: 2))
@@ -43,7 +50,8 @@ struct ScreenTimeLearningJoinTests {
             sourceLabel: "Selected video", originalText: evidence.renderedText, videoEvidence: evidence,
             frameReviews: [.init(sampleID: frame.id, label: "Apple Calendar", evidenceQuote: "Apple Calendar", reviewedAt: at(14, 14))])
     }
-    private func assemble(_ entries: [ObservationAcquisition], preferences: RoutinePreferenceJournal? = nil,
+    private func assemble(_ entries: [ObservationAcquisition], preserving base: RoutineVersion? = nil,
+                          preferences: RoutinePreferenceJournal? = nil,
                           selection: ScreenTimeMomentSelection? = nil) throws -> EvidenceRoutineProposal {
         let native = entries.contains { $0.correctedText == nil && $0.screenTimeEvidence != nil }
         let appSelection = try selection ?? (native ? ScreenTimeMomentSelection(referenceDate: at(14, 14)) : nil)
@@ -53,7 +61,7 @@ struct ScreenTimeLearningJoinTests {
                 kind: .calendar, durationMinutes: 2,
                 citations: [.init(unitID: $0.id, quote: $0.sourceLayer == .correction ? $0.text : "A colleague shared the complete project agenda.")])
         }
-        return try LearningEvidencePreparation.assemble(evidence: evidence, steps: inputs, preserving: nil, preferences: preferences, at: at(14, 14))
+        return try LearningEvidencePreparation.assemble(evidence: evidence, steps: inputs, preserving: base, preferences: preferences, at: at(14, 14))
     }
 
     @Test("Three source types share one proposal; app totals do not rewrite observed gestures or budgets")
@@ -128,7 +136,11 @@ struct ScreenTimeLearningJoinTests {
             durationMinutes: 4, isRequired: true)
         let approved = RoutineVersion(sourceLabel: "My approved morning", steps: [kept], isApproved: true)
         let preferences = try RoutinePreferenceJournal(entries: [RoutinePreference(target: kept, presence: .keep)], revision: UUID())
-        let withKeep = try LearningEvidencePreparation.assemble(evidence: evidence, steps: [], preserving: approved, preferences: preferences)
+        #expect(throws: RoutineEvidenceProposalError.screenTimePersonalChoicesNeedReview) {
+            try LearningEvidencePreparation.assemble(evidence: evidence, steps: [], preserving: approved, preferences: preferences)
+        }
+        let explicit = try ScreenTimeMomentSelection(referenceDate: at(14, 14), includedBundleIdentifiers: ["com.burbn.instagram"])
+        let withKeep = try assemble([source], preserving: approved, preferences: preferences, selection: explicit)
         #expect(withKeep.routine.steps.count == 2 && withKeep.routine.steps.contains(kept))
         #expect(withKeep.isCurrent(archive: archive, baseRoutine: approved, preferences: preferences))
         #expect(archive.entries == [source] && approved.steps == [kept] && approved.isApproved)
@@ -317,11 +329,7 @@ struct ScreenTimeLearningJoinTests {
         kept.detail = "My exact personal app ritual"; kept.durationMinutes = 7
         let preferences = try RoutinePreferenceJournal(entries: [RoutinePreference(target: kept, presence: .keep)], revision: UUID())
         let old = try report()
-        let shifted = try ScreenTimeObservationEvidence(day: old.day.addingTimeInterval(86400), timeZoneIdentifier: old.timeZoneIdentifier,
-            requestedWindow: .init(start: old.requestedWindow.start.addingTimeInterval(86400), duration: old.requestedWindow.duration),
-            retrievedAt: old.retrievedAt.addingTimeInterval(86400),
-            returnedIntervals: old.returnedIntervals.map { .init(start: $0.start.addingTimeInterval(86400), duration: $0.duration) },
-            morningWindow: old.morningWindow.map { .init(start: $0.start.addingTimeInterval(86400), duration: $0.duration) }, apps: old.apps)
+        let shifted = try following(old)
         for entry in [source, try ObservationAcquisition.screenTime(shifted)] {
             let proposal = try assemble([entry], preferences: preferences,
                 selection: .init(referenceDate: at(15, 14)))
@@ -359,6 +367,142 @@ struct ScreenTimeLearningJoinTests {
         #expect(proposal.isCurrent(archive: try ObservationArchive(entries: entries), baseRoutine: nil, preferences: preferences))
     }
 
+    @Test("Native identity survives a renamed Keep, Exclude or duration choice across source days")
+    func renamedNativeChoicesAcrossDays() throws {
+        let original = try report()
+        let first = try assemble([ObservationAcquisition.screenTime(original)])
+        var renamed = first.routine.steps[0]
+        renamed.title = "My renamed personal ritual"; renamed.detail = "Owner wording"; renamed.durationMinutes = 7
+        let next = try following(original)
+        let withOtherApp = try ScreenTimeObservationEvidence(day: next.day, timeZoneIdentifier: next.timeZoneIdentifier,
+            requestedWindow: next.requestedWindow, retrievedAt: next.retrievedAt, returnedIntervals: next.returnedIntervals,
+            morningWindow: .init(start: at(15, 7), duration: 540), apps: next.apps + [
+                .init(bundleIdentifier: "com.apple.mobilesafari", seconds: 60, secondsMeasured: false, firstHourIndex: 0)])
+        let source = try ObservationAcquisition.screenTime(withOtherApp)
+        let presences: [RoutinePreferencePresence?] = [.keep, .exclude, nil]
+        for presence in presences {
+            let preference = try RoutinePreference(target: renamed, presence: presence, durationMinutes: presence == nil ? 7 : nil)
+            let journal = try RoutinePreferenceJournal(entries: [preference], revision: UUID())
+            let proposal = try assemble([source], preferences: journal)
+            if presence == .exclude {
+                #expect(proposal.routine.steps.count == 1 && !proposal.routine.steps.contains { $0.id == renamed.id })
+            } else {
+                let retained = try #require(proposal.routine.steps.first { $0.id == renamed.id })
+                #expect(proposal.routine.steps.count == 2 && retained.durationMinutes == 7)
+                if presence == .keep { #expect(retained == renamed) }
+                else { #expect(retained.title != renamed.title && retained.automation == nil && retained.target == nil) }
+            }
+            #expect(proposal.preferenceSnapshot == journal && !proposal.routine.isApproved)
+            let decoded = try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONEncoder().encode(proposal))
+            #expect(decoded.isCurrent(archive: try ObservationArchive(entries: [source]), baseRoutine: nil, preferences: journal))
+        }
+    }
+
+    @Test("Unidentified old and manual choices require explicit app review without changing their decisions")
+    func unidentifiedChoicesRequireReview() throws {
+        let entries = try [ObservationAcquisition.screenTime(report()), video()]
+        let old = RoutineStep(title: "My previously renamed app", detail: "Unknown original identity; preserve me", kind: .entertainment, durationMinutes: 7)
+        let presences: [RoutinePreferencePresence?] = [.keep, .exclude, nil]
+        for presence in presences {
+            let choice = try RoutinePreference(target: old, presence: presence, durationMinutes: presence == nil ? 7 : nil)
+            let journal = try RoutinePreferenceJournal(entries: [choice], revision: UUID())
+            #expect(throws: RoutineEvidenceProposalError.screenTimePersonalChoicesNeedReview) {
+                try assemble(entries, preferences: journal)
+            }
+            let selections: [Set<String>] = [[], ["com.burbn.instagram"]]
+            for ids in selections {
+                let reviewed = try ScreenTimeMomentSelection(referenceDate: at(14, 14), includedBundleIdentifiers: ids)
+                let proposal = try assemble(entries, preferences: journal, selection: reviewed)
+                #expect(proposal.routine.steps.count == 1 + ids.count + (presence == .keep ? 1 : 0))
+                #expect(proposal.preferenceSnapshot == journal && journal.entries == [choice])
+                #expect(proposal.routine.steps.contains(old) == (presence == .keep))
+                #expect(proposal.isCurrent(archive: try ObservationArchive(entries: entries), baseRoutine: nil, preferences: journal))
+                if !ids.isEmpty {
+                    var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(proposal)) as? [String: Any])
+                    var selection = try #require(object["screenTimeSelection"] as? [String: Any])
+                    selection.removeValue(forKey: "includedBundleIdentifiers"); object["screenTimeSelection"] = selection
+                    let altered = try JSONDecoder().decode(EvidenceRoutineProposal.self,
+                        from: JSONSerialization.data(withJSONObject: object))
+                    #expect(!altered.isCurrent(archive: try ObservationArchive(entries: entries), baseRoutine: nil, preferences: journal))
+                }
+            }
+        }
+        var required = old; required.isRequired = true
+        let legacyBase = RoutineVersion(sourceLabel: "Legacy owner routine", steps: [required], isApproved: true)
+        #expect(throws: RoutineEvidenceProposalError.screenTimePersonalChoicesNeedReview) {
+            try assemble(entries, preserving: legacyBase)
+        }
+        let reviewed = try ScreenTimeMomentSelection(referenceDate: at(14, 14), includedBundleIdentifiers: [])
+        let legacy = try assemble(entries, preserving: legacyBase, selection: reviewed)
+        #expect(legacy.routine.steps.contains(required))
+        #expect(legacy.isCurrent(archive: try ObservationArchive(entries: entries), baseRoutine: legacyBase))
+        // Native corroboration of an existing browser sequence adds no app-only
+        // candidate, so an unrelated standing choice requires no app review.
+        let browserEntries = try [ObservationAcquisition.screenTime(report()), lesson()]
+        let excluded = try RoutinePreferenceJournal(entries: [RoutinePreference(target: old, presence: .exclude)], revision: UUID())
+        #expect(try assemble(browserEntries, preferences: excluded).routine.steps.count == 2)
+        // A kept generative row no longer retains source citations. Review its
+        // coexistence with a new native app now, so restoration needs no guess.
+        let first = try assemble(entries)
+        let videoKeep = first.routine.steps[0]
+        for presence in [RoutinePreferencePresence.keep, .exclude] {
+            let videoJournal = try RoutinePreferenceJournal(entries: [RoutinePreference(target: videoKeep, presence: presence)], revision: UUID())
+            #expect(throws: RoutineEvidenceProposalError.screenTimePersonalChoicesNeedReview) {
+                try assemble(entries, preferences: videoJournal)
+            }
+            let withVideoChoice = try assemble(entries, preferences: videoJournal,
+                selection: .init(referenceDate: at(14, 14), includedBundleIdentifiers: ["com.burbn.instagram"]))
+            #expect(withVideoChoice.routine.steps.contains(videoKeep) == (presence == .keep))
+            #expect(withVideoChoice.isCurrent(archive: try ObservationArchive(entries: entries), baseRoutine: nil, preferences: videoJournal))
+        }
+        let nativeBrowserEntries = try [ObservationAcquisition.screenTime(report(id: "com.apple.mobilesafari")), lesson()]
+        let browser = try assemble(nativeBrowserEntries)
+        let excludeFeed = try RoutinePreferenceJournal(entries: [RoutinePreference(target: browser.routine.steps[0], presence: .exclude)], revision: UUID())
+        let withExcludedFeed = try assemble(nativeBrowserEntries, preferences: excludeFeed)
+        #expect(withExcludedFeed.routine.steps.count == 2 && withExcludedFeed.routine.steps[0].webBehavior == .watchStories)
+        #expect(withExcludedFeed.isCurrent(archive: try ObservationArchive(entries: nativeBrowserEntries), baseRoutine: nil, preferences: excludeFeed))
+    }
+
+    @Test("Review confirmation expires with source bytes, personal choices or the base routine")
+    func confirmationRevision() throws {
+        let source = try ObservationAcquisition.screenTime(report())
+        let original = try LearningEvidencePreparation.screenTimeSelectionReviewRevision(acquisitions: [source], routine: nil, preferences: .init())
+        let changed = try ObservationAcquisition.screenTime(report(seconds: 540), id: source.id)
+        #expect(try LearningEvidencePreparation.screenTimeSelectionReviewRevision(acquisitions: [changed], routine: nil, preferences: .init()) != original)
+        let kept = RoutineStep(title: "A personal ritual")
+        let journal = try RoutinePreferenceJournal(entries: [RoutinePreference(target: kept, presence: .keep)], revision: UUID())
+        #expect(try LearningEvidencePreparation.screenTimeSelectionReviewRevision(acquisitions: [source], routine: nil, preferences: journal) != original)
+        #expect(try LearningEvidencePreparation.screenTimeSelectionReviewRevision(acquisitions: [source],
+            routine: .init(sourceLabel: "A changed routine", steps: [kept]), preferences: .init()) != original)
+    }
+
+    @Test("Synthetic native provenance survives renamed Keep, personal evidence, export and legacy base retention")
+    func nativeSyntheticProvenance() throws {
+        let sample = try ObservationAcquisition.screenTime(report(), origin: .synthetic)
+        let initial = try assemble([sample])
+        var kept = initial.routine.steps[0]
+        #expect(kept.syntheticEvidence == true && initial.routine.isSynthetic)
+        kept.title = "My own title"; kept.detail = "Edited owner text with no sample marker"
+        for typedFlag in [true, false] {
+            if !typedFlag { kept.syntheticEvidence = nil }
+            let base = RoutineVersion(sourceLabel: typedFlag ? "Owner text" : "Demo fixture — old sample routine", steps: [kept])
+            let journal = try RoutinePreferenceJournal(entries: [RoutinePreference(target: kept, presence: .keep)], revision: UUID())
+            let personal = try ObservationAcquisition.screenTime(following(report()))
+            let proposal = try assemble([personal], preserving: base, preferences: journal)
+            #expect(proposal.sourceSnapshots.allSatisfy { $0.origin == .human })
+            #expect(proposal.routine.steps == [kept] && proposal.routine.isSynthetic)
+            #expect(proposal.routine.steps.allSatisfy { $0.automation == nil && $0.target == nil })
+            let decoded = try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONEncoder().encode(proposal))
+            #expect(decoded.isCurrent(archive: try ObservationArchive(entries: [personal]), baseRoutine: base, preferences: journal))
+            let portable = try PortableRoutineDocument(routine: decoded.routine)
+            #expect(portable.sourceIsSynthetic)
+            #expect(try PortableRoutineDocument.decode(portable.encoded()).importedDraft(replacing: nil).isSynthetic)
+        }
+        var legacy = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(initial.routine.steps[0])) as? [String: Any])
+        legacy.removeValue(forKey: "syntheticEvidence")
+        #expect(try JSONDecoder().decode(RoutineStep.self, from: JSONSerialization.data(withJSONObject: legacy)).syntheticEvidence == nil)
+    }
+
     @Test("Selection snapshots reject unavailable identities, malformed versions and legacy native proposals require a new review")
     func selectionSnapshotBoundsAndLegacy() throws {
         let source = try ObservationAcquisition.screenTime(report())
@@ -374,9 +518,11 @@ struct ScreenTimeLearningJoinTests {
         #expect(!legacy.isCurrent(archive: try ObservationArchive(entries: [source]), baseRoutine: nil))
         object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(proposal)) as? [String: Any])
         var selection = try #require(object["screenTimeSelection"] as? [String: Any])
-        selection["policyVersion"] = 99; object["screenTimeSelection"] = selection
-        #expect(throws: (any Error).self) {
-            try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONSerialization.data(withJSONObject: object))
+        for version in [1, 99] {
+            selection["policyVersion"] = version; object["screenTimeSelection"] = selection
+            #expect(throws: (any Error).self) {
+                try JSONDecoder().decode(EvidenceRoutineProposal.self, from: JSONSerialization.data(withJSONObject: object))
+            }
         }
     }
 }

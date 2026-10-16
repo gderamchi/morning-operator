@@ -50,15 +50,19 @@ public struct RoutineStep: Codable, Sendable, Identifiable, Equatable {
     /// Explicitly reviewed browser operations. Older plans remain manual until edited.
     public var webBehavior: WebMorningBehavior?
     public var webLikesAllowed: Bool?
+    /// Retained sample provenance, independent of editable wording or action authority.
+    public var syntheticEvidence: Bool?
     public init(id: UUID = UUID(), title: String, detail: String = "", kind: StepKind = .custom,
                 durationMinutes: Int = 5, isRequired: Bool = false, automation: RoutineStepAutomation? = nil,
                 observationReference: RoutineObservationReference? = nil, target: RoutineStepTarget? = nil,
-                webBehavior: WebMorningBehavior? = nil, webLikesAllowed: Bool? = nil) {
+                webBehavior: WebMorningBehavior? = nil, webLikesAllowed: Bool? = nil,
+                syntheticEvidence: Bool? = nil) {
         self.id = id; self.title = title; self.detail = detail; self.kind = kind
         self.durationMinutes = Self.bounded(durationMinutes); self.isRequired = isRequired
         self.automation = automation; self.observationReference = observationReference
         self.target = target
         self.webBehavior = webBehavior; self.webLikesAllowed = webLikesAllowed
+        self.syntheticEvidence = syntheticEvidence
     }
 
     private static func bounded(_ minutes: Int) -> Int {
@@ -86,6 +90,7 @@ public struct RoutineStep: Codable, Sendable, Identifiable, Equatable {
         target = try values.decodeIfPresent(RoutineStepTarget.self, forKey: .target)
         webBehavior = try values.decodeIfPresent(WebMorningBehavior.self, forKey: .webBehavior)
         webLikesAllowed = try values.decodeIfPresent(Bool.self, forKey: .webLikesAllowed)
+        syntheticEvidence = try values.decodeIfPresent(Bool.self, forKey: .syntheticEvidence)
     }
 }
 
@@ -116,7 +121,7 @@ public struct RoutineVersion: Codable, Sendable, Identifiable, Equatable {
     /// changes the routine label. A legacy sample marker remains conservative.
     public var isSynthetic: Bool {
         sourceLabel.localizedCaseInsensitiveContains("demo fixture") ||
-            steps.contains { $0.observationReference?.isSynthetic == true }
+            steps.contains { $0.observationReference?.isSynthetic == true || $0.syntheticEvidence == true }
     }
     public var totalDurationMinutes: Int { steps.reduce(0) { $0 + $1.durationMinutes } }
     /// The number of the version that follows this one. A saved number is not bounded when
