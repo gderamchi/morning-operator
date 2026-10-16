@@ -6,6 +6,20 @@ import XCTest
 /// let the routine progress on its own, from the speech coordinator's completion.
 @MainActor
 final class MorningBriefingTests: XCTestCase {
+    func testSleepStartsOffAndUnavailableReaderDoesNotEnableIt() {
+        let app = launchFixture()
+        openBriefing(app)
+        let sleep = app.switches["briefing.healthIncluded"].firstMatch
+        reveal(sleep, app)
+        XCTAssertEqual(sleep.value as? String, "0")
+        sleep.tap()
+        let issue = app.staticTexts["briefing.healthError"]
+        XCTAssertTrue(issue.waitForExistence(timeout: 5))
+        XCTAssertEqual(sleep.value as? String, "0", "An unavailable reader never saves an enabled choice.")
+        XCTAssertEqual(app.alerts.count, 0, "The isolated fixture has no HealthKit reader.")
+        attach("synthetic-sleep-reader-unavailable-choice-remains-off", app)
+    }
+
     func testSelectedSourcesPrepareRecapAndAddingItRequiresApprovalAfterRelaunch() {
         let app = launchFixture()
         MorningUITestNavigation.openRoutine(in: app)

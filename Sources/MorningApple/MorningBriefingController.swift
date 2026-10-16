@@ -90,6 +90,10 @@ public final class MorningBriefingController {
     public private(set) var prepared: PreparedMorningBriefing?
     public private(set) var isPreparing = false
     public private(set) var isConnectingCalendar = false
+    public private(set) var isConnectingHealth = false
+    /// A connection error is not a read-permission verdict. HealthKit keeps that private.
+    public private(set) var healthConnectionIssue: String?
+    public var isHealthReaderConnected: Bool { sleep.isConnected }
     public private(set) var isSearchingCities = false
     public private(set) var errorMessage: String?
     public private(set) var settingsRecoveryError: String?
@@ -136,6 +140,9 @@ public final class MorningBriefingController {
                 // A document prepared with health must not play once health is excluded,
                 // and one prepared without it is out of date once health is included.
                 guard (document.sleep.status != .notConfigured) == settings.includesHealth else { return false }
+                if settings.includesHealth {
+                    guard sleepPlaybackAdmissions[document.id]?.revision == sleepPlaybackRevision else { return false }
+                }
                 return true
             }
         } catch { return false }
@@ -165,6 +172,8 @@ public final class MorningBriefingController {
     @ObservationIgnored private var refreshTask: Task<PreparedMorningBriefing?, Never>?
     @ObservationIgnored private var accessAttempt: UUID?
     @ObservationIgnored private var accessTask: Task<Void, Never>?
+    @ObservationIgnored private var healthAccessAttempt: UUID?
+    @ObservationIgnored private var healthAccessTask: Task<Bool, Never>?
     @ObservationIgnored private var searchAttempt: UUID?
     @ObservationIgnored private var searchTask: Task<WeatherLocation?, Never>?
     @ObservationIgnored private var cityQuery = ""
@@ -177,6 +186,9 @@ public final class MorningBriefingController {
     @ObservationIgnored private var weatherInput: MorningBriefingInput<WeatherObservationSnapshot> = .notConfigured
     @ObservationIgnored private var lastWeatherAttemptAt: Date?
     @ObservationIgnored private var sleepInput: SleepBriefingInput = .excluded
+    /// An empty/failed reread or a return from Settings must not reauthorize older sleep text.
+    @ObservationIgnored private var sleepPlaybackRevision = UUID()
+    @ObservationIgnored private var sleepPlaybackAdmissions: [UUID: SleepPlaybackAdmission] = [:]
     @ObservationIgnored private var preparingKey: PreparationKey?
 
     public init(directory: URL = LocalDataControl.defaultDirectory,
@@ -370,6 +382,65 @@ public final class MorningBriefingController {
         }
         accessTask = task
         await task.value
+    }
+
+    /// The explicit Health action, after its purpose has been explained in the UI.
+    /// A handled prompt saves the person's inclusion choice; it never claims that
+    /// HealthKit allowed the read. Only a later sample can establish a recorded night.
+    @discardableResult public func enableHealth() async -> Bool {
+        guard prepareForAccess() else { return false }
+        if let task = healthAccessTask { return await task.value }
+        let attempt = UUID(), expectedRevision = revision
+        healthAccessAttempt = attempt; isConnectingHealth = true; healthConnectionIssue = nil
+        let task = Task { @MainActor [weak self] () -> Bool in
+            guard let self else { return false }
+            defer {
+                if healthAccessAttempt == attempt {
+                    healthAccessAttempt = nil; healthAccessTask = nil; isConnectingHealth = false
+                }
+            }
+            do {
+                try Task.checkCancellation()
+                guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
+                try await sleep.requestReadAccess()
+                try Task.checkCancellation()
+                guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
+                try withCurrentAccess { }
+                // No suspension between privacy/revision validation and the save.
+                var next = settings; next.includesHealth = true
+                try updateSettings(next)
+                return true
+            } catch {
+                guard healthAccessAttempt == attempt, revision == expectedRevision else { return false }
+                if !(error is CancellationError) { healthConnectionIssue = healthMessage(error) }
+                return false
+            }
+        }
+        healthAccessTask = task
+        return await task.value
+    }
+
+    /// Cancels an outstanding prompt even when the saved choice was already off.
+    /// A late native completion can neither save a choice nor restore cleared data.
+    public func disableHealth() throws {
+        cancelHealthConnection()
+        var next = settings; next.includesHealth = false
+        try updateSettings(next)
+    }
+
+    /// Call on background/foreground transitions, never for an inactive permission
+    /// sheet. Apple exposes no read-permission status: discard sleep while away and
+    /// require a new read before any previous Health text can play again.
+    public func invalidateHealthForForeground() {
+        guard settings.includesHealth else { return }
+        refreshAttempt = nil; refreshTask?.cancel(); refreshTask = nil; preparingKey = nil; isPreparing = false
+        prepared = nil; sleepInput = .excluded
+        sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]
+    }
+
+    private func cancelHealthConnection() {
+        healthAccessAttempt = nil; healthAccessTask?.cancel(); healthAccessTask = nil
+        isConnectingHealth = false; healthConnectionIssue = nil
     }
 
     /// Explicit query only; no device-location request or inferred city.
@@ -618,6 +689,13 @@ public final class MorningBriefingController {
                     calendarPlaybackAdmissions[document.id] = .init(changeRevision: snapshot.changeRevision,
                         validUntil: validUntil)
                 }
+                if !sameSleepRead(sleepInput, nextSleep) {
+                    sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]
+                }
+                sleepPlaybackAdmissions = sleepPlaybackAdmissions.filter { $0.value.validUntil > completedAt }
+                if key.settings.includesHealth, let validUntil = document.validUntil {
+                    sleepPlaybackAdmissions[document.id] = .init(revision: sleepPlaybackRevision, validUntil: validUntil)
+                }
                 calendarInput = nextCalendar; weatherInput = nextWeather; sleepInput = nextSleep; prepared = document
                 if !document.hasUsableFacts { errorMessage = String(localized: "No current briefing facts are available. Review your sources or try refreshing.", bundle: .module) }
                 return document
@@ -685,8 +763,16 @@ public final class MorningBriefingController {
         return snapshot.changeRevision == calendar.changeRevision
     }
 
+    /// Reading the same sample values again preserves still-current pinned prose.
+    /// A read that is now empty or failed invalidates the earlier observation.
+    private func sameSleepRead(_ first: SleepBriefingInput, _ second: SleepBriefingInput) -> Bool {
+        if case .snapshot(let lhs) = first, case .snapshot(let rhs) = second { return lhs.samples == rhs.samples }
+        return first == second
+    }
+
     private func invalidateWork(clearChoices: Bool) {
         revision = UUID()
+        cancelHealthConnection()
         refreshAttempt = nil; accessAttempt = nil; searchAttempt = nil; suggestionAttempt = nil
         refreshTask?.cancel(); accessTask?.cancel(); searchTask?.cancel(); suggestionTask?.cancel()
         refreshTask = nil; accessTask = nil; searchTask = nil; suggestionTask = nil; preparingKey = nil
@@ -694,6 +780,7 @@ public final class MorningBriefingController {
         prepared = nil; calendarInput = .notConfigured; weatherInput = .notConfigured; sleepInput = .excluded
         lastWeatherAttemptAt = nil
         calendarPlaybackAdmissions = [:]
+        sleepPlaybackRevision = UUID(); sleepPlaybackAdmissions = [:]
         cityQuery = ""; cityResults = []; citySuggestions = []; citySearchOutcome = nil
         if clearChoices { calendarChoices = []; weather.forgetCitySuggestions() }
     }
@@ -738,6 +825,18 @@ public final class MorningBriefingController {
         return String(localized: "Briefing data is unavailable. Check your sources and local privacy settings.", bundle: .module)
     }
 
+    private func healthMessage(_ error: any Error) -> String {
+        if error is MorningBriefingControllerError { return safeMessage(error) }
+        return switch error as? SleepObservationError {
+        case .unavailableOnDevice:
+            String(localized: "Health data is not available on this device.", bundle: .module)
+        case .notConnected, .missingUsageDescription:
+            String(localized: "Sleep reading is not available in this version.", bundle: .module)
+        case nil:
+            String(localized: "Health access could not be prepared. Try again in Settings.", bundle: .module)
+        }
+    }
+
     private struct PreparationKey: Equatable {
         let settings: MorningBriefingSettings
         let weatherLocation: WeatherLocation?
@@ -747,6 +846,11 @@ public final class MorningBriefingController {
 
     private struct CalendarPlaybackAdmission {
         let changeRevision: UInt64
+        let validUntil: Date
+    }
+
+    private struct SleepPlaybackAdmission {
+        let revision: UUID
         let validUntil: Date
     }
 }

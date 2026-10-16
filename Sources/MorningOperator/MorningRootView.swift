@@ -222,6 +222,7 @@ struct MorningRootView: View {
             updateScreenAwake()
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
+                store.briefing.invalidateHealthForForeground()
                 store.briefing.cancelLocationRequest()
                 store.permissionSetup.cancelForBackground()
                 externalAppDeparture = store.externalAppDeparture

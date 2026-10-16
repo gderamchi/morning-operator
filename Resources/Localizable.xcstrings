@@ -16230,6 +16230,23 @@
           }
         }
       }
+    },
+    "Added as a draft. Review and approve your routine.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added as a draft. Review and approve your routine."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouté comme brouillon. Relisez et approuvez votre routine."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

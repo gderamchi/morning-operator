@@ -52,6 +52,8 @@ targets:
         product: MorningCore
       - package: MorningOperatorShared
         product: MorningApple
+      - package: MorningOperatorShared
+        product: MorningHealth
       - target: MorningActivityWidget
         embed: true
         link: false
