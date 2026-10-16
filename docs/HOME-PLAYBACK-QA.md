@@ -1,6 +1,10 @@
 # Home routine playback — 16 October 2026
 
-## Current design: two transient glass controls
+## Current design: floating glass glyphs
+
+The fourth review removes the enclosing circles. Native Liquid Glass follows the rounded Play triangle, the two Pause bars and the Settings gear itself, including its open center. No capsule, plate or extra SF Symbol sits behind or above the material. The visible glyphs are 48/28 points; the invisible touch targets remain 88/48 points. The opaque accessibility fallback uses the same glyph silhouettes. Placement, five-second lifetime and navigation are unchanged.
+
+## Earlier design and installation: build 1537
 
 The owner's third review removes the idle Home panel too. A tap reveals only an 88-point central Play button and a 48-point Settings button at the top right, using the existing native Liquid Glass surface. Both disappear after five seconds without interaction; VoiceOver keeps revealed controls available. During playback, the central button becomes Pause/Resume. No close, Next, overflow menu, heading or countdown appears on Home. Reduced Transparency receives the existing opaque system surface.
 

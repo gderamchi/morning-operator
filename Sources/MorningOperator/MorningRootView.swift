@@ -1338,11 +1338,8 @@ private struct MorningSunHome: View {
                         actionsShown = false
                         begin()
                     } label: {
-                        MorningNavigationSurface(prefersOpaque: strongInk) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 30, weight: .medium))
-                                .frame(width: 88, height: 88)
-                        }
+                        MorningFloatingGlassSymbol(symbol: .play, size: 48, prefersOpaque: strongInk)
+                            .frame(width: 88, height: 88).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(isFrench ? "Commencer mon matin" : "Start my morning")
@@ -1354,11 +1351,8 @@ private struct MorningSunHome: View {
                         actionsShown = false
                         openSettings()
                     } label: {
-                        MorningNavigationSurface(prefersOpaque: strongInk) {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 20, weight: .medium))
-                                .frame(width: 48, height: 48)
-                        }
+                        MorningFloatingGlassSymbol(symbol: .settings, size: 28, prefersOpaque: strongInk)
+                            .frame(width: 48, height: 48).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(isFrench ? "Paramètres" : "Settings")

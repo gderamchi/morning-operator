@@ -29,25 +29,74 @@ struct MorningDockGlyph: View {
     }
 }
 
-/// Native capsule surfaces for navigation and inline Home playback.
-/// Reduce Transparency receives an opaque system surface.
-struct MorningNavigationSurface<Content: View>: View {
-    /// Also lets native component previews exercise the opaque fallback without
-    /// changing the person's system accessibility preferences.
+/// The symbol itself is glass; its parent button supplies the larger touch target.
+struct MorningFloatingGlassSymbol: View {
+    let symbol: MorningDockSymbol
+    let size: CGFloat
     var prefersOpaque = false
-    @ViewBuilder var content: Content
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        if reduceTransparency || prefersOpaque {
-            content
-                .background(.background, in: Capsule())
-                .overlay(Capsule().stroke(Color.primary.opacity(0.16), lineWidth: 1))
-        } else if #available(iOS 26.0, macOS 26.0, *) {
-            content.glassEffect(.regular, in: Capsule())
-        } else {
-            content.background(.regularMaterial, in: Capsule())
+        let shape = MorningGlassSymbolShape(symbol: symbol)
+        Group {
+            if reduceTransparency || prefersOpaque {
+                shape.fill(.primary)
+            } else if #available(iOS 26.0, macOS 26.0, *) {
+                shape.fill(.clear)
+                    .glassEffect(.regular.tint(Color.primary.opacity(0.12)), in: shape)
+            } else {
+                shape.fill(.regularMaterial)
+            }
         }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct MorningGlassSymbolShape: Shape {
+    let symbol: MorningDockSymbol
+
+    func path(in rect: CGRect) -> Path {
+        let side = min(rect.width, rect.height)
+        let box = CGRect(x: rect.midX - side / 2, y: rect.midY - side / 2, width: side, height: side)
+        switch symbol {
+        case .play:
+            return roundedPath([
+                CGPoint(x: box.minX + side * 0.10, y: box.minY + side * 0.04),
+                CGPoint(x: box.maxX - side * 0.02, y: box.midY),
+                CGPoint(x: box.minX + side * 0.10, y: box.maxY - side * 0.04)
+            ], radius: side * 0.08)
+        case .pause:
+            var path = Path()
+            for offset in [0.20, 0.58] {
+                path.addRoundedRect(in: CGRect(x: box.minX + side * offset, y: box.minY + side * 0.06,
+                                               width: side * 0.22, height: side * 0.88),
+                                    cornerSize: CGSize(width: side * 0.05, height: side * 0.05))
+            }
+            return path
+        case .settings:
+            let points = (0..<32).map { index in
+                let angle = CGFloat(index) * .pi / 16 - .pi / 2
+                let radius = side * (index % 4 == 1 || index % 4 == 2 ? 0.50 : 0.40)
+                return CGPoint(x: box.midX + cos(angle) * radius, y: box.midY + sin(angle) * radius)
+            }
+            let outline = roundedPath(points, radius: side * 0.025)
+            let hole = Path(ellipseIn: box.insetBy(dx: side * 0.30, dy: side * 0.30))
+            return outline.subtracting(hole)
+        default:
+            return Path()
+        }
+    }
+
+    private func roundedPath(_ points: [CGPoint], radius: CGFloat) -> Path {
+        var path = Path()
+        guard let first = points.first, let last = points.last else { return path }
+        path.move(to: CGPoint(x: (last.x + first.x) / 2, y: (last.y + first.y) / 2))
+        for index in points.indices {
+            path.addArc(tangent1End: points[index], tangent2End: points[(index + 1) % points.count], radius: radius)
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
