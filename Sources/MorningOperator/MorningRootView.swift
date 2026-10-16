@@ -1345,6 +1345,7 @@ private struct MorningSunHome: View {
                 if let playback {
                     VStack(spacing: 0) {
                         playback
+                            .shadow(color: night > 0.5 ? .black.opacity(0.65) : .clear, radius: 2, y: 1)
                         if let attribution = clock.weatherAttribution, !weatherSynthetic {
                             weatherCredit(attribution, night: night)
                                 .frame(maxWidth: .infinity, alignment: .leading)
