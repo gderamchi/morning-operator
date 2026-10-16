@@ -230,6 +230,43 @@ public final class ScreenRecordingService {
     public var maximumDurationSeconds: Int { selectedDuration.rawValue }
     public var remainingSeconds: Int { max(0, maximumDurationSeconds - elapsedSeconds) }
 
+    /// Presentation only: capture ownership, finalization and retained media are untouched.
+    public func appLanguageDidChange() {
+        switch state {
+        case .idle:
+            message = String(localized: "Choose what to share using Apple's screen-recording picker.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .choosing:
+            message = String(localized: "Confirm screen sharing in the system picker to begin.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .starting:
+            message = String(localized: "Starting your screen recording…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .recording:
+            message = String(localized: "Go through your morning. Recording stops after \(selectedDuration.displayName), or you can stop it sooner.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .stopping:
+            if startPending {
+                message = String(localized: "Waiting for the system recording request to finish. Any late start will be stopped.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            } else if needsStopRetry && !streamStopped {
+                message = String(localized: "Stop hasn't been confirmed. Retry Stop or stop recording using the system controls.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            } else if needsStopRetry {
+                message = finalization.discardRequested
+                    ? String(localized: "Screen capture stopped. Waiting for the recording to finish closing before it can be removed. Retry cleanup after it closes.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                    : String(localized: "Screen capture stopped. The recording is still closing and is being kept. Wait or retry Stop; it will be available after it finishes closing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            } else if streamStopped {
+                message = String(localized: "Screen capture has stopped. Finishing the recording…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            } else {
+                message = String(localized: "Stopping and saving your recording…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            }
+        case .ready:
+            message = String(localized: "Your recording is ready to review.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            if recordingInterruption != nil {
+                message += " " + String(localized: "The system interrupted this recording. It may cover only part of your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            }
+        case .failed:
+            message = temporaryURL != nil
+                ? String(localized: "The app-owned recording couldn't be removed. Retry discarding it. \("")", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                : String(localized: "Screen recording failed. Check the recording controls before trying again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        }
+    }
+
     public var isBusy: Bool { [.choosing, .starting, .recording, .stopping].contains(state) }
     /// Conservative lifecycle signal: a start, active capture, or shutdown may still be pending.
     /// `.recording` separately means the recording output acknowledged its start.

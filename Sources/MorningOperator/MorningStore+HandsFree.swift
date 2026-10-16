@@ -309,6 +309,9 @@ extension MorningStore {
         nativeMoment.appLanguageDidChange()
         slackReply.appLanguageDidChange()
         invitation.appLanguageDidChange()
+        #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
+        if #available(iOS 27.0, *) { ScreenRecordingService.shared.appLanguageDidChange() }
+        #endif
         refreshConnectedPresentationLanguage()
         refreshStoredPresentationLanguage()
         briefing.appLanguageDidChange()

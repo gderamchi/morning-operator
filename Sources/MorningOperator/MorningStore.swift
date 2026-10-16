@@ -123,6 +123,27 @@ private extension WorkspaceSnapshot {
     }
 }
 
+/// Retain privacy outcomes and their original error objects, not translated snapshots.
+private enum PrivacyNotice {
+    case finishingRemoval, controlsUnreadable(any Error), removalDidNotStart(any Error)
+    case removing, removed, removalFailed(any Error), activityLogging(Bool), loggingSaveFailed(any Error)
+
+    var text: String {
+        switch self {
+        case .finishingRemoval: String(localized: "Finishing the removal you requested. Saved data stays unavailable until cleanup completes.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .controlsUnreadable(let error): String(localized: "The local data controls couldn't be read. Open Privacy to retry removing local data. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .removalDidNotStart(let error): String(localized: "Removal couldn't start. No saved data was removed by this attempt. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .removing: String(localized: "Stopping work and removing local data…", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .removed: String(localized: "MORE’s local data was removed. App activity logging is off.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .removalFailed(let error): String(localized: "Removal needs another try. Some local data may already be gone; remaining data stays unavailable. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .activityLogging(let allowed): allowed
+            ? String(localized: "Your configured Shortcuts can save new app activity.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            : String(localized: "New app activity will no longer be saved. Existing activity stays until you remove local data.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .loggingSaveFailed(let error): String(localized: "This setting couldn't be saved. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        }
+    }
+}
+
 @MainActor @Observable
 final class MorningStore {
     var tab: MorningTab = .today
@@ -368,7 +389,8 @@ final class MorningStore {
     private(set) var privacyIsForgetting = false
     private(set) var privacyNeedsCleanup = false
     private(set) var privacyHasInterruptedRemoval = false
-    private(set) var privacyStatus: String?
+    private var privacyNotice: PrivacyNotice?
+    var privacyStatus: String? { privacyNotice?.text }
     private(set) var privacyCompletedID: UUID?
     private(set) var activityLoggingAllowed = true
     var privacyBlocksWork: Bool { privacyIsForgetting || privacyNeedsCleanup }
@@ -400,12 +422,12 @@ final class MorningStore {
             if control.forgetPending {
                 privacyHasInterruptedRemoval = true
                 privacyNeedsCleanup = true
-                privacyStatus = String(localized: "Finishing the removal you requested. Saved data stays unavailable until cleanup completes.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                privacyNotice = .finishingRemoval
                 return
             }
         } catch {
             privacyNeedsCleanup = true
-            privacyStatus = String(localized: "The local data controls couldn't be read. Open Privacy to retry removing local data. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            privacyNotice = .controlsUnreadable(error)
             return
         }
         do {
@@ -647,9 +669,6 @@ final class MorningStore {
         }
         if morningActivityIssue != nil {
             morningActivityIssue = String(localized: "Lock Screen progress couldn't update. Open MORE to check your morning.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-        }
-        if privacyNeedsCleanup || privacyHasInterruptedRemoval {
-            privacyStatus = String(localized: "Local data removal needs attention. Open Privacy to finish it.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
         if busy { cancelAnalysis() }
     }
@@ -2724,7 +2743,7 @@ final class MorningStore {
         do {
             control = try privacyControl.beginForget()
         } catch {
-            privacyStatus = String(localized: "Removal couldn't start. No saved data was removed by this attempt. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            privacyNotice = .removalDidNotStart(error)
             return
         }
         guard let generation = control.generation else { return }
@@ -2733,7 +2752,7 @@ final class MorningStore {
         privacyNeedsCleanup = true
         activityLoggingAllowed = false
         dataGeneration = generation
-        privacyStatus = String(localized: "Stopping work and removing local data…", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        privacyNotice = .removing
         showMorningOnLockScreen = false
         morningActivityStartSessionID = nil
         morningActivityStartRequestID = nil
@@ -2835,14 +2854,14 @@ final class MorningStore {
             privacyNeedsCleanup = false
             privacyHasInterruptedRemoval = false
             privacyIsForgetting = false
-            privacyStatus = String(localized: "MORE’s local data was removed. App activity logging is off.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            privacyNotice = .removed
             privacyCompletedID = UUID()
             connectRecordingRecovery()
         } catch {
             // Cleanup can be partial. Keep the durable marker and do not claim
             // either complete removal or preservation of the original workspace.
             privacyIsForgetting = false
-            privacyStatus = String(localized: "Removal needs another try. Some local data may already be gone; remaining data stays unavailable. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            privacyNotice = .removalFailed(error)
         }
     }
 
@@ -2851,8 +2870,8 @@ final class MorningStore {
         do {
             try privacyControl.setActivityLoggingAllowed(allowed)
             activityLoggingAllowed = allowed
-            privacyStatus = allowed ? String(localized: "Your configured Shortcuts can save new app activity.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "New app activity will no longer be saved. Existing activity stays until you remove local data.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-        } catch { privacyStatus = String(localized: "This setting couldn't be saved. \(error.moreDescription)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+            privacyNotice = .activityLogging(allowed)
+        } catch { privacyNotice = .loggingSaveFailed(error) }
     }
 
     private func removeOwnedPayload(_ url: URL) throws {

@@ -7061,6 +7061,22 @@
           }
         }
       }
+    },
+    "Screen recording failed. Check the recording controls before trying again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen recording failed. Check the recording controls before trying again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’enregistrement a échoué. Vérifiez ses commandes avant de réessayer."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
