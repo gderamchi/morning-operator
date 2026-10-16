@@ -309,6 +309,7 @@ extension MorningStore {
         nativeMoment.appLanguageDidChange()
         slackReply.appLanguageDidChange()
         refreshConnectedPresentationLanguage()
+        refreshStoredPresentationLanguage()
         briefing.appLanguageDidChange()
         clearLanguageDependentPlayback()
         refreshCapabilities()

@@ -579,9 +579,9 @@ enum OwnInterfaceWording {
             shown("You're in control", fr: "C’est vous qui décidez")
         ]),
         Screen(name: "Voice", copy: [
-            earlier("Your choice applies to spoken morning steps", "Votre choix s’applique aux étapes lues à voix haute"),
             part("Your choice applies to spoken morning steps", fr: "Votre choix s’applique aux moments lus à voix haute",
-                 of: "Matches MORE’s language, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps."),
+                 of: "Matches MORE’s language, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps.",
+                 earlier: "Votre choix s’applique aux étapes lues à voix haute"),
             part("These are Apple system speech voices; Siri may use a different voice",
                  fr: "Ce sont les voix système d’Apple ; Siri peut utiliser une voix différente",
                  of: "Listen through your current audio output. These are Apple system speech voices; Siri may use a different voice."),

@@ -62,7 +62,7 @@ struct ObservationNarrationView: View {
                         Text(playing ? store.speech.statusText : (store.speech.lastError ?? String(localized: "Ready when you are", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .accessibilityIdentifier("narration.playback")
-                            .accessibilityValue(playing ? store.speech.state.rawValue : "idle")
+                            .accessibilityValue(playing ? store.speech.statusText : String(localized: "Ready when you are", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                         Button(added ? String(localized: "Added to your draft", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Add to my morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
                             stopPreview()
                             added = store.addObservationNarration(prepared)

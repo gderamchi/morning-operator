@@ -84,6 +84,12 @@
             "state": "translated",
             "value": "+2 min"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+2 min"
+          }
         }
       }
     },
@@ -93,6 +99,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajouter deux minutes"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add two minutes"
           }
         }
       }
@@ -104,6 +116,12 @@
             "state": "translated",
             "value": "Ajouter deux minutes à l’étape en cours."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add two minutes to the current morning step."
+          }
         }
       }
     },
@@ -113,6 +131,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fin affichée"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Displayed end"
           }
         }
       }
@@ -124,6 +148,12 @@
             "state": "translated",
             "value": "Terminer"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish"
+          }
         }
       }
     },
@@ -134,6 +164,12 @@
             "state": "translated",
             "value": "Dernière mise à jour"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last update"
+          }
         }
       }
     },
@@ -143,6 +179,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dernière mise à jour %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last update %@"
           }
         }
       }
@@ -190,6 +232,12 @@
             "state": "translated",
             "value": "Suivant"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
         }
       }
     },
@@ -199,6 +247,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ouvrir MORE"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open MORE"
           }
         }
       }
@@ -210,6 +264,12 @@
             "state": "translated",
             "value": "Ouvrez MORE pour mettre à jour."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open MORE to update."
+          }
         }
       }
     },
@@ -220,12 +280,24 @@
             "state": "translated",
             "value": "Ouvre l’écran Matinée de MORE."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens MORE's Morning screen."
+          }
         }
       }
     },
     "Session": {
       "localizations": {
         "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session"
+          }
+        },
+        "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Session"
@@ -240,6 +312,12 @@
             "state": "translated",
             "value": "Étape"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step"
+          }
         }
       }
     },
@@ -249,6 +327,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucun minuteur d’étape en cours."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no current step timer."
           }
         }
       }
@@ -260,6 +344,12 @@
             "state": "translated",
             "value": "Cette étape a atteint sa limite de prolongation."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This step has reached its extension limit."
+          }
         }
       }
     },
@@ -269,6 +359,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ce minuteur est indisponible."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This step timer is unavailable."
           }
         }
       }
@@ -280,6 +376,12 @@
             "state": "translated",
             "value": "Ce minuteur a déjà changé."
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This timer already changed."
+          }
         }
       }
     },
@@ -289,6 +391,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deux minutes ajoutées."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Two minutes added."
           }
         }
       }
@@ -300,6 +408,12 @@
             "state": "translated",
             "value": "Mise à jour nécessaire"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update needed"
+          }
         }
       }
     },
@@ -309,6 +423,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mise à jour nécessaire. Ouvrez MORE."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update needed. Open MORE."
           }
         }
       }

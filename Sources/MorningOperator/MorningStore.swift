@@ -630,6 +630,30 @@ final class MorningStore {
     var hasPendingRecording: Bool { pendingRecordingURL != nil }
     var canStartRecording: Bool { storageIsAvailable && !busy && !sessionActive && !hasPendingRecording }
 
+    func refreshStoredPresentationLanguage() {
+        if screenTimeMessage != nil { screenTimeMessage = screenTimeAccessExplanation }
+        if observationSaveIssue != nil {
+            observationSaveIssue = String(localized: "Your observation has unsaved changes. Retry saving before continuing.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        }
+        if observationIssue != nil {
+            observationIssue = String(localized: "Your saved recording needs attention. Review it before trying again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        }
+        if routinePreferencesIssue != nil {
+            routinePreferencesIssue = String(localized: "Your saved choices need review. Your routine is intact. Reset saved choices before making new suggestions.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        }
+        if snapshotRecoveryError != nil {
+            snapshotRecoveryError = String(localized: "Your saved workspace could not be restored. Its file is protected from changes.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            notice = snapshotRecoveryError
+        }
+        if morningActivityIssue != nil {
+            morningActivityIssue = String(localized: "Lock Screen progress couldn't update. Open MORE to check your morning.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        }
+        if privacyNeedsCleanup || privacyHasInterruptedRemoval {
+            privacyStatus = String(localized: "Local data removal needs attention. Open Privacy to finish it.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        }
+        if busy { cancelAnalysis() }
+    }
+
     func clearLanguageDependentPlayback() { stepExecutor.clear() }
 
     var totalMinutes: Int { routine?.steps.reduce(0) { $0 + $1.durationMinutes } ?? 0 }
