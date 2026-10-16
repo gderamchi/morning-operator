@@ -18,6 +18,47 @@ struct ComposioServiceTests {
         #expect(calls == 0)
     }
 
+    @Test func supportCodeIdentifiesOnlyTheExistingTokenWithoutNetworking() throws {
+        var calls = 0
+        let store = MemoryTokenStore(token: token)
+        let service = ComposioService(baseURL: baseURL, tokenStore: store, executionStore: MemoryTokenStore()) { request in
+            calls += 1; return reply(request, #"{}"#)
+        }
+        let code = try #require(try service.existingInstallationSupportCode())
+        #expect(code == "52537b5bfd28338f7c9c934a")
+        #expect(code.count == 24 && code.allSatisfy { $0.isHexDigit })
+        #expect(try service.existingInstallationSupportCode() == code)
+        #expect(code != token && store.token == token && store.saveCount == 0 && calls == 0)
+    }
+
+    @Test func missingSupportTokenDoesNotEnrollAnInstallation() throws {
+        var calls = 0
+        let store = MemoryTokenStore()
+        let service = ComposioService(baseURL: baseURL, tokenStore: store, executionStore: MemoryTokenStore()) { request in
+            calls += 1; return reply(request, #"{}"#)
+        }
+        #expect(try service.existingInstallationSupportCode() == nil)
+        #expect(store.token == nil && store.saveCount == 0 && calls == 0)
+    }
+
+    @Test func supportCodeStorageErrorNeverExposesTheBearer() throws {
+        var calls = 0
+        let store = MemoryTokenStore(token: token)
+        store.readError = NSError(domain: "Synthetic private credential", code: 1,
+                                  userInfo: [NSLocalizedDescriptionKey: token])
+        let service = ComposioService(baseURL: baseURL, tokenStore: store, executionStore: MemoryTokenStore()) { request in
+            calls += 1; return reply(request, #"{}"#)
+        }
+        do {
+            _ = try service.existingInstallationSupportCode()
+            Issue.record("A failed secure-store read must not produce a support code.")
+        } catch {
+            #expect(error as? ComposioServiceError == .credentialsUnavailable)
+            #expect(!error.localizedDescription.contains(token))
+        }
+        #expect(store.saveCount == 0 && calls == 0)
+    }
+
     @Test func installationIsAnonymousThenRequestsUseOnlyPerInstallationBearer() async throws {
         var requests: [URLRequest] = []
         let store = MemoryTokenStore()
@@ -198,9 +239,14 @@ struct ComposioServiceTests {
 private final class MemoryTokenStore: ComposioTokenStoring {
     var token: String?
     var clearCount = 0
+    var saveCount = 0
+    var readError: (any Error)?
     init(token: String? = nil) { self.token = token }
-    func load() throws -> String? { token }
-    func save(_ token: String) throws { self.token = token }
+    func load() throws -> String? {
+        if let readError { throw readError }
+        return token
+    }
+    func save(_ token: String) throws { self.token = token; saveCount += 1 }
     func clear() throws { token = nil; clearCount += 1 }
 }
 

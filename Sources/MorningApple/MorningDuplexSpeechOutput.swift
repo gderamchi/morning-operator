@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import MorningCore
 
 /// Synthesis completion is not playback completion. A canceled/replaced chunk can
 /// never complete a newer narration through a late player or synthesis callback.
@@ -43,7 +44,7 @@ final class MorningDuplexSpeechOutput {
     private let engine: AVAudioEngine
     private let player = AVAudioPlayerNode()
     private let synthesizer = AVSpeechSynthesizer()
-    private var format: AVAudioFormat?
+    private let format: AVAudioFormat
     private var programID: UUID?
     private var task: Task<Void, Never>?
     private var continuation: CheckedContinuation<Void, any Error>?
@@ -54,11 +55,39 @@ final class MorningDuplexSpeechOutput {
     private var isPaused = false
     private var onChunkStarted: (@MainActor (String) -> Void)?
     private var pendingCaption: String?
+    private var dataCompletion: (@MainActor (Result<Void, any Error>) -> Void)?
+    private var dataStarted: (@MainActor () -> Void)?
     private static let maximumQueuedBytes = 16 * 1_024 * 1_024
 
-    init(engine: AVAudioEngine) {
+    init(engine: AVAudioEngine) throws {
+        let format = engine.inputNode.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else { throw SpeechAudioPCM.unavailable() }
         self.engine = engine
+        self.format = format
         engine.attach(player)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try engine.connectNode(player, to: engine.outputNode, format: format)
+        } else { engine.connect(player, to: engine.outputNode, format: format) }
+    }
+
+    func play(data: Data, startPaused: Bool = false,
+              onStarted: @escaping @MainActor (TimeInterval) -> Void,
+              completion: @escaping @MainActor (Result<Void, any Error>) -> Void) throws {
+        cancel()
+        let buffer = try SpeechAudioPCM.convert(SpeechAudioPCM.decode(data), to: format)
+        let bytes = SpeechAudioPCM.byteCount(buffer)
+        guard engine.isRunning, bytes <= Self.maximumQueuedBytes else { throw SpeechAudioPCM.unavailable() }
+        let id = UUID(), duration = Double(buffer.frameLength) / format.sampleRate
+        programID = id; ledger.begin(id)
+        guard ledger.scheduled(0, id: id) else { throw SpeechAudioPCM.unavailable() }
+        _ = ledger.synthesized(id: id)
+        scheduledBytes[0] = bytes; dataCompletion = completion
+        dataStarted = { onStarted(duration) }; isPaused = startPaused
+        let playedBuffer: @Sendable (AVAudioPlayerNodeCompletionCallbackType) -> Void = { [weak self] _ in
+            Task { @MainActor [weak self] in self?.played(0, id: id) }
+        }
+        player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack, completionHandler: playedBuffer)
+        startPlayback()
     }
 
     func play(_ text: String, voice: AVSpeechSynthesisVoice,
@@ -106,9 +135,11 @@ final class MorningDuplexSpeechOutput {
         programID = nil; task?.cancel(); task = nil; ledger.cancel()
         packets.removeAll(); scheduledBytes.removeAll(); onChunkStarted = nil; pendingCaption = nil
         let waiting = continuation; continuation = nil
+        let dataWaiting = dataCompletion; dataCompletion = nil; dataStarted = nil
         player.stop(); synthesizer.stopSpeaking(at: .immediate)
         isPaused = false
         waiting?.resume(throwing: CancellationError())
+        dataWaiting?(.failure(CancellationError()))
     }
 
     func detach() {
@@ -151,19 +182,18 @@ final class MorningDuplexSpeechOutput {
                   scheduledBytes.values.reduce(0, +) + packet.byteCount <= Self.maximumQueuedBytes else {
                 failChunk(); return
             }
-            if format?.isEqual(buffer.format) != true {
-                guard scheduledBytes.isEmpty else { failChunk(); return }
-                engine.disconnectNodeOutput(player)
-                engine.connect(player, to: engine.mainMixerNode, format: buffer.format)
-                format = buffer.format
-            }
+            let playback: AVAudioPCMBuffer
+            do { playback = try SpeechAudioPCM.convert(buffer, to: format) }
+            catch { failChunk(); return }
+            let bytes = SpeechAudioPCM.byteCount(playback)
+            guard scheduledBytes.values.reduce(0, +) + bytes <= Self.maximumQueuedBytes else { failChunk(); return }
             guard ledger.scheduled(packet.sequence, id: id) else { failChunk(); return }
-            scheduledBytes[packet.sequence] = packet.byteCount
+            scheduledBytes[packet.sequence] = bytes
             let sequence = packet.sequence
             let playedBuffer: @Sendable (AVAudioPlayerNodeCompletionCallbackType) -> Void = { [weak self] _ in
                 Task { @MainActor [weak self] in self?.played(sequence, id: id) }
             }
-            player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack, completionHandler: playedBuffer)
+            player.scheduleBuffer(playback, completionCallbackType: .dataPlayedBack, completionHandler: playedBuffer)
             startPlayback()
         }
     }
@@ -171,6 +201,7 @@ final class MorningDuplexSpeechOutput {
     private func startPlayback() {
         guard !isPaused, !scheduledBytes.isEmpty else { return }
         player.play()
+        let started = dataStarted; dataStarted = nil; started?()
         if let pendingCaption {
             self.pendingCaption = nil
             onChunkStarted?(pendingCaption)
@@ -186,6 +217,10 @@ final class MorningDuplexSpeechOutput {
     private func finishChunk() {
         let waiting = continuation; continuation = nil
         player.stop(); packets.removeAll(); scheduledBytes.removeAll()
+        if let completed = dataCompletion {
+            dataCompletion = nil; dataStarted = nil; programID = nil
+            completed(.success(()))
+        }
         waiting?.resume()
     }
 
@@ -193,7 +228,11 @@ final class MorningDuplexSpeechOutput {
         ledger.cancel(); packets.removeAll(); scheduledBytes.removeAll()
         let waiting = continuation; continuation = nil
         player.stop(); synthesizer.stopSpeaking(at: .immediate)
-        waiting?.resume(throwing: SpeechPlaybackError.audioUnavailable("Duplex speech output could not finish safely."))
+        if let completed = dataCompletion {
+            dataCompletion = nil; dataStarted = nil; programID = nil
+            completed(.failure(SpeechAudioPCM.unavailable()))
+        }
+        waiting?.resume(throwing: SpeechPlaybackError.audioUnavailable(AppLanguage.localized("Audio output could not finish safely.", bundle: .module)))
     }
 }
 
@@ -237,5 +276,66 @@ private final class DuplexSpeechIngress: @unchecked Sendable {
             memcpy(output, input, Int(inputs[bufferIndex].mDataByteSize))
         }
         return .init(sequence: index, buffer: owned, byteCount: bytes, isValid: true)
+    }
+}
+
+/// Bounded decoding of synthesized output only. Microphone buffers never enter this path.
+@MainActor
+enum SpeechAudioPCM {
+    static func unavailable() -> SpeechPlaybackError {
+        .audioUnavailable(AppLanguage.localized("Audio output could not be prepared.", bundle: .module))
+    }
+
+    static func decode(_ data: Data) throws -> AVAudioPCMBuffer {
+        guard !data.isEmpty, data.count <= 16 * 1_024 * 1_024 else { throw unavailable() }
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("more-speech-\(UUID().uuidString).audio")
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        #if os(iOS)
+        try data.write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        #else
+        try data.write(to: fileURL, options: .atomic)
+        #endif
+        let file = try AVAudioFile(forReading: fileURL)
+        let format = file.processingFormat
+        let bytesPerFrame = Double(format.streamDescription.pointee.mBytesPerFrame) * Double(format.isInterleaved ? 1 : format.channelCount)
+        guard file.length > 0, file.length <= 12_000_000,
+              bytesPerFrame > 0, file.processingFormat.channelCount <= 2,
+              Double(file.length) * bytesPerFrame <= 64 * 1_024 * 1_024,
+              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
+            throw unavailable()
+        }
+        try file.read(into: buffer)
+        guard buffer.frameLength > 0 else { throw unavailable() }
+        return buffer
+    }
+
+    static func byteCount(_ buffer: AVAudioPCMBuffer) -> Int {
+        UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList).reduce(0) { $0 + Int($1.mDataByteSize) }
+    }
+
+    static func convert(_ input: AVAudioPCMBuffer, to format: AVAudioFormat) throws -> AVAudioPCMBuffer {
+        guard input.frameLength > 0, input.frameLength <= 12_000_000,
+              input.format.sampleRate > 0, format.sampleRate > 0, format.channelCount > 0 else { throw unavailable() }
+        if input.format.isEqual(format) { return input }
+        guard let converter = AVAudioConverter(from: input.format, to: format) else { throw unavailable() }
+        let ratio = format.sampleRate / input.format.sampleRate
+        let prime = Double(converter.primeInfo.leadingFrames) + Double(converter.primeInfo.trailingFrames)
+        let capacity = ceil((Double(input.frameLength) + prime) * ratio) + 32
+        let bytesPerFrame = Double(format.streamDescription.pointee.mBytesPerFrame) * Double(format.isInterleaved ? 1 : format.channelCount)
+        guard capacity.isFinite, capacity > 0, capacity <= 12_000_000,
+              bytesPerFrame > 0, capacity * bytesPerFrame <= 64 * 1_024 * 1_024,
+              let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(capacity)) else {
+            throw unavailable()
+        }
+        var supplied = false
+        var failure: NSError?
+        let status = converter.convert(to: output, error: &failure) { _, status in
+            guard !supplied else { status.pointee = .endOfStream; return nil }
+            supplied = true; status.pointee = .haveData
+            return input
+        }
+        if let failure { throw failure }
+        guard status != .error, output.frameLength > 0 else { throw unavailable() }
+        return output
     }
 }

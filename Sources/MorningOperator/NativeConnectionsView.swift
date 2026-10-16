@@ -130,6 +130,14 @@ struct NativeConnectionsView: View {
                 service.readUpcomingReminders()
             }.buttonStyle(PrimaryButtonStyle()).disabled(service.remindersBusy)
                 .accessibilityIdentifier("native.remindersRead")
+            #if canImport(UIKit)
+            if service.reminderAuthorization == .denied || service.reminderAuthorization == .restricted,
+               let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                Link(text("Open iPhone Settings", "Ouvrir les réglages de l’iPhone"), destination: settingsURL)
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("native.remindersSettings")
+            }
+            #endif
             if service.remindersBusy { ProgressView(text("Reading reminders…", "Lecture des rappels…")) }
             if let readAt = service.remindersReadAt {
                 Text(text("Read at \(readAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(AppLanguage.locale)))", "Lus à \(readAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(AppLanguage.locale)))"))

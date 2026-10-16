@@ -198,7 +198,7 @@ public final class MorningHandsFreeVoiceCoordinator {
         let audioTap: @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void = { [sink] buffer, _ in sink.append(buffer) }
         input.installTap(onBus: 0, bufferSize: 1_024, format: format, block: audioTap)
         hasTap = true
-        speech?.setHandsFreeOutput(MorningDuplexSpeechOutput(engine: engine))
+        speech?.setHandsFreeOutput(try MorningDuplexSpeechOutput(engine: engine))
         engine.prepare()
         try engine.start()
     }

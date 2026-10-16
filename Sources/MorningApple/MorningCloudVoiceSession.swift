@@ -53,7 +53,7 @@ public enum MorningCloudVoiceEvent: Sendable {
 /// The SDK stays in the app target; tests inject a transport that never opens a microphone.
 @MainActor public protocol MorningCloudVoiceTransport: AnyObject {
     var onEvent: (@MainActor (MorningCloudVoiceEvent) -> Void)? { get set }
-    func connect(token: String, language: String) async throws
+    func connect(token: String, language: String, voiceGender: MorningVoiceGender) async throws
     func updateContext(_ context: String) async throws
     func sendUserMessage(_ text: String) async throws
     func reply(to callID: String, result: String, isError: Bool) async throws
@@ -120,7 +120,8 @@ public final class MorningCloudVoiceSession {
     }
 
     /// Only call after the cloud audio purpose and selected context have been explained.
-    public func start(context: MorningCloudVoiceContext, language: String, consented: Bool) async {
+    public func start(context: MorningCloudVoiceContext, language: String, consented: Bool,
+                      voiceGender: MorningVoiceGender = .female) async {
         stop()
         french = language.hasPrefix("fr")
         guard consented else { fail(.consentRequired); return }
@@ -140,7 +141,7 @@ public final class MorningCloudVoiceSession {
                 let client = makeTransport()
                 transport = client
                 client.onEvent = { [weak self] event in self?.receive(event, attempt: id) }
-                try await client.connect(token: token, language: language)
+                try await client.connect(token: token, language: language, voiceGender: voiceGender)
                 try check(id)
                 try await client.updateContext(self.context.encoded)
                 try check(id)
@@ -275,7 +276,7 @@ public final class MorningCloudVoiceSession {
             onUserText?(bounded, turn)
         case .interruption: caption = nil; userCaption = nil; cancelNarration(); onInterruption?()
         case .tool(let call): handle(call, attempt: id)
-        case .ended: stop()
+        case .ended: fail(.unavailable)
         case .failed: fail(.unavailable)
         }
     }
@@ -404,6 +405,9 @@ public final class MorningCloudVoiceSession {
     }
 
     private func fail(_ error: MorningCloudVoiceError) {
+        // Preserve a provider failure for the narration's recovery policy.
+        // Deliberate stop, interruption and replacement remain cancellation.
+        cancelNarration(error: error)
         stop(); state = .failed
         errorMessage = error == .consentRequired
             ? (french ? "Choisissez explicitement la conversation en ligne avant de démarrer." : "Choose cloud conversation explicitly before starting.")

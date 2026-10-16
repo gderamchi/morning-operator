@@ -157,6 +157,9 @@
       "conversation_config_override": {
         "agent": {
           "language": true
+        },
+        "tts": {
+          "voice_id": true
         }
       }
     },
