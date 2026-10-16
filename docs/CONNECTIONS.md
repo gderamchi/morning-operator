@@ -17,10 +17,10 @@ The configured API services are **Gmail, Outlook, Google Calendar, Google Drive,
 
 | Connection / feature | Strongest recorded evidence | Still unproved |
 | --- | --- | --- |
-| Hosted connection backend | Fresh authenticated checks on 16 October: health/services/connections and all 16 catalogs returned 200; OAuth initiation returned 201 for all 15 missing providers. Wrong-installation access to the active Gmail account correctly returned 404. [Current ledger](CONNECTIONS-E2E-2026-10-16.md). | Ordinary app OAuth completion and a useful installation-bound provider operation remain unproved. Production account recovery, multi-device identity and public-release abuse controls remain incomplete. |
+| Hosted connection backend | Fresh ordinary iPhone → Worker service/account-inventory journey passed 1/1, with success-gated empty Notion state and no fixture/admin credential. Separate QA health/services/connections and all 16 catalogs returned 200; OAuth initiation returned 201 for all 15 missing providers. Wrong-installation Gmail access correctly returned 404. [Current ledger](CONNECTIONS-E2E-2026-10-16.md). | Ordinary app OAuth completion and a useful installation-bound provider operation remain unproved. Production account recovery, multi-device identity and public-release abuse controls remain incomplete. |
 | Composio Gmail | Real provider profile read and one unique self-send under the actual MORE project administrator API. Search before: zero; search after: exactly one. Readback confirmed the exact payload, only self as recipient, SENT label and matching receipt. | This administrator route bypasses the installation bearer and Worker execution journal. It does not prove app, native Gmail or spoken execution. |
 | Native Gmail | Real Google read/send consent, Inbox count and bounded unread headers, with saved-credential restoration after ordinary relaunch on physical builds 1530/1532. Earlier owner-confirmed message reading. [Gmail evidence](GMAIL-READING.md). | Real local drafting/dialogue and voice-directed sending with a confirmed provider receipt. No successful native or spoken send is recorded. Native consent does not authorize Composio Gmail. |
-| Apple Weather / current location | Ordinary physical builds 1539/1540 fetched real current-location conditions and detailed measurements; fresh-process build 1552 smoke again admitted Current location / Clear. [Physical report](LOCATION-WEATHER-QA.md#physical-iphone-acceptance--16-october-2026). | Full-day forecast/advice and the physical alternate-weather/accessibility matrix. Later Health build 1563 still needs its own regression check. |
+| Apple Weather / location | Final ordinary build 2026101611 completed a real Paris/France Maps search, WeatherKit read, attribution and measured-wind presentation; strengthened temporary-city cleanup and exact original-setting restoration passed. Older builds 1539/1540 and 1552 have current-GPS evidence. [Fresh ledger](CONNECTIONS-E2E-2026-10-16.md#final-combined-physical-check). | This installation has no admitted current-location source. Chosen-city proof does not establish personal GPS, a full-day forecast/advice or the alternate-weather/accessibility matrix. |
 | Apple Calendar / Reminders | Real readable Calendar inventory and Reminders read on 1532. A uniquely named QA reminder was created, freshly read, completed once and verified absent on 1535. [Acceptance ledger](ROUTINE-AUTOMATION-QA.md). | Real Calendar writes and spoken follow-ups. This bounded QA effect does not establish general event management or an entire autonomous routine. |
 | Screen Time | Real reader is implemented; owner-confirmed proposal approval and existing native access are recorded. [Coverage and capability boundary](SCREEN-TIME-INTEGRATION.md). | Recognition quality across more real mornings, distribution/region conditions and current-build regression. Aggregates do not reveal every tap, message or ordered gesture. |
 | Apple Health sleep | Main links the native reader and HealthKit capability. 100 focused package checks, two synthetic simulator journeys, strict signed build and in-place installed Health checkpoint are recorded. [Health acceptance](HEALTHKIT-SLEEP-ACCEPTANCE.md). | Actual sleep consent/data, displayed duration/window/source and matching audible recap remain pending. No recovery score or tracker-specific adapter exists. |
@@ -30,7 +30,28 @@ The configured API services are **Gmail, Outlook, Google Calendar, Google Drive,
 
 Fresh backend regression on the combined source (`4bd789f` integrated) passes **44/44, zero failures or skips**. The cause of [#196](https://github.com/gibouu/morning-operator/issues/196) was reproduced: a 100 ms fixture deadline expired while concurrent-success tests held their fake response for 150 ms. Success fixtures now have 2 seconds; deliberate timeout cases retain 100 ms, and duplicate-dispatch/durable-receipt assertions remain. The production 20-second deadline was unchanged. These synthetic checks remain separate from real provider acceptance.
 
+The final complete parallel Swift run on `02c6899` passes **1,956 tests, zero
+failures, seven optional integration skips** (1,963 total). Both earlier Vision
+failures actually passed. The extras deadline now uses an injectable clock with
+the same continuous-clock default, so its 49/50 ms regression remains valid under
+parallel actor load. Hosted CI is a separate pending check.
+
 Release access requires verified StoreKit entitlement. Four fresh ordinary physical runs through build 1703 failed to obtain the configured live offer; the normal paywall reported App Store unavailable. Native Gmail was consequently skipped in those runs. Main subsequently added the product-approved Debug developer entry: selecting its actual button permits functional service testing without asserting an Apple transaction. This entry never proves purchase, restore or eligibility. App Store Connect still requires owner authentication to inspect the actual product/account configuration. [#191](https://github.com/gibouu/morning-operator/issues/191) tracks the release gate; [the dated ledger](CONNECTIONS-E2E-2026-10-16.md#ordinary-physical-iphone-checkpoint) records the device checks. Earlier device/build claims below are historical.
+
+On ordinary physical build **2026101608**, the official Debug UI entry and
+Connections navigation were exercised. This installation exposed no saved native
+Gmail grant, no readable Calendar inventory and a Reminders permission CTA; those
+three read preconditions were skipped, not certified. Existing current-location
+weather also failed its admission check because neither location access nor a
+city was configured. These fresh observations take precedence over the older
+successful native reads in the table when describing this installation. No
+account, system permission or owner data was substituted to make them pass. A separate real public-city Maps → WeatherKit journey then passed **1/1** in 117.598 seconds; it removed the temporary city and restored the exact original source afterward. That proves chosen-city weather while preserving the current-location limitation.
+
+The final combined signed build **2026101611** repeated Weather and ordinary
+installation-authenticated Worker inventory: **2/2 passed**, zero failures/skips
+(111.511 and 21.077 seconds). Weather cleanup verified the city was absent before
+restoring the source. The app was launched again and its running process and
+installed version were checked. [Final evidence](CONNECTIONS-E2E-2026-10-16.md#final-combined-physical-check).
 
 ### Product gaps that matter next
 

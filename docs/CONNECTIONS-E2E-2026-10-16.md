@@ -255,6 +255,120 @@ state or Apple availability. [Issue #191](https://github.com/gibouu/morning-oper
 tracks that live release gate. No Apple account, agreement or billing settings
 were changed.
 
+### Ordinary Debug service checkpoint
+
+The final task binary **0.1.0 (2026101608)** built successfully, passed strict
+app/widget signature verification and was installed in place. Its four native
+capabilities were verified again. The physical suite selected the actual Debug
+developer-entry button, then opened normal Home → Settings → Apps & accounts.
+No test workspace, provider fixture, StoreKit transaction or system grant was
+injected. This entry persisted across fresh ordinary launches.
+
+| Ordinary physical check | Observed result |
+| --- | --- |
+| Saved native Gmail restoration | Skipped after 67.756 seconds: the screen exposed Connect Gmail, with no saved native grant or error. No Google consent was initiated. |
+| Existing Calendar inventory | Skipped after 33.936 seconds: no readable inventory was obtained; no permission or calendar selection changed. |
+| Existing Reminders read | Skipped after 11.250 seconds: the actual CTA required permission; no permission was requested or reminder completed. |
+| Existing current-location Weather | Failed after 31.453 seconds: Home explicitly required location access or a chosen city. This installation had no admitted weather source. |
+
+The initial Calendar/Reminders attempts failed before reaching either service
+because a single Home landscape tap did not expose Settings. A bounded helper
+now observes the auto-hiding controls after each attempt; both destinations
+became reachable and reported the skipped preconditions above. Production Home
+code was unchanged. The first physical selection therefore remains **three
+failures / one skip**; its two-case navigation retry is **two skips / zero
+failures**, not two successful provider reads. Real Health data, native/spoken
+Gmail sending and an ordinary cloud conversation remain unaccepted.
+
+### Real public-city Maps and Weather journey
+
+A separate ordinary physical test on build **2026101608** passed **1/1**, zero
+failures or skips, in **117.598 seconds** (122.535 elapsed). It read the actual
+weather picker, confirmed no existing resolved or hidden fallback city, selected
+Choose a city and searched Apple Maps for the fixed public query `Paris, France`.
+It selected the real matching result, then observed an admitted native Apple
+Weather snapshot with the `weather.sources` attribution link, a measured wind
+value and no synthetic/error marker. No fixture coordinates, provider response,
+GPS permission or personal source was substituted.
+
+The initial attempt stopped before mutation because the picker exposed its
+selection through child text rather than its value. The test now requires one
+unambiguous known label/value/child selection; ambiguity fails without changing
+the setting. That initial failure is retained as test-selector evidence, not a
+WeatherKit failure.
+
+Deferred cleanup tapped the temporary city's **Remove weather** control,
+verified the city disappeared, restored the exact original **Current location**
+picker selection and closed the sheet. Those assertions passed. No system grant
+was requested. The original current-location source remains unconfigured; this
+proves a real chosen-city Maps → WeatherKit → ordinary MORE presentation, not
+personal GPS weather, a full forecast, Health reading or spoken advice.
+
+### Ordinary iPhone → Worker discovery
+
+The ordinary physical app then passed **1/1**, zero failures or skips, in
+**26.960 seconds** (31.183 elapsed): Home → Settings → Apps & accounts → Notion.
+It displayed the successful **Refresh my accounts** label, the fresh empty
+Notion account state, the configured Connect Notion action and no error notice.
+The test did not tap Connect or start provider authorization.
+
+These positive UI states require `APIConnectionsView.hasLoaded`, initially false
+and assigned true only after both `services()` and `connections()` succeed.
+The ordinary client uses an ephemeral session with URL caching disabled and
+authenticates these requests using its Keychain installation bearer. No fixture,
+administrator credential or substituted installation was used. The signed app's
+actual Worker origin and Google public configuration were checked again.
+
+This proves **ordinary iPhone → authenticated Worker service/account inventory**.
+It does not prove Notion consent, a tool-catalog read, provider execution, an
+existing Gmail grant's ownership by this installation or OAuth completion. The
+first attempt failed before reaching Notion because a Settings navigation tap
+did not leave Settings; the source UI hierarchy confirmed that state. A bounded,
+observed navigation retry fixed the test helper, without production changes.
+
+### Final combined physical check
+
+After integrating main `5f33adb`, the clock correction and cleanup hardening,
+source `35c4d36` passed a fresh signed physical **build-for-testing**. Ordinary
+MORE build **2026101611** was installed in place. Strict app/widget signatures,
+all four signed capability entitlements and actual public Google/Worker
+configuration passed verification. No uninstall, grant injection or test
+workspace was used.
+
+The two ordinary physical journeys passed again, **2/2**, zero failures/skips,
+in 132.588 test seconds (135.422 elapsed): public-city Weather **111.511 seconds**,
+ordinary Worker inventory **21.077 seconds**. The strengthened weather cleanup
+positively verifies empty city-search UI while **Choose a city** remains selected
+before restoring the exact original source; a failed cleanup leaves the state
+visible for reconciliation. The public city was removed and the original source
+was restored in this final run.
+
+A separate ordinary launch then succeeded, the process was still running on a
+fresh device inventory, and the installed bundle version was confirmed as
+**2026101611**. These fresh passes retain all provider and permission limits
+above; they establish neither new OAuth grants nor a subscription transaction.
+
+## Delivery check
+
+The behavior fix gives professional connections independent rows. Extras now
+accept an injectable clock with the same continuous-clock production default;
+the concurrent-success Worker deadline change affects synthetic fixtures only.
+Exact English source entries were restored without changing existing French strings.
+Local builds, targeted runtime tests, live provider calls and their failures/skips
+are recorded separately above. [PR #207](https://github.com/gibouu/morning-operator/pull/207)
+was merged at `a94cdf3`; the later physical Weather and Worker acceptance additions
+and deterministic deadline regression are tracked in
+[PR #210](https://github.com/gibouu/morning-operator/pull/210). GitHub reports main
+as unprotected; no admin bypass is used.
+
+The CI package job at that merged head actually failed:
+[`aHangingSourceIsSilentAfterTheDeadline`](https://github.com/gibouu/morning-operator/actions/runs/38850390646/job/116810090322)
+returned after 26.901 seconds against a 20-second wall-clock assertion. The test's
+source deadline is only 50 ms, but parallel Apple tests share the main actor and
+held multiple checks for 23–27 seconds. This is a failed CI check, separate from
+the two local Vision failures. The app-build job was still queued at inspection;
+CI is not claimed green.
+
 ## Synthetic backend regression
 
 [#196](https://github.com/gibouu/morning-operator/issues/196) was traced to the
@@ -321,6 +435,50 @@ strings missing explicit English translations (104 app, 29 Apple package).
 Adding each exact English source unit preserved all previous French and catalog
 metadata/forms. The required suite then passed **34/34**, and all seven string
 catalogs, 23 JSON resources and eight plist/entitlement files parsed successfully.
+
+### CI deadline regression
+
+The observed CI failure in `aHangingSourceIsSilentAfterTheDeadline` used real
+elapsed time to judge a 50 ms asynchronous deadline. `MorningExtrasProvider` now
+accepts the same injectable `Clock<Duration>` pattern used by other briefing
+controllers. Its production default remains `ContinuousClock`; the 4-second
+default, 1 ms–10 second clamp, six source races, late-answer rejection and
+cancellation policy are unchanged.
+
+The regression holds the reader on a continuation, verifies it is still waiting
+at 49 ms, advances to 50 ms and requires an empty result **before releasing the
+reader**. It then checks cancellation and the discarded late result. Separate
+cases verify caller cancellation and cleanup of an unused deadline after an
+early successful answer. No longer wall-clock allowance or disabled assertion
+was used.
+
+`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/test.sh --jobs 2 --parallel --filter 'MorningExtrasProviderTests|MorningOpeningTests'`
+passed **39/39**, zero failures/skips, in 0.014 test seconds (11.14 seconds including
+the cached build). This targeted correction does not retroactively turn the old
+CI failure or the earlier full local run green.
+
+### Final complete parallel package run
+
+On combined source `02c6899`,
+`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/test.sh --jobs 2 --parallel`
+completed with **exit 0** in 14.02 seconds (0.38-second cached build). All four
+products passed: LiveDemo **51**, Health **8**, Core **735** and Apple **1,169**
+tests, across 226 suites. The aggregate is **1,956 passed, zero failed and seven
+explicit optional integration skips**, out of 1,963 tests. Model/media inputs and
+the opted-in live OpenAI memory integration remained unselected.
+
+Both previously failing Vision cases actually passed, rather than skipping:
+layout **7.933 seconds**, screenshot **7.942 seconds**. The corrected hanging-source
+deadline case passed in **10.108 seconds** under parallel main-actor load, using
+its controlled 49/50 ms clock assertions. This is a newly green complete local
+run; the earlier real compiler failures remain recorded in
+[issue #204](https://github.com/gibouu/morning-operator/issues/204), and hosted CI
+is a separate pending check.
+
+After integrating main `297ec1a`, the retained Jury client identity and typed
+browser-command contracts passed **19/19**, zero failures/skips. The new Jury
+microphone graph is iOS-only and guarded by `MORE_JURY_DEMO`; these Mac package
+tests do not prove its acoustic behavior or ordinary cloud voice acceptance.
 
 ## Connections UI acceptance
 
