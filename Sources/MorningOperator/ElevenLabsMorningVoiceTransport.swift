@@ -209,7 +209,7 @@ private final class CloudVoiceTranscriptPreview {
         }
         guard !Task.isCancelled, UIApplication.shared.applicationState != .background,
               authorization == .authorized,
-              let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language)),
+              let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language.hasPrefix("fr") ? "fr-FR" : "en-US")),
               recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else { return }
         self.recognizer = recognizer
     }

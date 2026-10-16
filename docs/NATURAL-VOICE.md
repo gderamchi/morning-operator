@@ -24,7 +24,11 @@ Provider references: [TTS parameters and logging](https://elevenlabs.io/docs/api
 
 ## Conversation and execution
 
-The official Swift SDK 3.4.0 owns continuous audio, streamed responses and interruptions. Home and the conversation screen show the person’s words as they are recognized, in the same caption area as MORE’s response. Long input keeps the newest short passage visible; corrections replace the current hypothesis without accumulating a history. Local morning speech uses its existing partial results. In online conversation, an on-device recognizer observes the SDK’s existing microphone track for display only, without taking another audio session or sending audio to Apple. Speech permission and local recognition support are required for this live preview; otherwise the final provider transcript remains available. Provisional captions never authorize actions or write personal memory; only the existing final transcript path can do so. One conversation retains context across turns. Routine metadata is updated when the current moment changes. Source text enters through an approved narration message, with a fresh narration ID; it is data, never an instruction to perform an action.
+The official Swift SDK 3.4.0 owns continuous audio, streamed responses and interruptions.
+
+Home and the conversation screen show the person’s words as they are recognized, in the same caption area as MORE’s response. Long input keeps the newest short passage visible; corrections replace the current hypothesis without accumulating a history. Local morning speech uses its existing partial results. In online conversation, an on-device recognizer observes the SDK’s existing microphone track for display only, without taking another audio session or sending audio to Apple. Speech permission and local recognition support are required for this live preview; otherwise the final provider transcript remains available. Provisional captions never authorize actions or write personal memory; only the existing final transcript path can do so.
+
+One conversation retains context across turns. Routine metadata is updated when the current moment changes. Source text enters through an approved narration message, with a fresh narration ID; it is data, never an instruction to perform an action.
 
 The model has three client tools, with no provider action tools:
 
