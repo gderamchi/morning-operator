@@ -38,7 +38,7 @@ struct SyntheticOpenAIComparisonTests {
         let body: [String: ComposioJSONValue] = [
             "model": .string(MoreLanguageModel.openAIModel), "instructions": .string(instructions),
             "input": .string(prompt), "store": .bool(false),
-            "reasoning": .object(["effort": .string("minimal")]), "max_output_tokens": .number(4_400),
+            "reasoning": .object(["effort": .string("high")]), "max_output_tokens": .number(4_400),
             "text": .object(["format": .object(["type": .string("json_schema"), "name": .string("more_response"),
                                                 "strict": .bool(true), "schema": schema])])]
         func request(_ body: [String: ComposioJSONValue]) throws -> URLRequest {
@@ -135,7 +135,7 @@ struct SyntheticOpenAIComparisonTests {
               Set(body.keys) == ["model", "instructions", "input", "store", "reasoning", "max_output_tokens", "text"],
               body["model"]?.stringValue == MoreLanguageModel.openAIModel, body["instructions"]?.stringValue == instructions,
               body["store"] == .bool(false), let prompt = body["input"]?.stringValue, let schema = allowed[prompt],
-              body["reasoning"] == .object(["effort": .string("minimal")]),
+              body["reasoning"] == .object(["effort": .string("high")]),
               body["max_output_tokens"] == .number(4_400),
               body["text"] == .object(["format": .object(["type": .string("json_schema"), "name": .string("more_response"),
                                                           "strict": .bool(true), "schema": schema])]) else { return false }
