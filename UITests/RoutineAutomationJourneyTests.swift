@@ -1037,8 +1037,14 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["web.close"].waitForExistence(timeout: 20))
         let first = app.buttons["web.article.1"]
         guard first.waitForExistence(timeout: 35) else {
+            let state = browserDiagnosticValue(app.staticTexts["web.result"], key: "pageState")
+            let refusal = browserDiagnosticValue(app.staticTexts["web.result"], key: "articleRefusal")
             captureFailure("automation-live-news-no-observed-public-link", app)
-            throw XCTSkip("Le Monde did not expose a current observed article choice (a privacy wall, unavailable page or absent link may block it). No article reading is claimed.")
+            if state == "needsSignIn" || refusal == "signInRequired" || refusal == "consentRequired" {
+                throw XCTSkip("The live worker observed a verified access block (pageState=\(state ?? "missing"), articleRefusal=\(refusal ?? "missing")). No article reading is claimed.")
+            }
+            XCTFail("No observed article choice was exposed without a verified access block. pageState=\(state ?? "missing"), articleRefusal=\(refusal ?? "missing"). Unclassified choices, loading, HTTP, layout or extraction errors must not become an access skip.")
+            return
         }
         XCTAssertTrue(first.label.hasPrefix("1. "))
         let observedTitle = String(first.label.dropFirst(3))
@@ -1048,8 +1054,13 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         enabledVisibleButton("web.article.1", in: app).tap()
         let readAgain = app.buttons["web.articleRepeat"]
         guard readAgain.waitForExistence(timeout: 30) else {
+            let refusal = browserDiagnosticValue(app.staticTexts["web.result"], key: "articleRefusal")
             captureFailure("automation-live-news-observed-article-body-unavailable", app)
-            throw XCTSkip("The observed public article did not provide a reliable readable body in MORE. Sign-in, subscription, consent or a load failure may block it; no body or acoustic reading is claimed.")
+            if refusal == "signInRequired" || refusal == "consentRequired" {
+                throw XCTSkip("The selected article has an observed access block (articleRefusal=\(refusal ?? "missing")). No article body or acoustic reading is claimed.")
+            }
+            XCTFail("The selected article did not become readable. articleRefusal=\(refusal ?? "missing"). Missing body, script, navigation, HTTP or destination errors must fail this journey.")
+            return
         }
         XCTAssertTrue(app.buttons["web.articleReturn"].isHittable)
         XCTAssertTrue(app.buttons["web.resume"].exists, "Selecting an article must pause the existing morning.")
@@ -1214,7 +1225,8 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         let app = XCUIApplication()
         let workspace = UUID().uuidString
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-workspace=\(workspace)",
-            "--light-preview", "--theme-phase=morning", "-AppleLanguages", french ? "(fr)" : "(en)",
+            "--light-preview", "--theme-phase=morning", "-more.appLanguage", french ? "fr" : "en",
+            "-AppleLanguages", french ? "(fr)" : "(en)",
             "-AppleLocale", french ? "fr_FR" : "en_US"] + flags
         app.launch()
         let marker = app.staticTexts["qa.testWorkspace"]
@@ -1437,6 +1449,11 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             .split(separator: " ").first.flatMap { Int($0) }
         guard let count else { XCTFail("Missing observed-content count: \(label)"); return 0 }
         return count
+    }
+    private func browserDiagnosticValue(_ status: XCUIElement, key: String) -> String? {
+        let value = status.value as? String ?? ""
+        return value.split(separator: " ").first { $0.hasPrefix(key + "=") }
+            .flatMap { $0.split(separator: "=", maxSplits: 1).last }.map(String.init)
     }
     private func browserDiagnostic(_ status: XCUIElement, key: String) -> Int {
         let value = status.value as? String ?? ""
