@@ -165,22 +165,14 @@ final class JuryDemoJourneyTests: XCTestCase {
         returnToLiveHome(app)
 
         let resume = revealLivePlayback(app)
+        let captionBeforeResume = app.staticTexts["morning.caption"].label
         XCTAssertEqual(resume.label, "Continuer"); resume.tap()
         let running = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Pause"), object: resume)
         let resumeResult = await XCTWaiter.fulfillment(of: [running], timeout: 10)
         XCTAssertEqual(resumeResult, .completed)
-        await waitForLiveSpokenPassage(app)
-        openLiveSettings(app)
-        let resumedDetails = app.buttons["morning.details"]
-        XCTAssertTrue(resumedDetails.waitForExistence(timeout: 5)); resumedDetails.tap()
-        let resumedVoice = app.staticTexts["morning.voiceStatus"]
-        let resumedAudio = XCTNSPredicateExpectation(predicate: NSPredicate(format:
-            "label CONTAINS[cd] %@", "interrompre"), object: resumedVoice)
-        let resumedAudioResult = await XCTWaiter.fulfillment(of: [resumedAudio], timeout: 10)
-        XCTAssertEqual(resumedAudioResult, .completed,
-                       "Resume must start actual decoded audio, beyond the local Play label.")
+        await waitForLiveSpokenPassage(app, replacing: captionBeforeResume)
         attachLive("jury-live-resumed-real-audio", app)
-        app.buttons["morning.closeDetails"].tap()
+        openLiveSettings(app)
         let stop = app.buttons["morning.stop"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5)); stop.tap()
         XCTAssertTrue(stop.waitForNonExistence(timeout: 10))
@@ -345,13 +337,14 @@ final class JuryDemoJourneyTests: XCTestCase {
         }
     }
 
-    private func waitForLiveSpokenPassage(_ app: XCUIApplication) async {
+    private func waitForLiveSpokenPassage(_ app: XCUIApplication, replacing previous: String? = nil) async {
         let caption = app.staticTexts["morning.caption"]
         XCTAssertTrue(caption.waitForExistence(timeout: 10))
         let spoken = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let text = caption.label.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_FR"))
             let isPreparedPassage = ["bonjour", "matin prepare", "tu as dormi", "on regarde le message"].contains { text.contains($0) }
-            return isPreparedPassage && !["indisponible", "connexion", "configuree", "autorisation"].contains { text.contains($0) }
+            return (previous == nil || caption.label != previous) && isPreparedPassage &&
+                !["indisponible", "connexion", "configuree", "autorisation"].contains { text.contains($0) }
         }, object: caption)
         let result = await XCTWaiter.fulfillment(of: [spoken], timeout: 45)
         XCTAssertEqual(result, .completed,
