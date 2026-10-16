@@ -16,7 +16,7 @@ struct MorningActivityWidget: Widget {
         ActivityConfiguration(for: MorningActivityAttributes.self) { context in
             MorningActivityLockScreen(state: context.state, isStale: context.isStale,
                                       sessionID: context.attributes.sessionID)
-                .environment(\.locale, AppLanguage.locale)
+                .environment(\.locale, context.state.locale)
                 .environment(\.layoutDirection, .leftToRight)
                 .widgetURL(MorningActivityPresentation.destination)
         } dynamicIsland: { context in
@@ -35,7 +35,7 @@ struct MorningActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     MorningActivityIslandDetail(presentation: presentation,
                                                 sessionID: context.attributes.sessionID)
-                        .environment(\.locale, AppLanguage.locale)
+                        .environment(\.locale, context.state.locale)
                         .environment(\.layoutDirection, .leftToRight)
                 }
             } compactLeading: {
@@ -48,10 +48,10 @@ struct MorningActivityWidget: Widget {
             } compactTrailing: {
                 if context.isStale {
                     Text("!").font(.caption.weight(.semibold)).foregroundStyle(.white)
-                        .accessibilityLabel(AppLanguage.localized("Update needed. Open MORE."))
+                        .accessibilityLabel(activityText("Update needed. Open MORE.", locale: context.state.locale))
                 } else if let timer = context.state.stepTimer {
                     StepCountdown(timer: timer, state: context.state)
-                        .environment(\.locale, AppLanguage.locale)
+                        .environment(\.locale, context.state.locale)
                         .environment(\.layoutDirection, .leftToRight)
                         .font(.caption2.monospacedDigit()).foregroundStyle(.white)
                         .frame(maxWidth: 52)
@@ -100,13 +100,13 @@ private struct MorningActivityLockScreen: View {
                 if dynamicTypeSize.isAccessibilitySize {
                     VStack(alignment: .leading, spacing: 8) {
                         timerDetails(timer)
-                        StepActivityControls(sessionID: sessionID, timer: timer, ink: ink, accent: accent)
+                        StepActivityControls(sessionID: sessionID, timer: timer, ink: ink, accent: accent, locale: state.locale)
                     }
                 } else {
                     HStack(alignment: .center, spacing: 16) {
                         timerDetails(timer)
                         Spacer(minLength: 4)
-                        StepActivityControls(sessionID: sessionID, timer: timer, ink: ink, accent: accent)
+                        StepActivityControls(sessionID: sessionID, timer: timer, ink: ink, accent: accent, locale: state.locale)
                     }
                 }
                 MorningWidgetBudgetProgress(timer: timer, state: state, tint: accent)
@@ -114,7 +114,7 @@ private struct MorningActivityLockScreen: View {
             } else {
                 Text(presentation.heading).font(.headline).foregroundStyle(ink)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(isStale ? AppLanguage.localized("Open MORE to update.") : presentation.progress)
+                Text(isStale ? activityText("Open MORE to update.", locale: state.locale) : presentation.progress)
                     .font(.caption).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -125,12 +125,12 @@ private struct MorningActivityLockScreen: View {
         .activitySystemActionForegroundColor(accent)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilitySummary)
-        .accessibilityHint("Opens MORE's Morning screen.")
+        .accessibilityHint(activityText("Opens MORE's Morning screen.", locale: state.locale))
     }
 
     private func timerDetails(_ timer: MorningActivityStepTimer) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(timer.destination.displayName).font(.subheadline.weight(.medium)).foregroundStyle(ink)
+            Text(timer.destination.displayName(locale: state.locale)).font(.subheadline.weight(.medium)).foregroundStyle(ink)
                 .lineLimit(2).fixedSize(horizontal: false, vertical: true)
             StepCountdown(timer: timer, state: state)
                 .font(.title2.weight(.medium).monospacedDigit()).foregroundStyle(ink)
@@ -150,7 +150,7 @@ private struct MorningActivityIslandDetail: View {
                 VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(timer.destination.displayName).font(.caption.weight(.medium))
+                        Text(timer.destination.displayName(locale: presentation.state.locale)).font(.caption.weight(.medium))
                             .foregroundStyle(.white.opacity(0.85)).lineLimit(2)
                         StepCountdown(timer: timer, state: presentation.state)
                             .font(.title2.weight(.medium).monospacedDigit()).foregroundStyle(.white)
@@ -158,7 +158,7 @@ private struct MorningActivityIslandDetail: View {
                     }
                     Spacer(minLength: 4)
                     StepActivityControls(sessionID: sessionID, timer: timer, ink: .white,
-                                         accent: MorningActivityPalette.islandAccent)
+                                         accent: MorningActivityPalette.islandAccent, locale: presentation.state.locale)
                 }
                 MorningWidgetBudgetProgress(timer: timer, state: presentation.state,
                                             tint: MorningActivityPalette.islandAccent).frame(height: 4)
@@ -168,7 +168,7 @@ private struct MorningActivityIslandDetail: View {
                     Text(presentation.heading)
                         .font(dynamicTypeSize.isAccessibilitySize ? .subheadline.weight(.semibold) : .headline)
                         .foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
-                    Text(presentation.isStale ? AppLanguage.localized("Open MORE to update.") : presentation.progress)
+                    Text(presentation.isStale ? activityText("Open MORE to update.", locale: presentation.state.locale) : presentation.progress)
                         .font(.caption).foregroundStyle(.white.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -177,7 +177,7 @@ private struct MorningActivityIslandDetail: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilitySummary)
-        .accessibilityHint("Opens MORE's Morning screen.")
+        .accessibilityHint(activityText("Opens MORE's Morning screen.", locale: presentation.state.locale))
     }
 }
 
@@ -187,15 +187,15 @@ private struct MorningActivityPresentation {
     static var destination: URL { URL(string: "\(scheme)://morning")! }
     static var scheme: String { Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "more" }
 
-    var heading: String { isStale ? AppLanguage.localized("Update needed") : state.category.displayName }
-    var status: String { isStale ? AppLanguage.localized("Update needed") : state.status.displayName }
+    var heading: String { isStale ? activityText("Update needed", locale: state.locale) : state.category.displayName(locale: state.locale) }
+    var status: String { isStale ? activityText("Update needed", locale: state.locale) : state.status.displayName(locale: state.locale) }
     var artworkProgress: Double? { state.stepTimer?.elapsedFraction(at: state.updatedAt) }
     var shortProgress: String { "\(state.completedSteps)/\(state.totalSteps)" }
-    var progress: String { AppLanguage.localized("\(state.completedSteps) of \(state.totalSteps) moments passed") }
-    var lastUpdate: String { AppLanguage.localized("Last update \(state.updatedAt.formatted(date: .omitted, time: .shortened))") }
+    var progress: String { activityText("\(state.completedSteps) of \(state.totalSteps) moments passed", locale: state.locale) }
+    var lastUpdate: String { activityText("Last update \(state.updatedAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(state.locale)))", locale: state.locale) }
     var accessibilitySummary: String {
-        if isStale { return AppLanguage.localized("MORE. Update needed. Last saved progress: \(progress). \(lastUpdate). Open MORE to update.") }
-        return AppLanguage.localized("MORE. \(state.category.displayName). \(status). \(progress). \(lastUpdate).")
+        if isStale { return activityText("MORE. Update needed. Last saved progress: \(progress). \(lastUpdate). Open MORE to update.", locale: state.locale) }
+        return activityText("MORE. \(state.category.displayName(locale: state.locale)). \(status). \(progress). \(lastUpdate).", locale: state.locale)
     }
 }
 
@@ -224,6 +224,7 @@ private struct StepActivityControls: View {
     let timer: MorningActivityStepTimer
     let ink: Color
     let accent: Color
+    let locale: Locale
 
     var body: some View {
         HStack(spacing: 12) {
@@ -231,21 +232,21 @@ private struct StepActivityControls: View {
                 VStack(spacing: 3) {
                     MorningWidgetControlGlyph(kind: .extend).frame(width: 23, height: 23)
                         .foregroundStyle(accent)
-                    Text("+2 min").font(.caption2.weight(.medium)).foregroundStyle(ink)
+                    Text(activityText("+2 min", locale: locale)).font(.caption2.weight(.medium)).foregroundStyle(ink)
                 }.frame(minWidth: 50, minHeight: 44).contentShape(Rectangle())
             }
-            .accessibilityLabel("+2 min")
+            .accessibilityLabel(activityText("+2 min", locale: locale))
             .accessibilityIdentifier("stepActivity.\(MorningActivityPresentation.scheme).extend")
             Link(destination: StepNavigation.nextURL(sessionID: sessionID, stepID: timer.stepID,
                                                      scheme: MorningActivityPresentation.scheme)) {
                 VStack(spacing: 3) {
                     MorningWidgetControlGlyph(kind: timer.hasNextStep ? .next : .finish)
                         .frame(width: 23, height: 23).foregroundStyle(accent)
-                    if timer.hasNextStep { Text("Next").font(.caption2.weight(.medium)).foregroundStyle(ink) }
-                    else { Text("Finish").font(.caption2.weight(.medium)).foregroundStyle(ink) }
+                    if timer.hasNextStep { Text(activityText("Next", locale: locale)).font(.caption2.weight(.medium)).foregroundStyle(ink) }
+                    else { Text(activityText("Finish", locale: locale)).font(.caption2.weight(.medium)).foregroundStyle(ink) }
                 }.frame(minWidth: 50, minHeight: 44).contentShape(Rectangle())
             }
-            .accessibilityLabel(timer.nextLabel)
+            .accessibilityLabel(timer.nextLabel(locale: locale))
             .accessibilityIdentifier("stepActivity.\(MorningActivityPresentation.scheme).next")
         }
         .buttonStyle(.plain)
@@ -404,4 +405,11 @@ private struct MorningWidgetProgressDots: Shape {
         }
         return path
     }
+}
+
+/// The extension has its own defaults container; the app publishes the selected
+/// language with the activity instead of creating another preference.
+private func activityText(_ value: String.LocalizationValue, locale: Locale) -> String {
+    AppLanguage.localized(value, bundle: AppLanguage.bundle(for: .main,
+        languageCode: locale.language.languageCode?.identifier), locale: locale)
 }

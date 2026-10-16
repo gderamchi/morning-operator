@@ -2,8 +2,28 @@ import Foundation
 import Testing
 @testable import MorningCore
 
-@Suite("Primary device language")
+@Suite("Chosen and primary device language")
 struct AppLanguageTests {
+    @Test func savedChoiceWinsOverThePrimaryDeviceLanguage() {
+        #expect(AppLanguage.resolve(saved: "en", preferredLanguages: ["fr-FR"]) == "en")
+        #expect(AppLanguage.resolve(saved: "fr", preferredLanguages: ["en-US"]) == "fr")
+        #expect(AppLanguage.resolve(saved: "fr", preferredLanguages: ["de-DE", "en-US"]) == "fr")
+        #expect(AppLanguage.resolve(saved: "de", preferredLanguages: ["fr-CA"]) == "fr")
+        #expect(AppLanguage.resolve(saved: "unsupported", preferredLanguages: ["de-DE", "fr-FR"]) == "en")
+        #expect(AppLanguage.resolve(saved: nil, preferredLanguages: []) == "en")
+        #expect(AppLanguage.supportedCodes == ["fr", "en"])
+    }
+
+    @Test func chosenLanguagePreservesRegionalFormats() {
+        let current = Locale(identifier: "en_CA@calendar=gregorian;hours=h23;numbers=latn")
+        let chosen = AppLanguage.resolvedLocale(saved: "fr", preferredLanguages: ["en-US"], current: current)
+        #expect(chosen.language.languageCode?.identifier == "fr")
+        #expect(chosen.region == current.region)
+        #expect(chosen.calendar.identifier == current.calendar.identifier)
+        #expect(chosen.hourCycle == current.hourCycle)
+        #expect(chosen.numberingSystem == current.numberingSystem)
+    }
+
     @Test("French variants use French regardless of region", arguments: [
         "fr", "fr-FR", "fr-CA", "fr-BE", "fr-CH", "fr_CA", "fr-Latn-CA", "fr-CA-u-ca-gregory"
     ])
@@ -74,6 +94,8 @@ struct AppLanguageTests {
                 .write(to: localization.appendingPathComponent("Localizable.strings"))
         }
         let bundle = try #require(Bundle(url: directory))
+        #expect(AppLanguage.bundle(for: bundle, languageCode: "fr").localizedString(forKey: "Weather", value: nil, table: nil) == "Météo")
+        #expect(AppLanguage.bundle(for: bundle, languageCode: "en").localizedString(forKey: "Weather", value: nil, table: nil) == "Weather")
         let english = AppLanguage.resolvedLocale(preferredLanguages: ["es-ES", "fr-FR"], current: Locale(identifier: "es_ES"))
         let french = AppLanguage.resolvedLocale(preferredLanguages: ["fr-CA", "en"], current: Locale(identifier: "en_US"))
         #expect(AppLanguage.localized("Weather", bundle: bundle, locale: english) == "Weather")

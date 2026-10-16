@@ -34,7 +34,7 @@ final class RecordingProvenanceTests: XCTestCase {
         let undated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Date needed"), object: day)
         XCTAssertEqual(XCTWaiter.wait(for: [undated], timeout: 5), .completed)
         app.terminate()
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openOnlyObservation(in: app)
         XCTAssertEqual(day.value as? String, "Date needed")
         reveal(app.buttons["Recording details"], in: app).tap()
@@ -57,7 +57,7 @@ final class RecordingProvenanceTests: XCTestCase {
         XCTAssertTrue(retry.exists && retry.isEnabled)
         XCTAssertTrue(app.buttons["record.discardPending"].exists)
         app.terminate()
-        app.launch()
+        MorningUITestNavigation.launch(app)
         MorningUITestNavigation.selectTab("Review", in: app)
         XCTAssertTrue(retry.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@",
@@ -76,7 +76,7 @@ final class RecordingProvenanceTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-empty-workspace",
                                "--light-preview", "--ui-testing-workspace=\(id.uuidString)"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 

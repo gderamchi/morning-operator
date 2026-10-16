@@ -8,6 +8,47 @@ public enum MorningWeatherCondition: String, CaseIterable, Sendable {
     case hot, hurricane, isolatedThunderstorms, mostlyClear, mostlyCloudy, partlyCloudy
     case rain, scatteredThunderstorms, sleet, smoky, snow, strongStorms, sunFlurries
     case sunShowers, thunderstorms, tropicalStorm, windy, wintryMix
+    public var displayName: String { displayName(locale: AppLanguage.locale) }
+    public func displayName(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        return switch self {
+        case .unknown: String(localized: "Unknown conditions", bundle: bundle, locale: locale)
+        case .blizzard: String(localized: "Blizzard", bundle: bundle, locale: locale)
+        case .blowingDust: String(localized: "Blowing dust", bundle: bundle, locale: locale)
+        case .blowingSnow: String(localized: "Blowing snow", bundle: bundle, locale: locale)
+        case .breezy: String(localized: "Breezy", bundle: bundle, locale: locale)
+        case .clear: String(localized: "Clear skies", bundle: bundle, locale: locale)
+        case .cloudy: String(localized: "Cloudy", bundle: bundle, locale: locale)
+        case .drizzle: String(localized: "Drizzle", bundle: bundle, locale: locale)
+        case .flurries: String(localized: "Snow flurries", bundle: bundle, locale: locale)
+        case .foggy: String(localized: "Fog", bundle: bundle, locale: locale)
+        case .freezingDrizzle: String(localized: "Freezing drizzle", bundle: bundle, locale: locale)
+        case .freezingRain: String(localized: "Freezing rain", bundle: bundle, locale: locale)
+        case .frigid: String(localized: "Very cold", bundle: bundle, locale: locale)
+        case .hail: String(localized: "Hail", bundle: bundle, locale: locale)
+        case .haze: String(localized: "Haze", bundle: bundle, locale: locale)
+        case .heavyRain: String(localized: "Heavy rain", bundle: bundle, locale: locale)
+        case .heavySnow: String(localized: "Heavy snow", bundle: bundle, locale: locale)
+        case .hot: String(localized: "Hot", bundle: bundle, locale: locale)
+        case .hurricane: String(localized: "Hurricane", bundle: bundle, locale: locale)
+        case .isolatedThunderstorms: String(localized: "Isolated thunderstorms", bundle: bundle, locale: locale)
+        case .mostlyClear: String(localized: "Mostly clear", bundle: bundle, locale: locale)
+        case .mostlyCloudy: String(localized: "Mostly cloudy", bundle: bundle, locale: locale)
+        case .partlyCloudy: String(localized: "Partly cloudy", bundle: bundle, locale: locale)
+        case .rain: String(localized: "Rain", bundle: bundle, locale: locale)
+        case .scatteredThunderstorms: String(localized: "Scattered thunderstorms", bundle: bundle, locale: locale)
+        case .sleet: String(localized: "Sleet", bundle: bundle, locale: locale)
+        case .smoky: String(localized: "Smoke", bundle: bundle, locale: locale)
+        case .snow: String(localized: "Snow", bundle: bundle, locale: locale)
+        case .strongStorms: String(localized: "Strong storms", bundle: bundle, locale: locale)
+        case .sunFlurries: String(localized: "Snow showers with sunny intervals", bundle: bundle, locale: locale)
+        case .sunShowers: String(localized: "Rain showers with sunny intervals", bundle: bundle, locale: locale)
+        case .thunderstorms: String(localized: "Thunderstorms", bundle: bundle, locale: locale)
+        case .tropicalStorm: String(localized: "Tropical storm", bundle: bundle, locale: locale)
+        case .windy: String(localized: "Windy", bundle: bundle, locale: locale)
+        case .wintryMix: String(localized: "Wintry mix", bundle: bundle, locale: locale)
+        }
+    }
 }
 
 public enum MorningWeatherPrecipitation: Sendable {

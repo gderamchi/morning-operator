@@ -22,7 +22,7 @@ struct LearnView: View {
 
     private var learningContent: some View {
         VStack(alignment: .leading, spacing: 24) {
-            PageHeading(eyebrow: AppLanguage.localized("Your rhythm"), title: AppLanguage.localized("Make your morning yours."))
+            PageHeading(eyebrow: String(localized: "Your rhythm", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), title: String(localized: "Make your morning yours.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
 
             NavigationLink {
                 ScrollView {
@@ -34,8 +34,8 @@ struct LearnView: View {
                 }
                     .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
             } label: {
-                LinkRow(title: AppLanguage.localized("1 · See your rhythm"),
-                        detail: AppLanguage.localized("Start with your real Screen Time"), symbol: "clock")
+                LinkRow(title: String(localized: "1 · See your rhythm", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+                        detail: String(localized: "Start with your real Screen Time", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "clock")
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("learn.screenTime")
@@ -72,14 +72,14 @@ struct LearnView: View {
             }
 
             NavigationLink { MorningConnectionsView(store: store) } label: {
-                LinkRow(title: AppLanguage.localized("2 · Make yourself at home"),
-                        detail: AppLanguage.localized("Connect the apps you use"), symbol: "link")
+                LinkRow(title: String(localized: "2 · Make yourself at home", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+                        detail: String(localized: "Connect the apps you use", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "link")
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
             }.buttonStyle(.plain).accessibilityIdentifier("learn.connections")
 
             Button { showingSavedObservations = true } label: {
-                LinkRow(title: AppLanguage.localized("Saved observations"),
+                LinkRow(title: String(localized: "Saved observations", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
                         detail: AppLanguage.isFrench ? "Réunir les matinées que vous avez enregistrées" : "Bring your saved mornings together", symbol: "doc.text.image")
                     .padding(MorningTheme.Space.card)
                     .background(MorningStyle.surface, in: RoundedRectangle(cornerRadius: MorningTheme.Space.radius))
@@ -87,10 +87,10 @@ struct LearnView: View {
 
             Card {
                 VStack(alignment: .leading, spacing: 18) {
-                    sectionTitle(store.hasImportedObservation ? AppLanguage.localized("What we could see") : AppLanguage.localized("A few words"), symbol: "pencil.and.outline")
+                    sectionTitle(store.hasImportedObservation ? String(localized: "What we could see", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "A few words", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "pencil.and.outline")
                     Text(store.hasImportedObservation
-                         ? "Edit what we found. Your original stays saved."
-                         : "What would make a good morning?")
+                         ? String(localized: "Edit what we found. Your original stays saved.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                         : String(localized: "What would make a good morning?", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     if let observation = store.selectedObservation {
@@ -200,7 +200,7 @@ struct LearnView: View {
             importGeneration = nil
             switch result {
             case .success(let urls): if let url = urls.first { store.importObservation(url) }
-            case .failure(let error): store.notice = error.localizedDescription
+            case .failure(let error): store.notice = error.moreDescription
             }
         }
     }
@@ -234,7 +234,7 @@ struct LearnView: View {
                 .accessibilityIdentifier("learn.reviewProposal")
         }
         if !store.canSuggestSavedObservations {
-            Label(store.routinePreferencesIssue ?? AppLanguage.localized("On-device suggestions aren't ready here yet. You can build and edit your routine yourself."), systemImage: "info.circle")
+            Label(store.routinePreferencesIssue ?? String(localized: "On-device suggestions aren't ready here yet. You can build and edit your routine yourself.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), systemImage: "info.circle")
                 .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -260,8 +260,8 @@ struct LearnView: View {
 
     @ViewBuilder private var analyzeControls: some View {
         Button { requestSuggestion() } label: {
-            Label(store.currentObservationNeedsProvenance ? "Confirm this observation"
-                  : store.routine == nil ? "Suggest a routine" : "Suggest an update", systemImage: "sparkles")
+            Label(store.currentObservationNeedsProvenance ? String(localized: "Confirm this observation", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                  : store.routine == nil ? String(localized: "Suggest a routine", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Suggest an update", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), systemImage: "sparkles")
         }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(store.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.busy || store.sessionActive ||
@@ -331,7 +331,7 @@ struct LearnView: View {
     private var showMorningCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 18) {
-                sectionTitle(AppLanguage.localized("Show your morning"), symbol: "rectangle.on.rectangle")
+                sectionTitle(String(localized: "Show your morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "rectangle.on.rectangle")
                 Text("Record a moment, or add a file.")
                     .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -375,13 +375,13 @@ struct SetupView: View {
             completion
             Section {
                 if let openRoutine {
-                    settingsButton(AppLanguage.localized("Your routine"),
-                        detail: store.routine.map { AppLanguage.localized("\($0.steps.count) moments · \($0.totalDurationMinutes) min") } ?? "",
+                    settingsButton(String(localized: "Your routine", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+                        detail: store.routine.map { String(localized: "\($0.steps.count) moments · \($0.totalDurationMinutes) min", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) } ?? "",
                         symbol: "list.bullet", action: openRoutine)
                         .accessibilityIdentifier("setup.routine")
                 }
                 if let openHistory {
-                    settingsButton(AppLanguage.localized("History"), symbol: "clock.arrow.circlepath", action: openHistory)
+                    settingsButton(String(localized: "History", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "clock.arrow.circlepath", action: openHistory)
                         .accessibilityIdentifier("setup.history")
                 }
                 settingsButton(french ? "Noter une pensée" : "Note a thought", symbol: "square.and.pencil") { store.openCapture() }
@@ -392,16 +392,26 @@ struct SetupView: View {
                     ScrollView { MorningScreenTimeView(store: store, onEdit: openRoutine).padding(24) }
                         .background(MorningPaper(showsSun: false)).navigationTitle("Screen Time").navigationBarTitleDisplayMode(.inline)
                 } label: {
-                    settingsLabel(AppLanguage.localized("Screen Time"), symbol: "clock")
+                    settingsLabel(String(localized: "Screen Time", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "clock")
                 }.accessibilityIdentifier("setup.screenTime")
                 NavigationLink { MorningConnectionsView(store: store) } label: {
-                    settingsLabel(AppLanguage.localized("Apps & accounts"), symbol: "link")
+                    settingsLabel(String(localized: "Apps & accounts", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "link")
                 }.accessibilityIdentifier("setup.connections")
-                settingsButton(AppLanguage.localized("Calendar, weather & sleep"), symbol: "sun.max") { choosingBriefing = true }
+                settingsButton(String(localized: "Calendar, weather & sleep", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "sun.max") { choosingBriefing = true }
                     .accessibilityIdentifier("setup.briefing")
             }
+            Section("Language") {
+                Picker("Language", selection: Binding(
+                    get: { AppLanguage.code },
+                    set: { store.setAppLanguage($0) })) {
+                    Text(verbatim: "Français").tag("fr")
+                    Text(verbatim: "English").tag("en")
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("setup.language")
+            }
             Section(french ? "Voix et lecture" : "Voice & playback") {
-                settingsButton(AppLanguage.localized("Voice"), detail: store.speech.selectedVoiceSummary,
+                settingsButton(String(localized: "Voice", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: store.speech.selectedVoiceSummary,
                                symbol: "waveform") { choosingVoice = true }
                     .disabled(store.sessionActive).accessibilityIdentifier("setup.voice")
                 Toggle(isOn: $store.automatic) {
@@ -429,7 +439,7 @@ struct SetupView: View {
                     VStack(alignment: .leading, spacing: 12) { voiceControls }
                 }
                 Text(store.speech.statusText).font(.footnote).foregroundStyle(MorningStyle.muted)
-                    .accessibilityIdentifier("setup.speechStatus").accessibilityValue(store.speech.state.rawValue)
+                    .accessibilityIdentifier("setup.speechStatus").accessibilityValue(store.speech.statusText)
                 DisclosureGroup("Audio output") {
                     VStack(alignment: .leading, spacing: 9) {
                         #if os(iOS)
@@ -438,7 +448,7 @@ struct SetupView: View {
                             MorningAudioRoutePicker()
                         }
                         #else
-                        Text(AppLanguage.localized("Choose a speaker or HomePod from your Mac's sound controls, then try the voice here."))
+                        Text(String(localized: "Choose a speaker or HomePod from your Mac's sound controls, then try the voice here.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                         #endif
                         Text("Speaker output doesn't connect a HomePod microphone. Room-to-room listening isn't available yet.")
                             .fixedSize(horizontal: false, vertical: true)
@@ -446,13 +456,13 @@ struct SetupView: View {
                 }
             }
             Section {
-                settingsButton(AppLanguage.localized("Your next morning"), detail: store.invitation.statusText,
+                settingsButton(String(localized: "Your next morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: store.invitation.statusText,
                                symbol: "sun.horizon") { choosingInvitation = true }
                     .accessibilityIdentifier("setup.invitation")
                 settingsButton(MorningPermissionSetup.text("iPhone permissions", "Accès iPhone"),
                                symbol: "hand.raised") { store.permissionSetup.revisit() }
                     .accessibilityIdentifier("setup.permissions")
-                settingsButton(AppLanguage.localized("Privacy & data"), symbol: "lock.shield") { showingPrivacy = true }
+                settingsButton(String(localized: "Privacy & data", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "lock.shield") { showingPrivacy = true }
                     .accessibilityIdentifier("setup.privacy")
                 DisclosureGroup("Availability & device details") {
                     VStack(alignment: .leading, spacing: 18) {
@@ -560,7 +570,7 @@ struct StepEditor: View {
             MorningForm {
                 Section {
                     TextField("Give this step a name", text: $step.title)
-                        .accessibilityLabel("Step name")
+                        .accessibilityLabel("Step name").accessibilityIdentifier("step.name")
                     if step.target?.integrationRoute == .api {
                         Text(step.detail).textSelection(.enabled)
                     } else if step.automation == .savedObservation {
@@ -603,7 +613,7 @@ struct StepEditor: View {
                 }
                 Section {
                     Picker("Action", selection: $step.automation) {
-                        Text(step.target == nil ? AppLanguage.localized("User-led moment")
+                        Text(step.target == nil ? String(localized: "User-led moment", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                              : (AppLanguage.isFrench ? "Action choisie ci-dessous" : "Action chosen below"))
                             .tag(Optional<RoutineStepAutomation>.none)
                         Text("Read this text aloud").tag(Optional(RoutineStepAutomation.spokenNote))
@@ -659,7 +669,7 @@ struct StepEditor: View {
                     Button("Save") {
                         var edited = step
                         do { try edited.target?.validateIntegration() }
-                        catch { saveError = error.localizedDescription; return }
+                        catch { saveError = error.moreDescription; return }
                         edited.title = edited.title.trimmingCharacters(in: .whitespacesAndNewlines)
                         if edited.automation != .savedObservation { edited.observationReference = nil }
                         if edited.target != nil { edited.automation = nil }
@@ -712,15 +722,15 @@ struct StepEditor: View {
         if step.target != nil { return step.executionDescription }
         return switch step.automation {
         case .none:
-            AppLanguage.localized("Take this moment at your own pace, then tap Next when you're ready.")
+            String(localized: "Take this moment at your own pace, then tap Next when you're ready.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         case .spokenNote:
-            AppLanguage.localized("Reads the text you approve for this step. Speaking the instructions doesn't carry out the activity they describe.")
+            String(localized: "Reads the text you approve for this step. Speaking the instructions doesn't carry out the activity they describe.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         case .todayCalendar:
-            AppLanguage.localized("Reads today's remaining events from calendars you select in Your day. Calendar access and spoken guidance are required.")
+            String(localized: "Reads today's remaining events from calendars you select in Your day. Calendar access and spoken guidance are required.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         case .morningBriefing:
-            AppLanguage.localized("Reads a current recap from the calendars and optional city you choose in Your day. Available sources are prepared before speech; no events are changed.")
+            String(localized: "Reads a current recap from the calendars and optional city you choose in Your day. Available sources are prepared before speech; no events are changed.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         case .savedObservation:
-            AppLanguage.localized("Reads the dated excerpt you selected. If the source changes or is deleted, playback stops for review. This is a saved observation, not a live inbox.")
+            String(localized: "Reads the dated excerpt you selected. If the source changes or is deleted, playback stops for review. This is a saved observation, not a live inbox.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         case .timedMoment, .gmailInbox:
             step.executionDescription
         }

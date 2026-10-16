@@ -7,6 +7,22 @@ import MorningCore
 @Suite("Prepared briefing ownership and settings", .timeLimit(.minutes(1)), .endsControllerWorkOnCancellation)
 @MainActor
 struct MorningBriefingControllerTests {
+    @Test func languagePresentationInvalidatesPreparedProseWithoutReadingOrChangingSources() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let calendar = BriefingCalendarFixture()
+        let controller = makeController(directory: directory, calendar: calendar,
+            weather: { _ in throw WeatherObservationError.serviceUnavailable })
+        let settings = MorningBriefingSettings(calendarIDs: [calendar.choice.id])
+        try controller.updateSettings(settings)
+        let previous = try #require(await controller.refresh())
+        let reads = calendar.reads
+        controller.appLanguageDidChange()
+        #expect(controller.prepared == nil && controller.settings == settings)
+        #expect(calendar.reads == reads)
+        #expect(!controller.permitsPlayback(of: previous))
+    }
+
     @Test func settingsSurviveRelaunchWithoutSavingPreparedFacts() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

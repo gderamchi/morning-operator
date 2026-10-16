@@ -203,7 +203,7 @@ struct MorningInlineDayStrip: View {
     private func evidence(_ day: MorningInlineDaySnapshot) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
-            Text(day.state == .noSavedEvidence ? "No saved personal activity" : "Saved on this day")
+            Text(day.state == .noSavedEvidence ? String(localized: "No saved personal activity", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Saved on this day", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 .font(.system(.subheadline, weight: .semibold))
                 .accessibilityAddTraits(.isHeader)
             if day.state == .noSavedEvidence {
@@ -214,7 +214,7 @@ struct MorningInlineDayStrip: View {
             } else {
                 ForEach(day.completedRuns + day.stoppedRuns) { run in
                     VStack(alignment: .leading, spacing: 3) {
-                        Label(run.outcome == .completed ? "Routine finished" : "Routine stopped",
+                        Label(run.outcome == .completed ? String(localized: "Routine finished", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Routine stopped", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
                               systemImage: run.outcome == .completed ? "checkmark.circle" : "pause.circle")
                             .font(.system(.subheadline))
                         Text("\(run.completedStepCount) of \(run.totalStepCount) moments completed · \(run.skippedStepCount) skipped")

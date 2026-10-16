@@ -5,14 +5,16 @@ import Foundation
 public enum StepApp: String, Codable, CaseIterable, Hashable, Sendable {
     case messages, mail, whatsapp, instagram, calendar, maps, safari
 
-    public var displayName: String {
-        switch self {
-        case .messages: AppLanguage.localized("Messages", bundle: .module)
-        case .mail: AppLanguage.localized("Mail", bundle: .module)
+    public var displayName: String { displayName(locale: AppLanguage.locale) }
+    public func displayName(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        return switch self {
+        case .messages: String(localized: "Messages", bundle: bundle, locale: locale)
+        case .mail: String(localized: "Mail", bundle: bundle, locale: locale)
         case .whatsapp: "WhatsApp"
         case .instagram: "Instagram"
-        case .calendar: AppLanguage.localized("Calendar", bundle: .module)
-        case .maps: AppLanguage.localized("Maps", bundle: .module)
+        case .calendar: String(localized: "Calendar", bundle: bundle, locale: locale)
+        case .maps: String(localized: "Maps", bundle: bundle, locale: locale)
         case .safari: "Safari"
         }
     }
@@ -248,13 +250,15 @@ public enum StepDestination: Codable, Hashable, Sendable {
     case inMORE(StepApp?)
     case nativeAction, connectedService
 
-    public var displayName: String {
-        switch self {
-        case let .app(app): app.displayName
-        case let .inMORE(app?): AppLanguage.localized("\(app.displayName) in MORE", bundle: .module)
-        case .inMORE(nil): AppLanguage.localized("A page in MORE", bundle: .module)
-        case .nativeAction: AppLanguage.localized("iOS action", bundle: .module)
-        case .connectedService: AppLanguage.localized("Connected service", bundle: .module)
+    public var displayName: String { displayName(locale: AppLanguage.locale) }
+    public func displayName(locale: Locale) -> String {
+        let bundle = AppLanguage.bundle(for: .module, languageCode: locale.language.languageCode?.identifier)
+        return switch self {
+        case let .app(app): app.displayName(locale: locale)
+        case let .inMORE(app?): String(localized: "\(app.displayName(locale: locale)) in MORE", bundle: bundle, locale: locale)
+        case .inMORE(nil): String(localized: "A page in MORE", bundle: bundle, locale: locale)
+        case .nativeAction: String(localized: "iOS action", bundle: bundle, locale: locale)
+        case .connectedService: String(localized: "Connected service", bundle: bundle, locale: locale)
         }
     }
 }

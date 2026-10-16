@@ -5,6 +5,7 @@ import UIKit
 
 struct MorningVoiceStartRequest: Identifiable, Equatable {
     let id = UUID()
+    let languageCode = AppLanguage.code
     let routineVersionID: UUID
     let generation: UUID
     let originalSessionID: UUID?
@@ -46,7 +47,7 @@ struct MorningVoicePreparationPresenter: ViewModifier {
 }
 
 extension MorningStore {
-    var voicePreparationLanguage: MorningVoiceCommandLanguage { handsFreeUsesFrench ? .french : .english }
+    var voicePreparationLanguage: MorningVoiceCommandLanguage { .current }
 
     var bypassesVoicePreparationForUITests: Bool {
         #if DEBUG
@@ -68,7 +69,7 @@ extension MorningStore {
     }
 
     func voicePreparationIsCurrent(_ request: MorningVoiceStartRequest) -> Bool {
-        !privacyBlocksWork && voiceStartRequest == request && dataGeneration == request.generation &&
+        !privacyBlocksWork && request.languageCode == AppLanguage.code && voiceStartRequest == request && dataGeneration == request.generation &&
             routine?.id == request.routineVersionID && session?.id == request.originalSessionID && session?.status == request.originalSessionStatus &&
             session?.status != .running
     }

@@ -7,8 +7,7 @@ import MorningApple
 struct MorningCaptureVoiceView: View {
     @Bindable var store: MorningStore
     @Environment(\.dismiss) private var dismiss
-    @ViewState<MorningVoiceCommandLanguage> private var language =
-        AppLanguage.isFrench ? .french : .english
+    private var language: MorningVoiceCommandLanguage { .current }
     @ViewState<Bool> private var began = false
 
     var body: some View {
@@ -22,13 +21,9 @@ struct MorningCaptureVoiceView: View {
                         .font(.serif(.largeTitle, .medium))
                     Text("A thought, a dream, something for later. Say it in your own words.")
                         .foregroundStyle(MorningStyle.muted)
-                    Picker("Spoken language", selection: $language) {
-                        Text("English").tag(MorningVoiceCommandLanguage.english)
-                        Text("Français").tag(MorningVoiceCommandLanguage.french)
-                    }.pickerStyle(.segmented).disabled(store.voiceInputBlocksPlayback)
                     Text(store.completionCaptureFeedback ?? (store.completionCapturePreparing
-                        ? (store.voiceCommands.isBusy ? store.voiceCommands.message : AppLanguage.localized("Getting ready to listen…"))
-                        : AppLanguage.localized("Speak when you're ready.")))
+                        ? (store.voiceCommands.isBusy ? store.voiceCommands.message : String(localized: "Getting ready to listen…", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                        : String(localized: "Speak when you're ready.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)))
                         .font(.raleway(.subheadline)).accessibilityIdentifier("captureVoice.status")
                     if store.voiceCommands.isBusy, !store.voiceCommands.transcript.isEmpty {
                         Text(store.voiceCommands.transcript).font(.serif(.title3))

@@ -113,7 +113,7 @@ private struct ObservationPeriodReviewView: View {
                                         } label: {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(clip.sourceLabel).font(.raleway(.subheadline))
-                                                Text(clip.sampleCount == 0 ? "Notes only" : "\(clip.recognizedMomentCount) labeled moments · \(clip.unknownMomentCount) unresolved")
+                                                Text(clip.sampleCount == 0 ? String(localized: "Notes only", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "\(clip.recognizedMomentCount) labeled moments · \(clip.unknownMomentCount) unresolved", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                                                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                                             }
                                         }.accessibilityIdentifier("review.recordings.clip.\(clip.id.uuidString)")
@@ -125,8 +125,8 @@ private struct ObservationPeriodReviewView: View {
                         Text("\(originTitle(partition.origin)) · \(partition.timeZoneIdentifier.replacingOccurrences(of: "_", with: " "))")
                     } footer: {
                         Text(partition.origin == .human
-                            ? "Dates use the time zone saved with each observation. Separate clips are never joined into one continuous timeline."
-                            : "This evidence stays separate from personal mornings. Dates and origins can be reviewed in the source observation.")
+                            ? String(localized: "Dates use the time zone saved with each observation. Separate clips are never joined into one continuous timeline.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                            : String(localized: "This evidence stays separate from personal mornings. Dates and origins can be reviewed in the source observation.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                     }
                 }
                 if !report.undatedAcquisitionIDs.isEmpty {
@@ -151,10 +151,10 @@ private struct ObservationPeriodReviewView: View {
 
     private func originTitle(_ origin: ObservationAcquisitionOrigin) -> String {
         switch origin {
-        case .human: AppLanguage.localized("My mornings")
-        case .synthetic: AppLanguage.localized("Samples & tests")
-        case .automated: AppLanguage.localized("Automated activity")
-        case .unknown: AppLanguage.localized("Origin unsure")
+        case .human: String(localized: "My mornings", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .synthetic: String(localized: "Samples & tests", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .automated: String(localized: "Automated activity", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .unknown: String(localized: "Origin unsure", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
     }
 }
@@ -182,8 +182,8 @@ private struct ObservationRecurrenceSources: View {
                     Text("Seen on \(context.seenDayCount) distinct days. Open a quote to inspect the original sampled screen.")
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                     Text(context.citations.contains(where: { $0.provenance == .userReviewed })
-                         ? "You supplied this label. It stays separate from model labels and doesn't establish an action you took."
-                         : "A proposed visual label doesn't establish an app's identity or an action you took.")
+                         ? String(localized: "You supplied this label. It stays separate from model labels and doesn't establish an action you took.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                         : String(localized: "A proposed visual label doesn't establish an app's identity or an action you took.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }
                 ForEach(context.citations) { citation in

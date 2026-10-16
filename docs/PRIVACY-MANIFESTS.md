@@ -2,6 +2,8 @@
 
 Audited 16 October 2026 against `d671826`. These manifests describe required-reason API use. They do not establish App Store approval, distribution entitlement approval, or the App Store Connect data-collection answers. No tracking or collection declarations are inferred from this API audit.
 
+The localization change additionally declares Core's app-local language defaults with the same `CA92.1` reason.
+
 ## Reasons and source evidence
 
 | Apple category and approved reason | Actual use |
@@ -17,7 +19,7 @@ The audit found no direct disk-capacity or active-keyboard required-reason API u
 
 - `Sources/MorningOperator/PrivacyInfo.xcprivacy` covers the app executable, including linked shared-code file checks, defaults and the app-only elapsed-time measurement.
 - `Sources/MorningActivityWidget/PrivacyInfo.xcprivacy` covers the widget executable's timer-related local file checks and shared DEBUG defaults. The widget does not run browser learning or import user-selected media.
-- `Sources/MorningCore/Resources/PrivacyInfo.xcprivacy` covers Core's local file checks.
+- `Sources/MorningCore/Resources/PrivacyInfo.xcprivacy` covers Core's local file checks and `AppLanguage.swift`'s app-local language preference and next-launch bundle language.
 - `Sources/MorningApple/Resources/PrivacyInfo.xcprivacy` covers Apple's local/imported file checks and local defaults.
 
 The app and widget files are in their Copy Bundle Resources phases in the checked-in Xcode project. `project.yml` includes each target's source directory, so XcodeGen also finds these resource files. The shared package already declares `.process("Resources")` for Core and Apple in `Package.swift`; each package manifest is copied into its own resource bundle. Do not place either package manifest at the app root, where its filename would conflict with the app manifest.

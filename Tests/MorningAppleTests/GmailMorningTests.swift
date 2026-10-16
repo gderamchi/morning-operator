@@ -13,6 +13,29 @@ struct GmailMorningTests {
     private let scheme = "com.googleusercontent.apps.123456789-synthetic"
     private let state = String(repeating: "s", count: 43)
 
+    @Test func languagePresentationChangeKeepsLiteralDraftAndRequiresNewReviewWithoutSending() async throws {
+        let context = Context(); defer { context.cleanup() }
+        var posts = 0
+        let service = makeService(context) { request in
+            if request.url?.host == "oauth2.googleapis.com" { return response(request, token()) }
+            if request.url?.path.hasSuffix("/profile") == true { return response(request, ["emailAddress": "owner@example.invalid"]) }
+            if request.httpMethod == "POST" { posts += 1 }
+            return response(request, ["resultSizeEstimate": 0])
+        }
+        try service.saveConnection(session: await access(service), generation: nil)
+        let conversation = GmailMorningConversation(service: service, privacy: context.privacy, speak: { _ in })
+        let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        await conversation.begin(context: id, generation: nil)
+        await conversation.respond("Envoie-moi un mail objet «Exact subject» texte «Café e\u{301} stays exact.»", context: id)
+        let before = Data(conversation.draftText.utf8), recipient = conversation.recipient
+        #expect(conversation.canSendSelfMessage)
+        conversation.appLanguageDidChange()
+        #expect(Data(conversation.draftText.utf8) == before && conversation.recipient == recipient)
+        #expect(!conversation.canSendSelfMessage && posts == 0)
+        await conversation.respond("send it", context: id)
+        #expect(posts == 0 && conversation.canSendSelfMessage)
+    }
+
     @Test func newSelfMessageUsesNativeProfileExactMIMEAndOneDurableClaim() async throws {
         let context = Context(); defer { context.cleanup() }
         var posts: [URLRequest] = []
@@ -354,7 +377,8 @@ struct GmailMorningTests {
         #expect(posts == 0)
         await conversation.respond("envoyer", context: id)
         #expect(posts == 1 && conversation.isCompleted)
-        #expect(spoken.last?.contains("confirme l’envoi") == true)
+        #expect(conversation.lastSendOutcome == .sent && spoken.last == conversation.message)
+        #expect(spoken.last?.contains("sender@example.invalid") == true)
         await conversation.respond("envoyer", context: id)
         #expect(posts == 1)
         conversation.clear()
@@ -554,7 +578,7 @@ struct GmailMorningTests {
             let conversation = GmailMorningConversation(service: service,
                 drafts: GmailReplyDraftService(generator: { _ in "Invented draft." }), privacy: context.privacy,
                 speak: { text in
-                    if receiptConfirmed && text.contains("Gmail confirme") { await withCheckedContinuation { release = $0 } }
+                    if receiptConfirmed && posts == 1 { await withCheckedContinuation { release = $0 } }
                 })
             let id = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
             await conversation.begin(context: id, generation: nil)
@@ -597,7 +621,8 @@ struct GmailMorningTests {
         await conversation.respond("Pourquoi celui-ci ?", context: id)
         await conversation.respond("Que dit le deuxième mail ?", context: id)
         #expect(questions.count == 2 && conversation.state == .askingToReply && conversation.recipient == recipient)
-        #expect(sources.allSatisfy { $0.count <= 8_000 && $0.contains("untrusted source data") && $0.contains("Invented meeting Monday") && $0.contains("urgence") })
+        let selectionExplanation = AppLanguage.isFrench ? "mentions d’urgence ou d’échéance" : "mentioning urgency or a deadline"
+        #expect(sources.allSatisfy { $0.count <= 8_000 && $0.contains("untrusted source data") && $0.contains("Invented meeting Monday") && $0.contains(selectionExplanation) })
         #expect(posts == 0 && draftCount == 0)
         await conversation.respond("oui", context: id)
         await conversation.respond("Dis-lui : est-ce possible mardi ?", context: id)
@@ -667,7 +692,8 @@ struct GmailMorningTests {
         let draft = unavailable.draftText
         await unavailable.respond("Pourquoi cette phrase ?", context: replacement)
         #expect(unavailable.state == .reviewingReply && unavailable.draftText == draft)
-        #expect(unavailable.message.contains("conversation locale") && unavailable.lastSendOutcome == nil)
+        let availabilityExplanation = AppLanguage.isFrench ? "La conversation locale n’est pas disponible" : "Local conversation is unavailable"
+        #expect(unavailable.message.contains(availabilityExplanation) && unavailable.lastSendOutcome == nil)
     }
 
     @Test func nativeDialogueTerminalCannotSendTheOlderMailWithoutFreshSeparateReview() async throws {

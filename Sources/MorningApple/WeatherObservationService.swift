@@ -74,6 +74,11 @@ public struct WeatherObservationSnapshot: Sendable, Equatable {
     public let temperatureCelsius: Double
     public let conditionDescription: String
     public let symbolName: String
+    /// Known condition codes use MORE's chosen language, independently of WeatherKit's process language.
+    /// An injected/unknown source description remains exact source data.
+    public func localizedConditionDescription(locale: Locale = AppLanguage.locale) -> String {
+        condition == .unknown ? conditionDescription : condition.displayName(locale: locale)
+    }
     public let condition: MorningWeatherCondition
     /// Apple's reported cloud fraction, not a value inferred from the description or icon.
     public let cloudCover: Double?
