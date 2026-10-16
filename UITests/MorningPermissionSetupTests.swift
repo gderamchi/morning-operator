@@ -1,7 +1,7 @@
 import XCTest
 
-/// Explanations and persistence only. The explicit isolated flag replaces every
-/// system authorization with a synthetic outcome and never changes iOS settings.
+/// Isolated permission explanations, persistence and weather-source selection.
+/// Synthetic sources never change iOS authorizations or contact weather providers.
 @MainActor
 final class MorningPermissionSetupTests: XCTestCase {
     func testEachAccessHasAnExplanationBeforeAllowAndPersistsWhenRoutineLearningIsDeferred() {
@@ -10,17 +10,21 @@ final class MorningPermissionSetupTests: XCTestCase {
         for permission in permissions {
             let title = app.staticTexts["permissions.title.\(permission)"]
             XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertFalse(app.staticTexts["Your access choices couldn't be restored. You can still review them; the saved file stays intact."].exists)
+            XCTAssertFalse(app.staticTexts["These access choices couldn't be saved. MORE may ask you to review them next time."].exists)
             XCTAssertEqual(app.alerts.count, 0)
             let allow = app.buttons["permissions.allow"]
             reveal(allow, app)
             allow.tap()
         }
         let finish = app.buttons["permissions.finish"]
-        reveal(finish, app); finish.tap()
+        reveal(finish, app)
+        XCTAssertFalse(app.staticTexts["These access choices couldn't be saved. MORE may ask you to review them next time."].exists)
+        finish.tap()
         XCTAssertTrue(finish.waitForNonExistence(timeout: 5))
         app.terminate(); app.launch()
         XCTAssertFalse(app.buttons["permissions.allow"].waitForExistence(timeout: 2), "Access setup must not repeat when routine onboarding was deferred.")
-        MorningUITestNavigation.reviewAction("navigation.setup", in: app)
+        openSettingsFromHome(app)
         let revisit = app.buttons["setup.permissions"]
         reveal(revisit, app); revisit.tap()
         XCTAssertTrue(app.staticTexts["permissions.title.location"].waitForExistence(timeout: 5))
@@ -60,6 +64,49 @@ final class MorningPermissionSetupTests: XCTestCase {
         add(screenshot)
         finish.tap()
         XCTAssertTrue(finish.waitForNonExistence(timeout: 5))
+    }
+
+    func testManualCitySelectionFromCurrentLocationSurvivesRelaunch() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-briefing-fixture",
+            "--ui-testing-workspace=\(UUID().uuidString)", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        openYourDayFromHome(app)
+        MorningUITestNavigation.chooseManualWeatherCity(in: app)
+        let search = app.textFields["briefing.citySearch"]
+        reveal(search, app)
+        search.tap(); search.typeText("Synthetic\n")
+        let result = app.buttons["briefing.cityResult.48.0,2.0"]
+        XCTAssertTrue(result.waitForExistence(timeout: 5), app.debugDescription)
+        reveal(result, app); result.tap()
+        XCTAssertTrue(app.staticTexts["Synthetic City"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(app.alerts.count, 0, "Choosing a manual city must not request GPS access.")
+        app.terminate(); app.launch()
+        openYourDayFromHome(app)
+        let city = app.descendants(matching: .any).matching(identifier: "briefing.city").firstMatch
+        reveal(city, app)
+        XCTAssertTrue(app.staticTexts["Synthetic City"].firstMatch.exists, app.debugDescription)
+        // The search row is offered only in manual mode, so its presence also
+        // establishes the stored source choice rather than only a cached label.
+        reveal(app.textFields["briefing.citySearch"], app)
+        XCTAssertEqual(app.alerts.count, 0)
+    }
+
+    private func openSettingsFromHome(_ app: XCUIApplication) {
+        let actions = app.buttons["morning.actions"]
+        XCTAssertTrue(actions.waitForExistence(timeout: 5), app.debugDescription)
+        actions.tap()
+        let settings = app.buttons["morning.settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
+        settings.tap()
+        XCTAssertTrue(app.buttons["setup.briefing"].waitForExistence(timeout: 5), app.debugDescription)
+    }
+
+    private func openYourDayFromHome(_ app: XCUIApplication) {
+        openSettingsFromHome(app)
+        let briefing = app.buttons["setup.briefing"]
+        reveal(briefing, app); briefing.tap()
+        XCTAssertTrue(app.staticTexts["briefing.synthetic"].waitForExistence(timeout: 5), app.debugDescription)
     }
 
     private func launchFixture(denied: Bool = false, frenchLargestText: Bool = false) -> XCUIApplication {

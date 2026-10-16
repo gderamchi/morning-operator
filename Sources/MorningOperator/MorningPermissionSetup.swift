@@ -37,7 +37,11 @@ final class MorningPermissionSetup {
             progress = try control.withReadyAccess { state in
                 generation = state.generation
                 do { return try file.load() }
-                catch let error as CocoaError where error.code == .fileReadNoSuchFile { return MorningPermissionProgress() }
+                catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+                    // Data(contentsOf:) and bounded FileHandle reads use different
+                    // Cocoa codes for a genuinely absent first-launch file.
+                    return MorningPermissionProgress()
+                }
             }
         } catch {
             canSave = false
