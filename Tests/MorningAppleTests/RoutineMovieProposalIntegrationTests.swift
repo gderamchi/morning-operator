@@ -64,6 +64,7 @@ struct RoutineMovieProposalIntegrationTests {
             report.stage = "exactSourceValidation"
             report.citationsValid = proposal.isCurrent(archive: archive, baseRoutine: nil)
             guard report.citationsValid == true, !proposal.routine.isApproved, proposal.routine.isSynthetic,
+                  (1...PortableRoutineDocument.maximumSteps).contains(proposal.routine.steps.count),
                   classification.status == .completed, classification.attemptedBatchCount > 0,
                   classification.respondedBatchCount > 0, classification.failedBatchCount == 0 else {
                 throw RoutineMovieReportFailure.invalidResult
