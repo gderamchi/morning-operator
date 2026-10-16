@@ -54,7 +54,7 @@ extension MorningStore {
         #if DEBUG
         let flags = ProcessInfo.processInfo.arguments
         return flags.contains("--ui-testing") && !flags.contains("--ui-testing-real-microphone") &&
-            !flags.contains("--ui-testing-voice-preparation")
+            !flags.contains("--ui-testing-voice-preparation") && !flags.contains("--ui-testing-natural-voice-consent")
         #else
         return false
         #endif

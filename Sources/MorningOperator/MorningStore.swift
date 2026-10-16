@@ -981,8 +981,10 @@ final class MorningStore {
             cloudVoiceConsentSession == session?.id && cloudVoiceConsentGeneration == dataGeneration
         let needsListeningPreparation = automatic && !suppressed && !resumingCloud &&
             !voiceAccess.refresh(language: voicePreparationLanguage).isReady && decision?.listen != false
+        // A terminal session's choice cannot cover the new identity created below.
+        let keepsSpeechDecision = session?.status == .paused && hasNaturalSpeechDecision
         let needsSpeechConsent = (automatic || readAloud) && !resumingCloud &&
-            !hasNaturalSpeechDecision && decision == nil
+            !keepsSpeechDecision && decision == nil
         if !bypassesVoicePreparationForUITests,
            needsListeningPreparation || needsSpeechConsent || (forcesVoicePreparationReviewForUITests && decision == nil) {
             if voiceStartRequest?.routineVersionID != routine.id || voiceStartRequest?.generation != dataGeneration ||

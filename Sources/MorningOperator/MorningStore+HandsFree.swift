@@ -355,6 +355,7 @@ extension MorningStore {
         else { speech.stop() }
         stopHandsFreeVoice()
         cancelVoiceCommandTurn()
+        configureNaturalSpeech()
         voiceCommandPresented = false
         suspendCompletionCaptureForLanguageChange()
         stopCompletionInvitation()
