@@ -57,7 +57,9 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
         let app = try ordinaryApp()
         try enterDeveloperAccessIfRequested(app)
         try openConnections(app)
-        app.buttons["connections.calendar"].tap()
+        let calendar = app.buttons["connections.calendar"]
+        try reveal(calendar, in: app)
+        calendar.tap()
         XCTAssertFalse(app.staticTexts["briefing.synthetic"].exists)
         let calendars = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "briefing.calendar."))
         guard calendars.firstMatch.waitForExistence(timeout: 20) else {

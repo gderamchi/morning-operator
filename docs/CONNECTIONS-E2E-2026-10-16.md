@@ -224,27 +224,32 @@ the ordinary app with empty app arguments and environment, without a test
 workspace, StoreKit fixture or injected subscription. The launch guard was also
 reviewed independently. Simulator and ordinary CI runs skip this opt-in suite.
 
-Three actual phone runs reached the normal subscription screen, including a
-final combined-source signed build **1702** after integrating `origin/main`
+Four actual phone runs reached the normal subscription screen, including
+combined-source signed builds **1702** and **1703** after integrating `origin/main`
 `fe19a40`. In that fresh-launch run, the configured StoreKit offer did not expose
 `paywall.price` after 45 seconds; the app's accessibility state displayed the
 App Store unavailable notice and its Try again control. The result was **one
 failed live-offer check and one skipped native Gmail check**, not a passing
-physical acceptance run. The earlier two runs had the same outcome. A screenshot from
+physical acceptance run. The other runs had the same outcome. A screenshot from
 the first run captured an unrelated system permission overlay and is not used
 as paywall evidence; the ordinary app's accessibility hierarchy establishes the
 observed state. The final build-1702 screenshot was separately inspected and
 does show the ordinary MORE paywall and App Store unavailable notice.
 
-No purchase, restore, subscription bypass or permission grant was performed.
-The paywall prevented access to the normal connections screen, so current-build
-native Gmail, Calendar, Reminders, Health, Weather, browser and spoken execution
-remain unverified. Earlier physical results in the individual service reports
-remain dated evidence and do not replace this checkpoint.
+No purchase, restore, injected subscription or permission grant was performed in
+those runs. The paywall prevented downstream service acceptance at that checkpoint.
+Main `4bd789f` subsequently introduced the product-approved Debug developer entry
+described in MORE §8. The physical suite now distinguishes its explicit UI button
+from StoreKit proof and supports opting into that route through
+`MORE_PHYSICAL_DEVELOPER_ACCESS=1`. It still uses ordinary app storage and no
+fixture or system-grant injection. Release purchase, restore and eligibility
+remain separate gates.
 
 App Store Connect's apps page redirected to a signed-out login form. Existing
 local credentials did not establish API access, so the owner must sign into the
-Apple team to inspect the actual product and sandbox setup. The observed failure
+Apple team to inspect the actual product and sandbox setup. An existing passkey
+reached macOS Touch ID; no authenticated App Store Connect session was obtained.
+The observed failure
 does not by itself establish whether the cause is product configuration, account
 state or Apple availability. [Issue #191](https://github.com/gibouu/morning-operator/issues/191)
 tracks that live release gate. No Apple account, agreement or billing settings
@@ -267,11 +272,16 @@ Production deadlines, duplicate-dispatch guards and durable receipt assertions
 were not changed.
 
 On Node 25.6.1 after `npm ci --ignore-scripts --no-audit --no-fund`, the four
-affected Worker checks passed **4/4**. The final complete `npm test` passed
+affected Worker checks passed **4/4**. The first complete `npm test` passed
 **38/38**, with zero failures or skips, in 58.60 seconds under concurrent Mac load.
 Every upstream request in these checks was intercepted by a synthetic provider;
 they prove Worker/D1 timeout, concurrency and receipt behavior, not real account
 access, provider effects or the ordinary iPhone journey.
+
+After integrating main `4bd789f`, the complete suite passed **44/44**, zero
+failures or skips, in 5.37 test seconds (5.57 seconds elapsed). This includes the
+new voice-token contract checks while retaining both deliberate timeouts and
+cross-isolate duplicate-dispatch protection.
 
 ## Combined source checks
 
@@ -288,3 +298,52 @@ selected local-model/video/replay integrations. Build and test time was 408
 seconds. The complete Python script/resource suite also passed: **34/34**.
 These package checks are separate from the physical StoreKit failure and live
 account grants.
+
+### Latest model/voice integration
+
+After integrating main `4bd789f`, the full serial Swift command built successfully
+and completed with exit 1 after 428.60 seconds. The LiveDemo, Health and Core
+products passed 51, 8 and 735 tests respectively. The Apple product encountered
+two real Vision OCR failures: `e5rt_e5_compiler_compile call failed` (code 11),
+after 100.486 and 52.909 seconds. These are failures, not optional skips or a green
+full suite. [Issue #204](https://github.com/gibouu/morning-operator/issues/204)
+tracks the platform failure; it was not fixed by weakening recognition checks.
+
+The required Python/resource suite initially found 133 newly added source
+strings missing explicit English translations (104 app, 29 Apple package).
+Adding each exact English source unit preserved all previous French and catalog
+metadata/forms. The required suite then passed **34/34**, and all seven string
+catalogs, 23 JSON resources and eight plist/entitlement files parsed successfully.
+
+## Connections UI acceptance
+
+Testing reproduced a production SwiftUI navigation defect: Instagram, WhatsApp
+and Facebook professional NavigationLinks were wrapped inside a single List row.
+Tapping Instagram's visible title opened Facebook. Moving the note and each link
+into direct sibling disclosure rows restored independent destinations; the fix
+does not change provider eligibility or account ownership.
+
+The first post-fix three-destination regression passed in 54.391 seconds. A fresh
+build after integrating main `4bd789f` then passed all four final targeted cases,
+zero failures, in 280.722 seconds:
+
+| Simulator journey | Result / seconds |
+| --- | --- |
+| Standard day navigation and Settings appearance | Pass / 27.584 |
+| Website/native/account returns and each professional destination | Pass / 58.918 |
+| French largest/night unavailable accounts with reachable Retry | Pass / 69.378 |
+| French largest/night expanded professional titles | Pass / 124.843 |
+
+The earlier Calendar/Slack setup and empty-account recovery run passed 4/4.
+All account values in these UI scenarios were explicitly synthetic, DEBUG-only
+fixtures; no provider grant, real mailbox read or write is implied. Raw xcresults
+and screenshots remain ignored local evidence. The new physical test03/test04
+were added afterward and are physical-only; production UI is unchanged.
+
+A separate temporary observer test saw the real Instagram cookie-consent page
+inside MORE's WKWebView (20 static texts, 13 buttons, three links), then closed
+back to Connections. It took 46.905 seconds; no strict 30-second latency guarantee
+is claimed. No cookie choice, login, authenticated feed, Ready confirmation or
+automated social action occurred. The temporary observer was removed after
+inspection. This resolves public remote-render uncertainty while retaining the
+authenticated-browser acceptance gate.
