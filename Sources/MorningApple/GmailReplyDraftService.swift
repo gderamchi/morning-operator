@@ -1,8 +1,5 @@
-import MorningCore
 import Foundation
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
+import MorningCore
 
 public enum GmailReplyDraftError: LocalizedError, Sendable, Equatable {
     case emptyMessage, inputTooLong, invalidReply, modelUnavailable, alreadyPreparing, failed
@@ -12,18 +9,18 @@ public enum GmailReplyDraftError: LocalizedError, Sendable, Equatable {
         case .emptyMessage:
             AppLanguage.localized("This message has no readable text to reply to.", bundle: .module)
         case .inputTooLong:
-            AppLanguage.localized("This message is too long for a local reply. You can write your reply below.", bundle: .module)
+            AppLanguage.isFrench ? "Ce message est trop long pour préparer une réponse. Vous pouvez écrire votre réponse ci-dessous." : "This message is too long to prepare a reply. You can write your reply below."
         case .invalidReply, .failed:
             AppLanguage.localized("A reply could not be prepared. You can write your reply below.", bundle: .module)
         case .modelUnavailable:
-            AppLanguage.localized("Apple's local model is unavailable. You can write your reply below.", bundle: .module)
+            AppLanguage.isFrench ? "Le modèle sélectionné est indisponible. Vous pouvez écrire votre réponse ci-dessous." : "The selected model is unavailable. You can write your reply below."
         case .alreadyPreparing:
             AppLanguage.localized("A reply is already being prepared.", bundle: .module)
         }
     }
 }
 
-/// One local, owner-requested draft. No mail tools, network calls, persistence or send action.
+/// One owner-requested draft through the selected model. No mail tools or send action.
 @MainActor
 public final class GmailReplyDraftService {
     typealias Generator = @MainActor (_ prompt: String) async throws -> String
@@ -34,19 +31,14 @@ public final class GmailReplyDraftService {
 
     public convenience init() {
         self.init(generator: { prompt in
-            #if canImport(FoundationModels)
-            let session = LanguageModelSession(model: SystemLanguageModel.default,
-                                               instructions: GmailReplyDraftPolicy.instructions)
-            let response = try await session.respond(to: prompt,
-                options: GenerationOptions(temperature: 0, maximumResponseTokens: 450))
-            return response.content
-            #else
-            throw GmailReplyDraftError.modelUnavailable
-            #endif
-        }, availability: Self.localAvailability)
+            try await MoreLanguageModel.shared.generate(instructions: GmailReplyDraftPolicy.instructions,
+                                                        prompt: prompt, maximumResponseTokens: 450)
+        }, availability: {
+            MoreLanguageModel.shared.isAvailable ? nil : GmailReplyDraftError.modelUnavailable.localizedDescription
+        })
     }
 
-    // Internal injection is for protocol-independent component tests. The app uses the local initializer.
+    // Internal injection is for protocol-independent component tests. The app uses the selected model.
     init(generator: @escaping Generator, availability: @escaping @MainActor () -> String? = { nil }) {
         self.generator = generator
         self.availability = availability
@@ -91,26 +83,6 @@ public final class GmailReplyDraftService {
 
     public func cancel() { activeTask?.cancel() }
 
-    private static func localAvailability() -> String? {
-        #if canImport(FoundationModels)
-        switch SystemLanguageModel.default.availability {
-        case .available: return nil
-        case .unavailable(let reason):
-            switch reason {
-            case .deviceNotEligible:
-                return AppLanguage.localized("This device does not support Apple's local model.", bundle: .module)
-            case .appleIntelligenceNotEnabled:
-                return AppLanguage.localized("Enable Apple Intelligence in system settings to prepare a local reply.", bundle: .module)
-            case .modelNotReady:
-                return AppLanguage.localized("Apple's local model is not ready. It may still be downloading.", bundle: .module)
-            @unknown default:
-                return GmailReplyDraftError.modelUnavailable.moreDescription
-            }
-        }
-        #else
-        return GmailReplyDraftError.modelUnavailable.moreDescription
-        #endif
-    }
 }
 
 enum GmailReplyDraftPolicy {

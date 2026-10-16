@@ -8,7 +8,7 @@ For a new recording or imported file, review its saved text in Learn. **Confirm 
 
 For several observations, open **Review → Saved observations → Choose mornings**. Choose one to five dated observations from the same time zone. Personal observations and synthetic samples are separate selections. Unknown or automated activity cannot silently become personal behavior. Both entry points use the same preparation, citation checks and pending proposal below.
 
-The explicit suggestion action asks the local Apple model for supported activities. The resulting sheet shows planned minutes and the observations behind each suggestion. **Done** leaves the suggestion available for later; **Review suggested update** reopens it. **Keep current** discards it, or **Discard** when there is no current routine. **Approve update** saves the approved version for the next morning. Approval does not start playback or grant permission to control another app. Unavailable models, cancellation and failed generation leave the saved evidence and current routine intact.
+The explicit suggestion action asks the selected model (Apple locally by default, or OpenAI after explicit activation) for supported activities. The resulting sheet shows planned minutes and the observations behind each suggestion. **Done** leaves the suggestion available for later; **Review suggested update** reopens it. **Keep current** discards it, or **Discard** when there is no current routine. **Approve update** saves the approved version for the next morning. Approval does not start playback or grant permission to control another app. Unavailable models, cancellation and failed generation leave the saved evidence and current routine intact.
 
 The existing routine stays unchanged during generation and review. An active or paused morning keeps its original version and blocks replacement. After approval, **Review → Your routine → Restore previous routine** can restore the previous approved version while no morning is active.
 
@@ -27,6 +27,8 @@ stateDiagram-v2
     ApprovedVersion --> MorningRun: Separate Start action
 ```
 
+See [Intelligence and personal memory](INTELLIGENCE.md) for the selected model, remote text scope and current live verification.
+
 ## What reaches the model
 
 The model receives temporary source-unit identifiers, evidence type and bounded text. Acquisition identities, frame identities, dates and origins remain in an app-owned mapping. Original video evidence keeps its sampled-frame identity through that mapping. A correction replaces the model input for that observation and is labeled as a user report; it is not passed off as unmodified screen text.
@@ -35,7 +37,7 @@ The model receives temporary source-unit identifiers, evidence type and bounded 
 flowchart LR
     A[Saved acquisitions] --> B[Validate dates, origins and limits]
     B --> C[Original screen units or corrected report]
-    C --> D[Local Foundation Models]
+    C --> D[Selected model; explicit cloud consent]
     D --> E[Validate supplied unit IDs and exact quotes]
     E --> F[Apply saved keep, exclusion and timing choices]
     P[Review: explicit preference journal] --> F

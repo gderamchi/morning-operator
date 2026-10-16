@@ -1,5 +1,6 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 /// A secondary native screen; privacy controls never compete with the morning.
 struct MorningPrivacyView: View {
@@ -18,7 +19,7 @@ struct MorningPrivacyView: View {
             if store.privacyBlocksWork { removalSection }
             Section {
                 Text("Your mornings stay close.").font(MorningTheme.Typography.title)
-                Text("MORE keeps its learning on this device. You choose when to connect Apple apps and what to keep.")
+                Text(AppLanguage.isFrench ? "L’apprentissage reste local par défaut. Si vous activez OpenAI, les extraits et le contexte utiles sont traités par OpenAI. Vous gardez le contrôle des accès et des données mémorisées." : "Learning stays local by default. If you enable OpenAI, relevant excerpts and context are processed by OpenAI. You control access and saved personal facts.")
                     .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             }
             Section("Saved in MORE") {
@@ -51,7 +52,7 @@ struct MorningPrivacyView: View {
                 Text("City searches go to Apple Maps. Weather requests send the selected city’s coordinates to Apple Weather. Screen content and learning aren't sent with these requests.")
             }.font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             Section("Connected accounts") {
-                Text("Requests to connected accounts and their results pass through our connection service and Composio. Screen recordings and local learning stay on this iPhone.")
+                Text(AppLanguage.isFrench ? "Les requêtes aux comptes connectés et leurs résultats passent par notre service et Composio. Les vidéos brutes restent sur cet iPhone. Si vous activez OpenAI, le contexte utile et les extraits choisis lui sont transmis." : "Connected-account requests and results pass through our service and Composio. Raw recordings stay on this iPhone. Enabling OpenAI shares relevant context and selected excerpts with OpenAI.")
                 Text("Adding an account action to your routine saves its details. Forgetting local data removes access from this iPhone; service permissions and server receipts are managed separately. To disconnect an account, open its page in Apps & accounts.")
             }.font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             Section("Outside MORE") {

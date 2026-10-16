@@ -191,6 +191,39 @@ struct MorningAppStepExecutorTests {
         #expect(count == 0 && utterances.isEmpty)
     }
 
+    @Test func currentWeatherAddsAdviceButMissingWeatherNeverCallsTheModel() async throws {
+        for hasWeather in [true, false] {
+            let prepared = try document(title: "Synthetic calendar", weather: hasWeather)
+            var calls = 0
+            var spoken: [String] = []
+            let executor = MorningAppStepExecutor(prepare: { prepared }, speak: { spoken.append($0) }, stop: {},
+                now: { self.now }, timeZone: { "UTC" }, advice: { _ in calls += 1; return "A useful synthetic suggestion." })
+            let step = RoutineStep(title: "Your day", automation: .morningBriefing)
+            #expect(try await executor.execute(step: step, context: context(step)) == .completed)
+            #expect(calls == (hasWeather ? 1 : 0))
+            #expect(spoken.first == prepared.spokenText + (hasWeather ? " A useful synthetic suggestion." : ""))
+        }
+    }
+
+    @Test func cancelOrSourceChangeWhileAdviceIsPendingNeverSpeaksLateFacts() async throws {
+        for sourceChange in [true, false] {
+            let gate = ExecutorPreparationGate()
+            let prepared = try document(title: "Synthetic calendar", weather: true)
+            var configuration = UUID()
+            var spoken: [String] = []
+            let executor = MorningAppStepExecutor(prepare: { prepared }, speak: { spoken.append($0) }, stop: {},
+                now: { self.now }, timeZone: { "UTC" }, configurationID: { configuration },
+                advice: { _ in await gate.pause(); return "Late suggestion." })
+            let step = RoutineStep(title: "Your day", automation: .morningBriefing)
+            let task = Task { try await executor.execute(step: step, context: context(step)) }
+            await gate.waitUntilPaused()
+            if sourceChange { configuration = UUID() } else { executor.cancelPlayback() }
+            gate.resume()
+            await #expect(throws: CancellationError.self) { try await task.value }
+            #expect(spoken.isEmpty)
+        }
+    }
+
     private func context(_ step: RoutineStep) -> MorningStepContext {
         .init(executionID: .init(sessionID: UUID(), routineVersionID: UUID(), stepID: step.id))
     }

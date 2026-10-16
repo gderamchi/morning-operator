@@ -284,16 +284,22 @@ extension MorningStore {
         }
         if let document = preparedBriefing(for: step),
            document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier) {
-            parts.append("Verified current source information: \(document.spokenText)")
+            parts.append("Verified current source information: \(conversationText(document))")
         }
         if let document = currentOpening?.document,
            briefing.permitsPlayback(of: document),
            document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier) {
-            parts.append("Verified opening information: \(document.spokenText)")
+            parts.append("Verified opening information: \(conversationText(document))")
         }
         let context = parts.joined(separator: "\n")
         guard context.count > 8_000 else { return context }
         return String(context.prefix(7_800)) + "\nContext excerpt ends here. The remaining source text is not provided; missing details stay unknown."
+    }
+
+    private func conversationText(_ document: PreparedMorningBriefing) -> String {
+        // Sleep remains local; enabling the general cloud model does not export Health data.
+        document.segments.filter { !MoreLanguageModel.shared.usesOpenAI || $0.source != .sleep }
+            .map(\.text).joined(separator: " ")
     }
 
     private func speakHandsFree(french: String, english: String) {
