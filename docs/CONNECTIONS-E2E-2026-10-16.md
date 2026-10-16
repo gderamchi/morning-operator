@@ -309,6 +309,13 @@ after 100.486 and 52.909 seconds. These are failures, not optional skips or a gr
 full suite. [Issue #204](https://github.com/gibouu/morning-operator/issues/204)
 tracks the platform failure; it was not fixed by weakening recognition checks.
 
+The full-run accounting is **1,952 passed / two failed / seven optional skips**
+out of 1,961 tests. After task-owned cache cleanup and additional free disk space,
+the two failed Vision cases were rerun once with the same cached binaries and no
+OCR source changes. Both passed (129.124 and 45.472 seconds; 174.598 test seconds,
+176.43 elapsed). This is a scoped recovery, not a newly green full-suite run or
+proof that disk pressure caused the earlier compiler errors.
+
 The required Python/resource suite initially found 133 newly added source
 strings missing explicit English translations (104 app, 29 Apple package).
 Adding each exact English source unit preserved all previous French and catalog
