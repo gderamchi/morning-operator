@@ -1,3 +1,5 @@
+import Foundation
+
 /// Provider-independent current conditions. Unknown weather adds no invented effects.
 public enum MorningWeatherCondition: String, CaseIterable, Sendable {
     case unknown
@@ -25,6 +27,19 @@ public struct MorningWeatherScene: Sendable, Equatable {
     public let precipitationIntensity: Double
     public let atmosphere: MorningWeatherAtmosphere
     public let windIntensity: Double
+    public let windGustIntensity: Double
+    public let windDirectionDegrees: Double?
+    /// Screen travel follows the wind's source; northerly/southerly wind keeps a readable lateral drift.
+    public var windHorizontalDirection: Double {
+        guard let windDirectionDegrees else { return 1 }
+        return windDirectionDegrees > 0 && windDirectionDegrees < 180 ? -1 : 1
+    }
+    public let atmosphericVeil: Double
+    public let humidity: Double?
+    public let apparentTemperatureCelsius: Double?
+    public let uvIndex: Int?
+    public let pressureHectopascals: Double?
+    public let isDaylight: Bool?
     public let lightning: Bool
 
     /// Clouds soften the sun/moon without removing the clock's central reference.
@@ -37,7 +52,12 @@ public struct MorningWeatherScene: Sendable, Equatable {
         max(0, 1 - cloudCoverage * 1.12) * (1 - atmosphericVeil)
     }
 
-    public init(condition: MorningWeatherCondition, cloudCover: Double? = nil) {
+    public init(condition: MorningWeatherCondition, cloudCover: Double? = nil,
+                windSpeedMetersPerSecond: Double? = nil, windGustMetersPerSecond: Double? = nil,
+                windDirectionDegrees: Double? = nil, precipitationIntensityMillimetersPerHour: Double? = nil,
+                humidity: Double? = nil, visibilityMeters: Double? = nil,
+                apparentTemperatureCelsius: Double? = nil, uvIndex: Int? = nil,
+                pressureHectopascals: Double? = nil, isDaylight: Bool? = nil) {
         self.condition = condition
         var clouds = 0.0
         var precipitation = MorningWeatherPrecipitation.none
@@ -102,24 +122,42 @@ public struct MorningWeatherScene: Sendable, Equatable {
         case .blowingDust: atmosphere = .dust; wind = 0.7
         }
 
-        // An unknown provider condition remains neutral, even if it reports cloud cover.
-        if condition != .unknown, let cloudCover, cloudCover.isFinite, (0...1).contains(cloudCover) {
+        // Reported measurements override broad condition names, even when an SDK adds an unknown condition.
+        if let cloudCover, cloudCover.isFinite, (0...1).contains(cloudCover) {
             clouds = cloudCover
+        }
+        if let speed = Self.nonnegative(windSpeedMetersPerSecond) { wind = min(1, speed / 20) }
+        if precipitation != .none, let rate = Self.nonnegative(precipitationIntensityMillimetersPerHour) {
+            // A square-root response keeps light drizzle visible while separating it from a downpour.
+            intensity = min(1, sqrt(rate / 12))
+            if rate == 0 { precipitation = .none }
         }
         cloudCoverage = clouds
         self.precipitation = precipitation
         precipitationIntensity = intensity
         self.atmosphere = atmosphere
         windIntensity = wind
-        self.lightning = lightning
-    }
-
-    private var atmosphericVeil: Double {
-        switch atmosphere {
+        windGustIntensity = max(wind, Self.nonnegative(windGustMetersPerSecond).map { min(1, $0 / 20) } ?? wind)
+        self.windDirectionDegrees = windDirectionDegrees.flatMap {
+            $0.isFinite && (0...360).contains($0) ? ($0 == 360 ? 0 : $0) : nil
+        }
+        self.humidity = humidity.flatMap { $0.isFinite && (0...1).contains($0) ? $0 : nil }
+        self.apparentTemperatureCelsius = apparentTemperatureCelsius.flatMap { $0.isFinite && $0 >= -273.15 ? $0 : nil }
+        self.uvIndex = uvIndex.flatMap { $0 >= 0 ? $0 : nil }
+        self.pressureHectopascals = pressureHectopascals.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+        self.isDaylight = isDaylight
+        let fallbackVeil: Double = switch atmosphere {
         case .clear: 0
         case .haze: 0.35
         case .fog: 0.8
         case .smoke, .dust: 0.6
         }
+        // Visibility is a measurement; humidity alone does not mean fog.
+        atmosphericVeil = Self.nonnegative(visibilityMeters).map { max(0, 1 - $0 / 10_000) * 0.95 } ?? fallbackVeil
+        self.lightning = lightning
+    }
+
+    private static func nonnegative(_ value: Double?) -> Double? {
+        value.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil }
     }
 }

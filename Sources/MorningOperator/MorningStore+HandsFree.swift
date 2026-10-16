@@ -29,7 +29,8 @@ extension MorningStore {
     /// No extra turn button: the approved morning owns listening until it ends,
     /// leaves the foreground, or the person switches it off.
     func startHandsFreeVoice() {
-        guard !privacyBlocksWork, automatic, sessionActive, !voiceInputBlocksPlayback,
+        guard !privacyBlocksWork, !permissionSetup.isPresented, !permissionSetup.needsInitialSetup,
+              automatic, sessionActive, !voiceInputBlocksPlayback,
               !voiceCommandPresented, !captureVoicePresented,
               UIApplication.shared.applicationState == .active else { return }
         #if DEBUG
@@ -74,7 +75,8 @@ extension MorningStore {
     /// Called only for a final locally recognized utterance. Both recognition and
     /// a delayed conversational answer remain pinned to the same session/step.
     func receiveHandsFreeUtterance(_ utterance: MorningHandsFreeUtterance) async {
-        guard !privacyBlocksWork, !Task.isCancelled, handsFreeContext == utterance.context,
+        guard !privacyBlocksWork, !permissionSetup.isPresented, !permissionSetup.needsInitialSetup,
+              !Task.isCancelled, handsFreeContext == utterance.context,
               !voiceInputBlocksPlayback else { return }
         let continuation = handsFreeVoice.continuation.ticket
         defer { handsFreeVoice.continuation.discard(continuation) }

@@ -43,6 +43,7 @@ final class RisoThemeSnapshotTests: XCTestCase {
             XCTAssertTrue(app.buttons["setup.briefing"].waitForExistence(timeout: 5))
             attach("riso-\(name)-settings", app)
             app.buttons["setup.briefing"].tap()
+            MorningUITestNavigation.chooseManualWeatherCity(in: app)
             let city = app.textFields["briefing.citySearch"]
             for _ in 0..<12 where !(city.exists && city.isHittable) { app.swipeUp() }
             XCTAssertTrue(city.exists && city.isHittable)

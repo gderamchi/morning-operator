@@ -414,6 +414,21 @@ final class FixtureJourneyTests: XCTestCase {
 /// The historical method name keeps callers consistent without relying on a tab bar.
 @MainActor
 enum MorningUITestNavigation {
+    /// Weather starts from the authorized current position. City-search journeys
+    /// choose the manual source explicitly, in either shipped interface language.
+    static func chooseManualWeatherCity(in app: XCUIApplication,
+                                        file: StaticString = #filePath, line: UInt = #line) {
+        let source = app.descendants(matching: .any).matching(identifier: "briefing.locationSource").firstMatch
+        for _ in 0..<12 where !source.isHittable { app.swipeUp() }
+        XCTAssertTrue(source.isHittable, app.debugDescription, file: file, line: line)
+        source.tap()
+        let english = app.buttons["Choose a city"].firstMatch
+        let french = app.buttons["Choisir une ville"].firstMatch
+        let choice = english.waitForExistence(timeout: 2) ? english : french
+        XCTAssertTrue(choice.waitForExistence(timeout: 3), app.debugDescription, file: file, line: line)
+        choice.tap()
+    }
+
     static func selectTab(_ title: String, in app: XCUIApplication,
                           file: StaticString = #filePath, line: UInt = #line) {
         switch title {

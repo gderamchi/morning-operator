@@ -1,6 +1,8 @@
 # Enable real Apple Weather on an iPhone
 
-The app already calls native WeatherKit for the deliberately selected city. A paid Apple Developer Program team must authorize and sign that app; a Personal Team cannot enable WeatherKit. This guide prepares a WeatherKit-only build without requiring the unrelated Screen Time capabilities. It does not establish a successful live weather response.
+Latest physical checkpoint: ordinary MORE **0.1.0 (1540)** fetched attributed Apple Weather from the native current location on iPhone. Signed-capability checks, live measurements and the exact acceptance limits are recorded in [location/weather QA](LOCATION-WEATHER-QA.md#physical-iphone-acceptance--16-october-2026).
+
+The app calls native WeatherKit for an authorized current position or a deliberately selected city. A paid Apple Developer Program team must authorize and sign that app; a Personal Team cannot enable WeatherKit. This guide prepares a WeatherKit-only build without requiring the unrelated Screen Time capabilities. It does not establish a successful live weather response.
 
 ## Paid-team owner
 
@@ -79,11 +81,11 @@ xcrun devicectl device process launch --device "$MORE_DEVICE_ID" \
 Use no `--ui-testing`, `--theme-weather`, `--theme-phase`, `MO_THEME_PHASE` or `MORNING_OPERATOR_DATA_DIR` override. Do not use a synthetic workspace or reset the owner's data.
 
 1. On Home, reveal the controls and open **Settings → Calendar & weather** (also reachable through **Apps & accounts → Calendar & weather**).
-2. Keep the existing chosen city. If none is configured, deliberately choose the intended city using **Search for a city**. MORE never requests device location. Leave calendars and the routine unchanged.
-3. Return to Home and allow the bounded weather request to finish. Home and playback have no provider branding. Return to **Settings → Calendar & weather** to inspect the **Apple Weather** credit and data-sources link beside the existing city. This credit uses the current admitted weather snapshot; verify that its native mark loads. There must be no “sample”, “Weather preview” or synthetic-source marker.
+2. Choose **Current location**, tap **Allow location** and allow the explained iPhone location request, or keep a deliberately selected city. Verify that the resolved current position or selected city is shown before checking the weather. Leave calendars and the routine unchanged.
+3. Return to Home and allow the bounded weather request to finish. Home and playback have no provider branding. Return to **Settings → Calendar & weather** to inspect the **Apple Weather** credit and data-sources link beside the resolved current position or selected city. This credit uses the current admitted weather snapshot; verify that its native mark loads. There must be no “sample”, “Weather preview” or synthetic-source marker.
 4. A developer can assert `weather.sources` in the weather settings and its absence on Home/playback in the UI-test target, without fixture launch arguments or changing saved sources. Do not add phone-control code to the app target.
 
-The service publishes a snapshot only after both current conditions and required attribution succeed. Snapshots remain in memory, match the selected city and expire at the earlier of Apple's expiry or 30 minutes from retrieval/conditions time. They are not written to the settings file. The selected city is stored at `Library/Application Support/MorningOperator/briefing-settings.json` inside the app container; do not overwrite that file to run acceptance.
+The service publishes a snapshot only after both current conditions and required attribution succeed. Snapshots remain in memory, match the resolved weather location and expire at the earlier of Apple's expiry or 30 minutes from retrieval/conditions time. They are not written to the settings file. The selected city is stored at `Library/Application Support/MorningOperator/briefing-settings.json` inside the app container; do not overwrite that file to run acceptance.
 
 If Home reports unavailable, record that outcome. A valid profile alone is insufficient. The UI's unavailable state does not identify the cause: only Apple's explicit permission-denied error is classified as denied; network and other service failures remain unavailable. Keep any device logs and screenshots local and report signing, installation and live-response results separately.
 

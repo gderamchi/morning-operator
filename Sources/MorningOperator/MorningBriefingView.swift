@@ -10,6 +10,7 @@ struct MorningBriefingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ViewState<String> private var cityQuery = ""
     @ViewState<Bool> private var confirmingReset = false
+    @ViewState<Bool> private var explainingLocation = false
     @ViewState<UUID?> private var previewAttempt = nil
     @ViewState<PreparedMorningBriefing?> private var playingPreview = nil
     @FocusState private var cityFocused: Bool
@@ -73,6 +74,14 @@ struct MorningBriefingView: View {
                 stopPreview()
                 controller.clearCitySearch()
             }
+            .alert(MorningPermissionSetup.text("The weather, where you are", "La météo, là où vous êtes"), isPresented: $explainingLocation) {
+                Button(MorningPermissionSetup.text("Allow location", "Autoriser la localisation")) {
+                    Task { _ = await controller.enableCurrentLocation(); await store.prepareDayIfConfigured() }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text(MorningPermissionSetup.text("While MORE is open, an approximate position brings local weather and a sky that follows the sun. Coordinates are sent to Apple Weather and stay out of your saved history.", "Quand MORE est ouvert, une position approximative apporte la météo locale et un ciel qui suit le soleil. Les coordonnées sont transmises à Apple Météo et ne sont pas enregistrées dans votre historique."))
+            }
             .confirmationDialog("Reset Your day settings?", isPresented: $confirmingReset, titleVisibility: .visible) {
                 Button("Reset sources", role: .destructive) {
                     if !store.sessionActive { try? controller.resetSettings() }
@@ -125,8 +134,33 @@ struct MorningBriefingView: View {
     private var weatherSection: some View {
         Section {
             Group {
-                if let city = controller.settings.weatherLocation {
+                Picker(MorningPermissionSetup.text("Weather location", "Position météo"), selection: Binding(get: { controller.settings.usesCurrentLocation }, set: { current in
+                    var settings = controller.settings; settings.usesCurrentLocation = current; save(settings)
+                })) {
+                    Text(MorningPermissionSetup.text("Current location", "Position actuelle")).tag(true)
+                    Text(MorningPermissionSetup.text("Choose a city", "Choisir une ville")).tag(false)
+                }.accessibilityIdentifier("briefing.locationSource")
+                if controller.settings.usesCurrentLocation {
+                    if let location = controller.currentWeatherLocation {
+                        LabeledContent(MorningPermissionSetup.text("Location", "Position"), value: location.displayName)
+                            .accessibilityIdentifier("briefing.currentLocation")
+                    }
+                    if let issue = controller.locationIssue { Text(issue).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
+                    Button(controller.locationAuthorization == .notDetermined
+                        ? MorningPermissionSetup.text("Allow location", "Autoriser la localisation")
+                        : MorningPermissionSetup.text("Update my location", "Actualiser ma position")) {
+                        if controller.locationAuthorization == .notDetermined { explainingLocation = true }
+                        else { Task { _ = await controller.enableCurrentLocation(requestPermission: false); await store.prepareDayIfConfigured() } }
+                    }.accessibilityIdentifier("briefing.useCurrentLocation")
+                    if controller.locationAuthorization == .denied {
+                        Button(MorningPermissionSetup.text("Open iPhone Settings", "Ouvrir les réglages de l’iPhone")) {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                        }
+                    }
+                } else if let city = controller.settings.weatherLocation {
                     LabeledContent("City", value: city.displayName).accessibilityIdentifier("briefing.city")
+                }
+                if controller.currentWeatherLocation != nil {
                     Picker("Temperature", selection: Binding(get: { controller.settings.temperatureUnit }, set: { unit in
                         var settings = controller.settings; settings.temperatureUnit = unit; save(settings)
                     })) {
@@ -134,57 +168,108 @@ struct MorningBriefingView: View {
                         Text("Fahrenheit").tag(MorningBriefingTemperatureUnit.fahrenheit)
                     }.accessibilityIdentifier("briefing.temperatureUnit")
                     Button("Remove weather") {
-                        var settings = controller.settings; settings.weatherLocation = nil; save(settings)
+                        var settings = controller.settings; settings.weatherLocation = nil; settings.usesCurrentLocation = false; save(settings)
                     }.accessibilityIdentifier("briefing.removeWeather")
                 }
-                HStack {
-                    TextField("Search for a city", text: $cityQuery).textInputAutocapitalization(.words)
-                        .focused($cityFocused)
-                        .submitLabel(.search).onSubmit(search)
-                        .onChange(of: cityQuery) { _, text in controller.cityQueryChanged(text) }
-                        .accessibilityIdentifier("briefing.citySearch")
-                    Button(action: search) { Image(systemName: "magnifyingglass") }
-                        .accessibilityLabel("Search cities").accessibilityIdentifier("briefing.searchCities")
-                        .disabled(cityQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.isSearchingCities)
-                }.id(Self.citySearchAnchor)
-                if controller.isSearchingCities { ProgressView("Finding cities…") }
-                ForEach(controller.cityResults) { city in
-                    Button(city.displayName) { choose(city) }
-                        .accessibilityIdentifier("briefing.cityResult.\(city.id)")
-                }
-                if controller.cityResults.isEmpty {
-                    // Five suggestions keep the list short under the field.
-                    ForEach(controller.citySuggestions.prefix(5)) { suggestion in
-                        Button { choose(suggestion) } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(suggestion.title)
-                                if !suggestion.subtitle.isEmpty {
-                                    Text(suggestion.subtitle).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                if !controller.settings.usesCurrentLocation {
+                    HStack {
+                        TextField("Search for a city", text: $cityQuery).textInputAutocapitalization(.words)
+                            .focused($cityFocused)
+                            .submitLabel(.search).onSubmit(search)
+                            .onChange(of: cityQuery) { _, text in controller.cityQueryChanged(text) }
+                            .accessibilityIdentifier("briefing.citySearch")
+                        Button(action: search) { Image(systemName: "magnifyingglass") }
+                            .accessibilityLabel("Search cities").accessibilityIdentifier("briefing.searchCities")
+                            .disabled(cityQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || controller.isSearchingCities)
+                    }.id(Self.citySearchAnchor)
+                    if controller.isSearchingCities { ProgressView("Finding cities…") }
+                    ForEach(controller.cityResults) { city in
+                        Button(city.displayName) { choose(city) }
+                            .accessibilityIdentifier("briefing.cityResult.\(city.id)")
+                    }
+                    if controller.cityResults.isEmpty {
+                        // Five suggestions keep the list short under the field.
+                        ForEach(controller.citySuggestions.prefix(5)) { suggestion in
+                            Button { choose(suggestion) } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(suggestion.title)
+                                    if !suggestion.subtitle.isEmpty {
+                                        Text(suggestion.subtitle).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+                                    }
                                 }
                             }
+                            .disabled(controller.isSearchingCities)
+                            .accessibilityLabel(suggestion.label)
+                            .accessibilityIdentifier("briefing.citySuggestion.\(suggestion.title)")
                         }
-                        .disabled(controller.isSearchingCities)
-                        .accessibilityLabel(suggestion.label)
-                        .accessibilityIdentifier("briefing.citySuggestion.\(suggestion.title)")
+                    }
+                    if let outcome = controller.citySearchOutcome, !controller.isSearchingCities, controller.cityResults.isEmpty,
+                       controller.citySuggestions.isEmpty, controller.errorMessage == nil {
+                        Text(outcome == .noMatch ? String(localized: "No matching cities. Try a nearby city or include the country.")
+                             : WeatherObservationError.searchUnavailable.localizedDescription)
+                            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                 }
-                if let outcome = controller.citySearchOutcome, !controller.isSearchingCities, controller.cityResults.isEmpty,
-                   controller.citySuggestions.isEmpty, controller.errorMessage == nil {
-                    Text(outcome == .noMatch ? String(localized: "No matching cities. Try a nearby city or include the country.")
-                         : WeatherObservationError.searchUnavailable.localizedDescription)
-                        .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                }
             }.disabled(store.sessionActive)
+            if let snapshot = controller.currentWeatherSnapshot { currentWeatherDetails(snapshot) }
             if let attribution = controller.currentWeatherSnapshot?.attribution {
                 MorningWeatherAttributionView(attribution: attribution, synthetic: store.usesSyntheticBriefing)
             }
         } header: { Text("Weather · optional") } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Searches go to Apple Maps; the city you choose is sent to Apple Weather. MORE doesn't request your device location.")
+                Text(MorningPermissionSetup.text("With your permission, MORE uses your position only while open. An approximate location is enough. A city search goes to Apple Maps; your weather location goes to Apple Weather. Your current coordinates aren't saved in your history.", "Avec votre accord, MORE utilise votre position uniquement quand l’app est ouverte. Une position approximative suffit. La recherche de ville passe par Apple Plans ; la position météo est transmise à Apple Météo. Vos coordonnées actuelles ne sont pas enregistrées dans votre historique."))
                 Text(MorningThemeClock.shared.solarSourceDescription)
                     .accessibilityIdentifier("briefing.solarSource")
             }.font(.raleway(.caption2))
         }
+    }
+
+    @ViewBuilder private func currentWeatherDetails(_ weather: WeatherObservationSnapshot) -> some View {
+        LabeledContent(weather.conditionDescription, value: temperature(weather.temperatureCelsius))
+        if let value = weather.apparentTemperatureCelsius {
+            LabeledContent(MorningPermissionSetup.text("Feels like", "Ressenti"), value: temperature(value))
+        }
+        if let value = weather.windSpeedMetersPerSecond {
+            LabeledContent(MorningPermissionSetup.text("Wind", "Vent"), value: number(value * 3.6) + " km/h")
+        }
+        if let value = weather.windGustMetersPerSecond {
+            LabeledContent(MorningPermissionSetup.text("Gusts", "Rafales"), value: number(value * 3.6) + " km/h")
+        }
+        if let value = weather.windDirectionDegrees {
+            LabeledContent(MorningPermissionSetup.text("Wind from", "Vent venant de"), value: number(value) + "°")
+        }
+        if let value = weather.precipitationIntensityMillimetersPerHour {
+            LabeledContent(MorningPermissionSetup.text("Precipitation", "Précipitations"), value: number(value) + " mm/h")
+        }
+        if let value = weather.cloudCover {
+            LabeledContent(MorningPermissionSetup.text("Cloud cover", "Couverture nuageuse"), value: number(value * 100) + " %")
+        }
+        if let value = weather.humidity {
+            LabeledContent(MorningPermissionSetup.text("Humidity", "Humidité"), value: number(value * 100) + " %")
+        }
+        if let value = weather.visibilityMeters {
+            LabeledContent(MorningPermissionSetup.text("Visibility", "Visibilité"), value: number(value / 1_000) + " km")
+        }
+        if let value = weather.dewPointCelsius {
+            LabeledContent(MorningPermissionSetup.text("Dew point", "Point de rosée"), value: temperature(value))
+        }
+        if let value = weather.uvIndex { LabeledContent("UV", value: String(value)) }
+        if let value = weather.pressureHectopascals {
+            LabeledContent(MorningPermissionSetup.text("Pressure", "Pression"), value: number(value) + " hPa")
+        }
+        if let value = weather.isDaylight {
+            LabeledContent(MorningPermissionSetup.text("Sky", "Ciel"), value: value
+                ? MorningPermissionSetup.text("Day", "Jour") : MorningPermissionSetup.text("Night", "Nuit"))
+        }
+        Text(weather.observationAt, format: .dateTime.hour().minute())
+            .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
+    }
+    private func number(_ value: Double) -> String {
+        value.formatted(.number.locale(AppLanguage.locale).precision(.fractionLength(0...1)))
+    }
+    private func temperature(_ celsius: Double) -> String {
+        controller.settings.temperatureUnit == .fahrenheit
+            ? number(celsius * 9 / 5 + 32) + " °F" : number(celsius) + " °C"
     }
 
     private static let citySearchAnchor = "briefing.citySearchRow"
@@ -207,7 +292,7 @@ struct MorningBriefingView: View {
     }
 
     private func choose(_ city: WeatherLocation) {
-        var settings = controller.settings; settings.weatherLocation = city; save(settings)
+        var settings = controller.settings; settings.weatherLocation = city; settings.usesCurrentLocation = false; save(settings)
         cityQuery = ""; cityFocused = false
     }
 
