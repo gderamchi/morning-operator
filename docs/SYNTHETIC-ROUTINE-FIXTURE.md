@@ -390,3 +390,64 @@ never receives the long oracle, changes a source to human, or requires a
 positive model output to make the diagnostic green. Validated proposals are
 logged separately for semantic review. The diagnostic has not run at this
 checkpoint; a technical pass with abstentions would not be product acceptance.
+
+### Grounded rendering and the next native checkpoint
+
+The eight-case diagnostic ran on `b589eec`: **two tests passed, 41.192s**.
+Explicit event/message inputs yielded one proposed step per case in both EN and
+FR, with and without the short banner. The original snippets abstained for both
+video and manual evidence. These are constructed text probes, not Vision.
+Independent review accepted only **one of the four positive proposals** under
+the selected-excerpt rule: three summaries added a date or room from other,
+uncited lines. A native exact citation alone did not establish that the summary
+was grounded.
+
+The grounded proposal schema/DTO now omits free model details. Its native
+resolver supplies no factual summary; the existing renderer adds its localized
+tentative note and exact citations. Manual details, personal choices, the legacy
+analysis path and the public assembly contract remain separate. Nineteen tests
+in three suites passed on `4addd10` (**0.585s**, build **10.29s**), covering omitted
+and ignored legacy details, uncited facts, forged IDs and retained preferences.
+The eight real local probes then completed in **17.801s**. Independent review
+found all four positive titles and citations compatible; each still covers only
+one of two input frames. Proposed 15–30 minute budgets remain poorly suited to
+a quick review and do not establish measured use or full routine coverage.
+
+The bounded OCR lane on `f57c6a3` passed its five deterministic regressions
+(**0.250s**, compiled on `51295f4`). It releases the caller after 60 seconds or
+cancellation, discards late output and keeps the native slot occupied until the
+worker actually finishes. A video aborts on that timeout; no partial failure is
+turned into another 23 pending requests. This is not yet a new real Vision pass.
+
+An opt-in replay diagnostic retains the actual archived OCR bytes, verifies the
+unchanged MP4 fingerprint before/after, and explicitly labels its reports
+`replay-not-full-pipeline`. It neither re-extracts pixels nor reruns the
+classifier. On `06f9848`, a single complete agenda frame without classification
+still returned a validated empty result in **2.266s**, with five anchors and one
+SDK invocation/return/validation. The diagnostic passed; the learning result did
+not. The two additional EN/FR probes with the full movie disclosure are prepared
+but have not run. None of these receipts is a new full-pipeline score.
+
+Native build9d on `06f9848` **TEST BUILD SUCCEEDED** and its app, UI test bundle
+and xctestrun hashes were sealed. Its mixed3 runtime is still in progress. The
+previous removal-helper failure was independently reviewed against the capture:
+two nested native buttons share the same identifier. The test now selects the
+exact enabled/hittable action within the observed confirmation sheet, without
+scrolling that modal or choosing Exclude. Later operations remain subject to the
+actual runtime result.
+
+The separate long10 test is now registered, statically reviewed, and compiled
+in build9d; it has not run. It imports the unchanged manual oracle, configures
+Calendar and read-only Gmail through UI, replaces the Slack placeholder through
+account Setup, and explicitly edits the other seven moments to time-only
+budgets. Its declared plan stays 28 minutes without acceleration. Mail/Slack are
+left through explicit controls; therefore 28 planned minutes is not a promised
+wall-clock execution time. Expected recap: seven elapsed budgets, two verified
+simulated readings, one uncertain simulated Slack attempt. It does not claim
+the movie's simulated Gmail/reminder sends, browser actions, audio, a complete
+inferred routine or MORE §10.
+
+A byte-identical 43-file private copy of the FR corpus now also lives in this
+acceptance worktree's ignored `work/routine-fixture/long-v1b/`. Every copied file
+was SHA-256 verified; no media was rerendered or committed and the original
+manifest was not edited.
