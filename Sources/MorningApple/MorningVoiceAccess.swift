@@ -83,7 +83,7 @@ public struct MorningVoiceAccessSnapshot: Equatable, Sendable {
          speechRequest: @escaping @MainActor () async -> Void,
          microphoneRequest: @escaping @MainActor () async -> Void) {
         self.probe = probe; self.speechRequest = speechRequest; self.microphoneRequest = microphoneRequest
-        snapshot = probe(.english)
+        snapshot = probe(.current)
     }
 
     @discardableResult public func refresh(language: MorningVoiceCommandLanguage) -> MorningVoiceAccessSnapshot {

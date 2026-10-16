@@ -43,6 +43,11 @@ enum SpeechVoicePolicy {
         }.first
     }
 
+    static func validatedIdentifier(_ id: String?, from voices: [SpeechVoiceDescriptor], language: String) -> String? {
+        guard let id, voices.contains(where: { $0.id == id && languageMatch($0.language, language) > 0 }) else { return nil }
+        return id
+    }
+
     static func languageMatch(_ candidate: String, _ preferred: String) -> Int {
         let left = canonicalLanguage(candidate)
         let right = canonicalLanguage(preferred)

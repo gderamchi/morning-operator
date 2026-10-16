@@ -77,7 +77,7 @@ final class RisoThemeSnapshotTests: XCTestCase {
             dark ? "--dark-preview" : "--light-preview",
             empty ? "--ui-testing-empty-workspace" : "--ui-testing-approved",
             "--ui-testing-workspace=\(UUID().uuidString)",
-            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"]
+            "-more.appLanguage", french ? "fr" : "en", "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"]
         app.launch()
         return app
     }

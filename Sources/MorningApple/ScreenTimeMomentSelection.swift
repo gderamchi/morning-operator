@@ -50,9 +50,7 @@ public struct ScreenTimeAppMomentChoice: Equatable, Sendable, Identifiable {
     public let isAmbiguous: Bool
     public var isEligible: Bool { plannedMinutes != nil }
     public static var policyExplanation: String {
-        AppLanguage.isFrench
-            ? "Règle commune : usages d’au moins 30 secondes, présence sur au moins la moitié des fenêtres comparables retenues, médiane arrondie à la minute et durée prévue entre 1 et 240 minutes. L’ordre reste estimé et les absences inconnues. Tous les agrégats restent dans les sources."
-            : "Shared rule: use of at least 30 seconds, presence in at least half the retained comparable windows, median rounded to a minute and planned duration between 1 and 240 minutes. Order stays estimated and missing use unknown. All aggregates remain in the sources."
+        String(localized: "Shared rule: use of at least 30 seconds, presence in at least half the retained comparable windows, median rounded to a minute and planned duration between 1 and 240 minutes. Order stays estimated and missing use unknown. All aggregates remain in the sources.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     }
     static func ambiguousIdentifiers(reports: [ScreenTimeObservationEvidence]) -> Set<String> {
         let names = reports.flatMap(\.apps).reduce(into: [String: String]()) { values, app in

@@ -18,7 +18,7 @@ struct ObservationClipTimelineView: View {
         VStack(alignment: .leading, spacing: 14) {
             if let review, !review.rows.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(review.timelineOrderIsValid ? "Sampled moments" : "Saved samples").font(.serif(.headline))
+                    Text(review.timelineOrderIsValid ? String(localized: "Sampled moments", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Saved samples", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)).font(.serif(.headline))
                     Text(summary(review))
                         .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                         .accessibilityIdentifier("\(prefix).summary")
@@ -45,7 +45,7 @@ struct ObservationClipTimelineView: View {
                 // inherited container identifier can hide the child source buttons in AX.
                 DisclosureGroup(isExpanded: $showingSamples) {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(review.timelineOrderIsValid ? "Activity between these sampled moments is unknown." : "Original samples in extraction order")
+                        Text(review.timelineOrderIsValid ? String(localized: "Activity between these sampled moments is unknown.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Original samples in extraction order", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                             .padding(.bottom, 4)
                         ForEach(review.rows) { moment in
@@ -56,7 +56,7 @@ struct ObservationClipTimelineView: View {
                             .accessibilityElement(children: .ignore)
                             .accessibilityAddTraits(.isButton)
                             .accessibilityLabel("\(observationSampleTime(moment.timeSeconds)), \(momentLabel(moment))")
-                            .accessibilityValue(momentCaveat(moment) ?? AppLanguage.localized("Sampled screen"))
+                            .accessibilityValue(momentCaveat(moment) ?? String(localized: "Sampled screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                             .accessibilityHint("Shows original text and quoted evidence")
                             .accessibilityIdentifier("\(prefix).point.\(moment.id.uuidString)")
                             if moment.id != review.rows.last?.id { Divider().padding(.leading, 64) }
@@ -72,7 +72,7 @@ struct ObservationClipTimelineView: View {
                 Text("Labels come from recognition or your review. Samples can miss activity and don't measure time spent, taps, reads or scrolls.")
                     .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
             } else {
-                Text(acquisition.videoEvidence == nil ? "No sampled recording is attached to this observation." : "The sampled interpretation can't be displayed. Original evidence remains available below.")
+                Text(acquisition.videoEvidence == nil ? String(localized: "No sampled recording is attached to this observation.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "The sampled interpretation can't be displayed. Original evidence remains available below.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                     .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
             }
         }
@@ -124,8 +124,8 @@ struct ObservationClipTimelineView: View {
     }
 
     private func summary(_ value: ObservationClipReview) -> String {
-        guard value.timelineOrderIsValid else { return AppLanguage.localized("\(value.sampleCount) source samples · chronology unresolved") }
-        return AppLanguage.localized("\(value.recognizedMomentCount) of \(value.rows.count) sampled moments labeled · \(value.unknownMomentCount) unresolved")
+        guard value.timelineOrderIsValid else { return String(localized: "\(value.sampleCount) source samples · chronology unresolved", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        return String(localized: "\(value.recognizedMomentCount) of \(value.rows.count) sampled moments labeled · \(value.unknownMomentCount) unresolved", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
 
     private func sequence(_ value: ObservationClipReview) -> String {
@@ -134,33 +134,33 @@ struct ObservationClipTimelineView: View {
 
     private func returnSummary(_ value: ObservationClipReview) -> String {
         let count = value.traceReport?.apps.reduce(0) { $0 + $1.minimumVisibleReturnCount } ?? 0
-        if count == 0 { return AppLanguage.localized("No return is established by these samples.") }
-        return AppLanguage.localized("At least \(count) visible returns in this clip. Gaps may hide others.")
+        if count == 0 { return String(localized: "No return is established by these samples.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        return String(localized: "At least \(count) visible returns in this clip. Gaps may hide others.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
 
     private func interpretationMessage(_ value: ObservationClipReview) -> String? {
         guard value.timelineOrderIsValid else {
-            return AppLanguage.localized("Frame times aren't in order. Original samples are shown in extraction order; their chronology is unresolved.")
+            return String(localized: "Frame times aren't in order. Original samples are shown in extraction order; their chronology is unresolved.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
         let reviewedCount = value.rows.flatMap(\.samples).filter { $0.frameReview != nil }.count
         if reviewedCount > 0 {
-            return AppLanguage.localized("You reviewed \(reviewedCount) samples. Your labels and unknown choices take priority; original text and model results stay available.")
+            return String(localized: "You reviewed \(reviewedCount) samples. Your labels and unknown choices take priority; original text and model results stay available.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
         switch value.interpretationState {
         case .corrected:
-            return AppLanguage.localized("Notes were corrected. The earlier screen interpretation was removed; original samples remain.")
+            return String(localized: "Notes were corrected. The earlier screen interpretation was removed; original samples remain.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         case .invalid:
-            return AppLanguage.localized("An unsupported interpretation was removed. Original samples remain.")
+            return String(localized: "An unsupported interpretation was removed. Original samples remain.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         case .unclassified:
-            return AppLanguage.localized("These samples have not been interpreted.")
+            return String(localized: "These samples have not been interpreted.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         case .noVideo:
             return nil
         case .available:
             switch value.classificationStatus {
-            case .unavailable: return AppLanguage.localized("On-device recognition was unavailable. These samples remain unknown.")
-            case .failed: return AppLanguage.localized("Recognition did not finish. These samples remain unknown.")
-            case .partialFailure: return AppLanguage.localized("Some recognition requests failed. Unresolved samples remain visible.")
-            case .noEligibleFrames: return AppLanguage.localized("No samples had enough complete text for recognition.")
+            case .unavailable: return String(localized: "On-device recognition was unavailable. These samples remain unknown.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            case .failed: return String(localized: "Recognition did not finish. These samples remain unknown.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            case .partialFailure: return String(localized: "Some recognition requests failed. Unresolved samples remain visible.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            case .noEligibleFrames: return String(localized: "No samples had enough complete text for recognition.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             case .completed, nil: return nil
             }
         }
@@ -173,24 +173,24 @@ private struct ObservationMomentSelection: Identifiable {
 
 private func momentLabel(_ moment: ObservationReviewMoment) -> String {
     switch moment.resolution {
-    case .recognized: moment.resolvedContext?.displayName ?? AppLanguage.localized("Unknown screen")
-    case .ambiguous: AppLanguage.localized("Ambiguous screen")
-    case .conflicting: AppLanguage.localized("Unresolved at this timestamp")
-    case .unknown: AppLanguage.localized("Unknown screen")
+    case .recognized: moment.resolvedContext?.displayName ?? String(localized: "Unknown screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+    case .ambiguous: String(localized: "Ambiguous screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+    case .conflicting: String(localized: "Unresolved at this timestamp", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+    case .unknown: String(localized: "Unknown screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
 }
 
 private func momentCaveat(_ moment: ObservationReviewMoment) -> String? {
     if moment.samples.count > 1 {
-        return AppLanguage.localized("\(moment.samples.count) samples share this time; their order is unknown.")
+        return String(localized: "\(moment.samples.count) samples share this time; their order is unknown.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
-    if moment.hasRequestedTimeFallback { return AppLanguage.localized("Requested sample time; exact frame time unavailable.") }
+    if moment.hasRequestedTimeFallback { return String(localized: "Requested sample time; exact frame time unavailable.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
     guard let frame = moment.samples.first?.frame else { return nil }
-    if frame.textWasTruncated { return AppLanguage.localized("Text was limited; identity remains unknown.") }
+    if frame.textWasTruncated { return String(localized: "Text was limited; identity remains unknown.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
     switch frame.outcome {
-    case .blank: return AppLanguage.localized("No readable text")
-    case .decodeFailed: return AppLanguage.localized("Frame unavailable")
-    case .ocrFailed: return AppLanguage.localized("Text extraction failed")
+    case .blank: return String(localized: "No readable text", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+    case .decodeFailed: return String(localized: "Frame unavailable", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+    case .ocrFailed: return String(localized: "Text extraction failed", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     case .observed: return nil
     }
 }
@@ -232,25 +232,25 @@ private struct ObservationSampleDetail: View {
             }
             ForEach(Array(moment.samples.enumerated()), id: \.element.id) { index, sample in
                 Section {
-                    sampleTime(AppLanguage.localized("Requested sample"), value: observationSampleTime(sample.frame.requestedTimeSeconds, fractionDigits: 3),
+                    sampleTime(String(localized: "Requested sample", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: observationSampleTime(sample.frame.requestedTimeSeconds, fractionDigits: 3),
                                identifier: "observation.sample.requestedTime.\(sample.id.uuidString)")
-                    sampleTime(AppLanguage.localized("Actual frame"), value: sample.frame.actualTimeSeconds.map { observationSampleTime($0, fractionDigits: 3) } ?? AppLanguage.localized("Unavailable"),
+                    sampleTime(String(localized: "Actual frame", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: sample.frame.actualTimeSeconds.map { observationSampleTime($0, fractionDigits: 3) } ?? String(localized: "Unavailable", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
                                identifier: "observation.sample.actualTime.\(sample.id.uuidString)")
                     let userReview = acquisition.frameReviews.first { $0.sampleID == sample.id }
                     let originalDecision = acquisition.classification?.decisions.first { $0.sampleID == sample.id }
                     if let userReview {
-                        LabeledContent("Your label", value: userReview.label ?? AppLanguage.localized("Unknown screen"))
+                        LabeledContent("Your label", value: userReview.label ?? String(localized: "Unknown screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel("Your label")
-                            .accessibilityValue(userReview.label ?? AppLanguage.localized("Unknown screen"))
+                            .accessibilityValue(userReview.label ?? String(localized: "Unknown screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                             .accessibilityIdentifier("observation.sample.userLabel.\(sample.id.uuidString)")
                         Text(userReview.label == nil
-                             ? "You kept this screen unknown. It is left out of later activity suggestions."
-                             : "Your description stays separate from the model's interpretation.")
+                             ? String(localized: "You kept this screen unknown. It is left out of later activity suggestions.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                             : String(localized: "Your description stays separate from the model's interpretation.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                             .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                     if case .identified(let context, _) = originalDecision?.evidence {
-                        LabeledContent(userReview == nil ? "Proposed visual label" : "Original proposed label", value: context.displayName)
+                        LabeledContent(userReview == nil ? String(localized: "Proposed visual label", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Original proposed label", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), value: context.displayName)
                     } else if case .ambiguous = originalDecision?.evidence {
                         Text("The original interpretation supported more than one possible context.")
                             .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
@@ -279,7 +279,7 @@ private struct ObservationSampleDetail: View {
                             identifier: "observation.sample.readReviewedMoment.\(sample.id.uuidString)")
                     }
                     if acquisition.correctedText == nil {
-                        Button(userReview == nil ? "Correct label" : "Edit your label") {
+                        Button(userReview == nil ? String(localized: "Correct label", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Edit your label", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
                             reviewSelection = .init(id: sample.id, acquisition: acquisition)
                         }
                         .disabled(store.busy || store.sessionActive || !store.storageIsAvailable)
@@ -287,7 +287,7 @@ private struct ObservationSampleDetail: View {
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Original extracted text").font(.raleway(.caption, .semibold)).foregroundStyle(MorningStyle.muted)
-                        Text(sample.frame.text.isEmpty ? AppLanguage.localized("No readable text was retained.") : sample.frame.text)
+                        Text(sample.frame.text.isEmpty ? String(localized: "No readable text was retained.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : sample.frame.text)
                             .font(.raleway(.subheadline)).textSelection(.enabled)
                             .accessibilityIdentifier("observation.sample.originalText.\(sample.id.uuidString)")
                     }
@@ -299,7 +299,7 @@ private struct ObservationSampleDetail: View {
                         Text(warning).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                     }
                 } header: {
-                    Text(moment.samples.count == 1 ? "Source sample" : "Source sample \(index + 1)")
+                    Text(moment.samples.count == 1 ? String(localized: "Source sample", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Source sample \(index + 1)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 }
             }
         }

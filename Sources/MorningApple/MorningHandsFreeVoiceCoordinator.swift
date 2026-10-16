@@ -28,6 +28,8 @@ public final class MorningHandsFreeVoiceCoordinator {
     public var continuation = MorningVoiceContinuationPolicy()
 
     #if os(iOS)
+    @ObservationIgnored private var language: MorningVoiceCommandLanguage = .current
+    @ObservationIgnored private var languageGeneration = UUID()
     @ObservationIgnored private var runID: UUID?
     @ObservationIgnored private var recognitionID: UUID?
     @ObservationIgnored private var startup: Task<Void, Never>?
@@ -70,6 +72,7 @@ public final class MorningHandsFreeVoiceCoordinator {
     /// Starting a morning is the explicit session-level request for listening.
     /// Unavailable local recognition never falls back to a remote recognizer.
     public func start(language: MorningVoiceCommandLanguage, speech: SpeechCoordinator,
+                      languageGeneration: UUID = UUID(),
                       context: @escaping @MainActor () -> MorningVoiceCommandContext?,
                       onSpeech: @escaping @MainActor () -> Void,
                       onUtterance: @escaping @MainActor (MorningHandsFreeUtterance) async -> Void) {
@@ -78,6 +81,8 @@ public final class MorningHandsFreeVoiceCoordinator {
               context() != nil else { return }
         let id = UUID()
         runID = id
+        self.language = language
+        self.languageGeneration = languageGeneration
         self.speech = speech; self.context = context; self.onSpeech = onSpeech; self.onUtterance = onUtterance
         state = .preparing; transcript = ""
         consecutiveFailures = 0
@@ -100,7 +105,7 @@ public final class MorningHandsFreeVoiceCoordinator {
                 beginRecognition(id: id)
             } catch {
                 guard runID == id else { return }
-                let reason = (error as? MorningVoiceListeningError)?.localizedDescription
+                let reason = (error as? MorningVoiceListeningError)?.moreDescription
                     ?? AppLanguage.localized("Hands-free voice is unavailable. Your morning controls remain available.", bundle: .module)
                 stop(finalState: .unavailable, finalMessage: reason)
             }
@@ -198,17 +203,17 @@ public final class MorningHandsFreeVoiceCoordinator {
 
     private func beginRecognition(id: UUID) {
         guard runID == id, let recognizer, recognizer.isAvailable else {
-            if runID == id { stop(finalState: .unavailable, finalMessage: MorningVoiceListeningError.unavailable.localizedDescription) }
+            if runID == id { stop(finalState: .unavailable, finalMessage: MorningVoiceListeningError.unavailable.moreDescription) }
             return
         }
         recognitionTask?.cancel()
-        turn = MorningHandsFreeVoiceTurn(); isFinishing = false; transcript = ""
+        turn = MorningHandsFreeVoiceTurn(languageGeneration: languageGeneration); isFinishing = false; transcript = ""
         let recognitionID = UUID()
         self.recognitionID = recognitionID
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true; request.shouldReportPartialResults = true
         request.addsPunctuation = true; request.taskHint = .dictation
-        request.contextualStrings = MorningVoiceCommandLanguage.english.exampleCommands + MorningVoiceCommandLanguage.french.exampleCommands
+        request.contextualStrings = language.exampleCommands + language.exampleCommands.map { "MORE \($0)" }
         sink.replace(with: request)
         state = .listening
         message = AppLanguage.localized("Listening · You can interrupt MORE.", bundle: .module)
@@ -238,7 +243,7 @@ public final class MorningHandsFreeVoiceCoordinator {
             if !isFinishing {
                 consecutiveFailures += 1
                 if consecutiveFailures >= 3 {
-                    stop(finalState: .unavailable, finalMessage: MorningVoiceListeningError.unavailable.localizedDescription)
+                    stop(finalState: .unavailable, finalMessage: MorningVoiceListeningError.unavailable.moreDescription)
                     return
                 }
             }

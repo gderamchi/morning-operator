@@ -197,7 +197,7 @@ final class SunriseDockTests: XCTestCase {
     func testFrenchLargestTextAndReducedMotionKeepControlsReachable() {
         let app = launch(phase: "night", extra: [
             "--ui-testing-reduce-motion", "--ui-testing-reduce-transparency",
-            "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR",
+            "-more.appLanguage", "fr", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
         ])
         assertQuietArrival(in: app)
@@ -415,7 +415,7 @@ final class SunriseDockTests: XCTestCase {
         ] + extra
         if let weather { app.launchArguments.append("--theme-weather=\(weather)") }
         if !extra.contains("-AppleLanguages") {
-            app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            app.launchArguments += ["-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         }
         app.launch()
         return app

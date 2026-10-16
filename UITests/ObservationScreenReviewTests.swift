@@ -119,14 +119,14 @@ final class ObservationScreenReviewTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
             "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-observation-review"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 
     private func relaunchWithoutSeed(_ app: XCUIApplication) {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-observation-review" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
     }
 
     private func openWeekly(in app: XCUIApplication) {

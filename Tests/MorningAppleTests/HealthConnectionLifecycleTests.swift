@@ -121,6 +121,35 @@ struct HealthConnectionLifecycleTests {
         }
     }
 
+    @Test func languageChangeRelocalizesTheFailureWithoutRetryingOrChangingChoices() async throws {
+        let rig = HealthConnectionRig()
+        defer { rig.close() }
+        rig.reader.promptFailure = .unavailableOnDevice
+        #expect(!(await rig.controller.enableHealth()))
+        let choices = rig.controller.settings
+        #expect(rig.controller.healthConnectionIssue == "Health data is not available on this device.")
+        rig.controller.appLanguageDidChange(locale: Locale(identifier: "fr_FR"))
+        #expect(rig.controller.healthConnectionIssue == "Les données de Santé ne sont pas disponibles sur cet appareil.")
+        rig.controller.appLanguageDidChange(locale: Locale(identifier: "en_GB"))
+        #expect(rig.controller.healthConnectionIssue == "Health data is not available on this device.")
+        #expect(rig.controller.settings == choices && rig.reader.prompts == 1 && rig.reader.reads == 0)
+        #expect(!rig.controller.isConnectingHealth && rig.controller.prepared == nil)
+    }
+
+    @Test func languageChangeRejectsALatePermissionCompletionWithoutRequestingAgain() async throws {
+        let rig = HealthConnectionRig()
+        defer { rig.close() }
+        rig.reader.holdsPrompt = true
+        let connecting = Task { await rig.controller.enableHealth() }
+        await rig.reader.waitForPrompt()
+        rig.controller.appLanguageDidChange(locale: Locale(identifier: "fr_FR"))
+        rig.reader.finishPrompt()
+        #expect(!(await connecting.value))
+        #expect(!rig.controller.settings.includesHealth && !rig.controller.isConnectingHealth)
+        #expect(rig.reader.prompts == 1 && rig.reader.reads == 0 && rig.controller.healthConnectionIssue == nil)
+        #expect(!rig.makeController().settings.includesHealth)
+    }
+
     @Test func returningFromHealthDiscardsSleepAndRequiresANewReadWithoutPrompting() async throws {
         let rig = HealthConnectionRig()
         defer { rig.close() }

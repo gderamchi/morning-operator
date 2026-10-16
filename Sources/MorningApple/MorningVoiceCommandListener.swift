@@ -131,7 +131,7 @@ public final class MorningVoiceCommandListener {
     /// seconds, then allows three seconds for the recognizer's final whole-turn result.
     /// Never persists audio or a transcript and never falls back to server recognition.
     public func listen(context: MorningVoiceCommandContext,
-                       language: MorningVoiceCommandLanguage = .english) async throws -> MorningVoiceCommandEnvelope {
+                       language: MorningVoiceCommandLanguage = .current) async throws -> MorningVoiceCommandEnvelope {
         let result = try await performTurn(purpose: .command(context), language: language)
         guard case .command(let command) = result else { throw MorningVoiceListeningError.unrecognized }
         return command
@@ -140,7 +140,7 @@ public final class MorningVoiceCommandListener {
     /// One explicit on-device dictation turn: up to thirty seconds of input and three
     /// seconds for a final result. Returns at most 4,000 Characters for caller-owned review;
     /// it never executes a command, persists a transcript or starts a new listening turn.
-    public func dictate(language: MorningVoiceCommandLanguage = .english) async throws -> String {
+    public func dictate(language: MorningVoiceCommandLanguage = .current) async throws -> String {
         let result = try await performTurn(purpose: .capture, language: language)
         try Task.checkCancellation()
         #if os(iOS)
@@ -162,7 +162,7 @@ public final class MorningVoiceCommandListener {
         let id = UUID()
         switch purpose {
         case .command(let context):
-            turn = MorningVoiceCommandTurn(id: id, context: context); captureTurn = nil
+            turn = MorningVoiceCommandTurn(id: id, context: context, language: language); captureTurn = nil
         case .capture:
             turn = nil; captureTurn = MorningCaptureTurn(id: id)
         }
@@ -214,7 +214,7 @@ public final class MorningVoiceCommandListener {
         }
         #else
         let error: MorningVoiceListeningError = purpose.isCapture ? .captureUnavailable : .unavailable
-        state = .unavailable; message = error.localizedDescription
+        state = .unavailable; message = error.moreDescription
         throw error
         #endif
     }
@@ -262,7 +262,7 @@ public final class MorningVoiceCommandListener {
                     state = .idle; message = AppLanguage.localized("Microphone released.", bundle: .module)
                 } catch {
                     state = .failed
-                    message = MorningVoiceListeningError.audio(error.localizedDescription).localizedDescription
+                    message = MorningVoiceListeningError.audio(error.moreDescription).moreDescription
                     throw error
                 }
             }
@@ -273,6 +273,12 @@ public final class MorningVoiceCommandListener {
             try await shutdownTask.value
         }
         #endif
+    }
+
+    /// Refresh only idle app-owned wording; never replace a live transcript.
+    public func refreshLanguageStatus() {
+        guard !isBusy, !needsAudioRelease else { return }
+        message = AppLanguage.localized("Tap to say one command.", bundle: .module)
     }
 
     #if os(iOS)
@@ -337,7 +343,7 @@ public final class MorningVoiceCommandListener {
             // Only send value types across the framework callback's executor boundary.
             let hypothesis = result.map { CommandHypothesis(text: $0.bestTranscription.formattedString,
                 isFinal: $0.isFinal, alternatives: $0.transcriptions.map(\.formattedString)) }
-            let failure = error?.localizedDescription
+            let failure = error?.moreDescription
             Task { @MainActor [weak self] in self?.receive(hypothesis, error: failure, id: id) }
         }
         recognitionTask = recognizer.recognitionTask(with: request, resultHandler: receiveResult)
@@ -424,7 +430,7 @@ public final class MorningVoiceCommandListener {
             }
             catch {
                 releaseFailure = error
-                outcome = .failure(MorningVoiceListeningError.audio(error.localizedDescription))
+                outcome = .failure(MorningVoiceListeningError.audio(error.moreDescription))
             }
             if releaseFailure == nil,
                cancelledTurnID == id || UIApplication.shared.applicationState != .active {
@@ -446,7 +452,7 @@ public final class MorningVoiceCommandListener {
                         state = .unavailable
                     default: state = .failed
                     }
-                    message = error.localizedDescription
+                    message = error.moreDescription
                 }
             }
             continuation?.resume(with: outcome)

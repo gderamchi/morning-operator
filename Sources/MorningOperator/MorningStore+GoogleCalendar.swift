@@ -17,7 +17,7 @@ extension MorningStore {
             notice = AppLanguage.isFrench ? "Calendrier ajouté au brouillon. Relisez et validez votre routine."
                 : "Calendar added to your draft. Review and approve your routine."
             return true
-        } catch { notice = error.localizedDescription; return false }
+        } catch { notice = error.moreDescription; return false }
     }
 
     var currentGoogleCalendarDayContext: MorningExecutionID? {
@@ -144,7 +144,7 @@ extension MorningStore {
                 connectedMoment.fail(attempt, executionID: context)
                 clearGoogleCalendarDay()
                 pause()
-                let reason = (error as? GoogleCalendarDayError)?.localizedDescription ?? GoogleCalendarDayError.unavailable.localizedDescription
+                let reason = (error as? GoogleCalendarDayError)?.moreDescription ?? GoogleCalendarDayError.unavailable.moreDescription
                 connectedActionStatus = reason + (AppLanguage.isFrench ? " Votre matin est en pause. " : " Your morning is paused. ")
                     + googleCalendarDayRefreshInstruction
                 recordExecution(.unavailable)

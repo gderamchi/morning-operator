@@ -18,7 +18,7 @@ extension MorningStore {
             notice = AppLanguage.isFrench ? "Rendez-vous ajoutés au brouillon. Relisez et validez votre routine."
                 : "Bookings added to your draft. Review and approve your routine."
             return true
-        } catch { notice = error.localizedDescription; return false }
+        } catch { notice = error.moreDescription; return false }
     }
 
     var currentCalendlyDayContext: MorningExecutionID? {
@@ -145,7 +145,7 @@ extension MorningStore {
                 connectedMoment.fail(attempt, executionID: context)
                 clearCalendlyDay()
                 pause()
-                let reason = (error as? CalendlyDayError)?.localizedDescription ?? CalendlyDayError.unavailable.localizedDescription
+                let reason = (error as? CalendlyDayError)?.moreDescription ?? CalendlyDayError.unavailable.moreDescription
                 connectedActionStatus = reason + (AppLanguage.isFrench ? " Votre matin est en pause. " : " Your morning is paused. ")
                     + calendlyDayRefreshInstruction
                 recordExecution(.unavailable)

@@ -31,7 +31,7 @@ struct MorningScreenTimeView: View {
                     HStack { ProgressView(); Text("Reading your last mornings…") }
                         .font(MorningTheme.Typography.note).accessibilityIdentifier("learn.screenTime.reading")
                 } else {
-                    Button(store.screenTimeAccess == .approved ? AppLanguage.localized("Refresh app use") : AppLanguage.localized("Connect Screen Time")) {
+                    Button(store.screenTimeAccess == .approved ? String(localized: "Refresh app use", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Connect Screen Time", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
                         store.learnFromScreenTime()
                     }.buttonStyle(PrimaryButtonStyle())
                         .disabled(store.busy || store.sessionActive || !store.storageIsAvailable || store.screenTimeAccess == .unavailable)
@@ -93,12 +93,12 @@ struct MorningScreenTimeView: View {
 
     private func dailyUse(_ day: ScreenTimeDailyUsage) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(day.day.formatted(date: .abbreviated, time: .omitted)).font(MorningTheme.Typography.label)
+            Text(day.day.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(AppLanguage.locale))).font(MorningTheme.Typography.label)
             ForEach(day.summary.apps.prefix(5)) { app in
                 HStack {
                     Text(app.name)
                     Spacer()
-                    Text(app.roundedMinutes == 0 ? AppLanguage.localized("Less than 1 min") : AppLanguage.localized("\(app.roundedMinutes) min")).monospacedDigit()
+                    Text(app.roundedMinutes == 0 ? String(localized: "Less than 1 min", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "\(app.roundedMinutes) min", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)).monospacedDigit()
                 }.font(MorningTheme.Typography.note)
             }
             Text("Returned app use. Missing days stay unknown.")
@@ -169,7 +169,7 @@ struct ScreenTimeProposalView: View {
                 if !step.suggestedStep.detail.isEmpty {
                     Text(step.suggestedStep.detail).font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                 }
-            } else { Text(step.minutesMeasured ? AppLanguage.localized("Minutes measured") : AppLanguage.localized("Minutes estimated"))
+            } else { Text(step.minutesMeasured ? String(localized: "Minutes measured", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Minutes estimated", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
                 .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted) }
             Text(step.suggestedStep.executionDescription).font(.raleway(.subheadline))
                 .accessibilityIdentifier("screenTimeProposal.execution.\(index)")

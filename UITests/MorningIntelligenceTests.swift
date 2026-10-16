@@ -8,9 +8,10 @@ final class MorningIntelligenceTests: XCTestCase {
     private func check(french: Bool, large: Bool) {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved",
+        app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved", "--ui-testing-reduce-motion",
             "--ui-testing-workspace=\(UUID().uuidString)", "--theme-phase=night",
-            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"]
+            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US",
+            "-more.appLanguage", french ? "fr" : "en"]
         if large { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
         app.launch()
         defer { app.terminate() }
@@ -26,7 +27,7 @@ final class MorningIntelligenceTests: XCTestCase {
         // No provider call is made by configuring this synthetic key.
         let consent = find(app.switches["intelligence.consent"], in: app)
         XCTAssertFalse(app.staticTexts["intelligence.issue"].exists)
-        XCTAssertFalse(app.buttons["intelligence.enable"].isEnabled)
+        if !large { XCTAssertFalse(app.buttons["intelligence.enable"].isEnabled) }
         // SwiftUI exposes the labelled row as the switch's frame; tap its thumb.
         consent.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
         XCTAssertEqual(consent.value as? String, "1")

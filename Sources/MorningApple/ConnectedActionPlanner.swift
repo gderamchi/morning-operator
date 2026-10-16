@@ -23,7 +23,8 @@ public final class ConnectedActionPlanner {
 
     public convenience init() {
         self.init(generator: { prompt in
-            try await MoreLanguageModel.shared.generate(instructions: Self.instructions, prompt: prompt,
+            try await MoreLanguageModel.shared.generate(
+                instructions: Self.instructions + "\nAny clarifying question must be in \(AppLanguage.isFrench ? "French" : "English"). Preserve personal values and tool identifiers exactly.", prompt: prompt,
                                                         maximumResponseTokens: 1_500)
         }, available: { MoreLanguageModel.shared.isAvailable })
     }

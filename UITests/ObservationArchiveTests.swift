@@ -168,7 +168,7 @@ final class ObservationArchiveTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview", "--ui-testing-workspace=\(workspaceID.uuidString)"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openArchive(in: app)
         XCTAssertEqual(archiveRows(in: app).count, 1)
         let row = archiveRows(in: app).firstMatch
@@ -210,7 +210,7 @@ final class ObservationArchiveTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
                                "--ui-testing-workspace=\(workspaceID.uuidString)"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
 
         MorningUITestNavigation.openRoutine(in: app)
         assertRecoveryRoutine(in: app)
@@ -294,7 +294,7 @@ final class ObservationArchiveTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview", "--ui-testing-empty-workspace",
                                "--ui-testing-workspace=\(workspaceID.uuidString)"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         MorningUITestNavigation.openRoutine(in: app)
         XCTAssertTrue(app.buttons["Build it myself"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["routine.step.0"].exists)
@@ -340,14 +340,14 @@ final class ObservationArchiveTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
                                "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-observation-archive"] + extraArguments
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 
     private func relaunchWithoutSeed(_ app: XCUIApplication) {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-observation-archive" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
     }
 
     private func openArchive(in app: XCUIApplication) {

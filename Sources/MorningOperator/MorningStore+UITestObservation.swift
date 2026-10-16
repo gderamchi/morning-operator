@@ -1,3 +1,4 @@
+import MorningCore
 import Foundation
 
 @MainActor
@@ -49,7 +50,7 @@ extension MorningStore {
             try text.write(to: file, atomically: true, encoding: .utf8)
             importObservation(file)
         } catch {
-            notice = "Synthetic UI-test observation import failed: \(error.localizedDescription)"
+            notice = "Synthetic UI-test observation import failed: \(error.moreDescription)"
         }
     }
 }

@@ -230,6 +230,43 @@ public final class ScreenRecordingService {
     public var maximumDurationSeconds: Int { selectedDuration.rawValue }
     public var remainingSeconds: Int { max(0, maximumDurationSeconds - elapsedSeconds) }
 
+    /// Presentation only: capture ownership, finalization and retained media are untouched.
+    public func appLanguageDidChange() {
+        switch state {
+        case .idle:
+            message = AppLanguage.localized("Choose what to share using Apple's screen-recording picker.", bundle: .module)
+        case .choosing:
+            message = AppLanguage.localized("Confirm screen sharing in the system picker to begin.", bundle: .module)
+        case .starting:
+            message = AppLanguage.localized("Starting your screen recording…", bundle: .module)
+        case .recording:
+            message = AppLanguage.localized("Go through your morning. Recording stops after \(selectedDuration.displayName), or you can stop it sooner.", bundle: .module)
+        case .stopping:
+            if startPending {
+                message = AppLanguage.localized("Waiting for the system recording request to finish. Any late start will be stopped.", bundle: .module)
+            } else if needsStopRetry && !streamStopped {
+                message = AppLanguage.localized("Stop hasn't been confirmed. Retry Stop or stop recording using the system controls.", bundle: .module)
+            } else if needsStopRetry {
+                message = finalization.discardRequested
+                    ? AppLanguage.localized("Screen capture stopped. Waiting for the recording to finish closing before it can be removed. Retry cleanup after it closes.", bundle: .module)
+                    : AppLanguage.localized("Screen capture stopped. The recording is still closing and is being kept. Wait or retry Stop; it will be available after it finishes closing.", bundle: .module)
+            } else if streamStopped {
+                message = AppLanguage.localized("Screen capture has stopped. Finishing the recording…", bundle: .module)
+            } else {
+                message = AppLanguage.localized("Stopping and saving your recording…", bundle: .module)
+            }
+        case .ready:
+            message = AppLanguage.localized("Your recording is ready to review.", bundle: .module)
+            if recordingInterruption != nil {
+                message += " " + AppLanguage.localized("The system interrupted this recording. It may cover only part of your morning.", bundle: .module)
+            }
+        case .failed:
+            message = temporaryURL != nil
+                ? AppLanguage.localized("The app-owned recording couldn't be removed. Retry discarding it. \("")", bundle: .module)
+                : AppLanguage.localized("Screen recording failed. Check the recording controls before trying again.", bundle: .module)
+        }
+    }
+
     public var isBusy: Bool { [.choosing, .starting, .recording, .stopping].contains(state) }
     /// Conservative lifecycle signal: a start, active capture, or shutdown may still be pending.
     /// `.recording` separately means the recording output acknowledged its start.
@@ -439,11 +476,11 @@ public final class ScreenRecordingService {
             // Strong capture intentionally retains the complete operation, including delegates,
             // until the SDK resolves start. A timeout is not evidence that start was cancelled.
             stream.startCapture { [self] error in
-                let detail = error?.localizedDescription
+                let detail = error?.moreDescription
                 Task { @MainActor [self] in startCompleted(error: detail, token: token) }
             }
         } catch {
-            fail(error.localizedDescription)
+            fail(error.moreDescription)
         }
     }
 
@@ -602,7 +639,7 @@ public final class ScreenRecordingService {
         armDeadline(seconds: 30, token: token, kind: .stop)
         // Keep all capture resources alive until the actual stop result and writer callbacks.
         stream.stopCapture { [self] error in
-            let detail = error?.localizedDescription
+            let detail = error?.moreDescription
             Task { @MainActor [self] in stopCompleted(error: detail, token: token, attempt: attempt) }
         }
     }
@@ -667,7 +704,7 @@ public final class ScreenRecordingService {
         } catch {
             removeTemporaryFile()
             state = .failed
-            message = error.localizedDescription
+            message = error.moreDescription
         }
     }
 
@@ -764,19 +801,19 @@ public final class ScreenRecordingService {
         } catch {
             // Keep the URL and provenance: a failed delete must remain retryable.
             state = .failed
-            message = AppLanguage.localized("The app-owned recording couldn't be removed. Retry discarding it. \(error.localizedDescription)", bundle: .module)
+            message = AppLanguage.localized("The app-owned recording couldn't be removed. Retry discarding it. \(error.moreDescription)", bundle: .module)
             return false
         }
     }
 
     private func recordingAdmissionIssue() -> String? {
-        guard !isDiscardingForForget else { return RecordingCleanupError.forgettingInProgress.localizedDescription }
+        guard !isDiscardingForForget else { return RecordingCleanupError.forgettingInProgress.moreDescription }
         do {
             try ScreenRecordingFiles.validateTestNamespace()
             let control = try LocalDataControl(directory: LocalDataControl.defaultDirectory).status()
-            return control.forgetPending ? RecordingCleanupError.forgettingInProgress.localizedDescription : nil
+            return control.forgetPending ? RecordingCleanupError.forgettingInProgress.moreDescription : nil
         } catch {
-            return AppLanguage.localized("Local privacy cleanup needs attention before recording can continue. \(error.localizedDescription)", bundle: .module)
+            return AppLanguage.localized("Local privacy cleanup needs attention before recording can continue. \(error.moreDescription)", bundle: .module)
         }
     }
 }
@@ -819,7 +856,7 @@ fileprivate final class ScreenRecordingDelegateBridge: NSObject, SCContentSharin
     }
 
     func contentSharingPickerStartDidFailWithError(_ error: any Error) {
-        let detail = error.localizedDescription
+        let detail = error.moreDescription
         let token = sessionID
         Task { @MainActor [weak owner] in owner?.pickerFailed(detail, sessionID: token) }
     }
@@ -848,7 +885,7 @@ fileprivate final class ScreenRecordingDelegateBridge: NSObject, SCContentSharin
 
     func recordingOutput(_ recordingOutput: SCRecordingOutput, didFailWithError error: any Error) {
         let id = ObjectIdentifier(recordingOutput)
-        let detail = error.localizedDescription
+        let detail = error.moreDescription
         let token = sessionID
         Task { @MainActor [weak owner] in owner?.recordingEnded(outputID: id, sessionID: token, error: detail) }
     }
@@ -857,7 +894,7 @@ fileprivate final class ScreenRecordingDelegateBridge: NSObject, SCContentSharin
         let id = ObjectIdentifier(stream)
         let nsError = error as NSError
         let userStopped = nsError.domain == SCStreamErrorDomain && nsError.code == SCStreamError.Code.userStopped.rawValue
-        let detail = error.localizedDescription
+        let detail = error.moreDescription
         let token = sessionID
         Task { @MainActor [weak owner] in
             owner?.streamEnded(streamID: id, sessionID: token, wasUserStopped: userStopped, detail: detail)

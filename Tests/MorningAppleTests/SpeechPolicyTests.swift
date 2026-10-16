@@ -36,6 +36,18 @@ struct SpeechVoicePolicyTests {
         #expect(SpeechVoicePolicy.recommended(from: [system, first], language: "fr-FR") == first)
     }
 
+    @Test("An incompatible saved Samantha ID is repaired while a matching installed voice is retained")
+    func savedVoiceLanguageRepair() {
+        let samantha = voice("com.apple.speech.synthesis.voice.samantha", "en-US", .standard)
+        let french = voice("com.apple.voice.compact.fr-FR.Thomas", "fr-FR", .standard)
+        let installed = [samantha, french]
+        #expect(SpeechVoicePolicy.validatedIdentifier(samantha.id, from: installed, language: "fr-FR") == nil)
+        #expect(SpeechVoicePolicy.validatedIdentifier(french.id, from: installed, language: "fr-CA") == french.id)
+        #expect(SpeechVoicePolicy.validatedIdentifier(french.id, from: installed, language: "en-US") == nil)
+        #expect(SpeechVoicePolicy.validatedIdentifier("removed", from: installed, language: "fr-FR") == nil)
+        #expect(SpeechVoicePolicy.recommended(from: installed, language: "fr-FR") == french)
+    }
+
     @Test("Common-language previews match the chosen voice language")
     func previewLanguage() {
         #expect(SpeechVoicePolicy.previewText(language: "fr_CA").hasPrefix("Bonjour"))
@@ -194,7 +206,6 @@ struct SpeechAudioSessionGateTests {
         #expect(speech.state == .idle)
         #expect(speech.lastError == nil)
         #expect(speech.playbackID == nil)
-        #expect(speech.statusText == "Ready to speak")
     }
 }
 

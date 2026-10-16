@@ -90,6 +90,45 @@ struct WeatherDeviceLocationTests {
         #expect(controller.currentWeatherLocation == fixture.location)
         #expect(fixture.reads == 2)
     }
+    @Test func locationGuidanceChangesLanguageWithoutRetryingOrPrompting() async throws {
+        let fixture = DeviceLocationFixture(); fixture.authorization = .authorized; fixture.error = .timedOut
+        let directory = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let controller = MorningBriefingController(directory: directory, deviceLocation: fixture, localeIdentifier: "fr_FR")
+        await controller.resolveCurrentLocationIfNeeded()
+        let savedSettings = controller.settings
+        let messages = [
+            ("fr_FR", "La recherche de votre position a pris trop de temps. Réessayez ou choisissez une ville."),
+            ("en_US", "Finding your location took too long. Try again or choose a city."),
+            ("fr_FR", "La recherche de votre position a pris trop de temps. Réessayez ou choisissez une ville.")
+        ]
+        for (identifier, message) in messages {
+            controller.appLanguageDidChange(locale: Locale(identifier: identifier))
+            #expect(controller.locationIssue == message)
+            #expect(controller.settings == savedSettings)
+            #expect(controller.currentWeatherLocation == nil)
+            #expect(fixture.reads == 1)
+            #expect(fixture.permissionRequests == 0)
+        }
+    }
+    @Test func currentLocationLabelUsesChosenLanguageAndSourceCoordinatesStayExact() async throws {
+        let fix = CLLocation(coordinate: .init(latitude: 48.12345, longitude: 2.54321), altitude: 0,
+            horizontalAccuracy: 1_000, verticalAccuracy: -1, timestamp: instant)
+        let fixture = DeviceLocationFixture(); fixture.authorization = .authorized
+        let directory = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let controller = MorningBriefingController(directory: directory, deviceLocation: fixture)
+        await controller.resolveCurrentLocationIfNeeded()
+        for (identifier, label) in [("fr_FR", "Position actuelle"), ("en_US", "Current location"), ("fr_FR", "Position actuelle")] {
+            let locale = Locale(identifier: identifier)
+            let localizedFix = try WeatherDeviceLocation.validated(fix, at: instant, locale: locale)
+            #expect(localizedFix.displayName == label)
+            #expect(localizedFix.latitude == fix.coordinate.latitude)
+            #expect(localizedFix.longitude == fix.coordinate.longitude)
+            controller.appLanguageDidChange(locale: locale)
+            #expect(controller.currentWeatherLocation == fixture.location)
+            #expect(fixture.reads == 1)
+            #expect(fixture.permissionRequests == 0)
+        }
+    }
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("MORE-DeviceLocation-\(UUID().uuidString)")
     }

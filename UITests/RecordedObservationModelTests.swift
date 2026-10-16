@@ -15,7 +15,7 @@ final class RecordedObservationModelTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode",
             "--ui-testing-workspace=\(workspaceID.uuidString)", "--ui-testing-import-recorded-video"]
-        app.launch()
+        MorningUITestNavigation.launch(app)
         MorningUITestNavigation.reviewAction("review.learn", in: app)
         let editor = app.textViews["learn.notes"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))

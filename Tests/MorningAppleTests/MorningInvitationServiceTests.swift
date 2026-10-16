@@ -8,6 +8,55 @@ import MorningCore
 struct MorningInvitationServiceTests {
     private let origin = Date(timeIntervalSince1970: 1_800_000_000)
 
+    @Test func languagePresentationSwitchesEmptyStatusWithoutSchedulerOrStorageAccess() {
+        let storage = InvitationMemoryStorage(), client = InvitationNotificationFixture()
+        let service = MorningInvitationService(storage: storage, notifications: client, now: { origin })
+        let loads = storage.loadCount, saves = storage.saveCount
+        for (code, expected) in [("fr", "Aucune invitation n’est programmée."),
+                                 ("en", "No invitation is scheduled."),
+                                 ("fr", "Aucune invitation n’est programmée.")] {
+            service.refreshStatusPresentation(locale: Locale(identifier: code))
+            #expect(service.statusText == expected)
+        }
+        service.appLanguageDidChange()
+        #expect(service.statusText == (AppLanguage.isFrench ? "Aucune invitation n’est programmée." : "No invitation is scheduled."))
+        #expect(service.invitation == nil && service.settings == nil && !service.isScheduled && !service.isBusy)
+        #expect(client.accessCount == 0 && storage.loadCount == loads && storage.saveCount == saves)
+    }
+
+    @Test func languagePresentationPreservesScheduleAndAuthorizationWithoutReconciling() async throws {
+        for (authorization, english, french) in [
+            (MorningInvitationAuthorization.authorized,
+             "One-time invitation scheduled. Delivery follows your notification settings.",
+             "Invitation unique programmée. Sa remise dépend de vos réglages de notifications."),
+            (.notDetermined,
+             "Allow notifications to schedule this invitation.",
+             "Autorisez les notifications pour programmer cette invitation."),
+            (.denied,
+             "Notifications are off. Your chosen time is saved but is not scheduled.",
+             "Les notifications sont désactivées. L’heure choisie est enregistrée mais pas programmée."),
+            (.provisional,
+             "Notifications are quiet. Allow alerts for a morning invitation.",
+             "Les notifications sont silencieuses. Autorisez les alertes pour l’invitation du matin.")
+        ] {
+            let storage = InvitationMemoryStorage(), client = InvitationNotificationFixture(authorization: authorization)
+            let service = MorningInvitationService(storage: storage, notifications: client, now: { origin })
+            // Only the in-memory fixture arranges retained scheduling evidence.
+            await service.schedule(at: origin.addingTimeInterval(60), mayRequestPermission: false)
+            let invitation = service.invitation, settings = service.settings, pending = client.pending
+            let scheduled = service.isScheduled, calls = client.accessCount
+            let loads = storage.loadCount, saves = storage.saveCount, added = client.added
+            for (code, expected) in [("fr", french), ("en", english), ("fr", french)] {
+                service.refreshStatusPresentation(locale: Locale(identifier: code))
+                #expect(service.statusText == expected)
+                #expect(service.invitation == invitation && service.settings == settings && service.isScheduled == scheduled)
+                #expect(storage.value == invitation && client.pending == pending && client.added == added)
+                #expect(client.authorization == authorization && client.permissionRequests == 0)
+                #expect(client.accessCount == calls && storage.loadCount == loads && storage.saveCount == saves)
+            }
+        }
+    }
+
     @Test func permissionIsExplicitAndDeniedOrQuietDoesNotClaimScheduled() async throws {
         for authorization in [MorningInvitationAuthorization.notDetermined, .denied, .provisional] {
             let storage = InvitationMemoryStorage()
@@ -373,8 +422,10 @@ private enum InvitationFixtureError: Error { case disk, add }
     var value: MorningInvitation?
     var failSave = false
     var loadCount = 0
+    var saveCount = 0
     func load() throws -> MorningInvitation? { loadCount += 1; return value }
     func save(_ invitation: MorningInvitation?) throws {
+        saveCount += 1
         if failSave { throw InvitationFixtureError.disk }
         value = invitation
     }
@@ -385,6 +436,7 @@ private enum InvitationFixtureError: Error { case disk, add }
     var pending: MorningInvitationPendingRequest?
     var added: [MorningInvitation] = []
     var permissionRequests = 0
+    var accessCount = 0
     var deliveredRemovalCount = 0
     var delivered = false
     var ignoreRemoval = false
@@ -399,6 +451,7 @@ private enum InvitationFixtureError: Error { case disk, add }
 
     init(authorization: MorningInvitationAuthorization = .authorized) { self.authorization = authorization }
     func settings() async -> MorningInvitationNotificationSettings {
+        accessCount += 1
         if holdFirstSettings {
             holdFirstSettings = false
             await withCheckedContinuation { settingsContinuation = $0 }
@@ -406,24 +459,27 @@ private enum InvitationFixtureError: Error { case disk, add }
         return .init(authorization: authorization, alertsEnabled: authorization == .authorized, soundsEnabled: authorization == .authorized)
     }
     func requestAuthorization() async throws -> Bool {
+        accessCount += 1
         permissionRequests += 1
         if holdPermission { return await withCheckedContinuation { permissionContinuation = $0 } }
         if let authorizationAfterRequest { authorization = authorizationAfterRequest }
         return authorization == .authorized
     }
-    func pendingInvitation() async -> MorningInvitationPendingRequest? { pending }
+    func pendingInvitation() async -> MorningInvitationPendingRequest? { accessCount += 1; return pending }
     func add(_ invitation: MorningInvitation, sound: Bool) async throws {
+        accessCount += 1
         if failAdd { throw InvitationFixtureError.add }
         if holdAdd { await withCheckedContinuation { addContinuation = $0 } }
         added.append(invitation)
         pending = .init(payload: invitation.payload, scheduledAt: invitation.scheduledAt)
     }
-    func removePendingInvitation() async { if !ignoreRemoval { pending = nil } }
+    func removePendingInvitation() async { accessCount += 1; if !ignoreRemoval { pending = nil } }
     func removeDeliveredInvitation() async {
+        accessCount += 1
         deliveredRemovalCount += 1
         if !ignoreRemoval { delivered = false }
     }
-    func hasDeliveredInvitation() async -> Bool { delivered }
+    func hasDeliveredInvitation() async -> Bool { accessCount += 1; return delivered }
     func waitForPermission() async { while permissionContinuation == nil { await Task.yield() } }
     func waitForAdd() async { while addContinuation == nil { await Task.yield() } }
     func waitForSettings() async { while settingsContinuation == nil { await Task.yield() } }
