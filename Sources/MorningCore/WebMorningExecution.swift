@@ -176,6 +176,7 @@ public struct WebMorningPageObservation: Decodable, Sendable, Equatable {
     public let fingerprint: String?
     public let contentID: String?
     public let text: [String]?
+    public let articles: [WebArticleLink]?
     public let liked: Bool?
     public let canLike: Bool?
     public let canAdvance: Bool?
@@ -194,6 +195,8 @@ public struct WebMorningPageObservation: Decodable, Sendable, Equatable {
               result.reason.map({ ["expired", "origin", "hidden"].contains($0) }) != false,
               result.scrollOffset.map({ $0.isFinite && $0 >= 0 && $0 <= 100_000_000 }) != false,
               (result.text?.count ?? 0) <= 5,
+              (result.articles?.count ?? 0) <= 5,
+              result.articles?.allSatisfy({ !$0.title.isEmpty && $0.title.count <= 240 && $0.href.absoluteString.utf8.count <= 2_048 }) != false,
               result.text?.allSatisfy({ !$0.isEmpty && $0.count <= 600 }) != false,
               result.status != .ready || result.fingerprint?.isEmpty == false else { return nil }
         return result
@@ -384,6 +387,7 @@ public enum WebMorningExecutionPolicy {
             return out({status:document.querySelector('[aria-busy=true],[role=progressbar]') ? 'loading' : 'empty'});
           }
           nodes.sort((a,b)=>Math.abs(a.getBoundingClientRect().top+a.getBoundingClientRect().height/2-innerHeight/2)-Math.abs(b.getBoundingClientRect().top+b.getBoundingClientRect().height/2-innerHeight/2));
+          if(site==='news')nodes.sort((a,b)=>a.getBoundingClientRect().top-b.getBoundingClientRect().top);
           let item = nodes[0];
           const readable = e => {
             const own=clean(e.innerText || e.textContent);
@@ -417,6 +421,20 @@ public enum WebMorningExecutionPolicy {
           scroller=scroller && scroller!==document.body && scroller!==document.documentElement ? scroller : document.scrollingElement;
           const canScroll=!!scroller && scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-2;
           const result = {status:'ready',fingerprint,contentID,mediaPlaying:video ? !video.paused && video.readyState>=2 : null,liked:!!likedButton,canLike:!!likeButton && !!contentID,scrollOffset:scroller?.scrollTop ?? 0,canAdvance:!!next || behavior!=='watchStories' && canScroll,text:behavior==='readHeadlines' ? nodes.slice(0,5).map(e=>clean(e.innerText||e.textContent).slice(0,600)).filter(Boolean) : text ? [text] : []};
+          if(site==='news' && behavior==='readHeadlines'){
+            const articles=[], seen=new Set();
+            for(const e of nodes){
+              const a=e.closest('a[href]') || e.querySelector('a[href]');
+              if(!a || a.hasAttribute('download'))continue;
+              let u;try{u=new URL(a.href,location.href);}catch(_){continue;}
+              const title=clean(e.innerText||e.textContent).slice(0,240);
+              if(!title || u.protocol!=='https:' || u.origin!==location.origin || u.username || u.password ||
+                u.href.split('#')[0]===location.href.split('#')[0] || /\.(pdf|zip|epub|mp3|mp4)$/i.test(u.pathname) ||
+                \#(json(WebMorningPolicy.signInPathFragments)).some(p=>(u.pathname.toLowerCase()+'/').includes(p)) || seen.has(u.href))continue;
+              seen.add(u.href);articles.push({title,href:u.href});if(articles.length===5)break;
+            }
+            result.articles=articles;
+          }
           if (command==='observe') return out(result);
           if (expected!==fingerprint) return out({status:'unavailable'});
           if (command==='play') {

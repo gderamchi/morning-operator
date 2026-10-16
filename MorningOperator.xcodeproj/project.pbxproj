@@ -89,6 +89,7 @@
 		9282FCF2D0B6E5576779EF9D /* WebRoutineJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDCC683CD3C90B5FFD65B77C /* WebRoutineJourneyTests.swift */; };
 		95F21F4BFB1948D2ABD031C4 /* MorningStore+Mail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2491FFBC2ACFD04646271C6D /* MorningStore+Mail.swift */; };
 		9979628CD2D1D8CC41061903 /* MorningStore+HandsFree.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989827CCAE1C076F40B38AA8 /* MorningStore+HandsFree.swift */; };
+		A47C1E893CE04A729C8D7212 /* MorningStore+WebReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = A47C1E893CE04A729C8D7211 /* MorningStore+WebReading.swift */; };
 		9A8B244DD216406D67AD84A3 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */; };
 		9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */; };
 		9BFBDAE886D9DD7FDEE7633D /* BudgetAndRecapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F39360C318E365C8426AEB6 /* BudgetAndRecapTests.swift */; };
@@ -289,6 +290,7 @@
 		93DDD575BBAE60C4911CB3B3 /* RecordMorningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordMorningView.swift; sourceTree = "<group>"; };
 		95846B664CABA2FF92608E74 /* MorningHomePlaybackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningHomePlaybackView.swift; sourceTree = "<group>"; };
 		989827CCAE1C076F40B38AA8 /* MorningStore+HandsFree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+HandsFree.swift"; sourceTree = "<group>"; };
+		A47C1E893CE04A729C8D7211 /* MorningStore+WebReading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+WebReading.swift"; sourceTree = "<group>"; };
 		98E912DF2E476E75231A5383 /* OnDeviceLearningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceLearningTests.swift; sourceTree = "<group>"; };
 		9BCC013E335B6F8E5AC6A814 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		9C157A20523AAA3E23DE7525 /* MorningIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningIntents.swift; sourceTree = "<group>"; };
@@ -532,6 +534,7 @@
 				E65E4E1818884015F76D1273 /* MorningStore+Execution.swift */,
 				EF591750E21B49095FA36846 /* MorningStore+GoogleCalendar.swift */,
 				989827CCAE1C076F40B38AA8 /* MorningStore+HandsFree.swift */,
+				A47C1E893CE04A729C8D7211 /* MorningStore+WebReading.swift */,
 				2491FFBC2ACFD04646271C6D /* MorningStore+Mail.swift */,
 				88FFCA6CADABADA36EAE231D /* MorningStore+NativeMoment.swift */,
 				8F32518AD6A5C1556F1A6498 /* MorningStore+Opening.swift */,
@@ -927,6 +930,7 @@
 				5DAF9F414272282E32378655 /* MorningStore+Execution.swift in Sources */,
 				B5F957E38B222EAC94D2C90E /* MorningStore+GoogleCalendar.swift in Sources */,
 				9979628CD2D1D8CC41061903 /* MorningStore+HandsFree.swift in Sources */,
+				A47C1E893CE04A729C8D7212 /* MorningStore+WebReading.swift in Sources */,
 				95F21F4BFB1948D2ABD031C4 /* MorningStore+Mail.swift in Sources */,
 				2ABA9DD0B30F096C6866EA02 /* MorningStore+NativeMoment.swift in Sources */,
 				751A59D0193F23EAD44A59E8 /* MorningStore+Opening.swift in Sources */,

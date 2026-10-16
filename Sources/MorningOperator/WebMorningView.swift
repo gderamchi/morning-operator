@@ -20,6 +20,9 @@ struct WebMorningView: View {
     var onPause: (() -> Void)?
     var onResume: (() -> Void)?
     var onNativeRequest: (() -> Void)?
+    var onNewsArticle: ((Int) -> Void)?
+    var onNewsReturn: (() -> Void)?
+    var onNewsRepeat: (() -> Void)?
     /// A sign-in pass is normal browsing, without routine timers or page readers.
     var onSignInReady: (() -> Void)?
     var learningOnly: Bool
@@ -45,6 +48,7 @@ struct WebMorningView: View {
          onPause: (() -> Void)? = nil, onResume: (() -> Void)? = nil,
          onNativeRequest: (() -> Void)? = nil,
          retainedController: WebMorningController? = nil,
+         onNewsArticle: ((Int) -> Void)? = nil, onNewsReturn: (() -> Void)? = nil, onNewsRepeat: (() -> Void)? = nil,
          onClose: @escaping () -> Void) {
         self.site = site; self.isStepActive = isStepActive; self.stepEndsAt = stepEndsAt; self.timerPausedAt = timerPausedAt
         self.onExtend = onExtend; self.onNext = onNext; self.onClose = onClose
@@ -53,6 +57,7 @@ struct WebMorningView: View {
         self.executionPlan = executionPlan; self.onExecutionEvent = onExecutionEvent
         self.onPause = onPause; self.onResume = onResume
         self.onNativeRequest = onNativeRequest
+        self.onNewsArticle = onNewsArticle; self.onNewsReturn = onNewsReturn; self.onNewsRepeat = onNewsRepeat
         self.executionIsAuthorized = executionIsAuthorized; self.executionCanAdvance = executionCanAdvance
         retainsRoutineController = retainedController != nil
         _controller = State(initialValue: retainedController ?? WebMorningController(site: site, initialURL: initialURL))
@@ -207,6 +212,32 @@ struct WebMorningView: View {
 
     private var bottomBar: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if site == .news {
+                if let snapshot = controller.newsSnapshot, let onNewsArticle {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(snapshot.links.indices, id: \.self) { index in
+                                Button { onNewsArticle(index + 1) } label: {
+                                    Text("\(index + 1). \(snapshot.links[index].title)").font(.raleway(.subheadline))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }.disabled(controller.articleBusy).accessibilityIdentifier("web.article.\(index + 1)")
+                            }
+                        }
+                    }.frame(maxHeight: 140).accessibilityIdentifier("web.articleChoices")
+                }
+                if controller.needsArticleReturn {
+                    HStack {
+                        if let onNewsReturn {
+                            Button(text("Back to headlines", "Retour aux titres"), action: onNewsReturn)
+                                .accessibilityIdentifier("web.articleReturn")
+                        }
+                        if controller.articleText != nil, let onNewsRepeat {
+                            Button(text("Read again", "Relire"), action: onNewsRepeat)
+                                .accessibilityIdentifier("web.articleRepeat")
+                        }
+                    }.font(.raleway(.subheadline))
+                }
+            }
             if let line = resultLine {
                 if case .headlines = controller.outcome {
                     ScrollView { Text(line).font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted).frame(maxWidth: .infinity, alignment: .leading) }
@@ -272,6 +303,7 @@ struct WebMorningView: View {
 
     private var resultLine: String? {
         if site == .gmail { return nil }
+        if let message = controller.articleMessage { return message }
         if let event = controller.executionEvent, executionPlan != nil {
             switch event.state {
             case .waitingForPage: return text("Preparing your content…", "Préparation de vos contenus…")
