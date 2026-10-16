@@ -19,7 +19,9 @@ struct MorningOperatorApp: App {
         WindowGroup {
             Group {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
+            if ProcessInfo.processInfo.arguments.contains("--design-preview") {
+                HorizonDesignPreview()
+            } else if ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
                 MorningWelcomePreview()
             } else if let site = Self.webMorningLaunchSite, showingWebPreview {
                 WebMorningView(site: site, minutes: 10, onClose: { showingWebPreview = false })

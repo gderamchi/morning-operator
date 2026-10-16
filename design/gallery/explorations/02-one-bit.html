@@ -1,0 +1,93 @@
+<!doctype html><html><head><meta charset="utf-8"><title>02 One bit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600&family=VT323&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+.screen { background:#f4f1e8; color:#111; font-family:"Pixelify Sans",monospace; }
+.content { position:absolute; inset:0; padding:60px 26px 36px; display:flex; flex-direction:column; }
+.date { font-size:16px; }
+h1 { font-size:44px; font-weight:500; margin:6px 0 0; line-height:1; }
+.rule { height:4px; margin:16px 0 0; background:repeating-linear-gradient(90deg,#111 0 4px,transparent 4px 8px); }
+.total { margin-top:12px; font-size:17px; }
+ol { list-style:none; margin:30px 0 0; padding:0; }
+li { display:flex; align-items:center; gap:14px; padding:10px 0; font-size:22px; }
+li .box { width:22px; height:22px; border:3px solid #111; flex:none; position:relative; }
+li.done .box::after { content:""; position:absolute; inset:4px; background:#111; }
+li.now .box { background:repeating-conic-gradient(#111 0 25%,transparent 0 50%) 0 0/6px 6px; }
+li.done span { text-decoration:line-through; opacity:.55; }
+li small { margin-left:auto; font-size:17px; font-family:VT323,monospace; font-size:22px; }
+.foot { margin-top:auto; display:flex; gap:10px; }
+.foot span { flex:1; text-align:center; border:3px solid #111; padding:12px 0; font-size:20px; box-shadow:4px 4px 0 #111; }
+.foot span.p { background:#111; color:#f4f1e8; }
+.sunbox { position:absolute; right:24px; top:52px; width:64px; height:64px; }
+.big { font-family:VT323,monospace; font-size:150px; line-height:.85; margin:18px 0 0; letter-spacing:-.02em; }
+.now-title { font-size:40px; font-weight:500; margin:10px 0 6px; line-height:1; }
+.purpose { font-size:19px; line-height:1.4; opacity:.85; }
+.ctrl { margin-top:auto; display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.ctrl span { text-align:center; padding:14px 0; border:3px solid #111; font-size:20px; box-shadow:4px 4px 0 #111; }
+.ctrl span.p { background:#111; color:#f4f1e8; }
+.dith { width:100%; height:120px; margin-top:24px; }
+.rec p { margin:0 0 16px; font-size:24px; line-height:1.3; }
+.rec p.w { font-size:30px; font-weight:500; }
+.stack { margin-top:auto; display:flex; flex-direction:column; gap:10px; }
+.stack span { text-align:center; padding:14px 0; border:3px solid #111; font-size:20px; box-shadow:4px 4px 0 #111; }
+.stack span.p { background:#111; color:#f4f1e8; }
+.cloud { width:100%; height:140px; }
+</style></head><body>
+<div class="phone"><div class="screen">
+  <canvas class="sunbox" id="sun1"></canvas>
+  <div class="content">
+    <div class="date">Tue 14 Oct</div>
+    <h1>good morning</h1>
+    <div class="rule"></div>
+    <div class="total">42 min planned</div>
+    <ol>
+      <li><span class="box"></span><span>Your day</span><small>3 min</small></li>
+      <li><span class="box"></span><span>People and messages</span><small>8 min</small></li>
+      <li><span class="box"></span><span>Mail</span><small>7 min</small></li>
+      <li><span class="box"></span><span>Make some tea</span><small>5 min</small></li>
+      <li><span class="box"></span><span>A little reading</span><small>6 min</small></li>
+      <li><span class="box"></span><span>A moment to move</span><small>10 min</small></li>
+      <li><span class="box"></span><span>One thought for later</span><small>3 min</small></li>
+    </ol>
+    <div class="foot"><span>Learn</span><span>History</span><span class="p">Play</span></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <div class="content">
+    <div class="date">Now · 4 of 7</div>
+    <div class="big">3:40</div>
+    <div class="now-title">Make some tea</div>
+    <div class="purpose">A moment you’ve made room for.</div>
+    <canvas class="dith" id="d2"></canvas>
+    <ol style="margin-top:20px">
+      <li class="done"><span class="box"></span><span>Mail</span><small>7 min</small></li>
+      <li class="now"><span class="box"></span><span>Make some tea</span><small>5 min</small></li>
+      <li><span class="box"></span><span>A little reading</span><small>6 min</small></li>
+    </ol>
+    <div class="ctrl"><span class="p">Pause</span><span>Next</span><span>Again</span></div>
+  </div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <div class="content rec">
+    <div class="date">Your day</div>
+    <canvas class="cloud" id="c3"></canvas>
+    <p class="w">Here is your briefing for Tuesday 14 October.</p>
+    <p>Weather in Paris: mostly cloudy, 11 degrees Celsius.</p>
+    <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+    <p>Precipitation is likely before 16:00. Take an umbrella.</p>
+    <div class="stack"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+  </div>
+</div></div>
+<script src="pix.js"></script>
+<script>
+pix.horizonSun(document.getElementById('sun1'),16,16,'#f4f1e8','#111','#111',.45);
+pix.dither1bit(document.getElementById('d2'),85,26,'#111','#f4f1e8',0.05,0.75);
+// a 1-bit cloud: a dithered sky band with a hand-placed cloud silhouette
+const c=document.getElementById('c3'); pix.dither1bit(c,85,30,'#111','#f4f1e8',0.55,0.0);
+const x=c.getContext('2d'); x.fillStyle='#f4f1e8';
+[[20,12,30,8],[26,8,16,6],[34,6,10,4],[50,14,22,6],[55,11,12,4]].forEach(r=>x.fillRect(...r));
+x.fillStyle='#111'; [[20,12,30,1],[26,8,16,1],[34,6,10,1],[50,14,22,1],[55,11,12,1]].forEach(r=>x.fillRect(...r));
+</script>
+</body></html>

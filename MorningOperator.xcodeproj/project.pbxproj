@@ -112,6 +112,7 @@
 		B0710FC5608F8CE8D5C83305 /* MorningPaperSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6BF52226B552A07B4ACD44 /* MorningPaperSurface.swift */; };
 		B36A9BCC86DF500674FB45C2 /* GoogleCalendarDaySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20ED51885B716B717985D371 /* GoogleCalendarDaySetupView.swift */; };
 		B4A233BA1C7EB5704EDD7DAA /* MorningStore+Connections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB3260AFEA6819B78A7F40 /* MorningStore+Connections.swift */; };
+		B59C3EB4B1C5696D87656036 /* HorizonDesignPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D99A776B4C20FF3895E3BA89 /* HorizonDesignPreview.swift */; };
 		B5F957E38B222EAC94D2C90E /* MorningStore+GoogleCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF591750E21B49095FA36846 /* MorningStore+GoogleCalendar.swift */; };
 		B709AC13A3A2679D50FD7523 /* MorningVoicePreparationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABA4119FD9F6B0CDF4FA097 /* MorningVoicePreparationView.swift */; };
 		B9CA3F9A24974695EE25E264 /* RecordingLearningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F84B24064F307F7E5025342 /* RecordingLearningTests.swift */; };
@@ -350,6 +351,7 @@
 		CEA9A5D33ACBE08EDB29D96F /* MorningRecapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningRecapView.swift; sourceTree = "<group>"; };
 		D0AB59F7870CD63CA5EE2920 /* ObservationFixtureApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationFixtureApp.swift; sourceTree = "<group>"; };
 		D36F09DCDAEA82D58D6A3421 /* ObservationPeriodReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationPeriodReviewView.swift; sourceTree = "<group>"; };
+		D99A776B4C20FF3895E3BA89 /* HorizonDesignPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizonDesignPreview.swift; sourceTree = "<group>"; };
 		DE7EA194BD74767684257499 /* ObservedMorningOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservedMorningOverviewView.swift; sourceTree = "<group>"; };
 		DF2A1E48120A6B3AB7369321 /* MorningInlineDayStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningInlineDayStrip.swift; sourceTree = "<group>"; };
 		E1435A178A34F6AADC746A82 /* QuickCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCaptureView.swift; sourceTree = "<group>"; };
@@ -545,6 +547,7 @@
 				E6AE83A92F78B68E2C7C9A28 /* GoogleCalendarDayMomentView.swift */,
 				20ED51885B716B717985D371 /* GoogleCalendarDaySetupView.swift */,
 				854C4F108C989A6041806EFF /* GoogleCalendarDayUITestFixture.swift */,
+				D99A776B4C20FF3895E3BA89 /* HorizonDesignPreview.swift */,
 				AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */,
 				4F1A4DDE271AE7DE15330EEF /* MorningActivityDiagnostics.swift */,
 				0814A1DE4C0A82002840418D /* MorningActivitySettingsView.swift */,
@@ -965,6 +968,7 @@
 				2F085A5921980690EA9CD423 /* GoogleCalendarDayMomentView.swift in Sources */,
 				B36A9BCC86DF500674FB45C2 /* GoogleCalendarDaySetupView.swift in Sources */,
 				D6DF55F9166190D2CD5D2C9C /* GoogleCalendarDayUITestFixture.swift in Sources */,
+				B59C3EB4B1C5696D87656036 /* HorizonDesignPreview.swift in Sources */,
 				067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */,
 				4DE3FED32FD66348C7B86B91 /* MorningActivityDiagnostics.swift in Sources */,
 				68BADEEAA81EAA79C508218C /* MorningActivitySettingsView.swift in Sources */,

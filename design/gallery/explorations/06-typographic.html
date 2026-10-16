@@ -1,0 +1,52 @@
+<!doctype html><html><head><meta charset="utf-8"><title>06 Typographic only</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+.screen { background:#fbfaf7; color:#141414; font-family:"Instrument Serif",serif; }
+.content { position:absolute; inset:0; padding:64px 30px 40px; display:flex; flex-direction:column; }
+.date { font-family:Inter,sans-serif; font-size:12px; letter-spacing:.02em; color:#777; }
+h1 { font-weight:400; font-size:64px; line-height:.95; letter-spacing:-.02em; margin:18px 0 0; }
+h1 i { color:#777; }
+.sent { font-size:30px; line-height:1.25; margin:34px 0 0; letter-spacing:-.005em; }
+.sent b { font-weight:400; }
+.sent s { text-decoration:none; color:#bbb; }
+.sent u { text-decoration:none; color:#141414; background:linear-gradient(transparent 70%, #ffe27a 70%); }
+.sent small { font-family:Inter,sans-serif; font-size:12px; color:#999; vertical-align:super; margin-left:2px; letter-spacing:.02em; }
+.foot { margin-top:auto; display:flex; justify-content:space-between; font-family:Inter,sans-serif; font-size:14px; color:#777; }
+.foot b { color:#141414; font-weight:500; border-bottom:2px solid #141414; padding-bottom:2px; }
+.big { font-size:150px; line-height:.85; letter-spacing:-.05em; margin:16px 0 0; font-variant-numeric:tabular-nums; }
+.now-title { font-size:44px; line-height:1; margin:18px 0 10px; }
+.purpose { font-family:Inter,sans-serif; font-size:15px; line-height:1.6; color:#666; }
+.ctrl { margin-top:auto; display:flex; justify-content:space-between; font-family:Inter,sans-serif; font-size:16px; color:#777; }
+.ctrl b { color:#141414; font-weight:500; border-bottom:2px solid #141414; padding-bottom:2px; }
+.rec p { margin:0 0 20px; font-size:28px; line-height:1.25; }
+.rec p.w { font-size:40px; line-height:1.02; margin:18px 0 28px; letter-spacing:-.015em; }
+.rec p i { color:#777; }
+.stack { margin-top:auto; display:flex; flex-direction:column; gap:14px; font-family:Inter,sans-serif; font-size:16px; color:#777; }
+.stack b { color:#141414; font-weight:500; font-size:18px; }
+</style></head><body>
+<div class="phone"><div class="screen"><div class="content">
+  <div class="date">Tuesday 14 October</div>
+  <h1>good<br><i>morning.</i></h1>
+  <p class="sent">Your day<small>3</small>, then people and messages<small>8</small>, mail<small>7</small>, make some tea<small>5</small>, a little reading<small>6</small>, a moment to move<small>10</small> and one thought for later<small>3</small>. <i style="color:#777">About 42 minutes.</i></p>
+  <div class="foot"><span>Learn</span><span>History</span><b>Play</b></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content">
+  <div class="date">Now · 4 of 7</div>
+  <div class="big">3:40</div>
+  <div class="now-title">Make some tea</div>
+  <div class="purpose">A moment you’ve made room for.</div>
+  <p class="sent" style="margin-top:36px;font-size:24px"><s>Your day, people and messages, mail,</s> <u>make some tea</u>, a little reading, a moment to move and one thought for later.</p>
+  <div class="ctrl"><span>Again</span><span>Next</span><b>Pause</b></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content rec">
+  <div class="date">Your day</div>
+  <p class="w">Here is your briefing for Tuesday 14 October.</p>
+  <p>Weather in Paris: mostly cloudy, 11 degrees Celsius.</p>
+  <p>At 10:00: Standup. At 14:30: Call with Léa. <i>Plus 2 more events today.</i></p>
+  <p>Precipitation is likely before 16:00. Take an umbrella.</p>
+  <div class="stack"><b>Hear my recap</b><span>Start my routine</span><span>Stop</span></div>
+</div></div></div>
+</body></html>

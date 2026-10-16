@@ -1,0 +1,107 @@
+<!doctype html><html><head><meta charset="utf-8"><title>R2 Horizon (05 + 08)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..500,0..100;1,9..144,300..500,0..100&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+/* HORIZON. One line divides sky from ground. What is still to come lives in the
+   sky (bone paper); what is done has sunk into the grass. The line moves down
+   as the morning advances and a pixel sun climbs over it. */
+:root { --grass:#07250C; --grass-2:#0b2f11; --bone:#F2EDE3; --bone-dim:rgba(242,237,227,.6); --ink:#14211a; --ink-dim:#6a7a6e; --clay:#C4653F; --clay-lift:#D8764D; }
+.screen { font-family:"IBM Plex Mono",monospace; font-weight:300; background:var(--bone); color:var(--ink); }
+.sky { position:absolute; left:0; right:0; top:0; background:var(--bone); overflow:hidden; }
+.ground { position:absolute; left:0; right:0; bottom:0; background:var(--grass); color:var(--bone); overflow:hidden; }
+.ground::after { content:""; position:absolute; inset:-50%; pointer-events:none; opacity:.35; mix-blend-mode:soft-light;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.edge { position:absolute; left:0; right:0; height:12px; width:100%; z-index:3; margin-top:-6px; }   /* dithered join, sky→grass */
+.sun { position:absolute; left:50%; width:72px; height:72px; margin-left:-36px; z-index:2; }
+.sky .sun { clip-path: inset(0 0 var(--cut,0) 0); }
+.date { position:absolute; top:62px; left:28px; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim); }
+h1 { position:absolute; left:28px; top:82px; margin:0; font-family:Fraunces,serif; font-weight:300; font-size:46px; line-height:1; letter-spacing:-.025em; font-variation-settings:"SOFT" 70,"opsz" 120; }
+h1 i { color:var(--clay); font-variation-settings:"SOFT" 100,"opsz" 144; }
+.total { position:absolute; right:28px; top:96px; font-size:12px; color:var(--ink-dim); }
+ol { list-style:none; margin:0; padding:0; }
+li { display:flex; justify-content:space-between; align-items:baseline; padding:10px 0; font-size:17px; }
+li small { font-size:11px; letter-spacing:.08em; opacity:.6; }
+.sky ol { position:absolute; left:28px; right:28px; bottom:10px; }
+.ground ol { position:absolute; left:28px; right:28px; top:14px; }
+.ground li { color:var(--bone-dim); }
+.ground li.now { color:var(--clay-lift); }
+.foot { position:absolute; left:28px; right:28px; bottom:34px; display:flex; justify-content:space-between; align-items:center; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--bone-dim); }
+.foot b { font-weight:500; color:var(--grass); background:var(--clay-lift); padding:15px 22px; border-radius:3px; }
+.big { position:absolute; left:28px; top:130px; font-family:Fraunces,serif; font-weight:300; font-size:124px; line-height:1; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
+.now-title { position:absolute; left:28px; top:276px; font-family:Fraunces,serif; font-size:32px; font-weight:400; }
+.purpose { position:absolute; left:28px; top:322px; font-size:13px; color:var(--ink-dim); }
+.rec { position:absolute; left:28px; right:28px; top:96px; }
+.rec p { margin:0 0 16px; font-size:17px; line-height:1.6; }
+.rec p.w { font-family:Fraunces,serif; font-size:30px; line-height:1.12; font-weight:300; margin-bottom:22px; }
+.rec p em { font-style:normal; color:var(--clay); }
+.stack { position:absolute; left:28px; right:28px; bottom:34px; display:flex; flex-direction:column; gap:8px; font-size:11px; letter-spacing:.18em; text-transform:uppercase; }
+.stack span { text-align:center; padding:15px 0; border:1px solid rgba(242,237,227,.3); border-radius:3px; color:var(--bone-dim); }
+.stack span.p { background:var(--clay-lift); color:var(--grass); border-color:var(--clay-lift); font-weight:500; }
+</style></head><body>
+<!-- (a) before: everything is in the sky; the sun has not come up -->
+<div class="phone"><div class="screen">
+  <div class="sky" style="height:676px">
+    <div class="date">Tuesday 14 October</div>
+    <h1>good <i>morning</i></h1><div class="total">42 min</div>
+    <ol>
+      <li><span>Your day</span><small>3 MIN</small></li>
+      <li><span>People and messages</span><small>8 MIN</small></li>
+      <li><span>Mail</span><small>7 MIN</small></li>
+      <li><span>Make some tea</span><small>5 MIN</small></li>
+      <li><span>A little reading</span><small>6 MIN</small></li>
+      <li><span>A moment to move</span><small>10 MIN</small></li>
+      <li><span>One thought for later</span><small>3 MIN</small></li>
+    </ol>
+    <canvas class="sun" data-sun="0" style="top:664px"></canvas>
+  </div>
+  <canvas class="edge" style="top:676px" data-edge></canvas>
+  <div class="ground" style="height:176px">
+    <div class="foot"><span>Learn</span><span>History</span><b>Play</b></div>
+  </div>
+</div></div>
+
+<!-- (b) running: three moments have sunk into the ground; the sun is half up -->
+<div class="phone"><div class="screen">
+  <div class="sky" style="height:470px">
+    <div class="date">Now · 4 of 7</div>
+    <div class="big">3:40</div>
+    <div class="now-title">Make some tea</div>
+    <div class="purpose">A moment you’ve made room for.</div>
+    <canvas class="sun" data-sun="0.5" style="top:434px"></canvas>
+  </div>
+  <canvas class="edge" style="top:470px" data-edge></canvas>
+  <div class="ground" style="height:382px">
+    <ol>
+      <li><span>Your day</span><small>3 MIN</small></li>
+      <li><span>People and messages</span><small>8 MIN</small></li>
+      <li><span>Mail</span><small>7 MIN</small></li>
+    </ol>
+    <div class="foot"><span>Again</span><span>Next</span><b>Pause</b></div>
+  </div>
+</div></div>
+
+<!-- (c) your day: the sun is up; the briefing reads in the sky -->
+<div class="phone"><div class="screen">
+  <div class="sky" style="height:596px">
+    <div class="date">Your day</div>
+    <div class="rec">
+      <p class="w">Here is your briefing for Tuesday 14 October.</p>
+      <p>Weather in Paris: <em>mostly cloudy, 11 degrees Celsius.</em></p>
+      <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+      <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+    </div>
+    <canvas class="sun" data-sun="1" style="top:500px;left:auto;right:28px;margin:0"></canvas>
+  </div>
+  <canvas class="edge" style="top:596px" data-edge></canvas>
+  <div class="ground" style="height:256px">
+    <div class="stack"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+  </div>
+</div></div>
+<script src="pix.js"></script>
+<script>
+// Dithered join between sky and grass: 4 rows, bone→grass.
+document.querySelectorAll('[data-edge]').forEach(c=>pix.dither1bit(c,98,3,'#07250C','#F2EDE3',0.12,0.88));
+// Pixel sun on an 18-cell grid; rise = how much of the disc is above the horizon.
+document.querySelectorAll('[data-sun]').forEach(c=>{ const rise=+c.dataset.sun; pix.pixelSun(c,18,'#D8764D',{fill:1}); });
+</script>
+</body></html>
