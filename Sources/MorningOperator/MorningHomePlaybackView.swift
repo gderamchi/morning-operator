@@ -9,6 +9,7 @@ struct MorningHomePlaybackView: View {
     @State private var displayedCaption: String?
     @State private var displayedCaptionBoundary: String?
     @State private var pendingCloudCaption: String?
+    @State private var isUserCaption = false
     @State private var controlsVisible = false
     @State private var controlsInteraction = UUID()
     @State private var captionScrolling = false
@@ -66,7 +67,7 @@ struct MorningHomePlaybackView: View {
     }
 
     private var showingActionStatus: Bool {
-        guard let status = actionStatus else { return false }
+        guard !showingInput, let status = actionStatus else { return false }
         return displayedCaption?.isEmpty != false || displayedCaptionBoundary != status.text
     }
 
@@ -85,7 +86,11 @@ struct MorningHomePlaybackView: View {
         return store.connectedActionStatus ?? store.currentStep?.detail ?? ""
     }
     private var caption: String {
-        guard !store.privacyBlocksWork else { return "" }
+        guard scenePhase != .background, !store.privacyBlocksWork else { return "" }
+        #if !MORE_JURY_DEMO
+        if store.cloudVoice.isActive, let text = store.cloudVoice.userCaption { return SpeechCoordinator.inputCaption(text) }
+        #endif
+        if isUserCaption, let displayedCaption { return displayedCaption }
         if showingActionStatus, let status = actionStatus { return status.text }
         if actionStatus != nil, let displayedCaption, displayedCaptionBoundary == actionStatus?.text { return displayedCaption }
         if actionStatus == nil {
@@ -104,6 +109,13 @@ struct MorningHomePlaybackView: View {
         let preview = text.prefix(110)
         let end = preview.lastIndex(where: { $0.isWhitespace }) ?? preview.endIndex
         return String(preview[..<end]) + "…"
+    }
+    private var showingInput: Bool {
+        #if MORE_JURY_DEMO
+        return isUserCaption || !store.juryDemoVoice.transcript.isEmpty
+        #else
+        return isUserCaption || (store.cloudVoice.isActive && store.cloudVoice.userCaption != nil)
+        #endif
     }
     private var controlsLabel: String {
         controlsVisible ? (french ? "Masquer les commandes" : "Hide controls")
@@ -153,12 +165,13 @@ struct MorningHomePlaybackView: View {
                         .padding(.horizontal, min(28, readingBounds.width / 8)).padding(.vertical, 16)
                         .frame(maxWidth: .infinity)
                         .contentTransition(.opacity)
-                        .animation(.easeOut(duration: still ? 0.12 : 0.22), value: caption)
+                        .animation(showingInput ? nil : .easeOut(duration: still ? 0.12 : 0.22), value: caption)
                         .textSelection(.enabled)
                         .accessibilityIdentifier(showingActionStatus ? "morning.actionStatus" : "morning.caption")
                         .accessibilityAction(named: Text(controlsLabel), toggleControls)
                 }
                 .scrollIndicators(.hidden)
+                .defaultScrollAnchor(.bottom, for: .sizeChanges)
                 .onScrollPhaseChange { _, phase in
                     let wasScrolling = captionScrolling
                     captionScrolling = phase == .tracking || phase == .interacting || phase == .decelerating
@@ -182,17 +195,18 @@ struct MorningHomePlaybackView: View {
         }
         .onChange(of: store.speech.captionRevision, initial: true) { _, _ in
             guard !store.privacyBlocksWork, let text = store.speech.currentCaption, !text.isEmpty else { return }
+            isUserCaption = false
             displayedCaptionBoundary = actionStatus?.text
             // The spoken step label is metadata; Home shows only its content.
             let prefix = store.currentStep.map { $0.title + "." } ?? ""
             displayedCaption = store.speech.caption(omittingInitialPrefix: prefix) ?? ""
         }
         .onChange(of: actionStatus?.text) { _, boundary in
-            if displayedCaptionBoundary != boundary { displayedCaption = nil }
+            if displayedCaptionBoundary != boundary { clearCaption() }
             pendingCloudCaption = nil
         }
         .onChange(of: store.speech.isSpeaking) { _, speaking in
-            if !speaking, (actionStatus?.priority ?? -1) >= 3 { displayedCaption = nil; displayedCaptionBoundary = nil }
+            if !speaking, (actionStatus?.priority ?? -1) >= 3 { clearCaption() }
         }
         #if !MORE_JURY_DEMO
         .onChange(of: store.cloudVoice.caption) { _, text in
@@ -203,18 +217,27 @@ struct MorningHomePlaybackView: View {
             if state == .speaking { receiveCloudCaption() }
             else {
                 pendingCloudCaption = nil
-                if (actionStatus?.priority ?? -1) >= 3 { displayedCaption = nil; displayedCaptionBoundary = nil }
+                if (actionStatus?.priority ?? -1) >= 3 { clearCaption() }
             }
         }
         #endif
-        .onChange(of: AppLanguage.code) { _, _ in displayedCaption = nil; displayedCaptionBoundary = nil; pendingCloudCaption = nil; controlsVisible = false }
+        .onChange(of: store.handsFreeVoice.transcriptRevision) { _, _ in
+            let text = store.handsFreeVoice.transcript
+            if !text.isEmpty { showInput(text) }
+            else if isUserCaption { clearCaption() }
+        }
+        .onChange(of: AppLanguage.code) { _, _ in clearCaption(); controlsVisible = false }
+        .onChange(of: store.dataGeneration) { _, _ in clearCaption() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; pendingCloudCaption = nil; controlsVisible = false; captionScrolling = false }
+            if phase == .background { clearCaption(); controlsVisible = false; captionScrolling = false }
         }
         .onChange(of: store.briefing.settings.includesHealth) { wasIncluded, included in
-            if wasIncluded && !included { displayedCaption = nil; displayedCaptionBoundary = nil; pendingCloudCaption = nil }
+            if wasIncluded && !included { clearCaption() }
         }
-        .onDisappear { controlsVisible = false; captionScrolling = false; pendingCloudCaption = nil }
+        .onDisappear { clearCaption(); controlsVisible = false; captionScrolling = false }
+        #if DEBUG
+        .task { await playCaptionFixtureIfRequested() }
+        #endif
         .onChange(of: voiceOverEnabled) { _, _ in if controlsVisible { controlsInteraction = UUID() } }
         .task(id: controlsInteraction) {
             guard controlsVisible, !voiceOverEnabled, !captionScrolling else { return }
@@ -230,8 +253,43 @@ struct MorningHomePlaybackView: View {
               let text = pendingCloudCaption, text == store.cloudVoice.caption, !text.isEmpty else { return }
         // The SDK may keep the previous caption while listening. Only a new
         // passage observed in this boundary may replace the current action state.
+        isUserCaption = false
         displayedCaptionBoundary = actionStatus?.text
         displayedCaption = text
+    }
+    #endif
+
+    private func showInput(_ text: String) {
+        displayedCaptionBoundary = actionStatus?.text
+        pendingCloudCaption = nil
+        displayedCaption = SpeechCoordinator.inputCaption(text)
+        isUserCaption = true
+    }
+
+    private func clearCaption() {
+        displayedCaption = nil; displayedCaptionBoundary = nil; pendingCloudCaption = nil; isUserCaption = false
+    }
+
+    #if DEBUG
+    /// Presentation-only hypotheses; this fixture does not exercise a microphone.
+    private func playCaptionFixtureIfRequested() async {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing"),
+              ProcessInfo.processInfo.arguments.contains("--ui-testing-live-captions") else { return }
+        let hypotheses = ["Je", "Je voudrais", "Je voudrais connaître mon prochain rendez-vous.",
+            "Je voudrais connaître mes prochains rendez-vous.",
+            String(repeating: "Je voudrais revoir les messages de ce matin, ", count: 8)
+                + "puis prépare une réponse pour demain matin."]
+        do {
+            for text in hypotheses {
+                try await Task.sleep(for: .seconds(2))
+                try Task.checkCancellation()
+                showInput(text)
+            }
+            try await Task.sleep(for: .seconds(4))
+            try Task.checkCancellation()
+            isUserCaption = false
+            displayedCaption = "Votre prochain rendez-vous est à neuf heures."
+        } catch { }
     }
     #endif
 
