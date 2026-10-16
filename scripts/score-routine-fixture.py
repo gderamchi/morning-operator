@@ -56,6 +56,8 @@ def compare(manifest_path, timeline_path, oracle_path, actual_path):
             forecast[scene['sceneID']].append(index)
     result = dict(schemaVersion=1, origin='synthetic', profile=timeline['profile'], language=language,
                   sourceSeconds=duration, oracleSHA256=sha(oracle_path), timelineSHA256=sha(timeline_path),
+                  isIsolatedDiagnostic=timeline.get('isIsolatedDiagnostic', False),
+                  notLongSourceCoverage=timeline.get('notLongSourceCoverage', False),
                   disclosure='Diagnostic comparison only; not a product acceptance, native capture, effect or personal-habit proof.',
                   samplingForecast=dict(policySnapshot='MediaObservationService/FrameSampling at a47fd03; max24, evenly spaced, last=duration−0.1',
                                         actualExecution=False, requestedSeconds=times, sceneSampleIndices=forecast,
@@ -96,6 +98,8 @@ def compare(manifest_path, timeline_path, oracle_path, actual_path):
                          ocrConfidenceMax=max(confidence) if confidence else None))
     checks = []
     for check in oracle['ocrChecks']:
+        if check['scene'] not in observations:
+            continue
         samples = observations[check['scene']]
         observed = [sample for sample in samples if sample.get('outcome') == 'observed']
         text = ' '.join(sample.get('text', '') for sample in observed)
