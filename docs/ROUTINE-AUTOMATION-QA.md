@@ -68,7 +68,64 @@ The corrected snapshot `c9332ca`, including Home changes through `554a614`, pass
 
 The later Home decision (`99ef99d`, `3dfed93`) replaces scrolling history with a single short passage and tap-revealed controls that disappear after five seconds. It is integrated with the action-state correction, using the same passage instead of a permanent status/button panel. Build6 of the previous scene succeeds, but its six runtime journeys were deliberately not started after this product change. The new scene, its speech-chunk changes and adapted runtime journeys require fresh validation; the 1,598-test checkpoint above does not cover them.
 
-## Latest native checkpoint — 16 October 2026, frozen9k / `c3cbd3b`
+## Latest native checkpoint — 16 October 2026, frozen9l / `bb759d7`
+
+Six of seven planned cases ran in eight XCTest attempts: **0 passed, 8 failed,
+0 skipped**. Three attempts stopped before a valid isolated workspace appeared;
+their onboarding screens prove no scenario behavior. Five valid launches
+reached distinct failures. Slack FR was not run. The app, UI-test binary and
+xctestrun hashes still match their original seal.
+
+- News EN parses, admits and deduplicates all three synthetic links, but records
+  `snapshotPrivacy=0` and retains none. No article, Repeat or return is credited.
+  Source review found two different generation identities being compared:
+  the Store's runtime nonce and the durable Forget marker, which legitimately
+  starts nil. The integrated correction preserves separate fail-closed checks
+  for durable privacy state and the exact runtime nonce. A second correction
+  reobserves the displayed headlines after Close/reopen while paused, without
+  replaying navigation, actions, narration or the budget. Both need native proof.
+- The exact-reminder journey configures, approves and relaunches its routine,
+  then incorrectly requires a spoken opening that a silent automatic launch
+  need not show. Its replacement observes actual Continue/Pause and the same
+  session/version/step/index. No reminder request, picker, review or write ran.
+- Long10 reaches its unapproved editor, then the helper rejects the foreground
+  List before virtualized row7 appears. The integrated correction scopes the
+  gestures between the actual navigation and approval footer. No configuration,
+  approval, Start, provider outcome or 28-minute execution is credited.
+- Screen Time FR XXXL verifies all four native switches OFF and opens the
+  unapproved eight-app proposal. Its omission helper cannot materialize Gmail
+  above the retained position. AX/PNG show the foreground proposal separately
+  from the archive behind it; this establishes no lost Gmail source. The new
+  helper scopes that proposal and searches both directions. Later assertions
+  remain unexecuted.
+- Slack EN reaches a synthetic source and destination, then honestly reports
+  preparation unavailable: the classic private transport still used the
+  ordinary model preparer. The body is empty and review/send remain disabled.
+  No draft, review, send or uncertain outcome is credited. A separately gated
+  deterministic private preparer is being added; ordinary behavior must not
+  gain a silent model fallback.
+
+The isolated News/reminder/Long journeys now retain invalid-launch evidence
+and allow one unchanged relaunch only when the workspace marker is absent.
+A wrong UUID fails immediately. This is a harness guard, not a demonstrated
+fix to the launch-argument problem.
+
+CI on `bb759d7` compiles the app successfully. Package CI has one remaining
+grounded-schema assertion failure; the replacement resolves the root's actual
+selection field instead of the first arbitrary two-branch object and retains
+the original exact constraints. Its precise CI assertion cause was not logged.
+Proposal CI reports15 failures and one skip out of16: most are transient Home
+Settings navigation, one folded imported-text editor, and two native selection
+taps still reading Not selected. Shared navigation and disclosure helpers are
+corrected. Selection now waits for the real state after one tap, records PNG/AX
+on failure and verifies the actual count and unchanged destination; its cause
+still requires a native replay.
+
+Source fixes, pure contracts and review findings are not promoted to runtime
+passes. Full MORE §10, movie learning, Long10, the exact reminder, ordinary
+iPhone acoustic proof and the one authorized self-mail remain open in issue173.
+
+## Earlier native checkpoint — 16 October 2026, frozen9k / `c3cbd3b`
 
 Seventeen distinct native journeys finish **8 passed, 9 failed, 0 skipped**.
 Their sealed app/UI-test products remain unchanged. Results are local to their
