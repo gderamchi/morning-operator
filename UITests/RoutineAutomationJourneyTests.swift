@@ -29,7 +29,8 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             XCTAssertTrue(visibleButton("routine.step.\(index)", in: app).label.contains(titles[index]))
         }
         XCTAssertFalse(app.buttons["routine.step.10"].exists)
-        let synthetic = app.descendants(matching: .any).matching(identifier: "routine.source").firstMatch
+        // Label's decorative image shares its identifier with the readable text.
+        let synthetic = app.staticTexts["routine.source"]
         scrollTo(synthetic, identifier: "routine.source", in: app)
         XCTAssertFalse(synthetic.label.isEmpty)
         attach("automation-parsed-synthetic-ten-moment-french-draft", app)
@@ -114,6 +115,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         let intention = app.descendants(matching: .any).matching(identifier: "slackMoment.intention").firstMatch
         scrollTo(intention, identifier: "slackMoment.intention", in: app)
         intention.tap(); intention.typeText("SYNTHETIC please confirm the meeting")
+        dismissSlackKeyboardIfShown(app)
         tapVisible("slackMoment.prepare", in: app)
         XCTAssertTrue(app.buttons["slackMoment.send"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["slackMoment.synthetic"].exists)
@@ -227,7 +229,10 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             choice.tap()
             XCTAssertEqual(choice.value as? String, "Selected")
         }
-        XCTAssertEqual(app.buttons["observation.select.55555555-5555-4555-8555-555555555555"].value as? String, "Not selected")
+        let unselectedID = "observation.select.55555555-5555-4555-8555-555555555555"
+        let unselected = app.buttons[unselectedID]
+        scrollObservationListTo(unselected, identifier: unselectedID, in: app, towardBeginning: true)
+        XCTAssertEqual(unselected.value as? String, "Not selected")
         XCTAssertTrue(app.staticTexts["observations.selectionSummary"].label.contains("3 observations"))
         attach("automation-learning-three-source-types-explicit-selection", app)
         enabledVisibleButton("observations.suggestUpdate", in: app).tap()
@@ -1434,8 +1439,37 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         tapVisible("learn.screenTime.observations", in: app)
         XCTAssertTrue(app.buttons["observations.choose"].waitForExistence(timeout: 8))
         app.buttons["observations.choose"].tap()
-        XCTAssertTrue(app.staticTexts["observations.fixtureMode"].exists)
+        XCTAssertTrue(app.buttons["observations.suggestUpdate"].waitForExistence(timeout: 5))
+        let synthetic = app.staticTexts["observations.fixtureMode"]
+        scrollObservationListTo(synthetic, identifier: "observations.fixtureMode", in: app, towardBeginning: false)
+        XCTAssertFalse(synthetic.label.isEmpty)
         XCTAssertFalse(app.buttons["observations.suggestUpdate"].isEnabled)
+    }
+    private func scrollObservationListTo(_ element: XCUIElement, identifier: String, in app: XCUIApplication,
+                                         towardBeginning: Bool) {
+        let list = app.collectionViews["observations.list"]
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        // List unloads distant rows. Search the actual observation list in both
+        // directions rather than reading an absent lazy row's value or frame.
+        for backward in [towardBeginning, !towardBeginning] {
+            for _ in 0..<24 {
+                if element.exists && element.isHittable { return }
+                if backward { list.swipeDown() } else { list.swipeUp() }
+            }
+        }
+        captureFailure("unreachable-\(identifier)", app)
+        XCTAssertTrue(element.exists, "Missing observation content: \(identifier)")
+        XCTAssertTrue(element.isHittable, "Unreachable observation content: \(identifier)")
+    }
+    private func dismissSlackKeyboardIfShown(_ app: XCUIApplication) {
+        let done = app.buttons["slackMoment.keyboardDone"]
+        guard done.waitForExistence(timeout: 2) else { return }
+        XCTAssertTrue(done.isHittable)
+        done.tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
+        let result = XCTWaiter.wait(for: [dismissed], timeout: 5)
+        if result != .completed { captureFailure("slack-keyboard-did-not-dismiss", app) }
+        XCTAssertEqual(result, .completed)
     }
     private func openHomeInteraction(_ app: XCUIApplication) {
         if app.buttons["morning.closeDetails"].exists { return }
