@@ -156,7 +156,7 @@ public final class GmailMorningConversation {
             } catch {
                 try requireCurrent(token)
                 if error is CancellationError { throw error }
-                selection = .recent(fetched, reason: .preferencesUnavailable, french: french)
+                selection = attention.recentSelection(fetched, reason: .preferencesUnavailable, french: french)
             }
             // Both the account and the pinned conversation are checked after local
             // analysis. A late ranking cannot revive mail after Pause/Next/Forget.

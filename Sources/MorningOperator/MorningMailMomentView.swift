@@ -11,6 +11,11 @@ struct MorningMailMomentView: View {
     var body: some View {
         let mail = store.mailMorning
         VStack(alignment: .leading, spacing: 12) {
+            if GmailAttentionUITestFixture.isRequested {
+                Text("SYNTHETIC — Gmail attention test. No account, network, or sending.")
+                    .font(.caption).accessibilityIdentifier("mail.attention.synthetic")
+                    .accessibilityValue("HTTP list reads: \(GmailAttentionUITestFixture.inboxReadCount); body reads: \(GmailAttentionUITestFixture.bodyReadCount)")
+            }
             if let selection = mail.attentionSelection, !mail.isComposingSelfMessage {
                 Text(french ? "Vos mails à examiner" : "Your messages to review").font(.headline)
                 Text(selection.explanation(french: french)).font(.caption)

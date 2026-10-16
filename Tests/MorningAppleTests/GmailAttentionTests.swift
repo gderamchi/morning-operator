@@ -42,7 +42,7 @@ import Testing
             #expect(selected.items.map(\.id) == ["m1", "m2", "m3"] && selected.items.allSatisfy { $0.sourceQuote == nil })
             #expect(selected.explanation(french: true).contains("Aucun classement"))
         }
-        let duplicateInput = messages() + [messages()[0]]
+        let duplicateInput = Array(messages().prefix(4)) + [messages()[0]]
         let unavailable = GmailAttentionService(generator: { _ in Issue.record("Invalid source must not reach a model"); return "" }, available: { false })
         await #expect(throws: GmailAttentionError.invalidInput) {
             try await unavailable.select(messages: duplicateInput, preferences: .init(), french: false)
@@ -104,4 +104,44 @@ import Testing
         #expect(throws: LocalDataControlError.staleGeneration) { try store.save(preferences, generation: nil) }
         #expect(throws: GmailAttentionError.invalidPreferences) { try GmailAttentionPreferences(priorities: String(repeating: "x", count: 401)) }
     }
+    #if DEBUG
+    @Test func syntheticJourneyIsTripleGatedReadOnlyAndCannotClaimARealModel() async throws {
+        let workspace = UUID(), root = FileManager.default.temporaryDirectory.appendingPathComponent("gmail-fixture-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let flags = ["--ui-testing", "--ui-testing-gmail-attention", "--ui-testing-workspace=\(workspace)"]
+        #expect(GmailAttentionUITestFixture.workspaceID(flags) == workspace)
+        for omitted in 0..<3 { #expect(GmailAttentionUITestFixture.workspaceID(flags.enumerated().filter { $0.offset != omitted }.map(\.element)) == nil) }
+        #expect(GmailAttentionUITestFixture.workspaceID(["--ui-testing", "--ui-testing-gmail-attention", "--ui-testing-workspace=invalid"]) == nil)
+        let privacy = LocalDataControl(directory: root)
+        try GmailAttentionPreferencesStore(directory: root).save(.init(priorities: "Synthetic project priorities"), generation: nil)
+        let context = MorningExecutionID(sessionID: UUID(), routineVersionID: UUID(), stepID: UUID())
+        var spoken: [String] = []
+        let conversation = GmailAttentionUITestFixture.conversation(privacy: privacy, allowedDirectory: root, fallback: false) { spoken.append($0) }
+        await conversation.begin(context: context, generation: nil)
+        #expect(conversation.state == .askingToReply)
+        #expect(conversation.attentionSelection?.items.map(\.id) == ["synthetic5", "synthetic2", "synthetic4"])
+        #expect(conversation.attentionSelection?.isSynthetic == true)
+        #expect(conversation.summary.contains("SYNTHETIC") && !conversation.summary.contains("The local model proposes"))
+        #expect(GmailAttentionUITestFixture.inboxReadCount == 1 && GmailAttentionUITestFixture.bodyReadCount == 5)
+        await conversation.respond("yes reply that I will review the request", context: context)
+        #expect(conversation.state == .reviewingReply && conversation.draftText.hasPrefix("SYNTHETIC"))
+        await conversation.respond("send", context: context)
+        #expect(conversation.state == .reviewingReply && conversation.lastSendOutcome == nil)
+        #expect(!conversation.canComposeSelfMessage)
+        await conversation.chooseMessage(id: "synthetic1", context: context)
+        #expect(conversation.selectedMessageID == "synthetic1" && conversation.recipient == "source1@synthetic.invalid" && conversation.draftText.isEmpty)
+        #expect(GmailAttentionUITestFixture.inboxReadCount == 1 && GmailAttentionUITestFixture.bodyReadCount == 5)
+        conversation.clear()
+        let fallback = GmailAttentionUITestFixture.conversation(privacy: privacy, allowedDirectory: root, fallback: true) { _ in }
+        await fallback.begin(context: context, generation: nil)
+        #expect(fallback.attentionSelection?.mode == .recentMessages && fallback.attentionSelection?.isSynthetic == true)
+        #expect(fallback.summary.contains("SYNTHETIC") && fallback.summary.contains("fallback"))
+        fallback.clear()
+        let blocked = GmailAttentionUITestFixture.conversation(privacy: privacy, allowedDirectory: root.appendingPathComponent("other"), fallback: false) { _ in }
+        await blocked.begin(context: context, generation: nil)
+        #expect(blocked.state == .unavailable && blocked.messageChoices.isEmpty)
+        #expect(GmailAttentionUITestFixture.inboxReadCount == 0 && GmailAttentionUITestFixture.bodyReadCount == 0)
+    }
+    #endif
+
 }

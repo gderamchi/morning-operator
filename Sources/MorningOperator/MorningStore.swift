@@ -223,7 +223,7 @@ final class MorningStore {
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
     let briefing: MorningBriefingController
-    let composio = OutlookInboxUITestFixture.serviceIfRequested() ?? CalendlyDayUITestFixture.serviceIfRequested() ?? GoogleCalendarDayUITestFixture.serviceIfRequested() ?? SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
+    let composio = GmailAttentionUITestFixture.connectionsIfRequested() ?? OutlookInboxUITestFixture.serviceIfRequested() ?? CalendlyDayUITestFixture.serviceIfRequested() ?? GoogleCalendarDayUITestFixture.serviceIfRequested() ?? SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
     let nativeConnections = NativeConnectionsService()
     var selectedSlackMessageTS: String?
     @ObservationIgnored var slackReplyTask: Task<Void, Never>?
@@ -295,10 +295,14 @@ final class MorningStore {
     var handsFreeListeningSuppressedSessionID: UUID?
     @ObservationIgnored var handsFreePauseRevision = UUID()
     @ObservationIgnored var handsFreeUtteranceHandler: (@MainActor (String) async -> Bool)?
-    @ObservationIgnored lazy var mailMorning = GmailMorningConversation(attention: GmailAttentionService(), speak: { [weak self] text in
-        guard let self else { throw CancellationError() }
-        if self.readAloud { try await self.speech.speakAndWait(text) }
-    })
+    @ObservationIgnored lazy var mailMorning: GmailMorningConversation = {
+        let speak: @MainActor (String) async throws -> Void = { [weak self] text in
+            guard let self else { throw CancellationError() }
+            if self.readAloud { try await self.speech.speakAndWait(text) }
+        }
+        return GmailAttentionUITestFixture.conversationIfRequested(privacy: privacyControl, speak: speak)
+            ?? GmailMorningConversation(attention: GmailAttentionService(), speak: speak)
+    }()
     let usesSyntheticBriefing: Bool
     private(set) var consumedMorningEntryIDs: [UUID] = []
     // The opening of a morning (issue #28). The logic is in MorningStore+Opening.swift;
@@ -429,6 +433,12 @@ final class MorningStore {
                 routine = RoutineVersion(sourceLabel: "Demo fixture — synthetic automation journey", steps: [
                     RoutineStep(title: "A quiet moment", detail: "Take a breath.", durationMinutes: 1, automation: .timedMoment),
                     RoutineStep(title: "Get ready", detail: "Your next moment.", durationMinutes: 1, automation: .timedMoment)
+                ])
+            }
+            if GmailAttentionUITestFixture.isRequested {
+                routine = RoutineVersion(sourceLabel: "Demo fixture — SYNTHETIC Gmail attention", steps: [
+                    RoutineStep(title: "SYNTHETIC Gmail attention", detail: "Local invented mail, deterministic test selection. No account, network, or sending.", durationMinutes: 3, automation: .gmailInbox),
+                    RoutineStep(title: "A quiet moment", durationMinutes: 1, automation: .timedMoment)
                 ])
             }
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-native-unavailable") {
