@@ -7,15 +7,15 @@ public enum GmailReplyDraftError: LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case .emptyMessage:
-            String(localized: "This message has no readable text to reply to.", bundle: .module)
+            AppLanguage.localized("This message has no readable text to reply to.", bundle: .module)
         case .inputTooLong:
             AppLanguage.isFrench ? "Ce message est trop long pour préparer une réponse. Vous pouvez écrire votre réponse ci-dessous." : "This message is too long to prepare a reply. You can write your reply below."
         case .invalidReply, .failed:
-            String(localized: "A reply could not be prepared. You can write your reply below.", bundle: .module)
+            AppLanguage.localized("A reply could not be prepared. You can write your reply below.", bundle: .module)
         case .modelUnavailable:
             AppLanguage.isFrench ? "Le modèle sélectionné est indisponible. Vous pouvez écrire votre réponse ci-dessous." : "The selected model is unavailable. You can write your reply below."
         case .alreadyPreparing:
-            String(localized: "A reply is already being prepared.", bundle: .module)
+            AppLanguage.localized("A reply is already being prepared.", bundle: .module)
         }
     }
 }

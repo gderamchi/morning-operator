@@ -7,7 +7,7 @@ public enum ConnectedActionPlanningError: LocalizedError, Sendable, Equatable {
         switch self {
         case .unavailable: AppLanguage.isFrench ? "Le modèle sélectionné est indisponible. Complétez les champs disponibles, ou réessayez plus tard." : "The selected model is unavailable. Complete the available fields, or try again later."
         case .tooLarge: AppLanguage.isFrench ? "Cette action est trop complexe à préparer. Choisissez une action plus simple." : "This action is too complex to prepare. Choose a simpler action."
-        case .invalidProposal: String(localized: "MORE couldn't prepare valid details for this action. Add more detail or complete the available fields.", bundle: .module)
+        case .invalidProposal: AppLanguage.localized("MORE couldn't prepare valid details for this action. Add more detail or complete the available fields.", bundle: .module)
         case .needsDetails(let question): question
         }
     }
