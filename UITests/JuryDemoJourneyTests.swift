@@ -139,6 +139,15 @@ final class JuryDemoJourneyTests: XCTestCase {
 
         XCUIDevice.shared.press(.home)
         try await Task.sleep(for: .seconds(9))
+        let systemScreen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        systemScreen.name = "jury-live-background-system-screen"
+        systemScreen.lifetime = .keepAlways
+        add(systemScreen)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let systemHierarchy = XCTAttachment(string: springboard.debugDescription)
+        systemHierarchy.name = "jury-live-background-springboard-hierarchy"
+        systemHierarchy.lifetime = .keepAlways
+        add(systemHierarchy)
         app.activate()
         let playback = revealLivePlayback(app)
         XCTAssertEqual(playback.label, "Pause", "The same morning must still run after backgrounding.")
@@ -251,6 +260,22 @@ final class JuryDemoJourneyTests: XCTestCase {
         XCTAssertEqual(recognized, .completed,
                        "A real acoustic answer must reach the backend and advance to its mail conversation.")
         attachLive("jury-acoustic-mail-response-after-real-input", app)
+
+        if ProcessInfo.processInfo.environment["MORE_JURY_NATIVE_REMINDER_PHONE"] == "1" {
+            // The external speaker supplies a real reminder request; only the
+            // app's EventKit readback/ACK can produce this confirmed passage.
+            print("JURY_ACOUSTIC_READY_FOR_REMINDER")
+            let reminderCreated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                guard caption.exists else { return false }
+                let value = caption.label.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_FR"))
+                return value.hasPrefix("le rappel est cree") &&
+                    !value.contains("pas ete cree") && !value.contains("a verifier")
+            }, object: caption)
+            let reminderResult = await XCTWaiter.fulfillment(of: [reminderCreated], timeout: 45)
+            XCTAssertEqual(reminderResult, .completed,
+                           "A real spoken request must create and reread the native reminder before the backend confirms it.")
+            attachLive("jury-acoustic-native-reminder-confirmed-after-readback", app)
+        }
 
         openLiveSettings(app)
         let details = app.buttons["morning.details"]
