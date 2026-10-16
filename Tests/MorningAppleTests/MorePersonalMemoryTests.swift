@@ -33,6 +33,82 @@ struct MorePersonalMemoryTests {
         #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("personal-memory.json").path))
     }
 
+    @Test("Model apostrophe and case normalization keeps scooter corrections and accompanying transport")
+    func typographicTransportCorrection() async {
+        let directory = directory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let memory = MorePersonalMemory(directory: directory, extractor: { prompt in
+            if prompt.contains("pas de") {
+                return #"{"facts":[{"key":"electricScooter","value":"no","evidence":"je n'ai pas de trottinette"},{"key":"usualTransport","value":"publicTransport","evidence":"je prends les transports"}]}"#
+            }
+            return #"{"facts":[{"key":"electricScooter","value":"yes","evidence":"j'ai une trottinette électrique"}]}"#
+        })
+        await memory.remember(fromOwnerUtterance: "J’ai une trottinette électrique.")
+        #expect(memory.facts.first(where: { $0.key == .electricScooter })?.value == "yes")
+        await memory.remember(fromOwnerUtterance: "Je n’ai pas de trottinette, je prends les transports.")
+        #expect(memory.facts.first(where: { $0.key == .electricScooter })?.value == "no")
+        #expect(memory.facts.first(where: { $0.key == .usualTransport })?.value == "publicTransport")
+    }
+
+    @Test("Real provider quote-valued reserved facts normalize only from independently validated owner evidence")
+    func providerQuoteValuedReservedFacts() async {
+        let directory = directory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let memory = MorePersonalMemory(directory: directory, extractor: { prompt in
+            if prompt.contains("pas de") {
+                return #"{"facts":[{"key":"electricScooter","value":"Je n’ai pas de trottinette","evidence":"Je n’ai pas de trottinette"},{"key":"usualTransport","value":"je prends les transports","evidence":"je prends les transports"}]}"#
+            }
+            return #"{"facts":[{"key":"electricScooter","value":"J’ai une trottinette électrique.","evidence":"J’ai une trottinette électrique."}]}"#
+        })
+        await memory.remember(fromOwnerUtterance: "J’ai une trottinette électrique.")
+        #expect(memory.facts.first(where: { $0.key == .electricScooter })?.value == "yes")
+        await memory.remember(fromOwnerUtterance: "Je n’ai pas de trottinette, je prends les transports.")
+        #expect(memory.facts.first(where: { $0.key == .electricScooter })?.value == "no")
+        #expect(memory.facts.first(where: { $0.key == .usualTransport })?.value == "publicTransport")
+    }
+
+    @Test("Reserved normalization refuses ungrounded prose, the wrong topic and contradictory typed values")
+    func reservedNormalizationBoundaries() async {
+        let directory = directory(); defer { try? FileManager.default.removeItem(at: directory) }
+        for response in [
+            #"{"facts":[{"key":"electricScooter","value":"I own an electric scooter","evidence":"Je n’ai pas de trottinette"}]}"#,
+            #"{"facts":[{"key":"electricScooter","value":"je prends les transports","evidence":"je prends les transports"}]}"#,
+            #"{"facts":[{"key":"electricScooter","value":"yes","evidence":"Je n’ai pas de trottinette"}]}"#
+        ] {
+            let memory = MorePersonalMemory(directory: directory, extractor: { _ in response })
+            await memory.remember(fromOwnerUtterance: "Je n’ai pas de trottinette, je prends les transports.")
+            #expect(memory.facts.isEmpty)
+        }
+    }
+
+    @Test("Generic quotes preserve the owner's real apostrophes, case and Unicode spelling across relaunch")
+    func sourceUnicodeFidelity() async throws {
+        let directory = directory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let source = "J’aime le cafe\u{301}"
+        let memory = MorePersonalMemory(directory: directory, extractor: { _ in
+            #"{"facts":[{"key":"coffeePreference","value":"j'aime le café","evidence":"j'aime le café"}]}"#
+        })
+        await memory.remember(fromOwnerUtterance: source + ".")
+        let value = try #require(memory.facts.first?.value)
+        #expect(Array(value.unicodeScalars) == Array(source.unicodeScalars))
+        let restored = MorePersonalMemory(directory: directory, extractor: { _ in #"{"facts":[]}"# })
+        let restoredValue = try #require(restored.facts.first?.value)
+        #expect(Array(restoredValue.unicodeScalars) == Array(source.unicodeScalars))
+    }
+
+    @Test("Typographic tolerance never removes negation, words or accents")
+    func typographicMatchingKeepsMeaning() async {
+        let directory = directory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let cases: [(String, String)] = [
+            ("Je n’ai pas de trottinette électrique.", #"{"facts":[{"key":"electricScooter","value":"yes","evidence":"j'ai une trottinette électrique"}]}"#),
+            ("J’aime le thé.", #"{"facts":[{"key":"teaPreference","value":"j'aime le the","evidence":"j'aime le the"}]}"#),
+            ("Je n’aime pas le café.", #"{"facts":[{"key":"coffeePreference","value":"j'aime le café","evidence":"j'aime le café"}]}"#)
+        ]
+        for (source, response) in cases {
+            let memory = MorePersonalMemory(directory: directory, extractor: { _ in response })
+            await memory.remember(fromOwnerUtterance: source)
+            #expect(memory.facts.isEmpty)
+        }
+    }
+
     @Test("A newly declared scooter commute clears an older denial without inventing ownership")
     func commuteCorrection() async {
         let directory = directory(); defer { try? FileManager.default.removeItem(at: directory) }

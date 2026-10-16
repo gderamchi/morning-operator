@@ -34,21 +34,23 @@ struct MoreIntelligenceLiveTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         func memory() -> MorePersonalMemory {
             MorePersonalMemory(directory: directory, extractor: { prompt in
-                try await model.generate(instructions: MorePersonalMemory.extractionInstructions,
+                let result = try await model.generate(instructions: MorePersonalMemory.extractionInstructions,
                     prompt: prompt, maximumResponseTokens: 500, schema: MorePersonalMemory.extractionSchema)
+                print("Synthetic memory extraction: \(result)")
+                return result
             })
         }
         let first = memory()
         await first.remember(fromOwnerUtterance: "J’ai une trottinette électrique.")
-        #expect(first.facts.contains { $0.key == .electricScooter && $0.value == "yes" })
+        try #require(first.facts.contains { $0.key == .electricScooter && $0.value == "yes" })
         await first.remember(fromOwnerUtterance: "Je n’ai pas de trottinette, je prends les transports.")
         await first.remember(fromOwnerUtterance: "Je ne bois pas de café.")
         await first.remember(fromOwnerUtterance: "Je bois un café le matin.")
         let restored = memory()
-        #expect(restored.facts.filter { $0.key.rawValue == "coffeePreference" }.count == 1)
-        #expect(restored.facts.contains { $0.key.rawValue == "coffeePreference" && $0.value.contains("Je bois un café le matin") })
-        #expect(restored.facts.contains { $0.key == .electricScooter && $0.value == "no" })
-        #expect(restored.facts.contains { $0.key == .usualTransport && $0.value == "publicTransport" })
+        try #require(restored.facts.filter { $0.key.rawValue == "coffeePreference" }.count == 1)
+        try #require(restored.facts.contains { $0.key.rawValue == "coffeePreference" && $0.value.contains("Je bois un café le matin") })
+        try #require(restored.facts.contains { $0.key == .electricScooter && $0.value == "no" })
+        try #require(restored.facts.contains { $0.key == .usualTransport && $0.value == "publicTransport" })
         let conversation = MorningVoiceConversation(generator: { prompt in
             try await model.generate(instructions: MorningVoiceConversation.instructions,
                 prompt: prompt, maximumResponseTokens: 350)

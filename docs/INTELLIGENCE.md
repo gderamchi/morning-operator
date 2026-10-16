@@ -34,6 +34,8 @@ An enabled OpenAI route can add one short suggestion after the actual weather in
 | Intelligent personal voice | Selected-model answers, bounded personal memory and weather advice are wired. Real microphone/barge-in, latency and repeated on-phone correction journeys still need separate acceptance. |
 | Weather forecast | Current WeatherKit conditions are supported. Daily minimum/maximum and forecast-based advice are not established by this slice. |
 
+Remaining real-device and browser acceptance is tracked in [#200](https://github.com/gibouu/morning-operator/issues/200), alongside the broader runtime work in #173.
+
 ## Verification
 
 The opt-in live test uses harmless synthetic routine text, weather and personal statements. It creates a private temporary workspace and never reads connected accounts, recordings or real inboxes. Run it only with an explicitly supplied credential-file path:
