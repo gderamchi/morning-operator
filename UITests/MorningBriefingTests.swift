@@ -28,15 +28,21 @@ final class MorningBriefingTests: XCTestCase {
         XCTAssertTrue(app.buttons["cloudVoice.start"].isEnabled, "Conversation can be chosen from Settings without starting a morning.")
         XCTAssertFalse(app.buttons["cloudVoice.stop"].exists)
         XCTAssertTrue(app.staticTexts["cloudVoice.consent"].label.contains("processed online"))
-        let providers = app.staticTexts["cloudVoice.providers"]
+        // SwiftUI propagates a DisclosureGroup's identifier to its children.
+        // Match the actual disclosure text so this proves content, not an ID.
+        let providers = app.staticTexts.containing(NSPredicate(format:
+            "label CONTAINS %@ AND label CONTAINS %@", "ElevenLabs", "Google Gemini")).firstMatch
         XCTAssertFalse(providers.exists, "Provider details stay outside the voice choice and start collapsed.")
         let disclosure = app.buttons["cloudVoice.privacy"]
         reveal(disclosure, app)
-        disclosure.tap()
+        disclosure.staticTexts["Privacy"].tap()
         XCTAssertTrue(providers.waitForExistence(timeout: 5))
+        reveal(providers, app)
         XCTAssertTrue(providers.label.contains("ElevenLabs") && providers.label.contains("Google Gemini"))
-        let details = app.staticTexts["cloudVoice.sharingDetails"]
+        let details = app.staticTexts.containing(NSPredicate(format:
+            "label BEGINSWITH %@", "Previews and recaps you choose to play")).firstMatch
         XCTAssertTrue(details.waitForExistence(timeout: 5))
+        reveal(details, app)
         XCTAssertTrue(details.label.contains("Previews and recaps you choose to play"))
         XCTAssertEqual(app.alerts.count, 0, "Viewing the choice must not open a microphone permission sheet.")
         attach("cloud-conversation-explicit-sharing-before-start", app)

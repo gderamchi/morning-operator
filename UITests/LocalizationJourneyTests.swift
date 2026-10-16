@@ -312,6 +312,15 @@ final class LocalizationJourneyTests: XCTestCase {
     private func choose(_ language: String, in app: XCUIApplication) {
         let picker = app.segmentedControls["setup.language"]
         scrollTo(picker, in: app)
+        // A retained Settings position can put the segment under the navigation
+        // bar even when XCTest reports it hittable. Move the whole row clear.
+        let top = app.navigationBars.firstMatch.frame.maxY + 8
+        for _ in 0..<3 where picker.frame.minY < top {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+            let shift = min(180, max(60, top + 12 - picker.frame.minY))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: shift)))
+        }
+        XCTAssertGreaterThanOrEqual(picker.frame.minY, top, app.debugDescription)
         picker.buttons[language].tap()
         XCTAssertTrue(picker.buttons[language].isSelected, app.debugDescription)
     }

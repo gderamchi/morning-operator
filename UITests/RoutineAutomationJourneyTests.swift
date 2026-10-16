@@ -593,8 +593,9 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             XCTAssertTrue(identifiers.allSatisfy { UUID(uuidString: $0) != nil })
             func playback() -> XCUIElement {
                 let control = app.buttons["morning.playback"]
-                if !control.exists { captions.tap() }
+                if !control.exists || !control.isHittable { captions.tap() }
                 XCTAssertTrue(control.waitForExistence(timeout: 5))
+                XCTAssertTrue(control.isHittable)
                 return control
             }
             let control = playback()
@@ -608,8 +609,13 @@ final class RoutineAutomationJourneyTests: XCTestCase {
             XCTAssertFalse(consent.waitForExistence(timeout: 1), "Resuming the same morning retains its reading decision.")
             XCTAssertEqual(captions.value as? String, identity, "Resume must preserve the session and current moment.")
 
-            _ = playback()
-            tapVisible("morning.settings", in: app)
+            let settings = app.buttons["morning.settings"]
+            // Floating controls disappear after five seconds. Reveal them on
+            // the landscape rather than scrolling the current caption.
+            if !settings.exists || !settings.isHittable { captions.tap() }
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            XCTAssertTrue(settings.isHittable)
+            settings.tap()
             tapVisible("morning.stop", in: app)
             XCTAssertTrue(app.buttons["morning.stop"].waitForNonExistence(timeout: 5))
             let back = app.navigationBars.buttons.firstMatch

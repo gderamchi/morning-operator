@@ -216,7 +216,14 @@ final class MorningWelcomeFlowTests: XCTestCase {
             "-AppleLanguages", "(\(preferredLanguages.joined(separator: ", ")))",
             "-AppleLocale", localeIdentifier ?? (french ? "fr_FR" : "en_US")
         ] + extra
+        XCUIDevice.shared.orientation = .portrait
         app.launch()
+        XCUIDevice.shared.orientation = .portrait
+        let portrait = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = app.frame
+            return frame.height > frame.width
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [portrait], timeout: 5), .completed, app.debugDescription)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "onboarding.preview").firstMatch
             .waitForExistence(timeout: 10), "This suite requires the nonvisual preview root: \(app.debugDescription)")
         XCTAssertFalse(app.staticTexts["onboarding.preview"].exists, "Preview identification must not create a visible badge.")
@@ -259,19 +266,41 @@ final class MorningWelcomeFlowTests: XCTestCase {
 
     private func reach(_ element: XCUIElement, in app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 5), app.debugDescription)
-        for _ in 0..<10 where !element.isHittable {
-            if app.scrollViews.firstMatch.exists {
-                let scroll = app.scrollViews.firstMatch
-                if element.frame.midY < scroll.frame.minY { scroll.swipeDown() }
-                else { scroll.swipeUp() }
-            }
-            else { app.swipeUp() }
+        let scroll = app.scrollViews.firstMatch
+        let scrollsTarget = scroll.exists
+            && scroll.descendants(matching: .any).matching(identifier: element.identifier).firstMatch.exists
+        func viewport() -> CGRect {
+            // Ordinary text pins the footer outside the scroll view; accessibility text scrolls it.
+            (scrollsTarget ? scroll.frame : app.frame).intersection(app.frame)
         }
-        XCTAssertTrue(element.isHittable, "The control must remain reachable: \(app.debugDescription)")
+        func visibleAndHittable() -> Bool {
+            let frame = element.frame
+            // XCTest can throw instead of returning false for an offscreen activation point.
+            return !frame.isEmpty && viewport().contains(CGPoint(x: frame.midX, y: frame.midY))
+                && element.isHittable
+        }
+        for _ in 0..<10 {
+            if visibleAndHittable() { return }
+            let bounds = viewport()
+            let distance = bounds.midY - element.frame.midY
+            let surface: XCUIElement = scrollsTarget ? scroll : app
+            if abs(distance) > bounds.height * 2 {
+                if distance > 0 { surface.swipeDown() }
+                else { surface.swipeUp() }
+            } else {
+                // A full flick can jump past a control repeatedly in short landscape viewports.
+                let step = min(bounds.height * 0.6, max(-bounds.height * 0.6, distance))
+                let start = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: step > 0 ? 0.2 : 0.8))
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: step)),
+                            withVelocity: .slow, thenHoldForDuration: 0.2)
+            }
+        }
+        XCTAssertTrue(visibleAndHittable(), "The control must remain visible and reachable: \(app.debugDescription)")
     }
 
     private func attach(_ name: String, _ app: XCUIApplication) {
-        let screenshot = app.screenshot()
+        // XCTest's app crop can stay in portrait after rotation on the iOS 26.5 runtime.
+        let screenshot = app.frame.width > app.frame.height ? XCUIScreen.main.screenshot() : app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
