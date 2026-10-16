@@ -4,7 +4,7 @@
 
 ## Choice and data flow
 
-**Settings → Talk with MORE → Use ElevenLabs** starts one explicitly chosen online conversation. The screen explains that microphone audio and the text MORE reads from the selected routine go to ElevenLabs and its Google Gemini model. This can include selected Health, calendar and message content; Apple permissions alone do not enable that sharing. Raw recordings, complete Health history and unread account contents are not automatically submitted. The current routine's steps remain available in the disclosure.
+After starting a morning, **Settings → Talk with MORE → Use ElevenLabs** starts one explicitly chosen online conversation bound to that active morning. The screen explains that microphone audio, text MORE reads from the active routine and previews or recaps the person chooses to play during the conversation go to ElevenLabs and its Google Gemini model. This can include selected Health, calendar and message content; Apple permissions alone do not enable that sharing. Raw recordings, complete Health history and unread account contents are not automatically submitted. The active morning's pinned routine steps remain available in the disclosure.
 
 Apple's on-device listener and system speech remain the default. Choosing online conversation releases both before ElevenLabs takes the microphone. There is no automatic provider fallback. The current agent uses Gemini 3.5 Flash with Eleven v4 Turbo; the authenticated agent configuration has Zero Retention Mode enabled, voice recording disabled and LLM cascading disabled. These are verified provider settings, not an independent forensic guarantee about every system log or subprocessor.
 

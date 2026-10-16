@@ -30,7 +30,23 @@ extension MorningStore {
     /// leaves the foreground, or the person switches it off.
     func startHandsFreeVoice() {
         if cloudVoice.isActive {
-            Task { await cloudVoice.updateContext(cloudVoiceContext) }
+            guard !privacyBlocksWork, sessionActive,
+                  cloudVoiceConsentGeneration == dataGeneration,
+                  cloudVoiceConsentSession == session?.id else { stopCloudVoice(); return }
+            let context = cloudVoiceContext, generation = dataGeneration, sessionID = session?.id
+            Task { [weak self] in
+                guard let self, !privacyBlocksWork, cloudVoice.isActive, sessionActive,
+                      dataGeneration == generation, session?.id == sessionID,
+                      cloudVoiceConsentGeneration == generation, cloudVoiceConsentSession == sessionID,
+                      handsFreeContext == context.binding else { return }
+                await cloudVoice.updateContext(context)
+            }
+            return
+        }
+        if cloudVoiceConsentGeneration != nil || speech.externalSpeech != nil {
+            let issue = cloudVoice.errorMessage
+            stopCloudVoice()
+            if let issue { cloudVoiceStartIssue = issue }
             return
         }
         guard !cloudVoiceReleasing else { return }

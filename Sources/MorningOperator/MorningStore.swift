@@ -1369,6 +1369,9 @@ final class MorningStore {
         }
     }
 
+    /// A cloud microphone owner must also wait for manual dictation cancellation.
+    func waitForVoiceInputRelease() async { await voiceInputReleaseTask?.value }
+
     /// Called only after the completion transition has been saved successfully.
     /// Restoring a completed session never queues speech or microphone access.
     /// Called only after the finished session was saved. Feedback and the invitation follow
@@ -1639,6 +1642,8 @@ final class MorningStore {
     }
 
     func completionSessionChanged() {
+        if cloudVoiceConsentGeneration != nil,
+           cloudVoiceConsentSession != session?.id || !sessionActive { stopCloudVoice() }
         let current = session?.status == .completed ? session?.id : nil
         if completionInvitationSessionID != current { completionInvitationSessionID = nil; stopCompletionInvitation() }
         if let expected = completionVoiceSessionID, expected != current { discardCompletionReflection() }
