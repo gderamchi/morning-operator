@@ -12,7 +12,7 @@ public enum MoreLanguageModelError: LocalizedError, Sendable, Equatable {
     case unauthorized, rateLimited, requestFailed, timedOut, invalidResponse, incompleteResponse, refused
 
     public var errorDescription: String? {
-        let french = Locale.current.language.languageCode?.identifier == "fr"
+        let french = AppLanguage.isFrench
         switch self {
         case .unavailable: return french ? "Aucun modèle n’est disponible. Activez Apple Intelligence ou configurez OpenAI dans les réglages." : "No model is available. Enable Apple Intelligence or configure OpenAI in settings."
         case .invalidKey: return french ? "Vérifiez la clé OpenAI saisie." : "Check the OpenAI key you entered."
@@ -100,7 +100,7 @@ public final class MoreLanguageModel {
     public private(set) var usesOpenAI = false
     public var isAvailable: Bool { !credentialStorageFailed && (usesOpenAI || localAvailable()) }
     public var summary: String {
-        let french = Locale.current.language.languageCode?.identifier == "fr"
+        let french = AppLanguage.isFrench
         if credentialStorageFailed { return MoreLanguageModelError.credentialStorageUnavailable.localizedDescription }
         if usesOpenAI {
             return french ? "OpenAI GPT-5 mini est activé. Les textes utiles à l’analyse et à la conversation sont envoyés à OpenAI. Les vidéos restent sur l’appareil." : "OpenAI GPT-5 mini is enabled. Text needed for analysis and conversation is sent to OpenAI. Videos stay on this device."

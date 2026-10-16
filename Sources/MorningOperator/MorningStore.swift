@@ -2701,6 +2701,7 @@ final class MorningStore {
         privacyNeedsCleanup = true
         activityLoggingAllowed = false
         dataGeneration = generation
+        MorePersonalMemory.shared.invalidatePendingUpdates()
         privacyStatus = String(localized: "Stopping work and removing local data…")
         showMorningOnLockScreen = false
         morningActivityStartSessionID = nil
@@ -2734,6 +2735,7 @@ final class MorningStore {
         releaseVoiceInput()
         MorningIntentRouter.shared.resetPendingRequests()
         do {
+            try MoreLanguageModel.shared.forget()
             try await handsFreeVoice.stopAndRelease()
             try await morningActivity.endAllForPrivacy()
             // SDK streams may ignore cancellation. Never report successful
@@ -2779,7 +2781,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "personal-memory.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json"] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
