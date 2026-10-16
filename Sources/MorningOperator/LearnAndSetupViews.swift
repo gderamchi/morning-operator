@@ -459,6 +459,10 @@ struct SetupView: View {
                 settingsButton(String(localized: "Your next morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: store.invitation.statusText,
                                symbol: "sun.horizon") { choosingInvitation = true }
                     .accessibilityIdentifier("setup.invitation")
+                settingsButton(MorningPermissionSetup.text("iPhone permissions", "Accès iPhone"),
+                               detail: MorningPermissionSetup.text("Review location, voice and other access", "Revoir la localisation, la voix et les autres accès"),
+                               symbol: "hand.raised") { store.permissionSetup.revisit() }
+                    .accessibilityIdentifier("setup.permissions")
                 settingsButton(String(localized: "Privacy & data", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "lock.shield") { showingPrivacy = true }
                     .accessibilityIdentifier("setup.privacy")
                 DisclosureGroup("Availability & device details") {

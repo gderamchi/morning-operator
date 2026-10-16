@@ -243,6 +243,7 @@ final class MorningStore {
     let speech = SpeechCoordinator()
     let voiceCommands = MorningVoiceCommandListener()
     let invitation: MorningInvitationService
+    let permissionSetup: MorningPermissionSetup
     let briefing: MorningBriefingController
     let composio = OutlookInboxUITestFixture.serviceIfRequested() ?? CalendlyDayUITestFixture.serviceIfRequested() ?? GoogleCalendarDayUITestFixture.serviceIfRequested() ?? SlackSetupUITestFixture.serviceIfRequested() ?? ComposioService()
     let nativeConnections = NativeConnectionsService()
@@ -399,6 +400,7 @@ final class MorningStore {
     init() {
         let fixtureMode = ProcessInfo.processInfo.arguments.contains("--ui-testing")
         let directory = LocalDataControl.defaultDirectory
+        permissionSetup = MorningPermissionSetup(directory: directory, isolated: fixtureMode)
         privacyControl = LocalDataControl(directory: directory)
         snapshot = AtomicJSONFile(url: directory.appendingPathComponent("workspace.json"))
         recordingRecovery = PendingScreenRecordingStore(directory: directory)
@@ -1212,13 +1214,14 @@ final class MorningStore {
     }
 
     func prepareDayIfConfigured() async {
-        guard !privacyBlocksWork,
-              !briefing.settings.calendarIDs.isEmpty || briefing.settings.weatherLocation != nil else { return }
+        guard !privacyBlocksWork, !permissionSetup.isPresented else { return }
+        await briefing.resolveCurrentLocationIfNeeded()
+        guard briefing.hasConfiguredSources else { return }
         _ = await briefing.refresh()
     }
 
     func refreshHomeWeatherIfNeeded() async {
-        guard !privacyBlocksWork else { return }
+        guard !privacyBlocksWork, !permissionSetup.isPresented else { return }
         await briefing.refreshForHome()
     }
 
@@ -2747,6 +2750,7 @@ final class MorningStore {
             return
         }
         guard let generation = control.generation else { return }
+        permissionSetup.cancelForPrivacy()
         privacyIsForgetting = true
         privacyHasInterruptedRemoval = true
         privacyNeedsCleanup = true
@@ -2830,7 +2834,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json"] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2851,6 +2855,7 @@ final class MorningStore {
             try privacyControl.finishForget(expectedGeneration: generation)
             try morningActivity.resetAfterPrivacyCleanup()
             briefing.reloadSettings()
+            permissionSetup.resetAfterPrivacy()
             privacyNeedsCleanup = false
             privacyHasInterruptedRemoval = false
             privacyIsForgetting = false

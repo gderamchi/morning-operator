@@ -1,5 +1,7 @@
 # Shared roadmap
 
+Current access/location/weather behavior and verification: [location and weather checks](LOCATION-WEATHER-QA.md).
+
 Updated 10 October 2026. The roadmap separates observed capability, implementation and later product work. Issues #1–#19 were organized into three milestones; the newer voice and evidence-analytics issues are listed separately below. Collaborators can choose ownership together. No deadline or partner access has been assumed.
 
 Start with [onboarding](ONBOARDING.md) and the [bounded teammate handoff](HANDOFF.md), then use [the test report template](TEST-REPORT-TEMPLATE.md). The [digest protocol](DIGEST-TEST-PROTOCOL.md) defines the next repeatable evidence chain; the [business brief](BUSINESS.md) keeps pricing and research hypotheses separate from product proof. [PHASE-ONE](PHASE-ONE.md) is the canonical source for current installation and test outcomes.
