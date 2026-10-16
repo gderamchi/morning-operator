@@ -150,6 +150,7 @@ final class MorningWelcomeFlowTests: XCTestCase {
         app.launchArguments = [
             "--ui-testing", "--preview-onboarding", "--theme-phase=\(phase)",
             "--ui-testing-reduce-motion", "--ui-testing-workspace=\(UUID().uuidString)",
+            "-more.appLanguage", french ? "fr" : "en",
             "-AppleLanguages", french ? "(fr)" : "(en)",
             "-AppleLocale", french ? "fr_FR" : "en_US"
         ] + extra
