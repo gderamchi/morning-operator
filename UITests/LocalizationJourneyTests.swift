@@ -357,7 +357,12 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
         let originalGender = try selectedGender(in: app)
         app.buttons["voice.done"].tap()
         var restored = false
-        defer { if !restored { try? restore(language: originalLanguage, gender: originalGender, in: app) } }
+        defer {
+            if !restored {
+                do { try restore(language: originalLanguage, gender: originalGender, in: app) }
+                catch { XCTFail("The original language and voice preferences could not be restored.") }
+            }
+        }
 
         for language in ["Français", "English"] {
             try reveal(picker, in: app)
@@ -375,6 +380,14 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
                 let chosen = app.buttons["voice.gender.\(gender)"]
                 chosen.tap()
                 XCTAssertEqual(try selectedGender(in: app), gender)
+                let preview = app.buttons["voice.preview"]
+                try reveal(preview, in: app)
+                preview.tap()
+                let speaking = XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "value == %@", language == "Français" ? "Lecture en cours…" : "Speaking…"),
+                    object: preview)
+                XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 40), .completed,
+                               "The selected voice did not begin physical playback.")
                 let capture = XCTAttachment(screenshot: app.screenshot())
                 capture.name = "physical-\(language == "Français" ? "fr" : "en")-voice-\(gender)"
                 capture.lifetime = .keepAlways
