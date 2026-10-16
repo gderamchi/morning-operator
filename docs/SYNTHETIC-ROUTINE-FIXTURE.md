@@ -633,3 +633,53 @@ record stores completion, monotonic duration, a fixed error-domain category and
 an allowlisted numeric framework code. It excludes raw errors, unknown domain
 strings, descriptions, paths and source contents. Two pure boundary tests pass;
 no new extraction has yet used this observer and no earlier error is recovered.
+
+
+### Native9i and the current independent coverage gate
+
+Native9i (`110b189`) builds/seals and passes the strict Calendar smoke in
+**77.619s**. Native Select All replaces the full field; the actual Calendar
+passage/date/fact is readable above Pause. Independent review accepts the
+portrait prerequisite without acoustic, listening, TTS-completion, XXXL or
+landscape credit. The long attempt then **fails in 201.244s before approval or
+Start**: its recorded drop ends at y73.07, inside the actual y62–116 navigation
+bar. The Slack row remains index6 rather than5. An enabled/hittable row had not
+been wholly visible. The new bounded helper observes actual position and safe
+whole-row geometry; exact final third position and ten-title order are retained.
+It still needs a runtime run; the thirteen follow-ups have not run.
+
+The assessment-before-selection diagnostic (`c9625bf`) makes three real local
+SDK calls in 8.184s and returns explicit insufficient/zero steps for every case.
+The agenda assessment also becomes false; no proposal improvement follows from
+the extra output. Its schema-projection test fails two cases. The experiment is
+reverted in `27cedc7`; private reports/logs and the pushed experimental commit
+remain. Presence-only output is a different task/schema/response budget with
+fresh unit IDs; its earlier positive agenda answer is not a causal explanation
+or a production pass.
+
+Package v17 on `7666fdd` reports **2,086 tests, zero issues, 13 optional skips**,
+with two real OCR checks separately excluded. Earlier v16 text saying 14
+optional skips conflated its **12 optional skips and two excluded OCR checks**.
+The new targeted contracts report 36 Core tests plus five Apple tests including
+one optional skip. Nineteen Python scorer regressions pass. None of these
+counts is a native, acoustic or real-provider result.
+
+`score-routine-coverage.py` is an additional offline gate. It binds the frozen
+scenario/oracle/timeline and complete-file fingerprint, then attributes exact
+native citation sources to actual decoded frame times and scene activity groups.
+Repeated agenda rows count once; mixed-group or invalid support is uncredited.
+It distinguishes readable-source coverage from the whole corpus and leaves
+uncaptured/unreadable scenes unknown. A user-added recap and personal duration
+choices are not demanded from video pixels. Coverage by citation location does
+not establish title/detail meaning, action execution or MORE §10.
+
+Actual v9/v10 coverage reports retain exit4: original **0/9** readable activity
+groups, compact **0/7**, with agenda/Gmail unreadable in compact. Their source,
+model and scorer failures remain. The compact FR corpus has a SHA-verified
+41-file private copy in this worktree's ignored `work/routine-fixture/long-v2-compact-fr/`;
+no media was rerendered or committed.
+
+The private news2 slice uses a distinct closed local origin in the ordinary
+WebKit executor. Source/contracts pass, but no new native news journey has run.
+Its [contract](PRIVATE-NEWS-QA.md) keeps the finite resources, activation,
+non-network behavior and pending runtime gates explicit.

@@ -68,62 +68,55 @@ The corrected snapshot `c9332ca`, including Home changes through `554a614`, pass
 
 The later Home decision (`99ef99d`, `3dfed93`) replaces scrolling history with a single short passage and tap-revealed controls that disappear after five seconds. It is integrated with the action-state correction, using the same passage instead of a permanent status/button panel. Build6 of the previous scene succeeds, but its six runtime journeys were deliberately not started after this product change. The new scene, its speech-chunk changes and adapted runtime journeys require fresh validation; the 1,598-test checkpoint above does not cover them.
 
-## Latest checkpoint — 16 October 2026: mixed3 passes, full learning remains open
+## Latest checkpoint — 16 October 2026: separate execution and learning gates
 
-The frozen native **build9d / `06f9848`** mixed3 journey passed **1/1, no skips,
-444.017s**. It proves manual synthetic import → UI configuration → explicit
-approval/relaunch → read-only Gmail selection → one uncertain simulated Slack
-reply without retry → real one-minute budget retained across pause/relaunch →
-restored recap. Its 27.845s consumed / 32.155s remaining survive a further
-65-second paused wait. Source/app/UI bundle/xctestrun hashes were checked before
-and after. No real service write, voice/acoustic or video-learning acceptance is
-claimed. Slack result narration remained incomplete; its simulated write was
-not confirmed. One frame-dimension warning remains recorded.
+- **Package v17, compiled from `7666fdd`: zero issues, 2,086 reported tests**
+  (51 LiveDemo, 8 Health, 768 Core, 1,259 Apple), with **13 optional skips**;
+  two real OCR checks were separately excluded. The new private-news/DOM/article
+  and OCR boundaries also pass their targeted run. Nineteen Python scorer
+  regressions pass. These checks do not execute an iPhone or infer the movie.
+- **Frozen9i / `110b189`: strict Calendar smoke passes in 77.619s.** Real native
+  Select All replaces the editor text; Continue leaves the opening; the pinned
+  Calendar passage/date/fact and Pause are visibly present without overlap.
+  Independent UX review accepts this portrait prerequisite. Acoustic listening,
+  TTS completion, XXXL and landscape are not established by that capture.
+- **Long10 still has no accepted session.** The 9i attempt fails in 201.244s
+  before approval/Start: a reorder gesture ends at y73 inside the actual
+  navigation bar (y62–116). The exact position assertion rejects it. The next
+  helper observes the real index after each bounded native gesture and requires
+  both whole rows to be visible; its final third position/full order remain
+  mandatory. This correction has not run. Thirteen follow-up journeys remain
+  unrun. Seven moments of this path are explicitly time-only, not executed web,
+  media or reminder actions.
+- **Frozen9d / `06f9848` mixed3 remains passed:** 444.017s, no failures/skips,
+  UI configuration/approval/relaunch, read-only synthetic Gmail, one uncertain
+  simulated Slack attempt without retry, real one-minute timer pause/relaunch,
+  and restored recap. This is an older source/binary boundary, not a pass of
+  later Home, recap or long-routine changes.
+- **Video learning remains failed.** V9 reads all 24 frames and has nine readable
+  activity groups, but its ten proposal responses abstain. Compact v10 has eight
+  OCR failures, seven readable groups and five empty responses. The independent
+  citation-coverage scorer reports **0/9 and 0/7**, respectively, preserving exit
+  4 and the capture gaps. Presence-only diagnostics recognize the agenda under a
+  different output task; an assessment-before-selection contrast does not
+  improve proposals and is reverted, with its failed schema-projection test
+  retained in the ledger. No model decision is repaired or counted as learning.
+- **Closed news2 is implemented, not natively proved.** A DEBUG-only workspace
+  capability, four local resources and the ordinary DOM executor are covered by
+  Core contracts and a source review. EN/FR WebKit journeys require execution;
+  Repeat completion/viewport assertions are being tightened first. No real news
+  service, feed, story, like or media playback is certified by this slice.
 
-Package v14 on `0416ef9` was green: 2,066 reported tests including 14 optional
-skips, with two real OCR tests separately excluded. On `003ba4a`, the separately
-executed OCR image/bounds tests passed (26.380s / 0.146s); actual extraction of
-the immutable 28-minute movie passed in 28.753s (24 frames / 260 lines). Its text,
-times and layout values match archived v7; fresh UUIDs differ. This establishes
-extraction, not understood activities or gestures.
+Count correction: the earlier v16 summary conflated two excluded OCR checks
+with optional skips. Its log has **12 optional skips plus two excluded checks**,
+not 14 optional skips. V17 above records those categories separately.
 
-The local model is still **not accepted**: D9 proposed the displayed events
-as 30/45-minute tasks; `003ba4a` improves review budgets but its agenda response
-contradicts its own outcome and is correctly refused. Constructed EN output
-also leaks uncited context into titles. The later steps-only experiment
-`b5ebe32` passed package checks but **failed the real advertisement negative
-control**; it was reverted in `49b04aa`. No incoherent response was repaired or
-credited as a learned routine.
-
-The per-moment recap correction `e81cada` passes four Core projection tests,
-23 Apple grounding/guidance checks, and 16 Slack contract tests including exact
-reply attribution after relaunch. UI expectations were adapted in `4ec210f`;
-new native Calendar speech smoke, long10 and follow-up lot remain pending.
-Fresh main through `d5d9b0e` is integrated separately. Package v16 on
-`42dc82b` passes its declared selection (2,077 reported, 14 optional skips,
-two real OCR tests excluded). Actual written/advert controls pass, but full
-movie v9 still fails: all ten proposal responses abstain (72.747s, scorer 4).
-The shorter-instruction experiment regresses both positive controls and is
-reverted in `30b8d4b`; retained Sources/Tests equal `42dc82b`. Native9e builds but its Calendar smoke fails in 73.282s before approval or
-TTS: the helper scrolled the wrong form while the keyboard remained open.
-Its test-only correction requires a new native run. Long10/follow-up remain
-unrun. A separate supported-first branch-order contrast also fails to improve
-visual inference and is reverted in `91f6ae3`; retained model code remains
-`42dc82b`. Native9g's Calendar smoke reports XCTest PASS (66.176s), but capture review
-rejects it: the facts were in the opening greeting before the operation started.
-Long10/follow-up remain unrun; the next test explicitly continues into the
-routine. A separate compact-disclosure movie also fails actual proposal in
-225.945s (five explicit empty responses, scorer 4); v1 remains unchanged.
-Frozen9h (`3a3a33f`) then passes the corrected Calendar smoke in 79.992s:
-Continue is selected after opening, Pause and the pinned identity are retained,
-and the native Calendar prefix/facts are visibly present. Independent visual
-review accepts this prerequisite, without acoustic or TTS-completion credit.
-The first Long10 attempt fails in 158.788s during pre-Start text replacement;
-it has not executed a long session or the follow-up lot. The compact run also
-has eight OCR failures before its model stage, so it cannot establish a clean
-disclaimer-only semantic comparison with the fully extracted original.
-Full MORE §10 remains open. See [the fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md)
-and [issue #173](https://github.com/gibouu/morning-operator/issues/173).
+Main through `d5d9b0e` is freshly fetched/integrated into the task branch, but
+this task has not updated remote main. Draft PR #211 has skipped CI checks,
+not executed green checks. Full MORE §10, ordinary-iPhone acoustic/provider
+proof and the single authorized self-mail remain open in [issue #173](https://github.com/gibouu/morning-operator/issues/173).
+See the [fixture ledger](SYNTHETIC-ROUTINE-FIXTURE.md) for source-specific receipts,
+failed experiments, immutable media and the distinct manual-oracle path.
 
 ## Earlier source-specific checkpoint — `830e9cd`, 16 October 2026
 
