@@ -508,7 +508,7 @@ final class PhysicalLocalizationAcceptanceTests: XCTestCase {
         for language in ["fr", "en"] {
             for gender in ["male", "female"] {
                 let best = voices.filter {
-                    $0.language.replacingOccurrences(of: "_", with: "-").lowercased().split(separator: "-").first == language
+                    $0.language.replacingOccurrences(of: "_", with: "-").lowercased().split(separator: "-").first.map { String($0) } == language
                         && (gender == "male" ? $0.gender == .male : $0.gender == .female)
                 }.map { $0.quality.rawValue }.max()
                 let quality = best.map { $0 >= 3 ? "Premium" : $0 == 2 ? "Enhanced" : "Standard" } ?? "none"
