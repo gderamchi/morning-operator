@@ -290,14 +290,6 @@ extension MorningStore {
 
     var handsFreeUsesFrench: Bool { AppLanguage.isFrench }
 
-    func setAppLanguage(_ code: String) {
-        guard AppLanguage.supportedCodes.contains(code), AppLanguage.code != code else { return }
-        AppLanguage.setChosenLanguage(code)
-        // Invalidate before returning to the run loop: a queued old recognition
-        // result must not authorize an effect while SwiftUI is updating its views.
-        appLanguageDidChange()
-    }
-
     /// A language switch changes presentation and local speech, never the approved
     /// routine, prepared reply or an external operation's reconciliation state.
     func appLanguageDidChange() {

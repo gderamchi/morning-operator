@@ -13,23 +13,23 @@ public enum RoutineEvidenceProposalError: Error, LocalizedError, Sendable, Equat
     case screenTimePersonalChoicesNeedReview
     public var errorDescription: String? {
         switch self {
-        case .invalidSelection: String(localized: "Select one to five different saved observations.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .dateRequired: String(localized: "Assign an observed day to every selected observation first.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .incompatibleSources: String(localized: "Select observations in the same time zone and with the same human or synthetic origin.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .unsupportedSource: String(localized: "This source needs a reviewed written correction before it can support a proposal.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidSelection: AppLanguage.localized("Select one to five different saved observations.", bundle: .module)
+        case .dateRequired: AppLanguage.localized("Assign an observed day to every selected observation first.", bundle: .module)
+        case .incompatibleSources: AppLanguage.localized("Select observations in the same time zone and with the same human or synthetic origin.", bundle: .module)
+        case .unsupportedSource: AppLanguage.localized("This source needs a reviewed written correction before it can support a proposal.", bundle: .module)
         case .insufficientEvidence: AppLanguage.isFrench
             ? "MORE n’a pas réussi à préparer une proposition fiable à partir des sources choisies. Vos observations et votre routine sont conservées. Relisez vos observations ou ajoutez-en une autre."
             : "MORE couldn’t prepare a reliable proposal from the selected sources. Your observations and routine are kept. Review your observations or add another."
-        case .ownInterfaceLeftNoEvidence: String(localized: "A selected recording has no usable activity evidence. Some of its samples were left out because MORE itself was in front when they were taken. Use your other apps while a recording runs, or choose another observation.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .inputBudgetExceeded: String(localized: "These saved observations exceed the bounded local workload or contain a text unit too large to send safely. Your complete saved source is unchanged; nothing was silently shortened.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .outputBudgetExceeded: String(localized: "The combined suggestion contains more distinct supporting text than can fit in one reviewable plan. Your complete observations are still saved; choose a smaller set of observations. Nothing was silently shortened.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .tooManySteps: String(localized: "This proposal exceeds ten moments, including your kept rituals. Select fewer observations or adjust which rituals to keep. No kept ritual was removed automatically.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .screenTimeSelectionRequired(let slots): String(localized: "This plan has room for \(slots) additional Screen Time app moments. Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .ownInterfaceLeftNoEvidence: AppLanguage.localized("A selected recording has no usable activity evidence. Some of its samples were left out because MORE itself was in front when they were taken. Use your other apps while a recording runs, or choose another observation.", bundle: .module)
+        case .inputBudgetExceeded: AppLanguage.localized("These saved observations exceed the bounded local workload or contain a text unit too large to send safely. Your complete saved source is unchanged; nothing was silently shortened.", bundle: .module)
+        case .outputBudgetExceeded: AppLanguage.localized("The combined suggestion contains more distinct supporting text than can fit in one reviewable plan. Your complete observations are still saved; choose a smaller set of observations. Nothing was silently shortened.", bundle: .module)
+        case .tooManySteps: AppLanguage.localized("This proposal exceeds ten moments, including your kept rituals. Select fewer observations or adjust which rituals to keep. No kept ritual was removed automatically.", bundle: .module)
+        case .screenTimeSelectionRequired(let slots): AppLanguage.localized("This plan has room for \(slots) additional Screen Time app moments. Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained.", bundle: .module)
         case .screenTimePersonalChoicesNeedReview: AppLanguage.isFrench
             ? "Certains choix personnels conservés ne peuvent pas être rapprochés des activités choisies. Relisez-les et confirmez les apps Screen Time de cette suggestion. Aucun choix Garder, Exclure ou de durée n’est modifié."
             : "Some saved personal choices cannot be matched to the selected activities. Review them and confirm the Screen Time apps for this suggestion. No Keep, Exclude or duration choice is changed."
-        case .invalidCitation: String(localized: "A proposed step could not be tied to the exact supplied evidence. Your current routine is unchanged.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .invalidProposal: String(localized: "This proposal is incomplete or inconsistent with its saved evidence. Create another proposal.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidCitation: AppLanguage.localized("A proposed step could not be tied to the exact supplied evidence. Your current routine is unchanged.", bundle: .module)
+        case .invalidProposal: AppLanguage.localized("This proposal is incomplete or inconsistent with its saved evidence. Create another proposal.", bundle: .module)
         }
     }
 }
@@ -38,9 +38,9 @@ public enum RoutineEvidenceSourceLayer: String, Codable, Sendable {
     case original, correction, videoFrame, screenTimeAggregate
     public var displayName: String {
         switch self {
-        case .original: String(localized: "Original observation", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .correction: String(localized: "Your correction", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .videoFrame: String(localized: "Recorded screen text", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .original: AppLanguage.localized("Original observation", bundle: .module)
+        case .correction: AppLanguage.localized("Your correction", bundle: .module)
+        case .videoFrame: AppLanguage.localized("Recorded screen text", bundle: .module)
         case .screenTimeAggregate: AppLanguage.isFrench ? "Agrégat Screen Time" : "Screen Time aggregate"
         }
     }
@@ -709,7 +709,7 @@ public enum LearningEvidencePreparation {
             guard proposed[index].detail.count <= maximumDetailCharacters else { throw RoutineEvidenceProposalError.outputBudgetExceeded }
         }
         let synthetic = evidence.sourceSnapshots.first?.origin == .synthetic
-        let source = synthetic ? "Demo fixture — synthetic saved observations" : String(localized: "Selected saved observations — tentative proposal", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        let source = synthetic ? "Demo fixture — synthetic saved observations" : AppLanguage.localized("Selected saved observations — tentative proposal", bundle: .module)
         let proposalDate = evidence.screenTimeSelection?.referenceDate ?? date
         let candidate = RoutineVersion(createdAt: proposalDate, sourceLabel: source, steps: proposed, isApproved: false)
         var routine = EvidenceRoutineProposal.inferredDraft(from: candidate, preserving: base,

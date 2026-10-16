@@ -10,12 +10,12 @@ public enum RoutinePreferenceError: Error, LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidPreference: String(localized: "This saved routine preference is invalid. Review or reset it before learning again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .tooManyPreferences: String(localized: "At most 100 routine preferences can be saved. Clear an unused preference first.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .preferencesTooLarge: String(localized: "These saved preferences exceed the local storage limit. Shorten a retained moment or clear an unused preference.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .invalidSteps: String(localized: "The suggested routine has conflicting step identities. Your routine is unchanged.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .ambiguousMatch: String(localized: "More than one suggested moment could match a saved preference. Review the matching activities before trying again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .conflictingMatch: String(localized: "Two saved preferences conflict for the same suggested moment. Review those preferences before trying again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .invalidPreference: AppLanguage.localized("This saved routine preference is invalid. Review or reset it before learning again.", bundle: .module)
+        case .tooManyPreferences: AppLanguage.localized("At most 100 routine preferences can be saved. Clear an unused preference first.", bundle: .module)
+        case .preferencesTooLarge: AppLanguage.localized("These saved preferences exceed the local storage limit. Shorten a retained moment or clear an unused preference.", bundle: .module)
+        case .invalidSteps: AppLanguage.localized("The suggested routine has conflicting step identities. Your routine is unchanged.", bundle: .module)
+        case .ambiguousMatch: AppLanguage.localized("More than one suggested moment could match a saved preference. Review the matching activities before trying again.", bundle: .module)
+        case .conflictingMatch: AppLanguage.localized("Two saved preferences conflict for the same suggested moment. Review those preferences before trying again.", bundle: .module)
         }
     }
 }

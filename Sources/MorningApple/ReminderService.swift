@@ -84,20 +84,20 @@ public enum ReminderServiceError: LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .remindersNotAuthorized: String(localized: "Reminders access is not authorized. Connect Reminders before reading or saving.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .calendarNotAuthorized: String(localized: "Calendar writing is not authorized. Connect Calendar before saving.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .missingUsageDescription(let key): String(localized: "This app build is missing \(key). Use a configured app build before requesting access.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .noWritableReminderList: String(localized: "No writable default Reminders list is available. Set up a list in Reminders first.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .noWritableCalendar: String(localized: "No writable default Calendar is available. Set up a calendar first.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .invalidTitle: String(localized: "Enter a title between 1 and 300 characters.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .notesTooLong: String(localized: "Keep the notes within 10,000 characters.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .invalidDate: String(localized: "Choose valid dates with an event end after its start, lasting at most 31 days.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .invalidTimeZone: String(localized: "Choose a valid time zone.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .alarmNeedsDate: String(localized: "A reminder alert needs a due date and time.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .invalidQuery: String(localized: "Choose a reminder date range of at most 90 days and a result limit from 1 to 200.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .fetchFailed: String(localized: "Reminders could not be read. Access may have changed. Try again after checking permission.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .reminderChanged: String(localized: "This reminder changed or is no longer available. Read your reminders again before marking it complete.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-        case .reminderNotWritable: String(localized: "This Reminders list doesn't allow changes.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+        case .remindersNotAuthorized: AppLanguage.localized("Reminders access is not authorized. Connect Reminders before reading or saving.", bundle: .module)
+        case .calendarNotAuthorized: AppLanguage.localized("Calendar writing is not authorized. Connect Calendar before saving.", bundle: .module)
+        case .missingUsageDescription(let key): AppLanguage.localized("This app build is missing \(key). Use a configured app build before requesting access.", bundle: .module)
+        case .noWritableReminderList: AppLanguage.localized("No writable default Reminders list is available. Set up a list in Reminders first.", bundle: .module)
+        case .noWritableCalendar: AppLanguage.localized("No writable default Calendar is available. Set up a calendar first.", bundle: .module)
+        case .invalidTitle: AppLanguage.localized("Enter a title between 1 and 300 characters.", bundle: .module)
+        case .notesTooLong: AppLanguage.localized("Keep the notes within 10,000 characters.", bundle: .module)
+        case .invalidDate: AppLanguage.localized("Choose valid dates with an event end after its start, lasting at most 31 days.", bundle: .module)
+        case .invalidTimeZone: AppLanguage.localized("Choose a valid time zone.", bundle: .module)
+        case .alarmNeedsDate: AppLanguage.localized("A reminder alert needs a due date and time.", bundle: .module)
+        case .invalidQuery: AppLanguage.localized("Choose a reminder date range of at most 90 days and a result limit from 1 to 200.", bundle: .module)
+        case .fetchFailed: AppLanguage.localized("Reminders could not be read. Access may have changed. Try again after checking permission.", bundle: .module)
+        case .reminderChanged: AppLanguage.localized("This reminder changed or is no longer available. Read your reminders again before marking it complete.", bundle: .module)
+        case .reminderNotWritable: AppLanguage.localized("This Reminders list doesn't allow changes.", bundle: .module)
         }
     }
 }
@@ -176,7 +176,7 @@ public final class ReminderService {
                     guard !reminder.isCompleted, let components = reminder.dueDateComponents,
                           let due = EventKitDraftValidation.reminderDueDate(components),
                           due >= start, due <= end else { return nil }
-                    return ReminderSummary(id: reminder.calendarItemIdentifier, title: reminder.title ?? String(localized: "Untitled reminder", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale),
+                    return ReminderSummary(id: reminder.calendarItemIdentifier, title: reminder.title ?? AppLanguage.localized("Untitled reminder", bundle: .module),
                         notes: reminder.notes ?? "", dueDate: due, listTitle: reminder.calendar.title,
                         listID: reminder.calendar.calendarIdentifier, sourceID: reminder.calendar.source.sourceIdentifier,
                         sourceTitle: reminder.calendar.source.title)

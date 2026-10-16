@@ -1,3 +1,4 @@
+import MorningCore
 import AVFAudio
 import MorningApple
 import MorningCore
@@ -15,7 +16,7 @@ struct VoicePickerView: View {
         NavigationStack {
             MorningList {
                 Section {
-                    voiceRow(name: String(localized: "Automatic", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: automaticDetail, identifier: nil)
+                    voiceRow(name: AppLanguage.localized("Automatic"), detail: automaticDetail, identifier: nil)
                         .accessibilityIdentifier("voice.default")
                 } footer: {
                     Text("Matches MORE’s language, then prefers a higher-quality installed voice. Your choice applies to spoken morning steps.")
@@ -84,7 +85,7 @@ struct VoicePickerView: View {
                         .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     Link("Apple’s voice settings guide", destination: URL(string: "https://support.apple.com/guide/iphone/iph96b214f0/ios")!)
                     #else
-                    Text(String(localized: "More voices can be downloaded through the accessibility voice controls in System Settings. Return here when the download finishes.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                    Text(AppLanguage.localized("More voices can be downloaded through the accessibility voice controls in System Settings. Return here when the download finishes."))
                         .font(.raleway(.footnote)).foregroundStyle(MorningStyle.muted)
                     #endif
                     Button("Refresh installed voices") { speech.repairVoiceSelection(); voices = speech.availableVoices }
@@ -126,7 +127,7 @@ struct VoicePickerView: View {
     }
 
     private var automaticDetail: String {
-        guard let voice = speech.recommendedVoice else { return String(localized: "Follow MORE’s language", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        guard let voice = speech.recommendedVoice else { return AppLanguage.localized("Follow this device’s language") }
         return "\(voice.name) · \(languageName(voice.language)) · \(voice.quality.displayName)"
     }
 

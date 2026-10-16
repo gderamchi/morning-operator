@@ -11,7 +11,6 @@ struct MorningOperatorApp: App {
     #endif
 
     init() {
-        AppLanguage.initialize()
         MorningAppShortcuts.updateAppShortcutParameters()
     }
 
@@ -35,6 +34,7 @@ struct MorningOperatorApp: App {
             #endif
             }
             .environment(\.locale, AppLanguage.locale)
+            .environment(\.layoutDirection, .leftToRight)
             .onChange(of: AppLanguage.code) { _, _ in
                 store.appLanguageDidChange()
                 MorningAppShortcuts.updateAppShortcutParameters()

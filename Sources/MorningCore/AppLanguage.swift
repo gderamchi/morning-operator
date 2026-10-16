@@ -1,63 +1,73 @@
 import Foundation
-import Observation
-import Synchronization
 
-/// One choice for the interface, local models, recognition, speech and formatting.
+/// French follows the primary device language; every other language uses English.
 public enum AppLanguage {
-    public static let preferenceKey = "more.appLanguage"
-    public static let supportedCodes = ["fr", "en"]
-    private static let preference = LanguagePreference()
+    private static let legacyPreferenceCleanup: Void = {
+        guard let domainName = Bundle.main.bundleIdentifier else { return }
+        removeLegacyLanguageOverride(in: .standard, domainName: domainName)
+    }()
 
-    public static var code: String { preference.code }
+    public static var code: String {
+        _ = legacyPreferenceCleanup
+        return resolvedCode(preferredLanguages: Locale.preferredLanguages)
+    }
+
     public static var isFrench: Bool { code == "fr" }
 
-    /// Resolve the first system language only; unsupported languages start in French.
-    public static func resolve(saved: String?, preferredLanguages: [String]) -> String {
-        if let saved, supportedCodes.contains(saved) { return saved }
-        let system = preferredLanguages.first.flatMap { Locale(identifier: $0).language.languageCode?.identifier }
-        return system == "en" ? "en" : "fr"
-    }
-
-    public static func initialize() { setChosenLanguage(code) }
-
-    public static func setChosenLanguage(_ code: String) {
-        guard supportedCodes.contains(code) else { return }
-        preference.code = code
-        UserDefaults.standard.set(code, forKey: preferenceKey)
-        // iOS owns permission sheets and Siri metadata; its bundle choice updates
-        // on the next launch. Provider web pages keep their own language settings.
-        UserDefaults.standard.set([code], forKey: "AppleLanguages")
-    }
-
+    /// Keep regional formats and explicit calendar/number preferences in the UI language.
     public static var locale: Locale {
-        let current = Locale.current
-        return current.language.languageCode?.identifier == code
-            ? current : Locale(identifier: code == "fr" ? "fr_FR" : "en_US")
+        _ = legacyPreferenceCleanup
+        return resolvedLocale(preferredLanguages: Locale.preferredLanguages, current: .current)
     }
+
+    /// The locale identifier passed to deterministic composers such as the morning briefing.
     public static var localeIdentifier: String { locale.identifier }
 
-    /// Foundation strings need an explicit language bundle for an immediate switch;
-    /// setting SwiftUI's environment locale alone does not change Bundle.module.
+    /// Compatibility for presentation APIs that deliberately render a pinned locale.
+    /// This performs resource lookup only; the app language always follows the device.
     public static func bundle(for source: Bundle = .main, languageCode: String? = nil) -> Bundle {
         guard let path = source.path(forResource: languageCode ?? code, ofType: "lproj"),
               let localized = Bundle(path: path) else { return source }
         return localized
     }
-}
 
-/// Observable reads also update prose built with AppLanguage.isFrench in SwiftUI.
-/// Recognition and local model tasks may read the same preference off the main actor.
-private final class LanguagePreference: Observable, @unchecked Sendable {
-    private let registrar = ObservationRegistrar()
-    private let value = Mutex(AppLanguage.resolve(saved: UserDefaults.standard.string(forKey: AppLanguage.preferenceKey),
-                                                  preferredLanguages: Locale.preferredLanguages))
-    var code: String {
-        get {
-            registrar.access(self, keyPath: \.code)
-            return value.withLock { $0 }
+    /// A resource's locale selects the translation; String's locale only formats values.
+    public static func localized(_ value: String.LocalizationValue, table: String? = nil,
+                                 bundle: Bundle = .main, comment: StaticString? = nil) -> String {
+        localized(value, table: table, bundle: bundle, locale: locale, comment: comment)
+    }
+
+    static func localized(_ value: String.LocalizationValue, table: String? = nil,
+                          bundle: Bundle, locale: Locale, comment: StaticString? = nil) -> String {
+        String(localized: LocalizedStringResource(value, table: table, locale: locale,
+                                                 bundle: .atURL(bundle.bundleURL), comment: comment))
+    }
+
+    static func resolvedCode(preferredLanguages: [String]) -> String {
+        guard let primary = preferredLanguages.first else { return "en" }
+        return Locale.Language(identifier: primary).languageCode?.identifier == "fr" ? "fr" : "en"
+    }
+
+    /// The previous app picker wrote this exact pair. Read only our persistent
+    /// domain: launch arguments and registered defaults cannot establish its origin.
+    static func removeLegacyLanguageOverride(in defaults: UserDefaults, domainName: String) {
+        guard let domain = defaults.persistentDomain(forName: domainName),
+              let marker = domain["more.appLanguage"] as? String,
+              ["fr", "en"].contains(marker) else { return }
+        if let languages = domain["AppleLanguages"] as? [String], languages == [marker] {
+            defaults.removeObject(forKey: "AppleLanguages")
         }
-        set {
-            registrar.withMutation(of: self, keyPath: \.code) { value.withLock { $0 = newValue } }
-        }
+        // A different/unidentifiable language preference is preserved. Remove our
+        // obsolete marker now so it can never identify a later iOS/user preference.
+        defaults.removeObject(forKey: "more.appLanguage")
+    }
+
+    static func resolvedLocale(preferredLanguages: [String], current: Locale) -> Locale {
+        let language = resolvedCode(preferredLanguages: preferredLanguages)
+        guard current.language.languageCode?.identifier != language else { return current }
+        var components = Locale.Components(locale: current)
+        components.languageComponents.languageCode = Locale.LanguageCode(language)
+        components.languageComponents.script = nil
+        return Locale(components: components)
     }
 }

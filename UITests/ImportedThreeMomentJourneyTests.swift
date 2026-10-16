@@ -1,8 +1,9 @@
 import XCTest
 
 /// Private downstream seam only: imported manual plan, ordinary configuration,
-/// approval, then one session. No movie, inference, microphone, browser, account,
-/// network or real send runs. Gmail is read-only. Slack's transport loses its
+/// approval, then one session. No movie learning, microphone, browser, real account,
+/// network or real send runs. Ordinary local connected-result narration may run
+/// or be unavailable; this test does not validate it. Gmail is read-only. Slack's transport loses its
 /// one simulated post response. Planned QA budgets are 3 + 3 + 1 real minutes;
 /// explicit Continue/Next end the first two moments, not a fabricated deadline.
 @MainActor final class ImportedThreeMomentJourneyTests: XCTestCase {
@@ -27,7 +28,7 @@ import XCTest
             "--ui-testing-integrated-three-moments", "--ui-testing-gmail-attention", "--ui-testing-slack-setup",
             "--ui-testing-hands-free", "--light-preview", "--theme-phase=morning",
             "--ui-testing-parsed-routine=" + data.base64EncodedString(),
-            "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         defer { app.terminate() }
         try requireWorkspace(workspace, app)

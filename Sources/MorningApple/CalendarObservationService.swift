@@ -108,21 +108,21 @@ public enum CalendarObservationError: LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case .notAuthorized:
-            String(localized: "Calendar reading is not authorized. You can continue without a calendar snapshot.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            AppLanguage.localized("Calendar reading is not authorized. You can continue without a calendar snapshot.", bundle: .module)
         case .missingUsageDescription:
-            String(localized: "This build has no calendar permission description. Use a configured app build before enabling calendar access.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            AppLanguage.localized("This build has no calendar permission description. Use a configured app build before enabling calendar access.", bundle: .module)
         case .invalidDay:
-            String(localized: "The selected calendar day could not be resolved.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            AppLanguage.localized("The selected calendar day could not be resolved.", bundle: .module)
         case .selectionRequired:
-            String(localized: "Choose at least one calendar before preparing a calendar briefing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            AppLanguage.localized("Choose at least one calendar before preparing a calendar briefing.", bundle: .module)
         case .selectedCalendarsUnavailable:
-            String(localized: "A selected calendar is no longer available. Review your calendar selection before refreshing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            AppLanguage.localized("A selected calendar is no longer available. Review your calendar selection before refreshing.", bundle: .module)
         case .invalidCalendarData:
-            String(localized: "The available calendar list could not be read reliably. Please refresh it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            AppLanguage.localized("The available calendar list could not be read reliably. Please refresh it.", bundle: .module)
         case .invalidEventData:
-            String(localized: "The selected calendar returned an event that could not be read reliably. Please refresh it.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            AppLanguage.localized("The selected calendar returned an event that could not be read reliably. Please refresh it.", bundle: .module)
         case .changedDuringRead:
-            String(localized: "Calendar changed while it was being read. Refresh the briefing to use the current schedule.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            AppLanguage.localized("Calendar changed while it was being read. Refresh the briefing to use the current schedule.", bundle: .module)
         }
     }
 }
@@ -221,7 +221,7 @@ public final class CalendarObservationService {
             let occurrence = record.occurrenceDate ?? record.start
             // Length prefixes avoid delimiter collisions; the bit pattern avoids locale/date formatting changes.
             let identity = "\(record.calendarID.utf8.count):\(record.calendarID)\(record.id.utf8.count):\(record.id):\(occurrence.timeIntervalSinceReferenceDate.bitPattern)"
-            events.append(CalendarEventSummary(id: identity, title: record.title.isEmpty ? String(localized: "Untitled event", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) : record.title,
+            events.append(CalendarEventSummary(id: identity, title: record.title.isEmpty ? AppLanguage.localized("Untitled event", bundle: .module) : record.title,
                 start: start, end: end, isAllDay: record.isAllDay, calendarTitle: choice.title,
                 calendarID: choice.id, sourceTitle: choice.sourceTitle))
         }
@@ -281,7 +281,7 @@ final class EventKitCalendarObservationProvider: NSObject, CalendarObservationPr
     func calendarChoices() throws -> [CalendarChoice] {
         guard isAuthorized else { throw CalendarObservationError.notAuthorized }
         return store.calendars(for: .event).map {
-            CalendarChoice(id: $0.calendarIdentifier, title: $0.title, sourceTitle: $0.source?.title ?? String(localized: "Calendar source", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale))
+            CalendarChoice(id: $0.calendarIdentifier, title: $0.title, sourceTitle: $0.source?.title ?? AppLanguage.localized("Calendar source", bundle: .module))
         }
     }
 
@@ -300,7 +300,7 @@ final class EventKitCalendarObservationProvider: NSObject, CalendarObservationPr
                 throw CalendarObservationError.invalidEventData
             }
             return CalendarObservationEvent(id: event.eventIdentifier ?? event.calendarItemIdentifier,
-                calendarID: nativeCalendar.calendarIdentifier, title: event.title ?? String(localized: "Untitled event", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale),
+                calendarID: nativeCalendar.calendarIdentifier, title: event.title ?? AppLanguage.localized("Untitled event", bundle: .module),
                 start: start, end: end, isAllDay: event.isAllDay, occurrenceDate: event.occurrenceDate,
                 isCancelled: event.status == .canceled,
                 currentUserDeclined: event.attendees?.contains { $0.isCurrentUser && $0.participantStatus == .declined } ?? false,

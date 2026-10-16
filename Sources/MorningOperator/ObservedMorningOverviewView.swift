@@ -216,26 +216,26 @@ private enum ObservedMorningPresentation {
         }
         #endif
         switch origin {
-        case .human: return String(localized: "My mornings", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-        case .synthetic: return String(localized: "Samples & tests", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-        case .automated: return String(localized: "Automated activity", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-        case .unknown: return String(localized: "Origin unsure", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .human: return AppLanguage.localized("My mornings")
+        case .synthetic: return AppLanguage.localized("Samples & tests")
+        case .automated: return AppLanguage.localized("Automated activity")
+        case .unknown: return AppLanguage.localized("Origin unsure")
         }
     }
     static func momentLabel(_ moment: ObservationReviewMoment) -> String {
         switch moment.resolution {
-        case .recognized: moment.resolvedContext?.displayName ?? String(localized: "Unknown screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-        case .ambiguous: String(localized: "Ambiguous screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-        case .conflicting: String(localized: "Unresolved at this timestamp", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
-        case .unknown: String(localized: "Unknown screen", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .recognized: moment.resolvedContext?.displayName ?? AppLanguage.localized("Unknown screen")
+        case .ambiguous: AppLanguage.localized("Ambiguous screen")
+        case .conflicting: AppLanguage.localized("Unresolved at this timestamp")
+        case .unknown: AppLanguage.localized("Unknown screen")
         }
     }
     static func momentCaption(_ moment: ObservationReviewMoment) -> String {
         let seconds = max(0, Int(moment.timeSeconds.rounded()))
-        let time = String(format: String(localized: "%02d:%02d in this recording", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), seconds / 60, seconds % 60)
-        if moment.samples.count > 1 { return String(localized: "\(time) · \(moment.samples.count) samples share this time", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
-        if moment.hasRequestedTimeFallback { return String(localized: "\(time) · requested time only", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
-        if moment.samples.contains(where: { $0.provenance == .userReviewed }) { return String(localized: "\(time) · Your label", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        let time = String(format: AppLanguage.localized("%02d:%02d in this recording"), seconds / 60, seconds % 60)
+        if moment.samples.count > 1 { return AppLanguage.localized("\(time) · \(moment.samples.count) samples share this time") }
+        if moment.hasRequestedTimeFallback { return AppLanguage.localized("\(time) · requested time only") }
+        if moment.samples.contains(where: { $0.provenance == .userReviewed }) { return AppLanguage.localized("\(time) · Your label") }
         return time
     }
 }
