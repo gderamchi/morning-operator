@@ -53,6 +53,41 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
         // Do not inspect or export message labels, addresses, bodies or counts.
     }
 
+    func test03ExistingCalendarGrantExposesTheRealInventory() throws {
+        let app = try ordinaryApp()
+        try enterDeveloperAccessIfRequested(app)
+        try openConnections(app)
+        app.buttons["connections.calendar"].tap()
+        XCTAssertFalse(app.staticTexts["briefing.synthetic"].exists)
+        let calendars = app.switches.matching(NSPredicate(format: "identifier BEGINSWITH %@", "briefing.calendar."))
+        guard calendars.firstMatch.waitForExistence(timeout: 20) else {
+            throw XCTSkip("No existing native Calendar inventory was obtained; no grant or calendar selection was changed.")
+        }
+        XCTAssertGreaterThan(calendars.count, 0)
+        XCTAssertFalse(app.staticTexts["briefing.error"].exists)
+        // Inventory establishes readable calendars, not a selected-calendar event result.
+    }
+
+    func test04ExistingRemindersGrantReturnsAFreshRead() throws {
+        let app = try ordinaryApp()
+        try enterDeveloperAccessIfRequested(app)
+        try openConnections(app)
+        let reminders = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@",
+            "Find your upcoming reminders", "Retrouvez vos prochains rappels")).firstMatch
+        try reveal(reminders, in: app)
+        reminders.tap()
+        let read = app.buttons["native.remindersRead"]
+        try reveal(read, in: app)
+        guard ["Show my reminders", "Afficher mes rappels"].contains(read.label) else {
+            throw XCTSkip("This ordinary installation has no existing Reminders grant; no permission was requested.")
+        }
+        read.tap()
+        let timestamp = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@", "Read at ", "Lus à ")).firstMatch
+        XCTAssertTrue(timestamp.waitForExistence(timeout: 30), "No fresh native Reminders read timestamp appeared.")
+        XCTAssertFalse(app.staticTexts["native.remindersMessage"].exists)
+        // Empty dated results are valid. Never inspect titles or mark anything complete.
+    }
+
     private func ordinaryApp() throws -> XCUIApplication {
         continueAfterFailure = false
         try XCTSkipUnless(ProcessInfo.processInfo.environment["MORE_PHYSICAL_CONNECTIONS_ACCEPTANCE"] == "1",
