@@ -320,7 +320,7 @@ struct WebMorningView: View {
                     return text("This page requires a cookie choice. Choose on the page, then resume, or skip this moment.",
                         "Cette page demande un choix sur les cookies. Faites votre choix sur la page, puis reprenez, ou passez ce moment.")
                 }
-                return text("This site needs a privacy choice, subscription or sign-in. Choose on the page, then resume, or skip this moment.", "Ce site demande un choix de confidentialité, un abonnement ou une connexion. Faites votre choix sur la page, puis reprenez, ou passez ce moment.")
+                return text("This page needs your choice. Choose on the page, then resume, or skip this moment.", "Cette page attend votre choix. Faites votre choix sur la page, puis reprenez, ou passez ce moment.")
             case .unavailable:
                 if !controller.savedContentProgressIsAvailable {
                     return text("Saved progress for this moment is unavailable. Skip this moment to continue your morning.",

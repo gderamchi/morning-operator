@@ -158,7 +158,7 @@ extension MorningStore {
             let explanation: String?
             switch event.state {
             case .needsChoice:
-                explanation = (AppLanguage.isFrench ? "Ce site demande un choix de confidentialité, un abonnement ou une connexion. Votre matin est en pause. Faites votre choix dans la page. " : "This site needs a privacy, subscription or sign-in choice. Your morning is paused. Make your choice on the page. ") + nextMomentRecoveryInstruction
+                explanation = (AppLanguage.isFrench ? "Cette page attend votre choix. Votre matin est en pause. Faites votre choix dans la page. " : "This page needs your choice. Your morning is paused. Make your choice on the page. ") + nextMomentRecoveryInstruction
             case .needsSignIn:
                 explanation = (AppLanguage.isFrench ? "Ce compte demande une connexion. Connectez-vous dans MORE. " : "This account needs a sign-in. Sign in in MORE. ") + nextMomentRecoveryInstruction
             case .unavailable:
@@ -172,7 +172,7 @@ extension MorningStore {
         if event.state == .needsChoice, session?.status == .running {
             pause()
             if readAloud {
-                speech.speak((AppLanguage.isFrench ? "Ce site demande un choix de confidentialité ou un abonnement. Votre matin est en pause. " : "This site needs a privacy or subscription choice. Your morning is paused. ") + nextMomentRecoveryInstruction)
+                speech.speak((AppLanguage.isFrench ? "Cette page attend votre choix. Votre matin est en pause. " : "This page needs your choice. Your morning is paused. ") + nextMomentRecoveryInstruction)
             }
             return
         }
