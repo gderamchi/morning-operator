@@ -1,5 +1,15 @@
 # Home routine playback — 16 October 2026
 
+## Current design: text only by default
+
+The owner's second review removes the persistent step heading, countdown and transport row. Home shows only the current short spoken passage (up to 110 characters) with a gentle crossfade. Previous passages do not accumulate. Full speech content is preserved; ordinary speech remains one utterance, while duplex speech uses the same bounded passages as its existing sequential audio chunks.
+
+One tap reveals Pause, Next and More for five seconds since the last interaction. VoiceOver keeps revealed controls available. Interact pauses the routine while its sheet is open; full source text is available there. The silent/preparing preview is short and explicitly uses an ellipsis when shortened. Important execution notices remain visible as text. Completion defaults to a short farewell; its recap and optional actions remain behind a tap.
+
+The 18 targeted audio checks passed (6 caption checks and 12 existing audio ownership/playback checks). Simulator UI and signed physical installation results are recorded below once complete.
+
+## Earlier implementation and evidence (554a614)
+
 The routine now uses the existing Home landscape with spoken passages directly over it. The step card and inline service forms no longer appear during playback. Pause, Next and a small menu remain available; service forms open only through Interact. The background keeps its original colors, and night text has a light shadow for readability over the moon.
 
 Local speech supplies the current passage: system utterance ranges for ordinary playback, and the audio chunk starting in the shared engine for hands-free playback. The visible history is bounded and stays in memory. A new step or background transition clears it. Reduce Motion disables animated scrolling; long text remains manually scrollable with transport controls outside the scroll area.

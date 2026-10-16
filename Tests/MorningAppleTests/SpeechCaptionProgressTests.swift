@@ -7,7 +7,7 @@ struct SpeechCaptionProgressTests {
     @Test("Captions follow actual UTF-16 speech ranges and remain bounded")
     func followsSpokenRange() throws {
         let text = String(repeating: "🌅 À neuf heures, votre matin continue. ", count: 15)
-        let chunks = try LearningTextChunker.split(text, maximumCharacters: 200, maximumUTF8Bytes: 800)
+        let chunks = try SpeechCaptionProgress.chunks(text)
         let id = UUID()
         var progress = SpeechCaptionProgress()
         progress.begin(text, requestID: id)
@@ -22,9 +22,37 @@ struct SpeechCaptionProgressTests {
         progress.advance(to: NSRange(location: chunks[0].utf16.count, length: 1), requestID: id)
         #expect(progress.currentCaption == chunks[1].trimmingCharacters(in: .whitespacesAndNewlines))
         #expect(progress.revision == firstRevision + 1)
-        #expect((progress.currentCaption?.count ?? 0) <= 200)
+        #expect((progress.currentCaption?.count ?? 0) <= 110)
         progress.advance(to: NSRange(location: 0, length: 2), requestID: id)
         #expect(progress.revision == firstRevision + 1, "Late ranges cannot scroll the reading backwards.")
+    }
+
+    @Test("Short duplex chunks preserve every spoken character without truncation")
+    func shortChunksKeepTheEntireReading() throws {
+        let text = String(repeating: "🌅 À neuf heures, votre matin continue.\n", count: 15)
+            + String(repeating: "é", count: 170) + " Fin de la lecture."
+        let chunks = try SpeechCaptionProgress.chunks(text)
+        #expect(chunks.count > 2)
+        #expect(chunks.allSatisfy { $0.count <= 110 && $0.utf8.count <= 800 })
+        #expect(chunks.joined().utf8.elementsEqual(text.utf8))
+    }
+
+    @Test("Ordinary captions reach the final short passage at the matching duplex boundaries")
+    func reachesEveryPassage() throws {
+        let text = String(repeating: "Votre prochain rendez-vous est à neuf heures. ", count: 20) + "🌅 C’est fini."
+        let chunks = try SpeechCaptionProgress.chunks(text)
+        let id = UUID()
+        var progress = SpeechCaptionProgress()
+        progress.begin(text, requestID: id)
+        var offset = 0
+        for chunk in chunks {
+            progress.advance(to: NSRange(location: offset, length: 1), requestID: id)
+            #expect(progress.currentCaption == chunk.trimmingCharacters(in: .whitespacesAndNewlines))
+            #expect((progress.currentCaption?.count ?? 0) <= 110)
+            offset += chunk.utf16.count
+        }
+        #expect(progress.currentCaption?.hasSuffix("C’est fini.") == true)
+        #expect(progress.revision == UInt(chunks.count))
     }
 
     @Test("Stop and replacement clear private captions and reject stale callbacks")
