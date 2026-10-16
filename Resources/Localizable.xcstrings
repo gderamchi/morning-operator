@@ -9155,6 +9155,22 @@
         }
       }
     },
+    "Hear the recap from the sources you choose in Your day.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hear the recap from the sources you choose in Your day."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écoutez le récapitulatif des sources choisies dans Votre journée."
+          }
+        }
+      }
+    },
     "Hear this recap": {
       "localizations": {
         "fr": {
@@ -21628,6 +21644,16 @@
         }
       }
     },
+    "Unreadable parts kept": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parties illisibles conservées"
+          }
+        }
+      }
+    },
     "Unresolved at this timestamp": {
       "localizations": {
         "fr": {
@@ -24193,22 +24219,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "“%@”"
-          }
-        }
-      }
-    },
-    "Hear the recap from the sources you choose in Your day.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hear the recap from the sources you choose in Your day."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Écoutez le récapitulatif des sources choisies dans Votre journée."
           }
         }
       }

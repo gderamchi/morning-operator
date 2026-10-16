@@ -19,6 +19,11 @@ public enum PersistenceError: Error, LocalizedError, Sendable, Equatable {
     }
 }
 
+public extension CodingUserInfoKey {
+    /// The exact bytes `AtomicJSONFile.load` is decoding, as `Data`.
+    static let atomicJSONFileData = CodingUserInfoKey(rawValue: "MorningCore.AtomicJSONFile.data")!
+}
+
 private struct JSONEnvelope<Value: Codable & Sendable>: Codable, Sendable {
     let schemaVersion: Int
     let value: Value
@@ -44,7 +49,10 @@ public struct AtomicJSONFile<Value: Codable & Sendable>: Sendable {
         // Read the schema independently so a future envelope is rejected before decoding its payload.
         let header = try JSONDecoder().decode(SchemaHeader.self, from: data)
         guard header.schemaVersion == 1 else { throw PersistenceError.unsupportedSchema(header.schemaVersion) }
-        return try JSONDecoder().decode(JSONEnvelope<Value>.self, from: data).value
+        let decoder = JSONDecoder()
+        // A value that keeps an unreadable part verbatim needs the exact saved bytes.
+        decoder.userInfo[.atomicJSONFileData] = data
+        return try decoder.decode(JSONEnvelope<Value>.self, from: data).value
     }
 
     public func save(_ value: Value) throws {
