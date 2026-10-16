@@ -65,6 +65,22 @@ struct WorkspaceSnapshotRecoveryTests {
         #expect(restored.evidenceRetentionDays == 90)
     }
 
+    @Test("Voice gender survives while an older workspace without it still loads", arguments: ["male", "female"])
+    func voiceGenderRoundTrip(_ gender: String) throws {
+        let saved = try load { $0["voiceGender"] = gender }
+        let restored = try JSONDecoder().decode(WorkspaceSnapshot.self, from: JSONEncoder().encode(saved))
+        #expect(restored.voiceGender == gender)
+        #expect(restored.routine == saved.routine && restored.captures == saved.captures)
+        #expect(try load().voiceGender == nil)
+    }
+
+    @Test("A damaged voice preference cannot discard the routine")
+    func damagedVoiceGenderKeepsWorkspace() throws {
+        let saved = try load { $0["voiceGender"] = ["unexpected": true] }
+        #expect(saved.voiceGender == nil)
+        #expect(saved.routine?.isApproved == true)
+    }
+
     @Test("The file written by the 10 October build loads whole")
     func earlierBuildFileLoads() throws {
         let saved = try AtomicJSONFile<WorkspaceSnapshot>(url: Self.fixture).load()

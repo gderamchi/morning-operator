@@ -16,6 +16,7 @@ struct MorningVoiceStartRequest: Identifiable, Equatable {
 struct MorningVoiceStartDecision {
     let request: MorningVoiceStartRequest
     let listen: Bool
+    let onlineSpeech: Bool
 }
 
 struct MorningVoicePreparationPresenter: ViewModifier {
@@ -53,7 +54,7 @@ extension MorningStore {
         #if DEBUG
         let flags = ProcessInfo.processInfo.arguments
         return flags.contains("--ui-testing") && !flags.contains("--ui-testing-real-microphone") &&
-            !flags.contains("--ui-testing-voice-preparation")
+            !flags.contains("--ui-testing-voice-preparation") && !flags.contains("--ui-testing-natural-voice-consent")
         #else
         return false
         #endif
@@ -81,10 +82,10 @@ extension MorningStore {
     }
 
     @discardableResult
-    func finishVoicePreparation(_ request: MorningVoiceStartRequest, listen: Bool) -> Bool {
+    func finishVoicePreparation(_ request: MorningVoiceStartRequest, listen: Bool, onlineSpeech: Bool = true) -> Bool {
         guard voicePreparationIsCurrent(request), UIApplication.shared.applicationState == .active else { return false }
         if listen, !voiceAccess.refresh(language: voicePreparationLanguage).isReady { return false }
-        voiceStartDecision = MorningVoiceStartDecision(request: request, listen: listen)
+        voiceStartDecision = MorningVoiceStartDecision(request: request, listen: listen, onlineSpeech: onlineSpeech)
         voiceStartRequest = nil
         defer { voiceStartDecision = nil }
         return start(entryID: request.entryID)

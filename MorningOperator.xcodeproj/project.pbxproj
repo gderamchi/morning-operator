@@ -157,6 +157,8 @@
 		D2924EFEFC17BE0B652F9216 /* RoutineTimeBudgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7473723C675D8D6B48B5EAFC /* RoutineTimeBudgetView.swift */; };
 		D35D9E0A4F718DEBF9D76994 /* MorningHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 0BB633FF32AB49511665A80F /* MorningHealth */; };
 		D38020D303DDE1F864DCF1B9 /* OrdinaryConnectionsAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26708A23B9C63D66F5FEE9A9 /* OrdinaryConnectionsAcceptanceTests.swift */; };
+		0B907FCA8E884ACB859065DA /* OrdinaryRoutineAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB82908C6C6642A28E920106 /* OrdinaryRoutineAcceptanceTests.swift */; };
+		1C696A8958314C19934FACA1 /* OrdinaryAPIConsentAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A89D5455ADC4FDA8F1D5FC5 /* OrdinaryAPIConsentAcceptanceTests.swift */; };
 		D3E9DB5BEC04C3AE555CACB2 /* MorningStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D556BEEB3AC9A6AC02E433A /* MorningStore.swift */; };
 		D49EB76F7142553F92549FB9 /* MorningRoutineIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DAAAD8D21BA096895F76203 /* MorningRoutineIntents.swift */; };
 		D649518285D0541C54F70927 /* ObservationFixtureApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AB59F7870CD63CA5EE2920 /* ObservationFixtureApp.swift */; };
@@ -268,6 +270,8 @@
 		251A37DEC0CE09849428BA12 /* JuryDemoJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JuryDemoJourneyTests.swift; sourceTree = "<group>"; };
 		25987AA3F93570E4CED0B631 /* MorningPrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPrivacyView.swift; sourceTree = "<group>"; };
 		26708A23B9C63D66F5FEE9A9 /* OrdinaryConnectionsAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdinaryConnectionsAcceptanceTests.swift; sourceTree = "<group>"; };
+		BB82908C6C6642A28E920106 /* OrdinaryRoutineAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdinaryRoutineAcceptanceTests.swift; sourceTree = "<group>"; };
+		5A89D5455ADC4FDA8F1D5FC5 /* OrdinaryAPIConsentAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrdinaryAPIConsentAcceptanceTests.swift; sourceTree = "<group>"; };
 		289B9292F55FE9F36E473EFE /* PrivacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyTests.swift; sourceTree = "<group>"; };
 		2BFF5EF3C2F41BB0D40C2C18 /* ObservationScreenReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationScreenReviewTests.swift; sourceTree = "<group>"; };
 		2EB4AF2A3DB93746AAA4B91C /* MorningExtrasSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningExtrasSettingsView.swift; sourceTree = "<group>"; };
@@ -534,6 +538,8 @@
 				9D2FA2C64FBF1A704B0DB453 /* ObservedMorningOverviewTests.swift */,
 				98E912DF2E476E75231A5383 /* OnDeviceLearningTests.swift */,
 				26708A23B9C63D66F5FEE9A9 /* OrdinaryConnectionsAcceptanceTests.swift */,
+				BB82908C6C6642A28E920106 /* OrdinaryRoutineAcceptanceTests.swift */,
+				5A89D5455ADC4FDA8F1D5FC5 /* OrdinaryAPIConsentAcceptanceTests.swift */,
 				8AA7D5AB68A5334F38F9D03B /* OrdinaryWeatherAcceptanceTests.swift */,
 				65D1B139754329BEAA236124 /* PhoneLoopRunnerIntake.swift */,
 				698E5DD30A2CEC29D8BD5C75 /* PlanBSystemDeviceTests.swift */,
@@ -1020,6 +1026,8 @@
 				7F29AEB85EC179145672FF4A /* ObservedMorningOverviewTests.swift in Sources */,
 				15BB804A00F28C32E321141B /* OnDeviceLearningTests.swift in Sources */,
 				D38020D303DDE1F864DCF1B9 /* OrdinaryConnectionsAcceptanceTests.swift in Sources */,
+				0B907FCA8E884ACB859065DA /* OrdinaryRoutineAcceptanceTests.swift in Sources */,
+				1C696A8958314C19934FACA1 /* OrdinaryAPIConsentAcceptanceTests.swift in Sources */,
 				4546F1E245591EBE41825417 /* OrdinaryWeatherAcceptanceTests.swift in Sources */,
 				EF2A3AA8C02606DEA5DC111A /* PhoneLoopRunnerIntake.swift in Sources */,
 				451BF1167D169184EAA7F0C4 /* PlanBSystemDeviceTests.swift in Sources */,

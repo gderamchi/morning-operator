@@ -1,6 +1,10 @@
 import MorningCore
 import Foundation
 
+public enum MorningVoiceGender: String, Sendable, CaseIterable {
+    case male, female
+}
+
 public enum SpeechVoiceQuality: Int, Sendable, Equatable {
     case standard = 1, enhanced, premium
 
@@ -18,12 +22,15 @@ public struct SpeechVoiceDescriptor: Identifiable, Sendable, Equatable {
     public let name: String
     public let language: String
     public let quality: SpeechVoiceQuality
+    public let gender: MorningVoiceGender?
 
-    public init(id: String, name: String, language: String, quality: SpeechVoiceQuality = .standard) {
+    public init(id: String, name: String, language: String, quality: SpeechVoiceQuality = .standard,
+                gender: MorningVoiceGender? = nil) {
         self.id = id
         self.name = name
         self.language = language
         self.quality = quality
+        self.gender = gender
     }
 }
 
@@ -31,13 +38,16 @@ public struct SpeechVoiceDescriptor: Identifiable, Sendable, Equatable {
 /// Callers supply only voices that AVSpeechSynthesisVoice reports as available.
 enum SpeechVoicePolicy {
     static func recommended(from voices: [SpeechVoiceDescriptor], language: String,
+                            gender: MorningVoiceGender? = nil,
                             systemVoiceID: String? = nil) -> SpeechVoiceDescriptor? {
         let matching = voices.filter { languageMatch($0.language, language) > 0 }
-        return matching.sorted { lhs, rhs in
+        let genderMatches = matching.filter { $0.gender == gender }
+        let candidates = gender != nil && !genderMatches.isEmpty ? genderMatches : matching
+        return candidates.sorted { lhs, rhs in
+            if lhs.quality != rhs.quality { return lhs.quality.rawValue > rhs.quality.rawValue }
             let leftLanguage = languageMatch(lhs.language, language)
             let rightLanguage = languageMatch(rhs.language, language)
             if leftLanguage != rightLanguage { return leftLanguage > rightLanguage }
-            if lhs.quality != rhs.quality { return lhs.quality.rawValue > rhs.quality.rawValue }
             if (lhs.id == systemVoiceID) != (rhs.id == systemVoiceID) { return lhs.id == systemVoiceID }
             return lhs.id < rhs.id
         }.first
