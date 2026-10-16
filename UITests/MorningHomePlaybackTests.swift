@@ -58,6 +58,23 @@ final class MorningHomePlaybackTests: XCTestCase {
         assertPlaybackLabel("Continue", in: app)
     }
 
+    func testCaptionDragRestartsControlsLifetime() {
+        let app = launch(["--ui-testing-reduce-motion", "-UIPreferredContentSizeCategoryName",
+                          "UICTContentSizeCategoryAccessibilityXXXL"])
+        defer { app.terminate() }
+        _ = setFirstMomentDetails(longPassage, in: app)
+        start(app)
+        revealControls(app)
+        let playback = app.buttons["morning.playback"]
+        assertRemainsVisible(playback, for: 3)
+        let captions = app.scrollViews["morning.captions"]
+        captions.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+            .press(forDuration: 0.1, thenDragTo: captions.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
+        assertRemainsVisible(playback, for: 3)
+        XCTAssertTrue(playback.waitForNonExistence(timeout: 7), "Five seconds restart after the real caption drag ends.")
+        attach("home-playback-caption-drag-controls-hidden-after-inactivity", app)
+    }
+
     func testRealLocalSpeechReplacesTheSingleCaptionWithoutHistory() {
         let app = launch(["--ui-testing-read-aloud"], night: true)
         defer { app.terminate() }

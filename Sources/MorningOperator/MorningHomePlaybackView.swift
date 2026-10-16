@@ -10,6 +10,7 @@ struct MorningHomePlaybackView: View {
     @State private var showingDetails = false
     @State private var controlsVisible = false
     @State private var controlsInteraction = UUID()
+    @State private var captionScrolling = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.scenePhase) private var scenePhase
@@ -50,6 +51,7 @@ struct MorningHomePlaybackView: View {
         }
         if step.automation == .gmailInbox, store.mailMorning.context == context {
             switch store.mailMorning.state {
+            case .preparing: statuses.append(.init(text: french ? "Je prépare votre bilan Gmail…" : "Preparing your Gmail reading…"))
             case .sending: statuses.append(.init(text: french ? "Envoi du mail en cours. Attendez son résultat." : "Mail send in progress. Wait for its result.", priority: 3))
             case .uncertain: statuses.append(.init(text: french ? "L’envoi du mail n’est pas confirmé. MORE ne le relance pas. Vérifiez Gmail." : "The mail send is unconfirmed. MORE will not retry it. Check Gmail.", priority: 4))
             case .unavailable: statuses.append(.init(text: french ? "Cette demande Gmail est indisponible. Retrouvez les détails dans Interagir." : "This Gmail request is unavailable. Open Interact for details.", priority: 0))
@@ -64,7 +66,7 @@ struct MorningHomePlaybackView: View {
 
     private var showingActionStatus: Bool {
         guard let status = actionStatus else { return false }
-        return displayedCaption == nil || displayedCaptionBoundary != status.text
+        return displayedCaption?.isEmpty != false || displayedCaptionBoundary != status.text
     }
 
     private var french: Bool { AppLanguage.isFrench }
@@ -114,6 +116,11 @@ struct MorningHomePlaybackView: View {
                         .accessibilityAction(named: Text(controlsLabel), toggleControls)
                 }
                 .scrollIndicators(.hidden)
+                .onScrollPhaseChange { _, phase in
+                    let wasScrolling = captionScrolling
+                    captionScrolling = phase == .tracking || phase == .interacting || phase == .decelerating
+                    if controlsVisible, captionScrolling || wasScrolling { controlsInteraction = UUID() }
+                }
                 .contentShape(Rectangle())
                 .onTapGesture(perform: toggleControls)
                 .accessibilityIdentifier("morning.captions")
@@ -130,9 +137,8 @@ struct MorningHomePlaybackView: View {
             guard !store.privacyBlocksWork, let text = store.speech.currentCaption, !text.isEmpty else { return }
             displayedCaptionBoundary = actionStatus?.text
             // The spoken step label is metadata; Home shows only its content.
-            let prefix = (store.currentStep?.title ?? "") + "."
-            displayedCaption = text.hasPrefix(prefix)
-                ? String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines) : text
+            let prefix = store.currentStep.map { $0.title + "." } ?? ""
+            displayedCaption = store.speech.caption(omittingInitialPrefix: prefix) ?? ""
         }
         .onChange(of: actionStatus?.text) { _, boundary in
             if displayedCaptionBoundary != boundary { displayedCaption = nil }
@@ -141,7 +147,7 @@ struct MorningHomePlaybackView: View {
             if !speaking, (actionStatus?.priority ?? -1) >= 3 { displayedCaption = nil; displayedCaptionBoundary = nil }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; controlsVisible = false; showingDetails = false }
+            if phase == .background { displayedCaption = nil; displayedCaptionBoundary = nil; controlsVisible = false; captionScrolling = false; showingDetails = false }
         }
         .onChange(of: showingDetails) { _, presented in
             store.morningDetailPresented = presented
@@ -150,9 +156,9 @@ struct MorningHomePlaybackView: View {
         .onDisappear { store.morningDetailPresented = false }
         .onChange(of: voiceOverEnabled) { _, _ in if controlsVisible { controlsInteraction = UUID() } }
         .task(id: controlsInteraction) {
-            guard controlsVisible, !voiceOverEnabled, !showingDetails else { return }
+            guard controlsVisible, !voiceOverEnabled, !showingDetails, !captionScrolling else { return }
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
-            guard !Task.isCancelled, !voiceOverEnabled, !showingDetails else { return }
+            guard !Task.isCancelled, !voiceOverEnabled, !showingDetails, !captionScrolling else { return }
             withAnimation(.easeOut(duration: 0.15)) { controlsVisible = false }
         }
         .sheet(isPresented: $showingDetails) { interaction }

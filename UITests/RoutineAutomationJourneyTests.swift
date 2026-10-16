@@ -1030,6 +1030,59 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         attach("automation-persisted-recap", app)
     }
 
+    func testPublicNewsObservedArticleReturnsToHeadlinesAndKeepsItsBudget() throws {
+        let app = launch(["--ui-testing-live-news", "--ui-testing-approved", "--ui-testing-hands-free"])
+        defer { app.terminate() }
+        reveal(app); app.buttons["morning.begin"].tap()
+        XCTAssertTrue(app.buttons["web.close"].waitForExistence(timeout: 20))
+        let first = app.buttons["web.article.1"]
+        guard first.waitForExistence(timeout: 35) else {
+            captureFailure("automation-live-news-no-observed-public-link", app)
+            throw XCTSkip("Le Monde did not expose a current observed article choice (a privacy wall, unavailable page or absent link may block it). No article reading is claimed.")
+        }
+        XCTAssertTrue(first.label.hasPrefix("1. "))
+        let observedTitle = String(first.label.dropFirst(3))
+        XCTAssertFalse(observedTitle.isEmpty)
+        if app.buttons["web.extend"].isEnabled { app.buttons["web.extend"].tap() }
+        attach("automation-live-news-observed-numbered-choice", app)
+        enabledVisibleButton("web.article.1", in: app).tap()
+        let readAgain = app.buttons["web.articleRepeat"]
+        guard readAgain.waitForExistence(timeout: 30) else {
+            captureFailure("automation-live-news-observed-article-body-unavailable", app)
+            throw XCTSkip("The observed public article did not provide a reliable readable body in MORE. Sign-in, subscription, consent or a load failure may block it; no body or acoustic reading is claimed.")
+        }
+        XCTAssertTrue(app.buttons["web.articleReturn"].isHittable)
+        XCTAssertTrue(app.buttons["web.resume"].exists, "Selecting an article must pause the existing morning.")
+        XCTAssertEqual(app.staticTexts["web.host"].label, "www.lemonde.fr")
+        XCTAssertTrue(app.staticTexts["web.result"].label.contains("Article opened in MORE"))
+        // Read again is exposed only after a matching successful page response
+        // and bounded rendered article paragraphs, rather than a title alone.
+        let bodyText = app.webViews.staticTexts.allElementsBoundByIndex.map(\.label).filter {
+            $0.count > 80 && !$0.contains(observedTitle) && !$0.hasPrefix("1. ")
+        }
+        XCTAssertFalse(bodyText.isEmpty, "The selected article must also render readable body text in its visible browser.")
+        let pausedBudget = app.staticTexts["web.remaining"].label
+        attach("automation-live-news-observed-article-readable-body", app)
+        readAgain.tap()
+        enabledVisibleButton("web.articleReturn", in: app).tap()
+        let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["web.articleReturn"])
+        let result = XCTWaiter.wait(for: [returned], timeout: 25)
+        if result != .completed { captureFailure("automation-live-news-return-to-headlines-failed", app) }
+        XCTAssertEqual(result, .completed)
+        XCTAssertTrue(app.buttons["web.article.1"].waitForExistence(timeout: 10))
+        XCTAssertFalse(readAgain.exists)
+        XCTAssertEqual(app.staticTexts["web.remaining"].label, pausedBudget,
+                       "Article selection, repeat and return must preserve the same paused budget.")
+        attach("automation-live-news-returned-to-observed-headlines", app)
+        enabledVisibleButton("web.resume", in: app).tap()
+        XCTAssertTrue(app.buttons["web.pause"].waitForExistence(timeout: 5))
+        let resumedBudget = remainingSeconds(app.staticTexts["web.remaining"].label)
+        let savedBudget = remainingSeconds(pausedBudget)
+        XCTAssertLessThanOrEqual(resumedBudget, savedBudget)
+        XCTAssertGreaterThanOrEqual(resumedBudget, savedBudget - 5)
+        attach("automation-live-news-same-budget-resumed", app)
+    }
+
     func testNewsPrivacyWallPausesWithoutPretendingContentWasRead() {
         let app = launch(["--ui-testing-live-news", "--ui-testing-approved", "--ui-testing-hands-free"])
         defer { app.terminate() }
