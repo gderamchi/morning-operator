@@ -161,7 +161,8 @@ jobs:
             -maximum-test-execution-time-allowance 300 \
             CODE_SIGNING_ALLOWED=NO \
             -only-testing:MorningOperatorUITests/QuietMorningAccessibilityTests \
-            -only-testing:MorningOperatorUITests/InterfaceTourTests/testLargestTextTourOfHomeLearnReviewAndSettings
+            -only-testing:MorningOperatorUITests/InterfaceTourTests/testLargestTextTourOfHomeLearnReviewAndSettings \
+            -only-testing:MorningOperatorUITests/EvidenceRetentionTests/testLargestTextScreens
 
       # The summaries can fail the job (nothing ran, a failure in the bundle, a
       # skip in the largest-text pass, a bundle left unreadable by a run that hit

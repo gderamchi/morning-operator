@@ -42,7 +42,7 @@ struct MorningAppleTests {
     })
     @MainActor
     func realLocalModelIntegration() async throws {
-        let service = AppleIntelligenceService()
+        let service = AppleIntelligenceService(model: .localOnly())
         let source = "At 07:30 I review today's calendar. After breakfast I play chess for ten minutes."
         let proposal = try await service.analyze(text: source, as: .writtenReport, sourceLabel: "Synthetic model integration test")
         #expect(!proposal.isApproved)
@@ -173,7 +173,7 @@ private enum ModelIntegrationGate {
     static func isReady() async -> Bool {
         guard ProcessInfo.processInfo.environment["MO_RUN_MODEL_INTEGRATION"] == "1" else { return false }
         return await MainActor.run {
-            let service = AppleIntelligenceService()
+            let service = AppleIntelligenceService(model: .localOnly())
             if !service.isAvailable {
                 print("MODEL_INTEGRATION_UNAVAILABLE: \(service.capabilitySummary) Inference test is skipped, not passed.")
             }

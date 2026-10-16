@@ -17,10 +17,19 @@ struct MorningCaptureVoiceView: View {
                     Image(systemName: store.voiceCommands.state == .listening ? "waveform" : "mic")
                         .scaledFont(36, relativeTo: .largeTitle, weight: .light).foregroundStyle(MorningStyle.accent)
                         .accessibilityHidden(true)
-                    Text("What's on your mind?")
-                        .font(.serif(.largeTitle, .medium))
-                    Text("A thought, a dream, something for later. Say it in your own words.")
-                        .foregroundStyle(MorningStyle.muted)
+                    if let question = store.currentClosingQuestion {
+                        Text(verbatim: question.prompt(french: language == .french))
+                            .font(.serif(.largeTitle, .medium))
+                            .accessibilityIdentifier("captureVoice.question")
+                            .accessibilityValue(question.rawValue)
+                        Text("Answer in your own words, or say “no” to skip.")
+                            .foregroundStyle(MorningStyle.muted)
+                    } else {
+                        Text("What's on your mind?")
+                            .font(.serif(.largeTitle, .medium))
+                        Text("A thought, a dream, something for later. Say it in your own words.")
+                            .foregroundStyle(MorningStyle.muted)
+                    }
                     Text(store.completionCaptureFeedback ?? (store.completionCapturePreparing
                         ? (store.voiceCommands.isBusy ? store.voiceCommands.message : AppLanguage.localized("Getting ready to listen…"))
                         : AppLanguage.localized("Speak when you're ready.")))

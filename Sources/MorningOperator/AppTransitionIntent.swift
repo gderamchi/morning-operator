@@ -3,18 +3,32 @@ import Foundation
 import MorningApple
 import MorningCore
 
-enum ShortcutObservedApp: String, AppEnum {
-    case instagram, tiktok, snapchat
-    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Observed app"
-    static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-        .instagram: "Instagram", .tiktok: "TikTok", .snapchat: "Snapchat"
-    ]
-    var observedApp: ObservedApp {
-        switch self {
-        case .instagram: .instagram
-        case .tiktok: .tiktok
-        case .snapchat: .snapchat
-        }
+/// Any app the person picks in their automation: a suggested name or one they type.
+/// iOS does not let this app list installed apps, so the name is the person's own.
+struct ShortcutAppEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "App"
+    static let defaultQuery = ShortcutAppQuery()
+    let id: String
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(id)") }
+    var observedApp: ObservedApp? { ObservedApp(name: id) }
+    init(_ app: ObservedApp) { id = app.displayName }
+}
+
+struct ShortcutAppQuery: EntityStringQuery {
+    func entities(for identifiers: [String]) async throws -> [ShortcutAppEntity] {
+        identifiers.compactMap { ObservedApp(name: $0).map(ShortcutAppEntity.init) }
+    }
+
+    /// Matching suggestions first; the typed name itself is always offered too.
+    func entities(matching string: String) async throws -> [ShortcutAppEntity] {
+        let key = ObservedApp.key(for: string)
+        var matches = ObservedApp.suggested.filter { $0.id.contains(key) }
+        if let typed = ObservedApp(name: string), !matches.contains(typed) { matches.insert(typed, at: 0) }
+        return matches.map(ShortcutAppEntity.init)
+    }
+
+    func suggestedEntities() async throws -> [ShortcutAppEntity] {
+        ObservedApp.suggested.map(ShortcutAppEntity.init)
     }
 }
 
@@ -34,7 +48,7 @@ struct LogAppTransitionIntent: AppIntent {
     static let description = IntentDescription("Record a transition supplied by your configured App automation. Counts observed app entries, not pickups. This action does not start screen recording.")
     static let supportedModes: IntentModes = .background
 
-    @Parameter(title: "App") var app: ShortcutObservedApp
+    @Parameter(title: "App") var app: ShortcutAppEntity
     @Parameter(title: "Transition", default: .entered) var transition: ShortcutAppTransition
     @Parameter(title: "Event ID", description: "Optional UUID generated once for this event. Reuse it only when retrying that same event.")
     var eventID: String?
@@ -50,12 +64,18 @@ struct LogAppTransitionIntent: AppIntent {
             guard let parsed = UUID(uuidString: supplied) else { throw TransitionIntentError.invalidEventID }
             id = parsed
         } else { id = UUID() }
-        try await AppTransitionLogStore.shared.record(app: app.observedApp, kind: transition.kind, eventID: id)
+        guard let observed = app.observedApp else { throw TransitionIntentError.invalidApp }
+        try await AppTransitionLogStore.shared.record(app: observed, kind: transition.kind, eventID: id)
         return .result()
     }
 }
 
 private enum TransitionIntentError: LocalizedError {
-    case invalidEventID
-    var errorDescription: String? { AppLanguage.localized("Use a valid UUID for the event identifier, or leave it empty.") }
+    case invalidEventID, invalidApp
+    var errorDescription: String? {
+        switch self {
+        case .invalidEventID: String(localized: "Use a valid UUID for the event identifier, or leave it empty.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        case .invalidApp: String(localized: "Choose an app name of up to 60 characters.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        }
+    }
 }

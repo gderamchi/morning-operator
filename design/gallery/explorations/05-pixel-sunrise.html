@@ -1,0 +1,93 @@
+<!doctype html><html><head><meta charset="utf-8"><title>05 Pixel sunrise</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..500,0..100;1,9..144,300..500,0..100&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+.screen { background:#07250C; color:#F2EDE3; font-family:"IBM Plex Mono",monospace; font-weight:300; }
+.grain { position:absolute; inset:-50%; pointer-events:none; opacity:.3; mix-blend-mode:soft-light;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.field { position:absolute; left:0; right:0; bottom:0; height:320px; width:100%; }
+.content { position:absolute; inset:0; padding:62px 28px 40px; display:flex; flex-direction:column; }
+.date { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:rgba(242,237,227,.6); }
+h1 { font-family:Fraunces,serif; font-weight:300; font-variation-settings:"SOFT" 70,"opsz" 120; font-size:52px; line-height:.95; letter-spacing:-.03em; margin:14px 0 0; }
+h1 i { color:#E8895D; font-variation-settings:"SOFT" 100,"opsz" 144; }
+.total { font-size:12px; margin-top:10px; color:rgba(242,237,227,.6); }
+ol { list-style:none; margin:30px 0 0; padding:0; }
+li { display:flex; justify-content:space-between; align-items:baseline; padding:9px 0; font-size:16px; }
+li small { font-size:11px; color:rgba(242,237,227,.6); }
+li i { display:inline-block; width:8px; height:8px; background:#E8895D; margin-right:12px; vertical-align:middle; }
+li.done i { background:rgba(242,237,227,.35); } li.done { color:rgba(242,237,227,.5); }
+li.todo i { background:transparent; outline:1px solid rgba(242,237,227,.4); outline-offset:-1px; }
+li.now { color:#E8895D; }
+.foot { position:absolute; left:28px; right:28px; bottom:34px; display:flex; justify-content:space-between; align-items:center; font-size:11px; letter-spacing:.16em; text-transform:uppercase; }
+.foot .p { background:#D8764D; color:#07250C; padding:14px 20px; border-radius:3px; font-weight:500; }
+.big { font-family:Fraunces,serif; font-weight:300; font-size:120px; line-height:.9; letter-spacing:-.04em; margin:22px 0 0; font-variant-numeric:tabular-nums; }
+.now-title { font-family:Fraunces,serif; font-size:34px; font-weight:400; line-height:1.05; margin:14px 0 8px; }
+.purpose { font-size:13px; line-height:1.7; color:rgba(242,237,227,.65); }
+.ctrl { position:absolute; left:28px; right:28px; bottom:34px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; }
+.ctrl span { text-align:center; padding:15px 0; border:1px solid rgba(242,237,227,.3); border-radius:3px; }
+.ctrl span.p { background:#F2EDE3; color:#07250C; border-color:#F2EDE3; }
+.rec p { margin:0 0 16px; font-size:17px; line-height:1.6; max-width:32ch; }
+.rec p.w { font-family:Fraunces,serif; font-size:30px; line-height:1.1; font-weight:300; margin:22px 0 20px; }
+.rec p em { font-style:normal; color:#E8895D; }
+.stack { position:absolute; left:28px; right:28px; bottom:34px; display:flex; flex-direction:column; gap:8px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; }
+.stack span { text-align:center; padding:15px 0; border:1px solid rgba(242,237,227,.3); border-radius:3px; }
+.stack span.p { background:#D8764D; color:#07250C; border-color:#D8764D; }
+</style></head><body>
+<div class="phone"><div class="screen">
+  <canvas class="field" id="f1"></canvas>
+  <div class="grain"></div>
+  <div class="content">
+    <div class="date">Tuesday 14 October</div>
+    <h1>good<br><i>morning</i></h1>
+    <div class="total">42 min planned · 0 of 7</div>
+    <ol>
+      <li class="todo"><span><i></i>Your day</span><small>3 min</small></li>
+      <li class="todo"><span><i></i>People and messages</span><small>8 min</small></li>
+      <li class="todo"><span><i></i>Mail</span><small>7 min</small></li>
+      <li class="todo"><span><i></i>Make some tea</span><small>5 min</small></li>
+      <li class="todo"><span><i></i>A little reading</span><small>6 min</small></li>
+      <li class="todo"><span><i></i>A moment to move</span><small>10 min</small></li>
+      <li class="todo"><span><i></i>One thought for later</span><small>3 min</small></li>
+    </ol>
+  </div>
+  <div class="foot"><span>Learn</span><span>History</span><span class="p">Play</span></div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <canvas class="field" id="f2"></canvas>
+  <div class="grain"></div>
+  <div class="content">
+    <div class="date">Now · 4 of 7</div>
+    <div class="big">3:40</div>
+    <div class="now-title">Make some tea</div>
+    <div class="purpose">A moment you’ve made room for.</div>
+    <ol style="margin-top:16px">
+      <li class="done"><span><i></i>Mail</span><small>7 min</small></li>
+      <li class="now"><span><i></i>Make some tea</span><small>5 min</small></li>
+      <li class="todo"><span><i></i>A little reading</span><small>6 min</small></li>
+    </ol>
+  </div>
+  <div class="ctrl"><span class="p">Pause</span><span>Next</span><span>Again</span></div>
+</div></div>
+
+<div class="phone"><div class="screen">
+  <canvas class="field" id="f3"></canvas>
+  <div class="grain"></div>
+  <div class="content rec">
+    <div class="date">Your day</div>
+    <p class="w">Here is your briefing for Tuesday 14 October.</p>
+    <p>Weather in Paris: <em>mostly cloudy, 11 degrees Celsius.</em></p>
+    <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+    <p>Precipitation is likely before 16:00. <em>Take an umbrella.</em></p>
+  </div>
+  <div class="stack"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+</div></div>
+<script src="pix.js"></script>
+<script>
+// 24×?? field: the sun rises one pixel-row per completed moment.
+function field(id, rise){ const c=document.getElementById(id); pix.horizonSun(c,24,20,'#07250C','#E8895D','#061e0a',rise);
+  // haze: dither a few bone pixels around the sun as it climbs
+  const x=c.getContext('2d'); if(rise>0){ x.fillStyle='rgba(242,237,227,.18)'; for(let i=0;i<Math.round(rise*14);i++){ x.fillRect(4+((i*7)%16), 3+((i*5)%9),1,1);} } }
+field('f1',0.0); field('f2',0.5); field('f3',1.0);
+</script>
+</body></html>

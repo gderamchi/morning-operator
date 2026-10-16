@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MORE — a new look</title>
+<meta name="description" content="Design exploration for MORE: fourteen directions, one recommendation (Horizon), two runner-ups.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..500,0..100;1,9..144,300..500,0..100&display=swap">
+<style>
+  :root { --grass:#07250C; --bone:#F2EDE3; --bone-dim:rgba(242,237,227,.62); --ink:#14211A; --ink-dim:#596860; --clay:#C4653F; --clay-lift:#D8764D; --line:rgba(20,33,26,.14); --bg:var(--bone); --fg:var(--ink); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0B1420; --fg:var(--bone); --ink-dim:var(--bone-dim); --line:rgba(242,237,227,.18); } }
+  :root[data-theme="dark"] { --bg:#0B1420; --fg:var(--bone); --ink-dim:var(--bone-dim); --line:rgba(242,237,227,.18); }
+  * { box-sizing:border-box } html { -webkit-text-size-adjust:100% }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:300; line-height:1.7; overflow-x:clip; }
+  .wrap { max-width:1180px; margin:0 auto; padding:clamp(24px,5vw,64px) 16px 80px; }
+  header { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-dim); }
+  h1 { font-family:Fraunces,serif; font-weight:300; font-size:clamp(44px,9vw,96px); line-height:.92; letter-spacing:-.03em; margin:24px 0 12px; font-variation-settings:"SOFT" 70,"opsz" 144; text-wrap:balance; }
+  h1 i { color:var(--clay); font-variation-settings:"SOFT" 100,"opsz" 144; }
+  h2 { font-family:Fraunces,serif; font-weight:300; font-size:clamp(30px,5vw,48px); line-height:1.02; letter-spacing:-.02em; margin:72px 0 8px; }
+  h3 { font-family:Fraunces,serif; font-weight:400; font-size:24px; margin:40px 0 6px; line-height:1.1; }
+  p { max-width:62ch; margin:0 0 16px; font-size:15px; }
+  .lede { font-size:17px; }
+  .rule { height:1px; background:var(--line); margin:32px 0; }
+  .kicker { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:6px; }
+  img { display:block; max-width:100%; height:auto; border-radius:2px; }
+  .hero { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin:24px 0; }
+  .hero figure, .set figure { margin:0; }
+  figcaption { font-size:12px; color:var(--ink-dim); margin-top:8px; letter-spacing:.04em; }
+  .set { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:20px 0; }
+  .motion { display:grid; grid-template-columns:minmax(0,393px) 1fr; gap:24px; align-items:start; margin:20px 0; }
+  .motion iframe { width:100%; aspect-ratio:393/852; border:0; border-radius:2px; background:var(--bone); }
+  @media (max-width:720px) { .motion { grid-template-columns:1fr } }
+  .runners { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:24px; }
+  .card { border-top:1px solid var(--line); padding-top:16px; }
+  .card .kicker { margin-top:4px; }
+  .all { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:28px 24px; }
+  .all figure { margin:0; }
+  .all figcaption { font-size:13px; color:var(--fg); margin-top:10px; }
+  .all figcaption b { font-weight:500; }
+  .all figcaption small { display:block; color:var(--ink-dim); font-size:12px; margin-top:2px; }
+  dl { display:grid; grid-template-columns:max-content 1fr; gap:6px 18px; font-size:14px; max-width:62ch; }
+  dt { color:var(--ink-dim); } dd { margin:0 }
+  .swatches { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 20px; }
+  .swatches span { width:84px; padding:46px 0 0; font-size:10px; letter-spacing:.06em; border-radius:2px; position:relative; }
+  .swatches span::after { content:attr(data-n); position:absolute; left:0; right:0; bottom:-18px; color:var(--ink-dim); }
+  a { color:var(--clay); }
+  footer { margin-top:80px; font-size:12px; color:var(--ink-dim); letter-spacing:.1em; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span>MORE · design exploration</span><span>14 October 2026</span></header>
+  <h1>A quieter morning,<br><i>drawn in pixels.</i></h1>
+  <p class="lede">Fourteen directions were tried for MORE, away from glass and cards. One is recommended: <b>Horizon</b>. Two runner-ups follow, then every exploration with a one-line verdict. The current app is untouched; this is a side branch.</p>
+
+  <div class="rule"></div>
+  <div class="kicker">Recommended</div>
+  <h2>Horizon</h2>
+  <p>One line divides sky from ground. What is still to come lives in the sky; what is done has sunk into the grass. As the morning advances the line moves down and a pixel sun climbs over it. No cards, no glass, no icons: paper, grass, one orange, two typefaces, and pixels only where the two meet. Before dawn the sky is night and the horizon glows through a dithered band that widens as the morning goes.</p>
+  <p>It borrows the mood of lowcortisol.dev (deep grass, bone, clay, grain, a soft serif italic beside a light mono) and gives it one meaningful mechanic. The pixels never carry meaning alone: the heading, the two lists and “4 of 7 · 3:40” say everything the picture says.</p>
+
+  <div class="hero">
+    <figure><img src="shots/winner-8.png" width="786" height="1704" alt="Early-morning running state: night sky, a dithered dawn band at the horizon, a pixel sun breaking the line, 3:40 left on Make some tea, three completed moments in the grass below." loading="eager"><figcaption>Early morning · a moment running</figcaption></figure>
+    <figure><img src="shots/winner-2.png" width="786" height="1704" alt="Home before the morning: good morning, 42 min, seven moments listed in the bone sky above a grass ground with Learn, History and Play." loading="lazy"><figcaption>Home · before the morning</figcaption></figure>
+    <figure><img src="shots/winner-3.png" width="786" height="1704" alt="A moment running in daylight: 3:40, Make some tea; the horizon sits mid-screen with three done moments below it and Again, Next, Pause." loading="lazy"><figcaption>Daylight · a moment running</figcaption></figure>
+    <figure><img src="shots/winner-4.png" width="786" height="1704" alt="Your day: Here is your briefing for Tuesday 14 October, weather and calendar sentences in the sky, the sun fully up, Hear my recap, Start my routine and Stop in the grass." loading="lazy"><figcaption>Your day · the recap</figcaption></figure>
+  </div>
+
+  <h3>The other screens</h3>
+  <div class="set">
+    <figure><img src="shots/winner-1.png" width="786" height="1704" alt="First use: Your morning. Show us a little of your morning. We'll find the rhythm together. Record a little of my morning, Try a sample." loading="lazy"><figcaption>First use</figcaption></figure>
+    <figure><img src="shots/winner-5.png" width="786" height="1704" alt="Observed mornings: seven day tiles, labels with distinct-day counts, an exact quotation in the grass with its date and time in the recording." loading="lazy"><figcaption>Learn · observed mornings</figcaption></figure>
+    <figure><img src="shots/winner-6.png" width="786" height="1704" alt="Privacy: Your mornings stay close. An inventory of what is saved in MORE and a Forget MORE's local data control in the grass." loading="lazy"><figcaption>Privacy</figcaption></figure>
+    <figure><img src="shots/winner-7.png" width="786" height="1704" alt="Early-morning home: night sky, the list of moments, a faint dawn band above the grass." loading="lazy"><figcaption>Early morning · home</figcaption></figure>
+  </div>
+
+  <h3>The one motion</h3>
+  <div class="motion">
+    <iframe src="explorations/horizon-motion.html" title="Looping demo: the horizon moves down and the sun climbs as moments complete" loading="lazy"></iframe>
+    <div>
+      <p>When a moment completes, the horizon moves down by that moment’s share of the planned minutes and the sun climbs one pixel row. 600 ms, ease-in-out. Nothing else animates: no springs, no parallax, no glow.</p>
+      <p>Before dawn the dithered band above the horizon widens with the same step. With <b>Reduce Motion</b> the heights snap and the moving row crossfades. The loop on the left is a CSS demonstration; the SwiftUI proof on this branch (<code>--design-preview</code>, DEBUG only) does the same with <code>Canvas</code>.</p>
+      <p>Full tokens, type, pixel rules and accessibility rules: <a href="SPEC.md">SPEC.md</a>.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+  <div class="kicker">Runner-ups</div>
+  <div class="runners">
+    <div class="card">
+      <h3 style="margin-top:0">Risograph</h3>
+      <img src="shots/r2-risograph.png" width="1275" height="900" alt="Risograph direction: cream paper, ultramarine and red-orange ink, a halftone half sun, Fraunces headings, pill buttons with offset shadows." loading="lazy">
+      <p>Two inks on cream, a halftone sun, slightly misregistered. The most editorial and the most confident; it would photograph beautifully. It is louder than a 6 am screen wants to be, and the halftone needs careful containment near text. Keep it for marketing, or as a seasonal paper.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">One bit</h3>
+      <img src="shots/r2-one-bit.png" width="1275" height="900" alt="One-bit direction: black on paper, pixel typeface, checkbox moments, a one-bit horizon and sun, a dithered cloud." loading="lazy">
+      <p>Black on paper, a bitmap face, real checkboxes. The most original and oddly the most legible; it is also the easiest to build. It risks reading as a toy, and dark mode is simply the inverse, which is fine but offers no dawn. The best alternative if Horizon feels too soft.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+  <div class="kicker">All explorations</div>
+  <h2>Fourteen tries</h2>
+  <p>Each shows the same three screens with MORE’s real wording: home before the morning, a moment running, and Your day. Rendered at iPhone size, judged on originality, calm, legibility at large text, dark/dawn, fit for SwiftUI and contrast.</p>
+  <div class="all">
+    <figure><img src="shots/01.png" width="1275" height="900" alt="Dawn dither" loading="lazy"><figcaption><b>01 Dawn dither</b><small>Full-screen Bayer sky that rises. Beautiful idea, but text over dither hurts; the idea survives as Horizon’s edge and night band.</small></figcaption></figure>
+    <figure><img src="shots/02.png" width="1275" height="900" alt="One bit" loading="lazy"><figcaption><b>02 One bit</b><small>MacPaint mornings. Charming and legible; the sun glyph collided with the title, fixed in round two. Runner-up.</small></figcaption></figure>
+    <figure><img src="shots/03.png" width="1275" height="900" alt="Handwritten" loading="lazy"><figcaption><b>03 Handwritten</b><small>A note left on the kitchen table. Warmest of all; script fails at accessibility sizes and VoiceOver gains nothing from it.</small></figcaption></figure>
+    <figure><img src="shots/04.png" width="1275" height="900" alt="Risograph" loading="lazy"><figcaption><b>04 Risograph</b><small>Two inks, halftone sun. Confident, editorial; loud for dawn. Runner-up after containing the halftone.</small></figcaption></figure>
+    <figure><img src="shots/05.png" width="1275" height="900" alt="Pixel sunrise" loading="lazy"><figcaption><b>05 Pixel sunrise</b><small>lowcortisol’s grass, bone and clay with a sun that rises per completed moment. The palette and mechanic of the winner; the sun collided with controls.</small></figcaption></figure>
+    <figure><img src="shots/06.png" width="1275" height="900" alt="Typographic" loading="lazy"><figcaption><b>06 Typographic only</b><small>The routine as one running sentence. Calmest and most Apple-Design-Award-like of the plain ones; no dawn, no pixels, so gib’s brief is half met.</small></figcaption></figure>
+    <figure><img src="shots/07.png" width="1275" height="900" alt="Dot matrix" loading="lazy"><figcaption><b>07 Dot matrix</b><small>Amber LED clock. Gadget, not calm; the matrix renders poorly at this size. Dropped.</small></figcaption></figure>
+    <figure><img src="shots/08.png" width="1275" height="900" alt="Horizon line" loading="lazy"><figcaption><b>08 Horizon line</b><small>One line that moves, a disc that crosses it. The most elegant mechanic; merged with 05 to become the winner.</small></figcaption></figure>
+    <figure><img src="shots/09.png" width="1275" height="900" alt="Four-shade LCD" loading="lazy"><figcaption><b>09 Four-shade LCD</b><small>Handheld greens. Fun for a minute; a pixel face at body size is tiring and the mood is a game, not a morning.</small></figcaption></figure>
+    <figure><img src="shots/10.png" width="1275" height="900" alt="Cross-stitch" loading="lazy"><figcaption><b>10 Cross-stitch</b><small>Pixels as thread on linen. Sweet and niche; the stitched icons do not scale and the grid texture fights Dynamic Type.</small></figcaption></figure>
+    <figure><img src="shots/11.png" width="1275" height="900" alt="Terminal dawn" loading="lazy"><figcaption><b>11 Terminal dawn</b><small>A lowercase prompt with a dithered strip. Calmer than expected and honest; too developer for a general app.</small></figcaption></figure>
+    <figure><img src="shots/12.png" width="1275" height="900" alt="Receipt" loading="lazy"><figcaption><b>12 Receipt</b><small>The morning as a thermal print. Clever, cold, and a receipt frames the morning as a bill.</small></figcaption></figure>
+    <figure><img src="shots/13.png" width="1275" height="900" alt="Mosaic" loading="lazy"><figcaption><b>13 Mosaic</b><small>No words on the image: eight-by-six sky tiles. Clean, but it looks like a weather widget and says little.</small></figcaption></figure>
+    <figure><img src="shots/14.png" width="1275" height="900" alt="Pixel blackletter" loading="lazy"><figcaption><b>14 Pixel blackletter</b><small>A bitmap blackletter carries the mood. Genuinely original; unreadable at a glance and the wrong mood for 6 am.</small></figcaption></figure>
+  </div>
+
+  <footer>design/gallery · branch design/new-direction</footer>
+</div>
+</body>
+</html>

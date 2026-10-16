@@ -232,10 +232,13 @@ private enum ObservedMorningPresentation {
     }
     static func momentCaption(_ moment: ObservationReviewMoment) -> String {
         let seconds = max(0, Int(moment.timeSeconds.rounded()))
-        let time = String(format: AppLanguage.localized("%02d:%02d in this recording"), seconds / 60, seconds % 60)
-        if moment.samples.count > 1 { return AppLanguage.localized("\(time) · \(moment.samples.count) samples share this time") }
-        if moment.hasRequestedTimeFallback { return AppLanguage.localized("\(time) · requested time only") }
-        if moment.samples.contains(where: { $0.provenance == .userReviewed }) { return AppLanguage.localized("\(time) · Your label") }
+        let time = String(format: String(localized: "%02d:%02d in this recording", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), seconds / 60, seconds % 60)
+        if moment.samples.count > 1 { return String(localized: "\(time) · \(moment.samples.count) samples share this time", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        if moment.hasRequestedTimeFallback { return String(localized: "\(time) · requested time only", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        if moment.samples.contains(where: { $0.provenance == .userReviewed }) { return String(localized: "\(time) · Your label", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        if moment.samples.contains(where: { $0.provenance == .shortcut }) { return String(localized: "\(time) · Shortcuts", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        if moment.samples.contains(where: { $0.provenance == .screenText }) { return String(localized: "\(time) · Screen text", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        if moment.samples.contains(where: { $0.provenance == .visualModel }) { return String(localized: "\(time) · Seen in image", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
         return time
     }
 }

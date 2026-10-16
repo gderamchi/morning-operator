@@ -28,6 +28,9 @@ enum ScreenTimeReadError: Error {
 @MainActor
 enum ScreenTimeSources {
     static func make() -> any ScreenTimeSource {
+        #if DEBUG
+        if ScreenTimeFixtureSource.isRequested { return ScreenTimeFixtureSource() }
+        #endif
         #if os(iOS)
         return SystemScreenTimeSource()
         #else
@@ -99,6 +102,52 @@ struct SystemScreenTimeSource: ScreenTimeSource {
             break
         }
         return hours
+    }
+}
+#endif
+
+#if DEBUG
+/// UI tests only (`--ui-testing --ui-testing-screen-time-fixture`): five synthetic weekday
+/// mornings with made-up minutes, so the Learn card and its review run without Screen Time.
+/// The sheet is skipped; access flips to approved on request.
+@MainActor
+final class ScreenTimeFixtureSource: ScreenTimeSource {
+    static var isRequested: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("--ui-testing") && arguments.contains("--ui-testing-screen-time-fixture")
+    }
+
+    private(set) var access: ScreenTimeAccess = .notAsked
+    func requestAccess() async throws { access = .approved }
+
+    func hours(from start: Date, to end: Date) async throws -> [ScreenTimeHour] {
+        let calendar = Calendar.current
+        var hours: [ScreenTimeHour] = []
+        func at(_ day: Date, _ hour: Int, _ minute: Int = 0) -> Date {
+            calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+        }
+        func app(_ id: String, _ minutes: Double, pickups: Int = 0) -> ScreenTimeAppHour {
+            ScreenTimeAppHour(bundleIdentifier: id, seconds: minutes * 60, pickups: pickups)
+        }
+        var day = calendar.startOfDay(for: start)
+        var index = 0
+        while day < end {
+            let evening = at(day, 22)
+            hours.append(ScreenTimeHour(interval: DateInterval(start: evening, duration: 3600), firstPickup: at(day, 22, 5),
+                                        apps: [app("com.apple.mobilemail", 8)]))
+            if let next = calendar.date(byAdding: .day, value: 1, to: day) {
+                let minute = [5, 12, 20, 8, 15][index % 5]
+                hours.append(ScreenTimeHour(interval: DateInterval(start: at(next, 7), duration: 3600), firstPickup: at(next, 7, minute),
+                    apps: [app("com.apple.MobileSMS", 2, pickups: 3), app("com.apple.weather", 1, pickups: 1),
+                           app("com.burbn.instagram", 38.0 + Double(index % 3)), app("com.apple.LocalAuthenticationUIService", 1)]))
+                hours.append(ScreenTimeHour(interval: DateInterval(start: at(next, 8), duration: 3600), firstPickup: at(next, 8),
+                    longestActivity: DateInterval(start: at(next, 8), duration: 12 * 60),
+                    apps: [app("com.chess.iphone", 12), app("com.apple.mobilecal", 2)]))
+                day = next
+            } else { break }
+            index += 1
+        }
+        return hours.filter { $0.interval.end <= end }
     }
 }
 #endif

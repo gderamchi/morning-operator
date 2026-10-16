@@ -23,7 +23,7 @@ final class MorningPermissionSetupTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["These access choices couldn't be saved. MORE may ask you to review them next time."].exists)
         finish.tap()
         XCTAssertTrue(finish.waitForNonExistence(timeout: 5))
-        app.terminate(); app.launch()
+        app.terminate(); launchConfirmedWorkspace(app)
         XCTAssertFalse(app.buttons["permissions.allow"].waitForExistence(timeout: 2), "Access setup must not repeat when routine onboarding was deferred.")
         openSettingsFromHome(app)
         let revisit = app.buttons["setup.permissions"]
@@ -36,9 +36,12 @@ final class MorningPermissionSetupTests: XCTestCase {
         for permission in ["location", "calendar", "reminders", "screenTime", "speech"] {
             XCTAssertTrue(app.staticTexts["permissions.title.\(permission)"].waitForExistence(timeout: 5))
             let skip = app.buttons["permissions.skip"]
-            reveal(skip, app); skip.tap()
+            reveal(skip, app)
+            XCTAssertEqual(skip.label, "Not now")
+            skip.tap()
         }
         XCTAssertTrue(app.staticTexts["permissions.title.microphone"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["permissions.title.microphone"].label, "Make your voice heard.")
         XCTAssertEqual(app.alerts.count, 0)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "synthetic-permission-explanation-microphone"
@@ -54,7 +57,11 @@ final class MorningPermissionSetupTests: XCTestCase {
         for (index, permission) in permissions.enumerated() {
             if index == 4 {
                 XCUIDevice.shared.orientation = .landscapeLeft
-                XCTAssertGreaterThan(app.frame.width, app.frame.height, app.debugDescription)
+                let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    let frame = app.frame
+                    return frame.width > frame.height
+                }, object: nil)
+                XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 5), .completed, app.debugDescription)
             }
             XCTAssertTrue(app.staticTexts["permissions.title.\(permission)"].waitForExistence(timeout: 5))
             XCTAssertTrue(element("permissions.progress", in: app).isHittable,
@@ -106,7 +113,7 @@ final class MorningPermissionSetupTests: XCTestCase {
         XCTAssertFalse(app.buttons["permissions.allow"].exists)
         XCTAssertFalse(app.buttons["permissions.learn"].exists)
         XCTAssertEqual(app.alerts.count, 0)
-        app.terminate(); app.launch()
+        app.terminate(); launchConfirmedWorkspace(app)
         XCTAssertFalse(app.buttons["permissions.allow"].waitForExistence(timeout: 2),
                        "Opening learning must keep the access choices saved.")
     }
@@ -167,8 +174,8 @@ final class MorningPermissionSetupTests: XCTestCase {
     func testManualCitySelectionFromCurrentLocationSurvivesRelaunch() {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-briefing-fixture",
-            "--ui-testing-workspace=\(UUID().uuidString)", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        app.launch()
+            "--ui-testing-workspace=\(UUID().uuidString)", "-more.appLanguage", "en", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        launchConfirmedWorkspace(app)
         openYourDayFromHome(app)
         MorningUITestNavigation.chooseManualWeatherCity(in: app)
         let search = app.textFields["briefing.citySearch"]
@@ -179,7 +186,7 @@ final class MorningPermissionSetupTests: XCTestCase {
         reveal(result, app); result.tap()
         assertSelectedCity(in: app)
         XCTAssertEqual(app.alerts.count, 0, "Choosing a manual city must not request GPS access.")
-        app.terminate(); app.launch()
+        app.terminate(); launchConfirmedWorkspace(app)
         openYourDayFromHome(app)
         assertSelectedCity(in: app)
         // The search row is offered only in manual mode, so its presence also
@@ -219,12 +226,26 @@ final class MorningPermissionSetupTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--ui-testing-empty-workspace", "--ui-testing-permissions",
             "--ui-testing-workspace=\(UUID().uuidString)", "--theme-phase=\(phase)", "--ui-testing-reduce-motion",
-            "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"]
+            "-more.appLanguage", french ? "fr" : "en", "-AppleLanguages", french ? "(fr)" : "(en)", "-AppleLocale", french ? "fr_FR" : "en_US"]
         if frenchLargestText { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
         if denied { app.launchArguments.append("--ui-testing-permissions-denied") }
-        app.launch()
+        launchConfirmedWorkspace(app)
         XCTAssertTrue(app.staticTexts["permissions.title.location"].waitForExistence(timeout: 5), app.debugDescription)
         return app
+    }
+
+    private func launchConfirmedWorkspace(_ app: XCUIApplication) {
+        continueAfterFailure = false
+        let prefix = "--ui-testing-workspace="
+        let workspace = String(app.launchArguments.first { $0.hasPrefix(prefix) }!.dropFirst(prefix.count))
+        app.launch()
+        let marker = app.staticTexts["qa.testWorkspace"]
+        if !marker.waitForExistence(timeout: 5) || marker.value as? String != workspace {
+            app.terminate()
+            app.launch()
+        }
+        XCTAssertTrue(marker.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(marker.value as? String, workspace, app.debugDescription)
     }
 
     private func skipAllPermissions(in app: XCUIApplication) {

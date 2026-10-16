@@ -635,6 +635,19 @@ struct OwnInterfaceWordingTests {
         #expect(unused.drift(of: phrases).count == 4)
     }
 
+    @Test("Retired Connections rows remain historical, while a message containing one phrase remains task evidence", arguments: [0, 1])
+    func retiredConnectionRowsNeedTheirScreen(index: Int) throws {
+        let titles = ["Apps & accounts", "Apps et comptes"]
+        let activity = index == 0 ? "09:00 Team planning meeting" : "09:00 Réunion de planification"
+        for key in ["Your messages, stories and feed, in MORE.", "Read your unread email and prepare replies."] {
+            let phrase = try #require(OwnInterfaceWording.all.first { $0.wordings.contains(key) })
+            #expect(phrase.catalogKey == nil)
+            let copy = phrase.wordings[index]
+            #expect(isOwnInterface("\(titles[index])\n\(copy)\n\(activity)"))
+            #expect(!isOwnInterface("Messages\n\(copy)\n\(activity)"))
+        }
+    }
+
     @Test("Every recognized catalog string is one the app's source still shows")
     func recognizedWordingIsShownByTheApp() throws {
         let sources = try ShippedCatalogs.appSources()
@@ -678,6 +691,36 @@ struct OwnInterfaceWordingTests {
         }
         // Ordinary updater buttons still cannot exclude another app's real content.
         #expect(!isOwnInterface("Updates\nKeep current\nApprove update\n09:00 Team planning meeting"))
+    }
+
+    @Test("Current OpenAI privacy copy matches the live bilingual source and retains earlier recordings", arguments: ["en", "fr"])
+    func currentAndEarlierPrivacyIntroductionsRemainExcluded(language: String) throws {
+        let sources = try ShippedCatalogs.appSources()
+        let phrase = OwnInterfaceWording.privacyIntroduction
+        #expect(phrase.wordings.count == 2)
+        for wording in phrase.wordings {
+            #expect(sources.contains("\"\(wording)\""), "Privacy no longer shows this literal: \(wording)")
+        }
+        let index = language == "fr" ? 1 : 0
+        let prior = [
+            "MORE keeps its learning on this device. You choose when to connect Apple apps and what to keep.",
+            "MORE garde son apprentissage sur cet appareil. Vous choisissez quand connecter les apps Apple et ce que vous gardez."
+        ][index]
+        let catalogs = try ShippedCatalogs.load()
+        let heading = try catalogs.text("Your mornings stay close.", language)
+        let control = try catalogs.text("Saved in MORE", language)
+        for introduction in [phrase.wordings[index], prior] {
+            for width in [18, 26, 38] {
+                let screen = ([heading] + OwnScreenFixtures.wrapped(introduction, width: width) + [control]).joined(separator: "\n")
+                #expect(isOwnInterface(screen))
+                #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                    try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+                }
+            }
+        }
+        let retired = try #require(OwnInterfaceWording.all.first { $0.wordings.contains(index == 0
+            ? "MORE keeps its learning on this device" : "MORE garde son apprentissage sur cet appareil") })
+        #expect(retired.catalogKey == nil, "Earlier privacy wording must not depend on the current catalog.")
     }
 
     @Test("Earlier browser-learning recordings remain excluded after semantic preview wording")
@@ -843,39 +886,41 @@ struct OwnInterfaceWordingTests {
         #expect(!OwnInterfaceWording.identifies(.init("Notes\nSaved on this device\nVoice\nMeet Laura to plan the train journey")))
     }
 
-    @Test("Compact Connections uses live row copy while earlier headings remain historical", arguments: ["en", "fr"])
-    func compactConnectionsUsesCurrentRows(language: String) throws {
-        let catalogs = try ShippedCatalogs.load(), sources = try ShippedCatalogs.appSources()
-        let heading = try catalogs.text("Apps & accounts", language)
-        let activity = language == "fr" ? "09:00 Réunion de planification de l’équipe" : "09:00 Team planning meeting"
-        let current = ["Your messages, stories and feed, in MORE.", "Read your unread email and prepare replies."]
-        for key in current {
-            let phrase = try #require(OwnInterfaceWording.all.first { $0.catalogKey == key })
-            for wording in phrase.wordings { #expect(sources.contains("\"\(wording)\"")) }
-            let copy = try catalogs.text(key, language)
-            for width in [18, 26, 38] {
-                let screen = ([heading] + OwnScreenFixtures.wrapped(copy, width: width) + [activity]).joined(separator: "\n")
+    @Test("Compact Connections needs its live heading, section and sign-in row in either language", arguments: ["en", "fr"])
+    func compactConnectionsWithoutRetiredIntro(language: String) throws {
+        let sources = try ShippedCatalogs.appSources(), index = language == "fr" ? 1 : 0
+        let content = "09:00 Team planning meeting"
+        for rule in [OwnInterfaceWording.compactConnections, OwnInterfaceWording.compactConfirmedConnections] {
+            let pieces = rule.map { $0.wordings[index] }
+            for wording in pieces {
+                #expect(sources.contains("\"\(wording)\""), "Connections no longer shows this literal: \(wording)")
+            }
+            for width in [26, 38] {
+                let screen = (pieces.flatMap { OwnScreenFixtures.wrapped($0, width: width) } + [content]).joined(separator: "\n")
                 #expect(isOwnInterface(screen))
                 #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
                     try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
                 }
             }
-            let ordinaryMail = "Messages\n\(copy)\n\(activity)"
-            #expect(!isOwnInterface(ordinaryMail))
-            #expect(try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + ordinaryMail, as: .recording).count == 1)
+            for missing in pieces.indices {
+                var partial = pieces; partial.remove(at: missing)
+                #expect(!isOwnInterface((partial + [content]).joined(separator: "\n")))
+            }
+            #expect(!isOwnInterface(([pieces[0], "Gmail", "Instagram", "TikTok", "WhatsApp", content]).joined(separator: "\n")))
         }
-        for key in ["Your apps, in one place.", "Choose what you want to bring into your morning."] {
-            let phrase = try #require(OwnInterfaceWording.all.first { $0.wordings.contains(key) })
-            #expect(phrase.catalogKey == nil, "Removed Connections headings remain earlier wording.")
-            let copy = try catalogs.text(key, language)
-            #expect(isOwnInterface("\(heading)\n\(copy)\n\(activity)"))
+        for phrase in OwnInterfaceWording.earlierConnections.copy.prefix(2) {
+            #expect(phrase.catalogKey == nil)
+            #expect(!sources.contains("\"\(phrase.wordings[index])\""), "Retired introduction returned to the live view.")
         }
-        #expect(!isOwnInterface("\(heading)\nGmail\nSlack\n\(activity)"))
     }
 
     @Test("Retired copy remains recognized without being tied to today's catalogs")
     func retiredCopyRemainsHistorical() throws {
         let historical = [
+            ("Your apps, in one place.", "Apps & accounts"),
+            ("Vos apps, au même endroit.", "Apps et comptes"),
+            ("Choose what you want to bring into your morning.", "Apps & accounts"),
+            ("Choisissez ce qui vous accompagne le matin.", "Apps et comptes"),
             ("You'll review every suggestion.", "Record"),
             ("Vous validerez chaque suggestion.", "Enregistrer"),
             ("Record a short part of your morning, or choose a saved file.", "Your rhythm"),

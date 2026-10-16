@@ -1,0 +1,13 @@
+// Copy to JuryDemo.local.xcconfig (ignored). Never add provider API keys to this app.
+// DEVELOPMENT_TEAM = your-personal-team-id
+// MORE_DEMO_BUNDLE_IDENTIFIER = com.yourcompany.more.demo
+// MORE_DEMO_ENTITLEMENTS_FILE = Configuration/JuryDemoPersonal.entitlements
+// An HTTP .local Bonjour hostname is permitted only in the demo's ATS policy.
+// Escape URL slashes in xcconfig: http:/$()/mac-name.local:8791
+// MORE_JURY_DEMO_BASE_URL = http:/$()/mac-name.local:8791
+// MORE_JURY_DEMO_TOKEN = a-demo-scoped-backend-token
+// MORE_DEMO_API_BASE_URL = https:/$()/your-connected-services-backend
+// Native Google OAuth needs a NEW iOS client registered for the DEMO bundle.
+// Use that client's reversed callback scheme, never the normal app's scheme.
+// MORE_DEMO_GOOGLE_CLIENT_ID = your-demo-client.apps.googleusercontent.com
+// MORE_DEMO_GOOGLE_CALLBACK_SCHEME = com.googleusercontent.apps.your-demo-client

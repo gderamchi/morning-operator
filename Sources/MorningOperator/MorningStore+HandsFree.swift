@@ -4,13 +4,25 @@ import MorningApple
 import UIKit
 
 extension MorningStore {
-    var handsFreeVoiceActive: Bool { handsFreeVoice.isActive }
+    var handsFreeVoiceActive: Bool {
+        #if MORE_JURY_DEMO
+        return juryDemoVoice.isActive
+        #else
+        return handsFreeVoice.isActive
+        #endif
+    }
     var canHearHandsFreeCommands: Bool {
+        #if MORE_JURY_DEMO
+        return sessionActive && juryDemoVoice.isActive
+        #endif
         guard sessionActive, automatic, let session,
               handsFreeListeningSuppressedSessionID != session.id else { return false }
         return handsFreeVoice.isActive
     }
     var handsFreeVoiceStatus: String {
+        #if MORE_JURY_DEMO
+        return juryDemoVoice.message
+        #endif
         if let session, handsFreeListeningSuppressedSessionID == session.id {
             return AppLanguage.isFrench ? "Écoute désactivée pour ce matin. Les boutons restent disponibles."
                 : "Listening is off for this morning. The buttons remain available."
@@ -29,6 +41,30 @@ extension MorningStore {
     /// No extra turn button: the approved morning owns listening until it ends,
     /// leaves the foreground, or the person switches it off.
     func startHandsFreeVoice() {
+        #if MORE_JURY_DEMO
+        return
+        #endif
+        if cloudVoice.isActive {
+            guard !privacyBlocksWork,
+                  cloudVoiceConsentGeneration == dataGeneration,
+                  cloudVoiceConsentSession == session?.id else { stopCloudVoice(); return }
+            let context = cloudVoiceContext, generation = dataGeneration, sessionID = session?.id
+            Task { [weak self] in
+                guard let self, !privacyBlocksWork, cloudVoice.isActive,
+                      dataGeneration == generation, session?.id == sessionID,
+                      cloudVoiceConsentGeneration == generation, cloudVoiceConsentSession == sessionID,
+                      handsFreeContext == context.binding else { return }
+                await cloudVoice.updateContext(context)
+            }
+            return
+        }
+        if cloudVoiceConsentGeneration != nil || speech.externalSpeech != nil {
+            let issue = cloudVoice.errorMessage
+            stopCloudVoice()
+            if let issue { cloudVoiceStartIssue = issue }
+            return
+        }
+        guard !cloudVoiceReleasing else { return }
         guard !privacyBlocksWork, !permissionSetup.isPresented, !permissionSetup.needsInitialSetup,
               automatic, sessionActive, !voiceInputBlocksPlayback,
               !voiceCommandPresented, !captureVoicePresented,
@@ -62,13 +98,19 @@ extension MorningStore {
         })
     }
 
-    func stopHandsFreeVoice() { handsFreeVoice.stop() }
-    func suspendHandsFreeVoice() { handsFreeVoice.stop() }
+    func stopHandsFreeVoice() { handsFreeVoice.stop(); stopCloudVoice() }
+    func suspendHandsFreeVoice() { handsFreeVoice.stop(); stopCloudVoice() }
 
     /// Await this inside the existing manual command/capture Task before it
     /// activates its microphone. Merely presenting a sheet is not a release barrier.
     func prepareForManualVoiceInput() async throws {
+        #if MORE_JURY_DEMO
+        try await juryDemoVoice.pauseAndRelease()
+        #else
+        stopCloudVoice()
+        await cloudVoice.stopAndRelease()
         try await handsFreeVoice.stopAndRelease()
+        #endif
         try Task.checkCancellation()
     }
 
@@ -232,7 +274,7 @@ extension MorningStore {
         }
     }
 
-    private var handsFreeMomentContext: String {
+    var handsFreeMomentContext: String {
         guard let session, let step = currentStep else { return "" }
         var parts = ["Current moment: \(step.title)", "Approved description: \(step.detail)",
                      "Session state: \(session.status.rawValue)"]
@@ -271,16 +313,22 @@ extension MorningStore {
         }
         if let document = preparedBriefing(for: step),
            document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier) {
-            parts.append("Verified current source information: \(document.spokenText)")
+            parts.append("Verified current source information: \(conversationText(document))")
         }
         if let document = currentOpening?.document,
            briefing.permitsPlayback(of: document),
            document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier) {
-            parts.append("Verified opening information: \(document.spokenText)")
+            parts.append("Verified opening information: \(conversationText(document))")
         }
         let context = parts.joined(separator: "\n")
         guard context.count > 8_000 else { return context }
         return String(context.prefix(7_800)) + "\nContext excerpt ends here. The remaining source text is not provided; missing details stay unknown."
+    }
+
+    private func conversationText(_ document: PreparedMorningBriefing) -> String {
+        // General cloud-model consent excludes both sleep and the selected Health metrics.
+        document.segments.filter { !MoreLanguageModel.shared.usesOpenAI || $0.source.permitsGeneralCloudContext }
+            .map(\.text).joined(separator: " ")
     }
 
     private func speakHandsFree(french: String, english: String) {
@@ -290,11 +338,22 @@ extension MorningStore {
 
     var handsFreeUsesFrench: Bool { AppLanguage.isFrench }
 
+    func setAppLanguage(_ code: String) {
+        guard AppLanguage.supportedCodes.contains(code), AppLanguage.code != code else { return }
+        AppLanguage.setChosenLanguage(code)
+        // Invalidate before returning to the run loop: a queued old recognition
+        // result must not authorize an effect while SwiftUI is updating its views.
+        appLanguageDidChange()
+    }
+
     /// A language switch changes presentation and local speech, never the approved
     /// routine, prepared reply or an external operation's reconciliation state.
     func appLanguageDidChange() {
         guard appliedLanguageCode != AppLanguage.code else { return }
         appliedLanguageCode = AppLanguage.code
+        #if MORE_JURY_DEMO
+        juryDemoCaption = ""
+        #endif
         voiceLanguageGeneration = UUID()
         cancelVoicePreparation()
         handsFreePauseRevision = UUID()

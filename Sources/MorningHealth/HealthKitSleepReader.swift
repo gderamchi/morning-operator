@@ -48,7 +48,8 @@ public final class HealthKitSleepReader: SleepObservationProviding {
             Self.sample(value: sample.value, start: sample.startDate, end: sample.endDate,
                         bundleIdentifier: sample.sourceRevision.source.bundleIdentifier,
                         productType: sample.sourceRevision.productType,
-                        wasUserEntered: sample.metadata?[HKMetadataKeyWasUserEntered] as? Bool ?? false)
+                        wasUserEntered: sample.metadata?[HKMetadataKeyWasUserEntered] as? Bool ?? false,
+                        sourceName: sample.sourceRevision.source.name)
         })
     }
 
@@ -62,11 +63,11 @@ public final class HealthKitSleepReader: SleepObservationProviding {
     /// The fields of one sample that are kept. A value HealthKit adds later, which this
     /// build does not know, is dropped rather than counted as sleep.
     nonisolated static func sample(value: Int, start: Date, end: Date, bundleIdentifier: String,
-                                   productType: String?, wasUserEntered: Bool) -> SleepSample? {
+                                   productType: String?, wasUserEntered: Bool, sourceName: String? = nil) -> SleepSample? {
         guard let stage = stage(value) else { return nil }
         return SleepSample(stage: stage, start: start, end: end, sourceID: bundleIdentifier,
             sourceKind: .classify(bundleIdentifier: bundleIdentifier, productType: productType,
-                                  wasUserEntered: wasUserEntered))
+                                  wasUserEntered: wasUserEntered), sourceName: sourceName, sourceProductType: productType)
     }
 
     nonisolated static func stage(_ value: Int) -> SleepStage? {

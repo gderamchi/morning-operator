@@ -27,7 +27,7 @@ struct RoutineMovieProposalIntegrationTests {
                      "Keep the private report in this checkout's ignored work directory, separate from the input.")
         try #require(!FileManager.default.fileExists(atPath: destination.path), "Never overwrite previous evidence.")
         var report = RoutineMovieProposalReport()
-        let classifier = ObservationContextClassifier(), model = AppleIntelligenceService()
+        let classifier = ObservationContextClassifier(), model = AppleIntelligenceService(model: .localOnly())
         report.contextCapability = classifier.capabilitySummary
         report.proposalCapability = model.capabilitySummary
         do {
@@ -94,6 +94,7 @@ struct RoutineMovieProposalIntegrationTests {
     private static func category(_ error: any Error) -> String {
         switch error {
         case AppleIntelligenceError.unavailable: "localModelUnavailable"
+        case AppleIntelligenceError.modelDidNotAnswer(let reason): "localModelDidNotAnswer.\(reason.rawValue)"
         case RoutineEvidenceProposalError.invalidProposal: "invalidProposal"
         case RoutineEvidenceProposalError.invalidCitation: "invalidCitation"
         case RoutineEvidenceProposalError.insufficientEvidence: "insufficientEvidence"

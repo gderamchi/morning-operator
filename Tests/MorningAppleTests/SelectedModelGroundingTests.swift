@@ -1,0 +1,170 @@
+import Foundation
+import MorningCore
+import Testing
+@testable import MorningApple
+
+@Suite("Selected model preserves native grounding", .serialized)
+@MainActor
+struct SelectedModelGroundingTests {
+    private let key = "sk-synthetic-contract-key-never-used-remotely"
+
+    @Test("Local-only composition cannot enable cloud or mutate another configured selection")
+    func localOnlyIsIndependentAndClosed() async throws {
+        var remoteCalls = 0
+        let configured = MoreLanguageModel(storage: GroundingModelStorage(), transport: { _ in
+            remoteCalls += 1
+            throw MoreLanguageModelError.requestFailed
+        })
+        try configured.configureOpenAI(apiKey: key, enabled: true)
+        let saved = configured.configurationID
+        let local = MoreLanguageModel.localOnly()
+        #expect(!local.usesOpenAI)
+        let localContext = try local.requestContext()
+        #expect(localContext.privacyEpoch == nil)
+        #expect(throws: MoreLanguageModelError.credentialStorageUnavailable) {
+            try local.configureOpenAI(apiKey: key, enabled: true)
+        }
+        #expect(!local.usesOpenAI && configured.usesOpenAI)
+        #expect(configured.configurationID == saved && remoteCalls == 0)
+        await #expect(throws: CancellationError.self) {
+            try await local.generate(instructions: "Synthetic", prompt: "No generation expected", maximumResponseTokens: 1,
+                expectedConfigurationID: UUID())
+        }
+        #expect(remoteCalls == 0)
+    }
+
+    @Test("The selected cloud route receives native IDs and origin and cannot supply a free detail or quote")
+    func cloudUsesTheSameAnchorsAndRenderer() async throws {
+        var calls = 0
+        let model = MoreLanguageModel(storage: GroundingModelStorage(), transport: { request in
+            calls += 1
+            let requestBody = try #require(request.httpBody)
+            let body = try JSONDecoder().decode(ComposioJSONValue.self, from: requestBody)
+            let prompt = try #require(body.objectValue?["input"]?.stringValue)
+            #expect(prompt.contains("origin=\"synthetic\"") && prompt.contains("[q1]"))
+            let schema = try #require(body.objectValue?["text"]?.objectValue?["format"]?.objectValue?["schema"])
+            #expect(schema == OpenAIRoutineSchema.make(citationIDs: ["q1"]))
+            return try Self.response(citationID: "q1")
+        })
+        try model.configureOpenAI(apiKey: key, enabled: true)
+        let source = try source(), evidence = try LearningEvidencePreparation.prepare(acquisitions: [source])
+        let service = AppleIntelligenceService(model: model)
+        let proposal = try await service.propose(evidence: evidence, preserving: nil)
+        let step = try #require(proposal.routine.steps.first)
+        #expect(calls == 1 && proposal.routine.steps.count == 1)
+        #expect(!step.detail.contains("West room") && !step.detail.contains("Friday"))
+        #expect(step.detail.contains("I review the project agenda after breakfast."))
+        #expect(proposal.routine.isSynthetic && !proposal.routine.isApproved)
+        #expect(step.automation == nil && step.target == nil && !step.isRequired)
+        let archive = try ObservationArchive(entries: [source])
+        #expect(proposal.isCurrent(archive: archive, baseRoutine: nil))
+        #expect(proposal.support[0].citations[0].quote.utf8.elementsEqual(source.originalText.utf8))
+        #expect(service.proposalDiagnostics == nil, "Remote generation must not claim Apple SDK invocations.")
+    }
+
+    @Test("A selected remote response with an unprovided anchor is still rejected natively")
+    func cloudCannotInventAnchors() async throws {
+        let model = MoreLanguageModel(storage: GroundingModelStorage(), transport: { _ in try Self.response(citationID: "q999") })
+        try model.configureOpenAI(apiKey: key, enabled: true)
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [source()])
+        let service = AppleIntelligenceService(model: model)
+        await #expect(throws: RoutineEvidenceProposalError.invalidCitation) {
+            try await service.propose(evidence: evidence, preserving: nil)
+        }
+    }
+
+    @Test("A stale route or privacy generation is refused before the transport is entered")
+    func staleDispatchDoesNotEnterTransport() async throws {
+        var epoch = UUID(), calls = 0
+        let model = MoreLanguageModel(storage: GroundingModelStorage(), transport: { _ in
+            calls += 1
+            return try Self.response(citationID: "q1")
+        }, privacyEpoch: { epoch })
+        try model.configureOpenAI(apiKey: key, enabled: true)
+        let oldPrivacy = try model.requestContext()
+        epoch = UUID()
+        await #expect(throws: CancellationError.self) {
+            try await model.generate(instructions: "Synthetic", prompt: "No dispatch", maximumResponseTokens: 1,
+                expectedConfigurationID: oldPrivacy.configurationID, expectedPrivacyGeneration: oldPrivacy.privacyEpoch)
+        }
+        let oldRoute = try model.requestContext()
+        try model.configureOpenAI(apiKey: key + "-replacement", enabled: true)
+        await #expect(throws: CancellationError.self) {
+            try await model.generate(instructions: "Synthetic", prompt: "No dispatch", maximumResponseTokens: 1,
+                expectedConfigurationID: oldRoute.configurationID, expectedPrivacyGeneration: oldRoute.privacyEpoch)
+        }
+        #expect(calls == 0)
+    }
+
+    @Test("Route replacement while a provider returns cannot publish a grounded proposal")
+    func changedRouteCannotPublish() async throws {
+        var model: MoreLanguageModel!
+        var calls = 0
+        model = MoreLanguageModel(storage: GroundingModelStorage(), transport: { _ in
+            calls += 1
+            try model.useLocal()
+            return try Self.response(citationID: "q1")
+        })
+        try model.configureOpenAI(apiKey: key, enabled: true)
+        let evidence = try LearningEvidencePreparation.prepare(acquisitions: [source()])
+        await #expect(throws: CancellationError.self) {
+            try await AppleIntelligenceService(model: model).propose(evidence: evidence, preserving: nil)
+        }
+        #expect(calls == 1 && !model.usesOpenAI)
+    }
+
+    @Test("Narration uses its explicitly injected model instead of the host shared selection")
+    func narratorUsesInjectedModel() async throws {
+        var calls = 0
+        let model = MoreLanguageModel(storage: GroundingModelStorage(), transport: { request in
+            calls += 1
+            let data = try JSONSerialization.data(withJSONObject: ["status": "completed", "output": [["type": "message", "role": "assistant",
+                "content": [["type": "output_text", "text": "One invented item is available."]]]]])
+            let url = try #require(request.url)
+            let response = try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil))
+            return (data, response)
+        })
+        try model.configureOpenAI(apiKey: key, enabled: true)
+        let text = try await ConnectedResultNarrator(model: model).summarize(.object(["count": .number(1)]), service: "SYNTHETIC")
+        #expect(text == "One invented item is available." && calls == 1)
+    }
+
+    @Test("The remote grounded schema excludes free details and quotes while the legacy schema retains its contract")
+    func groundedSchemaIsSeparateFromLegacy() throws {
+        let properties = try #require(OpenAIRoutineSchema.make(citationIDs: ["q1", "q2"]).objectValue?["properties"]?.objectValue)
+        let step = try #require(properties["steps"]?.objectValue?["items"]?.objectValue?["properties"]?.objectValue)
+        #expect(Set(step.keys) == ["title", "kind", "durationMinutes", "citationIDs"])
+        #expect(step["citationIDs"]?.objectValue?["maxItems"] == .number(1))
+        #expect(step["citationIDs"]?.objectValue?["items"]?.objectValue?["enum"] == .array([.string("q1"), .string("q2")]))
+        let empty = try #require(OpenAIRoutineSchema.make(citationIDs: []).objectValue?["properties"]?.objectValue)
+        #expect(empty["steps"]?.objectValue?["maxItems"] == .number(0))
+        #expect(empty["outcome"]?.objectValue?["enum"] == .array([.string("insufficientEvidence")]))
+        let legacy = try #require(OpenAIRoutineSchema.make().objectValue?["properties"]?.objectValue?["steps"]?.objectValue?["items"]?.objectValue?["properties"]?.objectValue)
+        #expect(legacy["detail"] != nil && legacy["evidenceQuote"] != nil && legacy["evidenceKind"] != nil)
+        #expect(legacy["citationIDs"] == nil)
+    }
+
+    private func source() throws -> ObservationAcquisition {
+        try .init(importedAt: Date(timeIntervalSince1970: 1_792_123_200),
+            observedDate: .init(date: Date(timeIntervalSince1970: 1_792_123_200), timeZoneIdentifier: "UTC", provenance: .userAssigned),
+            origin: .synthetic, sourceKind: .manual, sourceLabel: "SYNTHETIC model routing contract",
+            originalText: "I review the project agenda after breakfast.\n")
+    }
+
+    private static func response(citationID: String) throws -> (Data, HTTPURLResponse) {
+        let result: [String: Any] = ["outcome": "supportedActivities", "steps": [["title": "Review project agenda", "kind": "calendar",
+            "durationMinutes": 2, "citationIDs": [citationID], "detail": "Uncited Friday in the West room.", "quote": "Invented quote"]]]
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self)
+        let data = try JSONSerialization.data(withJSONObject: ["status": "completed", "output": [["type": "message", "role": "assistant",
+            "content": [["type": "output_text", "text": text]]]]])
+        return (data, try #require(HTTPURLResponse(url: MoreLanguageModel.endpoint, statusCode: 200, httpVersion: nil, headerFields: nil)))
+    }
+}
+
+@MainActor
+private final class GroundingModelStorage: MoreModelCredentialStorage {
+    private var value: Data?
+    func load() throws -> Data? { value }
+    func save(_ data: Data) throws { value = data }
+    func clear() throws { value = nil }
+}

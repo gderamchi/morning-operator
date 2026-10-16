@@ -22,8 +22,7 @@ struct MorningBriefingView: View {
           ScrollViewReader { proxy in
             MorningForm {
                 Section {
-                    Text("Before you begin.").font(.raleway(.subheadline, .semibold))
-                    Text("Choose what you'd like to hear before the rest of your morning.")
+                    Text("Choose what you'd like to hear in your morning.")
                         .font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 }
                 if store.usesSyntheticBriefing {
@@ -40,6 +39,7 @@ struct MorningBriefingView: View {
                     calendarSection.disabled(store.sessionActive)
                     healthSection
                     weatherSection
+                    MorningExtrasSettingsSection(store: store)
                     recapSection
                 }
                 if let error = controller.errorMessage {
@@ -47,8 +47,10 @@ struct MorningBriefingView: View {
                         .accessibilityIdentifier("briefing.error") }
                 }
                 Section {
+                  DisclosureGroup(MorningPermissionSetup.text("About this recap", "À propos du récapitulatif")) {
                     Text("MORE prepares this recap when you open the app and checks it again before speaking. Overnight preparation isn't guaranteed.")
-                    Text(MorningPermissionSetup.text("This recap uses only the sources you choose. Sleep stays on this device; MORE never changes your health records.", "Ce récapitulatif utilise uniquement les sources choisies. Le sommeil reste sur cet appareil ; MORE ne modifie jamais vos données de santé."))
+                    Text(MorningPermissionSetup.text("Only your chosen sources are used. Health stays local unless you start the optional online conversation. MORE never changes your Health records.", "Seules vos sources choisies sont utilisées. Santé reste local sauf si vous démarrez la conversation en ligne facultative. MORE ne modifie jamais vos données Santé."))
+                  }
                 }.font(.raleway(.caption2)).foregroundStyle(MorningStyle.muted)
             }
             .scrollContentBackground(.hidden).background(MorningPaper(showsSun: false))
@@ -135,44 +137,7 @@ struct MorningBriefingView: View {
     }
 
     private var healthSection: some View {
-        Section {
-            Toggle(isOn: Binding(get: { controller.settings.includesHealth }, set: { included in
-                stopPreview()
-                if included {
-                    Task { if await controller.enableHealth() { await store.prepareDayIfConfigured() } }
-                } else { store.disableHealthInBriefing() }
-            })) {
-                Text(MorningPermissionSetup.text("Include recorded sleep", "Inclure le sommeil enregistré"))
-            }
-            .disabled(controller.isConnectingHealth || (store.sessionActive && !controller.settings.includesHealth))
-            .accessibilityIdentifier("briefing.healthIncluded")
-            if controller.isConnectingHealth {
-                ProgressView(MorningPermissionSetup.text("Opening Apple Health…", "Ouverture de Santé Apple…"))
-                Button(MorningPermissionSetup.text("Cancel sleep setup", "Annuler l’activation du sommeil")) {
-                    store.disableHealthInBriefing()
-                }
-            }
-            if let issue = controller.healthConnectionIssue {
-                Text(issue).foregroundStyle(MorningStyle.muted).accessibilityIdentifier("briefing.healthError")
-            }
-            if controller.settings.includesHealth {
-                if let document = controller.prepared {
-                    MorningSleepDetailsView(section: document.sleep)
-                } else {
-                    Text(MorningPermissionSetup.text("Sleep needs a fresh reading.", "Le sommeil doit être relu."))
-                }
-                Button(MorningPermissionSetup.text("Refresh sleep", "Actualiser le sommeil")) {
-                    stopPreview()
-                    Task { _ = await controller.refresh(force: true) }
-                }.disabled(controller.isPreparing).accessibilityIdentifier("briefing.refreshSleep")
-                Text(MorningPermissionSetup.text("If no record appears, check Sleep access for MORE in Apple Health and allow time for your watch to sync. Apple does not tell MORE whether reading was allowed.", "Si aucun enregistrement n’apparaît, vérifiez l’accès Sommeil de MORE dans Santé Apple et laissez votre montre se synchroniser. Apple n’indique pas à MORE si la lecture a été autorisée."))
-                    .font(.caption).foregroundStyle(MorningStyle.muted)
-            }
-        } header: { Text(MorningPermissionSetup.text("Apple Health · optional sleep", "Santé Apple · sommeil facultatif")) }
-        footer: {
-            Text(MorningPermissionSetup.text("Off by default. Turning this on opens Apple’s permission sheet for sleep only. MORE reads recorded asleep time and its window, never time in bed, a recovery score or a diagnosis. Samples and recap stay in memory. Manage access in Apple Health → profile → Apps → MORE.", "Désactivé par défaut. L’activation ouvre la demande Apple pour le sommeil uniquement. MORE lit la durée et la période enregistrées comme sommeil, jamais le temps au lit, un score de récupération ou un diagnostic. Les données et le récapitulatif restent en mémoire. Gérez l’accès dans Santé Apple → profil → Apps → MORE."))
-                .font(.caption2)
-        }
+        MorningHealthSection(store: store, stopPreview: stopPreview)
     }
 
     private var recapSection: some View {
@@ -188,7 +153,7 @@ struct MorningBriefingView: View {
                 .accessibilityIdentifier("briefing.hear")
             if store.routine != nil {
                 let alreadyAdded = store.routine?.steps.contains(where: { $0.automation == .morningBriefing }) == true
-                Button(alreadyAdded ? "Already in your morning" : "Add to my morning") {
+                Button(alreadyAdded ? String(localized: "Already in your morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Add to my morning", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
                     addedToMorning = store.addBriefingToRoutine()
                 }.disabled(store.sessionActive || alreadyAdded).accessibilityIdentifier("briefing.addToRoutine")
                 if addedToMorning { Text("Added as a draft. Review and approve your routine.").accessibilityIdentifier("briefing.saved") }
@@ -440,7 +405,7 @@ struct MorningBriefingDocumentView: View {
 }
 
 /// Source categories are inferred from HealthKit metadata, never personal source IDs.
-private struct MorningSleepDetailsView: View {
+struct MorningSleepDetailsView: View {
     let section: MorningBriefingSection
 
     var body: some View {
@@ -452,7 +417,7 @@ private struct MorningSleepDetailsView: View {
                     .font(.caption).accessibilityIdentifier("briefing.sleepSources")
             }
             if let readAt = section.retrievedAt {
-                Text(MorningPermissionSetup.text("Read locally: ", "Lecture locale : ") + readAt.formatted(date: .abbreviated, time: .shortened))
+                Text(MorningPermissionSetup.text("Read locally: ", "Lecture locale : ") + readAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(AppLanguage.locale)))
                     .font(.caption2)
             }
             Text(MorningPermissionSetup.text("Overlapping records count once. The union can differ from Apple Health’s source priority.", "Les enregistrements qui se chevauchent sont comptés une seule fois. Le total peut différer de Santé Apple, qui applique sa priorité de sources."))

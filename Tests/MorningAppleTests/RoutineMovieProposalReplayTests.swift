@@ -26,7 +26,7 @@ struct RoutineMovieProposalReplayTests {
         try #require(video.pathExtension.lowercased() == "mp4" && output.pathExtension == "json" && !FileManager.default.fileExists(atPath: output.path))
         let variant = env["MO_ROUTINE_REPLAY_VARIANT"] ?? "exact"
         var report = ReplayReport(variant: ["exact", "noClassification", "oneFrame"].contains(variant) ? variant : "invalid")
-        let model = AppleIntelligenceService()
+        let model = AppleIntelligenceService(model: .localOnly())
         do {
             guard ["exact", "noClassification", "oneFrame"].contains(report.variant),
                   (try input.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max) <= 8 * 1_024 * 1_024 else { throw ReplayFailure.invalidInput }
@@ -101,6 +101,7 @@ struct RoutineMovieProposalReplayTests {
     private static func category(_ error: any Error) -> String {
         switch error {
         case AppleIntelligenceError.unavailable: "localModelUnavailable"
+        case AppleIntelligenceError.modelDidNotAnswer(let reason): "localModelDidNotAnswer.\(reason.rawValue)"
         case RoutineEvidenceProposalError.insufficientEvidence: "insufficientEvidence"
         case RoutineEvidenceProposalError.invalidCitation: "invalidCitation"
         case RoutineEvidenceProposalError.invalidProposal, ReplayFailure.invalidProposal: "invalidProposal"

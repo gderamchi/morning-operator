@@ -1,4 +1,5 @@
 import Foundation
+import MorningCore
 
 // The short opening of a morning (issue #28): one greeting, facts the prepared briefing
 // already holds, then an explicit choice. Nothing here reads a source, calls a model or
@@ -51,7 +52,7 @@ public struct MorningUnknownSenderShare: Sendable, Equatable {
 
 public struct MorningOpeningSegment: Identifiable, Sendable, Equatable {
     public enum Source: String, Sendable, Equatable {
-        case greeting, weather, umbrella, calendar, count, unknownSenders, choice
+        case greeting, weather, umbrella, calendar, count, unknownSenders, extra, choice
     }
     public let id: String
     public let source: Source
@@ -80,6 +81,7 @@ public enum MorningOpeningComposer {
                                counts: [MorningOpeningProvider: MorningOpeningCount] = [:],
                                precipitation: MorningPrecipitationForecast? = nil,
                                unknownSenders: MorningUnknownSenderShare? = nil,
+                               extras: MorningExtrasSelection = .empty,
                                offersBrief: Bool = true) -> MorningOpening {
         let locale = Locale(identifier: briefing.localeIdentifier)
         let phrases = MorningOpeningPhrases(french: locale.language.languageCode?.identifier == "fr")
@@ -145,6 +147,12 @@ public enum MorningOpeningComposer {
            (0...total).contains(share.unknownSenders) {
             let percent = Int((Double(share.unknownSenders) / Double(total) * 100).rounded())
             add("unknownSenders", .unknownSenders, phrases.unknownSenders(percent: percent))
+        }
+
+        // The short extras, already chosen, worded and budgeted by `MorningExtrasComposer`.
+        // They are quoted only inside the briefing's day, like every other fact here.
+        if inWindow {
+            for item in extras.items { add("extra.\(item.kind.rawValue)", .extra, item.text) }
         }
 
         // The brief is offered only when it has something current to read. Sleep is not

@@ -1,5 +1,7 @@
 # Apple model and recording plan
 
+**16 October update:** the owner explicitly authorized a separate opt-in OpenAI text route. It is implemented in `MoreLanguageModel`, described in [INTELLIGENCE.md](INTELLIGENCE.md), and does not enable PCC or any automatic fallback. The Apple capture/media/PCC gates below remain unchanged.
+
 15 October 2026 · Future adapter plan · Related #2, #23, #27, #29 and #161.
 
 MORE keeps recording and analysis local by default. The current app uses on-device Foundation Models and local media extraction. An optional Apple Private Cloud Compute route can extend analysis after its public API, entitlement, device, privacy and quality gates pass. It is not implemented or granted in this project today.

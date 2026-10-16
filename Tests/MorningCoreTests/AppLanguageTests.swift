@@ -2,8 +2,63 @@ import Foundation
 import Testing
 @testable import MorningCore
 
-@Suite("Primary device language")
+@Suite("Chosen and primary device language")
 struct AppLanguageTests {
+    @Test func savedChoiceWinsOverThePrimaryDeviceLanguage() {
+        #expect(AppLanguage.resolve(saved: "en", preferredLanguages: ["fr-FR"]) == "en")
+        #expect(AppLanguage.resolve(saved: "fr", preferredLanguages: ["en-US"]) == "fr")
+        #expect(AppLanguage.resolve(saved: "fr", preferredLanguages: ["de-DE", "en-US"]) == "fr")
+        #expect(AppLanguage.resolve(saved: "de", preferredLanguages: ["fr-CA"]) == "fr")
+        #expect(AppLanguage.resolve(saved: "unsupported", preferredLanguages: ["de-DE", "fr-FR"]) == "en")
+        #expect(AppLanguage.resolve(saved: nil, preferredLanguages: []) == "en")
+        #expect(AppLanguage.supportedCodes == ["fr", "en"])
+    }
+
+    @Test func chosenLanguagePreservesRegionalFormats() {
+        let current = Locale(identifier: "en_CA@calendar=gregorian;hours=h23;numbers=latn")
+        let chosen = AppLanguage.resolvedLocale(saved: "fr", preferredLanguages: ["en-US"], current: current)
+        #expect(chosen.language.languageCode?.identifier == "fr")
+        #expect(chosen.region == current.region)
+        #expect(chosen.calendar.identifier == current.calendar.identifier)
+        #expect(chosen.hourCycle == current.hourCycle)
+        #expect(chosen.numberingSystem == current.numberingSystem)
+    }
+
+    @Test("Reading a chosen language preserves its persisted preference and neighboring settings")
+    func chosenPreferenceIsNotLegacyCleanup() throws {
+        let name = "test.more.chosen-language." + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.setPersistentDomain(["more.appLanguage": "fr", "AppleLanguages": ["fr"],
+                                      "readAloud": true, "unrelated": "kept"], forName: name)
+        let before = try #require(defaults.persistentDomain(forName: name))
+        #expect(AppLanguage.resolve(saved: defaults.string(forKey: AppLanguage.preferenceKey), preferredLanguages: ["en-US"]) == "fr")
+        let after = try #require(defaults.persistentDomain(forName: name))
+        #expect(NSDictionary(dictionary: before).isEqual(to: after))
+        #expect(after["more.appLanguage"] as? String == "fr")
+        #expect(after["AppleLanguages"] as? [String] == ["fr"])
+    }
+
+    @Test("Test-only argument and registered language overlays do not mutate the process locale")
+    func languageOverridesStayInTheirIsolatedDefaults() throws {
+        let processLanguages = Locale.preferredLanguages
+        for arguments in [true, false] {
+            let name = "test.more.language-overlay." + UUID().uuidString
+            let defaults = try #require(NonpersistentOverlayDefaults(suiteName: name))
+            defer { defaults.removePersistentDomain(forName: name) }
+            defaults.setPersistentDomain(["AppleLanguages": ["en"], "unrelated": "kept"], forName: name)
+            if arguments {
+                defaults.setVolatileDomain(["more.appLanguage": "fr", "AppleLanguages": ["fr"]], forName: UserDefaults.argumentDomain)
+            } else { defaults.register(defaults: ["more.appLanguage": "fr"]) }
+            #expect(AppLanguage.resolve(saved: defaults.string(forKey: AppLanguage.preferenceKey), preferredLanguages: ["en-US"]) == "fr")
+            let persisted = try #require(defaults.persistentDomain(forName: name))
+            #expect(persisted["more.appLanguage"] == nil)
+            #expect(persisted["AppleLanguages"] as? [String] == ["en"])
+            #expect(persisted["unrelated"] as? String == "kept")
+        }
+        #expect(Locale.preferredLanguages == processLanguages)
+    }
+
     @Test("French variants use French regardless of region", arguments: [
         "fr", "fr-FR", "fr-CA", "fr-BE", "fr-CH", "fr_CA", "fr-Latn-CA", "fr-CA-u-ca-gregory"
     ])
@@ -21,109 +76,6 @@ struct AppLanguageTests {
     @Test("Missing language preferences default to English")
     func missingPreferences() {
         #expect(AppLanguage.resolvedCode(preferredLanguages: []) == "en")
-    }
-
-    @Test("Only the exact persisted picker pair is removed", arguments: ["fr", "en"])
-    func removesIdentifiableLegacyPair(_ code: String) throws {
-        try withIsolatedDefaults { defaults, name in
-            defaults.setPersistentDomain(["more.appLanguage": code, "AppleLanguages": [code],
-                                          "unrelated": "kept", "readAloud": true], forName: name)
-            AppLanguage.removeLegacyLanguageOverride(in: defaults, domainName: name)
-            let domain = try #require(defaults.persistentDomain(forName: name))
-            #expect(domain["more.appLanguage"] == nil)
-            #expect(domain["AppleLanguages"] == nil)
-            #expect(domain["unrelated"] as? String == "kept")
-            #expect(domain["readAloud"] as? Bool == true)
-        }
-    }
-
-    @Test("A changed, multiple or unidentifiable persisted language preference is retained")
-    func preservesOtherLanguagePreferences() throws {
-        let alternatives: [Any] = [["en"], ["fr", "en"], "fr", 17]
-        for languages in alternatives {
-            try withIsolatedDefaults { defaults, name in
-                defaults.setPersistentDomain(["more.appLanguage": "fr", "AppleLanguages": languages,
-                                              "unrelated": "kept"], forName: name)
-                var expected = try #require(defaults.persistentDomain(forName: name))
-                if let codes = languages as? [String] {
-                    #expect(expected["AppleLanguages"] as? [String] == codes)
-                } else if let persisted = expected["AppleLanguages"] {
-                    if let text = languages as? String {
-                        #expect(persisted as? String == text)
-                    } else {
-                        #expect(persisted as? Int == languages as? Int)
-                    }
-                }
-                // Foundation may reject malformed AppleLanguages values on write.
-                // Preserve the actual persisted snapshot, not an unpersisted input.
-                expected.removeValue(forKey: "more.appLanguage")
-                AppLanguage.removeLegacyLanguageOverride(in: defaults, domainName: name)
-                let domain = try #require(defaults.persistentDomain(forName: name))
-                #expect(domain["more.appLanguage"] == nil)
-                #expect(NSDictionary(dictionary: domain).isEqual(to: expected))
-                #expect(domain["unrelated"] as? String == "kept")
-                // The old marker cannot later erase a newly matching preference.
-                defaults.set(["fr"], forKey: "AppleLanguages")
-                AppLanguage.removeLegacyLanguageOverride(in: defaults, domainName: name)
-                #expect(defaults.persistentDomain(forName: name)?["AppleLanguages"] as? [String] == ["fr"])
-            }
-        }
-    }
-
-    @Test("Argument and registered defaults cannot identify an old persisted picker choice")
-    func ignoresNonpersistentMarkers() throws {
-        let processLanguages = Locale.preferredLanguages
-        for useArguments in [true, false] {
-            try withIsolatedDefaults(make: { NonpersistentOverlayDefaults(suiteName: $0) }) { defaults, name in
-                defaults.setPersistentDomain(["AppleLanguages": ["fr"], "unrelated": "kept"], forName: name)
-                if useArguments {
-                    defaults.setVolatileDomain(["more.appLanguage": "fr"], forName: UserDefaults.argumentDomain)
-                } else {
-                    defaults.register(defaults: ["more.appLanguage": "fr"])
-                }
-                #expect(defaults.object(forKey: "more.appLanguage") as? String == "fr")
-                #expect(defaults.string(forKey: "more.appLanguage") == "fr")
-                AppLanguage.removeLegacyLanguageOverride(in: defaults, domainName: name)
-                #expect(defaults.persistentDomain(forName: name)?["AppleLanguages"] as? [String] == ["fr"])
-                #expect(defaults.object(forKey: "more.appLanguage") as? String == "fr")
-
-                // An argument override must not make different persisted values match.
-                defaults.setPersistentDomain(["more.appLanguage": "fr", "AppleLanguages": ["en"],
-                                              "unrelated": "kept"], forName: name)
-                defaults.setVolatileDomain(["AppleLanguages": ["fr"]], forName: UserDefaults.argumentDomain)
-                #expect(defaults.array(forKey: "AppleLanguages") as? [String] == ["fr"])
-                AppLanguage.removeLegacyLanguageOverride(in: defaults, domainName: name)
-                let domain = try #require(defaults.persistentDomain(forName: name))
-                #expect(domain["more.appLanguage"] == nil)
-                #expect(domain["AppleLanguages"] as? [String] == ["en"])
-                #expect(domain["unrelated"] as? String == "kept")
-                #expect(defaults.volatileDomain(forName: UserDefaults.argumentDomain)["AppleLanguages"] as? [String] == ["fr"])
-            }
-        }
-        #expect(Locale.preferredLanguages == processLanguages)
-    }
-
-    @Test("Absent or unknown markers leave the persisted domain untouched")
-    func preservesUnmarkedPreferences() throws {
-        try withIsolatedDefaults { defaults, name in
-            AppLanguage.removeLegacyLanguageOverride(in: defaults, domainName: name)
-            #expect(defaults.persistentDomain(forName: name) == nil)
-            defaults.setPersistentDomain(["more.appLanguage": "es", "AppleLanguages": ["es"],
-                                          "unrelated": "kept"], forName: name)
-            AppLanguage.removeLegacyLanguageOverride(in: defaults, domainName: name)
-            let domain = try #require(defaults.persistentDomain(forName: name))
-            #expect(domain["more.appLanguage"] as? String == "es")
-            #expect(domain["AppleLanguages"] as? [String] == ["es"])
-            #expect(domain["unrelated"] as? String == "kept")
-        }
-    }
-
-    private func withIsolatedDefaults(make: (String) -> UserDefaults? = { UserDefaults(suiteName: $0) },
-                                      _ body: (UserDefaults, String) throws -> Void) throws {
-        let name = "test.more.language-migration." + UUID().uuidString
-        let defaults = try #require(make(name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        try body(defaults, name)
     }
 
     @Test("Region does not select the interface language")
@@ -177,6 +129,8 @@ struct AppLanguageTests {
                 .write(to: localization.appendingPathComponent("Localizable.strings"))
         }
         let bundle = try #require(Bundle(url: directory))
+        #expect(AppLanguage.bundle(for: bundle, languageCode: "fr").localizedString(forKey: "Weather", value: nil, table: nil) == "Météo")
+        #expect(AppLanguage.bundle(for: bundle, languageCode: "en").localizedString(forKey: "Weather", value: nil, table: nil) == "Weather")
         let english = AppLanguage.resolvedLocale(preferredLanguages: ["es-ES", "fr-FR"], current: Locale(identifier: "es_ES"))
         let french = AppLanguage.resolvedLocale(preferredLanguages: ["fr-CA", "en"], current: Locale(identifier: "en_US"))
         #expect(AppLanguage.localized("Weather", bundle: bundle, locale: english) == "Weather")
@@ -188,8 +142,8 @@ struct AppLanguageTests {
 }
 
 /// Foundation's NSArgumentDomain and registration domain are process-shared even
-/// for named suites. Keep their aggregate lookup behavior local to this test
-/// double; the UUID persistent domain and its removal use real UserDefaults.
+/// for named suites. Keep argument/registration lookup local to this test
+/// double; only its UUID persistent domain uses real UserDefaults.
 /// Each mutable instance stays inside one synchronous test scope.
 private final class NonpersistentOverlayDefaults: UserDefaults, @unchecked Sendable {
     private var argumentValues: [String: Any] = [:]

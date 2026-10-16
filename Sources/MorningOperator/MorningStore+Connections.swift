@@ -302,7 +302,15 @@ extension MorningStore {
         guard let document = connectedMoment.document, document.executionID == context else { return }
         connectedMoment.markPresenting(attempt, executionID: context)
         do {
-            let summary = try await ConnectedResultNarrator().summarize(document.result, service: document.service)
+            let narrator: ConnectedResultNarrator
+            #if DEBUG
+            if SlackSetupUITestFixture.integratedJourneyRequested {
+                narrator = ConnectedResultNarrator(model: .localOnly(directory: LocalDataControl.defaultDirectory))
+            } else { narrator = ConnectedResultNarrator() }
+            #else
+            narrator = ConnectedResultNarrator()
+            #endif
+            let summary = try await narrator.summarize(document.result, service: document.service)
             guard !Task.isCancelled, connectedActionIsCurrent(context, generation: generation),
                   connectedMoment.present(summary, token: attempt, executionID: context) else { return }
             connectedMoment.markPresenting(attempt, executionID: context)

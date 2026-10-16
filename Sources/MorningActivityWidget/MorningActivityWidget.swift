@@ -16,7 +16,7 @@ struct MorningActivityWidget: Widget {
         ActivityConfiguration(for: MorningActivityAttributes.self) { context in
             MorningActivityLockScreen(state: context.state, isStale: context.isStale,
                                       sessionID: context.attributes.sessionID)
-                .environment(\.locale, AppLanguage.locale)
+                .environment(\.locale, context.state.locale)
                 .environment(\.layoutDirection, .leftToRight)
                 .widgetURL(MorningActivityPresentation.destination)
         } dynamicIsland: { context in
@@ -35,7 +35,7 @@ struct MorningActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     MorningActivityIslandDetail(presentation: presentation,
                                                 sessionID: context.attributes.sessionID)
-                        .environment(\.locale, AppLanguage.locale)
+                        .environment(\.locale, context.state.locale)
                         .environment(\.layoutDirection, .leftToRight)
                 }
             } compactLeading: {
@@ -48,10 +48,10 @@ struct MorningActivityWidget: Widget {
             } compactTrailing: {
                 if context.isStale {
                     Text("!").font(.caption.weight(.semibold)).foregroundStyle(.white)
-                        .accessibilityLabel(AppLanguage.localized("Update needed. Open MORE."))
+                        .accessibilityLabel(activityText("Update needed. Open MORE.", locale: context.state.locale))
                 } else if let timer = context.state.stepTimer {
                     StepCountdown(timer: timer, state: context.state)
-                        .environment(\.locale, AppLanguage.locale)
+                        .environment(\.locale, context.state.locale)
                         .environment(\.layoutDirection, .leftToRight)
                         .font(.caption2.monospacedDigit()).foregroundStyle(.white)
                         .frame(maxWidth: 52)
@@ -96,6 +96,9 @@ private struct MorningActivityLockScreen: View {
                 Text(presentation.status).font(.caption.weight(.medium)).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            #if MORE_JURY_DEMO
+            JuryDemoIslandControls(sessionID: sessionID, paused: state.status == .paused)
+            #endif
             if let timer = state.stepTimer {
                 if dynamicTypeSize.isAccessibilitySize {
                     VStack(alignment: .leading, spacing: 8) {
@@ -114,7 +117,7 @@ private struct MorningActivityLockScreen: View {
             } else {
                 Text(presentation.heading).font(.headline).foregroundStyle(ink)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(isStale ? AppLanguage.localized("Open MORE to update.") : presentation.progress)
+                Text(isStale ? activityText("Open MORE to update.", locale: state.locale) : presentation.progress)
                     .font(.caption).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -168,12 +171,17 @@ private struct MorningActivityIslandDetail: View {
                     Text(presentation.heading)
                         .font(dynamicTypeSize.isAccessibilitySize ? .subheadline.weight(.semibold) : .headline)
                         .foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
-                    Text(presentation.isStale ? AppLanguage.localized("Open MORE to update.") : presentation.progress)
+                    Text(presentation.isStale ? activityText("Open MORE to update.", locale: presentation.state.locale) : presentation.progress)
                         .font(.caption).foregroundStyle(.white.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
+        #if MORE_JURY_DEMO
+        .safeAreaInset(edge: .bottom, spacing: 10) {
+            JuryDemoIslandControls(sessionID: sessionID, paused: presentation.state.status == .paused)
+        }
+        #endif
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilitySummary)
@@ -187,15 +195,15 @@ private struct MorningActivityPresentation {
     static var destination: URL { URL(string: "\(scheme)://morning")! }
     static var scheme: String { Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "more" }
 
-    var heading: String { isStale ? AppLanguage.localized("Update needed") : state.category.displayName }
-    var status: String { isStale ? AppLanguage.localized("Update needed") : state.status.displayName }
+    var heading: String { isStale ? activityText("Update needed", locale: state.locale) : state.category.displayName(locale: state.locale) }
+    var status: String { isStale ? activityText("Update needed", locale: state.locale) : state.status.displayName(locale: state.locale) }
     var artworkProgress: Double? { state.stepTimer?.elapsedFraction(at: state.updatedAt) }
     var shortProgress: String { "\(state.completedSteps)/\(state.totalSteps)" }
-    var progress: String { AppLanguage.localized("\(state.completedSteps) of \(state.totalSteps) moments passed") }
-    var lastUpdate: String { AppLanguage.localized("Last update \(state.updatedAt.formatted(date: .omitted, time: .shortened))") }
+    var progress: String { activityText("\(state.completedSteps) of \(state.totalSteps) moments passed", locale: state.locale) }
+    var lastUpdate: String { activityText("Last update \(state.updatedAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(state.locale)))", locale: state.locale) }
     var accessibilitySummary: String {
-        if isStale { return AppLanguage.localized("MORE. Update needed. Last saved progress: \(progress). \(lastUpdate). Open MORE to update.") }
-        return AppLanguage.localized("MORE. \(state.category.displayName). \(status). \(progress). \(lastUpdate).")
+        if isStale { return activityText("MORE. Update needed. Last saved progress: \(progress). \(lastUpdate). Open MORE to update.", locale: state.locale) }
+        return activityText("MORE. \(state.category.displayName(locale: state.locale)). \(status). \(progress). \(lastUpdate).", locale: state.locale)
     }
 }
 
@@ -407,9 +415,38 @@ private struct MorningWidgetProgressDots: Shape {
     }
 }
 
-/// Widget text follows the device language; older activity language metadata is
-/// retained for decoding and never overrides the device preference.
+/// Widget text follows the language pinned to its activity snapshot; ordinary
+/// app language changes publish a new snapshot through the existing coordinator.
 private func activityText(_ value: String.LocalizationValue, locale: Locale) -> String {
-    String(localized: value, bundle: AppLanguage.bundle(for: .main,
+    AppLanguage.localized(value, bundle: AppLanguage.bundle(for: .main,
         languageCode: locale.language.languageCode?.identifier), locale: locale)
 }
+
+#if MORE_JURY_DEMO
+private struct JuryDemoIslandControls: View {
+    let sessionID: UUID
+    let paused: Bool
+    var body: some View {
+        HStack(spacing: 24) {
+            if paused {
+                // iOS needs the foreground to reacquire a released microphone.
+                Link(destination: URL(string: "more-demo://resume?session=\(sessionID.uuidString)")!) {
+                    Image(systemName: "play.fill")
+                }.accessibilityLabel("Reprendre dans MORE")
+            } else {
+                Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "pause")) {
+                    Image(systemName: "pause.fill")
+                }.accessibilityLabel("Pause")
+            }
+            Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "next")) {
+                Image(systemName: "forward.end.fill")
+            }.accessibilityLabel("Suivant")
+            Button(intent: JuryDemoPlaybackIntent(sessionID: sessionID, command: "stop")) {
+                Image(systemName: "stop.fill")
+            }.accessibilityLabel("Arrêter")
+        }
+        .buttonStyle(.plain).font(.title3).frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+}
+#endif

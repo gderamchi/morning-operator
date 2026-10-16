@@ -1,8 +1,8 @@
 # MORE Composio connector
 
-Small Node.js 22+ service with no runtime dependencies. It keeps the Composio project API key on the server, creates an opaque installation identity, and exposes only configured services. It invokes tools directly with an explicit account and version; there is no remote model, natural-language tool execution, generic proxy endpoint, or Composio instant-account fallback. A [Cloudflare Workers Free + D1 adapter](CLOUDFLARE.md) preserves the same mobile contract; its locked development tools are separate from the Node runtime.
+Small Node.js 22+ service with no runtime dependencies. It keeps the Composio project API key on the server, creates an opaque installation identity, and exposes only configured services. It invokes tools directly with an explicit account and version; Composio routes use no remote model, natural-language tool execution, generic proxy endpoint, or instant-account fallback. A separate optional ElevenLabs broker issues WebRTC tokens for explicitly activated installations. A [Cloudflare Workers Free + D1 adapter](CLOUDFLARE.md) preserves the same mobile contract; its locked development tools are separate from the Node runtime.
 
-**Deployed on Cloudflare Workers Free + D1 on 15 October 2026.** The live [connector](https://more-composio.more-gderamchi.workers.dev/health) serves 16 configured public tool catalogs, including YouTube and Reddit, with 1,152 tools; the deployment/runbook and CPU evidence are in [CLOUDFLARE.md](CLOUDFLARE.md). Local tests use a synthetic upstream. A completed provider OAuth flow, mailbox action and physical-iPhone journey remain unverified. The current activation status is recorded in [CONNECTIONS.md](../../docs/CONNECTIONS.md). Provider account eligibility, scopes and approval requirements still apply.
+**Updated on Cloudflare Workers Free + D1 on 16 October 2026.** The live [connector](https://more-composio.more-gderamchi.workers.dev/health) serves 16 configured public tool catalogs, including YouTube and Reddit, with 1,152 tools; the deployment/runbook and CPU evidence are in [CLOUDFLARE.md](CLOUDFLARE.md). Local tests use a synthetic upstream. A completed provider OAuth flow, mailbox action and physical-iPhone journey remain unverified. The current activation status is recorded in [CONNECTIONS.md](../../docs/CONNECTIONS.md). Provider account eligibility, scopes and approval requirements still apply.
 
 ## Run
 
@@ -29,6 +29,8 @@ npm test
 | `MORE_CALLBACK_URLS_JSON` | Exact callback allowlist. Default includes the two native callback URLs above. A request must also match this deployment's `MORE_AUTH_CALLBACK_URL`; arbitrary client HTTPS destinations are rejected. |
 | `MORE_DATA_DIR` | Persistent private directory, default `./data`, ignored by Git. Must survive restarts. |
 | `COMPOSIO_TIMEOUT_MS` | Upstream deadline in milliseconds, 100–60000, default 20000. No automatic upstream retries. |
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID` | Optional server-only private agent credentials. Missing either disables cloud voice. |
+| `MORE_VOICE_INSTALLATIONS_JSON` | Explicit generated installation-ID allowlist, default `[]`. Public enrollment does not activate voice. |
 | `HOST`, `PORT` | Default `127.0.0.1:8787`. Configure the host explicitly for a container/reverse proxy. |
 
 One installation's random bearer token lives in the iPhone Keychain; only its SHA-256 hash and a generated stable Composio user ID are stored here. The client never supplies `user_id`, auth-config IDs, versions, API keys, arbitrary upstream URLs, or provider credentials. Losing the installation token loses access to its server identity; account recovery and multi-device identity are not implemented.
@@ -53,6 +55,7 @@ All `/v1` routes except installation creation and the browser verifier require `
 | Method/path | Request | Response |
 | --- | --- | --- |
 | `POST /v1/installations` | `{}` | `201 {token}` |
+| `POST /v1/voice/token` | `{}` | `200 {conversationToken}` for an activated installation; otherwise `503 voice_not_configured` |
 | `GET /v1/services` | — | `{services:[{id,name}]}` |
 | `GET /v1/connections` | — | `{connections:[{id,service,name,status,accountLabel?}]}` |
 | `POST /v1/connections` | `{service,callbackURL}` | `201 {id?,authorizationURL}` |
@@ -80,6 +83,14 @@ Identity comes from pinned `SLACK_TEST_AUTH` ([Slack contract](https://docs.slac
 Only named-channel IDs (`C…`/`G…`), string thread timestamps, a UUID request ID and bounded plain text are accepted. The server constructs one `section`/`plain_text` block with `emoji:false` and `block_id:more-reply-v1-<lowercase request UUID>`, plus exact `fallback_text`, disabled unfurls and `reply_broadcast:false`. It accepts no caller-supplied blocks or extra tool arguments and rejects Slack entity/mention tokens. An exact echoed account actor, channel, thread, timestamp, marker and body are required before success. The marker supports receipt verification; a [section block ID](https://docs.slack.dev/reference/block-kit/blocks/section-block/) is **not** a Slack idempotency key.
 
 The send fingerprint includes the expected identity, destination and exact body. The same atomic reservation and content-free journal described below apply to this route, including D1 across Worker isolates. A timeout, inner Slack failure, mismatched echo or lost durable receipt after dispatch stays `execution_uncertain` and is never retried automatically. There is no reconciliation endpoint in this slice. The local tests exercise the real Worker router and D1 with intercepted synthetic upstream calls; they do not establish Slack account access or a live post.
+
+## Optional cloud conversation
+
+The voice route requests an [ElevenLabs WebRTC session token](https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/get-webrtc-token) for one server-configured private agent. It does not use the WebSocket signed-URL endpoint. The app receives only `conversationToken`; the API key, agent configuration and provider conversation ID stay out of the response. The broker sends no source text, Health samples or audio. A separate app session can send microphone audio and selected spoken context to ElevenLabs and its configured model only after the app's per-session cloud consent. Connecting Health alone does not grant that consent.
+
+A configured deployment records a refused authenticated request as the generated installation ID and last request time only (`voice_activation_requests` in D1; `voice-activation` metadata files in Node). Invalid bodies and unauthenticated requests create no activation request. A request is not an entitlement or automatic approval: an operator must verify the intended installation through a trusted owner channel before adding its ID to the private allowlist. Public enrollment, catalog access and a database row alone never authorize a paid conversation. Receipt-backed subscription enforcement and identity recovery are not implemented by this broker.
+
+The provider request has a ten-second deadline, a 64 KiB response bound and no retry. Redirects are refused with Fetch `manual` and a status check; Cloudflare does not support `redirect: "error"`. Provider errors become a generic `502 voice_unavailable`, without private response bodies. Token responses are `no-store`; do not log their contents. The deployment and activation runbook is in [CLOUDFLARE.md](CLOUDFLARE.md#activate-cloud-conversation).
 
 ## Replay and uncertainty
 

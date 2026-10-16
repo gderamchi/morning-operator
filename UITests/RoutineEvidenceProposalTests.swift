@@ -103,7 +103,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
                 || $0 == "--ui-testing-approved"
         }
         app.launchArguments.append("--ui-testing-import-blank-video")
-        app.launch()
+        MorningUITestNavigation.launch(app)
         openLearn(in: app)
         let failure = app.staticTexts.matching(NSPredicate(
             format: "label CONTAINS %@ AND label CONTAINS %@",
@@ -641,7 +641,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
             "--ui-testing-workspace=\(workspaceID.uuidString)", "--ui-testing-approved",
             "--ui-testing-observation-archive", "--ui-testing-evidence-proposals"] + extra
-        app.launch()
+        MorningUITestNavigation.launch(app)
         return app
     }
 
@@ -673,7 +673,7 @@ final class RoutineEvidenceProposalTests: XCTestCase {
     private func relaunchWithoutSeed(_ app: XCUIApplication) {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-observation-archive" || $0 == "--ui-testing-approved" }
-        app.launch()
+        MorningUITestNavigation.launch(app)
     }
 
     private func reviewRoot(in app: XCUIApplication) {

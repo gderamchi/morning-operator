@@ -6,6 +6,37 @@ import XCTest
 /// let the routine progress on its own, from the speech coordinator's completion.
 @MainActor
 final class MorningBriefingTests: XCTestCase {
+    func testHealthIsDirectlyReachableAndDetailsStartCollapsed() {
+        let app = launchFixture()
+        openSettings(app)
+        tap("setup.health", app)
+        XCTAssertTrue(app.navigationBars["Health"].waitForExistence(timeout: 5))
+        let health = app.switches["briefing.healthIncluded"].firstMatch
+        XCTAssertTrue(health.waitForExistence(timeout: 5))
+        XCTAssertEqual(health.value as? String, "0")
+        XCTAssertFalse(app.staticTexts["Include recorded sleep"].exists)
+        XCTAssertEqual(app.alerts.count, 0)
+        attach("health-direct-entry-compact-off", app)
+    }
+
+    func testCloudConversationExplainsSharingBeforeOpeningMicrophone() {
+        let app = launchFixture()
+        openSettings(app)
+        tap("setup.conversation", app)
+        XCTAssertTrue(app.buttons["cloudVoice.start"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["cloudVoice.start"].isEnabled, "Conversation can be chosen from Settings without starting a morning.")
+        XCTAssertFalse(app.buttons["cloudVoice.stop"].exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "ElevenLabs", "Google Gemini")).firstMatch.exists)
+        let disclosure = app.buttons["What is shared?"]
+        reveal(disclosure, app)
+        disclosure.tap()
+        let details = app.staticTexts["cloudVoice.sharingDetails"]
+        XCTAssertTrue(details.waitForExistence(timeout: 5))
+        XCTAssertTrue(details.label.contains("Previews and recaps you choose to play"))
+        XCTAssertEqual(app.alerts.count, 0, "Viewing the choice must not open a microphone permission sheet.")
+        attach("cloud-conversation-explicit-sharing-before-start", app)
+    }
+
     func testSleepStartsOffAndUnavailableReaderDoesNotEnableIt() {
         let app = launchFixture()
         openBriefing(app)
@@ -64,7 +95,7 @@ final class MorningBriefingTests: XCTestCase {
         XCTAssertTrue(app.buttons["routine.approve"].exists)
         MorningUITestNavigation.closeRoutine(in: app)
 
-        app.terminate(); app.launch()
+        app.terminate(); MorningUITestNavigation.launch(app)
         MorningUITestNavigation.assertMorningAction("morning.reviewDraft", without: "run.start", in: app)
         openBriefing(app)
         let calendar = app.switches["briefing.calendar.synthetic-day-calendar"].firstMatch
@@ -234,12 +265,19 @@ final class MorningBriefingTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--light-preview",
-            "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-briefing-fixture"] + extra
-        app.launch()
+            "--ui-testing-workspace=\(UUID().uuidString)", "--ui-testing-briefing-fixture", "-more.appLanguage", "en"] + extra
+        MorningUITestNavigation.launch(app)
         return app
     }
 
     private func openBriefing(_ app: XCUIApplication) {
+        openSettings(app)
+        tap("setup.briefing", app)
+        XCTAssertTrue(app.navigationBars["Your day"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["briefing.synthetic"].waitForExistence(timeout: 5))
+    }
+
+    private func openSettings(_ app: XCUIApplication) {
         // The ordinary Home now reveals Settings from its landscape. It has no
         // Review/date control or tab bar to navigate through.
         let settings = app.buttons["morning.settings"]
@@ -250,9 +288,6 @@ final class MorningBriefingTests: XCTestCase {
         }
         XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
         settings.tap()
-        tap("setup.briefing", app)
-        XCTAssertTrue(app.navigationBars["Your day"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["briefing.synthetic"].waitForExistence(timeout: 5))
     }
 
     private func configureSources(_ app: XCUIApplication) {

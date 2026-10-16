@@ -29,7 +29,7 @@ struct HealthKitSleepReaderTests {
             start: start, end: end, bundleIdentifier: "com.apple.health.SYNTHETIC", productType: "Watch7,1",
             wasUserEntered: false))
         #expect(sample == SleepSample(stage: .asleepCore, start: start, end: end,
-                                      sourceID: "com.apple.health.SYNTHETIC", sourceKind: .watch))
+                                      sourceID: "com.apple.health.SYNTHETIC", sourceKind: .watch, sourceProductType: "Watch7,1"))
         #expect(HealthKitSleepReader.sample(value: 999, start: start, end: end, bundleIdentifier: "x",
                                             productType: nil, wasUserEntered: false) == nil)
     }

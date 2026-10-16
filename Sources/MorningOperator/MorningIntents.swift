@@ -15,6 +15,17 @@ final class MorningIntentRouter {
     private(set) var pendingStart: MorningEntryRequest?
     private(set) var invitationPayload: MorningInvitationPayload?
 
+    #if DEBUG
+    /// Debug spike (docs/SEAMLESS-LEARNING.md): `more://watch-morning` opens the recorder
+    /// and presents Apple's picker at once, so only Apple's confirmation is left to tap.
+    private(set) var pendingWatchMorning = false
+    func requestWatchMorning() { pendingWatchMorning = true }
+    func consumeWatchMorning() -> Bool {
+        defer { pendingWatchMorning = false }
+        return pendingWatchMorning
+    }
+    #endif
+
     private init() {}
 
     func resetPendingRequests() {
@@ -22,6 +33,9 @@ final class MorningIntentRouter {
         pendingCommand = nil
         invitationPayload = nil
         pendingCaptureText = nil
+        #if DEBUG
+        pendingWatchMorning = false
+        #endif
     }
 
     func requestCommand(_ action: PendingMorningCommand.Action) {

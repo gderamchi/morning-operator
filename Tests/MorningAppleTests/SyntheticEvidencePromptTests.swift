@@ -126,7 +126,7 @@ struct SyntheticEvidencePromptTests {
             origin: .synthetic, sourceKind: .video, sourceLabel: "Synthetic task positive control",
             originalText: video.renderedText, videoEvidence: video)
         let evidence = try LearningEvidencePreparation.prepare(acquisitions: [observation])
-        let service = AppleIntelligenceService()
+        let service = AppleIntelligenceService(model: .localOnly())
         try #require(service.isAvailable, "The explicitly requested positive control needs the real local model.")
         defer { printDiagnostics(service, label: "SYNTHETIC_TASK_PROPOSAL_DIAGNOSTIC") }
         let proposal = try await service.propose(evidence: evidence, preserving: nil)
@@ -155,7 +155,7 @@ struct SyntheticEvidencePromptTests {
         let observation = try entry(text, kind: .manual)
         let evidence = try LearningEvidencePreparation.prepare(acquisitions: [observation])
         #expect(evidence.units.allSatisfy { $0.kind == .userReportedActivity })
-        let service = AppleIntelligenceService()
+        let service = AppleIntelligenceService(model: .localOnly())
         try #require(service.isAvailable, "The explicitly requested positive control needs the real local model.")
         defer { printDiagnostics(service, label: "SYNTHETIC_MANUAL_PROPOSAL_DIAGNOSTIC") }
         let proposal = try await service.propose(evidence: evidence, preserving: nil)
@@ -184,7 +184,7 @@ struct SyntheticEvidencePromptTests {
         let evidence = try LearningEvidencePreparation.prepare(acquisitions: [observation])
         let anchored = try ModelCitationPreparation.prepare(evidence)
         try #require(anchored.batchesByFirstUnitID.values.allSatisfy { !$0.anchors.isEmpty })
-        let service = AppleIntelligenceService()
+        let service = AppleIntelligenceService(model: .localOnly())
         try #require(service.isAvailable, "The explicitly requested negative control needs the real local model.")
         defer { printDiagnostics(service, label: "SYNTHETIC_VISUAL_NEGATIVE_DIAGNOSTIC") }
         do {

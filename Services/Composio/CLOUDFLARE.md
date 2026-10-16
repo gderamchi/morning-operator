@@ -1,6 +1,6 @@
 # Cloudflare Workers Free + D1
 
-**Status: deployed on Workers Free + D1, 15 October 2026.** Origin: `https://more-composio.more-gderamchi.workers.dev`. Current version: `39a6c473-3541-445c-9701-6a281f900fad`, with 16 configured services including YouTube and Reddit and the dedicated account-bound Slack reply routes. The owner dashboard previously confirmed Workers Free at $0; this update changes no plan. Before deployment, 38 backend tests pass, including 10 Worker/D1 cases. The live isolated smoke verifies health, account listing and fail-closed Slack routes with no provider write. Deployment and public catalog reads do not establish a provider connection or a verified iPhone journey. OAuth/provider evidence is recorded separately in [CONNECTIONS.md](../../docs/CONNECTIONS.md).
+**Status: updated on Workers Free + D1, 16 October 2026.** Origin: `https://more-composio.more-gderamchi.workers.dev`. Current version: `afade250-210b-42a4-ba34-b6821327c613`, with sixteen configured services, the account-bound Slack routes and an installation-gated ElevenLabs WebRTC token broker. All 44 local Node/Workerd tests pass. The live broker smoke returns a token only for one explicitly activated QA installation; health and all sixteen service registrations remain available. Existing public catalogs, execution journal, database and prior configuration were preserved. No plan change or Gmail/Slack provider write was made. Audio and the physical-iPhone cloud conversation remain unverified; OAuth/provider evidence is recorded separately in [CONNECTIONS.md](../../docs/CONNECTIONS.md).
 
 The ordinary iPhone app calls this HTTPS service directly. After the app is installed and configured, no Mac, local server or XCTest runner is part of the runtime. This backend does not change app signing/distribution requirements. The mobile REST and authenticated OAuth completion contract remain the same as [README.md](README.md). The public origin goes into the app's `MORNING_API_BASE_URL`; the Composio project API key never enters the app.
 
@@ -20,7 +20,7 @@ These are account/plan quotas, not a guarantee that this connector will always c
 
 ## Configuration and deployment
 
-The entry point is `cloudflare/worker.mjs`; it uses a native Fetch adapter around the same policy/router as the Node server. Runtime bindings are initialized inside `fetch`, not at module evaluation. Storage uses `cloudflare/storage.mjs` and migrations `0001_storage.sql` and `0002_public_catalogs.sql`. The tracked `wrangler.example.jsonc` supplies the `DB` binding and `more-composio` Worker/database names. Node compatibility remains needed for crypto/Buffer; the inherited HTTP-server compatibility flag is harmless but unused by the native adapter. Copy the template to ignored `wrangler.jsonc` for actual deployment configuration. `HOST`, `PORT` and `MORE_DATA_DIR` belong to the Node server and are not Worker storage settings.
+The entry point is `cloudflare/worker.mjs`; it uses a native Fetch adapter around the same policy/router as the Node server. Runtime bindings are initialized inside `fetch`, not at module evaluation. Storage uses `cloudflare/storage.mjs` and migrations `0001_storage.sql`, `0002_public_catalogs.sql` and additive `0003_voice_activation.sql`. The tracked `wrangler.example.jsonc` supplies the `DB` binding and `more-composio` Worker/database names. Node compatibility remains needed for crypto/Buffer; the inherited HTTP-server compatibility flag is harmless but unused by the native adapter. Copy the template to ignored `wrangler.jsonc` for actual deployment configuration. `HOST`, `PORT` and `MORE_DATA_DIR` belong to the Node server and are not Worker storage settings.
 
 Run from `Services/Composio` with Node 22+ and an authenticated Cloudflare account on Workers Free. `npm ci` installs the locked development/deployment tools; the following `npx --no-install` commands use that version. For an existing deployment, retain its configuration/database ID and skip creation and copying.
 
@@ -56,6 +56,24 @@ Store `COMPOSIO_API_KEY` only as a [Worker secret](https://developers.cloudflare
 
 In the Composio project, enable callback identity verification and configure its URL as `https://YOUR_DEPLOYED_ORIGIN/v1/oauth/callback`. This verifier forwards an opaque session to the native app; the authenticated `/v1/connections/complete` call must still finish authorization. Reuse the detailed [OAuth setup](README.md#oauth-setup-is-required).
 
+## Activate cloud conversation
+
+Keep the existing ignored `wrangler.jsonc`, database ID, sixteen-service map, callback configuration and Composio secret. Apply the additive migration before deploying the activation-request route. Store both ElevenLabs values as Worker secrets through private prompts (or `secret bulk` with a JSON object on stdin); never put them in arguments, shared files, app settings or Wrangler vars:
+
+```sh
+npm test
+npx --no-install wrangler d1 migrations apply DB --remote --config wrangler.jsonc
+npx --no-install wrangler secret put ELEVENLABS_API_KEY --config wrangler.jsonc
+npx --no-install wrangler secret put ELEVENLABS_AGENT_ID --config wrangler.jsonc
+npx --no-install wrangler deploy --config wrangler.jsonc
+```
+
+`MORE_VOICE_INSTALLATIONS_JSON` defaults to `[]`. A refused authenticated `POST /v1/voice/token` with `{}` records only `user_id` and `requested_at` in D1; it contacts no voice provider. Review these requests privately. Verify the intended device/owner through a trusted channel, then add only that generated installation ID to the private allowlist and redeploy. Do not approve every row or every newly enrolled installation. Removing an ID blocks future token minting; it does not revoke an already issued token or terminate an existing provider conversation.
+
+For acceptance, reuse one private QA installation. Verify unauthenticated `401`, invalid-body `400`, unapproved `503`, then approved `200` with exactly one `conversationToken` field and `Cache-Control: no-store`. Keep the token and permanent secrets out of logs; record only status, response-field names and token length. Check that all existing public catalog bytes, execution-journal rows, prior configuration and the Composio secret remain present. An emitted token proves the server-to-provider path; it does not prove audio, interruption, consent UI, subscription verification or a physical-iPhone conversation.
+
+The broker uses the [WebRTC token endpoint](https://elevenlabs.io/docs/eleven-agents/api-reference/conversations/get-webrtc-token), not the WebSocket signed-URL endpoint. The private agent's privacy/model settings must be verified with the provider separately; minting a token alone does not validate those settings. No provider audio or source data is sent by these acceptance requests.
+
 ## Refresh public catalogs
 
 The Worker serves a precomputed JSON string from `public_catalogs`, keyed by toolkit slug and exact configured version. It authenticates the installation before reading this row. A missing version returns `503 catalog_unavailable` with no live catalog fallback. This removes provider pagination, parsing and normalization from the request CPU budget; `/execute` still rechecks current account ownership and tool metadata with Composio.
@@ -81,6 +99,12 @@ An interruption after dispatch can leave an uncertain outcome. Never delete or r
 The separate `public_catalogs` table contains only public tool descriptions and JSON Schemas. It contains no connected-account metadata, installation bearer, user arguments or execution results. The Worker's filesystem is temporary and cannot substitute for D1 persistence. Preserve the same database binding/ID during redeployment and rollback. Restoring an older database snapshot can also discard recent reservations; reconcile actions since that snapshot before resuming execution. Define metadata retention and erasure before public release. Forgetting the iPhone token does not erase server metadata or revoke provider grants.
 
 Keep Worker request logging/observability off for sensitive flows. Do not enable body, Authorization-header or OAuth query logging, and do not use `wrangler tail` during real consent or tool actions. Platform metadata handling must be reviewed separately; application code avoiding logs does not prove that every hosting layer retains nothing.
+
+## Broker evidence, 16 October 2026
+
+`npm test` passed 44/44 Node and actual Workerd/Miniflare+D1 tests. The new cases prove that a configured but unapproved installation creates only one activation-metadata row across isolates/restarts, with no provider request; an approved synthetic installation obtains only a WebRTC token. The activated Workerd case reproduced a real `502` caused by unsupported Fetch `redirect: "error"`; `manual` plus explicit rejection of non-2xx responses fixes it without following redirects. Synthetic timeout fixtures now allow dispatch to occur on a loaded development machine; the product's twenty-second Composio deadline is unchanged.
+
+On version `afade250-210b-42a4-ba34-b6821327c613`, the live smoke returned health `200`, authenticated services `200` with sixteen registrations, voice `401` without authentication, `400` for a client-selected agent, and `503` before explicit QA activation. The refused request persisted only generated identity/time metadata. After activating that same QA identity, the route returned `200`, exactly `conversationToken`, length 1,039, and `no-store`; no permanent key appeared in the response. No token or installation identity is recorded in this runbook. Only that QA installation is allowlisted. The existing sixteen public catalogs (2,824,019 bytes) and execution-journal row count remained unchanged; the prior Composio secret and both new voice-secret names were verified. These requests sent no audio, Health samples or source context. Provider-agent configuration and a successful token are separate from actual device conversation/interrupt behavior.
 
 ## Local evidence, 15 October 2026
 

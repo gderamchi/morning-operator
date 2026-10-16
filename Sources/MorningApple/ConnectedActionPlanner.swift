@@ -1,16 +1,12 @@
-import MorningCore
 import Foundation
 import MorningCore
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
 
 public enum ConnectedActionPlanningError: LocalizedError, Sendable, Equatable {
     case unavailable, tooLarge, invalidProposal, needsDetails(String)
     public var errorDescription: String? {
         switch self {
-        case .unavailable: AppLanguage.localized("The local model is unavailable. Complete the available fields, or come back when local preparation is ready.", bundle: .module)
-        case .tooLarge: AppLanguage.localized("This action is too complex to prepare locally. Choose a simpler action.", bundle: .module)
+        case .unavailable: AppLanguage.isFrench ? "Le modèle sélectionné est indisponible. Complétez les champs disponibles, ou réessayez plus tard." : "The selected model is unavailable. Complete the available fields, or try again later."
+        case .tooLarge: AppLanguage.isFrench ? "Cette action est trop complexe à préparer. Choisissez une action plus simple." : "This action is too complex to prepare. Choose a simpler action."
         case .invalidProposal: AppLanguage.localized("MORE couldn't prepare valid details for this action. Add more detail or complete the available fields.", bundle: .module)
         case .needsDetails(let question): question
         }
@@ -27,19 +23,10 @@ public final class ConnectedActionPlanner {
 
     public convenience init() {
         self.init(generator: { prompt in
-            #if canImport(FoundationModels)
-            let session = LanguageModelSession(model: SystemLanguageModel.default, instructions: Self.instructions + "\nAny clarifying question must be in \(AppLanguage.isFrench ? "French" : "English"). Preserve personal values and tool identifiers exactly.")
-            return try await session.respond(to: prompt,
-                options: GenerationOptions(temperature: 0, maximumResponseTokens: 1_500)).content
-            #else
-            throw ConnectedActionPlanningError.unavailable
-            #endif
-        }, available: {
-            #if canImport(FoundationModels)
-            if case .available = SystemLanguageModel.default.availability { return true }
-            #endif
-            return false
-        })
+            try await MoreLanguageModel.shared.generate(
+                instructions: Self.instructions + "\nAny clarifying question must be in \(AppLanguage.isFrench ? "French" : "English"). Preserve personal values and tool identifiers exactly.", prompt: prompt,
+                                                        maximumResponseTokens: 1_500)
+        }, available: { MoreLanguageModel.shared.isAvailable })
     }
 
     init(generator: @escaping Generator, available: @escaping @MainActor () -> Bool = { true }) {

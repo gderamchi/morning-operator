@@ -234,36 +234,36 @@ public final class ScreenRecordingService {
     public func appLanguageDidChange() {
         switch state {
         case .idle:
-            message = String(localized: "Choose what to share using Apple's screen-recording picker.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            message = AppLanguage.localized("Choose what to share using Apple's screen-recording picker.", bundle: .module)
         case .choosing:
-            message = String(localized: "Confirm screen sharing in the system picker to begin.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            message = AppLanguage.localized("Confirm screen sharing in the system picker to begin.", bundle: .module)
         case .starting:
-            message = String(localized: "Starting your screen recording…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            message = AppLanguage.localized("Starting your screen recording…", bundle: .module)
         case .recording:
-            message = String(localized: "Go through your morning. Recording stops after \(selectedDuration.displayName), or you can stop it sooner.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            message = AppLanguage.localized("Go through your morning. Recording stops after \(selectedDuration.displayName), or you can stop it sooner.", bundle: .module)
         case .stopping:
             if startPending {
-                message = String(localized: "Waiting for the system recording request to finish. Any late start will be stopped.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                message = AppLanguage.localized("Waiting for the system recording request to finish. Any late start will be stopped.", bundle: .module)
             } else if needsStopRetry && !streamStopped {
-                message = String(localized: "Stop hasn't been confirmed. Retry Stop or stop recording using the system controls.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                message = AppLanguage.localized("Stop hasn't been confirmed. Retry Stop or stop recording using the system controls.", bundle: .module)
             } else if needsStopRetry {
                 message = finalization.discardRequested
-                    ? String(localized: "Screen capture stopped. Waiting for the recording to finish closing before it can be removed. Retry cleanup after it closes.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-                    : String(localized: "Screen capture stopped. The recording is still closing and is being kept. Wait or retry Stop; it will be available after it finishes closing.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                    ? AppLanguage.localized("Screen capture stopped. Waiting for the recording to finish closing before it can be removed. Retry cleanup after it closes.", bundle: .module)
+                    : AppLanguage.localized("Screen capture stopped. The recording is still closing and is being kept. Wait or retry Stop; it will be available after it finishes closing.", bundle: .module)
             } else if streamStopped {
-                message = String(localized: "Screen capture has stopped. Finishing the recording…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                message = AppLanguage.localized("Screen capture has stopped. Finishing the recording…", bundle: .module)
             } else {
-                message = String(localized: "Stopping and saving your recording…", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                message = AppLanguage.localized("Stopping and saving your recording…", bundle: .module)
             }
         case .ready:
-            message = String(localized: "Your recording is ready to review.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+            message = AppLanguage.localized("Your recording is ready to review.", bundle: .module)
             if recordingInterruption != nil {
-                message += " " + String(localized: "The system interrupted this recording. It may cover only part of your morning.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                message += " " + AppLanguage.localized("The system interrupted this recording. It may cover only part of your morning.", bundle: .module)
             }
         case .failed:
             message = temporaryURL != nil
-                ? String(localized: "The app-owned recording couldn't be removed. Retry discarding it. \("")", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
-                : String(localized: "Screen recording failed. Check the recording controls before trying again.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
+                ? AppLanguage.localized("The app-owned recording couldn't be removed. Retry discarding it. \("")", bundle: .module)
+                : AppLanguage.localized("Screen recording failed. Check the recording controls before trying again.", bundle: .module)
         }
     }
 

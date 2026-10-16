@@ -1,0 +1,85 @@
+<!doctype html><html><head><meta charset="utf-8"><title>13 Mosaic</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600&display=swap">
+<link rel="stylesheet" href="frame.css">
+<style>
+/* No words on images. The day is an 8×8 mosaic of big flat tiles: the sky as
+   it is now, the hour as a brighter tile, rain as a cooler row. Text is plain. */
+.screen { background:#ffffff; color:#1a1a1a; font-family:Manrope,sans-serif; font-weight:300; }
+.content { position:absolute; inset:0; padding:0 0 36px; display:flex; flex-direction:column; }
+.mosaic { width:100%; height:300px; }
+.pad { padding:22px 28px 0; }
+.date { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#8a8a8a; }
+h1 { font-weight:300; font-size:36px; margin:6px 0 0; letter-spacing:-.02em; }
+.total { font-size:13px; color:#8a8a8a; margin-top:4px; }
+ol { list-style:none; margin:18px 0 0; padding:0; }
+li { display:flex; justify-content:space-between; padding:9px 0; font-size:17px; border-top:1px solid #eee; }
+li small { color:#8a8a8a; font-size:13px; }
+li.done { color:#bbb; } li.now { font-weight:600; }
+.foot { margin-top:auto; display:flex; justify-content:space-between; align-items:center; font-size:15px; font-weight:600; }
+.foot b { background:#1a1a1a; color:#fff; padding:14px 26px; border-radius:999px; }
+.big { font-size:96px; font-weight:300; letter-spacing:-.05em; line-height:1; margin:10px 0 0; font-variant-numeric:tabular-nums; }
+.now-title { font-size:28px; font-weight:600; margin:8px 0 4px; }
+.purpose { font-size:14px; color:#8a8a8a; }
+.rec p { margin:0 0 14px; font-size:20px; line-height:1.4; }
+.rec p.w { font-size:26px; font-weight:600; margin:8px 0 18px; letter-spacing:-.01em; }
+.stack { margin-top:auto; display:flex; flex-direction:column; gap:10px; font-size:15px; font-weight:600; text-align:center; }
+.stack span { padding:15px; border-radius:999px; border:1.5px solid #1a1a1a; }
+.stack span.p { background:#1a1a1a; color:#fff; }
+</style></head><body>
+<div class="phone"><div class="screen"><div class="content">
+  <canvas class="mosaic" id="m1"></canvas>
+  <div class="pad">
+    <div class="date">Tuesday 14 October</div>
+    <h1>good morning</h1>
+    <div class="total">42 min planned</div>
+    <ol>
+      <li><span>Your day</span><small>3 min</small></li>
+      <li><span>People and messages</span><small>8 min</small></li>
+      <li><span>Mail</span><small>7 min</small></li>
+      <li><span>Make some tea</span><small>5 min</small></li>
+      <li><span>A little reading</span><small>6 min</small></li>
+      <li><span>A moment to move</span><small>10 min</small></li>
+      <li><span>One thought for later</span><small>3 min</small></li>
+    </ol>
+  </div>
+  <div class="foot pad"><span>Learn</span><span>History</span><b>Play</b></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content">
+  <canvas class="mosaic" id="m2"></canvas>
+  <div class="pad">
+    <div class="date">Now · 4 of 7</div>
+    <div class="big">3:40</div>
+    <div class="now-title">Make some tea</div>
+    <div class="purpose">A moment you’ve made room for.</div>
+    <ol>
+      <li class="done"><span>Mail</span><small>7 min</small></li>
+      <li class="now"><span>Make some tea</span><small>5 min</small></li>
+      <li><span>A little reading</span><small>6 min</small></li>
+    </ol>
+  </div>
+  <div class="foot pad"><span>Again</span><span>Next</span><b>Pause</b></div>
+</div></div></div>
+
+<div class="phone"><div class="screen"><div class="content rec">
+  <canvas class="mosaic" id="m3"></canvas>
+  <div class="pad">
+    <div class="date">Your day</div>
+    <p class="w">Here is your briefing for Tuesday 14 October.</p>
+    <p>Weather in Paris: mostly cloudy, 11 degrees Celsius.</p>
+    <p>At 10:00: Standup. At 14:30: Call with Léa. Plus 2 more events today.</p>
+    <p>Precipitation is likely before 16:00. Take an umbrella.</p>
+  </div>
+  <div class="stack pad"><span class="p">Hear my recap</span><span>Start my routine</span><span>Stop</span></div>
+</div></div></div>
+<script>
+function mosaic(id, cols, rows, fn){ const c=document.getElementById(id); c.width=cols; c.height=rows; const x=c.getContext('2d');
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){ x.fillStyle=fn(i,j); x.fillRect(i,j,1,1);} }
+// (a) pre-dawn: deep blues warming at the bottom-right; the sun = one orange tile
+mosaic('m1',8,6,(i,j)=>{ if(i===6&&j===4) return '#f28c4b'; const t=(j/5)*.6+(i/7)*.25; const c=[[18,28,58],[58,52,88],[160,96,96],[236,160,110]]; const k=Math.min(2,Math.floor(t*3)); const f=t*3-k; const m=c[k].map((v,n)=>Math.round(v+(c[k+1][n]-v)*f)); return `rgb(${m})`; });
+// (b) mid-morning: lighter, the sun higher, one tile warmer for the current moment
+mosaic('m2',8,6,(i,j)=>{ if(i===5&&j===2) return '#f28c4b'; const t=(j/5)*.5+(i/7)*.2; const c=[[140,170,200],[190,205,220],[235,225,205],[250,236,210]]; const k=Math.min(2,Math.floor(t*3)); const f=t*3-k; const m=c[k].map((v,n)=>Math.round(v+(c[k+1][n]-v)*f)); return `rgb(${m})`; });
+// (c) the day: grey mostly-cloudy tiles, a cool row near the bottom = rain later
+mosaic('m3',8,6,(i,j)=>{ if(j===5) return (i%2?'#7f9bb8':'#95adc6'); if(i===6&&j===1) return '#e9c48a'; const g=200-j*6+((i*7)%3)*4; return `rgb(${g},${g+2},${g+6})`; });
+</script>
+</body></html>

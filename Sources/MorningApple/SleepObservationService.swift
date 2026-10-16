@@ -52,10 +52,14 @@ public struct SleepSample: Sendable, Equatable {
     /// The source's bundle identifier. Used only to count distinct sources; never shown or spoken.
     public let sourceID: String
     public let sourceKind: SleepSourceKind
+    public let sourceName: String?
+    public let sourceProductType: String?
 
-    public init(stage: SleepStage, start: Date, end: Date, sourceID: String, sourceKind: SleepSourceKind) {
+    public init(stage: SleepStage, start: Date, end: Date, sourceID: String, sourceKind: SleepSourceKind,
+                sourceName: String? = nil, sourceProductType: String? = nil) {
         self.stage = stage; self.start = start; self.end = end
         self.sourceID = sourceID; self.sourceKind = sourceKind
+        self.sourceName = sourceName; self.sourceProductType = sourceProductType
     }
 }
 
@@ -74,6 +78,7 @@ public struct SleepObservation: Sendable, Equatable {
     public let sourceKinds: [SleepSourceKind]
     /// How many distinct sources contributed. Above one, see the overlap rule.
     public let sourceCount: Int
+    public let sources: [HealthObservationSource]
     public let readAt: Date
 
     /// Whole minutes, rounded to the nearest. This is the number that is shown and spoken.
@@ -156,11 +161,43 @@ public enum SleepNight {
             let observation = SleepObservation(windowStart: first.start,
                 windowEnd: recent.map(\.end).max() ?? first.end, asleepDuration: total,
                 sourceKinds: Set(recent.map(\.sourceKind)).sorted(),
-                sourceCount: Set(recent.map(\.sourceID)).count, readAt: readAt)
+                sourceCount: Set(recent.map(\.sourceID)).count,
+                sources: Set(recent.map {
+                    HealthObservationSource(bundleIdentifier: $0.sourceID, name: $0.sourceName,
+                        productType: $0.sourceProductType, wasUserEntered: $0.sourceKind == .manualEntry)
+                }).sorted { ($0.name ?? "", $0.bundleIdentifier) < ($1.name ?? "", $1.bundleIdentifier) },
+                readAt: readAt)
             return observation.asleepMinutes > 0 ? .recorded(observation) : .noRecord
         }
         if let latest = asleep.filter({ $0.end <= cutoff }).map(\.end).max() { return .olderRecord(endedAt: latest) }
         return .noRecord
+    }
+}
+
+extension SleepNight {
+    /// Minutes recorded as "in bed" since yesterday 18:00, merged so overlapping spans count
+    /// once, under the same sample rules as `summarize`. An iPhone with a sleep schedule and
+    /// no watch records this stage. It is time in bed, never reported as sleep. Nil when
+    /// nothing rounds to a minute: no record is not zero.
+    public static func inBedMinutes(_ samples: [SleepSample], at now: Date, calendar: Calendar) -> Int? {
+        guard now.timeIntervalSinceReferenceDate.isFinite,
+              let cutoff = eveningCutoff(before: now, calendar: calendar) else { return nil }
+        let spans = samples.filter {
+            $0.stage == .inBed && $0.start.timeIntervalSinceReferenceDate.isFinite &&
+                $0.end.timeIntervalSinceReferenceDate.isFinite && $0.end > $0.start && $0.end <= now &&
+                $0.end > cutoff && $0.end.timeIntervalSince($0.start) <= maximumSampleSpan
+        }.sorted { ($0.start, $0.end) < ($1.start, $1.end) }
+        guard let first = spans.first else { return nil }
+        var total: TimeInterval = 0
+        var spanStart = first.start, spanEnd = first.end
+        for sample in spans.dropFirst() {
+            if sample.start <= spanEnd { spanEnd = max(spanEnd, sample.end); continue }
+            total += spanEnd.timeIntervalSince(spanStart)
+            spanStart = sample.start; spanEnd = sample.end
+        }
+        total += spanEnd.timeIntervalSince(spanStart)
+        let minutes = Int((total / 60).rounded())
+        return minutes > 0 ? minutes : nil
     }
 }
 

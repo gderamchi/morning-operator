@@ -8,7 +8,7 @@ import XCTest
 @MainActor
 final class InterfaceTourTests: XCTestCase {
     func testFrenchTourOfHomeLearnReviewAndSettings() {
-        let french = ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]
+        let french = ["-more.appLanguage", "fr", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]
         tour(named: "tour-fr-light", arguments: ["--light-preview"] + french)
         // One dark home is enough to see the French text on the dark palette.
         let app = launch(["--dark-preview"] + french, workspace: UUID())
@@ -59,6 +59,27 @@ final class InterfaceTourTests: XCTestCase {
         attach("\(prefix)-routine", app)
         app.terminate()
 
+        // Observed mornings, from the synthetic review fixture in its own workspace:
+        // its heading wraps in full (issue #89).
+        app = launch(arguments + ["--ui-testing-observation-review"], workspace: UUID())
+        MorningUITestNavigation.selectTab("Review", in: app)
+        tapAfterScrolling(app.buttons["review.recordedPatterns"], in: app)
+        XCTAssertTrue(app.staticTexts["review.recordedPatterns.heading"].waitForExistence(timeout: 10), app.debugDescription)
+        attach("\(prefix)-observed-mornings", app)
+        app.terminate()
+
+        // Learn with the message a model failure shows, set by a labelled fixture: a plain
+        // sentence, never an error code (issue #89).
+        app = launch(arguments + ["--ui-testing-model-not-ready"], workspace: UUID())
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 15), app.debugDescription)
+        MorningUITestNavigation.revealMorningAction("morning.learn", in: app)
+        app.buttons["morning.learn"].tap()
+        let message = app.descendants(matching: .any)["app.notice"].firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 10), app.debugDescription)
+        for _ in 0..<12 where !message.isHittable { app.swipeUp() }
+        attach("\(prefix)-learn-model-not-ready", app)
+        app.terminate()
+
         // Last, because it starts a morning in this workspace: the opening (issue #28).
         app = launch(arguments, workspace: workspace)
         MorningUITestNavigation.revealMorningAction("run.start", in: app)
@@ -69,10 +90,13 @@ final class InterfaceTourTests: XCTestCase {
         for _ in 0..<4 where scroll.exists { scroll.swipeDown() }
         // Issue #99: while the opening waits, the first moment's Now card is not shown.
         XCTAssertFalse(app.staticTexts["run.step"].exists, app.debugDescription)
+        // The sample stays labelled while the Now card, which can carry the label, is hidden.
+        XCTAssertTrue(app.staticTexts["routine.source"].exists, app.debugDescription)
         attach("\(prefix)-opening", app)
         // After "Start my routine" the Now card appears in its place.
         MorningUITestNavigation.chooseRoutineAtOpening(in: app)
         XCTAssertTrue(app.staticTexts["run.step"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["routine.source"].exists, app.debugDescription)
         for _ in 0..<4 where scroll.exists { scroll.swipeDown() }
         attach("\(prefix)-opening-routine-started", app)
         app.terminate()
@@ -84,6 +108,7 @@ final class InterfaceTourTests: XCTestCase {
         // The briefing fixture labels itself on screen and makes no Calendar, Maps or Weather request.
         app.launchArguments = ["--ui-testing", "--fixture-mode", "--ui-testing-approved", "--ui-testing-briefing-fixture",
                                "--ui-testing-workspace=\(workspace.uuidString)"] + arguments
+        if !arguments.contains("-more.appLanguage") { app.launchArguments += ["-more.appLanguage", "en"] }
         app.launch()
         return app
     }

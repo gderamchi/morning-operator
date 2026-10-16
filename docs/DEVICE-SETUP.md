@@ -136,6 +136,61 @@ The driver requires foreground state, a unique exact semantic match, a hittable 
 
 Screenshots can contain account names and personal content even in Settings. `--capture-ui-tree` additionally records the accessibility hierarchy in the local test result and is off by default. Keep `work/`, derived data and `.xcresult` files out of Git and public attachments. Review evidence locally before sharing anything.
 
+## Live morning demo (owner present)
+
+`UITests/LiveMorningDemoTests.swift` lets the phone run a morning by itself while you watch. The shipped app cannot open or drive other apps; only the XCUITest runner on a phone tethered to this Mac can, so the demo is a UI test. It does nothing unless `TEST_RUNNER_MO_LIVE_DEMO=1` is passed, and it always skips on a simulator and in CI.
+
+What it does, in short spoken sentences, holding each screen for a few seconds:
+
+1. **Sound check.** It says "Sound check." If that sentence is not played by the audio hardware, the run **fails** at once. If only a default voice is installed, it says once: "For a better voice, download a Premium voice in Settings." (Settings › Accessibility › Spoken Content › Voices › English.) It picks the best installed English voice: Premium, then Enhanced, then default. Siri voices are not available to other apps, and Personal Voice is never used.
+2. **Look, then summarise.** It opens Messages, Mail and Weather without reading anything aloud. Then it says, for example: "You have 7 unread conversations. You have 3 unread emails. It's 11 degrees and cloudy." The counts are what is visible on screen.
+3. **Ask.** "Shall we start with your messages?" Say yes or no. No answer counts as yes.
+4. **Messages.** It takes up to three *unread* conversations (add `--any` to use read ones too). For each one it opens the conversation, says who wrote and reads the latest message, then asks "Do you want to reply?" and listens. Say "no" (or nothing) to move on, "yes" and then the words, or "reply ..." / "tell them ..." in one go. A reply is typed into the message field as a **draft** and read back. **It is never sent**: the test has one tap site, and that tap is refused for any send, reply, post, like, follow, share or delete control. Opening a conversation can send a read receipt if you have them on.
+5. **Mail.** Reads the sender and subject of up to three unread emails. It opens nothing and replies to nothing.
+6. **Reels.** Opens Instagram's Reels tab (TikTok's feed if Instagram isn't installed) and swipes up every 8 seconds, 10 times by default (`--reels N`, 0 to 50). A swipe is a drag, never a tap, so nothing is liked. You must be logged in.
+7. Returns to MORE and says it is done.
+
+**Sound: MORE is the voice and the ears, the runner is only the hands.** On iOS 27 the UI-test runner is already in the background when a test starts, and a background process cannot start an audio session (`'!pla'`, `cannotStartPlaying`, seen on the phone on 14 October 2026). So the runner launches MORE first, in fixture mode, with `--live-demo-voice`, a random one-time token and a port. In DEBUG builds only, MORE then opens a listener on 127.0.0.1. It accepts one loopback connection that shows the token, and it answers four commands: hello, say, listen and stop. Release builds contain no listener. While MORE is in front it starts one session, `.playAndRecord` with `.defaultToSpeaker` (loudspeaker, not the earpiece), `.allowBluetoothA2DP`, `.allowAirPlay` and `.mixWithOthers`, plays "Sound check." and asks for the microphone and speech recognition. MORE has the `audio` background mode, so the session keeps running while the runner drives other apps. A sentence counts only when MORE reports that the hardware played it, with no interruption, route change or muting. Any failure fails the run with a code. Text crosses the loopback channel in memory only; neither side logs or stores it.
+
+**Listening** is on-device only (`requiresOnDeviceRecognition`), inside MORE; no audio leaves the phone. On the first run MORE asks for access while it is in front: tap **Allow**. The microphone indicator stays on until the end. If access is refused or no on-device English model is installed, the demo says it can't listen and pauses after each question.
+
+**Checking only the start.** `scripts/live-demo.sh --stop-after summary` plays the sound check, looks at Messages, Mail and Weather, says the summary and stops. It opens no conversation and reads no message.
+
+**Talking to it.** MORE keeps the microphone on during the run. Recognition is on-device, with echo cancellation, and the microphone is closed while MORE speaks. During reels you can say "next" or "skip", "eight more", "let me finish this one", or "stop". To leave for private content, say the wake word first: "MORE, go to my messages" (or mail, calendar). MORE then asks yes or no. A command counts only if it ends within 4 seconds and starts after the current reel appeared. Short phrases the grammar does not know may be mapped by the on-device model, but only to one of these fixed commands. Replies stay drafts. Sending, liking and commenting are not built yet (#111).
+
+**Report.** At the end the script prints one line per step, for example `MO-DEMO step mail ran` or `MO-DEMO step reels skipped screen-not-found`, plus an `MO-DEMO audio ...` line with the route, volume and runner state. These lines hold step names, fixed reason codes and technical values only. The run fails if every app step was skipped.
+
+**The dim "Automation Running" overlay.** While XCUITest drives the phone, iOS dims the screen and shows "Automation Running" with the stop gesture (hold both volume buttons). It is a safety feature of iOS UI automation. We found no documented setting, xcodebuild/XCTest flag or `XCUIDevice` API that removes or lightens it. Settings › Developer › Enable UI Automation only allows automation; it does not control the overlay. Appium users report the same dimming as a built-in XCUITest feature that cannot be turned off ([Appium forum](https://discuss.appium.io/t/when-i-run-appium-automation-on-iphone-the-brightness-will-be-low/39394); [Apple forum on the setting](https://developer.apple.com/forums/thread/722521)). What gib can do: before a demo, set the phone's brightness to maximum and turn off Auto-Brightness (Settings › Accessibility › Display & Text Size), since the dimming is reported to be relative to the normal brightness. For an audience, mirror the phone on the Mac (QuickTime Player › New Movie Recording, choose the iPhone as camera). Whether the mirror shows the undimmed picture is not verified yet. The demo changes no phone setting.
+
+The demo code itself never changed the overlay, so nothing in it can make the overlay lighter or darker. gib saw it go from almost clear back to grey during one run (14 October). Our code cannot explain that, and it was not investigated. A guess, not checked: iOS may apply the dimming again whenever automation brings another app to the front.
+
+**HomePod and AirPlay.** MORE's session sets `.allowAirPlay`, which Apple allows with `.playAndRecord`. So if you pick the HomePod as the output, speech may go there while the phone's microphone listens. This is not verified. An AirPlay route adds delay, and the phone's microphone may hear the HomePod. Issue #117 tracks the check and a HomePod-only fallback (`.playback`, no listening).
+
+Stop any other agent using the phone first, unlock it, and keep it awake. Then run:
+
+```sh
+cd ~/code/github/morning-operator
+scripts/live-demo.sh            # options: --reels N (0-50), --any, --device ID, --team TEAM
+```
+
+The script refuses to run when `CI`, `GITHUB_ACTIONS` or `CONTINUOUS_INTEGRATION` is set, forwards those markers to the phone anyway, and runs exactly this:
+
+```sh
+TEST_RUNNER_MO_LIVE_DEMO=1 TEST_RUNNER_MO_LIVE_DEMO_REELS=10 \
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+  -project MorningOperator.xcodeproj -scheme MorningLiveDemo \
+  -destination 'id=YOUR_DEVICE_ID' \
+  -derivedDataPath .build/iphone \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=U6Z87CS4W3 \
+  -only-testing:MorningOperatorUITests/LiveMorningDemoTests \
+  -test-timeouts-enabled YES -maximum-test-execution-time-allowance 1800 \
+  -resultBundlePath "$work/Results.xcresult"
+```
+
+The demo runs only under the `MorningLiveDemo` scheme: that scheme sets `MO_LIVE_DEMO_SCHEME=1`, which the test requires, and it turns automatic screenshots off and keeps no system attachments. The test attaches nothing, and message and mail text is spoken, never printed. XCTest's own activity log does record the text of a typed draft, so the script keeps the result bundle in a private temporary folder, prints only xcodebuild's status lines and the strict `MO-DEMO` report and failure lines, and deletes the bundle and `.build/iphone/Logs/Test` on exit, including after Ctrl-C.
+
+Taps are refused unless the label is an expected one (a conversation row, the message field, Back, Inbox, Reels/For You), and a fresh check just before each tap refuses it if the layout moved or another control sits under the finger. There is no swipe-to-go-back: a sideways swipe on a row is a row action in Messages and Mail. A screen the demo does not recognise is skipped with a spoken message, never guessed at.
+
 ## Real HomePod spike
 
 With one HomePod mini, prove **phone → HomePod** or **Mac → HomePod** audio continuation. Identify the actual audio origin and microphone; two-HomePod room handoff is not possible with this inventory alone.

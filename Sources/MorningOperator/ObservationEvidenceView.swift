@@ -6,11 +6,16 @@ import MorningApple
 struct ObservationEvidenceView: View {
     let evidence: ObservationVideoEvidence
     let classification: ObservationContextClassification?
+    /// The saved observation, when available, so Shortcuts and image-model apps appear too.
+    var acquisition: ObservationAcquisition? = nil
     let isBusy: Bool
     let canAnalyze: Bool
     let analyze: () -> Void
 
     private var readableCount: Int { evidence.frames.filter(\.canSupportIdentity).count }
+    private var appLabels: [UUID: (app: ObservationAppIdentity, provenance: ObservationReviewContextProvenance)] {
+        acquisition.map(ObservationAppTimeline.labels(for:)) ?? [:]
+    }
     private var report: ObservationTraceReport? {
         guard let classification else { return nil }
         return try? evidence.makeTrace(decisions: classification.decisions).report(maximumSampleGapSeconds: 5)
@@ -26,7 +31,12 @@ struct ObservationEvidenceView: View {
             DisclosureGroup("See sampled screens") {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("These are occasional views of your screen. They can't count every scroll, prove a message was read, or measure complete app use.")
-                    if let report, !report.visits.isEmpty {
+                    if let acquisition, case let openings = ObservationAppTimeline.openings(for: acquisition), !openings.isEmpty {
+                        Text(openings.map(\.app.displayName).joined(separator: " → "))
+                            .fontWeight(.medium).foregroundStyle(MorningStyle.ink)
+                            .accessibilityIdentifier("learn.visibleContexts")
+                        Text("Order of recognized appearances. Unknown samples may hide other activity.")
+                    } else if let report, !report.visits.isEmpty {
                         Text(report.visits.map { $0.app.displayName }.joined(separator: " → "))
                             .fontWeight(.medium).foregroundStyle(MorningStyle.ink)
                             .accessibilityIdentifier("learn.visibleContexts")
@@ -72,6 +82,14 @@ struct ObservationEvidenceView: View {
     }
 
     private func frameLabel(_ frame: ObservationFrameEvidence) -> String {
+        if let label = appLabels[frame.id] {
+            switch label.provenance {
+            case .shortcut: return String(localized: "\(label.app.displayName) · Shortcuts")
+            case .screenText: return String(localized: "\(label.app.displayName) · screen text")
+            case .visualModel: return String(localized: "\(label.app.displayName) · seen in image")
+            default: return label.app.displayName
+            }
+        }
         if let decision = classification?.decisions.first(where: { $0.sampleID == frame.id }) {
             switch decision.evidence {
             case .identified(let app, _): return app.displayName
