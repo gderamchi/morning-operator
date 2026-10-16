@@ -251,7 +251,9 @@ private struct RoutineTransferPreview: View {
             if let source = document.sourceLabel {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Source label").font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
-                    Text(verbatim: source).textSelection(.enabled)
+                    Text(verbatim: document.sourceIsSynthetic
+                         ? String(localized: "Sample or test plan", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : source)
+                        .textSelection(.enabled)
                         .accessibilityIdentifier("\(prefix).source")
                 }
             }

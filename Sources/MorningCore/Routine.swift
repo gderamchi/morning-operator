@@ -163,6 +163,12 @@ public struct RoutineVersion: Codable, Sendable, Identifiable, Equatable {
             isApproved: false)
     }
 
+    /// The conservative activity key used when a legacy required ritual is
+    /// matched to a newly inferred row. This does not establish app identity.
+    public static func matchesActivity(_ lhs: RoutineStep, _ rhs: RoutineStep) -> Bool {
+        RoutineStepMatchKey(lhs) == RoutineStepMatchKey(rhs)
+    }
+
     private static func reconcile(_ proposed: [RoutineStep], previous: [RoutineStep],
                                   preferences: [RoutineStepPreference]) -> [RoutineStep] {
         var result = proposed

@@ -6989,6 +6989,78 @@
           }
         }
       }
+    },
+    "This proposal exceeds ten moments, including your kept rituals. Select fewer observations or adjust which rituals to keep. No kept ritual was removed automatically.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette proposition dépasse dix moments, y compris vos rituels gardés. Réduisez les observations choisies ou ajustez les rituels à garder. Aucun rituel gardé n’a été retiré automatiquement."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This proposal exceeds ten moments, including your kept rituals. Select fewer observations or adjust which rituals to keep. No kept ritual was removed automatically."
+          }
+        }
+      }
+    },
+    "Shared rule: use of at least 30 seconds, presence in at least half the retained comparable windows, median rounded to a minute and planned duration between 1 and 240 minutes. Order stays estimated and missing use unknown. All aggregates remain in the sources.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Règle commune : usages d’au moins 30 secondes, présence sur au moins la moitié des fenêtres comparables retenues, médiane arrondie à la minute et durée prévue entre 1 et 240 minutes. L’ordre reste estimé et les absences inconnues. Tous les agrégats restent dans les sources."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared rule: use of at least 30 seconds, presence in at least half the retained comparable windows, median rounded to a minute and planned duration between 1 and 240 minutes. Order stays estimated and missing use unknown. All aggregates remain in the sources."
+          }
+        }
+      }
+    },
+    "This plan has room for %lld additional Screen Time app moments. Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This plan has room for %lld additional Screen Time app moment. Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This plan has room for %lld additional Screen Time app moments. Choose which apps to add in the observation selection. Observed sequences and your kept rituals are retained."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ce plan peut accueillir encore %lld moment d’app Screen Time. Choisissez les apps à ajouter dans la sélection d’observations. Les séquences observées et vos rituels gardés sont conservés."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Ce plan peut accueillir encore %lld moments d’app Screen Time. Choisissez les apps à ajouter dans la sélection d’observations. Les séquences observées et vos rituels gardés sont conservés."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "version": "1.0"

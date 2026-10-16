@@ -20,7 +20,7 @@ Changing language pauses an active morning, stops speech/listening, invalidates 
 
 ## Integration baseline
 
-The localization branch was created in a separate managed worktree from `2a6e3c1` on `guillaume/routine-automation`. This includes the current Home redesign, Google Calendar/Calendly/Outlook integration and learning work committed at creation. Uncommitted changes in the main checkout were not reset, stashed, copied or built. The physical phone, its existing routine, grants and authorized test draft were not controlled by this workstream.
+The localization branch was created in a separate managed worktree from `2a6e3c1` on `guillaume/routine-automation`. This includes the current Home redesign, Google Calendar/Calendly/Outlook integration and learning work committed at creation. The owner checkout was never reset, stashed, modified or built. Committed integration updates through `753609c` were merged. To preserve the newer Home playback/caption layout and Screen Time selection work, a reviewed source-only snapshot of 21 Swift files was integrated from the unchanged owner checkout (2026-10-16 00:08:26 UTC, base `753609c`, SHA-256 `80f4edd26df8f849251d7cb292113605779f53d372497e8f3f51361ee4c841e3`). Private/config files, AGENTS and generated project files were excluded; the project was regenerated here. The snapshot is an exact dated integration boundary, not a claim about subsequent owner edits. The physical phone, its existing routine, grants and authorized test draft were not controlled by this workstream.
 
 The PR targets the routine integration branch to keep the localization change reviewable without replacing the recent connector work with an older main-branch UI.
 

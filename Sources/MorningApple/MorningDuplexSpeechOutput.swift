@@ -52,7 +52,8 @@ final class MorningDuplexSpeechOutput {
     private var packets: [Int: DuplexSpeechPacket] = [:]
     private var scheduledBytes: [Int: Int] = [:]
     private var isPaused = false
-    private var onStarted: (@MainActor () -> Void)?
+    private var onChunkStarted: (@MainActor (String) -> Void)?
+    private var pendingCaption: String?
     private static let maximumQueuedBytes = 16 * 1_024 * 1_024
 
     init(engine: AVAudioEngine) {
@@ -61,11 +62,11 @@ final class MorningDuplexSpeechOutput {
     }
 
     func play(_ text: String, voice: AVSpeechSynthesisVoice,
-              onStarted: @escaping @MainActor () -> Void,
+              onChunkStarted: @escaping @MainActor (String) -> Void,
               completion: @escaping @MainActor (Result<Void, any Error>) -> Void) {
         cancel()
         let id = UUID()
-        programID = id; self.onStarted = onStarted
+        programID = id; self.onChunkStarted = onChunkStarted
         task = Task { [weak self] in
             guard let self else { return }
             do {
@@ -78,7 +79,7 @@ final class MorningDuplexSpeechOutput {
                     try await playChunk(chunk, voice: voice)
                 }
                 guard programID == id else { return }
-                programID = nil; task = nil; self.onStarted = nil
+                programID = nil; task = nil; self.onChunkStarted = nil
                 completion(.success(()))
             } catch {
                 guard programID == id else { return }
@@ -97,13 +98,13 @@ final class MorningDuplexSpeechOutput {
     func resume() -> Bool {
         guard programID != nil, engine.isRunning else { return false }
         isPaused = false
-        if !scheduledBytes.isEmpty { player.play() }
+        startPlayback()
         return true
     }
 
     func cancel() {
         programID = nil; task?.cancel(); task = nil; ledger.cancel()
-        packets.removeAll(); scheduledBytes.removeAll(); onStarted = nil
+        packets.removeAll(); scheduledBytes.removeAll(); onChunkStarted = nil; pendingCaption = nil
         let waiting = continuation; continuation = nil
         player.stop(); synthesizer.stopSpeaking(at: .immediate)
         isPaused = false
@@ -119,6 +120,7 @@ final class MorningDuplexSpeechOutput {
     private func playChunk(_ text: String, voice: AVSpeechSynthesisVoice) async throws {
         let id = UUID()
         ledger.begin(id); nextSequence = 0; packets.removeAll(); scheduledBytes.removeAll()
+        pendingCaption = text
         try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
             let utterance = AVSpeechUtterance(string: text)
@@ -162,8 +164,16 @@ final class MorningDuplexSpeechOutput {
                 Task { @MainActor [weak self] in self?.played(sequence, id: id) }
             }
             player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack, completionHandler: playedBuffer)
-            if !isPaused { player.play() }
-            let started = onStarted; onStarted = nil; started?()
+            startPlayback()
+        }
+    }
+
+    private func startPlayback() {
+        guard !isPaused, !scheduledBytes.isEmpty else { return }
+        player.play()
+        if let pendingCaption {
+            self.pendingCaption = nil
+            onChunkStarted?(pendingCaption)
         }
     }
 

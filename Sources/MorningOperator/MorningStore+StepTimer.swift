@@ -4,6 +4,10 @@ import MorningApple
 import UIKit
 
 extension MorningStore {
+    private var externalAppOpenFailureNotice: String {
+        String(localized: "This app couldn't open. You can continue in MORE or choose Next.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+    }
+
     var activeStepTimer: StepTimer? {
         _ = stepTimerRevision
         guard sessionActive, let session, let step = currentStep, step.target != nil || step.automation == .timedMoment || step.automation == .gmailInbox,
@@ -19,6 +23,23 @@ extension MorningStore {
         return session?.status == .running && activeStepTimer?.pausedAt == nil && activeStepTimer != nil
     }
 
+    /// The scene captures this only on an actual trip to the background.
+    var externalAppDeparture: StepTimer? {
+        guard automatic, !privacyBlocksWork, notice != externalAppOpenFailureNotice, let timer = activeStepTimer,
+              timer.openedAt != nil, timer.pausedAt == nil,
+              StepNavigation.mayAdvanceAfterExternalAppReturn(session: session,
+                sessionID: timer.sessionID, stepID: timer.stepID) else { return nil }
+        return timer
+    }
+
+    func returnedFromExternalApp(_ departure: StepTimer) {
+        guard automatic, !privacyBlocksWork, notice != externalAppOpenFailureNotice, let timer = activeStepTimer,
+              departure.openedAt != nil, timer.openedAt == departure.openedAt, timer.pausedAt == nil,
+              StepNavigation.mayAdvanceAfterExternalAppReturn(session: session,
+                sessionID: departure.sessionID, stepID: departure.stepID) else { return }
+        nextTargetStep(sessionID: departure.sessionID, stepID: departure.stepID)
+    }
+
     @discardableResult
     func beginTargetStep() -> Bool {
         guard let session, session.status == .running, let step = currentStep,
@@ -30,8 +51,13 @@ extension MorningStore {
             var timer = activeStepTimer ?? StepTimer(sessionID: session.id, stepID: step.id,
                 minutes: step.durationMinutes, at: Date())
             #if DEBUG
+            let isManualWeb: Bool = {
+                if case .inAppWeb = step.target { return step.webBehavior == nil }
+                return false
+            }()
             if activeStepTimer == nil, ProcessInfo.processInfo.arguments.contains("--ui-testing"),
-               ProcessInfo.processInfo.arguments.contains("--ui-testing-short-budgets"), step.automation == .timedMoment {
+               ProcessInfo.processInfo.arguments.contains("--ui-testing-short-budgets"),
+               step.automation == .timedMoment || isManualWeb {
                 timer = StepTimer(sessionID: session.id, stepID: step.id, minutes: 1, at: Date().addingTimeInterval(-55))
             }
             #endif
@@ -62,14 +88,14 @@ extension MorningStore {
                 switch step.target {
                 case let .externalApp(app, detail):
                     guard let url = app.url(detail: detail), UIApplication.shared.canOpenURL(url) else {
-                        notice = String(localized: "This app couldn't open. You can continue in MORE or choose Next.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                        notice = externalAppOpenFailureNotice
                         return true
                     }
                     UIApplication.shared.open(url) { [weak self] opened in
                         guard !opened else { return }
                         Task { @MainActor in
                             guard self?.session?.id == session.id, self?.currentStep?.id == step.id else { return }
-                            self?.notice = String(localized: "This app couldn't open. You can continue in MORE or choose Next.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                            self?.notice = self?.externalAppOpenFailureNotice
                         }
                     }
                 case let .inAppWeb(site): pendingWebTarget = site
@@ -127,6 +153,12 @@ extension MorningStore {
             guard let (alertedTimer, claimedAlert) = claimed, claimedAlert else { return }
             self.stepTimerRevision += 1
             if self.finishAutomatedBudget(alertedTimer) { return }
+            if self.automatic, case .inAppWeb = self.currentStep?.target, self.currentStep?.webBehavior == nil {
+                // A completed time allowance does not verify anything done on the page.
+                guard self.recordExecution(.skipped) else { self.pause(); return }
+                self.advance(commandID: timer.stepID)
+                return
+            }
             self.notice = String(localized: "Time's up. Choose +2 min or Next.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
             let nextLabel = self.nextStepTimerLabel
             await StepTimerActivity.publish(timer: alertedTimer, timeIsUp: true)

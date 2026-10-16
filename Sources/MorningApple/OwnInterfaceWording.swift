@@ -217,9 +217,14 @@ enum OwnInterfaceWording {
          sourceLiteral("Up to three unread previews, including older messages. No importance ranking. Choose a message to read its body; attachments and remote resources are not opened.",
                fr: "Au plus trois aperçus de non lus, même anciens. Aucun classement d’importance. Choisissez un message pour lire son corps ; aucune pièce jointe ni ressource distante ne sera ouverte.")]
     ]
+    static let screenTimePickerPair: [Phrase] = [
+        sourceLiteral("App moments from Screen Time", fr: "Moments d’app depuis Screen Time"),
+        sourceLiteral("Choose apps to add as separate moments. Observed sequences and your kept rituals stay in the plan. Up to eight app moments can be added.",
+            fr: "Choisissez les apps à ajouter comme moments distincts. Les séquences observées et vos rituels gardés restent dans le plan. Jusqu’à huit moments d’app peuvent être ajoutés.")
+    ]
 
     /// Screens without a heading of their own: both pieces must be present.
-    static let pairs: [[Phrase]] = outlookPairs + [
+    static let pairs: [[Phrase]] = outlookPairs + [screenTimePickerPair] + [
         [shown("Your Calendly appointments, each morning", fr: "Vos rendez-vous Calendly, chaque matin"),
          shown("Choose an account. MORE reads appointments starting today in this iPhone’s time zone.",
                fr: "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone.")],
