@@ -94,6 +94,120 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
         // Empty dated results are valid. Never inspect titles or mark anything complete.
     }
 
+    func test05PublicCityMapsAndWeatherReadRestoresUnconfiguredWeather() throws {
+        let previousFailurePolicy = continueAfterFailure
+        defer { continueAfterFailure = previousFailurePolicy }
+        let app = try ordinaryApp()
+        try enterDeveloperAccessIfRequested(app)
+        try openConnections(app)
+        let calendar = app.buttons["connections.calendar"]
+        try reveal(calendar, in: app)
+        calendar.tap()
+        XCTAssertFalse(app.staticTexts["briefing.synthetic"].exists)
+
+        let source = app.descendants(matching: .any).matching(identifier: "briefing.locationSource").firstMatch
+        try reveal(source, in: app)
+        let originalSource = source.value as? String ?? ""
+        let knownSources = ["Current location", "Position actuelle", "Choose a city", "Choisir une ville"]
+        guard knownSources.contains(originalSource) else {
+            XCTFail("The ordinary weather picker did not expose its original selection; no setting was changed.")
+            return
+        }
+        if app.descendants(matching: .any).matching(identifier: "briefing.currentLocation").firstMatch.exists ||
+            app.buttons["briefing.removeWeather"].exists {
+            throw XCTSkip("Existing weather is configured; no weather selection was changed.")
+        }
+        let city = app.descendants(matching: .any).matching(identifier: "briefing.city").firstMatch
+        var attemptedOurCity = false
+
+        func require(_ condition: Bool, _ message: String) throws {
+            guard condition else {
+                XCTFail(message)
+                throw NSError(domain: "OrdinaryConnectionsAcceptanceTests", code: 5,
+                    userInfo: [NSLocalizedDescriptionKey: "Required public-city UI check failed."])
+            }
+        }
+        func selectSource(_ labels: [String]) -> Bool {
+            if labels.contains(source.value as? String ?? "") { return true }
+            try? reveal(source, in: app)
+            guard source.exists && source.isHittable else { return false }
+            source.tap()
+            let option = app.buttons.matching(NSPredicate(format: "label IN %@", labels)).firstMatch
+            guard option.waitForExistence(timeout: 5), option.isHittable else { return false }
+            option.tap()
+            return labels.contains(source.value as? String ?? "")
+        }
+        func showsOurCity() -> Bool {
+            guard city.exists else { return false }
+            let text = ([city.label, city.value as? String ?? ""] +
+                city.descendants(matching: .staticText).allElementsBoundByIndex.map(\.label)).joined(separator: " ")
+            return text.localizedCaseInsensitiveContains("Paris") && text.localizedCaseInsensitiveContains("France")
+        }
+
+        // The picker saves immediately. Restore it even if search, weather or an assertion fails.
+        continueAfterFailure = true
+        defer {
+            if attemptedOurCity {
+                try? reveal(city, in: app)
+                if city.exists {
+                    if showsOurCity() {
+                        let remove = app.buttons["briefing.removeWeather"]
+                        try? reveal(remove, in: app)
+                        if remove.exists && remove.isHittable { remove.tap() }
+                        else { try? require(false, "The temporary city's Remove weather control was unavailable.") }
+                        try? require(city.waitForNonExistence(timeout: 5), "The temporary public city must be removed.")
+                    } else {
+                        try? require(false, "An unexpected city is present; it was preserved rather than removed.")
+                    }
+                }
+            }
+            try? require(selectSource([originalSource]), "The original weather-source selection must be restored.")
+            try? require(source.value as? String == originalSource, "The original weather-source value must match exactly.")
+            if attemptedOurCity { try? require(!showsOurCity(), "Paris must not remain configured after this read.") }
+            let done = app.navigationBars.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "Done", "Terminé")).firstMatch
+            if done.exists && done.isHittable { done.tap() }
+        }
+
+        try require(selectSource(["Choose a city", "Choisir une ville"]), "The ordinary picker did not select Choose a city.")
+        let search = app.textFields["briefing.citySearch"]
+        try reveal(search, in: app)
+        try require(search.exists && search.isHittable, "The public city search field was unavailable.")
+        // Current-location mode can hide a saved fallback city; inspect after switching modes.
+        guard !city.exists, !app.buttons["briefing.removeWeather"].exists else {
+            throw XCTSkip("An existing weather city is configured; its value and the original picker were preserved.")
+        }
+        search.tap()
+        search.typeText("Paris, France")
+        let searchButton = app.buttons["briefing.searchCities"]
+        try reveal(searchButton, in: app)
+        try require(searchButton.exists && searchButton.isHittable && searchButton.isEnabled,
+                    "The explicit city-search action was unavailable.")
+        searchButton.tap()
+        let result = app.buttons.matching(NSPredicate(format:
+            "identifier BEGINSWITH %@ AND label CONTAINS[cd] %@ AND label CONTAINS[cd] %@",
+            "briefing.cityResult.", "Paris", "France")).firstMatch
+        try require(result.waitForExistence(timeout: 25), "Apple Maps did not return Paris, France.")
+        try reveal(result, in: app)
+        try require(result.exists && result.isHittable, "The real Paris, France result was not reachable.")
+        attemptedOurCity = true
+        result.tap()
+        try require(city.waitForExistence(timeout: 5), "The selected public city did not appear.")
+        try require(showsOurCity(), "The selected public city must be Paris, France.")
+
+        let attribution = app.descendants(matching: .any).matching(identifier: "weather.sources").firstMatch
+        try reveal(attribution, in: app)
+        try require(attribution.exists && attribution.isHittable, "No admitted native Apple Weather snapshot appeared.")
+        let wind = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "km/h")).firstMatch
+        try reveal(wind, in: app)
+        try require(wind.exists && wind.isHittable, "The native snapshot must contain a measured wind value.")
+        try require(!app.staticTexts["briefing.error"].exists, "The ordinary briefing reported an error.")
+        try require(!app.staticTexts["briefing.synthetic"].exists, "A synthetic source cannot establish provider acceptance.")
+        let note = XCTAttachment(string: "Real Apple Maps result selected for public Paris, France; admitted Apple Weather attribution and measured wind present. No location permission or owner content was requested. Cleanup assertions run in defer.")
+        note.name = "ordinary-public-city-provider-evidence"
+        note.lifetime = .keepAlways
+        add(note)
+    }
+
     private func ordinaryApp() throws -> XCUIApplication {
         continueAfterFailure = false
         try XCTSkipUnless(ProcessInfo.processInfo.environment["MORE_PHYSICAL_CONNECTIONS_ACCEPTANCE"] == "1",
@@ -150,9 +264,14 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
         guard landscape.waitForExistence(timeout: 8) else {
             throw XCTSkip("Ordinary access/setup is incomplete. No fixture or system permission was injected.")
         }
-        landscape.tap()
         let settings = app.buttons["morning.settings"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        for _ in 0..<3 {
+            if settings.exists && settings.isHittable { break }
+            // Controls auto-hide; observe each attempt before tapping the landscape again.
+            landscape.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.65)).tap()
+            if settings.waitForExistence(timeout: 2) { break }
+        }
+        XCTAssertTrue(settings.exists && settings.isHittable, "The ordinary Home controls did not expose Settings.")
         settings.tap()
         let connections = app.buttons["setup.connections"]
         try reveal(connections, in: app)

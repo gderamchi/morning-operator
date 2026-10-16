@@ -32,6 +32,15 @@ Fresh backend regression on the combined source (`4bd789f` integrated) passes **
 
 Release access requires verified StoreKit entitlement. Four fresh ordinary physical runs through build 1703 failed to obtain the configured live offer; the normal paywall reported App Store unavailable. Native Gmail was consequently skipped in those runs. Main subsequently added the product-approved Debug developer entry: selecting its actual button permits functional service testing without asserting an Apple transaction. This entry never proves purchase, restore or eligibility. App Store Connect still requires owner authentication to inspect the actual product/account configuration. [#191](https://github.com/gibouu/morning-operator/issues/191) tracks the release gate; [the dated ledger](CONNECTIONS-E2E-2026-10-16.md#ordinary-physical-iphone-checkpoint) records the device checks. Earlier device/build claims below are historical.
 
+On ordinary physical build **2026101608**, the official Debug UI entry and
+Connections navigation were exercised. This installation exposed no saved native
+Gmail grant, no readable Calendar inventory and a Reminders permission CTA; those
+three read preconditions were skipped, not certified. Existing current-location
+weather also failed its admission check because neither location access nor a
+city was configured. These fresh observations take precedence over the older
+successful native reads in the table when describing this installation. No
+account, system permission or owner data was substituted to make them pass.
+
 ### Product gaps that matter next
 
 1. **Finish useful journeys on the existing connections.** Gmail's real spoken send, Slack's real channel read/reply, Calendar/Calendly's live day and Outlook's selected-mail reading matter more than adding another generic catalog. Each needs the intended user's consent, an actual bounded operation and checked output. The complete personal morning in MORE §10 remains unaccepted.

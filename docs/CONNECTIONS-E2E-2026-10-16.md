@@ -255,6 +255,31 @@ state or Apple availability. [Issue #191](https://github.com/gibouu/morning-oper
 tracks that live release gate. No Apple account, agreement or billing settings
 were changed.
 
+### Ordinary Debug service checkpoint
+
+The final task binary **0.1.0 (2026101608)** built successfully, passed strict
+app/widget signature verification and was installed in place. Its four native
+capabilities were verified again. The physical suite selected the actual Debug
+developer-entry button, then opened normal Home → Settings → Apps & accounts.
+No test workspace, provider fixture, StoreKit transaction or system grant was
+injected. This entry persisted across fresh ordinary launches.
+
+| Ordinary physical check | Observed result |
+| --- | --- |
+| Saved native Gmail restoration | Skipped after 67.756 seconds: the screen exposed Connect Gmail, with no saved native grant or error. No Google consent was initiated. |
+| Existing Calendar inventory | Skipped after 33.936 seconds: no readable inventory was obtained; no permission or calendar selection changed. |
+| Existing Reminders read | Skipped after 11.250 seconds: the actual CTA required permission; no permission was requested or reminder completed. |
+| Existing current-location Weather | Failed after 31.453 seconds: Home explicitly required location access or a chosen city. This installation had no admitted weather source. |
+
+The initial Calendar/Reminders attempts failed before reaching either service
+because a single Home landscape tap did not expose Settings. A bounded helper
+now observes the auto-hiding controls after each attempt; both destinations
+became reachable and reported the skipped preconditions above. Production Home
+code was unchanged. The first physical selection therefore remains **three
+failures / one skip**; its two-case navigation retry is **two skips / zero
+failures**, not two successful provider reads. Real Health data, native/spoken
+Gmail sending and an ordinary cloud conversation remain unaccepted.
+
 ## Synthetic backend regression
 
 [#196](https://github.com/gibouu/morning-operator/issues/196) was traced to the
