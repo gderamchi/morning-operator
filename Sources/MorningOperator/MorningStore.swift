@@ -1390,6 +1390,19 @@ final class MorningStore {
                       !voiceCommands.isBusy, !voiceCommands.needsAudioRelease else { throw CancellationError() }
                 // Mic release is confirmed before any command can request new speech.
                 voiceCommandPreparing = false
+                #if MORE_JURY_DEMO
+                voiceCommandFeedback = String(localized: "Heard: \(result.transcript)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+                voiceCommandPresented = false
+                switch command {
+                case .pause: pause()
+                case .stop: stop()
+                case .resume: resume()
+                case .next, .skip, .repeatStep:
+                    resume()
+                    guard session?.status == .running else { return }
+                    juryDemoVoice.send(text: result.transcript)
+                }
+                #else
                 try session?.applyVoiceCommand(command: command, commandID: result.id)
                 archiveTerminalSession()
                 guard persist() else { pauseAfterSaveFailure(); return }
@@ -1399,6 +1412,7 @@ final class MorningStore {
                 if session?.status == .completed { queueCompletionInvitation() }
                 if command == .repeatStep { readCurrent() }
                 else if session?.status == .running { runCurrentIfEnabled() }
+                #endif
             } catch {
                 guard voiceCommandAttempt == attempt else { return }
                 voiceCommandFeedback = error is CancellationError
@@ -3214,7 +3228,7 @@ extension MorningStore {
             juryDemoCaption = "L’écoute ou la lecture est désactivée pour ce matin. Vous pouvez les préparer dans les paramètres."
             return
         }
-        if juryDemoVoice.state == .paused { juryDemoVoice.resume() }
+        if juryDemoVoice.state == .paused { juryDemoVoice.resume(language: AppLanguage.isFrench ? .french : .english) }
         else if !juryDemoVoice.isActive {
             juryDemoVoice.start(language: AppLanguage.isFrench ? .french : .english)
         }

@@ -127,10 +127,11 @@ public final class JuryDemoVoiceSession {
 
     public func send(text: String) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.count <= 4_000, !text.isEmpty, let id = runID, let sessionID, let client,
-              isActive else { return }
-        if case .session(.pause) = MorningHandsFreeVoicePolicy.control(in: text) { pause(); return }
-        if case .session(.stop) = MorningHandsFreeVoicePolicy.control(in: text) { stop(); return }
+        guard text.count <= 4_000, !text.isEmpty, isActive else { return }
+        if case .session(.pause) = MorningHandsFreeVoicePolicy.control(in: text, language: language) { pause(); return }
+        if case .session(.stop) = MorningHandsFreeVoicePolicy.control(in: text, language: language) { stop(); return }
+        if state == .preparing { queuedText = text; return }
+        guard let id = runID, let sessionID, let client else { return }
         interruptSpeech()
         if operation == nil, onUserRequest?(text) == true { return }
         guard runID == id, isActive else { return }
@@ -199,14 +200,23 @@ public final class JuryDemoVoiceSession {
         #endif
     }
 
-    public func resume() {
+    public func pauseAndRelease() async throws {
+        pause()
+        #if os(iOS)
+        try await audioSession.cancelAndWait()
+        #endif
+        try Task.checkCancellation()
+    }
+
+    public func resume(language: MorningVoiceCommandLanguage? = nil) {
         guard state == .paused, let id = runID else { return }
+        if let language { self.language = language }
         #if os(iOS)
         guard UIApplication.shared.applicationState == .active else {
             message = "Ouvrez MORE pour reprendre le microphone."; return
         }
         if sessionID == nil, operation == nil {
-            runID = nil; state = .idle; start(language: language); return
+            runID = nil; state = .idle; start(language: self.language); return
         }
         state = .preparing
         Task { [weak self] in
@@ -429,7 +439,7 @@ public final class JuryDemoVoiceSession {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true; request.shouldReportPartialResults = true
         request.addsPunctuation = true; request.taskHint = .dictation
-        request.contextualStrings = ["MORE", "quinze heures", "quinze heures trente", "envoie", "réponds-lui", "suivant", "rappelle-moi"]
+        request.contextualStrings = ["MORE"] + language.exampleCommands
         sink.replace(request)
         let receive: @Sendable (SFSpeechRecognitionResult?, (any Error)?) -> Void = { [weak self] result, error in
             let text = result?.bestTranscription.formattedString

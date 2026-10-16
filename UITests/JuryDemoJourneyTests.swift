@@ -114,8 +114,7 @@ final class JuryDemoJourneyTests: XCTestCase {
         XCTAssertTrue(access.waitForExistence(timeout: 5))
         if app.buttons["voice.access.prepare"].exists {
             app.buttons["voice.access.prepare"].tap()
-            // A normal app interaction invokes the real system-alert monitor.
-            app.tap()
+            handleRealSystemGrants()
         }
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             let value = access.label
@@ -131,7 +130,7 @@ final class JuryDemoJourneyTests: XCTestCase {
         app.buttons["morning.actions"].tap()
         let begin = app.buttons["morning.begin"]
         XCTAssertTrue(begin.waitForExistence(timeout: 5)); begin.tap()
-        app.tap() // Handles the local-network system grant if iOS asks here.
+        handleRealSystemGrants() // Includes the genuine local-network grant, if requested.
         await waitForLiveSpokenPassage(app)
         attachLive("jury-live-real-audio-started", app)
 
@@ -179,6 +178,84 @@ final class JuryDemoJourneyTests: XCTestCase {
         #endif
     }
 
+    /// A person or an external speaker supplies the real acoustic answer during
+    /// the marked window. XCTest never types, posts or injects that answer.
+    func testLivePhysicalPhoneRecognizesAcousticYesAndOpensMailMoment() async throws {
+        guard ProcessInfo.processInfo.environment["MORE_JURY_ACOUSTIC_PHONE"] == "1" else {
+            throw XCTSkip("Set MORE_JURY_ACOUSTIC_PHONE=1 only for the authorized acoustic iPhone check.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("Acoustic recognition acceptance requires a physical iPhone.")
+        #else
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = try demoApplication()
+        app.launchArguments = ["-AppleLanguages", "(fr)"]
+        defer { app.terminate() }
+        app.launch()
+        if app.buttons["permissions.allow"].waitForExistence(timeout: 3) {
+            finishRealPermissionSetup(app)
+            returnToLiveHome(app)
+        }
+        XCTAssertTrue(app.buttons["morning.actions"].waitForExistence(timeout: 10),
+                      "This check starts only from idle Home and does not reset an existing morning.")
+        XCTAssertFalse(app.staticTexts["qa.testWorkspace"].exists)
+        assertNoSpecialPresentation(app)
+
+        openSettings(app)
+        let listening = app.buttons["setup.voiceAccess"]
+        reveal(listening, in: app); listening.tap()
+        let access = app.staticTexts["voice.access.status"].firstMatch
+        XCTAssertTrue(access.waitForExistence(timeout: 5))
+        if app.buttons["voice.access.prepare"].exists {
+            app.buttons["voice.access.prepare"].tap()
+            handleRealSystemGrants()
+        }
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let value = access.label
+            return value.contains("Reconnaissance vocale : autorisée.") &&
+                value.contains("Microphone : autorisé.") && value.contains("Reconnaissance locale disponible")
+        }, object: access)
+        let accessResult = await XCTWaiter.fulfillment(of: [ready], timeout: 20)
+        XCTAssertEqual(accessResult, .completed, "The acoustic check requires real iOS authorization and local recognition.")
+        app.buttons["voice.access.close"].tap()
+        returnToLiveHome(app)
+
+        app.buttons["morning.actions"].tap()
+        let begin = app.buttons["morning.begin"]
+        XCTAssertTrue(begin.waitForExistence(timeout: 5)); begin.tap()
+        handleRealSystemGrants()
+        await waitForLiveSpokenPassage(app)
+        attachLive("jury-acoustic-before-external-answer", app)
+        print("JURY_ACOUSTIC_READY_FOR_YES")
+
+        let caption = app.staticTexts["morning.caption"]
+        let mailMoment = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard caption.exists else { return false }
+            let value = caption.label.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_FR"))
+            return ["propose un point produit", "tu veux que je lui reponde"].contains { value.contains($0) } &&
+                !value.contains("indisponible") && !value.contains("connexion")
+        }, object: caption)
+        let recognized = await XCTWaiter.fulfillment(of: [mailMoment], timeout: 45)
+        XCTAssertEqual(recognized, .completed,
+                       "A real acoustic answer must reach the backend and advance to its mail conversation.")
+        attachLive("jury-acoustic-mail-response-after-real-input", app)
+
+        openLiveSettings(app)
+        let details = app.buttons["morning.details"]
+        XCTAssertTrue(details.waitForExistence(timeout: 5)); details.tap()
+        XCTAssertTrue(app.navigationBars["Mes messages"].waitForExistence(timeout: 5),
+                      "The routine must reflect the backend's actual mail stage, beyond a changed caption.")
+        attachLive("jury-acoustic-server-mail-stage", app)
+        app.buttons["morning.closeDetails"].tap()
+        let stop = app.buttons["morning.stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5)); stop.tap()
+        XCTAssertTrue(stop.waitForNonExistence(timeout: 10))
+        returnToLiveHome(app)
+        XCTAssertTrue(app.buttons["morning.actions"].exists)
+        #endif
+    }
+
     private func launchDemo() throws -> XCUIApplication {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
@@ -218,10 +295,35 @@ final class JuryDemoJourneyTests: XCTestCase {
             let needsAccess = ["permissions.title.speech", "permissions.title.microphone", "permissions.title.reminders"].contains(identifier)
             let control = app.buttons[needsAccess ? "permissions.allow" : "permissions.skip"]
             reveal(control, in: app); control.tap()
-            if needsAccess { app.tap() }
+            if needsAccess { handleRealSystemGrants() }
             XCTAssertTrue(app.staticTexts[identifier].waitForNonExistence(timeout: 15))
         }
         XCTFail("Real permission setup did not finish.")
+    }
+
+    /// Some iOS betas cannot bind a TCC interruption to the foreground app.
+    /// Query the alert's actual owner instead of relying only on the monitor.
+    private func handleRealSystemGrants() {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for index in 0..<3 {
+            let alert = springboard.alerts.firstMatch
+            guard alert.waitForExistence(timeout: index == 0 ? 5 : 2) else { return }
+            let explanation = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
+            guard explanation.localizedCaseInsensitiveContains("MORE") else {
+                add(XCTAttachment(string: springboard.debugDescription))
+                XCTFail("An unrelated system alert blocks the MORE permission request.")
+                return
+            }
+            let allow = alert.buttons.matching(NSPredicate(format:
+                "label ==[c] %@ OR label BEGINSWITH[c] %@ OR label BEGINSWITH[c] %@",
+                "OK", "Allow", "Autoriser")).firstMatch
+            guard allow.waitForExistence(timeout: 3), allow.isEnabled else {
+                add(XCTAttachment(string: springboard.debugDescription))
+                XCTFail("The real MORE authorization alert has no recognized Allow control.")
+                return
+            }
+            allow.tap()
+        }
     }
 
     private func waitForLiveSpokenPassage(_ app: XCUIApplication) async {
