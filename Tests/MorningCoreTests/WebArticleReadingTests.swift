@@ -54,7 +54,8 @@ struct WebArticleReadingTests {
         #expect(!binding.isCurrent(state: initial, runtimeGeneration: UUID()))
         #expect(!binding.isCurrent(state: nil, runtimeGeneration: nonce))
         #expect(WebReadingPrivacyBinding(runtimeGeneration: nonce, stateAtCreation: nil) == nil)
-        let snapshot = try #require(WebNewsSnapshot(context: pin, privacyGeneration: try #require(binding.runtimeGeneration),
+        let boundNonce = try #require(binding.runtimeGeneration)
+        let snapshot = try #require(WebNewsSnapshot(context: pin, privacyGeneration: boundNonce,
             pageGeneration: 1, pageURL: page, fingerprint: "actual-list",
             links: [.init(title: "SYNTHETIC observed headline", href: URL(string: "https://www.lemonde.fr/article/one")!)]))
         #expect(snapshot.matches(context: pin, privacyGeneration: nonce, pageGeneration: 1, pageURL: page))
