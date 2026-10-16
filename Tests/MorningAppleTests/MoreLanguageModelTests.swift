@@ -94,7 +94,9 @@ struct MoreLanguageModelTests {
         #expect(request.timeoutInterval == 45)
         let body = try JSONDecoder().decode(ComposioJSONValue.self, from: #require(request.httpBody)).objectValue
         #expect(body?["store"] == .bool(false))
+        #expect(MoreLanguageModel.openAIModel == "gpt-6-luna")
         #expect(body?["model"] == .string(MoreLanguageModel.openAIModel))
+        #expect(body?["reasoning"]?.objectValue?["effort"] == .string("high"))
         #expect(body?["input"] == .string("Synthetic observation"))
         #expect(body?["max_output_tokens"] == .number(2_048))
         #expect(body?["text"]?.objectValue?["format"]?.objectValue?["type"] == .string("json_schema"))
