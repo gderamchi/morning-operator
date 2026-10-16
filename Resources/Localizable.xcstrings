@@ -341,6 +341,66 @@
         }
       }
     },
+    "%lld copies": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg copy"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg copies"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg copie"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg copies"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld days with labeled samples · %lld days with observations": {
       "localizations": {
         "en": {
@@ -1313,6 +1373,66 @@
         }
       }
     },
+    "%lld observations have no saved import date. They are never removed by age.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation has no saved import date. It is never removed by age."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations have no saved import date. They are never removed by age."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation n’a pas de date d’importation enregistrée. Elle n’est jamais supprimée en raison de son âge."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations n’ont pas de date d’importation enregistrée. Elles ne sont jamais supprimées en raison de leur âge."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld observations need an observed day": {
       "localizations": {
         "en": {
@@ -1424,6 +1544,66 @@
                     "stringUnit": {
                       "state": "translated",
                       "value": "%arg observations n’ont pas encore de date"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld observations would be removed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation would be removed."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations would be removed."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation serait supprimée."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations seraient supprimées."
                     }
                   }
                 }
@@ -2981,6 +3161,16 @@
         }
       }
     },
+    "1 year": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 an"
+          }
+        }
+      }
+    },
     "1 · See your rhythm": {
       "localizations": {
         "fr": {
@@ -3057,6 +3247,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "3 · Make yourself at home"
+          }
+        }
+      }
+    },
+    "30 days": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 jours"
+          }
+        }
+      }
+    },
+    "90 days": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "90 jours"
           }
         }
       }
@@ -3269,6 +3479,16 @@
         }
       }
     },
+    "A moment you chose to keep": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un moment que vous avez choisi de garder"
+          }
+        }
+      }
+    },
     "A morning saved. Time still unknown.": {
       "localizations": {
         "fr": {
@@ -3413,6 +3633,26 @@
         }
       }
     },
+    "A removal is already in progress. Nothing more was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression est déjà en cours. Rien de plus n’a été supprimé."
+          }
+        }
+      }
+    },
+    "A removal you confirmed was interrupted, and your saved data has changed since. Nothing more was removed. Review it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression que vous aviez confirmée a été interrompue, et vos données enregistrées ont changé depuis. Rien de plus n’a été supprimé. Vérifiez-la de nouveau."
+          }
+        }
+      }
+    },
     "A reply could not be prepared. You can write one below.": {
       "localizations": {
         "fr": {
@@ -3441,6 +3681,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "A saved moment"
+          }
+        }
+      }
+    },
+    "A saved morning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une matinée enregistrée"
+          }
+        }
+      }
+    },
+    "A saved morning still holds this draft. Approve or edit your routine first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une matinée enregistrée contient encore ce brouillon. Approuvez ou modifiez d’abord votre routine. Rien n’a été supprimé."
           }
         }
       }
@@ -3505,6 +3765,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "A selected observation was removed. Clear the selection and choose again."
+          }
+        }
+      }
+    },
+    "A step quoting one of these observations also holds words you keep, so nothing can be removed yet. Edit that step in your routine first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une étape qui cite l’une de ces observations contient aussi des mots que vous gardez : rien ne peut encore être supprimé. Modifiez d’abord cette étape dans votre routine."
+          }
+        }
+      }
+    },
+    "A step quoting this observation also holds words you keep. Edit that step in your routine first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une étape qui cite cette observation contient aussi des mots que vous gardez. Modifiez d’abord cette étape dans votre routine. Rien n’a été supprimé."
           }
         }
       }
@@ -4497,6 +4777,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ambiguous screen"
+          }
+        }
+      }
+    },
+    "An earlier removal still needs to finish. Choose Finish the interrupted removal in Privacy first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression précédente doit encore se terminer. Choisissez d’abord « Terminer la suppression interrompue » dans Confidentialité. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
+    "An interrupted removal couldn't be read, so nothing more was removed. Review your observations again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une suppression interrompue n’a pas pu être lue, donc rien de plus n’a été supprimé. Vérifiez de nouveau vos observations."
           }
         }
       }
@@ -7173,6 +7473,16 @@
         }
       }
     },
+    "Copies kept separately": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copies gardées à part"
+          }
+        }
+      }
+    },
     "Copy reply": {
       "localizations": {
         "fr": {
@@ -8442,6 +8752,16 @@
         }
       }
     },
+    "Finish or stop this morning and wait for current work to end, then try again. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminez ou arrêtez cette matinée et attendez la fin du travail en cours, puis réessayez. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "Finish or stop this morning before changing the routine.": {
       "localizations": {
         "fr": {
@@ -8518,6 +8838,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finish the current activity, or retry or discard the saved recording, before starting another."
+          }
+        }
+      }
+    },
+    "Finish the interrupted removal": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer la suppression interrompue"
           }
         }
       }
@@ -8730,6 +9060,36 @@
         }
       }
     },
+    "Forget this observation": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier cette observation"
+          }
+        }
+      }
+    },
+    "Forget this observation?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier cette observation ?"
+          }
+        }
+      }
+    },
+    "Forget this observation…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oublier cette observation…"
+          }
+        }
+      }
+    },
     "Format": {
       "localizations": {
         "fr": {
@@ -8911,6 +9271,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "From your observations"
+          }
+        }
+      }
+    },
+    "Full text": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texte complet"
           }
         }
       }
@@ -9460,6 +9830,26 @@
         }
       }
     },
+    "Imported before %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importées avant le %@."
+          }
+        }
+      }
+    },
+    "Imported: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importée : %@"
+          }
+        }
+      }
+    },
     "In MORE": {
       "localizations": {
         "fr": {
@@ -9672,6 +10062,16 @@
         }
       }
     },
+    "It was prepared from what changes here, so it is set aside and has to be worked out again. Your current routine is unchanged by this.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elle a été préparée à partir de ce qui change ici : elle est mise de côté et devra être refaite. Votre routine actuelle n’en est pas modifiée."
+          }
+        }
+      }
+    },
     "Keep a little spark": {
       "localizations": {
         "fr": {
@@ -9764,6 +10164,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep it simple. You can change the order of your steps back in your routine."
+          }
+        }
+      }
+    },
+    "Keep raw evidence for": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conserver les éléments bruts pendant"
           }
         }
       }
@@ -9876,6 +10286,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kept by your choice"
+          }
+        }
+      }
+    },
+    "Kept separately": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gardé à part"
           }
         }
       }
@@ -10197,6 +10617,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Let's try that again."
+          }
+        }
+      }
+    },
+    "Links and suggestions set aside": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liens et suggestions mis de côté"
           }
         }
       }
@@ -11323,6 +11753,16 @@
         }
       }
     },
+    "No import date saved": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune date d’importation enregistrée"
+          }
+        }
+      }
+    },
     "No installed voice is available for MORE’s language.": {
       "localizations": {
         "en": {
@@ -11335,6 +11775,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucune voix installée n’est disponible dans la langue de MORE."
+          }
+        }
+      }
+    },
+    "No longer linked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus reliés à l’observation"
           }
         }
       }
@@ -12023,6 +12473,16 @@
         }
       }
     },
+    "Nothing is older than this right now.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien n’est plus ancien pour l’instant."
+          }
+        }
+      }
+    },
     "Nothing saved": {
       "localizations": {
         "fr": {
@@ -12167,6 +12627,16 @@
         }
       }
     },
+    "Observations to remove": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Observations à supprimer"
+          }
+        }
+      }
+    },
     "Observed app": {
       "localizations": {
         "fr": {
@@ -12233,16 +12703,26 @@
     },
     "Off": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Désactivé"
           }
-        },
-        "en": {
+        }
+      }
+    },
+    "Off keeps every observation until you remove it. When an age is chosen, nothing is removed until you review the list and confirm. Quotations in a routine you approved and moments you chose to keep stay.": {
+      "localizations": {
+        "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Off"
+            "value": "Désactivé : chaque observation reste jusqu’à ce que vous la supprimiez. Si vous choisissez une durée, rien n’est supprimé avant que vous ayez vérifié la liste et confirmé. Les citations d’une routine que vous avez approuvée et les moments que vous avez choisi de garder restent."
           }
         }
       }
@@ -12259,6 +12739,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Off. Your morning stays inside MORE."
+          }
+        }
+      }
+    },
+    "Older than this": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus anciennes"
           }
         }
       }
@@ -13108,6 +13598,16 @@
         }
       }
     },
+    "Part of this can't be removed safely here. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie ne peut pas être supprimée ici en toute sécurité. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "Partial observation window": {
       "localizations": {
         "fr": {
@@ -13596,6 +14096,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quick capture"
+          }
+        }
+      }
+    },
+    "Quotations removed with them": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Citations supprimées avec elles"
           }
         }
       }
@@ -14595,6 +15105,16 @@
         }
       }
     },
+    "Removal couldn't start. Nothing was removed. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suppression n’a pas pu commencer. Rien n’a été supprimé. %@"
+          }
+        }
+      }
+    },
     "Removal needs another try. Some local data may already be gone; remaining data stays unavailable. %@": {
       "localizations": {
         "fr": {
@@ -14607,6 +15127,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Removal needs another try. Some local data may already be gone; remaining data stays unavailable. %@"
+          }
+        }
+      }
+    },
+    "Remove %lld observations": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Remove %arg observation"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Remove %arg observations"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Supprimer %arg observation"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Supprimer %arg observations"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -14655,6 +15235,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove my correction"
+          }
+        }
+      }
+    },
+    "Remove old observations?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer les anciennes observations ?"
           }
         }
       }
@@ -14739,6 +15329,86 @@
         }
       }
     },
+    "Removed %lld observations. Everything listed as kept is still there.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Removed %arg observation. Everything listed as kept is still there."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "Removed %arg observations. Everything listed as kept is still there."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@n@"
+          },
+          "substitutions": {
+            "n": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observation supprimée. Tout ce qui était indiqué comme gardé est toujours là."
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%arg observations supprimées. Tout ce qui était indiqué comme gardé est toujours là."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Removed from MORE’s saved data. A leftover temporary copy couldn’t be removed yet; MORE tries again the next time it opens. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimé des données enregistrées de MORE. Une copie temporaire restante n’a pas encore pu être supprimée ; MORE réessaiera à sa prochaine ouverture. %@"
+          }
+        }
+      }
+    },
+    "Removed with them": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimé avec elles"
+          }
+        }
+      }
+    },
     "Removes the saved routine and its learning, stops MORE’s current work and cancels its morning invitation. You can start fresh afterward.": {
       "localizations": {
         "fr": {
@@ -14799,6 +15469,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Removing your correction restores the original interpretation, if one is available."
+          }
+        }
+      }
+    },
+    "Removing…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suppression…"
           }
         }
       }
@@ -15264,6 +15944,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Review and edit before copying. Nothing is sent or saved to Gmail."
+          }
+        }
+      }
+    },
+    "Review before removing…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifier avant de supprimer…"
           }
         }
       }
@@ -16496,6 +17186,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Saved data couldn’t be read. You can still choose to remove it."
+          }
+        }
+      }
+    },
+    "Saved data is unavailable right now. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données enregistrées sont indisponibles pour le moment. Rien n’a été supprimé."
           }
         }
       }
@@ -17983,6 +18683,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Showing up to five unread messages."
+          }
+        }
+      }
+    },
+    "Shows every copy of it first. Quotations in an unapproved draft go too; what you approved or kept stays.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Montre d’abord toutes ses copies. Ses citations dans un brouillon non approuvé partent aussi ; ce que vous avez approuvé ou gardé reste."
           }
         }
       }
@@ -19568,6 +20278,16 @@
         }
       }
     },
+    "The interrupted removal can't finish yet. Nothing more was removed. Try again from Privacy.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suppression interrompue ne peut pas encore se terminer. Rien de plus n’a été supprimé. Réessayez depuis Confidentialité."
+          }
+        }
+      }
+    },
     "The local data controls couldn't be read. Open Privacy to retry removing local data. %@": {
       "localizations": {
         "fr": {
@@ -19640,6 +20360,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "The morning saved with your routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La matinée enregistrée avec votre routine"
           }
         }
       }
@@ -19736,6 +20466,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The recording is kept for retry or discard."
+          }
+        }
+      }
+    },
+    "The removal you confirmed has finished.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La suppression que vous avez confirmée est terminée."
           }
         }
       }
@@ -20012,6 +20752,16 @@
         }
       }
     },
+    "Their original text, corrections, sampled screens and screen labels leave MORE on this device. Nothing else is removed unless it is listed below as removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leur texte d’origine, leurs corrections, les écrans échantillonnés et leurs libellés quittent MORE sur cet appareil. Rien d’autre n’est supprimé, sauf ce qui est indiqué ci-dessous comme supprimé."
+          }
+        }
+      }
+    },
     "There is no current briefing to read.": {
       "localizations": {
         "en": {
@@ -20040,6 +20790,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "There is no current step timer."
+          }
+        }
+      }
+    },
+    "There is nothing left to remove here. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il n’y a plus rien à supprimer ici. Rien n’a été supprimé."
           }
         }
       }
@@ -20136,6 +20896,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "These samples weren't used to suggest activities. Missing or unsuitable evidence stays unknown."
+          }
+        }
+      }
+    },
+    "These stay. Remove them where they live if you want them gone too.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ces copies restent. Supprimez-les là où elles se trouvent si vous voulez qu’elles disparaissent aussi."
           }
         }
       }
@@ -20476,6 +21246,16 @@
         }
       }
     },
+    "This observation belongs to a recorded session, which can't be removed here yet. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette observation fait partie d’une session enregistrée, qui ne peut pas encore être supprimée ici. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "This observation changed. Choose the excerpt again before adding it.": {
       "localizations": {
         "fr": {
@@ -20552,6 +21332,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This observation needs a confirmed day, a personal or sample origin, and a short readable line. You can review its date or add a correction in Learn."
+          }
+        }
+      }
+    },
+    "This observation will be removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette observation sera supprimée."
           }
         }
       }
@@ -20888,6 +21678,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This setting couldn't be saved. %@"
+          }
+        }
+      }
+    },
+    "This setting couldn't be saved. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce réglage n’a pas pu être enregistré. Rien n’a été supprimé."
           }
         }
       }
@@ -22018,6 +22818,16 @@
         }
       }
     },
+    "Waiting for the current analysis to finish…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de la fin de l’analyse en cours…"
+          }
+        }
+      }
+    },
     "Waiting stopped. If the action had started, check the account before doing it again.": {
       "localizations": {
         "fr": {
@@ -22943,6 +23753,16 @@
         }
       }
     },
+    "Your current routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine actuelle"
+          }
+        }
+      }
+    },
     "Your current routine stays in place until you approve the update.": {
       "localizations": {
         "fr": {
@@ -23019,6 +23839,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your daily routine"
+          }
+        }
+      }
+    },
+    "Your data couldn't be saved, so nothing was removed. Try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos données n’ont pas pu être enregistrées, donc rien n’a été supprimé. Réessayez."
           }
         }
       }
@@ -23487,6 +24317,26 @@
         }
       }
     },
+    "Your other changes couldn't be saved first. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos autres modifications n’ont pas pu être enregistrées d’abord. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
+    "Your pending suggestion": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre suggestion en attente"
+          }
+        }
+      }
+    },
     "Your plan and its notes": {
       "localizations": {
         "fr": {
@@ -23563,6 +24413,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your previous morning is paused. Resume when you're ready."
+          }
+        }
+      }
+    },
+    "Your previous routine": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine précédente"
           }
         }
       }
@@ -23791,6 +24651,16 @@
         }
       }
     },
+    "Your routine changed. Review the list again. Nothing was removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre routine a changé. Vérifiez de nouveau la liste. Rien n’a été supprimé."
+          }
+        }
+      }
+    },
     "Your routine may have changed. Learn from Screen Time again for a fresh suggestion.": {
       "localizations": {
         "fr": {
@@ -23899,6 +24769,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos choix enregistrés doivent être vérifiés. Votre routine est intacte. Réinitialisez ces choix avant de créer de nouvelles propositions."
+          }
+        }
+      }
+    },
+    "Your saved data changed after this list was shown, so nothing was removed. This is the updated list.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos données enregistrées ont changé après l’affichage de cette liste, donc rien n’a été supprimé. Voici la liste à jour."
+          }
+        }
+      }
+    },
+    "Your saved data changed, so nothing was removed. Review the updated list.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos données enregistrées ont changé, donc rien n’a été supprimé. Vérifiez la liste à jour."
           }
         }
       }

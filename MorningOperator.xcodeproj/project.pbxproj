@@ -29,6 +29,7 @@
 		23F9DFCA9B3F493393D1ADBA /* ObservationBenchmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428BB34451AB151032ECE063 /* ObservationBenchmarkTests.swift */; };
 		24852D8A9D6174BB11D914E7 /* ObservationFixtureApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AB59F7870CD63CA5EE2920 /* ObservationFixtureApp.swift */; };
 		25E634764F09D0FA89616AB5 /* MorningIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C157A20523AAA3E23DE7525 /* MorningIntents.swift */; };
+		26E080A5B92310ED4EC638B6 /* RetentionPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11E4F423188189029344F92B /* RetentionPlanView.swift */; };
 		2791917410CC55912CD69F2E /* MorningHomePlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05B450759EB33E8114C1F64 /* MorningHomePlaybackTests.swift */; };
 		29833FBC1D778F35698B5280 /* APIConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0A2F88DB2AE99C5B032D23 /* APIConnectionsView.swift */; };
 		2AA821BE9C1FED56D32D326F /* MorningMailMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C9BB326B1E3EA1DCA47CF87 /* MorningMailMomentView.swift */; };
@@ -84,6 +85,7 @@
 		75919F24634036D4BC2F2759 /* NativeConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52882CDFDCAF2CA44CF529AF /* NativeConnectionsView.swift */; };
 		764656C0FA7E94E7876F1710 /* MorningSolarArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = C62855ECFE0F19EBCDB332FC /* MorningSolarArtwork.swift */; };
 		77E6DD1AC2C45111FE46ED7C /* AppShortcuts.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 05E307E09E81E9A3AFEE9AFE /* AppShortcuts.xcstrings */; };
+		7833055F72DC68A9D6E63846 /* EvidenceRetentionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC12572B5ED86682F797C645 /* EvidenceRetentionTests.swift */; };
 		7F29AEB85EC179145672FF4A /* ObservedMorningOverviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2FA2C64FBF1A704B0DB453 /* ObservedMorningOverviewTests.swift */; };
 		800117D5DEEBA015A966773D /* MorningOpeningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C3486962C20E3A3FBCC24C /* MorningOpeningTests.swift */; };
 		807D89549417D22C9971291F /* CalendlyDayUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 838AC4F9BDABF3096F92B549 /* CalendlyDayUITestFixture.swift */; };
@@ -96,6 +98,7 @@
 		874DA3D9D2981D8BDC13F924 /* MorningLiveDemo in Frameworks */ = {isa = PBXBuildFile; productRef = 86B3ADB070A450C8A2D02302 /* MorningLiveDemo */; };
 		8804FDDEF738D87906FE866D /* RoutineAutomationJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F649D50F4BCF527213FB411 /* RoutineAutomationJourneyTests.swift */; };
 		8891656AED94CB198DCEA7FC /* MorningSubscriptionEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7FCE7A3984FBA54B116B9E /* MorningSubscriptionEntryView.swift */; };
+		8C070F96110E5F2ED5EEC28A /* EvidenceRetentionUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ABD06293C70F51D07609734 /* EvidenceRetentionUITestFixture.swift */; };
 		8CD682C5DF97F2CF8EC3D2CE /* GmailConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5087BDE08DBD2E7273AECA0 /* GmailConnectionView.swift */; };
 		9110D8F9FE1CCA1CA6BEBB8F /* MorningPermissionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA781F3E0E954D226DDC941 /* MorningPermissionSetupView.swift */; };
 		9239172E43B7341A7C81A36D /* MorningStore+Outlook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 597D20B3852383C91E5DD384 /* MorningStore+Outlook.swift */; };
@@ -165,6 +168,7 @@
 		F65D3743724B35A6BB033D95 /* MorningBriefingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7665B33053A581FA603175F0 /* MorningBriefingView.swift */; };
 		F77D08BE48F8931FF8749C4D /* MorningRecapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEA9A5D33ACBE08EDB29D96F /* MorningRecapView.swift */; };
 		F7CCEEA9F10ADE5E0F9D9829 /* MorningInlineDayStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2A1E48120A6B3AB7369321 /* MorningInlineDayStrip.swift */; };
+		FAE4F8396134BAADD07AB1B8 /* MorningStore+Retention.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14BBCF2524C1DD4B0548215 /* MorningStore+Retention.swift */; };
 		FC6E0DE31197E46226CAFF30 /* PrivacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 289B9292F55FE9F36E473EFE /* PrivacyTests.swift */; };
 		FCEB5801874646D787D3ED15 /* ObservationArchiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31A115980B5BD98DC6D7FA73 /* ObservationArchiveTests.swift */; };
 		FD0F276362C2078CB6A6304B /* MorningSubscriptionPurchaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23F20BD5B11E217007C27F71 /* MorningSubscriptionPurchaseTests.swift */; };
@@ -222,8 +226,10 @@
 		05A5B680408BAAB55A70D008 /* MorningSubscriptionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningSubscriptionStore.swift; sourceTree = "<group>"; };
 		05E307E09E81E9A3AFEE9AFE /* AppShortcuts.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = AppShortcuts.xcstrings; sourceTree = "<group>"; };
 		0814A1DE4C0A82002840418D /* MorningActivitySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningActivitySettingsView.swift; sourceTree = "<group>"; };
+		0ABD06293C70F51D07609734 /* EvidenceRetentionUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceRetentionUITestFixture.swift; sourceTree = "<group>"; };
 		0B13EE8866E05CC2C7EF64E1 /* BlankObservationImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlankObservationImportTests.swift; sourceTree = "<group>"; };
 		0FC755247843C4509320356A /* StepTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepTimerView.swift; sourceTree = "<group>"; };
+		11E4F423188189029344F92B /* RetentionPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetentionPlanView.swift; sourceTree = "<group>"; };
 		129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureJourneyTests.swift; sourceTree = "<group>"; };
 		154C390A02B7B222A7AC6A92 /* MorningTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningTheme.swift; sourceTree = "<group>"; };
 		1A0A2F88DB2AE99C5B032D23 /* APIConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConnectionsView.swift; sourceTree = "<group>"; };
@@ -344,6 +350,7 @@
 		BDCC683CD3C90B5FFD65B77C /* WebRoutineJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRoutineJourneyTests.swift; sourceTree = "<group>"; };
 		BFB9060C58B99BC4484E2765 /* SunriseDockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SunriseDockTests.swift; sourceTree = "<group>"; };
 		C0A810C8149FA0ADB203403E /* GmailMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GmailMessageView.swift; sourceTree = "<group>"; };
+		C14BBCF2524C1DD4B0548215 /* MorningStore+Retention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Retention.swift"; sourceTree = "<group>"; };
 		C1DA39ECB4DB4D344A67FD89 /* PlanBSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanBSettingsViews.swift; sourceTree = "<group>"; };
 		C5087BDE08DBD2E7273AECA0 /* GmailConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GmailConnectionView.swift; sourceTree = "<group>"; };
 		C5E00F7E37441A95A894E9C5 /* AddStepTimeIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddStepTimeIntent.swift; sourceTree = "<group>"; };
@@ -351,6 +358,7 @@
 		C62855ECFE0F19EBCDB332FC /* MorningSolarArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningSolarArtwork.swift; sourceTree = "<group>"; };
 		C9A3ABFE205E230E3179EC7D /* CalendlyDayMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendlyDayMomentView.swift; sourceTree = "<group>"; };
 		CB01EC0C464A9A8C729788A1 /* AppActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppActivityView.swift; sourceTree = "<group>"; };
+		CC12572B5ED86682F797C645 /* EvidenceRetentionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceRetentionTests.swift; sourceTree = "<group>"; };
 		CE01CE6509D574082266C8EB /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		CEA9A5D33ACBE08EDB29D96F /* MorningRecapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningRecapView.swift; sourceTree = "<group>"; };
 		D0AB59F7870CD63CA5EE2920 /* ObservationFixtureApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationFixtureApp.swift; sourceTree = "<group>"; };
@@ -463,6 +471,7 @@
 				E606BC30A53C585226160F40 /* ClockObservationTests.swift */,
 				A5F56F33A281305BB7D95FEC /* CompletionCaptureTests.swift */,
 				57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */,
+				CC12572B5ED86682F797C645 /* EvidenceRetentionTests.swift */,
 				129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */,
 				31C92D40B6EFA01488AD3742 /* InterfaceTourTests.swift */,
 				E7A3FB65E6F23F27BCD2036A /* LiveMorningDemoTests.swift */,
@@ -550,6 +559,7 @@
 				58BE89D50EC60DF33869909E /* CalendlyDaySetupView.swift */,
 				838AC4F9BDABF3096F92B549 /* CalendlyDayUITestFixture.swift */,
 				F52F4FBC1FF6A6556E0BB292 /* DesignSystem.swift */,
+				0ABD06293C70F51D07609734 /* EvidenceRetentionUITestFixture.swift */,
 				E3A4E32627DA271ED0E49A94 /* GmailConnectionController.swift */,
 				C5087BDE08DBD2E7273AECA0 /* GmailConnectionView.swift */,
 				C0A810C8149FA0ADB203403E /* GmailMessageView.swift */,
@@ -597,6 +607,7 @@
 				88FFCA6CADABADA36EAE231D /* MorningStore+NativeMoment.swift */,
 				8F32518AD6A5C1556F1A6498 /* MorningStore+Opening.swift */,
 				597D20B3852383C91E5DD384 /* MorningStore+Outlook.swift */,
+				C14BBCF2524C1DD4B0548215 /* MorningStore+Retention.swift */,
 				922632E5A7142433B00F800F /* MorningStore+ScreenTime.swift */,
 				5AEB1AA029C61D6798CD902C /* MorningStore+Slack.swift */,
 				2463896AFD47FCF94B53C233 /* MorningStore+StepTimer.swift */,
@@ -626,6 +637,7 @@
 				FBE47DE39B2C3158051571E6 /* PrivacyInfo.xcprivacy */,
 				E1435A178A34F6AADC746A82 /* QuickCaptureView.swift */,
 				93DDD575BBAE60C4911CB3B3 /* RecordMorningView.swift */,
+				11E4F423188189029344F92B /* RetentionPlanView.swift */,
 				B3765EFB295A6146697D4D03 /* RoutineEvidenceProposalView.swift */,
 				E5E6ADF52C122F1C6A7F8B68 /* RoutineReviewComponents.swift */,
 				7473723C675D8D6B48B5EAFC /* RoutineTimeBudgetView.swift */,
@@ -925,6 +937,7 @@
 				D81288817F8AA73709A15AF5 /* ClockObservationTests.swift in Sources */,
 				1DE00DFEBB39E3066AC8AFD4 /* CompletionCaptureTests.swift in Sources */,
 				655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */,
+				7833055F72DC68A9D6E63846 /* EvidenceRetentionTests.swift in Sources */,
 				9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */,
 				CD3F1E802A61F825BE343107 /* InterfaceTourTests.swift in Sources */,
 				AFDC8BC6FB5AD1FBCC4F66A0 /* LiveMorningDemoTests.swift in Sources */,
@@ -975,6 +988,7 @@
 				E70D9CF7111B180C6A914753 /* CalendlyDaySetupView.swift in Sources */,
 				807D89549417D22C9971291F /* CalendlyDayUITestFixture.swift in Sources */,
 				9A8B244DD216406D67AD84A3 /* DesignSystem.swift in Sources */,
+				8C070F96110E5F2ED5EEC28A /* EvidenceRetentionUITestFixture.swift in Sources */,
 				BC03B0A17545825849E082F4 /* GmailConnectionController.swift in Sources */,
 				8CD682C5DF97F2CF8EC3D2CE /* GmailConnectionView.swift in Sources */,
 				08F2920020CE53509B8178D1 /* GmailMessageView.swift in Sources */,
@@ -1021,6 +1035,7 @@
 				2ABA9DD0B30F096C6866EA02 /* MorningStore+NativeMoment.swift in Sources */,
 				751A59D0193F23EAD44A59E8 /* MorningStore+Opening.swift in Sources */,
 				9239172E43B7341A7C81A36D /* MorningStore+Outlook.swift in Sources */,
+				FAE4F8396134BAADD07AB1B8 /* MorningStore+Retention.swift in Sources */,
 				03AF2689F197C0C49A8408BE /* MorningStore+ScreenTime.swift in Sources */,
 				C1370990D840D3FE1656BB2F /* MorningStore+Slack.swift in Sources */,
 				55ECD994DC959979FBCF2177 /* MorningStore+StepTimer.swift in Sources */,
@@ -1050,6 +1065,7 @@
 				BB54B9C368EB20EC7A70A705 /* PlanBSettingsViews.swift in Sources */,
 				A71F2DD1E977583E1F72289B /* QuickCaptureView.swift in Sources */,
 				C2C11F3D62BD2E61A4A92900 /* RecordMorningView.swift in Sources */,
+				26E080A5B92310ED4EC638B6 /* RetentionPlanView.swift in Sources */,
 				BF4BCBC13775223D50E313FE /* RoutineEvidenceProposalView.swift in Sources */,
 				BC67016209498589093FA638 /* RoutineReviewComponents.swift in Sources */,
 				D2924EFEFC17BE0B652F9216 /* RoutineTimeBudgetView.swift in Sources */,

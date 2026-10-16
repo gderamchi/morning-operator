@@ -300,6 +300,10 @@ final class MorningStore {
     private(set) var privacyCompletedID: UUID?
     private(set) var activityLoggingAllowed = true
     var privacyBlocksWork: Bool { privacyIsForgetting || privacyNeedsCleanup }
+    // Evidence retention and forgetting one observation (#8). Change these through MorningStore+Retention.swift.
+    var evidenceRetentionDays: Int?
+    var evidenceRemovalStatus: String?
+    var evidenceRemovalInProgress = false
     var privacyInventoryIsReadable: Bool { snapshotRecoveryError == nil && !privacyBlocksWork }
 
     init() {
@@ -443,6 +447,11 @@ final class MorningStore {
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-model-not-ready") {
                 notice = AppleIntelligenceError.modelDidNotAnswer(.notReady).localizedDescription
             }
+            if let retention = EvidenceRetentionUITestFixture.workspace() {
+                observationArchive = retention.archive; routine = retention.routine
+                session = RoutineSession(routine: retention.routine); pendingRoutineProposal = retention.proposal
+                persist()
+            }
             // A sample run stopped after its first moment and saved, for the recap screenshots (#10).
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-stopped-run"), let approved = routine?.approved() {
                 routine = approved; session = RoutineSession(routine: approved)
@@ -540,6 +549,7 @@ final class MorningStore {
                 pendingCaptures = saved.pendingCaptures ?? [:]
                 consumedMorningEntryIDs = saved.consumedMorningEntryIDs ?? []
                 greetingState = saved.greeting ?? MorningGreetingState()
+                evidenceRetentionDays = saved.evidenceRetentionDays.flatMap { EvidenceRemovalReview.maximumAgeChoices.contains($0) ? $0 : nil }
                 if !pendingCaptures.isEmpty { notice = String(localized: "A previous Apple app save was interrupted. Check Calendar or Reminders before adding that item again.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
                 if session?.status == .running, currentStep?.target == nil || activeStepTimer == nil || currentStep?.webBehavior != nil {
                     sessionTimingInterrupted = true
@@ -566,6 +576,8 @@ final class MorningStore {
             }
         }
         refreshNativeActionCount()
+        // A confirmed removal interrupted before it finished (#8).
+        resumeEvidenceRemovalIfNeeded()
     }
 
     /// Unsaved typed notes have no archive entry yet and are never imported evidence.
@@ -2178,6 +2190,33 @@ final class MorningStore {
         } catch { notice = error.moreDescription; return false }
     }
 
+    /// Evidence retention (#8): the one write MorningStore+Retention.swift makes. It replaces
+    /// the parts a confirmed removal changes in a single save; a failed save changes nothing.
+    func commitEvidenceRemoval(_ next: EvidenceRetentionWorkspace, removing ids: Set<UUID>) -> Bool {
+        guard !privacyBlocksWork, storageIsAvailable, !busy, !sessionActive else { return false }
+        let old = (observationArchive, routine, previousRoutine, session, pendingRoutineProposal)
+        let oldSelection = (selectedObservationID, notes, observationVideoEvidence, observationContextClassification,
+                            notesSourceLabel, observationEditsNeedSave)
+        observationArchive = next.archive
+        routine = next.currentRoutine; previousRoutine = next.previousRoutine; session = next.session
+        pendingRoutineProposal = next.pendingProposal
+        projectObservation(selectedObservationID.flatMap { ids.contains($0) ? nil : $0 })
+        observationEditsNeedSave = true
+        guard persist() else {
+            (observationArchive, routine, previousRoutine, session, pendingRoutineProposal) = old
+            (selectedObservationID, notes, observationVideoEvidence, observationContextClassification,
+             notesSourceLabel, observationEditsNeedSave) = oldSelection
+            return false
+        }
+        return true
+    }
+
+    /// Evidence retention (#8): a removal waits for the running analysis, which may hold an observation.
+    func waitForRunningAnalysis() async { await analysisTask?.value }
+
+    /// Evidence retention (#8): saves the "Keep raw evidence for…" choice.
+    func saveEvidenceRetentionSetting() -> Bool { persist() }
+
     private func projectObservation(_ id: UUID?) {
         let entry = id.flatMap { observationArchive.entry(id: $0) }
         selectedObservationID = entry?.id
@@ -2660,7 +2699,7 @@ final class MorningStore {
                 pendingScreenTimeProposal: pendingScreenTimeProposal.flatMap { $0.baseRoutineID == routine?.id && $0.isCurrent(preferences: routinePreferences) ? $0 : nil },
                 consumedMorningEntryIDs: consumedMorningEntryIDs,
                 routinePreferences: unreadablePreferences ?? .init(routinePreferences),
-                greeting: greetingState, executionRecords: executionRecords, setAside: setAsideWorkspaceElements))
+                greeting: greetingState, executionRecords: executionRecords, evidenceRetentionDays: evidenceRetentionDays, setAside: setAsideWorkspaceElements))
             }
             pendingRoutineProposal = validProposal
             if let proposal = pendingScreenTimeProposal,
@@ -2780,7 +2819,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json"] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json", EvidenceRemovalMarker.fileName] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2849,6 +2888,8 @@ final class MorningStore {
         pendingScreenTimeProposal = nil
         screenTimeBusy = false; screenTimeMessage = nil; screenTimeAccess = .notAsked
         screenTimeDailyUsage = []; screenTimeLearning = nil
+        evidenceRetentionDays = nil; evidenceRemovalStatus = nil; evidenceRemovalInProgress = false
+        setAsideWorkspaceElements = []
         routinePreferences = RoutinePreferenceJournal(); routinePreferencesIssue = nil; unreadablePreferences = nil
         history = MorningHistory(); captures = []; receipts = [:]; pendingCaptures = [:]
         executionRecords = []; webExecutionEvent = nil

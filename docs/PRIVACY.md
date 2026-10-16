@@ -38,10 +38,11 @@ The normal local data directory is the app's **Application Support/MorningOperat
 | Failed/pending app-created recording and its coverage/start metadata | `RecordingRecovery/pending-screen-recording.mp4`, `RecordingRecovery/recording-info.json` | Removed after the native recording owner has stopped. The recovery directory is excluded from backup. |
 | Active or orphaned app-created movie | App temporary `MorningOperatorRecordings/morning-<UUID>.mp4` namespace | Stop/finalize or discard, then remove only recognized owned files. Isolated UI tests use their own workspace recording namespace. |
 | Interrupted workspace JSON staging files | Reserved `.morning-save-*` sibling files | Removed because they can contain an old complete workspace. Unexpected directories or unsafe paths are reported rather than recursively swept. |
+| A confirmed selective removal that has not finished | `evidence-removal.json` | Removed. It holds observation identifiers, the confirmed instant and a digest of the plan, never observation words. |
 | Privacy state and serialization lock | `local-data-control.json`, `.morning-privacy-lock` | Retained intentionally. These hold no routine, transcript or evidence: only an opaque generation, pending flag and activity setting; the lock coordinates cooperating writers. |
 | Transient dictation, capture/import review, router requests, calendar/weather snapshots, sleep samples/duration/window/source kinds, prepared recap and speech state | App memory | Invalidated/cleared; late results cannot attach to the new generation. |
 
-Deleting just one observation has a narrower scope: it removes that acquisition and invalidates dependent pending suggestions, but it does not erase quotations already retained in a routine, archived run or Keep choice. Full forgetting removes those app-owned copies too. Export is separate from deletion; see [routine files](ROUTINE-FILES.md).
+Deleting just one observation has a narrower scope: it removes that acquisition and invalidates dependent pending suggestions, but it does not erase quotations already retained in a routine, archived run or Keep choice. **Forget this observation…** on the same screen first lists every copy of it (see [Expiry and forgetting one observation](#expiry-and-forgetting-one-observation)). Full forgetting removes those app-owned copies too. Export is separate from deletion; see [routine files](ROUTINE-FILES.md).
 
 ## Optional Apple services and surfaces
 
@@ -82,6 +83,22 @@ The controller then removes an explicit set of owned payloads, saves an empty wo
 
 File replacement is atomic at its rename boundary, with owner-only staging permissions. It does not synchronize the containing directory or promise sudden-power-loss durability. Native notification removal and multiple files are not one filesystem transaction; the pending marker makes incomplete cleanup explicit and retryable.
 
-## Expiry is separate work
+## Expiry and forgetting one observation
 
-Normal recording processing removes the app-owned raw movie after extracted evidence is successfully saved; failed processing keeps a recoverable copy until Retry or Discard. That is a save-dependent lifecycle, **not a time-to-live policy**. Automatic age-based expiry of raw recovery files, evidence, saved thoughts and history remains unimplemented. Full forgetting is an explicit action and does not complete every selective-delete or expiry criterion in [issue #8](https://github.com/gibouu/morning-operator/issues/8).
+Normal recording processing removes the app-owned raw movie after extracted evidence is successfully saved; failed processing keeps a recoverable copy until Retry or Discard. That lifecycle is unchanged. An archived observation is text in `workspace.json`: there is no per-observation media file.
+
+**Keep raw evidence for** in Privacy is Off by default: nothing expires. The choices are 30 days, 90 days and 1 year, counted from the import date. The shortest choice still covers a month of mornings, since a learning window can hold up to 31 mornings; a week would list evidence that is still being learned from. Choosing an age removes nothing. Privacy shows how many observations are older, and **Review before removing…** opens the plan: the observations that go, the quotations removed with them, the links and pending suggestion set aside, and every copy kept separately with the reason it stays. An observation with no saved import date is listed as such and never removed by age. Cancel changes nothing.
+
+**Forget this observation…** on an observation's detail shows the same plan for that one observation.
+
+What a confirmed removal changes, and nothing else:
+
+| Copy | Result |
+|---|---|
+| The observation: original text, corrections, sampled screens, screen labels, interpretation | Removed |
+| A quotation still exactly as saved, in a draft never approved or kept | The words and the link go; the step's name, category, time and place stay |
+| A reworked step that still links to the observation | The link goes; the wording is the person's and stays |
+| The pending suggestion built from the observation, or prepared from a draft that changes | Set aside |
+| A quotation in a routine the person approved, a Keep choice, a required step, a saved morning, words with no link, or any quotation while saved choices cannot be read | Kept and listed |
+
+The plan is worked out again from the current data when the person confirms. If it differs from the one shown, nothing is removed and the new plan is shown instead. A running analysis is waited for first. A durable marker is written before any change; the workspace is then saved without the observations in one atomic write; only after that are leftover `.morning-save-*` staging files removed, and the marker goes last. If the app stops part way, the next launch finishes the cleanup, applies the plan only if the data and the plan are unchanged from the confirmed instant, and otherwise removes nothing more and asks for a new review. Observations from segmented recording sessions are not removed here yet ([#88](https://github.com/gibouu/morning-operator/issues/88)); nothing creates them today. Export and the reduction goal in [issue #8](https://github.com/gibouu/morning-operator/issues/8) remain open.

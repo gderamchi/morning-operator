@@ -75,6 +75,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
     /// Which morning sessions were already greeted (issue #28). Session identifiers only.
     public var greeting: MorningGreetingState?
     public var executionRecords: [RoutineExecutionRecord]?
+    public var evidenceRetentionDays: Int?
     /// Elements set aside on this or an earlier load, verbatim. See `SetAsideWorkspacePart`.
     public var setAside: [PreservedJSONValue]?
     /// What this load set aside. Never saved.
@@ -85,7 +86,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         case automatic, readAloud, handsFreeListeningSuppressedSessionID, showMorningOnLockScreen, sessionTimingInterrupted, budgetAndFeedback, pendingCaptures
         case voiceIdentifier, observationNotes, observationSource, observationVideoEvidence
         case observationContextClassification, observationArchive, selectedObservationID
-        case pendingRoutineProposal, pendingScreenTimeProposal, consumedMorningEntryIDs, routinePreferences, greeting, executionRecords, setAside
+        case pendingRoutineProposal, pendingScreenTimeProposal, consumedMorningEntryIDs, routinePreferences, greeting, executionRecords, evidenceRetentionDays, setAside
     }
 
     public init(routine: RoutineVersion? = nil, session: RoutineSession? = nil, previousRoutine: RoutineVersion? = nil,
@@ -102,7 +103,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
                 pendingRoutineProposal: RecoverableRoutineProposal? = nil, pendingScreenTimeProposal: ScreenTimeRoutineProposal? = nil,
                 consumedMorningEntryIDs: [UUID]? = nil,
                 routinePreferences: RecoverableRoutinePreferences? = nil, greeting: MorningGreetingState? = nil,
-                executionRecords: [RoutineExecutionRecord]? = nil, setAside: [PreservedJSONValue]? = nil) {
+                executionRecords: [RoutineExecutionRecord]? = nil, evidenceRetentionDays: Int? = nil, setAside: [PreservedJSONValue]? = nil) {
         self.routine = routine; self.session = session; self.previousRoutine = previousRoutine
         self.history = history; self.captures = captures; self.receipts = receipts
         self.sessionTimeZone = sessionTimeZone; self.automatic = automatic; self.readAloud = readAloud
@@ -118,6 +119,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         self.consumedMorningEntryIDs = consumedMorningEntryIDs
         self.routinePreferences = routinePreferences; self.greeting = greeting
         self.executionRecords = executionRecords
+        self.evidenceRetentionDays = evidenceRetentionDays
         self.setAside = setAside?.isEmpty == true ? nil : setAside
     }
 
@@ -169,6 +171,7 @@ public struct WorkspaceSnapshot: Codable, Sendable {
         readAloud = try values.decodeIfPresent(Bool.self, forKey: .readAloud)
         handsFreeListeningSuppressedSessionID = try values.decodeIfPresent(UUID.self, forKey: .handsFreeListeningSuppressedSessionID)
         executionRecords = try values.decodeIfPresent([RoutineExecutionRecord].self, forKey: .executionRecords)
+        evidenceRetentionDays = (try? values.decodeIfPresent(Int.self, forKey: .evidenceRetentionDays)) ?? nil
         showMorningOnLockScreen = try values.decodeIfPresent(Bool.self, forKey: .showMorningOnLockScreen)
         sessionTimingInterrupted = try values.decodeIfPresent(Bool.self, forKey: .sessionTimingInterrupted)
         if let read = try values.decodeIfPresent(RecoverableBudgetAndFeedback.self, forKey: .budgetAndFeedback) {

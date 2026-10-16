@@ -58,10 +58,11 @@ struct WorkspaceSnapshotRecoveryTests {
     @Test("Recovery preserves newer session controls and execution records")
     func currentFieldsSurviveRoundTrip() throws {
         let sessionID = UUID()
-        let snapshot = WorkspaceSnapshot(handsFreeListeningSuppressedSessionID: sessionID, executionRecords: [])
+        let snapshot = WorkspaceSnapshot(handsFreeListeningSuppressedSessionID: sessionID, executionRecords: [], evidenceRetentionDays: 90)
         let restored = try JSONDecoder().decode(WorkspaceSnapshot.self, from: JSONEncoder().encode(snapshot))
         #expect(restored.handsFreeListeningSuppressedSessionID == sessionID)
         #expect(restored.executionRecords?.isEmpty == true)
+        #expect(restored.evidenceRetentionDays == 90)
     }
 
     @Test("The file written by the 10 October build loads whole")

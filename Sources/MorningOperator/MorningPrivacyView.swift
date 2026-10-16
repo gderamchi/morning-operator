@@ -1,11 +1,13 @@
 import SwiftUI
 import MorningCore
+import MorningApple
 
 /// A secondary native screen; privacy controls never compete with the morning.
 struct MorningPrivacyView: View {
     @Bindable var store: MorningStore
     @ViewState<Bool> private var confirmingRemoval = false
     @ViewState<Bool> private var removalApproved = false
+    @ViewState<EvidenceRemovalReview?> private var retentionReview = nil
 
     private static let removalAnchor = "privacy.removalSection"
 
@@ -49,6 +51,7 @@ struct MorningPrivacyView: View {
             } footer: {
                 Text("Only Shortcuts you configure can log app names and entry/exit times. This doesn't record taps or read messages. Removing local data turns this off until you enable it again.")
             }
+            if !store.privacyBlocksWork { EvidenceRetentionSection(store: store, reviewing: $retentionReview) }
             Section("Your day") {
                 Text("Calendar events and prepared recaps stay in memory. MORE saves only the calendars you select, your chosen weather city and temperature unit.")
                 Text("City searches go to Apple Maps. Weather requests send the selected city’s coordinates to Apple Weather. Screen content and learning aren't sent with these requests.")
@@ -79,6 +82,7 @@ struct MorningPrivacyView: View {
             Task { @MainActor in proxy.scrollTo(Self.removalAnchor, anchor: .top) }
         }
       }
+        .evidenceRemovalSheet(store: store, review: $retentionReview)
         .navigationTitle("Privacy").navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(store.privacyBlocksWork)
         .interactiveDismissDisabled(store.privacyBlocksWork)
