@@ -8,8 +8,8 @@ import UIKit
 import AppKit
 #endif
 
-/// The clock behind the palette. Refreshes resolve the selected city's solar day
-/// locally using the iPhone's date and time zone. No device location is requested.
+/// The clock behind the palette. Refreshes resolve the weather location's solar day
+/// locally using the iPhone's date and time zone.
 /// Debug builds and UI tests may pin a phase.
 @Observable @MainActor
 final class MorningThemeClock {
@@ -29,7 +29,7 @@ final class MorningThemeClock {
         if let weatherPreview {
             return String(localized: "Weather preview: \(weatherPreview) (sample).")
         }
-        guard let location else { return String(localized: "Choose a city in Your day to show its weather on Home.") }
+        guard let location else { return String(localized: "Allow location access or choose a city in Your day to show its weather on Home.") }
         if let weatherSnapshot, weatherScene != nil {
             return String(localized: "\(location.displayName): \(weatherSnapshot.conditionDescription).")
         }
@@ -43,9 +43,9 @@ final class MorningThemeClock {
     var isUsingReferenceDay: Bool { location == nil }
     var solarSourceDescription: String {
         if let location {
-            return String(localized: "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone. No device location is requested.")
+            return String(localized: "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone.")
         }
-        return String(localized: "Choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.")
+        return String(localized: "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.")
     }
     /// A pinned phase for previews, snapshots and tests. `nil` follows the clock.
     var pinnedPhase: MorningDayPhase? {
@@ -91,7 +91,7 @@ final class MorningThemeClock {
 
     private func refreshWeather(now: Date) {
         if let weatherPreview {
-            weatherScene = MorningWeatherCondition(rawValue: weatherPreview).map { MorningWeatherScene(condition: $0) }
+            weatherScene = Self.fixtureScene(weatherPreview)
             weatherAttribution = nil
             return
         }
@@ -101,7 +101,7 @@ final class MorningThemeClock {
             weatherSnapshot = nil; weatherScene = nil; weatherAttribution = nil
             return
         }
-        weatherScene = MorningWeatherScene(condition: snapshot.condition, cloudCover: snapshot.cloudCover)
+        weatherScene = snapshot.scene
         weatherAttribution = snapshot.attribution
         weatherStatus = .fresh
     }
@@ -110,10 +110,25 @@ final class MorningThemeClock {
         #if DEBUG
         if let option = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--theme-weather=") }) {
             let value = String(option.dropFirst("--theme-weather=".count))
-            if value == "unavailable" || MorningWeatherCondition(rawValue: value) != nil { return value }
+            if ["unavailable", "calm", "breeze", "strongWind", "westWind", "eastWind", "humid"].contains(value)
+                || MorningWeatherCondition(rawValue: value) != nil { return value }
         }
         #endif
         return nil
+    }
+
+    private static func fixtureScene(_ name: String) -> MorningWeatherScene? {
+        switch name {
+        case "calm": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 0)
+        case "breeze": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 2, windGustMetersPerSecond: 4)
+        case "strongWind": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 15, windGustMetersPerSecond: 25)
+        case "westWind", "eastWind":
+            MorningWeatherScene(condition: .partlyCloudy, cloudCover: 0.3,
+                windSpeedMetersPerSecond: 8, windGustMetersPerSecond: 12,
+                windDirectionDegrees: name == "westWind" ? 270 : 90)
+        case "humid": MorningWeatherScene(condition: .haze, cloudCover: 0.15, humidity: 0.95, visibilityMeters: 3_000)
+        default: MorningWeatherCondition(rawValue: name).map { MorningWeatherScene(condition: $0) }
+        }
     }
 
     /// `--theme-phase=dawn` (UI tests, debug) or `MO_THEME_PHASE=dawn` (snapshots).

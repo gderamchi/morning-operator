@@ -252,6 +252,46 @@ final class SunriseDockTests: XCTestCase {
         }
     }
 
+    func testMeasuredWindChangesAClearSkyAndFollowsItsDirection() {
+        var poses: [String: Data] = [:]
+        for weather in ["calm", "breeze", "strongWind", "westWind", "eastWind", "humid"] {
+            let app = launch(weather: weather, extra: ["--theme-motion-time=3.2"])
+            assertQuietArrival(in: app)
+            let screenshot = app.buttons["morning.actions"].screenshot()
+            poses[weather] = scenePixels(screenshot)
+            attach("measured-weather-\(weather)-t3.2", screenshot)
+            reveal(in: app)
+            assertReachable("morning.settings", in: app)
+            assertReachable("morning.closeActions", in: app)
+            app.terminate()
+        }
+        for (first, second) in [("calm", "breeze"), ("breeze", "strongWind"), ("westWind", "eastWind"), ("calm", "humid")] {
+            XCTAssertNotNil(poses[first])
+            XCTAssertNotNil(poses[second])
+            XCTAssertNotEqual(poses[first], poses[second],
+                              "Measured \(first)/\(second) must change the atmosphere even when the condition is similar.")
+        }
+    }
+
+    func testMeasuredWindAndHumidityStayStillWithReducedMotion() {
+        for weather in ["breeze", "strongWind", "eastWind", "humid"] {
+            var firstPose: Data?
+            for seconds in [3.2, 12.0] {
+                let app = launch(weather: weather, extra: ["--ui-testing-reduce-motion", "--theme-motion-time=\(seconds)"])
+                assertQuietArrival(in: app)
+                let screenshot = app.buttons["morning.actions"].screenshot()
+                let pixels = scenePixels(screenshot)
+                if let firstPose {
+                    XCTAssertEqual(firstPose, pixels,
+                                   "Reduce Motion must freeze breaths, tree movement and visibility bands for \(weather).")
+                } else { firstPose = pixels }
+                attach("measured-weather-\(weather)-reduced-t\(seconds)", screenshot)
+                app.terminate()
+            }
+            XCTAssertNotNil(firstPose)
+        }
+    }
+
     func testReduceMotionKeepsAllRepresentativeWeatherStill() {
         for (weather, phase) in movingSkies {
             let app = launch(phase: phase, weather: weather, extra: ["--ui-testing-reduce-motion"])

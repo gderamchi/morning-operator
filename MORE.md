@@ -150,6 +150,16 @@ L'interface décrit précisément ce qui est disponible pour la personne. Une ca
 
 ## 8. Fiabilité et contrôle personnel
 
+### Préparer les accès dès la première ouverture
+
+Les autorisations iPhone sont proposées dès l'arrivée dans MORE, indépendamment de l'apprentissage de la routine qui peut attendre. Avant chaque demande système, une étape statique explique l'accès demandé, son usage concret et le contrôle conservé par la personne. Les demandes sont séquentielles ; microphone et reconnaissance vocale ont chacun leur explication. Un refus n'empêche pas de préparer les autres accès ni d'entrer dans l'app. Les accès non disponibles dans le build sont annoncés fidèlement. Les connexions aux comptes et le partage d'une vidéo gardent leur parcours explicite.
+
+### Un accueil qui reflète le temps qu'il fait ici
+
+La météo utilise la position actuelle autorisée sur l'iPhone, sans obliger la personne à saisir une ville. Une ville choisie reste une solution de repli explicite. Les observations météo restent temporaires et ne deviennent pas des traces de déplacement ou des données d'apprentissage.
+
+Le paysage de l'accueil doit être reconnaissable et mémorable : sa lumière, ses nuages, sa visibilité, ses précipitations et son vent suivent les données réellement disponibles. De petits souffles espacés accompagnent une brise ; leur fréquence, leur taille et leur intensité augmentent avec le vent et les rafales mesurés. La direction du vent relie les mouvements du ciel, des précipitations et des arbres. L'absence de données reste une absence, sans conditions inventées. La réduction des animations conserve une scène lisible et immobile.
+
 La routine validée fixe ce que MORE doit faire et avec quels services. La personne peut arrêter l'exécution, changer ses choix et retirer un accès. Une nouvelle déduction ne modifie pas silencieusement ses décisions.
 
 L'apprentissage utilise les sources choisies, avec un état visible et une possibilité d'arrêt. Les vidéos et les médias bruts ont une durée de conservation distincte de la compréhension de la routine. Les identifiants, contenus privés et médias ne sont pas copiés dans Git ou dans les rapports partagés.
