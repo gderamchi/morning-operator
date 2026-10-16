@@ -6,7 +6,7 @@
 
 Review each moment's actual operation, service, time and optional likes. The explicit **Let MORE take care of my morning** button approves that version. **Start my morning** starts it later; it cannot approve a draft. A running session retains its approved snapshot while future edits remain drafts.
 
-The Home landscape remains the playback scene, with scrolling spoken captions and discreet Pause, Next and More controls. Readers and action forms open through **Interact**. A current send/write or uncertain result has its own compact status on Home even when no new speech occurs; an old review instruction cannot hide that state. New result or question-answer captions remain available. Privacy blocking removes the playback view and its retained captions.
+The Home landscape remains the playback scene with one short current passage and no accumulated history, step title or timer. A tap reveals Pause, Next and More; they disappear after five seconds without interaction and remain available for VoiceOver. Readers and action forms open through **Interact**. A current send/write or uncertain result replaces an obsolete passage even when no new speech occurs. New result or question-answer passages remain available; uncertainty returns after speech ends. Privacy blocking removes the playback view and its retained text.
 
 Saved observations can be selected together in Learn. A sourced suggestion can be approved directly or opened with **Adjust this suggestion** in the ordinary editor. Saving those adjustments leaves a draft; it does not delegate the routine. The previous approved version remains restorable until the new version is explicitly approved.
 
