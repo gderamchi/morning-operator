@@ -2,6 +2,8 @@
 
 **Working brief · 10 October 2026.** MORE is the current product name; LEVE remains a naming candidate with known App Store search collisions. This document proposes an offer and a way to test it. It does not announce prices, claim customers or revenue, or turn unfinished capabilities into a paid promise. [Product direction](PRODUCT-DIRECTION.md) · [Actual verification](PHASE-ONE.md).
 
+**Owner decision · 16 October 2026:** the entry offer is €4.99/month with one week free for eligible customers, presented after a short product introduction and before access requests. Native onboarding, paywall and StoreKit integration are described in [subscription entry](MONETIZATION.md). App Store Connect configuration and live purchase validation remain release prerequisites. The older pricing and free-tier alternatives below remain historical research hypotheses.
+
 ## The proposition
 
 **A morning companion that learns your routine, prepares what matters and lets you spend less time managing your phone.** Connect the sources you choose, share a few mornings, review the plan, then hear a short opening and use supported voice controls. Keep the rituals you enjoy. Open the app for inspection or a meaningful change rather than repeating setup every day.

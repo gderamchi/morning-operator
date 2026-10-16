@@ -16,14 +16,19 @@ struct MorningOperatorApp: App {
         WindowGroup {
             Group {
             #if DEBUG
-            if let site = Self.webMorningLaunchSite, showingWebPreview {
+            if ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
+                MorningWelcomePreview()
+            } else if let site = Self.webMorningLaunchSite, showingWebPreview {
                 WebMorningView(site: site, minutes: 10, onClose: { showingWebPreview = false })
                     .preferredColorScheme(.light)
-            } else {
+            } else if ProcessInfo.processInfo.arguments.contains("--ui-testing")
+                        && !ProcessInfo.processInfo.arguments.contains("--ui-testing-real-subscription") {
                 MorningRootView(store: store)
+            } else {
+                MorningSubscriptionEntryView(store: store)
             }
             #else
-            MorningRootView(store: store)
+            MorningSubscriptionEntryView(store: store)
             #endif
             }
             #if DEBUG
@@ -35,7 +40,8 @@ struct MorningOperatorApp: App {
                         .accessibilityIdentifier("system.qaIdentity")
                         .accessibilityLabel(Text(verbatim: "\(Bundle.main.bundleIdentifier ?? "missing")|\(Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "missing")"))
                         .allowsHitTesting(false)
-                } else if let workspace = Self.testWorkspace {
+                } else if let workspace = Self.testWorkspace,
+                          !ProcessInfo.processInfo.arguments.contains("--preview-onboarding") {
                     Text(verbatim: "Test routine")
                         .font(.raleway(.caption2)).padding(4)
                         .dynamicTypeSize(.medium)

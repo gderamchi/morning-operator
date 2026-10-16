@@ -21,6 +21,7 @@ settings:
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
     CURRENT_PROJECT_VERSION: "1"
     MORNING_API_BASE_URL: ""
+    MORE_SUBSCRIPTION_PRODUCT_ID: com.gibouu.more.monthly
 targets:
   MorningOperator:
     type: application
@@ -82,6 +83,8 @@ targets:
       - path: UITests
         excludes:
           - ObservationBenchmarkTests.swift
+      - path: Configuration/MORE.storekit
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gibouu.morningoperator.uitests
@@ -158,6 +161,23 @@ schemes:
           randomExecutionOrder: false
     archive:
       config: Release
+  MORESubscriptions:
+    build:
+      targets:
+        MorningOperator: all
+        MorningOperatorUITests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: Configuration/MORE.storekit
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - name: MorningOperatorUITests
+          parallelizable: false
+          randomExecutionOrder: false
+          selectedTests:
+            - MorningSubscriptionPurchaseTests
   MorningObservationBenchmark:
     build:
       targets:
