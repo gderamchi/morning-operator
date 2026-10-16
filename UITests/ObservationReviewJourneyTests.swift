@@ -87,12 +87,21 @@ final class ObservationReviewJourneyTests: XCTestCase {
         attach("recorded-tied-samples-originals", app)
         MorningUITestNavigation.tapButton("observation.sample.close", in: app)
         MorningUITestNavigation.tapButton("observation.edit", in: app)
+        XCTAssertTrue(app.navigationBars["Learn my morning"].waitForExistence(timeout: 5))
         let editor = app.textViews["learn.notes"]
+        if !editor.exists {
+            // Imported video text is deliberately folded beneath its observed
+            // app sequence. Open that visible disclosure before correcting it.
+            tap(app.buttons["Text read on screen"], in: app)
+        }
         reveal(editor, in: app)
         editor.tap()
         editor.typeText(" A synthetic correction for review testing.")
         if app.buttons["input.done"].isHittable { app.buttons["input.done"].tap() }
-        app.navigationBars["Learn my morning"].buttons["Done"].tap()
+        let back = app.navigationBars["Learn my morning"].buttons.element(boundBy: 0)
+        XCTAssertTrue(back.exists && MorningUITestNavigation.becomesHittable(back), app.debugDescription)
+        back.tap()
+        XCTAssertTrue(editor.waitForNonExistence(timeout: 5))
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-observation-review" }
         MorningUITestNavigation.launch(app)

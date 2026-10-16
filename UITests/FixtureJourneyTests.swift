@@ -632,6 +632,15 @@ enum MorningUITestNavigation {
     /// the routine continues from the first moment. Pass `keepingOpening` to stay on it.
     static func tapButton(_ identifier: String, in app: XCUIApplication, keepingOpening: Bool = false,
                           file: StaticString = #filePath, line: UInt = #line) {
+        if identifier == "morning.settings" {
+            revealMorningAction(identifier, in: app, file: file, line: line)
+            // Home commands hide after five seconds. The reveal has already
+            // verified this button; select it before any generic scroll waits.
+            app.buttons[identifier].tap()
+            XCTAssertTrue(app.collectionViews["settings.appearance"].waitForExistence(timeout: 5),
+                          "The actual Settings form must open from Home.\n\(app.debugDescription)", file: file, line: line)
+            return
+        }
         if ["run.start", "run.resume", "morning.reviewDraft", "morning.review", "morning.learn", "morning.settings"].contains(identifier) {
             revealMorningAction(identifier, in: app, file: file, line: line)
         }
