@@ -533,6 +533,46 @@
         }
       }
     },
+    "Apple's local model cannot read the language of these observations. Your routine is unchanged.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle local d’Apple ne sait pas lire la langue de ces observations. Votre routine n’a pas changé."
+          }
+        }
+      }
+    },
+    "Apple's local model could not finish reading these observations. Your routine is unchanged. Try again, or write your routine yourself.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle local d’Apple n’a pas pu terminer la lecture de ces observations. Votre routine n’a pas changé. Réessayez, ou écrivez votre routine vous-même."
+          }
+        }
+      }
+    },
+    "Apple's local model declined to read these observations. Your routine is unchanged. You can choose other observations or write your routine yourself.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle local d’Apple a refusé de lire ces observations. Votre routine n’a pas changé. Vous pouvez choisir d’autres observations ou écrire votre routine vous-même."
+          }
+        }
+      }
+    },
+    "Apple's local model is busy. Your routine is unchanged. Try again in a moment.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle local d’Apple est occupé. Votre routine n’a pas changé. Réessayez dans un instant."
+          }
+        }
+      }
+    },
     "Apple's local model is currently unavailable.": {
       "localizations": {
         "fr": {
@@ -545,6 +585,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apple's local model is currently unavailable."
+          }
+        }
+      }
+    },
+    "Apple's local model is not ready on this device yet. Your routine is unchanged. Try again later, or write your routine yourself.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle local d’Apple n’est pas encore prêt sur cet appareil. Votre routine n’a pas changé. Réessayez plus tard, ou écrivez votre routine vous-même."
           }
         }
       }
@@ -3830,6 +3880,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "These briefing choices are too large to save. Your previous choices are unchanged. Choose fewer calendars."
+          }
+        }
+      }
+    },
+    "These observations are too long for Apple's local model. Your routine is unchanged. Choose fewer observations and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ces observations sont trop longues pour le modèle local d’Apple. Votre routine n’a pas changé. Choisissez moins d’observations et réessayez."
           }
         }
       }

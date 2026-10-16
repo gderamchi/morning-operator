@@ -52,6 +52,9 @@ final class MorningStore {
     private(set) var approvalCount = 0
     /// Counts mornings that began and were saved in this launch; resuming does not count.
     private(set) var morningStartCount = 0
+    /// Counts mornings that finished and were saved in this launch (issue #80). A finish
+    /// whose save failed, a repeated command and a finished morning read at launch do not count.
+    private(set) var morningCompletionCount = 0
     private(set) var notes = ""
     private(set) var observationVideoEvidence: ObservationVideoEvidence?
     private(set) var observationContextClassification: ObservationContextClassification?
@@ -435,6 +438,10 @@ final class MorningStore {
             seedPrivacyFixtureIfRequested(directory: directory)
             if let archive = ObservationReviewUITestFixture.archive(directory: directory) {
                 observationArchive = archive
+            }
+            // Synthetic: the message a model failure shows, without asking a model (issue #89).
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-model-not-ready") {
+                notice = AppleIntelligenceError.modelDidNotAnswer(.notReady).localizedDescription
             }
             // A sample run stopped after its first moment and saved, for the recap screenshots (#10).
             if ProcessInfo.processInfo.arguments.contains("--ui-testing-stopped-run"), let approved = routine?.approved() {
@@ -1018,6 +1025,7 @@ final class MorningStore {
         endOpening()
         cancelStepPlayback()
         let previousSession = session
+        let wasCompleted = session?.status == .completed
         do {
             try session?.advance(skipping: skipping, commandID: commandID)
             guard endStepTimer() else { session = previousSession; return }
@@ -1028,7 +1036,7 @@ final class MorningStore {
             }
             archiveTerminalSession()
             guard persist() else { pauseAfterSaveFailure(); return }
-            if session?.status == .completed { stopHandsFreeVoice(); queueCompletionInvitation() }
+            if session?.status == .completed { stopHandsFreeVoice(); completedMorningSaved(wasCompleted: wasCompleted) }
             else { runCurrentIfEnabled() }
         } catch { notice = error.moreDescription }
     }
@@ -1260,13 +1268,14 @@ final class MorningStore {
                       !voiceCommands.isBusy, !voiceCommands.needsAudioRelease else { throw CancellationError() }
                 // Mic release is confirmed before any command can request new speech.
                 voiceCommandPreparing = false
+                let wasCompleted = session?.status == .completed
                 try session?.applyVoiceCommand(command: command, commandID: result.id)
                 archiveTerminalSession()
                 guard persist() else { pauseAfterSaveFailure(); return }
                 if command == .resume { synchronizeMorningActivity(allowStart: true) }
                 voiceCommandFeedback = String(localized: "Heard: \(result.transcript)", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
                 voiceCommandPresented = false
-                if session?.status == .completed { queueCompletionInvitation() }
+                if session?.status == .completed { completedMorningSaved(wasCompleted: wasCompleted) }
                 if command == .repeatStep { readCurrent() }
                 else if session?.status == .running { runCurrentIfEnabled() }
             } catch {
@@ -1313,6 +1322,14 @@ final class MorningStore {
 
     /// Called only after the completion transition has been saved successfully.
     /// Restoring a completed session never queues speech or microphone access.
+    /// Called only after the finished session was saved. Feedback and the invitation follow
+    /// the change to finished, once: a repeated command on a finished morning adds nothing.
+    private func completedMorningSaved(wasCompleted: Bool) {
+        guard !wasCompleted else { return }
+        morningCompletionCount += 1
+        queueCompletionInvitation()
+    }
+
     private func queueCompletionInvitation() {
         guard hasSavedCompletedSession, let session, lastCompletionOffered != session.id else { return }
         lastCompletionOffered = session.id
