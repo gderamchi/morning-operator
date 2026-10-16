@@ -108,7 +108,7 @@ private struct MorningActivityLockScreen: View {
             } else {
                 Text(presentation.heading).font(.headline).foregroundStyle(ink)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(isStale ? String(localized: "Open MORE to update.") : presentation.progress)
+                Text(isStale ? AppLanguage.localized("Open MORE to update.") : presentation.progress)
                     .font(.caption).foregroundStyle(muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -162,7 +162,7 @@ private struct MorningActivityIslandDetail: View {
                     Text(presentation.heading)
                         .font(dynamicTypeSize.isAccessibilitySize ? .subheadline.weight(.semibold) : .headline)
                         .foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
-                    Text(presentation.isStale ? String(localized: "Open MORE to update.") : presentation.progress)
+                    Text(presentation.isStale ? AppLanguage.localized("Open MORE to update.") : presentation.progress)
                         .font(.caption).foregroundStyle(.white.opacity(0.8))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -181,15 +181,15 @@ private struct MorningActivityPresentation {
     static var destination: URL { URL(string: "\(scheme)://morning")! }
     static var scheme: String { Bundle.main.object(forInfoDictionaryKey: "MorningURLScheme") as? String ?? "more" }
 
-    var heading: String { isStale ? String(localized: "Update needed") : state.category.displayName }
-    var status: String { isStale ? String(localized: "Update needed") : state.status.displayName }
+    var heading: String { isStale ? AppLanguage.localized("Update needed") : state.category.displayName }
+    var status: String { isStale ? AppLanguage.localized("Update needed") : state.status.displayName }
     var artworkProgress: Double? { state.stepTimer?.elapsedFraction(at: state.updatedAt) }
     var shortProgress: String { "\(state.completedSteps)/\(state.totalSteps)" }
-    var progress: String { String(localized: "\(state.completedSteps) of \(state.totalSteps) moments passed") }
-    var lastUpdate: String { String(localized: "Last update \(state.updatedAt.formatted(date: .omitted, time: .shortened))") }
+    var progress: String { AppLanguage.localized("\(state.completedSteps) of \(state.totalSteps) moments passed") }
+    var lastUpdate: String { AppLanguage.localized("Last update \(state.updatedAt.formatted(date: .omitted, time: .shortened))") }
     var accessibilitySummary: String {
-        if isStale { return String(localized: "MORE. Update needed. Last saved progress: \(progress). \(lastUpdate). Open MORE to update.") }
-        return String(localized: "MORE. \(state.category.displayName). \(status). \(progress). \(lastUpdate).")
+        if isStale { return AppLanguage.localized("MORE. Update needed. Last saved progress: \(progress). \(lastUpdate). Open MORE to update.") }
+        return AppLanguage.localized("MORE. \(state.category.displayName). \(status). \(progress). \(lastUpdate).")
     }
 }
 

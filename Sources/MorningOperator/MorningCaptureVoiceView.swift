@@ -27,8 +27,8 @@ struct MorningCaptureVoiceView: View {
                         Text("Français").tag(MorningVoiceCommandLanguage.french)
                     }.pickerStyle(.segmented).disabled(store.voiceInputBlocksPlayback)
                     Text(store.completionCaptureFeedback ?? (store.completionCapturePreparing
-                        ? (store.voiceCommands.isBusy ? store.voiceCommands.message : String(localized: "Getting ready to listen…"))
-                        : String(localized: "Speak when you're ready.")))
+                        ? (store.voiceCommands.isBusy ? store.voiceCommands.message : AppLanguage.localized("Getting ready to listen…"))
+                        : AppLanguage.localized("Speak when you're ready.")))
                         .font(.raleway(.subheadline)).accessibilityIdentifier("captureVoice.status")
                     if store.voiceCommands.isBusy, !store.voiceCommands.transcript.isEmpty {
                         Text(store.voiceCommands.transcript).font(.serif(.title3))
