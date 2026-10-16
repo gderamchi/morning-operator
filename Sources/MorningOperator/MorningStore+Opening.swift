@@ -143,7 +143,7 @@ extension MorningStore {
         // with a fresh weather section of the briefing.
         var shown = document?.weatherAttribution == nil ? selection.removing(.weatherChange) : selection
         // The recap already contains this sleep observation; never speak it twice.
-        if briefing.settings.includeSleep { shown = shown.removing(.sleep) }
+        if briefing.settings.includesHealth { shown = shown.removing(.sleep) }
         // Prepared before midnight or in another time zone: its "today" and its clock times
         // belong elsewhere.
         if !shown.isCurrent(day: MorningExtrasDay.number(for: now, timeZone: .current), timeZoneIdentifier: zone) { shown = .empty }
