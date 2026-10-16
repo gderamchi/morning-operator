@@ -499,17 +499,19 @@ enum EvidenceRoutineGenerationSchema {
         let citation = DynamicGenerationSchema(name: "SuppliedCitationID", anyOf: citationIDs)
         let kind = DynamicGenerationSchema(name: "EvidenceStepKind", anyOf: StepKind.allCases.map(\.rawValue))
         let outcome = DynamicGenerationSchema(name: "EvidenceProposalOutcome", anyOf: ["insufficientEvidence", "supportedActivities"])
+        // Guided generation emits properties in declaration order. Select the
+        // native evidence before naming the candidate, then classify the result.
+        // Empty steps and abstention remain permitted and validated as before.
+        // https://developer.apple.com/documentation/foundationmodels/generating-swift-data-structures-with-guided-generation
         let step = DynamicGenerationSchema(name: "CitedRoutineStep", properties: [
+            .init(name: "citationIDs", description: "Select exactly one inserted ID of actual supporting task content or reported activity; never generic controls or labels.", schema: .init(arrayOf: .init(referenceTo: "SuppliedCitationID"), minimumElements: 1, maximumElements: 1)),
             .init(name: "title", description: "A short tentative activity title.", schema: .init(type: String.self)),
             .init(name: "kind", schema: .init(referenceTo: "EvidenceStepKind")),
-            .init(name: "durationMinutes", description: "A proposed planning budget only; never a measured average.", schema: .init(type: Int.self, guides: [.range(1...60)])),
-            // One minimal proof per generated step. Core may merge separately supported
-            // activities with more citations; the compatible decoder remains strict.
-            .init(name: "citationIDs", description: "Select exactly one inserted ID of actual supporting task content or reported activity; never generic controls or labels.", schema: .init(arrayOf: .init(referenceTo: "SuppliedCitationID"), minimumElements: 1, maximumElements: 1))
+            .init(name: "durationMinutes", description: "A proposed planning budget only; never a measured average.", schema: .init(type: Int.self, guides: [.range(1...60)]))
         ])
         let root = DynamicGenerationSchema(name: "CitedRoutineProposal", properties: [
-            .init(name: "outcome", description: "Use supportedActivities when at least one reported activity or visible task is supported by a supplied citation. Use insufficientEvidence when only labels, setup or advertising are present, or no activity can be supported without guessing. Synthetic provenance alone determines neither outcome.", schema: .init(referenceTo: "EvidenceProposalOutcome")),
-            .init(name: "steps", description: "Empty when evidence is insufficient. Otherwise tentative, quoted activities only.", schema: .init(arrayOf: .init(referenceTo: "CitedRoutineStep"), minimumElements: 0, maximumElements: 4))
+            .init(name: "steps", description: "Empty when evidence is insufficient. Otherwise tentative, quoted activities only.", schema: .init(arrayOf: .init(referenceTo: "CitedRoutineStep"), minimumElements: 0, maximumElements: 4)),
+            .init(name: "outcome", description: "Use supportedActivities when at least one reported activity or visible task is supported by a supplied citation. Use insufficientEvidence when only labels, setup or advertising are present, or no activity can be supported without guessing. Synthetic provenance alone determines neither outcome.", schema: .init(referenceTo: "EvidenceProposalOutcome"))
         ])
         return try GenerationSchema(root: root, dependencies: [kind, outcome, citation, step])
     }
