@@ -119,8 +119,8 @@ struct MorningPermissionSetupView: View {
             } label: {
                 Text(text("Learn more", "En savoir plus"))
                     .font(.raleway(.subheadline, .medium)).frame(minHeight: 44, alignment: .leading)
+                    .accessibilityIdentifier("permissions.details")
             }
-            .accessibilityIdentifier("permissions.details")
         }
     }
 

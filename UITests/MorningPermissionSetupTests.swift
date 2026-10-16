@@ -75,10 +75,23 @@ final class MorningPermissionSetupTests: XCTestCase {
             skip.tap()
         }
         let finish = app.buttons["permissions.finish"]
-        reveal(app.buttons["permissions.learn"], app)
-        reveal(finish, app)
+        for control in [app.buttons["permissions.learn"], finish, element("permissions.progress", in: app)] {
+            reveal(control, app)
+            let frame = control.frame
+            XCTAssertGreaterThan(frame.width, 0, control.debugDescription)
+            XCTAssertGreaterThanOrEqual(frame.minX, app.frame.minX - 1,
+                                        "The complete control must fit horizontally: \(control.debugDescription)")
+            XCTAssertLessThanOrEqual(frame.maxX, app.frame.maxX + 1,
+                                     "The complete control must fit horizontally: \(control.debugDescription)")
+        }
         XCTAssertEqual(finish.label, "Plus tard")
         attach("permissions-night-fr-largest-completion-landscape", app)
+        attach("permissions-night-fr-largest-completion-landscape-screen", app,
+               screenshot: XCUIScreen.main.screenshot())
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "permissions-night-fr-largest-completion-landscape-hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
         finish.tap()
         XCTAssertTrue(finish.waitForNonExistence(timeout: 5))
     }
@@ -227,15 +240,23 @@ final class MorningPermissionSetupTests: XCTestCase {
     }
 
     private func reveal(_ element: XCUIElement, _ app: XCUIApplication) {
-        XCTAssertTrue(element.waitForExistence(timeout: 5), app.debugDescription)
-        let content = app.scrollViews["permissions.content"].exists
-            ? app.scrollViews["permissions.content"] : app.scrollViews.firstMatch
-        for _ in 0..<10 where !element.isHittable {
+        if element.exists, element.isHittable { return }
+        let content: XCUIElement
+        if app.scrollViews["permissions.content"].exists {
+            content = app.scrollViews["permissions.content"]
+        } else if app.scrollViews.firstMatch.exists {
+            content = app.scrollViews.firstMatch
+        } else {
+            content = app.collectionViews.firstMatch
+        }
+        for _ in 0..<10 {
+            if element.exists, element.isHittable { break }
             if content.exists {
-                if element.frame.maxY < content.frame.minY { content.swipeDown() }
+                if element.exists, element.frame.maxY < content.frame.minY { content.swipeDown() }
                 else { content.swipeUp() }
             } else { app.swipeUp() }
         }
+        XCTAssertTrue(element.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(element.isHittable, app.debugDescription)
     }
 
