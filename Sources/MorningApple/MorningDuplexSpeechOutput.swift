@@ -72,7 +72,7 @@ final class MorningDuplexSpeechOutput {
             do {
                 // Exact chunks are synthesized sequentially and drained before the
                 // next one, so a long private reading cannot queue unbounded PCM.
-                let chunks = try LearningTextChunker.split(text, maximumCharacters: 200, maximumUTF8Bytes: 800)
+                let chunks = try SpeechCaptionProgress.chunks(text)
                 for chunk in chunks where !chunk.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     try Task.checkCancellation()
                     guard programID == id else { throw CancellationError() }

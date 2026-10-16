@@ -26,10 +26,14 @@ struct SpeechCaptionProgress {
     private var passages: [(range: NSRange, text: String)] = []
     private var currentPassage: Int?
 
+    static func chunks(_ text: String) throws -> [String] {
+        try LearningTextChunker.split(text, maximumCharacters: 110, maximumUTF8Bytes: 800)
+    }
+
     mutating func begin(_ text: String, requestID: UUID) {
         reset()
         self.requestID = requestID
-        let chunks = (try? LearningTextChunker.split(text, maximumCharacters: 200, maximumUTF8Bytes: 800)) ?? []
+        let chunks = (try? Self.chunks(text)) ?? []
         var offset = 0
         passages = chunks.map { chunk in
             let range = NSRange(location: offset, length: chunk.utf16.count)

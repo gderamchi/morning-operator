@@ -1,206 +1,82 @@
 import XCTest
 
-/// Isolated routine; the browser check opens a public page without signing in.
+/// Isolated timed moments and local speech; no personal account or recording.
 @MainActor
 final class MorningHomePlaybackTests: XCTestCase {
-    private let longPassage = "Take your time this morning. Let the light come into the room while you take a slow breath and prepare for the day ahead. There is nothing to press while MORE reads this passage. You can keep getting ready and return whenever you want to read along. The words should move gently through the landscape, leaving the previous passage visible above the one being spoken. Your routine stays here on the same home screen. If you need a little longer, the small controls remain available at the bottom. When this quiet moment ends, MORE will continue with the next part of your morning."
+    private let longPassage = "Take your time this morning. Let the light come into the room while you take a slow breath and prepare for the day ahead. There is nothing to press while MORE reads this passage. You can keep getting ready and return whenever you want to read along. Each passage should replace the one being spoken before it. Your routine stays here on the same home screen. If you need a little longer, a tap makes the small controls available. When this quiet moment ends, MORE will continue with the next part of your morning."
 
-    func testManualBrowserMomentReturnsToHomeAutomaticallyWhenItsTimeEnds() {
-        let app = launch(["--ui-testing-short-budgets"])
+    func testHomeShowsOnlyCurrentTextAndContinuesAutomatically() {
+        let app = launch(["--ui-testing-short-budgets"], night: true)
         defer { app.terminate() }
-        app.buttons["morning.actions"].tap()
-        app.buttons["morning.review"].tap()
-        let first = app.buttons["routine.step.0"]
-        XCTAssertTrue(first.waitForExistence(timeout: 5))
-        first.tap()
-        let target = app.buttons["step.targetApp"]
-        for _ in 0..<12 where !(target.exists && target.isHittable) { app.swipeUp() }
-        XCTAssertTrue(target.isHittable)
-        target.tap()
-        let site = app.buttons["Le Monde"].firstMatch
-        XCTAssertTrue(site.waitForExistence(timeout: 5))
-        site.tap()
-        let behavior = app.buttons["step.webBehavior"]
-        for _ in 0..<12 where !(behavior.exists && behavior.isHittable) { app.swipeUp() }
-        XCTAssertTrue(behavior.isHittable)
-        behavior.tap()
-        let manual = app.buttons["I browse myself"].firstMatch
-        XCTAssertTrue(manual.waitForExistence(timeout: 5))
-        manual.tap()
-        app.buttons["step.save"].tap()
-        let approve = app.buttons["routine.approve"]
-        XCTAssertTrue(approve.waitForExistence(timeout: 5))
-        approve.tap()
-        app.buttons["morning.actions"].tap()
-        app.buttons["morning.begin"].tap()
-        let browser = app.buttons.matching(NSPredicate(format: "identifier == %@ OR identifier == %@",
-                                                       "web.close", "web.aboutDone")).firstMatch
-        XCTAssertTrue(browser.waitForExistence(timeout: 5))
-        let about = app.buttons["web.aboutDone"]
-        if about.exists { about.tap() }
-        XCTAssertTrue(app.buttons["web.close"].exists)
-        attach("home-playback-manual-browser-open", app)
+        start(app)
+        assertCaption("Take a breath.", in: app)
+        assertPureReading(app)
+        attach("home-playback-only-current-text", app)
 
-        assertStep("Get ready", in: app, timeout: 15)
-        app.buttons["morning.playback"].tap()
-        assertPlaybackLabel("Continue", in: app)
-        XCTAssertFalse(app.buttons["web.close"].exists)
-        assertHomePlayback(app)
-        XCTAssertEqual(app.staticTexts["morning.caption"].label, "Your next moment.")
-        attach("home-playback-browser-budget-automatic-home", app)
+        assertCaption("Your next moment.", in: app, timeout: 15)
+        assertPureReading(app)
+        attach("home-playback-automatic-next-text", app)
     }
 
-    func testRealLocalSpeechMovesCaptionsThroughLongEditedText() {
+    func testFrenchLargestTextRevealsPauseAndNextWithOneTap() {
+        let app = launch(["--ui-testing-reduce-motion", "-UIPreferredContentSizeCategoryName",
+                          "UICTContentSizeCategoryAccessibilityXXXL"], french: true, night: true)
+        defer { app.terminate() }
+        start(app)
+        assertPureReading(app)
+        assertFitsOnScreen(app.staticTexts["morning.caption"], in: app)
+        attach("home-playback-french-largest-pure-text", app)
+        revealControls(app)
+        for identifier in ["morning.playback", "morning.next", "morning.more"] {
+            let button = app.buttons[identifier]
+            XCTAssertTrue(button.isHittable)
+            assertFitsOnScreen(button, in: app)
+        }
+        XCTAssertEqual(app.buttons["morning.next"].label, "Suivant")
+        app.buttons["morning.playback"].tap()
+        assertPlaybackLabel("Continuer", in: app)
+        attach("home-playback-french-largest-revealed-controls", app)
+        app.buttons["morning.next"].tap()
+        assertCaption("Your next moment.", in: app)
+        assertNoHeaderOrHistory(app)
+    }
+
+    func testControlsHideAfterInactivityAndInteractionRestartsTheirLifetime() {
+        let app = launch()
+        defer { app.terminate() }
+        start(app)
+        revealControls(app)
+        let playback = app.buttons["morning.playback"]
+        assertRemainsVisible(playback, for: 3)
+        playback.tap()
+        assertPlaybackLabel("Continue", in: app)
+        assertRemainsVisible(playback, for: 3)
+        XCTAssertTrue(playback.waitForNonExistence(timeout: 7), "Controls must disappear after inactivity.")
+        assertPureReading(app)
+        attach("home-playback-controls-hidden-after-inactivity", app)
+        revealControls(app)
+        assertPlaybackLabel("Continue", in: app)
+    }
+
+    func testRealLocalSpeechReplacesTheSingleCaptionWithoutHistory() {
         let app = launch(["--ui-testing-read-aloud"], night: true)
         defer { app.terminate() }
         let configured = setFirstMomentDetails(longPassage, in: app)
         start(app)
         let caption = app.staticTexts["morning.caption"]
-        XCTAssertTrue(caption.waitForExistence(timeout: 5))
+        let firstPassage = XCTNSPredicateExpectation(predicate: NSPredicate(
+            format: "label CONTAINS %@ AND label.length < %d", "Take your time this morning", configured.count), object: caption)
+        XCTAssertEqual(XCTWaiter.wait(for: [firstPassage], timeout: 15), .completed)
         let first = caption.label
-        let previous = app.staticTexts.matching(identifier: "morning.previousCaption")
-            .matching(NSPredicate(format: "label CONTAINS %@", "Take your time this morning")).firstMatch
-        XCTAssertTrue(previous.waitForExistence(timeout: 35), "A speech callback must move beyond the first passage.")
+        XCTAssertLessThan(first.count, configured.count)
+        assertPureReading(app)
+        attach("home-playback-real-speech-first-passage", app)
         let advanced = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", first), object: caption)
-        XCTAssertEqual(XCTWaiter.wait(for: [advanced], timeout: 5), .completed)
-        XCTAssertFalse(previous.label.isEmpty)
+        XCTAssertEqual(XCTWaiter.wait(for: [advanced], timeout: 35), .completed)
         XCTAssertFalse(caption.label.isEmpty)
-        XCTAssertLessThan(caption.label.count, configured.count, "Spoken captions show the current passage, not the whole note.")
-        assertStep("A quiet moment", in: app)
-        assertHomePlayback(app)
-        attach("home-playback-real-speech-long-text-second-passage", app)
-    }
-
-    func testLargestTextLongCaptionBeginsInViewAndScrollKeepsTransportReachable() {
-        let app = launch(["--ui-testing-reduce-motion", "-UIPreferredContentSizeCategoryName",
-                          "UICTContentSizeCategoryAccessibilityXXXL"])
-        defer { app.terminate() }
-        let configured = setFirstMomentDetails(longPassage, in: app)
-        start(app)
-        app.buttons["morning.playback"].tap()
-        assertPlaybackLabel("Continue", in: app)
-        let caption = app.staticTexts["morning.caption"]
-        let viewport = app.scrollViews["morning.captions"]
-        XCTAssertEqual(caption.label, configured)
-        XCTAssertGreaterThanOrEqual(caption.frame.minY, viewport.frame.minY)
-        XCTAssertLessThan(caption.frame.minY, viewport.frame.maxY, "The beginning must be visible without scrolling backward.")
-        attach("home-playback-largest-long-caption-start", app)
-        let transport = app.buttons["morning.playback"].frame
-        viewport.swipeUp()
-        XCTAssertLessThan(caption.frame.minY, viewport.frame.minY, "The long passage must scroll independently.")
-        XCTAssertEqual(app.buttons["morning.playback"].frame, transport)
-        for identifier in ["morning.playback", "morning.next", "morning.more"] {
-            XCTAssertTrue(app.buttons[identifier].isHittable)
-            assertFitsOnScreen(app.buttons[identifier], in: app)
-        }
-        attach("home-playback-largest-long-caption-scrolled", app)
-    }
-
-    func testTimedMorningStaysOnHomeAndContinuesWithoutACompletionTap() {
-        let app = launch(["--ui-testing-short-budgets"], night: true)
-        defer { app.terminate() }
-        start(app)
-        assertStep("A quiet moment", in: app)
-        assertHomePlayback(app)
-        XCTAssertEqual(app.staticTexts["morning.caption"].label, "Take a breath.")
-        attach("home-playback-night-first-caption", app)
-
-        assertStep("Get ready", in: app, timeout: 15)
-        assertHomePlayback(app)
-        XCTAssertEqual(app.staticTexts["morning.caption"].label, "Your next moment.")
-        attach("home-playback-night-automatic-next-caption", app)
-    }
-
-    func testHomeTransportPausesExtendsContinuesAndStopsTheSameRoutine() {
-        let app = launch()
-        defer { app.terminate() }
-        start(app)
-        assertStep("A quiet moment", in: app)
-        app.buttons["morning.playback"].tap()
-        assertPlaybackLabel("Continue", in: app)
-        let remaining = app.staticTexts["morning.remaining"]
-        let beforeLabel = remaining.label
-        let before = remainingSeconds(in: app)
-        app.buttons["morning.more"].tap()
-        let extend = app.buttons["morning.extend"]
-        XCTAssertTrue(extend.waitForExistence(timeout: 5))
-        extend.tap()
-        let extended = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label != %@", beforeLabel), object: remaining)
-        XCTAssertEqual(XCTWaiter.wait(for: [extended], timeout: 5), .completed)
-        XCTAssertEqual(remainingSeconds(in: app), before + 120)
-        assertStep("A quiet moment", in: app)
-        assertPlaybackLabel("Continue", in: app)
-        attach("home-playback-paused-extended", app)
-
-        app.buttons["morning.playback"].tap()
-        assertPlaybackLabel("Pause", in: app)
-        app.buttons["morning.next"].tap()
-        assertStep("Get ready", in: app)
-        assertHomePlayback(app)
-        attach("home-playback-touch-next", app)
-        app.buttons["morning.more"].tap()
-        let stop = app.buttons["morning.stop"]
-        XCTAssertTrue(stop.waitForExistence(timeout: 5))
-        stop.tap()
-        XCTAssertTrue(app.buttons["morning.playback"].waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["morning.actions"].isHittable)
-        XCTAssertTrue((app.buttons["morning.actions"].value as? String)?.hasPrefix("Morning stopped") == true)
-        attach("home-playback-stopped-landscape", app)
-    }
-
-    func testInteractionsOpenOnlyFromTheSmallMenuAndReturnToHome() {
-        let app = launch()
-        defer { app.terminate() }
-        start(app)
-        assertHomePlayback(app)
-        XCTAssertFalse(app.buttons["morning.closeDetails"].exists)
-        app.buttons["morning.playback"].tap()
-        assertPlaybackLabel("Continue", in: app)
-        app.buttons["morning.more"].tap()
-        let details = app.buttons["morning.details"]
-        XCTAssertTrue(details.waitForExistence(timeout: 5))
-        details.tap()
-        let close = app.buttons["morning.closeDetails"]
-        XCTAssertTrue(close.waitForExistence(timeout: 5))
-        XCTAssertTrue(close.isHittable)
-        XCTAssertTrue(app.navigationBars["A quiet moment"].exists)
-        attach("home-playback-explicit-interaction", app)
-        close.tap()
-        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
-        assertHomePlayback(app)
-        assertStep("A quiet moment", in: app)
-        assertPlaybackLabel("Continue", in: app)
-        attach("home-playback-after-interaction", app)
-    }
-
-    func testFrenchLargestTextAndReducedMotionKeepCaptionsAndControlsReachable() {
-        let app = launch(["--ui-testing-reduce-motion", "-UIPreferredContentSizeCategoryName",
-                          "UICTContentSizeCategoryAccessibilityXXXL"], french: true, night: true)
-        defer { app.terminate() }
-        start(app)
-        assertHomePlayback(app)
-        for identifier in ["morning.currentStep", "morning.caption", "morning.remaining"] {
-            let text = app.staticTexts[identifier]
-            XCTAssertTrue(text.isHittable, "Largest text must remain readable: \(identifier)")
-            assertFitsOnScreen(text, in: app)
-        }
-        for identifier in ["morning.playback", "morning.next", "morning.more"] {
-            let button = app.buttons[identifier]
-            XCTAssertTrue(button.isHittable, "Largest text must keep the control reachable: \(identifier)")
-            assertFitsOnScreen(button, in: app)
-        }
-        XCTAssertEqual(app.buttons["morning.next"].label, "Suivant")
-        XCTAssertEqual(app.buttons["morning.more"].label, "Plus")
-        app.buttons["morning.playback"].tap()
-        assertPlaybackLabel("Continuer", in: app)
-        attach("home-playback-french-largest-reduced-motion", app)
-        app.buttons["morning.playback"].tap()
-        assertPlaybackLabel("Pause", in: app)
-        app.buttons["morning.next"].tap()
-        assertStep("Get ready", in: app)
-        assertHomePlayback(app)
-        attach("home-playback-french-largest-next-caption", app)
+        XCTAssertLessThan(caption.label.count, configured.count)
+        assertPureReading(app)
+        attach("home-playback-real-speech-replaced-passage", app)
     }
 
     private func launch(_ flags: [String] = [], french: Bool = false, night: Bool = false) -> XCUIApplication {
@@ -229,9 +105,15 @@ final class MorningHomePlaybackTests: XCTestCase {
         actions.tap()
         let begin = app.buttons["morning.begin"]
         XCTAssertTrue(begin.waitForExistence(timeout: 5))
-        XCTAssertTrue(begin.isHittable)
         begin.tap()
-        XCTAssertTrue(app.buttons["morning.playback"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["morning.caption"].waitForExistence(timeout: 8))
+    }
+
+    private func revealControls(_ app: XCUIApplication) {
+        let reveal = app.scrollViews["morning.captions"]
+        XCTAssertTrue(reveal.waitForExistence(timeout: 5))
+        reveal.tap()
+        XCTAssertTrue(app.buttons["morning.playback"].waitForExistence(timeout: 5))
     }
 
     private func setFirstMomentDetails(_ text: String, in app: XCUIApplication) -> String {
@@ -257,22 +139,27 @@ final class MorningHomePlaybackTests: XCTestCase {
         return configured
     }
 
-    private func assertHomePlayback(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+    private func assertPureReading(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(app.scrollViews["morning.captions"].exists, file: file, line: line)
-        XCTAssertTrue(app.staticTexts["morning.caption"].exists, file: file, line: line)
-        XCTAssertTrue(app.buttons["morning.playback"].isHittable, file: file, line: line)
-        XCTAssertTrue(app.buttons["morning.next"].isHittable, file: file, line: line)
-        XCTAssertTrue(app.buttons["morning.more"].isHittable, file: file, line: line)
-        XCTAssertFalse(app.buttons["morning.closeActions"].exists, "Playback must stay on the landscape.", file: file, line: line)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "morning.caption").count, 1, file: file, line: line)
+        for identifier in ["morning.playback", "morning.next", "morning.more", "morning.closeActions"] {
+            XCTAssertFalse(app.buttons[identifier].exists, "Reading keeps controls hidden: \(identifier)", file: file, line: line)
+        }
+        assertNoHeaderOrHistory(app, file: file, line: line)
         XCTAssertFalse(app.textViews["mail.selfBody"].exists, file: file, line: line)
-        XCTAssertFalse(app.textFields["mail.selfBody"].exists, file: file, line: line)
         XCTAssertEqual(app.navigationBars.count, 0, file: file, line: line)
     }
 
-    private func assertStep(_ title: String, in app: XCUIApplication, timeout: TimeInterval = 5,
-                            file: StaticString = #filePath, line: UInt = #line) {
-        let step = app.staticTexts["morning.currentStep"]
-        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", title), object: step)
+    private func assertNoHeaderOrHistory(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        for identifier in ["morning.currentStep", "morning.remaining", "morning.previousCaption"] {
+            XCTAssertFalse(app.staticTexts[identifier].exists, "Home keeps only the current passage: \(identifier)", file: file, line: line)
+        }
+    }
+
+    private func assertCaption(_ text: String, in app: XCUIApplication, timeout: TimeInterval = 5,
+                               file: StaticString = #filePath, line: UInt = #line) {
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", text),
+                                                object: app.staticTexts["morning.caption"])
         XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: timeout), .completed, file: file, line: line)
     }
 
@@ -283,13 +170,11 @@ final class MorningHomePlaybackTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed, file: file, line: line)
     }
 
-    private func remainingSeconds(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> Int {
-        let remaining = app.staticTexts["morning.remaining"]
-        XCTAssertTrue(remaining.waitForExistence(timeout: 5), file: file, line: line)
-        let parts = remaining.label.split(separator: ":").compactMap { Int($0) }
-        XCTAssertEqual(parts.count, 2, "Expected minutes and seconds: \(remaining.label)", file: file, line: line)
-        guard parts.count == 2 else { return 0 }
-        return parts[0] * 60 + parts[1]
+    private func assertRemainsVisible(_ element: XCUIElement, for seconds: TimeInterval,
+                                      file: StaticString = #filePath, line: UInt = #line) {
+        let disappeared = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        disappeared.isInverted = true
+        XCTAssertEqual(XCTWaiter.wait(for: [disappeared], timeout: seconds), .completed, file: file, line: line)
     }
 
     private func assertFitsOnScreen(_ element: XCUIElement, in app: XCUIApplication,
