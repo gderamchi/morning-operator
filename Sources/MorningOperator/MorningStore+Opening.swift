@@ -244,7 +244,18 @@ extension MorningStore {
                 if let advice = try? await MorningVoiceConversation().morningAdvice(context: document.weather.text), !advice.isEmpty {
                     text += " " + advice
                 }
-                guard stillAsked(), playable(document) else { return }
+                guard stillAsked() else { return }
+                guard playable(document) else {
+                    openingTask = nil
+                    openingPresentation?.phase = .choosing
+                    openingPresentation?.briefWithdrawn = true
+                    openingPresentation?.document = document
+                    openingPresentation?.opening = MorningOpeningComposer.compose(briefing: document, at: Date(),
+                        timeZoneIdentifier: TimeZone.current.identifier, offersBrief: false)
+                    notice = String(localized: "This recap needs an update before playback.")
+                    handOverOpening(after: .failed)
+                    return
+                }
             }
             openingPresentation?.document = document
             openingPresentation?.briefText = text
