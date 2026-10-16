@@ -466,6 +466,16 @@ public struct EvidenceRoutineStepInput: Equatable, Sendable {
 }
 
 public enum LearningEvidencePreparation {
+    /// A confirmation belongs to these exact source bytes and personal choices.
+    /// The view uses this only to discard stale local selection, never as authority.
+    public static func screenTimeSelectionReviewRevision(acquisitions: [ObservationAcquisition],
+        routine: RoutineVersion?, preferences: RoutinePreferenceJournal) throws -> String {
+        var revisions = try acquisitions.map { try $0.id.uuidString + ":" + EvidenceRevision.source($0) }
+        revisions.append(try EvidenceRevision.hash(preferences))
+        revisions.append(try routine.map { try EvidenceRevision.hash($0) } ?? "no-routine")
+        return try EvidenceRevision.hash(revisions)
+    }
+
     // Work is bounded by the existing 1–5 saved acquisitions, not by an 8k
     // whole-morning cutoff. Requests remain small, sequential, and cancellable.
     public static let maximumModelCalls = 768
