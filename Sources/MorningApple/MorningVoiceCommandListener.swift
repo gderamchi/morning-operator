@@ -54,6 +54,10 @@ public final class MorningVoiceCommandListener {
 
     public private(set) var state: MorningVoiceListeningState = .idle
     public private(set) var transcript = ""
+    /// True when the last capture turn that failed had heard some words before it ended. The
+    /// words themselves are cleared; only this fact remains, so "no answer" can be told from
+    /// "an answer that could not be finished".
+    public private(set) var lastFailedCaptureHeardWords = false
     public private(set) var message = String(localized: "Tap to say one command.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
     public private(set) var inputRouteName: String?
     /// Playback must remain blocked until microphone ownership has been released.
@@ -443,6 +447,9 @@ public final class MorningVoiceCommandListener {
             case .success(.capture):
                 state = .idle; message = String(localized: "Your words are ready to review. Nothing has been saved.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale)
             case .failure(let error):
+                if completedPurpose?.isCapture == true {
+                    lastFailedCaptureHeardWords = !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                }
                 if completedPurpose?.isCapture == true || error is CancellationError { transcript = "" }
                 if error is CancellationError { state = .idle; message = String(localized: "Listening stopped.", bundle: AppLanguage.bundle(for: .module), locale: AppLanguage.locale) }
                 else {

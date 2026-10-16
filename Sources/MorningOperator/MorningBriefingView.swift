@@ -40,6 +40,7 @@ struct MorningBriefingView: View {
                     calendarSection.disabled(store.sessionActive)
                     healthSection
                     weatherSection
+                    MorningExtrasSettingsSection(store: store)
                     recapSection
                 }
                 if let error = controller.errorMessage {

@@ -573,9 +573,19 @@ struct SetupView: View {
                     .accessibilityIdentifier("morning.completeSummary")
                 if let summary = store.executionSummary { Text(summary).accessibilityIdentifier("morning.executionSummary") }
                 if store.shouldOfferCompletionReflection {
+                    if let question = store.currentClosingQuestion {
+                        Text(verbatim: question.prompt(french: french))
+                            .accessibilityIdentifier("morning.closingQuestion")
+                    }
                     Button { store.openCompletionCapture() } label: {
                         Label(french ? "Dire une pensée" : "Speak a thought", systemImage: "mic")
                     }.disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
+                    Button(french ? "Écrire" : "Write") { store.answerClosingQuestionInWriting() }
+                        .accessibilityIdentifier("morning.reflect")
+                    if store.currentClosingQuestion != nil {
+                        Button(french ? "Passer" : "Skip") { store.skipClosingQuestion() }
+                            .accessibilityIdentifier("morning.skipQuestion")
+                    }
                     Button(french ? "Plus tard" : "Not now") { store.discardCompletionReflection() }
                         .accessibilityIdentifier("morning.dismissReflection")
                 }

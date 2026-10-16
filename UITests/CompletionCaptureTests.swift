@@ -112,6 +112,50 @@ final class CompletionCaptureTests: XCTestCase {
         #endif
     }
 
+    /// Closing questions with synthetic answers: "No" skips the dream question in the same
+    /// listening sheet, a timed reminder answer opens review as a reminder with its alert time,
+    /// and nothing reaches Reminders without the explicit save (this test cancels).
+    func testClosingQuestionsSkipOnNoAndReviewAReminderBeforeAnySave() {
+        let app = launch(sample: "--ui-testing-closing-answers")
+        completeMorning(in: app)
+        let question = app.staticTexts["run.step"]
+        XCTAssertEqual(question.value as? String, "dream")
+        XCTAssertEqual(question.label, "Did you have a dream you want to note?")
+        XCTAssertTrue(app.buttons["morning.skipQuestion"].exists)
+
+        tap("morning.speakReflection", in: app)
+        XCTAssertTrue(app.staticTexts["captureVoice.sample"].waitForExistence(timeout: 5))
+        // "No" moves on inside the sheet; the reminder answer then opens its review.
+        let editor = app.textViews["capture.text"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 15))
+        let received = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (editor.value as? String)?.contains("call the bank") == true
+        }, object: editor)
+        XCTAssertEqual(XCTWaiter.wait(for: [received], timeout: 5), .completed)
+        XCTAssertFalse((editor.value as? String ?? "").lowercased().hasPrefix("remind me"),
+                       "The request words and the time are lifted out of the reminder text.")
+        XCTAssertTrue(app.buttons["capture.kind.reminder"].isSelected)
+        XCTAssertEqual(app.buttons["capture.save"].label, "Add to Reminders")
+        XCTAssertEqual(app.switches["Set a time & alert"].value as? String, "1",
+                       "A spoken time proposes an alert, still to be reviewed.")
+        attach("synthetic-closing-reminder-awaits-review", app)
+        tap("capture.cancel", in: app)
+        waitAbsent(editor)
+
+        // Dream skipped, reminder answered: the note question is next.
+        let note = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "note"), object: question)
+        XCTAssertEqual(XCTWaiter.wait(for: [note], timeout: 5), .completed)
+        XCTAssertEqual(question.label, "Any note to take?")
+        tap("morning.skipQuestion", in: app)
+        let done = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Morning complete."), object: question)
+        XCTAssertEqual(XCTWaiter.wait(for: [done], timeout: 5), .completed)
+        XCTAssertFalse(app.buttons["morning.speakReflection"].exists)
+        openThoughts(in: app)
+        assertNoSavedReflection(in: app)
+        XCTAssertFalse(app.staticTexts["Added to Apple Reminders"].exists)
+        attach("synthetic-closing-questions-finished-nothing-saved", app)
+    }
+
     private func launch(sample: String) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()

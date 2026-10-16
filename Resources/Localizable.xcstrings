@@ -4819,6 +4819,16 @@
         }
       }
     },
+    "Allow Health for sleep and steps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autoriser Santé pour le sommeil et les pas"
+          }
+        }
+      }
+    },
     "Already in your morning": {
       "localizations": {
         "fr": {
@@ -4963,6 +4973,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Another app"
+          }
+        }
+      }
+    },
+    "Answer in your own words, or say “no” to skip.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répondez avec vos mots, ou dites « non » pour passer."
           }
         }
       }
@@ -5154,12 +5174,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apple demande une seule fois (Continuer, puis Face ID). Une seule app de cet iPhone peut avoir cet accès. Rien ne change avant votre accord."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple asks once (Continue, then Face ID). Only one app on this iPhone can hold this access. Nothing changes until you approve."
           }
         }
       }
@@ -5790,6 +5804,16 @@
         }
       }
     },
+    "Birthdays among contacts": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anniversaires de vos contacts"
+          }
+        }
+      }
+    },
     "Bring a recording you've made": {
       "localizations": {
         "fr": {
@@ -5914,6 +5938,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Calendrier et météo"
+          }
+        }
+      }
+    },
+    "Calendar clash or tight gap": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conflit ou battement serré dans l’agenda"
           }
         }
       }
@@ -6305,6 +6339,16 @@
         }
       }
     },
+    "Choose a city above first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez d’abord une ville ci-dessus."
+          }
+        }
+      }
+    },
     "Choose a date and time for the calendar event.": {
       "localizations": {
         "fr": {
@@ -6568,6 +6612,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose calendars"
+          }
+        }
+      }
+    },
+    "Choose calendars above first.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez d’abord des calendriers ci-dessus."
           }
         }
       }
@@ -7561,6 +7615,16 @@
         }
       }
     },
+    "Contacts access is off. Allow it in the Settings app.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès aux contacts est désactivé. Autorisez-le dans l’app Réglages."
+          }
+        }
+      }
+    },
     "Continue": {
       "localizations": {
         "fr": {
@@ -7695,6 +7759,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't restore your saved workspace: %@"
+          }
+        }
+      }
+    },
+    "Counted by your iPhone, compared with your 7-day average.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptés par votre iPhone, comparés à votre moyenne sur 7 jours."
           }
         }
       }
@@ -9623,6 +9697,16 @@
         }
       }
     },
+    "Health access couldn't be asked. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’accès à Santé n’a pas pu être demandé. %@"
+          }
+        }
+      }
+    },
     "Hear my recap": {
       "localizations": {
         "fr": {
@@ -10251,12 +10335,6 @@
             "state": "translated",
             "value": "Gardez au moins une app pour approuver cette suggestion."
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep at least one app to approve this suggestion."
-          }
         }
       }
     },
@@ -10527,12 +10605,6 @@
             "state": "translated",
             "value": "Apprendre à nouveau"
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Learn again"
-          }
         }
       }
     },
@@ -10542,12 +10614,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apprendre avec Temps d’écran"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Learn from Screen Time"
           }
         }
       }
@@ -10606,12 +10672,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apprendre avec Temps d’écran demande iOS 26.4 ou plus récent."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Learning from Screen Time needs iOS 26.4 or later."
           }
         }
       }
@@ -11019,12 +11079,6 @@
             "state": "translated",
             "value": "Long défilement : vous pourriez l’écourter"
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Long scroll: you could keep this one shorter"
-          }
         }
       }
     },
@@ -11066,12 +11120,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "MORE regarde les minutes passées dans chaque app la semaine dernière et retrouve vos matins. Seuls les noms d’apps et les minutes sont gardés, sur cet iPhone. Aucun message, aucun écran, aucun site web."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MORE looks at the minutes you spent in each app over the last week and finds your mornings. Only app names and minutes are kept, on this iPhone. No messages, no screens, no websites."
           }
         }
       }
@@ -11276,12 +11324,6 @@
             "state": "translated",
             "value": "Mesuré ou estimé ?"
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Measured or estimated?"
-          }
         }
       }
     },
@@ -11291,12 +11333,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mesuré : Temps d’écran a compté ces minutes pendant votre matin. Estimé : une heure dépassait la fin de votre matin, ses minutes ont donc été réparties."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Measured: Screen Time counted these minutes inside your morning. Estimated: an hour ran past the end of your morning, so its minutes were shared out."
           }
         }
       }
@@ -11372,12 +11408,6 @@
             "state": "translated",
             "value": "Minutes estimées"
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minutes estimated"
-          }
         }
       }
     },
@@ -11387,12 +11417,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Minutes mesurées"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minutes measured"
           }
         }
       }
@@ -11701,6 +11725,16 @@
         }
       }
     },
+    "Names are spoken, never saved.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les noms sont dits, jamais enregistrés."
+          }
+        }
+      }
+    },
     "New app activity will no longer be saved. Existing activity stays until you remove local data.": {
       "localizations": {
         "fr": {
@@ -11857,6 +11891,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucune voix améliorée ou premium n’est encore disponible ici dans la langue de MORE."
+          }
+        }
+      }
+    },
+    "No Apple Watch needed: an iPhone with a Sleep schedule records time in bed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas besoin d’Apple Watch : un iPhone avec un horaire de sommeil enregistre le temps au lit."
           }
         }
       }
@@ -12433,6 +12477,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "None"
+          }
+        }
+      }
+    },
+    "Not available in this build.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas disponible dans cette version de l’app."
+          }
+        }
+      }
+    },
+    "Not available in this version.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas disponible dans cette version."
           }
         }
       }
@@ -14485,12 +14549,6 @@
             "state": "translated",
             "value": "Lecture de vos derniers matins…"
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reading your last mornings…"
-          }
         }
       }
     },
@@ -16177,12 +16235,6 @@
             "state": "translated",
             "value": "Voir la suggestion"
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Review suggestion"
-          }
         }
       }
     },
@@ -16208,12 +16260,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vérifiez les apps, puis approuvez quand vous êtes prêt."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Review the apps, then approve when ready."
           }
         }
       }
@@ -17771,12 +17817,6 @@
             "state": "translated",
             "value": "L’accès à Temps d’écran n’a pas été donné. Vous pouvez l’autoriser dans Réglages → Temps d’écran, puis réessayer."
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Screen Time access wasn't given. You can allow it in Settings → Screen Time, then try again."
-          }
         }
       }
     },
@@ -17786,12 +17826,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Temps d’écran n’a pas répondu cette fois. Réessayez dans un instant."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Screen Time didn't answer this time. Try again in a moment."
           }
         }
       }
@@ -17803,12 +17837,6 @@
             "state": "translated",
             "value": "Temps d’écran donne des minutes par heure, pas l’ordre dans l’heure. L’ordre est donc estimé : l’app que vous ouvrez le plus souvent depuis l’écran verrouillé vient d’abord, puis les autres par heure, puis par minutes."
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Screen Time gives minutes per hour, not the order inside an hour. So the order is estimated: the app you open most often from the Lock Screen comes first, then the others by hour, then by minutes."
-          }
         }
       }
     },
@@ -17819,12 +17847,6 @@
             "state": "translated",
             "value": "Temps d’écran avait %lld jours, mais aucun matin complet avec des apps n’a encore été trouvé. Réessayez demain."
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Screen Time had %lld days, but no complete morning with app use was found yet. Try again tomorrow."
-          }
         }
       }
     },
@@ -17834,12 +17856,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Temps d’écran n’a encore aucune minute d’app sur cet iPhone. Réessayez demain matin."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Screen Time has no app minutes on this iPhone yet. Try again tomorrow morning."
           }
         }
       }
@@ -18003,6 +18019,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Screen recognition did not finish. Samples remain unknown; you can retry."
+          }
+        }
+      }
+    },
+    "Screen time yesterday": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps d’écran d’hier"
           }
         }
       }
@@ -18717,6 +18743,16 @@
         }
       }
     },
+    "Short extras": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Petits plus"
+          }
+        }
+      }
+    },
     "Show all languages": {
       "localizations": {
         "fr": {
@@ -18983,6 +19019,16 @@
         }
       }
     },
+    "Skip": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer"
+          }
+        }
+      }
+    },
     "Skip this moment": {
       "localizations": {
         "fr": {
@@ -19027,6 +19073,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Slack dans votre matin"
+          }
+        }
+      }
+    },
+    "Sleep last night": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sommeil de la nuit"
           }
         }
       }
@@ -19560,6 +19616,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Step timers"
+          }
+        }
+      }
+    },
+    "Steps yesterday": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas d’hier"
           }
         }
       }
@@ -20895,12 +20961,6 @@
             "state": "translated",
             "value": "La suggestion n’a pas pu être enregistrée. Votre routine n’a pas changé."
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The suggestion couldn't be saved. Your routine is unchanged."
-          }
         }
       }
     },
@@ -21218,6 +21278,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This day could not be displayed in the current time zone."
+          }
+        }
+      }
+    },
+    "This choice couldn't be saved or the permission couldn't be asked. %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce choix n’a pas pu être enregistré ou l’autorisation n’a pas pu être demandée. %@"
           }
         }
       }
@@ -22788,6 +22858,16 @@
         }
       }
     },
+    "Up to three short facts after the opening, about ten seconds in all. Nothing read for them is saved; only these choices are. When a source has nothing, MORE says nothing about it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jusqu’à trois faits courts après l’ouverture, environ dix secondes en tout. Rien de ce qui est lu n’est enregistré, seulement ces choix. Quand une source n’a rien, MORE n’en dit rien."
+          }
+        }
+      }
+    },
     "Update approved. Your next morning will use this routine.": {
       "localizations": {
         "fr": {
@@ -23098,6 +23178,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Weather"
+          }
+        }
+      }
+    },
+    "Weather change worth knowing": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changement de météo utile"
           }
         }
       }
@@ -24032,12 +24122,6 @@
             "state": "translated",
             "value": "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici."
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here."
-          }
         }
       }
     },
@@ -24426,12 +24510,6 @@
             "state": "translated",
             "value": "Votre matin, d’après Temps d’écran"
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your morning, from Screen Time"
-          }
         }
       }
     },
@@ -24457,12 +24535,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vos matins commencent en général vers %@."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your mornings usually start around %@."
           }
         }
       }
@@ -24840,12 +24912,6 @@
             "state": "translated",
             "value": "Votre routine a changé depuis cette suggestion. Apprenez à nouveau avec Temps d’écran pour en avoir une à jour."
           }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your routine changed since this suggestion was made. Learn from Screen Time again for a fresh one."
-          }
         }
       }
     },
@@ -24897,12 +24963,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Votre routine a peut-être changé. Apprenez à nouveau avec Temps d’écran pour une suggestion à jour."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your routine may have changed. Learn from Screen Time again for a fresh suggestion."
           }
         }
       }
@@ -25343,300 +25403,50 @@
         }
       }
     },
-    "Apple asks once (Continue, then Face ID). Only one app on this iPhone can hold this access. Nothing changes until you approve.": {
+    "Review Health access for enabled extras": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apple demande une seule fois (Continuer, puis Face ID). Une seule app de cet iPhone peut avoir cet accès. Rien ne change avant votre accord."
-          }
-        }
-      }
-    },
-    "From %lld comparable mornings. Screen Time had %lld days.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "D’après %1$lld matins comparables. Temps d’écran avait %2$lld jours."
-          }
-        },
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "From %1$lld comparable mornings. Screen Time had %2$lld days."
-          }
-        }
-      }
-    },
-    "Keep at least one app to approve this suggestion.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
             "state": "translated",
-            "value": "Gardez au moins une app pour approuver cette suggestion."
-          }
-        }
-      }
-    },
-    "Learn again": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apprendre à nouveau"
-          }
-        }
-      }
-    },
-    "Learn from Screen Time": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apprendre avec Temps d’écran"
-          }
-        }
-      }
-    },
-    "Long scroll: you could keep this one shorter": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Long défilement : vous pourriez l’écourter"
-          }
-        }
-      }
-    },
-    "MORE looks at the minutes you spent in each app over the last week and finds your mornings. Only app names and minutes are kept, on this iPhone. No messages, no screens, no websites.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MORE regarde les minutes passées dans chaque app la semaine dernière et retrouve vos matins. Seuls les noms d’apps et les minutes sont gardés, sur cet iPhone. Aucun message, aucun écran, aucun site web."
-          }
-        }
-      }
-    },
-    "Measured or estimated?": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mesuré ou estimé ?"
-          }
-        }
-      }
-    },
-    "Measured: Screen Time counted these minutes inside your morning. Estimated: an hour ran past the end of your morning, so its minutes were shared out.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mesuré : Temps d’écran a compté ces minutes pendant votre matin. Estimé : une heure dépassait la fin de votre matin, ses minutes ont donc été réparties."
-          }
-        }
-      }
-    },
-    "Minutes estimated": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minutes estimées"
-          }
-        }
-      }
-    },
-    "Minutes measured": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Minutes mesurées"
-          }
-        }
-      }
-    },
-    "Reading your last mornings…": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lecture de vos derniers matins…"
-          }
-        }
-      }
-    },
-    "Review suggestion": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voir la suggestion"
-          }
-        }
-      }
-    },
-    "Review the apps, then approve when ready.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vérifiez les apps, puis approuvez quand vous êtes prêt."
-          }
-        }
-      }
-    },
-    "Screen Time access wasn't given. You can allow it in Settings → Screen Time, then try again.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "L’accès à Temps d’écran n’a pas été donné. Vous pouvez l’autoriser dans Réglages → Temps d’écran, puis réessayer."
-          }
-        }
-      }
-    },
-    "Screen Time didn't answer this time. Try again in a moment.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran n’a pas répondu cette fois. Réessayez dans un instant."
-          }
-        }
-      }
-    },
-    "Screen Time had %lld days, but no complete morning with app use was found yet. Try again tomorrow.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran avait %lld jours, mais aucun matin complet avec des apps n’a encore été trouvé. Réessayez demain."
-          }
-        }
-      }
-    },
-    "Screen Time has no app minutes on this iPhone yet. Try again tomorrow morning.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran n’a encore aucune minute d’app sur cet iPhone. Réessayez demain matin."
-          }
-        }
-      }
-    },
-    "Suggestion ready: %lld apps from %lld mornings.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suggestion prête : %1$lld apps tirées de %2$lld matins."
+            "value": "Review Health access for enabled extras"
           }
         },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revoir l’accès Santé des compléments activés"
+          }
+        }
+      }
+    },
+    "Apple Health, read-only: asleep stages or explicitly labelled time in bed.": {
+      "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "Suggestion ready: %1$lld apps from %2$lld mornings."
-          }
-        }
-      }
-    },
-    "The suggestion couldn't be saved. Your routine is unchanged.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
             "state": "translated",
-            "value": "La suggestion n’a pas pu être enregistrée. Votre routine n’a pas changé."
-          }
-        }
-      }
-    },
-    "Usually %lld min, on %lld of %lld mornings": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En général %1$lld min, %2$lld matins sur %3$lld"
+            "value": "Apple Health, read-only: asleep stages or explicitly labelled time in bed."
           }
         },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Santé Apple, en lecture seule : sommeil enregistré ou temps au lit clairement indiqué."
+          }
+        }
+      }
+    },
+    "Apple Health step count, compared with your 7-day average. Enabled separately from sleep.": {
+      "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "Usually %1$lld min, on %2$lld of %3$lld mornings"
+            "state": "translated",
+            "value": "Apple Health step count, compared with your 7-day average. Enabled separately from sleep."
           }
-        }
-      }
-    },
-    "Your morning, from Screen Time": {
-      "localizations": {
+        },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre matin, d’après Temps d’écran"
-          }
-        }
-      }
-    },
-    "Your mornings usually start around %@.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos matins commencent en général vers %@."
-          }
-        }
-      }
-    },
-    "Your routine changed since this suggestion was made. Learn from Screen Time again for a fresh one.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine a changé depuis cette suggestion. Apprenez à nouveau avec Temps d’écran pour en avoir une à jour."
-          }
-        }
-      }
-    },
-    "Your routine may have changed. Learn from Screen Time again for a fresh suggestion.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine a peut-être changé. Apprenez à nouveau avec Temps d’écran pour une suggestion à jour."
-          }
-        }
-      }
-    },
-    "Screen Time gives minutes per hour, not the order inside an hour. So the order is estimated: the app you open most often from the Lock Screen comes first, then the others by hour, then by minutes.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Temps d’écran donne des minutes par heure, pas l’ordre dans l’heure. L’ordre est donc estimé : l’app que vous ouvrez le plus souvent depuis l’écran verrouillé vient d’abord, puis les autres par heure, puis par minutes."
-          }
-        }
-      }
-    },
-    "Your current routine stays ready until you approve. Approving replaces it with the apps you keep here.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre routine actuelle reste prête jusqu’à votre accord. Approuver la remplace par les apps gardées ici."
-          }
-        }
-      }
-    },
-    "Learning from Screen Time needs iOS 26.4 or later.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apprendre avec Temps d’écran demande iOS 26.4 ou plus récent."
+            "value": "Pas de Santé Apple, comparés à votre moyenne sur 7 jours. Activation distincte du sommeil."
           }
         }
       }

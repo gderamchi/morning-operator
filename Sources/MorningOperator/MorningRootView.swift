@@ -392,6 +392,7 @@ struct MorningRootView: View {
     private func captureReviewDismissed() {
         store.capturePrefill = ""
         store.captureSource = .typed
+        store.closingReviewEnded()
         if presentingIntentCapture {
             MorningIntentRouter.shared.finishCaptureReview()
             presentingIntentCapture = false
@@ -1042,8 +1043,16 @@ struct TodayView: View {
 
     private var closingMoment: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(store.shouldOfferCompletionReflection ? String(localized: "Save a thought?", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Morning complete.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
-                .font(.serif(.headline)).accessibilityIdentifier("run.step")
+            Group {
+                if let question = store.currentClosingQuestion {
+                    // One closing question at a time, in the app's language.
+                    Text(verbatim: question.prompt(french: AppLanguage.isFrench))
+                } else {
+                    Text(store.shouldOfferCompletionReflection ? String(localized: "Save a thought?", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) : String(localized: "Morning complete.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                }
+            }
+            .font(.serif(.headline)).accessibilityIdentifier("run.step")
+            .accessibilityValue(store.currentClosingQuestion?.rawValue ?? "")
             Text(store.stateLabel).font(.raleway(.caption)).foregroundStyle(MorningStyle.muted)
                 .accessibilityIdentifier("run.state").accessibilityValue(store.stateLabel)
             if store.shouldOfferCompletionReflection {
@@ -1060,10 +1069,15 @@ struct TodayView: View {
         }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(store.voiceInputBlocksPlayback).accessibilityIdentifier("morning.speakReflection")
-        Button { store.openCapture() } label: {
+        Button { store.answerClosingQuestionInWriting() } label: {
             Label { Text("Write") } icon: { MorningDottedIcon(systemName: "square.and.pencil").frame(width: 20, height: 20) }
         }
             .buttonStyle(.borderless).accessibilityIdentifier("morning.reflect")
+        if store.currentClosingQuestion != nil {
+            // "No" to this question; the next one follows.
+            Button("Skip") { store.skipClosingQuestion() }
+                .buttonStyle(.borderless).accessibilityIdentifier("morning.skipQuestion")
+        }
         Button("Not now") { store.discardCompletionReflection() }
             .buttonStyle(.borderless).accessibilityIdentifier("morning.dismissReflection")
     }

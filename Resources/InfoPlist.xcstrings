@@ -55,6 +55,40 @@
         }
       }
     },
+    "NSContactsUsageDescription": {
+      "comment": "Privacy usage description",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE reads contact birthdays to mention one in your morning. Names are spoken and never saved."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE lit les anniversaires de vos contacts pour en mentionner un le matin. Les noms sont dits et jamais enregistrés."
+          }
+        }
+      }
+    },
+    "NSHealthShareUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read only the sleep or step data you explicitly enable to prepare your morning. Health data stays on this iPhone; MORE does not write to Apple Health."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire uniquement le sommeil ou les pas que vous activez explicitement pour préparer votre matin. Ces données restent sur cet iPhone ; MORE n’écrit pas dans Santé Apple."
+          }
+        }
+      }
+    },
     "NSMicrophoneUsageDescription": {
       "comment": "Privacy usage description",
       "extractionState": "manual",
@@ -141,24 +175,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quand MORE est ouvert, votre position apporte la météo locale et un ciel qui suit le soleil. Une position approximative suffit."
-          }
-        }
-      }
-    },
-    "NSHealthShareUsageDescription": {
-      "comment": "Read-only sleep, requested only after an explicit choice.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MORE reads your recorded sleep duration and its time window from Apple Health when you choose to include sleep in your morning recap. It never writes health data."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MORE lit la durée et la période de sommeil enregistrées dans Santé Apple quand vous choisissez de les inclure dans votre récapitulatif du matin. MORE ne modifie aucune donnée de santé."
           }
         }
       }

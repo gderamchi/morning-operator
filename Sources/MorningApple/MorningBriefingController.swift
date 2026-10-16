@@ -621,6 +621,17 @@ public final class MorningBriefingController {
         return snapshot
     }
 
+    /// Today's events in the selected calendars, for the calendar extra. Never prompts and
+    /// never changes the cached briefing. Nil when no calendar is selected, access is
+    /// missing or the read fails: no events is never assumed.
+    public func selectedEvents(on day: Date, timeZone: TimeZone) -> [CalendarEventSummary]? {
+        guard !settings.calendarIDs.isEmpty, calendar.isAuthorized else { return nil }
+        var dayCalendar = Calendar(identifier: .gregorian); dayCalendar.timeZone = timeZone
+        return try? withCurrentAccess {
+            try calendar.snapshot(for: day, calendar: dayCalendar, calendarIDs: settings.calendarIDs).events
+        }
+    }
+
     /// Same-context callers share one preparation, including a concurrent force
     /// request. Force refresh changes source data only; it has no session effects.
     public func refresh(at date: Date? = nil, force: Bool = false) async -> PreparedMorningBriefing? {

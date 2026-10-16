@@ -121,6 +121,16 @@ final class MorningStore {
     var capturePresented = false
     var capturePrefill = ""
     var captureSource: QuickCaptureSource = .typed
+    /// The kind the review starts with when a closing question asked for it. The words still
+    /// decide: "I dreamed…" stays a dream after the reminder question.
+    var captureKindHint: QuickCaptureKind?
+    /// The closing questions of the completed morning (memory only). Nil before completion,
+    /// after "Not now" and once every question was answered or skipped.
+    private(set) var closingQuestions: MorningClosingQuestions?
+    /// The question whose answer is in review. Closing the review, saved or not, moves on.
+    private var closingQuestionInReview: MorningClosingQuestion?
+    /// The short extras for this build, their choices and rotation (Settings → Your day).
+    let extras: MorningExtrasProvider
     private(set) var captureBusy = false
     private(set) var history = MorningHistory()
     private(set) var captures: [QuickCapture] = []
@@ -318,6 +328,7 @@ final class MorningStore {
         snapshot = AtomicJSONFile(url: directory.appendingPathComponent("workspace.json"))
         recordingRecovery = PendingScreenRecordingStore(directory: directory)
         invitation = MorningInvitationService(directory: directory)
+        extras = Self.makeExtras(directory: directory, testing: fixtureMode)
         #if DEBUG
         let testBriefing = MorningBriefingFixture.makeController(directory: directory)
         usesSyntheticBriefing = testBriefing != nil
@@ -1354,6 +1365,7 @@ final class MorningStore {
         lastCompletionOffered = session.id
         dismissedReflectionSessionID = nil
         completionInvitationSessionID = session.id
+        closingQuestions = MorningClosingQuestions()
     }
 
     func speakQueuedCompletionInvitation() {
@@ -1376,9 +1388,10 @@ final class MorningStore {
                       !voiceInputBlocksPlayback, !capturePresented, !captureVoicePresented,
                       UIApplication.shared.applicationState == .active else { return }
                 let french = AppLanguage.isFrench
+                let question = closingQuestions?.current ?? .dream
                 speech.speak(french
-                    ? "Votre matinée est terminée. Y a-t-il une pensée, un rêve ou un rappel que vous aimeriez garder ? Touchez Parler quand vous voulez."
-                    : "Your morning is complete. Is there a thought, a dream or a reminder you'd like to keep? Tap Speak whenever you're ready.")
+                    ? "Votre matinée est terminée. \(question.prompt(french: true)) Touchez Parler pour répondre, ou Passer."
+                    : "Your morning is complete. \(question.prompt(french: false)) Tap Speak to answer, or Skip.")
                 completionInvitationPlaybackID = speech.playbackID
             } catch {
                 // A failed microphone release must not start a competing player.
@@ -1427,13 +1440,19 @@ final class MorningStore {
             do {
                 try Task.checkCancellation()
                 try await prepareForManualVoiceInput()
+                if let question = closingQuestions?.current, readAloud, !usesSyntheticCompletionCapture {
+                    // The question is heard before the microphone opens. Stopped or failed
+                    // speech still leaves the question on screen.
+                    try? await speech.speakAndWait(question.prompt(french: language == .french))
+                    try Task.checkCancellation()
+                }
                 try await speech.stopAndRelease()
                 try Task.checkCancellation()
                 guard captureVoicePresented, completionCaptureAttempt == attempt,
                       completionVoiceSessionID == id, session?.id == id, session?.status == .completed else { throw CancellationError() }
                 let text: String
                 #if DEBUG
-                if let sample = completionCaptureTestSample {
+                if let sample = takeCompletionCaptureTestSample() {
                     // Synthetic UI handoff evidence only; never a microphone pass.
                     // The late fixture deliberately returns after cancellation so
                     // the real ownership guards below must reject it.
@@ -1454,8 +1473,17 @@ final class MorningStore {
                 guard captureVoicePresented, completionCaptureAttempt == attempt,
                       completionVoiceSessionID == id, session?.id == id, session?.status == .completed,
                       !voiceCommands.isBusy, !voiceCommands.needsAudioRelease else { throw CancellationError() }
+                if closingQuestions != nil, MorningClosingQuestions.interpret(text) == .declined {
+                    skipClosingQuestionWhileListening(language: language)
+                    return
+                }
+                closingQuestionInReview = closingQuestions?.current
                 pendingSpokenCapture = (id, text)
                 captureVoicePresented = false
+            } catch where closingQuestions != nil && isSilence(error) {
+                // Silence skips a closing question, as "no" does.
+                guard completionCaptureAttempt == attempt else { return }
+                skipClosingQuestionWhileListening(language: language)
             } catch {
                 guard completionCaptureAttempt == attempt else { return }
                 completionCaptureFeedback = error is CancellationError
@@ -1464,11 +1492,73 @@ final class MorningStore {
         }
     }
 
+    /// No words at all, or none heard before the listening deadline. A deadline after some
+    /// words were heard is not silence: the question stays and the person can try again.
+    private func isSilence(_ error: any Error) -> Bool {
+        if (error as? MorningCaptureTurnError) == .empty { return true }
+        return (error as? MorningVoiceListeningError) == .captureTimedOut && !voiceCommands.lastFailedCaptureHeardWords
+    }
+
+    /// "No" or silence in the listening sheet: the next question is asked in the same sheet,
+    /// once this turn has released the microphone. After the last one the sheet closes.
+    private func skipClosingQuestionWhileListening(language: MorningVoiceCommandLanguage) {
+        closingQuestions?.advance()
+        guard let closingQuestions, !closingQuestions.isFinished else {
+            finishClosingQuestions()
+            captureVoicePresented = false
+            return
+        }
+        let attempt = completionCaptureAttempt
+        Task { [weak self] in
+            // Runs after the finished turn's own cleanup.
+            guard let self, captureVoicePresented, completionCaptureAttempt == nil || completionCaptureAttempt == attempt else { return }
+            listenForCompletionCapture(language: language)
+        }
+    }
+
+    /// The question on the completed morning's card, or nil when there is none to ask.
+    var currentClosingQuestion: MorningClosingQuestion? {
+        shouldOfferCompletionReflection ? closingQuestions?.current : nil
+    }
+
+    /// "Skip" on the card. After the last question the card says the morning is complete.
+    func skipClosingQuestion() {
+        guard currentClosingQuestion != nil else { return }
+        stopCompletionInvitation()
+        completionInvitationSessionID = nil
+        closingQuestions?.advance()
+        if closingQuestions?.isFinished == true { finishClosingQuestions() }
+    }
+
+    /// "Write" on the card: the typed review, starting with the question's kind.
+    func answerClosingQuestionInWriting() {
+        guard let question = currentClosingQuestion else { openCapture(); return }
+        openCapture(kindHint: question.captureKind)
+        if capturePresented { closingQuestionInReview = question }
+    }
+
+    /// The review of an answer closed, saved or cancelled. The next question becomes current.
+    func closingReviewEnded() {
+        captureKindHint = nil
+        guard let question = closingQuestionInReview else { return }
+        closingQuestionInReview = nil
+        guard closingQuestions?.current == question else { return }
+        closingQuestions?.advance()
+        if closingQuestions?.isFinished == true { finishClosingQuestions() }
+    }
+
+    private func finishClosingQuestions() {
+        closingQuestions = nil
+        closingQuestionInReview = nil
+        if session?.status == .completed { dismissedReflectionSessionID = session?.id }
+    }
+
     /// Called after the voice sheet has actually left the screen. A canceled,
     /// backgrounded or superseded turn cannot open another sheet with stale text.
     func completionCaptureDismissed(allowReview: Bool) {
         let pending = pendingSpokenCapture
         cancelCompletionCapture()
+        let question = closingQuestionInReview
         guard allowReview, let pending, session?.id == pending.sessionID,
               session?.status == .completed, !capturePresented else { return }
         let generation = dataGeneration, reviewID = UUID()
@@ -1483,7 +1573,8 @@ final class MorningStore {
                   completionCaptureReviewID == reviewID, UIApplication.shared.applicationState == .active,
                   session?.id == pending.sessionID, session?.status == .completed,
                   !capturePresented, !captureVoicePresented, !voiceCommands.isBusy else { return }
-            openCapture(text: pending.text, source: .voice)
+            openCapture(text: pending.text, source: .voice, kindHint: question?.captureKind)
+            closingQuestionInReview = question
         }
     }
 
@@ -1521,6 +1612,7 @@ final class MorningStore {
 
     func discardCompletionReflection() {
         if session?.status == .completed { dismissedReflectionSessionID = session?.id }
+        closingQuestions = nil; closingQuestionInReview = nil
         completionInvitationSessionID = nil
         stopCompletionInvitation()
         cancelCompletionCapture()
@@ -1534,6 +1626,7 @@ final class MorningStore {
     }
 
     #if DEBUG
+    @ObservationIgnored private var closingTestAnswerIndex = 0
     private var completionCaptureTestSample: (text: String, delay: Double)? {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("--ui-testing"),
@@ -1548,7 +1641,18 @@ final class MorningStore {
         if args.contains("--ui-testing-capture-dream") {
             return ("I dreamed of a blue garden. SYNTHETIC_VOICE_CAPTURE", 1)
         }
+        if args.contains("--ui-testing-closing-answers") {
+            // One synthetic answer per listening turn: "no" to the dream question, then a
+            // reminder with a time. Never a microphone pass and never an EventKit write.
+            let answers = ["No", "Remind me at 5 to call the bank. SYNTHETIC_CLOSING_REMINDER"]
+            return (answers[min(closingTestAnswerIndex, answers.count - 1)], 1)
+        }
         return nil
+    }
+    private func takeCompletionCaptureTestSample() -> (text: String, delay: Double)? {
+        let sample = completionCaptureTestSample
+        if sample != nil { closingTestAnswerIndex += 1 }
+        return sample
     }
     var usesSyntheticCompletionCapture: Bool { completionCaptureTestSample != nil }
     #else
@@ -2639,13 +2743,21 @@ final class MorningStore {
         if !openingListeningSettingsChanged() { runCurrentIfEnabled() }
     }
 
-    func openCapture(text: String = "", source: QuickCaptureSource = .typed) {
+    func healthExtraWasDisabled() {
+        if session?.status == .running { pause() }
+        endOpening()
+        speech.stop()
+        stopHandsFreeVoice()
+    }
+
+    func openCapture(text: String = "", source: QuickCaptureSource = .typed, kindHint: QuickCaptureKind? = nil) {
         guard !privacyBlocksWork else { return }
         completionCaptureReviewID = nil
         completionInvitationSessionID = nil
         stopCompletionInvitation()
         capturePrefill = text
         captureSource = source
+        captureKindHint = kindHint
         capturePresented = true
     }
 
@@ -2933,7 +3045,7 @@ final class MorningStore {
                 // The sessions' observations go with the archive, which this forget clears.
                 // A package test (SegmentedSessionForgettingGuardTests) fails if the app
                 // starts using the store without calling `forgetAll`.
-                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json", EvidenceRemovalMarker.fileName] {
+                for name in ["app-transitions.json", "morning-invitation.json", "briefing-settings.json", "step-timer.json", "morning-alarm.json", "permission-setup.json", "browser-action-journal.json", "gmail-send-journal.json", "native-moment-journal.json", "slack-reply-journal.json", EvidenceRemovalMarker.fileName, MorningExtrasPreferencesStore.fileName] {
                     try removeOwnedPayload(snapshot.url.deletingLastPathComponent().appendingPathComponent(name))
                 }
                 let directory = snapshot.url.deletingLastPathComponent()
@@ -2955,6 +3067,7 @@ final class MorningStore {
             try morningActivity.resetAfterPrivacyCleanup()
             briefing.reloadSettings()
             permissionSetup.resetAfterPrivacy()
+            extras.reload()
             privacyNeedsCleanup = false
             privacyHasInterruptedRemoval = false
             privacyIsForgetting = false
@@ -3021,6 +3134,7 @@ final class MorningStore {
         pendingRecordingURL = nil; pendingRecordingShouldAutoProcess = false
         pendingRecordingInterruption = nil; pendingRecordingContext = nil
         captureBusy = false; capturePresented = false; capturePrefill = ""; captureSource = .typed
+        captureKindHint = nil; closingQuestions = nil; closingQuestionInReview = nil
         voiceCommandPresented = false; captureVoicePresented = false
         voiceCommandFeedback = nil; completionCaptureFeedback = nil
         voiceCommandDeduplicator = MorningVoiceCommandDeduplicator()

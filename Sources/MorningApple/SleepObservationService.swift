@@ -164,6 +164,33 @@ public enum SleepNight {
     }
 }
 
+extension SleepNight {
+    /// Minutes recorded as "in bed" since yesterday 18:00, merged so overlapping spans count
+    /// once, under the same sample rules as `summarize`. An iPhone with a sleep schedule and
+    /// no watch records this stage. It is time in bed, never reported as sleep. Nil when
+    /// nothing rounds to a minute: no record is not zero.
+    public static func inBedMinutes(_ samples: [SleepSample], at now: Date, calendar: Calendar) -> Int? {
+        guard now.timeIntervalSinceReferenceDate.isFinite,
+              let cutoff = eveningCutoff(before: now, calendar: calendar) else { return nil }
+        let spans = samples.filter {
+            $0.stage == .inBed && $0.start.timeIntervalSinceReferenceDate.isFinite &&
+                $0.end.timeIntervalSinceReferenceDate.isFinite && $0.end > $0.start && $0.end <= now &&
+                $0.end > cutoff && $0.end.timeIntervalSince($0.start) <= maximumSampleSpan
+        }.sorted { ($0.start, $0.end) < ($1.start, $1.end) }
+        guard let first = spans.first else { return nil }
+        var total: TimeInterval = 0
+        var spanStart = first.start, spanEnd = first.end
+        for sample in spans.dropFirst() {
+            if sample.start <= spanEnd { spanEnd = max(spanEnd, sample.end); continue }
+            total += spanEnd.timeIntervalSince(spanStart)
+            spanStart = sample.start; spanEnd = sample.end
+        }
+        total += spanEnd.timeIntervalSince(spanStart)
+        let minutes = Int((total / 60).rounded())
+        return minutes > 0 ? minutes : nil
+    }
+}
+
 /// One completed read. Memory only: never encoded, never written to a file.
 public struct SleepSnapshot: Sendable, Equatable {
     public let readAt: Date
