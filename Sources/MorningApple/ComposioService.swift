@@ -218,6 +218,16 @@ public final class ComposioService {
         let response: Services = try await request("GET", path: "services")
         return response.services
     }
+
+    /// Called only after explicit cloud-conversation consent. No source text is sent.
+    public func morningVoiceToken() async throws -> String {
+        struct VoiceToken: Decodable { let conversationToken: String }
+        let response: VoiceToken = try await request("POST", path: "voice/token", body: .object([:]))
+        guard !response.conversationToken.isEmpty, response.conversationToken.utf8.count <= 32_768 else {
+            throw ComposioServiceError.invalidResponse
+        }
+        return response.conversationToken
+    }
     public func connections() async throws -> [ComposioConnection] {
         let response: Connections = try await request("GET", path: "connections")
         return response.connections
