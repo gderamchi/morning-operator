@@ -54,4 +54,57 @@ struct RoutineExecutionTests {
         let keys = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(Set(keys.keys) == ["sessionID", "stepID", "outcome", "observedContents", "confirmedLikes", "confirmedExternalEffect", "updatedAt"])
     }
+
+    @Test func unreadableDerivedBrowserProgressKeepsTheApprovedRoutineAndBlocksThisMoment() throws {
+        struct Workspace: Codable { let routine: RoutineVersion; let records: [RoutineExecutionRecord] }
+        let routine = RoutineVersion(createdAt: Date(timeIntervalSince1970: 1_000), sourceLabel: "My morning",
+            steps: [RoutineStep(title: "Water", durationMinutes: 2)]).approved()
+        let original = RoutineExecutionRecord(sessionID: UUID(), stepID: UUID(), outcome: .uncertain,
+            observedContents: 4, confirmedLikes: 1, confirmedExternalEffect: true,
+            updatedAt: Date(timeIntervalSince1970: 2_000))
+        let saved = try JSONEncoder().encode(Workspace(routine: routine, records: [original]))
+        let object = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+        let record = try #require((object["records"] as? [[String: Any]])?.first)
+        let invalid: [Any] = [NSNull(), "wrong type", ["observedCount": 4, "keys": ["raw page content"]],
+            ["observedCount": 4, "keys": [], "isAvailable": NSNull()]]
+        for badProgress in invalid {
+            var brokenRecord = record, brokenWorkspace = object
+            brokenRecord["webContentProgress"] = badProgress
+            brokenWorkspace["records"] = [brokenRecord]
+            let restored = try JSONDecoder().decode(Workspace.self, from: JSONSerialization.data(withJSONObject: brokenWorkspace))
+            #expect(restored.routine == routine && restored.routine.isApproved)
+            let kept = try #require(restored.records.first)
+            #expect(kept.sessionID == original.sessionID && kept.stepID == original.stepID)
+            #expect(kept.observedContents == 4 && kept.confirmedLikes == 1 && kept.confirmedExternalEffect == true)
+            #expect(kept.outcome == .uncertain && kept.updatedAt == original.updatedAt)
+            var progress = try #require(kept.webContentProgress)
+            #expect(!progress.isAvailable && progress.observedCount == 4)
+            #expect(throws: WebMorningContentProgress.ProgressError.invalidState) {
+                try progress.observe(site: .reddit, fingerprint: "another item")
+            }
+            let again = try JSONDecoder().decode(Workspace.self, from: JSONEncoder().encode(restored))
+            #expect(again.routine == routine && again.records == restored.records)
+            #expect(again.records.first?.webContentProgress?.isAvailable == false)
+        }
+    }
+
+    @Test func progressWrittenBeforeTheAvailabilityMarkerStaysAvailableAndLegacyRecordsStayDistinct() throws {
+        var progress = WebMorningContentProgress()
+        try progress.observe(site: .reddit, fingerprint: "same item")
+        let record = RoutineExecutionRecord(sessionID: UUID(), stepID: UUID(), outcome: .interrupted,
+            observedContents: 1, webContentProgress: progress)
+        let data = try JSONEncoder().encode(record)
+        #expect(!String(decoding: data, as: UTF8.self).contains("isAvailable"))
+        let restored = try JSONDecoder().decode(RoutineExecutionRecord.self, from: data)
+        var retained = try #require(restored.webContentProgress)
+        #expect(retained.isAvailable)
+        let isNew = try retained.observe(site: .reddit, fingerprint: "same item")
+        #expect(!isNew && retained.observedCount == 1)
+        let legacy = RoutineExecutionRecord(sessionID: UUID(), stepID: UUID(), outcome: .interrupted, observedContents: 7)
+        #expect(try JSONDecoder().decode(RoutineExecutionRecord.self, from: JSONEncoder().encode(legacy)).webContentProgress == nil)
+        var newMoment = WebMorningContentProgress()
+        #expect(newMoment.isAvailable)
+        try newMoment.observe(site: .reddit, fingerprint: "same item")
+        #expect(newMoment.observedCount == 1)
+    }
 }

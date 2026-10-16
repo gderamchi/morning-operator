@@ -27,6 +27,25 @@ public struct RoutineExecutionRecord: Codable, Equatable, Sendable, Identifiable
         self.webContentProgress = webContentProgress
         self.updatedAt = updatedAt
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionID, stepID, outcome, observedContents, confirmedLikes, confirmedExternalEffect, webContentProgress, updatedAt
+    }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let count = try values.decode(Int.self, forKey: .observedContents)
+        let progress: WebMorningContentProgress?
+        if values.contains(.webContentProgress) {
+            do { progress = try values.decode(WebMorningContentProgress.self, forKey: .webContentProgress) }
+            catch { progress = .unavailable(legacyObservedCount: count) }
+        } else { progress = nil }
+        self.init(sessionID: try values.decode(UUID.self, forKey: .sessionID),
+            stepID: try values.decode(UUID.self, forKey: .stepID),
+            outcome: try values.decode(Outcome.self, forKey: .outcome), observedContents: count,
+            confirmedLikes: try values.decode(Int.self, forKey: .confirmedLikes),
+            confirmedExternalEffect: try values.decodeIfPresent(Bool.self, forKey: .confirmedExternalEffect),
+            webContentProgress: progress, updatedAt: try values.decode(Date.self, forKey: .updatedAt))
+    }
 }
 
 public extension RoutineStep {

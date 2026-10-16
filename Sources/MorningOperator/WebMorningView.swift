@@ -283,7 +283,12 @@ struct WebMorningView: View {
                                       "En pause · \(event.observedContentCount) contenus parcourus. Reprenez quand vous le souhaitez.")
             case .needsSignIn: return text("Sign in on the page. MORE will resume here.", "Connectez-vous sur la page. MORE reprendra ici.")
             case .needsChoice: return text("This site needs a privacy choice, subscription or sign-in. Choose on the page, then resume, or skip this moment.", "Ce site demande un choix de confidentialité, un abonnement ou une connexion. Faites votre choix sur la page, puis reprenez, ou passez ce moment.")
-            case .unavailable: return text("MORE couldn't continue on this page. Reload or skip this moment.", "MORE ne peut pas continuer sur cette page. Rechargez ou passez ce moment.")
+            case .unavailable:
+                if !controller.savedContentProgressIsAvailable {
+                    return text("Saved progress for this moment is unavailable. Skip this moment to continue your morning.",
+                        "La progression sauvegardée de ce moment est indisponible. Passez au moment suivant pour poursuivre votre matin.")
+                }
+                return text("MORE couldn't continue on this page. Reload or skip this moment.", "MORE ne peut pas continuer sur cette page. Rechargez ou passez ce moment.")
             case .uncertainAction: return text("This like couldn't be verified. MORE has stopped to avoid repeating it.", "Ce j’aime n’a pas pu être vérifié. MORE s’est arrêté pour éviter de le répéter.")
             case .finished: return text("This moment is complete · \(event.observedContentCount) contents viewed", "Ce moment est terminé · \(event.observedContentCount) contenus parcourus")
             case .cancelled: return text("MORE has stopped on this page.", "MORE s’est arrêté sur cette page.")
