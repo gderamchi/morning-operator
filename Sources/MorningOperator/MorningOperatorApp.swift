@@ -13,6 +13,9 @@ struct MorningOperatorApp: App {
     init() {
         AppLanguage.initialize()
         MorningAppShortcuts.updateAppShortcutParameters()
+        #if DEBUG
+        LiveDemoVoiceHost.startIfRequested()
+        #endif
     }
 
     var body: some Scene {

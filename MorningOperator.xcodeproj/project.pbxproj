@@ -44,6 +44,7 @@
 		36E3B9BA3C95D268080E5571 /* AppActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB01EC0C464A9A8C729788A1 /* AppActivityView.swift */; };
 		38F1438C4924F5089496BD2C /* MorningVoicePreparationPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31A5C9CA593B1E638B9CA840 /* MorningVoicePreparationPresenter.swift */; };
 		3B6835265E43791F20FC95EC /* DMSerifDisplay.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9C33655B5A2707AED22ABE69 /* DMSerifDisplay.ttf */; };
+		3BBA2A1278F0B71F4586F3D1 /* LiveDemoVoiceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E429B30505A893512B98524C /* LiveDemoVoiceHost.swift */; };
 		3D25D7E50AB57A74D84B2009 /* QuietMorningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3F3A89763BAB2B46F3EEDC /* QuietMorningTests.swift */; };
 		3DAD6D551A8D23872EB45AEF /* MorningStore+UITestObservation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD6C7D6B53E7A1D66705679 /* MorningStore+UITestObservation.swift */; };
 		3E8251A48B7A61848C80FF10 /* MorningCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BCA4BB59BEA5A48B77C4A6C /* MorningCore */; };
@@ -51,6 +52,7 @@
 		4546F1E245591EBE41825417 /* OrdinaryWeatherAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA7D5AB68A5334F38F9D03B /* OrdinaryWeatherAcceptanceTests.swift */; };
 		49FB0F85D767E86E152FD756 /* SlackSetupUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E416448902A76CCD6A6C1F0 /* SlackSetupUITestFixture.swift */; };
 		4AAD181B44E400DDE3F36360 /* SunriseDockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFB9060C58B99BC4484E2765 /* SunriseDockTests.swift */; };
+		4DCB64E08703EECC0BCD91AC /* MorningLiveDemo in Frameworks */ = {isa = PBXBuildFile; productRef = 8D9E1C809C0C91D292B6D0A4 /* MorningLiveDemo */; };
 		4DE3FED32FD66348C7B86B91 /* MorningActivityDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F1A4DDE271AE7DE15330EEF /* MorningActivityDiagnostics.swift */; };
 		4E4AB8028DF76CE5990F7127 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FBE47DE39B2C3158051571E6 /* PrivacyInfo.xcprivacy */; };
 		513BE677DC141244C31FFF0F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B780FD89BDE5B8EBE0D1FA2F /* Assets.xcassets */; };
@@ -91,6 +93,7 @@
 		8260A70AA4C4AB40C7E95A16 /* MORE.storekit in Resources */ = {isa = PBXBuildFile; fileRef = B72BCC24DAA442D01E99761D /* MORE.storekit */; };
 		83694FFB1D487DA12331A735 /* AddStepTimeIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E00F7E37441A95A894E9C5 /* AddStepTimeIntent.swift */; };
 		8706D4C28912FC25A45E3D1E /* RecordedObservationImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35191AAE6C75EE39494AC52A /* RecordedObservationImportTests.swift */; };
+		874DA3D9D2981D8BDC13F924 /* MorningLiveDemo in Frameworks */ = {isa = PBXBuildFile; productRef = 86B3ADB070A450C8A2D02302 /* MorningLiveDemo */; };
 		8804FDDEF738D87906FE866D /* RoutineAutomationJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F649D50F4BCF527213FB411 /* RoutineAutomationJourneyTests.swift */; };
 		8891656AED94CB198DCEA7FC /* MorningSubscriptionEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7FCE7A3984FBA54B116B9E /* MorningSubscriptionEntryView.swift */; };
 		8CD682C5DF97F2CF8EC3D2CE /* GmailConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5087BDE08DBD2E7273AECA0 /* GmailConnectionView.swift */; };
@@ -109,6 +112,7 @@
 		A71F2DD1E977583E1F72289B /* QuickCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1435A178A34F6AADC746A82 /* QuickCaptureView.swift */; };
 		AD6A46591444FFDC8EA621DC /* ObservationReviewUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F5E80A4E3FEC576BDAA690 /* ObservationReviewUITestFixture.swift */; };
 		AE5ABC19590552127ED5D38F /* Raleway.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 67ADFB7AD3AD9E14F38CE222 /* Raleway.ttf */; };
+		AFDC8BC6FB5AD1FBCC4F66A0 /* LiveMorningDemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A3FB65E6F23F27BCD2036A /* LiveMorningDemoTests.swift */; };
 		B0710FC5608F8CE8D5C83305 /* MorningPaperSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6BF52226B552A07B4ACD44 /* MorningPaperSurface.swift */; };
 		B36A9BCC86DF500674FB45C2 /* GoogleCalendarDaySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20ED51885B716B717985D371 /* GoogleCalendarDaySetupView.swift */; };
 		B4A233BA1C7EB5704EDD7DAA /* MorningStore+Connections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB3260AFEA6819B78A7F40 /* MorningStore+Connections.swift */; };
@@ -357,10 +361,12 @@
 		E1435A178A34F6AADC746A82 /* QuickCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCaptureView.swift; sourceTree = "<group>"; };
 		E2B07E2228630BD1678C3BD3 /* RecordingProvenanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingProvenanceTests.swift; sourceTree = "<group>"; };
 		E3A4E32627DA271ED0E49A94 /* GmailConnectionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GmailConnectionController.swift; sourceTree = "<group>"; };
+		E429B30505A893512B98524C /* LiveDemoVoiceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDemoVoiceHost.swift; sourceTree = "<group>"; };
 		E5E6ADF52C122F1C6A7F8B68 /* RoutineReviewComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineReviewComponents.swift; sourceTree = "<group>"; };
 		E606BC30A53C585226160F40 /* ClockObservationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClockObservationTests.swift; sourceTree = "<group>"; };
 		E65E4E1818884015F76D1273 /* MorningStore+Execution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+Execution.swift"; sourceTree = "<group>"; };
 		E6AE83A92F78B68E2C7C9A28 /* GoogleCalendarDayMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarDayMomentView.swift; sourceTree = "<group>"; };
+		E7A3FB65E6F23F27BCD2036A /* LiveMorningDemoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMorningDemoTests.swift; sourceTree = "<group>"; };
 		EB0AC48B02AFBC0932696CF1 /* WebMorningController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebMorningController.swift; sourceTree = "<group>"; };
 		EF591750E21B49095FA36846 /* MorningStore+GoogleCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MorningStore+GoogleCalendar.swift"; sourceTree = "<group>"; };
 		F47BFFAE94C327E61E732A65 /* MorningVoiceCommandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningVoiceCommandView.swift; sourceTree = "<group>"; };
@@ -379,6 +385,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FEE385A1EC3B443808EB198E /* MorningCore in Frameworks */,
+				4DCB64E08703EECC0BCD91AC /* MorningLiveDemo in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -389,6 +396,7 @@
 				3E8251A48B7A61848C80FF10 /* MorningCore in Frameworks */,
 				5680C59276CBE799A48EED85 /* MorningApple in Frameworks */,
 				D35D9E0A4F718DEBF9D76994 /* MorningHealth in Frameworks */,
+				874DA3D9D2981D8BDC13F924 /* MorningLiveDemo in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -457,6 +465,7 @@
 				57F9E3DE77828DFC2DC45B2B /* DeviceObservationTests.swift */,
 				129D71BF80F7E591EEEBD1A0 /* FixtureJourneyTests.swift */,
 				31C92D40B6EFA01488AD3742 /* InterfaceTourTests.swift */,
+				E7A3FB65E6F23F27BCD2036A /* LiveMorningDemoTests.swift */,
 				8D494EE3CCAD57763076ED57 /* LocalizationJourneyTests.swift */,
 				B90072D117F6AB3DF784AC2F /* MorningBriefingTests.swift */,
 				72E79F26B162E0A475EA179A /* MorningEntryTests.swift */,
@@ -549,6 +558,7 @@
 				854C4F108C989A6041806EFF /* GoogleCalendarDayUITestFixture.swift */,
 				D99A776B4C20FF3895E3BA89 /* HorizonDesignPreview.swift */,
 				AD2FB1EC4617F434D5F459B6 /* LearnAndSetupViews.swift */,
+				E429B30505A893512B98524C /* LiveDemoVoiceHost.swift */,
 				4F1A4DDE271AE7DE15330EEF /* MorningActivityDiagnostics.swift */,
 				0814A1DE4C0A82002840418D /* MorningActivitySettingsView.swift */,
 				855CA37143F5F023B8A89EB6 /* MorningAlarmService.swift */,
@@ -742,6 +752,7 @@
 				9BCA4BB59BEA5A48B77C4A6C /* MorningCore */,
 				B7FD4DEE56FB0CA68AC509D1 /* MorningApple */,
 				0BB633FF32AB49511665A80F /* MorningHealth */,
+				86B3ADB070A450C8A2D02302 /* MorningLiveDemo */,
 			);
 			productName = MorningOperator;
 			productReference = 823DC3878AEC67AE33FE7B03 /* MorningOperator.app */;
@@ -780,6 +791,7 @@
 			name = MorningOperatorUITests;
 			packageProductDependencies = (
 				EBD538559CBDD64241C49056 /* MorningCore */,
+				8D9E1C809C0C91D292B6D0A4 /* MorningLiveDemo */,
 			);
 			productName = MorningOperatorUITests;
 			productReference = 725CA4C297C15A6795DCDFC1 /* MorningOperatorUITests.xctest */;
@@ -915,6 +927,7 @@
 				655617981731D382FBF72EF2 /* DeviceObservationTests.swift in Sources */,
 				9B28A88BA0E5408F61414951 /* FixtureJourneyTests.swift in Sources */,
 				CD3F1E802A61F825BE343107 /* InterfaceTourTests.swift in Sources */,
+				AFDC8BC6FB5AD1FBCC4F66A0 /* LiveMorningDemoTests.swift in Sources */,
 				0B3CB519FA43C003457E06CB /* LocalizationJourneyTests.swift in Sources */,
 				613C8FFC0E2ACE7A6276D961 /* MorningBriefingTests.swift in Sources */,
 				81408D1A55F959D74EF5D631 /* MorningEntryTests.swift in Sources */,
@@ -970,6 +983,7 @@
 				D6DF55F9166190D2CD5D2C9C /* GoogleCalendarDayUITestFixture.swift in Sources */,
 				B59C3EB4B1C5696D87656036 /* HorizonDesignPreview.swift in Sources */,
 				067D710ACA9C548538C31539 /* LearnAndSetupViews.swift in Sources */,
+				3BBA2A1278F0B71F4586F3D1 /* LiveDemoVoiceHost.swift in Sources */,
 				4DE3FED32FD66348C7B86B91 /* MorningActivityDiagnostics.swift in Sources */,
 				68BADEEAA81EAA79C508218C /* MorningActivitySettingsView.swift in Sources */,
 				361D434DD231E9328F872114 /* MorningAlarmService.swift in Sources */,
@@ -1557,6 +1571,14 @@
 		5C35898D7B3E250DC02EF8B0 /* MorningApple */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MorningApple;
+		};
+		86B3ADB070A450C8A2D02302 /* MorningLiveDemo */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MorningLiveDemo;
+		};
+		8D9E1C809C0C91D292B6D0A4 /* MorningLiveDemo */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MorningLiveDemo;
 		};
 		9BCA4BB59BEA5A48B77C4A6C /* MorningCore */ = {
 			isa = XCSwiftPackageProductDependency;

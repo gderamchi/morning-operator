@@ -55,6 +55,9 @@ targets:
         product: MorningApple
       - package: MorningOperatorShared
         product: MorningHealth
+      # Pure wire format and voice choice for the DEBUG-only live-demo voice host.
+      - package: MorningOperatorShared
+        product: MorningLiveDemo
       - target: MorningActivityWidget
         embed: true
         link: false
@@ -97,6 +100,9 @@ targets:
       # The phone-loop runner decodes the wire types and uses PhoneCommandGate (#7).
       - package: MorningOperatorShared
         product: MorningCore
+      # Pure decisions for the opt-in live-morning demo (LiveMorningDemoTests).
+      - package: MorningOperatorShared
+        product: MorningLiveDemo
   MorningBenchmarkInbox:
     type: application
     platform: iOS
@@ -196,3 +202,25 @@ schemes:
         - name: MorningObservationBenchmarkUITests
           parallelizable: false
           randomExecutionOrder: false
+  # Owner-present live-morning demo on the tethered phone (docs/DEVICE-SETUP.md).
+  # Automatic screenshots are off: the demo opens Messages and Mail, whose screens
+  # must not land in the result bundle.
+  MorningLiveDemo:
+    build:
+      targets:
+        MorningOperator: all
+        MorningOperatorUITests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: false
+      captureScreenshotsAutomatically: false
+      deleteScreenshotsWhenEachTestSucceeds: true
+      # The test's gate requires this, so no other scheme can run the demo.
+      environmentVariables:
+        MO_LIVE_DEMO_SCHEME: "1"
+      targets:
+        - name: MorningOperatorUITests
+          parallelizable: false
+          randomExecutionOrder: false
+          selectedTests:
+            - LiveMorningDemoTests/testLiveMorningDemo
