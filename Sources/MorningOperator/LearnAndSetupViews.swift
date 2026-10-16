@@ -397,7 +397,7 @@ struct SetupView: View {
                 NavigationLink { MorningConnectionsView(store: store) } label: {
                     settingsLabel(String(localized: "Apps & accounts", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "link")
                 }.accessibilityIdentifier("setup.connections")
-                settingsButton(String(localized: "Calendar & weather", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "sun.max") { choosingBriefing = true }
+                settingsButton(String(localized: "Calendar, weather & sleep", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "sun.max") { choosingBriefing = true }
                     .accessibilityIdentifier("setup.briefing")
             }
             Section("Language") {
@@ -460,7 +460,6 @@ struct SetupView: View {
                                symbol: "sun.horizon") { choosingInvitation = true }
                     .accessibilityIdentifier("setup.invitation")
                 settingsButton(MorningPermissionSetup.text("iPhone permissions", "Accès iPhone"),
-                               detail: MorningPermissionSetup.text("Review location, voice and other access", "Revoir la localisation, la voix et les autres accès"),
                                symbol: "hand.raised") { store.permissionSetup.revisit() }
                     .accessibilityIdentifier("setup.permissions")
                 settingsButton(String(localized: "Privacy & data", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), symbol: "lock.shield") { showingPrivacy = true }

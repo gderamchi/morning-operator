@@ -59,9 +59,9 @@ struct NativeConnectionsView: View {
 
     private var calendarCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(text("Calendar & weather", "Calendrier et météo")).font(MorningTheme.Typography.heading)
-            Text(text("Choose calendars and a city for your day recap.",
-                      "Choisissez vos calendriers et une ville pour le récapitulatif du jour."))
+            Text(text("Calendar, weather & sleep", "Calendrier, météo et sommeil")).font(MorningTheme.Typography.heading)
+            Text(text("Choose calendars, weather and optional recorded sleep for your day recap.",
+                      "Choisissez vos calendriers, la météo et le sommeil enregistré facultatif pour votre récapitulatif."))
                 .font(.raleway(.subheadline)).foregroundStyle(MorningStyle.muted)
                 .fixedSize(horizontal: false, vertical: true)
             Button(text("Choose sources", "Choisir les sources")) { showingBriefing = true }

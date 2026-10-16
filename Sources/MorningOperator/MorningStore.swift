@@ -3,6 +3,7 @@ import UIKit
 import Observation
 import MorningCore
 import MorningApple
+import MorningHealth
 
 enum MorningTab: String, CaseIterable, Identifiable {
     case today = "Morning", review = "Review", captures = "Notes", learn = "Learn", setup = "Settings", routine = "Routine"
@@ -441,10 +442,12 @@ final class MorningStore {
         #if DEBUG
         let testBriefing = MorningBriefingFixture.makeController(directory: directory)
         usesSyntheticBriefing = testBriefing != nil
-        briefing = testBriefing ?? MorningBriefingController(directory: directory)
+        briefing = testBriefing ?? MorningBriefingController(directory: directory,
+            sleep: SleepObservationService(provider: HealthKitSleepReader()))
         #else
         usesSyntheticBriefing = false
-        briefing = MorningBriefingController(directory: directory)
+        briefing = MorningBriefingController(directory: directory,
+            sleep: SleepObservationService(provider: HealthKitSleepReader()))
         #endif
         #if DEBUG
         if !parsedRoutineFixtureRequested { repairPrivacyFixtureIfRequested(directory: directory) }
@@ -1273,7 +1276,9 @@ final class MorningStore {
         guard !privacyBlocksWork, let session,
               stepExecutor.pinnedExecutionID == MorningExecutionID(sessionID: session.id,
                 routineVersionID: session.routine.id, stepID: step.id) else { return nil }
-        return stepExecutor.pinnedBriefing
+        guard let document = stepExecutor.pinnedBriefing,
+              briefing.permitsPlayback(of: document) else { return nil }
+        return document
     }
 
     func updateCurrentBriefing() {
@@ -1294,6 +1299,20 @@ final class MorningStore {
         _ = await briefing.refresh()
     }
 
+    /// Excluding sleep also withdraws any sentence already pinned for this morning.
+    func disableHealthInBriefing() {
+        do { try briefing.disableHealth() }
+        catch { return } // The controller retains the previous choice and reports the failure.
+        suspendHandsFreeVoice()
+        handsFreePauseRevision = UUID()
+        if session?.status == .running { pause() }
+        endOpening()
+        cancelStepPlayback()
+        stepExecutor.clear()
+        speech.stop()
+        Task { await prepareDayIfConfigured() }
+    }
+
     func refreshHomeWeatherIfNeeded() async {
         guard !privacyBlocksWork, !permissionSetup.isPresented else { return }
         await briefing.refreshForHome()
@@ -1303,7 +1322,9 @@ final class MorningStore {
     func addBriefingToRoutine() -> Bool {
         guard let routine, !sessionActive, !privacyBlocksWork else { return false }
         if routine.steps.contains(where: { $0.automation == .morningBriefing }) { return true }
-        let step = RoutineStep(title: String(localized: "Your day", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: String(localized: "Hear your selected calendar and current weather.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale),
+        let step = RoutineStep(title: String(localized: "Your day", bundle: AppLanguage.bundle(), locale: AppLanguage.locale), detail: AppLanguage.isFrench
+            ? "Écoutez le récapitulatif des sources choisies dans Votre journée."
+            : "Hear the recap from the sources you choose in Your day.",
             kind: .briefing, durationMinutes: 2, automation: .morningBriefing)
         return updateSteps([step] + routine.steps)
     }

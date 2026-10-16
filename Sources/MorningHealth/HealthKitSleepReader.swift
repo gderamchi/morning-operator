@@ -2,14 +2,8 @@ import Foundation
 import HealthKit
 import MorningApple
 
-// NEVER RUN AGAINST REAL DATA. This reader compiles for the package's platforms and its
-// value mapping is tested, but no authorization prompt, no query and no real sample has
-// ever passed through it: that needs the HealthKit entitlement, a usage description and
-// a device, which are not in this repository yet. Treat every line that touches
-// `HKHealthStore` as unverified until a device check says otherwise.
-//
-// The app does not link this module. Nothing here can run in the app until the owner adds
-// the `MorningHealth` product to the app target together with the entitlement.
+// Linked by the app only. The caller owns the explicit choice and keeps returned
+// samples transient; HealthKit never exposes the person's read-permission decision.
 
 /// Reads sleep-analysis samples, read-only. It asks for one type and writes nothing.
 @MainActor
@@ -42,12 +36,14 @@ public final class HealthKitSleepReader: SleepObservationProviding {
     }
 
     public func sleepSamples(in interval: DateInterval) async throws -> SleepReadOutcome {
+        try Task.checkCancellation()
         guard isAvailableOnDevice else { return .unavailableOnDevice }
         let predicate = HKQuery.predicateForSamples(withStart: interval.start, end: interval.end, options: [])
         let query = HKSampleQueryDescriptor(
             predicates: [.categorySample(type: HKCategoryType(.sleepAnalysis), predicate: predicate)],
             sortDescriptors: [SortDescriptor(\.startDate)])
         let samples = try await query.result(for: healthStore())
+        try Task.checkCancellation()
         return .samples(samples.compactMap { sample in
             Self.sample(value: sample.value, start: sample.startDate, end: sample.endDate,
                         bundleIdentifier: sample.sourceRevision.source.bundleIdentifier,

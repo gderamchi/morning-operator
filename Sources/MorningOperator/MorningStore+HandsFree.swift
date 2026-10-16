@@ -274,6 +274,7 @@ extension MorningStore {
             parts.append("Verified current source information: \(document.spokenText)")
         }
         if let document = currentOpening?.document,
+           briefing.permitsPlayback(of: document),
            document.isCurrent(at: Date(), timeZoneIdentifier: TimeZone.current.identifier) {
             parts.append("Verified opening information: \(document.spokenText)")
         }

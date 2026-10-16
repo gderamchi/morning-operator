@@ -1,14 +1,15 @@
 # Your day
 
-A short calendar and weather recap before the rest of your morning. This feature is part of the V2 development branch; see [verification](PHASE-ONE.md) for the tested source and remaining device checks.
+A short recap of your chosen calendar, current weather and optional recorded sleep before the rest of your morning. This feature is part of the V2 development branch; see [verification](PHASE-ONE.md) for the tested source and remaining device checks.
 
 ## Set it up
 
-1. Open **Review → Settings & connections → Your day**.
+1. Open **Settings → Sources → Calendar, weather & sleep**. This opens **Your day**.
 2. Choose **Connect Calendar** and approve Apple's read permission if you want calendar context. Then select the individual calendars to include. No calendar is selected automatically.
 3. Optionally search for a city and select a result. Choose Celsius or Fahrenheit. Device location isn't requested.
-4. Read the prepared recap or choose **Hear this recap**. **Refresh recap** updates this preview without advancing your routine.
-5. If you already have a routine, choose **Add to my morning**. This creates a new draft with **Your day** first. Review and approve that draft before running it.
+4. Optionally turn on **Include recorded sleep**. MORE explains the purpose before opening Apple’s Health permission sheet, for sleep analysis only and read-only. A handled sheet does not establish read permission.
+5. Read the prepared recap or choose **Hear this recap**. **Refresh recap** updates this preview without advancing your routine.
+6. If you already have a routine, choose **Add to my morning**. This creates a new draft with **Your day** first. Review and approve that draft before running it.
 
 You can also edit a moment and choose **Read today's briefing**, or **Read today's calendar** for calendar-only speech. These are explicit operations; a model suggestion cannot grant itself permission to run them. Adding a briefing is optional, and unavailable sources do not prevent manual continuation.
 
@@ -18,7 +19,7 @@ The same prepared sentences appear on screen and go to Apple's system speech. Ca
 
 Weather describes current conditions in the chosen city, with an explicit temperature unit. It is not a whole-day forecast. The visible recap includes Apple Weather attribution and a data-sources link. The actual Apple image asset, live WeatherKit access and audio output still need signed-device verification.
 
-Prepared prose currently supports English. Event titles retain their original language. The separate on-device habit model does not summarize or rewrite these facts.
+Prepared prose supports English and French. Event titles retain their original language. The separate on-device habit model does not summarize or rewrite these facts.
 
 ## Freshness and playback
 
@@ -28,17 +29,22 @@ MORE prepares configured sources when the app enters the foreground, then checks
 |---|---|
 | Calendar | Local EventKit read less than five minutes old, correct day/zone and valid selected calendars. A known EventKit store change invalidates playback admission and the next refresh re-reads the range. The next event boundary can expire the recap sooner. The read time is not a remote-account synchronization timestamp. |
 | Weather | Retrieval and conditions times less than 30 minutes old; Apple's expiry can shorten this. Future or inconsistent timestamps are rejected. |
-| Both | Midnight, a time-zone change, changed source settings or revoked access require revalidation. Each source can fail independently. Weather requests have a bounded deadline. |
+| Sleep | A read is usable for less than 30 minutes, on the same day/zone. Background return, changed inclusion, empty/error rereads and local forgetting invalidate prior sleep playback. |
+| All | Midnight, a time-zone change, changed source settings or revoked access require revalidation. Each source can fail independently. Weather requests have a bounded deadline. |
 
 At least one fresh configured source is needed to speak a briefing. When another configured source is missing, the recap says so briefly. With no usable facts, the step waits for the person; it never reports a fabricated success.
 
 During a routine, the recap is pinned to that session and moment. **Repeat** uses those same sentences while they remain valid; refreshing Settings cannot replace them. If they expire, pause and open the current moment, then choose **Update this recap**. That explicit action prepares and reads a new recap without advancing the routine. Resume or Next remains your choice. The supported automatic operation advances only after speech completes.
 
-## Sleep duration (logic only, not connected)
+## Sleep duration
 
-Sleep duration is the one health observation chosen for [issue #15](https://github.com/gibouu/morning-operator/issues/15). The shared logic exists and is tested with synthetic samples. **The app reads no health data today**: it has no HealthKit entitlement, no usage description, no screen for the choice, and it does not link the module that imports HealthKit (`MorningHealth`). That module's reader has never run against real data. A device check is still to do.
+Sleep duration is the one health observation chosen for [issue #15](https://github.com/gibouu/morning-operator/issues/15). The app links `MorningHealth`, requests only the standard HealthKit capability and explains read access in `NSHealthShareUsageDescription` (English/French). The widget does not link this module or request HealthKit. No clinical records, background delivery, health writes, score or diagnosis is requested.
 
-What the logic does once a reader is connected:
+In **Settings → Calendar, weather & sleep → Apple Health · optional sleep**, turn on **Include recorded sleep** deliberately. Only this action requests Apple's sleep-analysis read permission. Then **Refresh sleep** shows the same recorded duration/window used in the recap, inferred source categories and local read time. **Hear this recap** uses the composed sentences; **Add to my morning** creates a draft requiring review/approval. The opening offers a recap when sleep alone supplies current facts; the routine's **Read today's briefing** operation includes it.
+
+Turning sleep off cancels pending setup/reads, withdraws transient and pinned sleep text and pauses a running morning. Other settings and Apple Health records are preserved. To change system access use **Apple Health → profile → Apps → MORE** (the Apps entry may be under Privacy on some iOS versions). On a real trip to the background, MORE drops the sleep cache and playback admission; the next foreground refresh rereads it. A refresh that returns empty or fails also withdraws earlier recorded sleep from playback. A system permission sheet merely making MORE inactive does not invalidate setup.
+
+The native read is wired, but a physical-device data pass must be recorded separately; package tests and simulator fixtures do not prove a real record. The rules remain:
 
 - **The choice.** Health is included or excluded on its own, apart from calendar and weather. It is off until the person turns it on. While it is off the reader is not called.
 - **The sentence.** One sentence, the same on screen and in speech: the time recorded as asleep and the window it was recorded in, for example "Sleep recorded: 7 hours 20 minutes, between 23:40 and 07:00." No score, no judgement, no advice, no comparison with a recommended amount. A window of a day or more, possible in a recap prepared in the evening, gives each end its date as well.
@@ -54,11 +60,11 @@ What the logic does once a reader is connected:
 | The read failed or did not answer in 10 seconds | "Sleep data could not be read." | The same sentence |
 | The read is more than 30 minutes old | "Sleep data needs a fresh update." | The same sentence |
 
-No sentence says that permission was refused. HealthKit answers a refused read with no samples and no error, so "no record" can also mean the read was not permitted or the watch has not synced yet.
+No sentence says that permission was refused or granted. HealthKit answers a refused read with no samples and no error, so "no record" can also mean the read was not permitted or the watch has not synced yet.
 
-**Expected sources.** An Apple Watch worn at night records sleep stages. An iPhone alone records mostly "in bed" time from a sleep schedule, which is not counted. Other apps and entries typed in the Health app may record asleep time. The source kind (watch, phone, another app, manual entry, unknown) is worked out from the source's bundle identifier, its hardware model string and the "entered by the user" flag; HealthKit has no field that states it. An iPad or a Mac may have no health data store. None of this coverage has been checked on a device.
+**Expected sources.** An Apple Watch worn at night records sleep stages. An iPhone alone records mostly "in bed" time from a sleep schedule, which is not counted. Other apps and entries typed in the Health app may record asleep time. The source kind (watch, phone, another app, manual entry, unknown) is worked out from the source's bundle identifier, its hardware model string and the "entered by the user" flag; HealthKit has no field that states it. An iPad or a Mac may have no health data store. Physical source coverage must be verified separately from the tested sample mapping.
 
-Samples, the total and the sentence stay in memory. Only the on/off choice is saved, in `briefing-settings.json`.
+The reader looks back seven days to distinguish an older record from no returned record. Reads have a ten-second publication deadline; late/cancelled results cannot repopulate cleared state. Samples, the total and the sentence stay in memory. During a hands-free question, the current admitted recap can be supplied as transient context to the existing on-device conversation model; it is not sent to a remote model. Disabling sleep cancels a pending voice answer and clears that context. Only the on/off choice is saved, in `briefing-settings.json`.
 
 ## What is saved and sent
 
@@ -73,3 +79,5 @@ The app target declares `com.apple.developer.weatherkit`. Its App ID and provisi
 The local test providers contain labeled synthetic calendars, cities and conditions. They test selection, source failures, freshness, cancellation, storage and playback identity without reading a person's calendar or contacting Apple Weather. They do not prove real service access, image attribution rendering, microphone operation or listener audibility.
 
 Official references: [EventKit](https://developer.apple.com/documentation/eventkit), [WeatherKit](https://developer.apple.com/weatherkit/), [WeatherKit entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.weatherkit), [Weather attribution](https://developer.apple.com/documentation/weatherkit/weatherattribution), [Weather metadata](https://developer.apple.com/documentation/weatherkit/weathermetadata), [MapKit search](https://developer.apple.com/documentation/mapkit/mklocalsearch).
+
+HealthKit references: [authorizing health data access](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data), [sleep analysis](https://developer.apple.com/documentation/healthkit/hkcategorytypeidentifier/sleepanalysis). Apple deliberately hides read authorization decisions; an empty read may reflect no data, delayed sync or withheld access.
