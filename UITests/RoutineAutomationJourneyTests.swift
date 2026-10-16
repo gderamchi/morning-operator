@@ -3,6 +3,97 @@ import XCTest
 /// Synthetic routine/persisted budgets; live-news explicitly uses a real public page.
 @MainActor
 final class RoutineAutomationJourneyTests: XCTestCase {
+    /// This is the separately authored portable oracle, not OCR/model output or
+    /// an executable provider plan. Only the ordinary editor delegates its draft.
+    func testParsedSyntheticFrenchRoutineStaysEditableAndApprovedAfterRelaunch() throws {
+        // Literal copy of Benchmarks/routine-fixture-v1/oracle-draft-fr.more-routine.json.
+        let portable = #"{"format":"morning-operator.routine","formatVersion":1,"detail":"includeDetails","sourceRoutineID":"90000000-0000-4000-8000-000000000100","sourceRoutineVersion":1,"sourceCreatedAt":1792129500.0,"approvalAtExport":false,"sourceIsSynthetic":true,"sourceLabel":"Demo fixture — SYNTHETIC manual oracle; no OCR or model execution","steps":[{"id":"90000000-0000-4000-8000-000000000001","title":"Mon agenda","kind":"calendar","durationMinutes":2,"isRequired":false,"detail":"SYNTHETIC — Consulter le calendrier principal fictif, sans confondre les homonymes."},{"id":"90000000-0000-4000-8000-000000000002","title":"Mes mails et ma réponse","kind":"messages","durationMinutes":5,"isRequired":false,"detail":"SYNTHETIC — Choisir le troisième mail, corriger six cartes bleues en huit cartes vertes, relire puis simuler un seul envoi."},{"id":"90000000-0000-4000-8000-000000000003","title":"Mon équipe","kind":"messages","durationMinutes":3,"isRequired":false,"detail":"SYNTHETIC — Une réponse simulée incertaine ne doit jamais être relancée automatiquement."},{"id":"90000000-0000-4000-8000-000000000004","title":"Deuxième article et retour","kind":"briefing","durationMinutes":4,"isRequired":false,"detail":"SYNTHETIC — Choisir le deuxième lien observé, lire le texte attribué, revenir aux titres avec le budget restant."},{"id":"90000000-0000-4000-8000-000000000005","title":"Mon fil à mon rythme","kind":"entertainment","durationMinutes":3,"isRequired":false,"detail":"SYNTHETIC — Pause puis reprise. La durée personnelle de trois minutes prime sur les quatre minutes observées dans la source réaliste."},{"id":"90000000-0000-4000-8000-000000000006","title":"Mes vidéos","kind":"entertainment","durationMinutes":3,"isRequired":false,"detail":"SYNTHETIC — Deux contenus fictifs successifs. Aucun contrôle de vrai service n’est prouvé."},{"id":"90000000-0000-4000-8000-000000000007","title":"Mon rappel exact","kind":"custom","durationMinutes":1,"isRequired":false,"detail":"SYNTHETIC — Apporter le carnet bleu au studio Nord. 16 octobre 2026 à 09:25 Europe/Paris. Une seule écriture simulée."},{"id":"90000000-0000-4000-8000-000000000008","title":"Lire cinq pages","kind":"wellbeing","durationMinutes":3,"isRequired":true,"detail":"SYNTHETIC — Rituel personnel Garder conservé même si l’inférence l’omet. Le texte d’une page n’autorise aucun choix personnel."},{"id":"90000000-0000-4000-8000-000000000009","title":"Un peu de musique","kind":"wellbeing","durationMinutes":2,"isRequired":false,"detail":"SYNTHETIC — Lecteur fictif. La vidéo de test ne contient aucune piste audio."},{"id":"90000000-0000-4000-8000-000000000010","title":"La fin de mon matin","kind":"briefing","durationMinutes":2,"isRequired":false,"detail":"SYNTHETIC — Récap ajouté explicitement : Gmail et rappel simulés, Slack incertain. Ne pas apprendre ce moment depuis les écrans MORE."}]}"#
+        let data = Data(portable.utf8)
+        let document = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let steps = try XCTUnwrap(document["steps"] as? [[String: Any]])
+        XCTAssertEqual(steps.count, 10)
+        XCTAssertEqual(steps.compactMap { $0["durationMinutes"] as? Int }.reduce(0, +), 28)
+        let titles = try steps.map { try XCTUnwrap($0["title"] as? String) }
+        let app = launch(["--ui-testing-empty-workspace", "--ui-testing-approved",
+                          "--ui-testing-parsed-routine=" + data.base64EncodedString()], french: true)
+        defer { app.terminate() }
+        reveal(app)
+        enabledVisibleButton("morning.settings", in: app).tap()
+        let routine = visibleButton("setup.routine", in: app)
+        XCTAssertTrue(routine.label.contains("10 moments") && routine.label.contains("28 min"), routine.label)
+        routine.tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["routine.approve"].isEnabled,
+                      "The parsed plan must remain a draft even with the ordinary approval fixture flag.")
+        for index in titles.indices {
+            XCTAssertTrue(visibleButton("routine.step.\(index)", in: app).label.contains(titles[index]))
+        }
+        XCTAssertFalse(app.buttons["routine.step.10"].exists)
+        let synthetic = app.descendants(matching: .any).matching(identifier: "routine.source").firstMatch
+        scrollTo(synthetic, identifier: "routine.source", in: app)
+        XCTAssertFalse(synthetic.label.isEmpty)
+        attach("automation-parsed-synthetic-ten-moment-french-draft", app)
+        enabledVisibleButton("routine.step.0", in: app).tap()
+        let duration = app.steppers["step.duration"]
+        scrollTo(duration, identifier: "step.duration", in: app)
+        XCTAssertEqual(duration.value as? String, "2")
+        let increment = duration.buttons["step.duration-Increment"]
+        XCTAssertTrue(increment.isHittable)
+        increment.tap()
+        XCTAssertEqual(duration.value as? String, "3")
+        enabledVisibleButton("step.save", in: app).tap()
+        XCTAssertTrue(app.buttons["routine.approve"].waitForExistence(timeout: 5))
+        _ = visibleButton("routine.step.0", in: app)
+        _ = visibleButton("routine.step.1", in: app)
+        enabledVisibleButton("routine.edit", in: app).tap()
+        let reorder = app.buttons.matching(NSPredicate(format:
+            "(label BEGINSWITH[c] %@ OR label BEGINSWITH[c] %@) AND label CONTAINS %@",
+            "Réorganiser", "Reorder", titles[0])).firstMatch
+        guard reorder.waitForExistence(timeout: 5), reorder.isHittable else {
+            captureFailure("parsed-routine-native-reorder-handle-unavailable", app)
+            XCTFail("The real native editor must expose its reorder handle; no Store mutation substitutes this gesture.")
+            return
+        }
+        let second = app.buttons["routine.step.1"]
+        reorder.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.5, thenDragTo: second.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        enabledVisibleButton("routine.edit", in: app).tap()
+        let reordered = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", titles[1]), object: app.buttons["routine.step.0"])
+        let reorderedResult = XCTWaiter.wait(for: [reordered], timeout: 5)
+        if reorderedResult != .completed { captureFailure("parsed-routine-native-reorder-did-not-save", app) }
+        XCTAssertEqual(reorderedResult, .completed)
+        XCTAssertTrue(app.buttons["routine.step.1"].label.contains(titles[0]))
+        XCTAssertTrue(app.buttons["routine.step.1"].label.contains("3 min"))
+        attach("automation-parsed-synthetic-routine-duration-and-order-edited", app)
+        enabledVisibleButton("routine.approve", in: app).tap()
+        returnHome(app)
+        app.terminate()
+        app.launchArguments.removeAll {
+            $0.hasPrefix("--ui-testing-parsed-routine=") || $0 == "--ui-testing-approved" || $0 == "--ui-testing-empty-workspace"
+        }
+        app.launch()
+        let workspace = try XCTUnwrap(app.launchArguments.first { $0.hasPrefix("--ui-testing-workspace=") }
+            .map { String($0.dropFirst("--ui-testing-workspace=".count)) })
+        XCTAssertTrue(app.staticTexts["qa.testWorkspace"].waitForExistence(timeout: 8))
+        XCTAssertEqual(app.staticTexts["qa.testWorkspace"].value as? String, workspace)
+        reveal(app)
+        enabledVisibleButton("morning.settings", in: app).tap()
+        let saved = visibleButton("setup.routine", in: app)
+        XCTAssertTrue(saved.label.contains("10 moments") && saved.label.contains("29 min"), saved.label)
+        saved.tap()
+        XCTAssertTrue(app.buttons["routine.edit"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["routine.approve"].exists, "Approval must come from the saved review, not a launch flag.")
+        var savedTitles = titles
+        savedTitles.swapAt(0, 1)
+        for index in savedTitles.indices {
+            let row = visibleButton("routine.step.\(index)", in: app)
+            XCTAssertTrue(row.label.contains(savedTitles[index]), row.label)
+            if index == 1 { XCTAssertTrue(row.label.contains("3 min")) }
+        }
+        XCTAssertFalse(app.buttons["routine.step.10"].exists)
+        attach("automation-parsed-synthetic-routine-approved-and-restored", app)
+    }
+
     func testSyntheticSlackUncertainSendReplacesTheOldInstructionOnHome() {
         checkSyntheticSlackUncertainSendOnHome()
     }
