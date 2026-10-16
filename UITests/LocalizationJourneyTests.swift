@@ -97,6 +97,52 @@ final class LocalizationJourneyTests: XCTestCase {
         app.terminate()
     }
 
+    func testPairedLearningAndNativeEmptyStates() {
+        continueAfterFailure = false
+        for french in [true, false] {
+            let code = french ? "fr" : "en"
+            var app = launch(workspace: UUID(), initialLanguage: code, extraArguments: ["--ui-testing-empty-workspace"])
+            app.buttons["morning.actions"].tap()
+            app.buttons["morning.begin"].tap()
+            XCTAssertTrue(app.buttons["learn.import"].waitForExistence(timeout: 10), app.debugDescription)
+            XCTAssertTrue(app.buttons["learn.connections"].exists)
+            attach("localization-\(code)-learn-empty", app)
+            app.terminate()
+
+            app = launch(workspace: UUID(), initialLanguage: code)
+            openSettings(app)
+            scrollTo(app.buttons["setup.connections"], in: app, upward: false)
+            app.buttons["setup.connections"].tap()
+            let reminders = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", french ? "Rappels" : "Reminders")).firstMatch
+            scrollTo(reminders, in: app)
+            reminders.tap()
+            XCTAssertTrue(app.buttons["native.remindersRead"].waitForExistence(timeout: 10), app.debugDescription)
+            attach("localization-\(code)-native-reminders-empty", app)
+            app.terminate()
+        }
+    }
+
+    func testPairedInAppBrowserControls() {
+        continueAfterFailure = false
+        for french in [true, false] {
+            let code = french ? "fr" : "en"
+            let app = XCUIApplication()
+            app.launchArguments = ["--ui-testing", "--web-morning", "--web-morning-site=news", "--light-preview",
+                                   "--ui-testing-workspace=\(UUID().uuidString)", "-more.appLanguage", code]
+            app.launch()
+            let explanation = app.buttons["web.aboutDone"]
+            if explanation.waitForExistence(timeout: 4) {
+                attach("localization-\(code)-browser-explanation", app)
+                explanation.tap()
+            }
+            XCTAssertTrue(app.buttons["web.close"].waitForExistence(timeout: 15), app.debugDescription)
+            XCTAssertEqual(app.buttons["web.close"].label, french ? "Fermer" : "Close")
+            XCTAssertEqual(app.buttons["web.reload"].label, french ? "Recharger la page" : "Reload page")
+            attach("localization-\(code)-browser-controls", app)
+            app.terminate()
+        }
+    }
+
     func testUnsupportedSystemLanguageStartsInFrench() {
         continueAfterFailure = false
         let app = launch(workspace: UUID(), initialLanguage: "unsupported", systemLanguage: "de")
