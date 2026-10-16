@@ -79,7 +79,7 @@ Une demande explicite de rappel peut retourner :
 }
 ```
 
-Cette action appartient au contexte préparé de 15 h : un nouvel horaire proposé par mail ne constitue pas une nouvelle réunion acceptée. La variante prend en charge vingt minutes, et l'annonce clairement ; elle refuse de substituer cette durée à une autre demandée explicitement.
+Cette action appartient au contexte préparé de 15 h : un nouvel horaire proposé par mail ne constitue pas une nouvelle réunion acceptée. La variante prend en charge vingt minutes, et l'annonce clairement ; elle refuse de substituer cette durée à une autre demandée explicitement. Une heure, une date ou une direction différente comme « après » est refusée sans préparer d’action native ; le scénario ne résout pas ces indications en un autre horaire.
 
 L'iPhone utilise son fuseau et la date d'aujourd'hui, refuse un horaire déjà passé, demande la permission système normale, crée le rappel puis relit son identifiant et ses données avant l'ack `confirmed`. Le serveur n'annonce aucune création avant cet ack. Un refus de permission ou un horaire passé donne `unavailable` ; une sauvegarde dont le résultat est inconnu donne `uncertain` et exige une vérification locale, sans nouvelle création.
 
