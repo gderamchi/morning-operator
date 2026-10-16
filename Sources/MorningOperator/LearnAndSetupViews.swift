@@ -397,7 +397,7 @@ struct SetupView: View {
                 NavigationLink { MorningConnectionsView(store: store) } label: {
                     settingsLabel(String(localized: "Apps & accounts"), symbol: "link")
                 }.accessibilityIdentifier("setup.connections")
-                settingsButton(String(localized: "Calendar & weather"), symbol: "sun.max") { choosingBriefing = true }
+                settingsButton(String(localized: "Calendar, weather & sleep"), symbol: "sun.max") { choosingBriefing = true }
                     .accessibilityIdentifier("setup.briefing")
             }
             Section(french ? "Voix et lecture" : "Voice & playback") {

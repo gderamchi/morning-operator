@@ -16247,6 +16247,23 @@
           }
         }
       }
+    },
+    "Calendar, weather & sleep": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar, weather & sleep"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendrier, météo et sommeil"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

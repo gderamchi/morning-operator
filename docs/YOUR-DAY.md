@@ -4,7 +4,7 @@ A short recap of your chosen calendar, current weather and optional recorded sle
 
 ## Set it up
 
-1. Open **Review → Settings & connections → Your day**.
+1. Open **Settings → Sources → Calendar, weather & sleep**. This opens **Your day**.
 2. Choose **Connect Calendar** and approve Apple's read permission if you want calendar context. Then select the individual calendars to include. No calendar is selected automatically.
 3. Optionally search for a city and select a result. Choose Celsius or Fahrenheit. Device location isn't requested.
 4. Optionally turn on **Include recorded sleep**. MORE explains the purpose before opening Apple’s Health permission sheet, for sleep analysis only and read-only. A handled sheet does not establish read permission.
@@ -40,7 +40,7 @@ During a routine, the recap is pinned to that session and moment. **Repeat** use
 
 Sleep duration is the one health observation chosen for [issue #15](https://github.com/gibouu/morning-operator/issues/15). The app links `MorningHealth`, requests only the standard HealthKit capability and explains read access in `NSHealthShareUsageDescription` (English/French). The widget does not link this module or request HealthKit. No clinical records, background delivery, health writes, score or diagnosis is requested.
 
-In **Settings → Your day → Apple Health · optional sleep**, turn on **Include recorded sleep** deliberately. Only this action requests Apple's sleep-analysis read permission. Then **Refresh sleep** shows the same recorded duration/window used in the recap, inferred source categories and local read time. **Hear this recap** uses the composed sentences; **Add to my morning** creates a draft requiring review/approval. The opening offers a recap when sleep alone supplies current facts; the routine's **Read today's briefing** operation includes it.
+In **Settings → Calendar, weather & sleep → Apple Health · optional sleep**, turn on **Include recorded sleep** deliberately. Only this action requests Apple's sleep-analysis read permission. Then **Refresh sleep** shows the same recorded duration/window used in the recap, inferred source categories and local read time. **Hear this recap** uses the composed sentences; **Add to my morning** creates a draft requiring review/approval. The opening offers a recap when sleep alone supplies current facts; the routine's **Read today's briefing** operation includes it.
 
 Turning sleep off cancels pending setup/reads, withdraws transient and pinned sleep text and pauses a running morning. Other settings and Apple Health records are preserved. To change system access use **Apple Health → profile → Apps → MORE** (the Apps entry may be under Privacy on some iOS versions). On a real trip to the background, MORE drops the sleep cache and playback admission; the next foreground refresh rereads it. A refresh that returns empty or fails also withdraws earlier recorded sleep from playback. A system permission sheet merely making MORE inactive does not invalidate setup.
 
