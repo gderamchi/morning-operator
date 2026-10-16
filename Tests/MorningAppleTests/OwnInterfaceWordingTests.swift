@@ -846,23 +846,25 @@ struct OwnInterfaceWordingTests {
     @Test("Compact Connections needs its live heading, section and sign-in row in either language", arguments: ["en", "fr"])
     func compactConnectionsWithoutRetiredIntro(language: String) throws {
         let sources = try ShippedCatalogs.appSources(), index = language == "fr" ? 1 : 0
-        let pieces = OwnInterfaceWording.compactConnections.map { $0.wordings[index] }
-        for wording in pieces {
-            #expect(sources.contains("\"\(wording)\""), "Connections no longer shows this literal: \(wording)")
-        }
         let content = "09:00 Team planning meeting"
-        for width in [26, 38] {
-            let screen = (pieces.flatMap { OwnScreenFixtures.wrapped($0, width: width) } + [content]).joined(separator: "\n")
-            #expect(isOwnInterface(screen))
-            #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
-                try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+        for rule in [OwnInterfaceWording.compactConnections, OwnInterfaceWording.compactConfirmedConnections] {
+            let pieces = rule.map { $0.wordings[index] }
+            for wording in pieces {
+                #expect(sources.contains("\"\(wording)\""), "Connections no longer shows this literal: \(wording)")
             }
+            for width in [26, 38] {
+                let screen = (pieces.flatMap { OwnScreenFixtures.wrapped($0, width: width) } + [content]).joined(separator: "\n")
+                #expect(isOwnInterface(screen))
+                #expect(throws: AppleIntelligenceError.insufficientActivityEvidence) {
+                    try LearningEvidencePolicy.prepare("[Observed frame at 00:00.0]\n" + screen, as: .recording)
+                }
+            }
+            for missing in pieces.indices {
+                var partial = pieces; partial.remove(at: missing)
+                #expect(!isOwnInterface((partial + [content]).joined(separator: "\n")))
+            }
+            #expect(!isOwnInterface(([pieces[0], "Gmail", "Instagram", "TikTok", "WhatsApp", content]).joined(separator: "\n")))
         }
-        for missing in pieces.indices {
-            var partial = pieces; partial.remove(at: missing)
-            #expect(!isOwnInterface((partial + [content]).joined(separator: "\n")))
-        }
-        #expect(!isOwnInterface(([pieces[0], "Gmail", "Instagram", "TikTok", "WhatsApp", content]).joined(separator: "\n")))
         for phrase in OwnInterfaceWording.earlierConnections.copy.prefix(2) {
             #expect(phrase.catalogKey == nil)
             #expect(!sources.contains("\"\(phrase.wordings[index])\""), "Retired introduction returned to the live view.")

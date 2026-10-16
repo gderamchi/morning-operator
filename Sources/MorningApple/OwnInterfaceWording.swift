@@ -229,9 +229,13 @@ enum OwnInterfaceWording {
         sourceLiteral("Messages & your feed", fr: "Messages et fil d’actualité"),
         sourceLiteral("Website · Sign in", fr: "Site web · Se connecter")
     ]
+    static let compactConfirmedConnections: [Phrase] = [
+        compactConnections[0], compactConnections[1],
+        sourceLiteral("Confirmed by you · Open website", fr: "Confirmé par vous · Ouvrir le site")
+    ]
 
     /// Screens without a heading of their own: every piece must be present.
-    static let pairs: [[Phrase]] = outlookPairs + [screenTimePickerPair, compactConnections] + [
+    static let pairs: [[Phrase]] = outlookPairs + [screenTimePickerPair, compactConnections, compactConfirmedConnections] + [
         [shown("Your Calendly appointments, each morning", fr: "Vos rendez-vous Calendly, chaque matin"),
          shown("Choose an account. MORE reads appointments starting today in this iPhone’s time zone.",
                fr: "Choisissez un compte. MORE lit les rendez-vous qui commencent aujourd’hui dans le fuseau de cet iPhone.")],
