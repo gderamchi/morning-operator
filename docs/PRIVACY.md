@@ -4,6 +4,12 @@
 
 Full local forgetting first shipped in source `640370c`; source `f783658` also removes briefing settings and transient day recaps. The cancel/preserve/forget/relaunch journey and isolated workspace inspection passed again with a synthetic briefing payload. Earlier privacy tests retain their dated results in [PHASE-ONE](PHASE-ONE.md). This does not establish physical recording shutdown or deletion from external Apple apps.
 
+## Current location and access preparation
+
+MORE explains each supported iPhone permission before requesting it at first opening; a refusal leaves the other steps available. Returning to permissions in Settings does not start listening, recording, an alarm or a routine. System permissions remain controlled by iOS.
+
+With current-location weather enabled, one-shot foreground location requests supply coordinates to Apple Weather and the local solar calculation. Device coordinates and current weather remain in memory, are invalidated on privacy cleanup and are not added to routine/observation history. A deliberately selected fallback city is a saved preference. WeatherKit and Apple Maps retain their own service processing; the app does not upload location to a model.
+
 ## Use the Privacy screen
 
 Open **Review → Settings & connections → Privacy & data**. The inventory shows the current and previous routine, saved mornings, observations, thoughts and saved choices. It also explains less visible copies: quoted evidence inside routines, pending suggestions, recording recovery, app activity, invitation settings, selected calendar identifiers, chosen weather city/unit and local Apple-app save receipts. If saved data cannot be read, the screen says so instead of presenting zero as a known count.

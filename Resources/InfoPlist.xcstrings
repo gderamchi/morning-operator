@@ -126,6 +126,24 @@
           }
         }
       }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "comment": "Foreground location for weather and local solar position. Approximate location is sufficient.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MORE uses your current location while open for local weather and a sky that follows the sun. An approximate location is enough."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand MORE est ouvert, votre position apporte la météo locale et un ciel qui suit le soleil. Une position approximative suffit."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

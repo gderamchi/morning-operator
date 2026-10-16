@@ -81,10 +81,10 @@ struct WeatherObservationServiceTests {
 
     @Test func detailedMeasurementValidationRejectsInvalidProviderValuesAtTheBoundary() throws {
         let nonnegative: [(Double) throws -> WeatherObservationSnapshot] = [
-            { try detailedSnapshot(windSpeed: $0) }, { try detailedSnapshot(windGust: $0) },
-            { try detailedSnapshot(rainRate: $0) }, { try detailedSnapshot(visibility: $0) },
-            { try detailedSnapshot(humidity: $0) }, { try detailedSnapshot(direction: $0) },
-            { try detailedSnapshot(pressure: $0) }
+            { try self.detailedSnapshot(windSpeed: $0) }, { try self.detailedSnapshot(windGust: $0) },
+            { try self.detailedSnapshot(rainRate: $0) }, { try self.detailedSnapshot(visibility: $0) },
+            { try self.detailedSnapshot(humidity: $0) }, { try self.detailedSnapshot(direction: $0) },
+            { try self.detailedSnapshot(pressure: $0) }
         ]
         for make in nonnegative {
             for invalid in [Double.nan, .infinity, -.infinity, -1] {
@@ -92,7 +92,7 @@ struct WeatherObservationServiceTests {
             }
         }
         let temperatures: [(Double) throws -> WeatherObservationSnapshot] = [
-            { try detailedSnapshot(apparent: $0) }, { try detailedSnapshot(dewPoint: $0) }
+            { try self.detailedSnapshot(apparent: $0) }, { try self.detailedSnapshot(dewPoint: $0) }
         ]
         for make in temperatures {
             for invalid in [Double.nan, .infinity, -.infinity, -274] {

@@ -3357,6 +3357,74 @@
           }
         }
       }
+    },
+    "Current location": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current location"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position actuelle"
+          }
+        }
+      }
+    },
+    "Location is off. Allow it in iPhone Settings or choose a city for the weather.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location is off. Allow it in iPhone Settings or choose a city for the weather."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La localisation est désactivée. Autorisez-la dans les réglages de l’iPhone ou choisissez une ville pour la météo."
+          }
+        }
+      }
+    },
+    "Your location isn't available yet. Try again or choose a city.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your location isn't available yet. Try again or choose a city."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre position est indisponible pour le moment. Réessayez ou choisissez une ville."
+          }
+        }
+      }
+    },
+    "Finding your location took too long. Try again or choose a city.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding your location took too long. Try again or choose a city."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recherche de votre position a pris trop de temps. Réessayez ou choisissez une ville."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

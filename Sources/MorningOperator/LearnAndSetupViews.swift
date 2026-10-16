@@ -383,6 +383,11 @@ struct SetupView: View {
                 }
             }.accessibilityIdentifier("setup.invitation")
 
+            CardButton { store.permissionSetup.revisit() } content: {
+                LinkRow(title: MorningPermissionSetup.text("iPhone permissions", "Accès iPhone"),
+                    detail: MorningPermissionSetup.text("Review location, voice and other access", "Revoir la localisation, la voix et les autres accès"), symbol: "hand.raised")
+            }.accessibilityIdentifier("setup.permissions")
+
             CardButton { choosingBriefing = true } content: {
                 HStack(spacing: 14) {
                     MorningDottedIcon(systemName: "sun.max").frame(width: 28, height: 28)
