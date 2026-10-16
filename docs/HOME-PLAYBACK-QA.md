@@ -4,6 +4,14 @@
 
 The fourth review removes the enclosing circles. Native Liquid Glass follows the rounded Play triangle, the two Pause bars and the Settings gear itself, including its open center. No capsule, plate or extra SF Symbol sits behind or above the material. The visible glyphs are 48/28 points; the invisible touch targets remain 88/48 points. The opaque accessibility fallback uses the same glyph silhouettes. Placement, five-second lifetime and navigation are unchanged.
 
+Three focused UI tests passed for the glyph change. Their captures exposed weak contrast on the day landscape; the primary tint was strengthened in `56612dc`. After that one visual change, the day idle and night largest-text/Reduce Motion cases were rerun and both passed. Final day and night Play/Pause/Settings captures were inspected. Evidence: `.build/home-glyph-ui.xcresult` (3 passes), `.build/home-glyph-contrast-ui.xcresult` (2 final rerun passes) and `.build/home-glyph-contrast-attachments/`. Simulator test builds and both physical builds passed. This is not a full inherited-suite or real-provider result.
+
+### Physical installation: build 1538
+
+Both existing MORE copies were updated in place to 0.1.0 (1538) on the same iPhone 17 / iOS 27.2. Both were launched without fixture arguments or test environment; the ordinary bundle was launched last, and its new process was confirmed running. Live app inventory confirms both versions. Both saved workspaces after launch are byte-for-byte identical to fresh backups in `.build/iphone-before-glass-glyph-20261016T005946Z/`.
+
+The final signed artifacts passed 14 production and 31 personal checks, including the new glyph object's freshness and matching final source hashes. Signing, capabilities and Google/API configuration boundaries are unchanged from 1537. Private evidence: `.build/home-minimal-device/*glyph1538*` and `.build/relaunch-personal/1538/`. No real routine or external mutation was started on the phone. Physical visual/listening acceptance and real native-app handoff remain #171/#158; inherited selector updates remain #168.
+
 ## Earlier design and installation: build 1537
 
 The owner's third review removes the idle Home panel too. A tap reveals only an 88-point central Play button and a 48-point Settings button at the top right, using the existing native Liquid Glass surface. Both disappear after five seconds without interaction; VoiceOver keeps revealed controls available. During playback, the central button becomes Pause/Resume. No close, Next, overflow menu, heading or countdown appears on Home. Reduced Transparency receives the existing opaque system surface.

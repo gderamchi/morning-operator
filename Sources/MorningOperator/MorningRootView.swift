@@ -59,14 +59,13 @@ struct MorningRootView: View {
         return Double(session.completedStepIDs.count) / Double(session.routine.steps.count)
     }
 
-    // Dark system chrome belongs only to the night landscape. Reading screens
-    // and presented controls keep the existing light paper and native fields.
+    // The landscape and utility screens follow the same solar day.
     private var homeSkyIsVisible: Bool {
         path.isEmpty && !showingInvitation && !store.capturePresented && !store.voiceCommandPresented
             && !store.captureVoicePresented && store.pendingWebTarget == nil && !store.privacyBlocksWork
     }
-    private var nightHomeAppearance: Bool {
-        homeSkyIsVisible && MorningThemeClock.shared.celestial.moon.opacity > 0.57
+    private var nightAppearance: Bool {
+        MorningThemeClock.shared.celestial.moon.opacity > 0.57
     }
 
     private var presentedContent: some View {
@@ -74,7 +73,6 @@ struct MorningRootView: View {
             MorningSunHome(actionsShown: $showingActions,
                            openSettings: { showingActions = false; showingSettings = true },
                            motionAllowed: homeSkyIsVisible,
-                           weatherSynthetic: store.usesSyntheticBriefing,
                            notice: store.notice,
                            session: store.session,
                            playback: store.sessionActive ? AnyView(MorningHomePlaybackView(store: store, openSettings: { showingSettings = true }).id(store.currentStep?.id)) : nil,
@@ -88,16 +86,17 @@ struct MorningRootView: View {
                                if store.start() { showingActions = false }
                            })
                 // Light status bar text over the night sky.
-                .toolbarColorScheme(nightHomeAppearance ? .dark : .light, for: .navigationBar)
+                .toolbarColorScheme(nightAppearance ? .dark : .light, for: .navigationBar)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeRoute.self) { route in
                     switch route {
                     case .settings:
-                        destinationContent(String(localized: "Settings")) {
-                            SetupView(store: store,
-                                      openRoutine: { if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true } },
-                                      openHistory: { historyPushed = true })
-                        }
+                        SetupView(store: store,
+                                  openRoutine: { if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true } },
+                                  openHistory: { historyPushed = true })
+                            .navigationTitle(String(localized: "Settings"))
+                            .navigationBarTitleDisplayMode(.large)
+                            .toolbar(.visible, for: .navigationBar)
                     case .routine:
                         RoutineReviewEditor(store: store, onLearn: { showingLearn = true }, showsClose: false)
                     case .learn:
@@ -116,8 +115,7 @@ struct MorningRootView: View {
                     }
                 }
         }
-        // Keep night status text light on Home and use light paper on destinations.
-        .preferredColorScheme(nightHomeAppearance ? .dark : .light)
+        .preferredColorScheme(nightAppearance ? .dark : .light)
         .background(MorningPaper(showsSun: false))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { dockWidth = $0 }
         .background {
@@ -556,7 +554,7 @@ struct TodayView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("moment.purpose")
                         if let briefing = store.preparedBriefing(for: step) {
-                            MorningBriefingDocumentView(document: briefing, operation: step.automation, synthetic: store.usesSyntheticBriefing)
+                            MorningBriefingDocumentView(document: briefing, operation: step.automation)
                         } else if step.automation == .spokenNote || step.automation == .savedObservation {
                             Text(step.detail).font(.raleway(.subheadline)).textSelection(.enabled)
                                 .accessibilityIdentifier("run.detail")
@@ -1252,7 +1250,6 @@ private struct MorningSunHome: View {
     @Binding var actionsShown: Bool
     var openSettings: () -> Void
     var motionAllowed: Bool
-    var weatherSynthetic: Bool
     var notice: String?
     var session: RoutineSession?
     var playback: AnyView? = nil
@@ -1327,11 +1324,6 @@ private struct MorningSunHome: View {
                     VStack(spacing: 0) {
                         playback
                             .shadow(color: night > 0.5 ? .black.opacity(0.65) : .clear, radius: 2, y: 1)
-                        if let attribution = clock.weatherAttribution, !weatherSynthetic {
-                            weatherCredit(attribution, night: night)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 28)
-                        }
                     }
                 } else if actionsShown {
                     Button {
@@ -1366,11 +1358,6 @@ private struct MorningSunHome: View {
                         .frame(maxWidth: 640, maxHeight: .infinity, alignment: .leading)
                         .accessibilityIdentifier("morning.complete")
                 }
-                if playback == nil, let attribution = clock.weatherAttribution, !weatherSynthetic {
-                    weatherCredit(attribution, night: night)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 24).padding(.bottom, 8)
-                }
                 if playback == nil, let notice, !notice.isEmpty {
                     Text(notice).font(.raleway(.subheadline))
                         .padding(28).frame(maxWidth: 540)
@@ -1390,20 +1377,6 @@ private struct MorningSunHome: View {
         }
     }
 
-    private func weatherCredit(_ attribution: WeatherAttributionInfo, night: Double) -> some View {
-        Link(destination: attribution.legalURL) {
-            AsyncImage(url: night > 0.5 ? attribution.combinedMarkDarkURL : attribution.combinedMarkLightURL) { phase in
-                if let image = phase.image {
-                    image.resizable().scaledToFit().frame(width: 100, height: 18)
-                } else {
-                    Text(attribution.serviceName).font(.raleway(.caption))
-                }
-            }
-            .frame(minWidth: 100, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel(attribution.serviceName)
-        .accessibilityIdentifier("morning.weatherCredit")
-    }
+
 
 }
