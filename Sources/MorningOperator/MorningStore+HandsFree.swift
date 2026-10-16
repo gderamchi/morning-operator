@@ -37,7 +37,8 @@ extension MorningStore {
             Task { [weak self] in
                 guard let self, !privacyBlocksWork, cloudVoice.isActive, sessionActive,
                       dataGeneration == generation, session?.id == sessionID,
-                      cloudVoiceConsentGeneration == generation, cloudVoiceConsentSession == sessionID else { return }
+                      cloudVoiceConsentGeneration == generation, cloudVoiceConsentSession == sessionID,
+                      handsFreeContext == context.binding else { return }
                 await cloudVoice.updateContext(context)
             }
             return
