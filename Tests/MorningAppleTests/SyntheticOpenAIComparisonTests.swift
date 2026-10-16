@@ -53,7 +53,7 @@ struct SyntheticOpenAIComparisonTests {
         let input = try Self.privateURL(env["MO_OPENAI_SYNTHETIC_INPUT"], below: work)
         let output = try Self.privateURL(env["MO_OPENAI_SYNTHETIC_OUTPUT"], below: work)
         guard output != input, !FileManager.default.fileExists(atPath: output.path) else { throw ComparisonFailure.invalidPath }
-        var report = ComparisonReport(model: MoreLanguageModel.openAIModel)
+        var report = ComparisonReport(model: MoreLanguageModel.openAIModel, interfaceLanguage: AppLanguage.code)
         let storage = EphemeralCredentialStorage()
         var client: MoreLanguageModel?
         defer { try? client?.forget(); storage.clear() }
@@ -181,7 +181,7 @@ private struct FrozenInput: Decodable {
 private struct ComparisonReport: Encodable {
     let mode = "explicit-openai-synthetic-ocr-replay", schemaVersion = 1, createdAt = Date()
     let scope = "Explicitly consented frozen synthetic OCR text only. No new extraction/classification, movie/audio upload, oracle, personal data, approval or external action. Exact input hash and each outgoing prompt/schema are allowlisted. Key is ephemeral and never recorded. Not a full movie-pipeline or MORE acceptance report."
-    let model: String
+    let model: String, interfaceLanguage: String
     var status = "failed", elapsedSeconds = 0.0, requestsAttempted = 0, requestsReturned = 0
     var preparedRequestCount = 0, httpStatuses: [Int] = []
     var inputReportSHA256: String?, instructionSHA256: String?, errorCategory: String?
