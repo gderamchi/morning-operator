@@ -302,9 +302,12 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
     }
     if (proposal.intent === 'repeat') return speechReceipt(session, session.draft ? `Le brouillon : ${session.draft} Tu peux le corriger ou me dire « envoie ».` : mailPrompt());
     if (proposal.intent === 'reminder') {
-      if (!/\b(?:rappelle moi|rappelle le moi|(?:cree|creer|mets|met|ajoute|ajouter|programme|programmer|fais|faire)(?: moi)? (?:un |le |ce )?rappel)\b/.test(normalized) || /\b(?:pas|jamais|non|si|quand)\b/.test(normalized)) return speechReceipt(session, 'Tu peux me demander de créer un rappel vingt minutes avant le point produit prévu à 15 h.');
-      const duration = normalized.match(/\b(\d+|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|quinze|vingt|trente|quarante|soixante)\s*(?:minutes?|mn|min)\b/);
-      if (duration && !['20', 'vingt'].includes(duration[1])) return speechReceipt(session, 'Dans ce matin préparé, je peux créer un rappel vingt minutes avant le point produit de 15 h. Pour une autre durée, utilise Rappels directement.');
+      // This prepared scenario has one supported time. Extra words must not silently change it.
+      const command = '(?:rappelle moi|rappelle le moi|(?:cree|creer|mets|met|ajoute|ajouter|programme|programmer|fais|faire)(?: moi)? (?:un |le |ce )?rappel)';
+      const timing = '(?:(?:20 ?|vingt )(?:minutes?|mn|min)(?: avant)?|avant)';
+      const meeting = '(?:pour )?(?:le|mon|notre|ce) (?:rendez vous|point produit)';
+      const supported = new RegExp(`^(?:s il te plait )?(?:(?:peux tu|tu peux|pourrais tu|est ce que tu peux) )?${command}(?: ${timing})?(?: ${meeting})?(?: s il te plait)?$`);
+      if (!supported.test(normalized)) return speechReceipt(session, 'Dans ce matin préparé, je peux créer un rappel vingt minutes avant le point produit de 15 h. Pour un autre horaire ou une autre date, utilise Rappels directement.');
       if (session.reminder) return speechReceipt(session, reminderText(session), session.reminderReceipt ? { receipt: session.reminderReceipt } : {});
       const action = { type: 'createReminder', requestID: randomUUID(), title: 'Point produit', minutesBefore: 20, meetingHour: 15, meetingMinute: 0 };
       session.reminder = { ...action, state: 'prepared', generation: session.generation };
