@@ -12,8 +12,8 @@ final class OrdinaryVoiceMemoryAcceptanceTests: XCTestCase {
             throw XCTSkip("Requires explicit MO_ORDINARY_VOICE_MEMORY=1; no app was activated.")
         }
         let phase = environment["MO_ORDINARY_VOICE_PHASE"] ?? "inspect"
-        guard ["inspect", "inspectSettings", "weatherRead", "memoryCheck"].contains(phase) else {
-            throw XCTSkip("Choose inspect, inspectSettings, weatherRead or memoryCheck before activating the app.")
+        guard ["inspect", "inspectSettings", "inspectRoutine", "weatherRead", "voiceWindow", "memoryCheck"].contains(phase) else {
+            throw XCTSkip("Choose inspect, inspectSettings, inspectRoutine, weatherRead, voiceWindow or memoryCheck before activating the app.")
         }
         let base = "com.gibouu.morningoperator"
         guard let bundle = environment["MO_ORDINARY_VOICE_BUNDLE_ID"],
@@ -38,8 +38,12 @@ final class OrdinaryVoiceMemoryAcceptanceTests: XCTestCase {
         case "inspectSettings":
             try openSettings()
             capture("ordinary-voice-settings")
+        case "inspectRoutine":
+            try inspectRoutine()
         case "weatherRead":
             try readWeather()
+        case "voiceWindow":
+            try observeVoiceWindow()
         case "memoryCheck":
             try openMemory()
             guard try denialIsVisible() else {
@@ -82,7 +86,7 @@ final class OrdinaryVoiceMemoryAcceptanceTests: XCTestCase {
 
     private func openSettings() throws {
         try requireOrdinaryState()
-        if app.buttons["setup.intelligence"].exists { return }
+        if app.descendants(matching: .any)["settings.appearance"].exists || app.buttons["setup.intelligence"].exists { return }
         let settings = app.buttons["morning.settings"]
         if !(settings.exists && settings.isHittable) {
             let captions = app.scrollViews["morning.captions"]
@@ -150,6 +154,85 @@ final class OrdinaryVoiceMemoryAcceptanceTests: XCTestCase {
             XCTFail("The ordinary Intelligence & memory screen did not open.")
             return
         }
+        try requireOrdinaryState()
+    }
+
+    private func inspectRoutine() throws {
+        do {
+            if !app.descendants(matching: .any)["routine.editor"].exists {
+                try openSettings()
+                let routine = app.buttons["setup.routine"]
+                guard try reveal(routine) else { throw XCTSkip("The ordinary routine navigation was not reachable.") }
+                routine.tap()
+            }
+            try requireOrdinaryState()
+            guard app.descendants(matching: .any)["routine.editor"].waitForExistence(timeout: 5) else {
+                throw XCTSkip("The ordinary routine editor was not identified. No draft was changed.")
+            }
+            capture("ordinary-voice-existing-routine")
+        } catch {
+            capture("ordinary-voice-routine-blocked")
+            throw error
+        }
+    }
+
+    private func observeVoiceWindow() throws {
+        do {
+            let caption = app.staticTexts["morning.caption"]
+            // A caption surface belongs only to an active ordinary session. From a
+            // known settings page, observe its Stop control without pressing it.
+            if !caption.exists {
+                for _ in 0..<2 {
+                    if app.descendants(matching: .any)["settings.appearance"].exists { break }
+                    guard app.staticTexts["intelligence.status"].exists ||
+                            app.descendants(matching: .any)["routine.editor"].exists else { break }
+                    try normalBack()
+                }
+                try openSettings()
+                guard try reveal(app.buttons["morning.stop"]) else {
+                    throw XCTSkip("No existing active morning was identified. Nothing was started or resumed.")
+                }
+                capture("ordinary-voice-existing-active-session")
+                try normalBack()
+            }
+            try requireOrdinaryState()
+            guard caption.waitForExistence(timeout: 5), app.scrollViews["morning.captions"].exists else {
+                throw XCTSkip("The existing session's Home caption surface was not reached by ordinary navigation.")
+            }
+            capture("ordinary-voice-window-initial")
+            print("MORE_ORDINARY_VOICE_READY")
+            let deadline = ProcessInfo.processInfo.systemUptime + 150
+            var previous = ""
+            var change = 0
+            while ProcessInfo.processInfo.systemUptime < deadline {
+                try requireOrdinaryState()
+                let voice = app.staticTexts["morning.voiceStatus"]
+                let state = (caption.exists ? caption.label : "") + "\n" + (voice.exists ? voice.label : "")
+                if state != previous {
+                    change += 1
+                    capture("ordinary-voice-window-change-\(change)")
+                    previous = state
+                }
+                if !app.scrollViews["morning.captions"].exists { break }
+                let remaining = deadline - ProcessInfo.processInfo.systemUptime
+                if remaining > 0 { RunLoop.current.run(until: Date(timeIntervalSinceNow: min(2, remaining))) }
+            }
+            capture("ordinary-voice-window-ended")
+        } catch {
+            capture("ordinary-voice-window-blocked")
+            throw error
+        }
+    }
+
+    private func normalBack() throws {
+        try requireOrdinaryState()
+        let controls = app.navigationBars.buttons.matching(NSPredicate(format: "label IN %@", [
+            "Back", "Retour", "Settings", "Paramètres", "Réglages", "MORE"
+        ])).allElementsBoundByIndex.filter(\.isHittable)
+        guard controls.count == 1 else {
+            throw XCTSkip("No unambiguous ordinary Back control was available. No unrelated screen was dismissed.")
+        }
+        controls[0].tap()
         try requireOrdinaryState()
     }
 
