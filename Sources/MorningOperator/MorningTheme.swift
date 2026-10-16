@@ -8,8 +8,8 @@ import UIKit
 import AppKit
 #endif
 
-/// The clock behind the palette. Refreshes resolve the selected city's solar day
-/// locally using the iPhone's date and time zone. No device location is requested.
+/// The clock behind the palette. Refreshes resolve the weather location's solar day
+/// locally using the iPhone's date and time zone.
 /// Debug builds and UI tests may pin a phase.
 @Observable @MainActor
 final class MorningThemeClock {
@@ -29,7 +29,7 @@ final class MorningThemeClock {
         if let weatherPreview {
             return String(localized: "Weather preview: \(weatherPreview) (sample).", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
-        guard let location else { return String(localized: "Choose a city in Your day to show its weather on Home.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
+        guard let location else { return String(localized: "Allow location access or choose a city in Your day to show its weather on Home.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale) }
         if let weatherSnapshot, weatherScene != nil {
             return String(localized: "\(location.displayName): \(weatherSnapshot.localizedConditionDescription()).", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
         }
@@ -43,9 +43,11 @@ final class MorningThemeClock {
     var isUsingReferenceDay: Bool { location == nil }
     var solarSourceDescription: String {
         if let location {
-            return String(localized: "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone. No device location is requested.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+            return MorningPermissionSetup.text(
+                "Home follows sunrise and sunset in \(location.displayName), calculated on this iPhone using its date and time zone.",
+                "L’accueil suit le lever et le coucher du soleil à \(location.displayName), calculés sur cet iPhone selon sa date et son fuseau horaire.")
         }
-        return String(localized: "Choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
+        return String(localized: "Allow location access or choose a city for local sunrise and sunset on Home. Until then, Home uses a 7 am–7 pm reference day following this iPhone's clock; it is not your local daylight.", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)
     }
     /// A pinned phase for previews, snapshots and tests. `nil` follows the clock.
     var pinnedPhase: MorningDayPhase? {
@@ -91,7 +93,7 @@ final class MorningThemeClock {
 
     private func refreshWeather(now: Date) {
         if let weatherPreview {
-            weatherScene = MorningWeatherCondition(rawValue: weatherPreview).map { MorningWeatherScene(condition: $0) }
+            weatherScene = Self.fixtureScene(weatherPreview)
             weatherAttribution = nil
             return
         }
@@ -101,7 +103,7 @@ final class MorningThemeClock {
             weatherSnapshot = nil; weatherScene = nil; weatherAttribution = nil
             return
         }
-        weatherScene = MorningWeatherScene(condition: snapshot.condition, cloudCover: snapshot.cloudCover)
+        weatherScene = snapshot.scene
         weatherAttribution = snapshot.attribution
         weatherStatus = .fresh
     }
@@ -110,10 +112,26 @@ final class MorningThemeClock {
         #if DEBUG
         if let option = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--theme-weather=") }) {
             let value = String(option.dropFirst("--theme-weather=".count))
-            if value == "unavailable" || MorningWeatherCondition(rawValue: value) != nil { return value }
+            if ["unavailable", "calm", "breeze", "gustOnly", "strongWind", "westWind", "eastWind", "humid"].contains(value)
+                || MorningWeatherCondition(rawValue: value) != nil { return value }
         }
         #endif
         return nil
+    }
+
+    private static func fixtureScene(_ name: String) -> MorningWeatherScene? {
+        switch name {
+        case "calm": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 0)
+        case "breeze": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 2, windGustMetersPerSecond: 4)
+        case "gustOnly": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 0, windGustMetersPerSecond: 12)
+        case "strongWind": MorningWeatherScene(condition: .clear, windSpeedMetersPerSecond: 15, windGustMetersPerSecond: 25)
+        case "westWind", "eastWind":
+            MorningWeatherScene(condition: .partlyCloudy, cloudCover: 0.3,
+                windSpeedMetersPerSecond: 8, windGustMetersPerSecond: 12,
+                windDirectionDegrees: name == "westWind" ? 270 : 90)
+        case "humid": MorningWeatherScene(condition: .haze, cloudCover: 0.15, humidity: 0.95, visibilityMeters: 3_000)
+        default: MorningWeatherCondition(rawValue: name).map { MorningWeatherScene(condition: $0) }
+        }
     }
 
     /// `--theme-phase=dawn` (UI tests, debug) or `MO_THEME_PHASE=dawn` (snapshots).
@@ -192,18 +210,16 @@ struct MorningTheme {
 
     // MARK: Type
 
-    /// One native sans-serif family for titles, reading, dates and controls.
-    /// Semantic styles keep the hierarchy and follow Dynamic Type.
-    /// Two typefaces, as on Home: DM Serif Display for titles, Raleway for everything else.
+    /// Utility screens use native type; Home keeps its explicit Raleway reading face.
     enum Typography {
-        static let display = Font.serif(.largeTitle)
-        static let title = Font.serif(.title)
-        static let heading = Font.serif(.headline)
-        static let body = Font.raleway(.body)
-        static let note = Font.raleway(.subheadline)
-        static let label = Font.raleway(.caption, .medium)
-        static let number = Font.raleway(.caption).monospacedDigit()
-        static let control = Font.raleway(.body, .semibold)
+        static let display = Font.system(.largeTitle, weight: .bold)
+        static let title = Font.system(.title, weight: .semibold)
+        static let heading = Font.system(.headline)
+        static let body = Font.system(.body)
+        static let note = Font.system(.subheadline)
+        static let label = Font.system(.caption, weight: .medium)
+        static let number = Font.system(.caption).monospacedDigit()
+        static let control = Font.system(.body, weight: .semibold)
     }
 
     // MARK: Space
@@ -290,67 +306,46 @@ struct MorningHalftoneSun: View {
 
 // MARK: - Controls
 
-/// A printed paper ticket. The dotted edge and offset ink impression belong to
-/// MORE; no system capsule or glass is involved.
+/// Flat utility controls follow the native foreground and surface palette.
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        let theme = MorningTheme.current
         configuration.label.font(MorningTheme.Typography.control)
-            .padding(.horizontal, 22).padding(.vertical, 12)
-            .frame(minHeight: 48)
-            .foregroundStyle(theme.ink)
-            .background(theme.selected, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(MorningDottedFrame(cornerRadius: 8, spacing: 5, dotRadius: 1.15).fill(theme.ink))
-            .offset(y: configuration.isPressed ? 2 : 0)
-            .contentShape(RoundedRectangle(cornerRadius: 8))
-            .opacity(isEnabled ? 1 : 0.4)
+            .padding(.horizontal, 22).padding(.vertical, 12).frame(minHeight: 48)
+            .foregroundStyle(MorningStyle.onControl)
+            .background(MorningStyle.controlTint, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
     }
 }
-/// The same printed ticket at a smaller size, for the case where two actions must
-/// sit side by side (record / choose).
 struct CompactPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        let theme = MorningTheme.current
         configuration.label.font(MorningTheme.Typography.control)
-            .padding(.horizontal, 18).padding(.vertical, 12)
-            .frame(minHeight: 44)
-            .foregroundStyle(theme.ink)
-            .background(theme.selected, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(MorningDottedFrame(cornerRadius: 8, spacing: 5, dotRadius: 1).fill(theme.ink))
-            .offset(y: configuration.isPressed ? 2 : 0)
-            .contentShape(RoundedRectangle(cornerRadius: 8))
-            .opacity(isEnabled ? 1 : 0.4)
+            .padding(.horizontal, 18).padding(.vertical, 12).frame(minHeight: 44)
+            .foregroundStyle(MorningStyle.onControl)
+            .background(MorningStyle.controlTint, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
     }
 }
-/// Secondary actions read like an ink annotation with a dotted underline.
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        let theme = MorningTheme.current
         configuration.label.font(MorningTheme.Typography.control)
-            .padding(.horizontal, 18).padding(.vertical, 12)
-            .frame(minHeight: 44)
-            .foregroundStyle(theme.ink)
-            .background(theme.surface.opacity(configuration.isPressed ? 0.65 : 1), in: RoundedRectangle(cornerRadius: 4))
-            .overlay(alignment: .bottom) {
-                MorningDottedFrame(cornerRadius: 0, spacing: 6, dotRadius: 0.9)
-                    .fill(theme.ink.opacity(0.7)).frame(height: 3).padding(.horizontal, 10)
-            }
-            .contentShape(Rectangle())
-            .opacity(isEnabled ? 1 : 0.4)
+            .padding(.horizontal, 18).padding(.vertical, 12).frame(minHeight: 44)
+            .foregroundStyle(MorningStyle.ink)
+            .background(MorningStyle.selected, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
     }
 }
-/// A quiet text action in the accent ink; for the third choice, never the first.
 struct QuietButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(MorningTheme.Typography.control)
-            .foregroundStyle(MorningTheme.current.accentText)
-            .padding(.vertical, 8)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
+            .foregroundStyle(MorningStyle.accent)
+            .padding(.vertical, 8).frame(minHeight: 44).contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.6 : isEnabled ? 1 : 0.4)
     }
 }

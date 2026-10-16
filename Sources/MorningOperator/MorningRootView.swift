@@ -59,14 +59,13 @@ struct MorningRootView: View {
         return Double(session.completedStepIDs.count) / Double(session.routine.steps.count)
     }
 
-    // Dark system chrome belongs only to the night landscape. Reading screens
-    // and presented controls keep the existing light paper and native fields.
+    // The landscape and utility screens follow the same solar day.
     private var homeSkyIsVisible: Bool {
-        path.isEmpty && !showingInvitation && !store.capturePresented && !store.voiceCommandPresented
+        path.isEmpty && !store.permissionSetup.isPresented && !showingInvitation && !store.capturePresented && !store.voiceCommandPresented
             && !store.captureVoicePresented && store.pendingWebTarget == nil && !store.privacyBlocksWork
     }
-    private var nightHomeAppearance: Bool {
-        homeSkyIsVisible && MorningThemeClock.shared.celestial.moon.opacity > 0.57
+    private var nightAppearance: Bool {
+        MorningThemeClock.shared.celestial.moon.opacity > 0.57
     }
 
     private var presentedContent: some View {
@@ -87,16 +86,17 @@ struct MorningRootView: View {
                                if store.start() { showingActions = false }
                            })
                 // Light status bar text over the night sky.
-                .toolbarColorScheme(nightHomeAppearance ? .dark : .light, for: .navigationBar)
+                .toolbarColorScheme(nightAppearance ? .dark : .light, for: .navigationBar)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: HomeRoute.self) { route in
                     switch route {
                     case .settings:
-                        destinationContent(String(localized: "Settings", bundle: AppLanguage.bundle(), locale: AppLanguage.locale)) {
-                            SetupView(store: store,
-                                      openRoutine: { if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true } },
-                                      openHistory: { historyPushed = true })
-                        }
+                        SetupView(store: store,
+                                  openRoutine: { if store.routine == nil { showingLearn = true } else { showingRoutineEditor = true } },
+                                  openHistory: { historyPushed = true })
+                            .navigationTitle(String(localized: "Settings", bundle: AppLanguage.bundle(), locale: AppLanguage.locale))
+                            .navigationBarTitleDisplayMode(.large)
+                            .toolbar(.visible, for: .navigationBar)
                     case .routine:
                         RoutineReviewEditor(store: store, onLearn: { showingLearn = true }, showsClose: false)
                     case .learn:
@@ -115,8 +115,7 @@ struct MorningRootView: View {
                     }
                 }
         }
-        // Keep night status text light on Home and use light paper on destinations.
-        .preferredColorScheme(nightHomeAppearance ? .dark : .light)
+        .preferredColorScheme(nightAppearance ? .dark : .light)
         .background(MorningPaper(showsSun: false))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { dockWidth = $0 }
         .background {
@@ -131,6 +130,14 @@ struct MorningRootView: View {
         .tint(MorningStyle.accent)
         .foregroundStyle(MorningStyle.ink)
         .font(MorningTheme.Typography.body)
+        .fullScreenCover(isPresented: Binding(get: { store.permissionSetup.isPresented }, set: { store.permissionSetup.isPresented = $0 }), onDismiss: {
+            processPendingEntries()
+            Task { await store.prepareDayIfConfigured(); synchronizeHomeWeather() }
+        }) {
+            MorningPermissionSetupView(store: store)
+                .preferredColorScheme(nightAppearance ? .dark : .light)
+                .onAppear { store.suspendHandsFreeVoice() }
+        }
         .sheet(isPresented: $showingInvitation, onDismiss: {
             activeEntryPresentations.remove(.invitation)
             processPendingEntries()
@@ -174,6 +181,8 @@ struct MorningRootView: View {
             showingSettings = false
             showingInvitation = false
             store.tab = .today
+            var transaction = Transaction(); transaction.disablesAnimations = true
+            withTransaction(transaction) { store.permissionSetup.presentIfNeeded() }
         }
         .onChange(of: store.completionInvitationSessionID) { _, _ in processPendingEntries() }
         .onChange(of: store.session?.id) { _, _ in store.completionSessionChanged() }
@@ -213,6 +222,8 @@ struct MorningRootView: View {
             updateScreenAwake()
             store.morningActivitySceneChanged(isForeground: phase == .active)
             if phase == .background {
+                store.briefing.cancelLocationRequest()
+                store.permissionSetup.cancelForBackground()
                 externalAppDeparture = store.externalAppDeparture
                 store.suspendHandsFreeVoice()
                 store.clearNativeMoment()
@@ -283,7 +294,7 @@ struct MorningRootView: View {
             // unfinished review sheet intact rather than discarding the draft.
             store.tab = .today
         }
-        .onChange(of: store.briefing.settings.weatherLocation, initial: true) { _, location in
+        .onChange(of: store.briefing.currentWeatherLocation, initial: true) { _, location in
             synchronizeHomeWeather()
         }
         .onChange(of: store.privacyBlocksWork) { _, blocked in
@@ -312,7 +323,7 @@ struct MorningRootView: View {
         MorningThemeClock.shared.setWeather(
             snapshot: store.privacyBlocksWork ? nil : store.briefing.currentWeatherSnapshot,
             status: store.briefing.prepared?.weather.status ?? .notConfigured,
-            location: store.privacyBlocksWork ? nil : store.briefing.settings.weatherLocation)
+            location: store.privacyBlocksWork ? nil : store.briefing.currentWeatherLocation)
     }
 
     private func initializeMorning() async {
@@ -323,6 +334,8 @@ struct MorningRootView: View {
             if store.privacyHasInterruptedRemoval { await store.forgetLocalData() }
             return
         }
+        var transaction = Transaction(); transaction.disablesAnimations = true
+        withTransaction(transaction) { store.permissionSetup.presentIfNeeded() }
         Task { await store.prepareDayIfConfigured() }
         await store.invitation.reconcile()
         #if DEBUG
@@ -346,7 +359,7 @@ struct MorningRootView: View {
     }
 
     private func presentPendingIntentCapture() {
-        guard !store.privacyBlocksWork, activeEntryPresentations.isEmpty, scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !store.captureVoicePresented, !store.hasPendingSpokenCapture,
+        guard !store.privacyBlocksWork, !store.permissionSetup.isPresented, !store.permissionSetup.needsInitialSetup, activeEntryPresentations.isEmpty, scenePhase == .active, !presentingIntentCapture, !store.capturePresented, !store.captureVoicePresented, !store.hasPendingSpokenCapture,
               !store.voiceInputBlocksPlayback, !showingSettings, !showingInvitation, !showingActions, !actionTransitionPending,
               !store.morningDetailPresented,
               !showingLearn, !showingRoutineEditor, !learnAfterRoutineDismissal, !store.voiceCommandPresented,
@@ -384,7 +397,8 @@ struct MorningRootView: View {
     /// ending a session resumes review even when a failed recording stays pending.
     private var observationReviewCanPresent: Bool {
         guard activeEntryPresentations.isEmpty || (showingLearn && activeEntryPresentations == [.learn]) else { return false }
-        guard !store.privacyBlocksWork, scenePhase == .active, !store.busy, !store.sessionActive,
+        guard !store.privacyBlocksWork, !store.permissionSetup.isPresented, !store.permissionSetup.needsInitialSetup,
+              scenePhase == .active, !store.busy, !store.sessionActive,
               !showingSettings, !showingInvitation, !showingActions, !actionTransitionPending, !showingRoutineEditor, !learnAfterRoutineDismissal, !presentingIntentCapture,
               !store.capturePresented, !store.voiceCommandPresented, !store.captureVoicePresented,
               !store.hasPendingSpokenCapture, !store.voiceInputBlocksPlayback,
@@ -402,7 +416,7 @@ struct MorningRootView: View {
         #if os(iOS) && !targetEnvironment(macCatalyst) && canImport(ScreenCaptureKit)
         if #available(iOS 27.0, *) { recordingBusy = ScreenRecordingService.shared.isBusy }
         #endif
-        return store.privacyBlocksWork || !activeEntryPresentations.isEmpty || showingActions || actionTransitionPending || showingSettings || showingInvitation || showingLearn || showingRoutineEditor || learnAfterRoutineDismissal || presentingIntentCapture ||
+        return store.privacyBlocksWork || store.permissionSetup.isPresented || store.permissionSetup.needsInitialSetup || !activeEntryPresentations.isEmpty || showingActions || actionTransitionPending || showingSettings || showingInvitation || showingLearn || showingRoutineEditor || learnAfterRoutineDismissal || presentingIntentCapture ||
             store.capturePresented || store.voiceCommandPresented || store.captureVoicePresented ||
             store.hasPendingSpokenCapture || store.morningDetailPresented || store.observationDetailPresented ||
             store.observationSelectionPresented || store.routineProposalPresented || store.voiceInputBlocksPlayback ||
@@ -411,7 +425,7 @@ struct MorningRootView: View {
     }
 
     private var recordingCanProcess: Bool {
-        !store.privacyBlocksWork && activeEntryPresentations.isEmpty && !showingActions && !actionTransitionPending && !showingSettings && !showingInvitation && !showingLearn && !showingRoutineEditor && !learnAfterRoutineDismissal && !presentingIntentCapture &&
+        !store.privacyBlocksWork && !store.permissionSetup.isPresented && !store.permissionSetup.needsInitialSetup && activeEntryPresentations.isEmpty && !showingActions && !actionTransitionPending && !showingSettings && !showingInvitation && !showingLearn && !showingRoutineEditor && !learnAfterRoutineDismissal && !presentingIntentCapture &&
         !store.capturePresented && !store.voiceCommandPresented && !store.captureVoicePresented &&
         !store.hasPendingSpokenCapture && !store.voiceInputBlocksPlayback &&
         !store.morningDetailPresented && !store.observationDetailPresented &&

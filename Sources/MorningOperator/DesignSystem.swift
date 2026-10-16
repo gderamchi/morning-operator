@@ -3,30 +3,22 @@ import MorningCore
 
 typealias ViewState<Value> = SwiftUI.State<Value>
 
-/// The short names every view uses. Each one reads the clock's theme, so a view that
-/// asks for `MorningStyle.ink` follows the time of day on its own.
+/// Native utility colours follow the appearance selected for the current solar day.
 @MainActor
 enum MorningStyle {
-    static var ink: Color { MorningTheme.current.ink }
-    static var muted: Color { MorningTheme.current.inkSoft }
+    static var ink: Color { Color(uiColor: .label) }
+    static var muted: Color { Color(uiColor: .secondaryLabel) }
     /// The accent for small text and icons.
-    static var accent: Color { MorningTheme.current.accentText }
-    /// The accent as a fill: marks, the sun, the current moment's dot.
-    static var mark: Color { MorningTheme.current.accent }
+    static var accent: Color { ink }
+    static var mark: Color { ink }
     /// The fill of the primary control.
-    static var controlTint: Color { MorningTheme.current.ink }
-    static var onControl: Color { MorningTheme.current.onInk }
-    static var green: Color { MorningTheme.current.positive }
-    static var line: Color { MorningTheme.current.line }
-    /// Home's cream page; a warm dark brown in Dark Mode.
-    static var background: Color {
-        Color(uiColor: UIColor { $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.16, green: 0.11, blue: 0.09, alpha: 1)
-            : UIColor(red: 1.0, green: 0.97, blue: 0.90, alpha: 1) })
-    }
-    static var surface: Color { MorningTheme.current.surface }
-    /// A tinted surface for a selected chip.
-    static var selected: Color { MorningTheme.current.selected }
+    static var controlTint: Color { ink }
+    static var onControl: Color { Color(uiColor: .systemBackground) }
+    static var green: Color { Color(uiColor: .systemGreen) }
+    static var line: Color { Color(uiColor: .separator) }
+    static var background: Color { Color(uiColor: .systemGroupedBackground) }
+    static var surface: Color { Color(uiColor: .secondarySystemGroupedBackground) }
+    static var selected: Color { Color(uiColor: .tertiarySystemGroupedBackground) }
 
     static func symbol(for kind: StepKind) -> String {
         switch kind {
@@ -57,13 +49,13 @@ struct StatusPill: View {
     var color: Color = MorningStyle.green
     var body: some View {
         Label { Text(text) } icon: { Circle().fill(color).frame(width: 6, height: 6) }
-            .font(MorningTheme.Typography.label).foregroundStyle(color)
+            .font(MorningTheme.Typography.label).foregroundStyle(MorningStyle.ink)
             .padding(.horizontal, 10).padding(.vertical, 6)
             .background(MorningStyle.surface, in: Capsule())
-            .overlay(MorningDottedFrame(cornerRadius: 100, spacing: 6).fill(color.opacity(0.65)))
+            .overlay(Capsule().stroke(MorningStyle.line, lineWidth: 0.5))
     }
 }
-/// Opaque reading paper with sparse dotted frame accents.
+/// Adaptive utility cards with quiet native separators.
 struct Card<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
@@ -138,19 +130,17 @@ struct EmptyMoment: View {
     }
 }
 
-/// Decorative only. Higher contrast makes the same separated dots more visible.
+/// Decorative only; Increase Contrast strengthens the card boundary.
 private struct MorningCardFrame: View {
     @Environment(\.colorSchemeContrast) private var contrast
     var body: some View {
-        MorningDottedFrame(cornerRadius: MorningTheme.Space.radius,
-                           dotRadius: contrast == .increased ? 1.05 : 0.85)
-            .fill(MorningStyle.ink.opacity(contrast == .increased ? 0.75 : 0.28))
+        RoundedRectangle(cornerRadius: MorningTheme.Space.radius)
+            .strokeBorder(MorningStyle.line, lineWidth: contrast == .increased ? 1 : 0.5)
             .accessibilityHidden(true).allowsHitTesting(false)
     }
 }
 
-/// Grouped forms and lists on the paper with surface rows, instead of iOS's grey
-/// background and white cells. Rows that set their own background keep it.
+/// Grouped forms and lists share the native adaptive utility surfaces.
 struct MorningForm<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View { Form { Group { content }.morningRows() }.morningListBackground() }

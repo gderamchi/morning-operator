@@ -302,6 +302,5 @@ struct MorningRoutineControlsView: View {
                     .accessibilityIdentifier("morning.closeDetails")
             } }
         }
-        .preferredColorScheme(.light)
     }
 }

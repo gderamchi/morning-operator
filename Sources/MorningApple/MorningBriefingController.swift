@@ -7,6 +7,8 @@ import Observation
 public struct MorningBriefingSettings: Codable, Sendable, Equatable {
     public var calendarIDs: Set<String>
     public var weatherLocation: WeatherLocation?
+    /// Device coordinates remain transient; weatherLocation retains only a chosen fallback city.
+    public var usesCurrentLocation: Bool
     public var temperatureUnit: MorningBriefingTemperatureUnit
     /// The person's choice to include health (today: sleep duration) in the briefing,
     /// independent of calendar and weather. Off until they turn it on; while it is off
@@ -15,9 +17,11 @@ public struct MorningBriefingSettings: Codable, Sendable, Equatable {
     public var includesHealth: Bool
 
     public init(calendarIDs: Set<String> = [], weatherLocation: WeatherLocation? = nil,
-                temperatureUnit: MorningBriefingTemperatureUnit = .celsius, includesHealth: Bool = false) {
+                temperatureUnit: MorningBriefingTemperatureUnit = .celsius, includesHealth: Bool = false,
+                usesCurrentLocation: Bool? = nil) {
         self.calendarIDs = calendarIDs
         self.weatherLocation = weatherLocation
+        self.usesCurrentLocation = usesCurrentLocation ?? (weatherLocation == nil)
         self.temperatureUnit = temperatureUnit
         self.includesHealth = includesHealth
     }
@@ -40,11 +44,12 @@ public struct MorningBriefingSettings: Codable, Sendable, Equatable {
         }) else { throw MorningBriefingControllerError.invalidSettings }
     }
 
-    private enum CodingKeys: String, CodingKey { case calendarIDs, weatherLocation, temperatureUnit, includesHealth }
+    private enum CodingKeys: String, CodingKey { case calendarIDs, weatherLocation, temperatureUnit, includesHealth, usesCurrentLocation }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         calendarIDs = try values.decode(Set<String>.self, forKey: .calendarIDs)
         weatherLocation = try values.decodeIfPresent(WeatherLocation.self, forKey: .weatherLocation)
+        usesCurrentLocation = try values.decodeIfPresent(Bool.self, forKey: .usesCurrentLocation) ?? (weatherLocation == nil)
         temperatureUnit = try values.decode(MorningBriefingTemperatureUnit.self, forKey: .temperatureUnit)
         includesHealth = try values.decodeIfPresent(Bool.self, forKey: .includesHealth) ?? false
         try validate()
@@ -90,8 +95,13 @@ public final class MorningBriefingController {
     public private(set) var settingsRecoveryError: String?
     public var isCalendarAuthorized: Bool { calendar.isAuthorized }
     public var hasConfiguredSources: Bool {
-        !settings.calendarIDs.isEmpty || settings.weatherLocation != nil || settings.includesHealth
+        !settings.calendarIDs.isEmpty || currentWeatherLocation != nil || settings.includesHealth
     }
+    public var currentWeatherLocation: WeatherLocation? {
+        settings.usesCurrentLocation ? (deviceLocation.authorization == .authorized ? resolvedLocation : nil) : settings.weatherLocation
+    }
+    public var locationAuthorization: WeatherLocationAuthorization { deviceLocation.authorization }
+    public private(set) var locationIssue: String?
     /// The same memory-only observation used by the briefing, admitted for the
     /// currently selected city. Reading it never contacts the provider.
     public var currentWeatherSnapshot: WeatherObservationSnapshot? {
@@ -118,10 +128,10 @@ public final class MorningBriefingController {
                           calendarPlaybackAdmissions[document.id]?.changeRevision == calendar.changeRevision
                     else { return false }
                 }
-                if document.weather.status == .notConfigured, settings.weatherLocation != nil { return false }
+                if document.weather.status == .notConfigured, currentWeatherLocation != nil { return false }
                 if document.weather.status == .fresh {
-                    guard document.weatherLocation == settings.weatherLocation,
-                          settings.weatherLocation != nil else { return false }
+                    guard document.weatherLocation == currentWeatherLocation,
+                          currentWeatherLocation != nil else { return false }
                 }
                 // A document prepared with health must not play once health is excluded,
                 // and one prepared without it is out of date once health is included.
@@ -132,6 +142,11 @@ public final class MorningBriefingController {
     }
 
     @ObservationIgnored private let calendar: CalendarObservationService
+    @ObservationIgnored private let deviceLocation: any WeatherDeviceLocationProviding
+    private var resolvedLocation: WeatherLocation?
+    @ObservationIgnored private var locationResolvedAt: Date?
+    @ObservationIgnored private var locationTask: Task<Void, Never>?
+    @ObservationIgnored private var locationAttempt: UUID?
     @ObservationIgnored private let weather: WeatherObservationService
     @ObservationIgnored private let sleep: SleepObservationService
     @ObservationIgnored private let control: LocalDataControl
@@ -167,6 +182,7 @@ public final class MorningBriefingController {
     public init(directory: URL = LocalDataControl.defaultDirectory,
                 calendar: CalendarObservationService = .init(), weather: WeatherObservationService = .init(),
                 sleep: SleepObservationService = .init(),
+                deviceLocation: (any WeatherDeviceLocationProviding)? = nil,
                 now: @escaping @Sendable () -> Date = { Date() },
                 timeZone: @escaping @Sendable () -> TimeZone = { .current },
                 localeIdentifier: String = AppLanguage.localeIdentifier, policy: MorningBriefingFreshnessPolicy = .standard,
@@ -174,6 +190,7 @@ public final class MorningBriefingController {
                 clock: any Clock<Duration> = ContinuousClock(),
                 settingsByteLimit: Int = MorningBriefingSettings.maximumEncodedBytes) {
         self.calendar = calendar; self.weather = weather
+        self.deviceLocation = deviceLocation ?? WeatherDeviceLocation()
         // The default has no reader: until one is passed in, sleep is "not part of this version".
         self.sleep = sleep
         control = LocalDataControl(directory: directory)
@@ -234,6 +251,7 @@ public final class MorningBriefingController {
                 catch PersistenceError.fileTooLarge { throw MorningBriefingControllerError.settingsTooLarge }
             }
             guard next != settings else { return }
+            cancelLocationRequest()
             invalidateWork(clearChoices: false)
             settings = next
             errorMessage = nil
@@ -258,7 +276,80 @@ public final class MorningBriefingController {
     /// Memory-only and synchronous. A noncooperative native request may finish
     /// later, but cannot publish, save settings or repopulate the cleared cache.
     /// The suggestion source forgets its earlier typing as well.
-    public func cancelAndClear() { invalidateWork(clearChoices: true) }
+    public func cancelAndClear() {
+        cancelLocationRequest()
+        resolvedLocation = nil; locationResolvedAt = nil; locationIssue = nil
+        invalidateWork(clearChoices: true)
+    }
+
+    /// Cancels a foreground fix or authorization wait without erasing a usable
+    /// weather observation. Inactive system permission sheets are not background.
+    public func cancelLocationRequest() {
+        locationAttempt = nil; locationTask?.cancel(); locationTask = nil
+        deviceLocation.cancel()
+    }
+
+    /// Permission is requested only from an explained, explicit action.
+    @discardableResult public func enableCurrentLocation(requestPermission: Bool = true) async -> Bool {
+        guard prepareForAccess() else { return false }
+        do {
+            if requestPermission, deviceLocation.authorization == .notDetermined {
+                guard try await deviceLocation.requestAuthorization() else { throw WeatherDeviceLocationError.denied }
+            }
+            try Task.checkCancellation()
+            var next = settings; next.usesCurrentLocation = true
+            try updateSettings(next)
+            await resolveCurrentLocationIfNeeded(force: true)
+            return currentWeatherLocation != nil
+        } catch {
+            if !(error is CancellationError) { locationIssue = error.localizedDescription }
+            return false
+        }
+    }
+
+    /// Passive foreground refresh: never requests a system permission.
+    public func resolveCurrentLocationIfNeeded(force: Bool = false) async {
+        guard prepareForAccess(), settings.usesCurrentLocation else { return }
+        guard deviceLocation.authorization == .authorized else {
+            if resolvedLocation != nil { invalidateWork(clearChoices: false) }
+            resolvedLocation = nil; locationResolvedAt = nil
+            if deviceLocation.authorization == .denied { locationIssue = WeatherDeviceLocationError.denied.localizedDescription }
+            return
+        }
+        if let task = locationTask { await task.value; return }
+        let instant = now()
+        if !force, let locationResolvedAt, instant >= locationResolvedAt,
+           instant.timeIntervalSince(locationResolvedAt) < 300 { return }
+        let id = UUID(), expectedRevision = revision
+        locationAttempt = id
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { if locationAttempt == id { locationAttempt = nil; locationTask = nil } }
+            do {
+                let location = try await deviceLocation.currentLocation()
+                try Task.checkCancellation()
+                guard locationAttempt == id, revision == expectedRevision, settings.usesCurrentLocation else { return }
+                try withCurrentAccess { }
+                // Avoid throwing away a fresh observation for normal GPS jitter.
+                let moved = resolvedLocation.map { old in
+                    let latitudeMeters = (location.latitude - old.latitude) * 111_000
+                    let longitudeMeters = (location.longitude - old.longitude) * 111_000 * cos(location.latitude * .pi / 180)
+                    return hypot(latitudeMeters, longitudeMeters) >= 1_000
+                } ?? true
+                if moved { invalidateWork(clearChoices: false); resolvedLocation = location }
+                locationResolvedAt = now(); locationIssue = nil
+            } catch {
+                guard locationAttempt == id, revision == expectedRevision else { return }
+                if !(error is CancellationError) {
+                    locationIssue = error.localizedDescription
+                    // A failed new fix must not masquerade as a current position.
+                    resolvedLocation = nil; locationResolvedAt = now()
+                    invalidateWork(clearChoices: false)
+                }
+            }
+        }
+        locationTask = task; await task.value
+    }
 
     public func requestCalendarAccess() async {
         guard prepareForAccess() else { return }
@@ -401,7 +492,7 @@ public final class MorningBriefingController {
                     return nil
                 }
                 searchAttempt = nil; searchTask = nil; isSearchingCities = false
-                var next = settings; next.weatherLocation = location
+                var next = settings; next.weatherLocation = location; next.usesCurrentLocation = false
                 try updateSettings(next)
                 return location
             } catch {
@@ -430,7 +521,9 @@ public final class MorningBriefingController {
     /// A quiet Home can stay open all day. Reuse the preparation/cache owner and
     /// retry unavailable weather at most every five minutes while foregrounded.
     public func refreshForHome(at date: Date? = nil) async {
-        guard prepareForAccess(), settings.weatherLocation != nil else { return }
+        guard prepareForAccess() else { return }
+        await resolveCurrentLocationIfNeeded()
+        guard currentWeatherLocation != nil else { return }
         let instant = date ?? now()
         guard instant.timeIntervalSinceReferenceDate.isFinite, currentWeather(at: instant) == nil else { return }
         if let lastWeatherAttemptAt, instant >= lastWeatherAttemptAt,
@@ -439,7 +532,7 @@ public final class MorningBriefingController {
     }
 
     private func currentWeather(at instant: Date) -> WeatherObservationSnapshot? {
-        guard (try? withCurrentAccess { }) != nil, let location = settings.weatherLocation,
+        guard (try? withCurrentAccess { }) != nil, let location = currentWeatherLocation,
               case .snapshot(let snapshot) = weatherInput,
               snapshot.isCurrent(for: location, at: instant, maximumAge: policy.weatherMaximumAge) else { return nil }
         return snapshot
@@ -449,12 +542,14 @@ public final class MorningBriefingController {
     /// request. Force refresh changes source data only; it has no session effects.
     public func refresh(at date: Date? = nil, force: Bool = false) async -> PreparedMorningBriefing? {
         guard prepareForAccess() else { return nil }
+        await resolveCurrentLocationIfNeeded(force: force)
+        guard prepareForAccess(), !Task.isCancelled else { return nil }
         let instant = date ?? now(), zone = timeZone()
         guard instant.timeIntervalSinceReferenceDate.isFinite else {
             cancelAndClear(); errorMessage = MorningBriefingError.invalidDate.moreDescription; return nil
         }
         var dayCalendar = Calendar(identifier: .gregorian); dayCalendar.timeZone = zone
-        let key = PreparationKey(settings: settings, dayStart: dayCalendar.startOfDay(for: instant),
+        let key = PreparationKey(settings: settings, weatherLocation: currentWeatherLocation, dayStart: dayCalendar.startOfDay(for: instant),
                                  timeZoneIdentifier: zone.identifier)
         if let task = refreshTask, preparingKey == key {
             let result = await task.value
@@ -494,7 +589,7 @@ public final class MorningBriefingController {
                 // cancels both, and leaving this scope early (one read cancelled) cancels and
                 // awaits the other. Both still finish here, before the one composition below.
                 let cachedWeather = nextWeather, cachedSleep = nextSleep
-                async let weatherRead = readWeather(cached: cachedWeather, settings: key.settings, force: force,
+                async let weatherRead = readWeather(cached: cachedWeather, location: key.weatherLocation, force: force,
                                                     at: instant, zone: zone)
                 async let sleepRead = readSleep(cached: cachedSleep, settings: key.settings, force: force,
                                                 at: instant, zone: zone, attempt: attempt, revision: expectedRevision)
@@ -502,7 +597,8 @@ public final class MorningBriefingController {
                 nextSleep = try await sleepRead
                 try Task.checkCancellation()
                 guard revision == expectedRevision, refreshAttempt == attempt,
-                      timeZone().identifier == key.timeZoneIdentifier, settings == key.settings else { return nil }
+                      timeZone().identifier == key.timeZoneIdentifier, settings == key.settings,
+                      currentWeatherLocation == key.weatherLocation else { return nil }
                 try withCurrentAccess { }
                 // Access can be revoked while weather is suspended. Revalidate
                 // selection as well so a removed calendar cannot stay cached.
@@ -547,9 +643,11 @@ public final class MorningBriefingController {
     }
 
     /// The weather part of one refresh. Returns the cached input when it is still fresh.
-    private func readWeather(cached: MorningBriefingInput<WeatherObservationSnapshot>, settings: MorningBriefingSettings,
+    private func readWeather(cached: MorningBriefingInput<WeatherObservationSnapshot>, location: WeatherLocation?,
                              force: Bool, at instant: Date, zone: TimeZone) async throws -> MorningBriefingInput<WeatherObservationSnapshot> {
-        guard let location = settings.weatherLocation else { return .notConfigured }
+        guard let location else {
+            return settings.usesCurrentLocation && deviceLocation.authorization == .denied ? .denied : .notConfigured
+        }
         let current = try compose(calendar: .notConfigured, weather: cached, at: instant, zone: zone)
         guard force || current.weather.status != .fresh else { return cached }
         let service = weather
@@ -652,6 +750,7 @@ public final class MorningBriefingController {
 
     private struct PreparationKey: Equatable {
         let settings: MorningBriefingSettings
+        let weatherLocation: WeatherLocation?
         let dayStart: Date
         let timeZoneIdentifier: String
     }
