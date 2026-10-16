@@ -326,16 +326,40 @@ first attempt failed before reaching Notion because a Settings navigation tap
 did not leave Settings; the source UI hierarchy confirmed that state. A bounded,
 observed navigation retry fixed the test helper, without production changes.
 
+### Final combined physical check
+
+After integrating main `5f33adb`, the clock correction and cleanup hardening,
+source `35c4d36` passed a fresh signed physical **build-for-testing**. Ordinary
+MORE build **2026101611** was installed in place. Strict app/widget signatures,
+all four signed capability entitlements and actual public Google/Worker
+configuration passed verification. No uninstall, grant injection or test
+workspace was used.
+
+The two ordinary physical journeys passed again, **2/2**, zero failures/skips,
+in 132.588 test seconds (135.422 elapsed): public-city Weather **111.511 seconds**,
+ordinary Worker inventory **21.077 seconds**. The strengthened weather cleanup
+positively verifies empty city-search UI while **Choose a city** remains selected
+before restoring the exact original source; a failed cleanup leaves the state
+visible for reconciliation. The public city was removed and the original source
+was restored in this final run.
+
+A separate ordinary launch then succeeded, the process was still running on a
+fresh device inventory, and the installed bundle version was confirmed as
+**2026101611**. These fresh passes retain all provider and permission limits
+above; they establish neither new OAuth grants nor a subscription transaction.
+
 ## Delivery check
 
-The task's production change is the independent professional connection rows;
-the concurrent-success deadline change affects synthetic fixtures only. Exact
-English source entries were restored without changing existing French strings.
+The behavior fix gives professional connections independent rows. Extras now
+accept an injectable clock with the same continuous-clock production default;
+the concurrent-success Worker deadline change affects synthetic fixtures only.
+Exact English source entries were restored without changing existing French strings.
 Local builds, targeted runtime tests, live provider calls and their failures/skips
 are recorded separately above. [PR #207](https://github.com/gibouu/morning-operator/pull/207)
 was merged at `a94cdf3`; the later physical Weather and Worker acceptance additions
-require a follow-up delivery. GitHub reports main as unprotected; no admin bypass
-is used.
+and deterministic deadline regression are tracked in
+[PR #210](https://github.com/gibouu/morning-operator/pull/210). GitHub reports main
+as unprotected; no admin bypass is used.
 
 The CI package job at that merged head actually failed:
 [`aHangingSourceIsSilentAfterTheDeadline`](https://github.com/gibouu/morning-operator/actions/runs/38850390646/job/116810090322)
