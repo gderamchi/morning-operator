@@ -325,8 +325,13 @@ final class OrdinaryConnectionsAcceptanceTests: XCTestCase {
         XCTAssertTrue(settings.exists && settings.isHittable, "The ordinary Home controls did not expose Settings.")
         settings.tap()
         let connections = app.buttons["setup.connections"]
-        try reveal(connections, in: app)
-        connections.tap()
+        for _ in 0..<3 {
+            if app.buttons["connections.instagram"].exists { break }
+            guard connections.exists else { break }
+            try reveal(connections, in: app)
+            connections.tap()
+            if app.buttons["connections.instagram"].waitForExistence(timeout: 3) { break }
+        }
         XCTAssertTrue(app.buttons["connections.instagram"].waitForExistence(timeout: 10))
     }
 

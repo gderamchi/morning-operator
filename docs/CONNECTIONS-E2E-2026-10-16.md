@@ -304,6 +304,39 @@ was requested. The original current-location source remains unconfigured; this
 proves a real chosen-city Maps → WeatherKit → ordinary MORE presentation, not
 personal GPS weather, a full forecast, Health reading or spoken advice.
 
+### Ordinary iPhone → Worker discovery
+
+The ordinary physical app then passed **1/1**, zero failures or skips, in
+**26.960 seconds** (31.183 elapsed): Home → Settings → Apps & accounts → Notion.
+It displayed the successful **Refresh my accounts** label, the fresh empty
+Notion account state, the configured Connect Notion action and no error notice.
+The test did not tap Connect or start provider authorization.
+
+These positive UI states require `APIConnectionsView.hasLoaded`, initially false
+and assigned true only after both `services()` and `connections()` succeed.
+The ordinary client uses an ephemeral session with URL caching disabled and
+authenticates these requests using its Keychain installation bearer. No fixture,
+administrator credential or substituted installation was used. The signed app's
+actual Worker origin and Google public configuration were checked again.
+
+This proves **ordinary iPhone → authenticated Worker service/account inventory**.
+It does not prove Notion consent, a tool-catalog read, provider execution, an
+existing Gmail grant's ownership by this installation or OAuth completion. The
+first attempt failed before reaching Notion because a Settings navigation tap
+did not leave Settings; the source UI hierarchy confirmed that state. A bounded,
+observed navigation retry fixed the test helper, without production changes.
+
+## Delivery check
+
+The task's production change is the independent professional connection rows;
+the concurrent-success deadline change affects synthetic fixtures only. Exact
+English source entries were restored without changing existing French strings.
+Local builds, targeted runtime tests, live provider calls and their failures/skips
+are recorded separately above. GitHub CI was still queued at the last inspection
+and is not claimed green. GitHub reports main as unprotected. Delivery is tracked
+in [PR #207](https://github.com/gibouu/morning-operator/pull/207); remote-main
+containment is a separate delivery check, and no admin bypass is used.
+
 ## Synthetic backend regression
 
 [#196](https://github.com/gibouu/morning-operator/issues/196) was traced to the
