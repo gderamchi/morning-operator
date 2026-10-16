@@ -25600,6 +25600,40 @@
           }
         }
       }
+    },
+    "Your messages, stories and feed, in MORE.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your messages, stories and feed, in MORE."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos messages, vos stories et votre fil, dans MORE."
+          }
+        }
+      }
+    },
+    "Read your unread email and prepare replies.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read your unread email and prepare replies."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lisez vos e-mails non lus et préparez vos réponses."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

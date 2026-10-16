@@ -136,7 +136,7 @@ struct MorningExtrasTests {
 
     @Test func clockTimesUseTheGivenTimeZone() {
         let tokyo = MorningExtrasComposer.compose(facts: [.precipitation(.rain, from: afternoon)],
-            preferences: .init(), day: day, localeIdentifier: "en_GB", timeZoneIdentifier: "Asia/Tokyo")
+            preferences: .init(enabled: [.weatherChange]), day: day, localeIdentifier: "en_GB", timeZoneIdentifier: "Asia/Tokyo")
         #expect(tokyo.text == "Rain likely from 23:00.")
     }
 

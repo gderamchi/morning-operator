@@ -238,7 +238,8 @@ struct MorningOpeningTests {
     }
 
     @Test func extrasComeAfterTheFactsAndBeforeTheChoice() throws {
-        let extras = MorningExtrasComposer.compose(facts: [.sleptMinutes(440)], preferences: .init(), day: 1,
+        let extras = MorningExtrasComposer.compose(facts: [.sleptMinutes(440)],
+                                                   preferences: .init(enabled: [.sleep], healthAccessRequested: true), day: 1,
                                                    localeIdentifier: "en_US", timeZoneIdentifier: "UTC")
         let opening = MorningOpeningComposer.compose(briefing: try briefing(weather: .snapshot(weather())), at: now,
                                                      timeZoneIdentifier: "UTC", extras: extras)
