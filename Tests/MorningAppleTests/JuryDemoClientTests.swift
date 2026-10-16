@@ -88,6 +88,65 @@ struct JuryDemoClientTests {
         #expect(request.httpBody == nil)
     }
 
+    @Test("Reopening reconciles the exact retained session with a read-only request")
+    func reconcileSession() async throws {
+        let probe = JuryDemoTransportProbe(body: Self.response)
+        let client = try makeClient(probe)
+        let result = try await client.resume(sessionID: "known-session")
+        #expect(result.receipt?.status == "sent")
+        let request = try #require(await probe.requests.first)
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.path == "/v1/jury/session/known-session")
+        #expect(request.httpBody == nil)
+    }
+
+    @Test("An expired retained session fails instead of creating another one")
+    func expiredSession() async throws {
+        let probe = JuryDemoTransportProbe(body: Data(), status: 404)
+        let client = try makeClient(probe)
+        await #expect(throws: JuryDemoError.serviceUnavailable) { try await client.resume(sessionID: "expired-session") }
+        let requests = await probe.requests
+        #expect(requests.count == 1)
+        #expect(requests.first?.httpMethod == "GET")
+    }
+
+    @Test("Captions stay short even for a long word and preserve every non-whitespace character")
+    func shortCaptions() {
+        let text = "Votre rendez-vous est confirmé. " + String(repeating: "a", count: 380) + " À tout à l’heure !"
+        let passages = JuryDemoCaptionTiming.passages(text)
+        #expect(passages.count >= 4)
+        #expect(passages.allSatisfy { !$0.isEmpty && $0.count <= 150 })
+        #expect(passages.joined().filter { !$0.isWhitespace } == text.filter { !$0.isWhitespace })
+    }
+
+    @Test("Only a backend ID is restored and an explicit stop forgets it")
+    @MainActor func retainedSession() throws {
+        let suiteName = "JuryDemoClientTests-\(UUID().uuidString)"
+        let preferences = try #require(UserDefaults(suiteName: suiteName))
+        defer { preferences.removePersistentDomain(forName: suiteName) }
+        let configuration = try JuryDemoConfiguration(baseURL: #require(URL(string: "http://127.0.0.1:8788")), token: "local-secret")
+        let key = "MorningJuryDemoSession:\(Bundle.main.bundleIdentifier ?? "MORE"):\(configuration.baseURL.absoluteString)"
+        preferences.set("known-session", forKey: key)
+        let client = try makeClient(JuryDemoTransportProbe(body: Data(), status: 204))
+        let session = JuryDemoVoiceSession(configuration: configuration, preferences: preferences, client: client)
+        #expect(session.sessionID == "known-session")
+        #expect(session.transcript.isEmpty)
+        session.stop()
+        #expect(preferences.string(forKey: key) == nil)
+    }
+
+    @Test("Startup failure and stop synchronize the existing session controls exactly once")
+    @MainActor func stateCallbacks() {
+        let session = JuryDemoVoiceSession(configuration: nil)
+        var changes: [JuryDemoVoiceState] = []
+        session.onStateChange = { changes.append($0) }
+        session.start()
+        #expect(session.state == .failed)
+        #expect(!session.isActive)
+        session.stop(); session.stop()
+        #expect(changes == [.failed, .idle])
+    }
+
     private func makeClient(_ probe: JuryDemoTransportProbe) throws -> JuryDemoClient {
         let configuration = try JuryDemoConfiguration(baseURL: #require(URL(string: "http://127.0.0.1:8788")), token: "local-secret")
         return JuryDemoClient(configuration: configuration, transport: { try await probe.load($0) })

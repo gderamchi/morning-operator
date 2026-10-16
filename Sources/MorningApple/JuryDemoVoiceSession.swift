@@ -30,6 +30,8 @@ public final class JuryDemoVoiceSession {
     public var onStateChange: (@MainActor (JuryDemoVoiceState) -> Void)?
 
     @ObservationIgnored private let client: JuryDemoClient?
+    @ObservationIgnored private let preferences: UserDefaults
+    @ObservationIgnored private let sessionStorageKey: String?
     @ObservationIgnored private var runID: UUID?
     @ObservationIgnored private var operation: Task<Void, Never>?
     @ObservationIgnored private var speechOperation: Task<Void, Never>?
@@ -54,19 +56,30 @@ public final class JuryDemoVoiceSession {
     @ObservationIgnored private var recognitionFailures = 0
     @ObservationIgnored private var outputText: String?
     @ObservationIgnored private var outputFinishedAt = Date.distantPast
+    @ObservationIgnored private var captionTask: Task<Void, Never>?
     @ObservationIgnored private lazy var audioSession = SpeechAudioSessionGate(
         activate: { try await Self.activateAudio() }, deactivate: { try await Self.deactivateAudio() }
     )
     #endif
 
-    public init(configuration: JuryDemoConfiguration? = try? .fromBundle()) {
-        client = configuration.map { JuryDemoClient(configuration: $0) }
+    public convenience init(configuration: JuryDemoConfiguration? = try? .fromBundle()) {
+        self.init(configuration: configuration, preferences: .standard)
+    }
+
+    init(configuration: JuryDemoConfiguration?, preferences: UserDefaults, client: JuryDemoClient? = nil) {
+        self.client = client ?? configuration.map { JuryDemoClient(configuration: $0) }
+        self.preferences = preferences
+        sessionStorageKey = configuration.map {
+            "MorningJuryDemoSession:\(Bundle.main.bundleIdentifier ?? "MORE"):\($0.baseURL.absoluteString)"
+        }
+        sessionID = sessionStorageKey.flatMap { preferences.string(forKey: $0) }
     }
 
     deinit {
         operation?.cancel(); speechOperation?.cancel()
         #if os(iOS)
         silence?.cancel(); recognitionDeadline?.cancel(); finalDeadline?.cancel()
+        captionTask?.cancel()
         for observer in observers { observer.cancel() }
         #endif
     }
@@ -78,15 +91,18 @@ public final class JuryDemoVoiceSession {
         guard UIApplication.shared.applicationState == .active else { return }
         self.language = language
         let id = UUID(); runID = id
+        let retainedID = sessionID
         state = .preparing; message = "Connexion à MORE…"; transcript = ""
-        latestResponse = nil; queuedText = nil; sessionID = nil; recognitionFailures = 0
+        latestResponse = nil; queuedText = nil; recognitionFailures = 0
         operation = Task { [weak self] in
             guard let self else { return }
             do {
                 try await prepareAudio(id: id)
-                let response = try await client.start()
+                let response: JuryDemoResponse
+                if let retainedID { response = try await client.resume(sessionID: retainedID) }
+                else { response = try await client.start() }
                 try requireCurrent(id)
-                sessionID = response.sessionID
+                rememberSession(response.sessionID)
                 operation = nil
                 beginRecognition(run: id)
                 apply(response, run: id)
@@ -161,7 +177,7 @@ public final class JuryDemoVoiceSession {
     /// Invalidates callbacks synchronously. A late response cannot restart voice.
     public func stop() {
         let stoppedSession = sessionID
-        runID = nil; sessionID = nil; queuedText = nil; latestResponse = nil
+        runID = nil; forgetSession(); queuedText = nil; latestResponse = nil
         operation?.cancel(); operation = nil
         interruptSpeech(); transcript = ""; state = .idle; message = "Votre matin est arrêté."
         #if os(iOS)
@@ -205,15 +221,16 @@ public final class JuryDemoVoiceSession {
                 let data = try await client.speech(text: response.text)
                 try requireCurrent(id)
                 guard state != .paused, output?.id == speechID else { return }
-                try output?.play(data: data, id: speechID) { [weak self] in
+                let duration = try output?.play(data: data, id: speechID) { [weak self] in
                     guard let self, runID == id, state != .paused else { return }
+                    captionTask?.cancel(); captionTask = nil
                     outputFinishedAt = Date(); state = .listening; message = "Je vous écoute."
                     if response.completed { finish() }
                 }
                 guard output != nil else { throw JuryDemoError.speechUnavailable }
                 outputText = response.text
                 state = .speaking; message = "Vous pouvez interrompre MORE."
-                onText?(response.text)
+                beginCaptions(response.text, duration: duration ?? 0, run: id, speech: speechID)
                 speechOperation = nil
             } catch is CancellationError { }
             catch {
@@ -230,13 +247,14 @@ public final class JuryDemoVoiceSession {
     private func interruptSpeech() {
         speechOperation?.cancel(); speechOperation = nil
         #if os(iOS)
+        captionTask?.cancel(); captionTask = nil
         output?.stop(); outputFinishedAt = Date()
         #endif
         if state == .speaking { state = .listening }
     }
 
     private func finish() {
-        interruptSpeech(); runID = nil
+        interruptSpeech(); runID = nil; forgetSession()
         state = .completed; message = "Votre matin est terminé."; transcript = ""
         #if os(iOS)
         releaseAudio()
@@ -256,7 +274,33 @@ public final class JuryDemoVoiceSession {
         if let oldSession, let client { Task { try? await client.stop(sessionID: oldSession) } }
     }
 
+    private func rememberSession(_ id: String) {
+        sessionID = id
+        if let sessionStorageKey { preferences.set(id, forKey: sessionStorageKey) }
+    }
+
+    private func forgetSession() {
+        sessionID = nil
+        if let sessionStorageKey { preferences.removeObject(forKey: sessionStorageKey) }
+    }
+
     #if os(iOS)
+    private func beginCaptions(_ text: String, duration: TimeInterval, run: UUID, speech: UUID) {
+        captionTask?.cancel()
+        let passages = JuryDemoCaptionTiming.passages(text)
+        guard let first = passages.first else { return }
+        onText?(first)
+        let total = Double(max(1, passages.reduce(0) { $0 + $1.count }))
+        captionTask = Task { [weak self] in
+            for index in passages.indices.dropFirst() {
+                let delay = max(0.1, duration * Double(passages[index - 1].count) / total)
+                do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+                guard let self, runID == run, output?.id == speech, state == .speaking else { return }
+                onText?(passages[index])
+            }
+        }
+    }
+
     private func prepareAudio(id: UUID) async throws {
         let audioID = UUID(); audioPreparationID = audioID; audioReleaseID = nil
         guard SFSpeechRecognizer.authorizationStatus() == .authorized,
@@ -437,9 +481,9 @@ private final class JuryDemoAudioOutput {
     private let player = AVAudioPlayerNode()
     init(engine: AVAudioEngine) { self.engine = engine; engine.attach(player) }
 
-    func play(data: Data, id: UUID, completion: @escaping @MainActor () -> Void) throws {
+    func play(data: Data, id: UUID, completion: @escaping @MainActor () -> Void) throws -> TimeInterval {
         // Only synthesized output is decoded via a protected temporary MP3.
-        // It is removed before playback; microphone audio never touches disk.
+        // It is removed when scheduling finishes; microphone audio never touches disk.
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("more-voice-\(UUID().uuidString).mp3")
         defer { try? FileManager.default.removeItem(at: url) }
         try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
@@ -461,9 +505,45 @@ private final class JuryDemoAudioOutput {
         }
         player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack, completionHandler: played)
         player.play()
+        return Double(buffer.frameLength) / buffer.format.sampleRate
     }
 
     func stop() { id = nil; player.stop() }
     func detach() { stop(); engine.disconnectNodeOutput(player); engine.detach(player) }
 }
 #endif
+
+/// Captions track short passages by their share of decoded playback duration.
+/// Their timing is approximate; it is never presented as word-level alignment.
+enum JuryDemoCaptionTiming {
+    static func passages(_ text: String) -> [String] {
+        var passages: [String] = []
+        var current = ""
+        for word in text.split(whereSeparator: \.isWhitespace) {
+            for part in word.chunks(maximum: 150) {
+                if !current.isEmpty, current.count + part.count + 1 > 150 {
+                    passages.append(current); current = ""
+                }
+                if !current.isEmpty { current += " " }
+                current += part
+                if current.count >= 75, let last = current.last, ".!?;".contains(last) {
+                    passages.append(current); current = ""
+                }
+            }
+        }
+        if !current.isEmpty { passages.append(current) }
+        return passages
+    }
+}
+
+private extension Substring {
+    func chunks(maximum: Int) -> [String] {
+        var remaining = self
+        var parts: [String] = []
+        while !remaining.isEmpty {
+            let end = remaining.index(remaining.startIndex, offsetBy: maximum, limitedBy: remaining.endIndex) ?? remaining.endIndex
+            parts.append(String(remaining[..<end])); remaining = remaining[end...]
+        }
+        return parts
+    }
+}

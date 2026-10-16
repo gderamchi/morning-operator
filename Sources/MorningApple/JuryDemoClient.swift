@@ -45,7 +45,7 @@ public enum JuryDemoError: Error, LocalizedError, Equatable {
         case .invalidResponse: "MORE a reçu une réponse incomplète. L’action ne sera pas répétée automatiquement."
         case .unauthorized: "La connexion à MORE a expiré."
         case .serviceUnavailable: "La connexion à MORE est indisponible. L’action ne sera pas répétée automatiquement."
-        case .speechUnavailable: "La voix ElevenLabs est indisponible. Aucune autre voix ne prendra le relais."
+        case .speechUnavailable: "La voix de MORE est momentanément indisponible."
         case .localVoiceUnavailable: "Le microphone ou la reconnaissance vocale locale est indisponible. Préparez la voix dans les réglages de MORE."
         }
     }
@@ -103,6 +103,14 @@ public struct JuryDemoClient: Sendable {
         try await response(path: "v1/jury/session", body: [:])
     }
 
+    /// Read-only reconciliation must precede any continuation after a relaunch.
+    public func resume(sessionID: String) async throws -> JuryDemoResponse {
+        let (data, _) = try await request(path: "v1/jury/session/\(sessionID)", method: "GET", body: nil)
+        let value = try decodeResponse(data)
+        guard value.sessionID == sessionID else { throw JuryDemoError.invalidResponse }
+        return value
+    }
+
     public func turn(sessionID: String, requestID: UUID, text: String) async throws -> JuryDemoResponse {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.count <= 4_000 else {
             throw JuryDemoError.invalidResponse
@@ -127,6 +135,10 @@ public struct JuryDemoClient: Sendable {
 
     private func response(path: String, body: [String: String]) async throws -> JuryDemoResponse {
         let (data, _) = try await request(path: path, body: body)
+        return try decodeResponse(data)
+    }
+
+    private func decodeResponse(_ data: Data) throws -> JuryDemoResponse {
         guard data.count <= 64 * 1_024 else { throw JuryDemoError.invalidResponse }
         do { return try JSONDecoder().decode(JuryDemoResponse.self, from: data).validated() }
         catch let error as JuryDemoError { throw error }

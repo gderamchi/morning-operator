@@ -39,6 +39,7 @@ Toutes les routes sauf `/health` exigent `Authorization: Bearer <JURY_DEMO_TOKEN
 | --- | --- | --- |
 | `GET /health` | — | `{ok,service,configured:{conversation,speech,mail}}` sans identité ni secret. Indique la présence de configuration, pas une preuve d'accès au fournisseur. |
 | `POST /v1/jury/session` | `{}` | `201` puis un `Turn` avec une identité de session opaque et le premier court passage. Vérifie d'abord le vrai compte Gmail. |
+| `GET /v1/jury/session/{sessionID}` | — | Reprend la même session sans progression ni action externe. Réconcilie un envoi incertain en lecture seule ; ne prétend jamais l'avoir envoyé à nouveau. |
 | `POST /v1/jury/turn` | `{sessionID,requestID,text}` | `Turn`. `requestID` est un UUID neuf par nouvelle prise de parole ; le conserver pour une reprise de cette même demande. |
 | `DELETE /v1/jury/session/{sessionID}` | — | `Turn` arrêté. Invalide la génération en cours, annule OpenAI et empêche de nouveaux dispatchs. Une action déjà partie ne peut pas être annulée rétroactivement. |
 | `POST /v1/jury/speech` | `{text}` | Bytes `audio/mpeg` provenant d'ElevenLabs. Aucun repli silencieux sur une voix système. |
@@ -75,6 +76,8 @@ Chaque demande dispose d'un budget total de 25 secondes, partagé entre les appe
 
 Une session expire après six heures. Les fichiers ne sont pas supprimés automatiquement : les effacer après le jury et après réconciliation des effets. Les effets déjà envoyés ne sont pas annulés par cette suppression. Une nouvelle session permet une nouvelle répétition et donc un nouvel envoi réel.
 
+L'iPhone peut conserver uniquement `sessionID` entre lancements et appeler GET pour reprendre. Une session arrêtée reste lisible, avec son reçu éventuel. Une session inconnue ou expirée renvoie `404` : le client ne doit pas démarrer silencieusement un nouveau matin. DELETE conserve les journaux et les confirmations nécessaires à la réconciliation.
+
 ## Confidentialité et preuve
 
 Cette variante distante a été expressément demandée pour la démo. OpenAI reçoit uniquement le texte reconnu, les huit derniers passages utiles, les faits préparés et le brouillon ; `store:false` est demandé, sans prétendre que cela supprime toute rétention du fournisseur. ElevenLabs reçoit le texte à prononcer. Composio/Gmail reçoivent le brouillon lors de son envoi. Le service ne reçoit et ne conserve aucun enregistrement audio, aucune vidéo, aucun token OAuth brut. Les clés fournisseurs ne quittent pas le serveur.
@@ -86,5 +89,7 @@ npm test
 ```
 
 Les tests locaux simulent les fournisseurs et vérifient le contrat, les erreurs, la revue, l'envoi unique, le redémarrage, la réconciliation, les changements d'identité et l'arrêt pendant un appel tardif. Ils ne prouvent ni un envoi Gmail réel, ni l'accès ElevenLabs, ni la continuité audio iOS ; ces preuves doivent être obtenues séparément sur le téléphone et les comptes autorisés.
+
+Vérification réelle du 16 octobre 2026, côté serveur : une proposition libre à 15 h 30 puis une révision exacte via OpenAI (1,80 s et 1,31 s), un audio ElevenLabs de 166 808 octets (2,17 s), et **un seul** envoi Gmail vers le compte lui-même. Le label SENT, l'expéditeur, le destinataire, le sujet et le corps exact ont été vérifiés en 2,86 s pour l'envoi et sa vérification, sans nouvel essai. Après redémarrage du service, GET a retrouvé la même session et son reçu sans action externe. Les identifiants, adresses et contenus de cette preuve restent dans le journal privé. Cela ne certifie pas encore le parcours vocal sur iPhone ni la navigation sociale.
 
 Contrats fournisseurs consultés : [OpenAI Structured Outputs / Responses](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses), [Composio execute v3.1](https://docs.composio.dev/reference/api-reference/tools/postToolsExecuteByToolSlug), [catalogue Gmail](https://docs.composio.dev/toolkits/gmail), [ElevenLabs text to speech](https://elevenlabs.io/docs/api-reference/text-to-speech/convert).

@@ -1,4 +1,5 @@
 // Only the jury variant reads this file. Keep actual values in the ignored local file.
+MORE_DEMO_CODE_SIGN_STYLE = Automatic
 MORE_DEMO_BUNDLE_IDENTIFIER = com.gibouu.morningoperator.demo
 MORE_DEMO_ENTITLEMENTS_FILE = Configuration/MorningOperator.entitlements
 MORE_DEMO_GOOGLE_CLIENT_ID =

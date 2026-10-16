@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -147,6 +147,14 @@ test('successful provider response with wrong recipient or missing SENT evidence
   assert.equal(result.payload.receipt, undefined); assert.match(result.payload.text, /pas pu vérifier/); assert.equal(state.sendCount, 1);
 });
 
+test('documented normalized Composio message fields verify the same exact sent reply', async t => {
+  const { state, start, turn, config } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.fetchMessage = () => json({ successful: true, data: { messageId: '19ba000000000001', labelIds: ['SENT'], sender: `MORE Owner <${config.sender}>`, to: config.recipient, subject: state.sent.subject, messageText: state.sent.body } });
+  const result = await turn(session.sessionID, 'envoie');
+  assert.equal(result.payload.receipt.status, 'sent'); assert.equal(state.sendCount, 1);
+});
+
 test('changed connected-account identity invalidates the reviewed draft before sending', async t => {
   const { state, start, turn } = await fixture(t);
   const session = await start(); await turn(session.sessionID, 'oui');
@@ -249,4 +257,47 @@ test('morning starts with a short conversation then moves to the prepared messag
   assert.equal(session.stage, 'morning'); assert.match(session.text, /matin préparé/);
   const mail = await turn(session.sessionID, 'oui');
   assert.equal(mail.payload.stage, 'mail'); assert.match(mail.payload.text, /15 h/); assert.equal(state.modelCount, 0);
+});
+
+test('GET resumes the current draft after process restart without invoking the model or sending', async t => {
+  const { state, start, turn, config, fetchImpl } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  const modelCalls = state.modelCount;
+  const restarted = await createRequestHandler(config, { fetchImpl });
+  const result = await restarted(new Request(`http://localhost/v1/jury/session/${session.sessionID}`, { headers: { Authorization: `Bearer ${token}` } }));
+  assert.equal(result.payload.stage, 'draft'); assert.match(result.payload.text, /brouillon actuel/);
+  assert.equal(state.modelCount, modelCalls); assert.equal(state.sendCount, 0); assert.equal(result.payload.action, undefined);
+});
+
+test('GET reconciles uncertain mail in read-only mode and preserves stopped state', async t => {
+  const { state, start, turn, call, config, fetchImpl } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.send = () => { throw new Error('connection lost after dispatch'); };
+  await turn(session.sessionID, 'envoie');
+  await call(`/v1/jury/session/${session.sessionID}`, {}, { method: 'DELETE' });
+  const restarted = await createRequestHandler(config, { fetchImpl });
+  const result = await restarted(new Request(`http://localhost/v1/jury/session/${session.sessionID}`, { headers: { Authorization: `Bearer ${token}` } }));
+  assert.equal(result.payload.stage, 'stopped'); assert.equal(result.payload.completed, true);
+  assert.equal(result.payload.receipt.status, 'sent'); assert.equal(state.sendCount, 1); assert.match(result.payload.text, /arrêté/);
+});
+
+test('GET never invents a receipt for missing uncertain mail or silently recreates unknown sessions', async t => {
+  const { state, start, turn, call } = await fixture(t);
+  const session = await start(); await turn(session.sessionID, 'oui');
+  state.send = () => { state.sent = null; throw new Error('timeout before any confirmed result'); };
+  await turn(session.sessionID, 'envoie');
+  const result = await call(`/v1/jury/session/${session.sessionID}`, {}, { method: 'GET' });
+  assert.equal(result.payload.receipt, undefined); assert.match(result.payload.text, /incertain/); assert.equal(state.sendCount, 1);
+  const unknown = await call(`/v1/jury/session/${randomUUID()}`, {}, { method: 'GET' }); assert.equal(unknown.status, 404);
+});
+
+test('expired persisted sessions require an explicit new start and GET remains authenticated', async t => {
+  const { start, config, fetchImpl } = await fixture(t);
+  const session = await start();
+  const path = join(config.dataDir, 'sessions', `${session.sessionID}.json`);
+  const stored = JSON.parse(await readFile(path, 'utf8')); stored.expiresAt = Date.now() - 1;
+  await writeFile(path, JSON.stringify(stored));
+  const restarted = await createRequestHandler(config, { fetchImpl });
+  const denied = await restarted(new Request(`http://localhost/v1/jury/session/${session.sessionID}`)); assert.equal(denied.status, 401);
+  const expired = await restarted(new Request(`http://localhost/v1/jury/session/${session.sessionID}`, { headers: { Authorization: `Bearer ${token}` } })); assert.equal(expired.status, 404);
 });

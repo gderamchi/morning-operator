@@ -173,13 +173,18 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
   function verifiedMessage(data, effect) {
     const messageID = data.id ?? data.messageId;
     const messageHeaders = data.payload?.headers;
-    if (!/^[a-f0-9]{10,40}$/i.test(messageID ?? '') || !Array.isArray(data.labelIds) || !data.labelIds.includes('SENT') || !Array.isArray(messageHeaders)) return null;
-    const headerValue = name => { const matches = messageHeaders.filter(header => header.name?.toLowerCase() === name); return matches.length === 1 ? matches[0].value : null; };
+    if (!/^[a-f0-9]{10,40}$/i.test(messageID ?? '') || !Array.isArray(data.labelIds) || !data.labelIds.includes('SENT')) return null;
+    const headerValue = name => {
+      if (!Array.isArray(messageHeaders)) return ({ from: data.sender, to: data.to, subject: data.subject })[name];
+      const matches = messageHeaders.filter(header => header.name?.toLowerCase() === name);
+      return matches.length === 1 ? matches[0].value : null;
+    };
     if (mailbox(headerValue('to')) !== config.recipient || mailbox(headerValue('from')) !== config.sender || headerValue('subject') !== effect.subject) return null;
     const parts = [];
     const visit = part => { if (part?.mimeType === 'text/plain' && typeof part.body?.data === 'string') parts.push(Buffer.from(part.body.data, 'base64url').toString('utf8')); for (const nested of part?.parts ?? []) visit(nested); };
     visit(data.payload);
-    if (parts.length !== 1 || normalizeBody(parts[0]) !== normalizeBody(effect.body)) return null;
+    const body = parts.length === 1 ? parts[0] : parts.length === 0 && typeof data.messageText === 'string' ? data.messageText : null;
+    if (body === null || normalizeBody(body) !== normalizeBody(effect.body)) return null;
     return { type: 'email', id: messageID, status: 'sent' };
   }
   async function reconcile(session, effect) {
@@ -304,6 +309,28 @@ export async function createRequestHandler(config, { fetchImpl = fetch } = {}) {
       const authorization = request.headers.get('authorization') ?? '';
       const actual = Buffer.from(authorization), expected = Buffer.from(`Bearer ${config.token}`);
       if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) fail(401, 'unauthorized', 'Une connexion à la version dédiée est nécessaire.');
+      if (request.method === 'GET' && /^\/v1\/jury\/session\/[a-f0-9-]+$/i.test(url.pathname)) {
+        const session = await getSession(url.pathname.split('/').at(-1));
+        const effect = await load(effectPath(session.id));
+        let uncertain = false;
+        if (effect?.state === 'sent') session.mailReceipt = effect.receipt;
+        else if (effect) {
+          if (await identity() !== session.identity) fail(409, 'identity_changed', 'Le compte Gmail a changé. Vérifie le résultat dans Gmail avant de continuer.');
+          uncertain = !(await reconcile(session, effect).catch(() => null));
+        }
+        if (session.mailReceipt) { session.draft = null; if (session.stage === 'draft') session.stage = 'mail'; }
+        let text;
+        if (session.stage === 'stopped') text = uncertain ? 'Ton matin est arrêté. Le résultat du dernier envoi reste à vérifier dans Gmail ; il ne sera pas répété.' : 'Ton matin est arrêté.';
+        else if (uncertain) text = 'Le résultat du dernier envoi reste incertain. Vérifie Gmail ; aucun nouvel envoi ne sera lancé.';
+        else if (session.paused) text = 'Ton matin est en pause. Dis « reprends » pour continuer.';
+        else if (session.draft) text = `Le brouillon actuel : ${session.draft} Tu peux le corriger ou me dire « envoie ».`;
+        else if (session.stage === 'complete') text = session.mailReceipt ? 'Ton matin est terminé. Le message est vérifié dans les éléments envoyés de Gmail.' : 'Ton matin est terminé. Aucun mail n’a été envoyé.';
+        else if (session.stage === 'social') text = 'Ton moment réseaux est en cours. Tu peux continuer ou terminer ton matin.';
+        else if (session.mailReceipt) text = 'Ton message a été vérifié dans les éléments envoyés de Gmail. On passe à tes réseaux ?';
+        else text = session.transcript.at(-1)?.text ?? mailPrompt();
+        await save(session);
+        return reply(200, speechReceipt(session, text, session.mailReceipt ? { receipt: session.mailReceipt } : {}));
+      }
       if (request.method === 'DELETE' && /^\/v1\/jury\/session\/[a-f0-9-]+$/i.test(url.pathname)) {
         const session = await getSession(url.pathname.split('/').at(-1));
         session.stage = 'stopped'; session.generation += 1; session.draft = null; controllers.get(session.id)?.abort();
