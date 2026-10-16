@@ -18,7 +18,7 @@ enum MorningSubscriptionLegalDocument: String, Identifiable {
     var id: String { rawValue }
 }
 
-/// Presentation only. Its owner advances to setup after a verified entitlement.
+/// Presentation only. Its owner controls entry to setup.
 struct MorningWelcomeFlow: View {
     let offer: MorningSubscriptionOffer?
     let purchaseState: MorningPurchasePresentation
@@ -26,6 +26,9 @@ struct MorningWelcomeFlow: View {
     let restore: () -> Void
     let retry: () -> Void
     let showLegal: (MorningSubscriptionLegalDocument) -> Void
+    #if DEBUG
+    var developerAccess: (() -> Void)? = nil
+    #endif
     @State private var page = 0
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -43,6 +46,13 @@ struct MorningWelcomeFlow: View {
     private var muted: Color { contrast == .increased ? MorningStyle.ink : MorningStyle.muted }
     private var surface: Color { MorningStyle.surface }
     private var isPaywall: Bool { page == 3 }
+    private var hasDeveloperAccessButton: Bool {
+        #if DEBUG
+        return developerAccess != nil
+        #else
+        return false
+        #endif
+    }
     private var still: Bool {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--ui-testing-reduce-motion") { return true }
@@ -146,14 +156,28 @@ struct MorningWelcomeFlow: View {
             .accessibilityLabel(text("Étape \(page + 1) sur 4", "Step \(page + 1) of 4"))
             .accessibilityIdentifier("onboarding.progress")
             Spacer()
-            if !isPaywall {
-                Button(typeSize.isAccessibilitySize ? text("Offre", "Offer") : text("Voir l’offre", "View offer")) { move(to: 3) }
-                    .font(.system(.caption, weight: .medium)).frame(minHeight: 44)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .accessibilityIdentifier("onboarding.offer")
-            } else {
-                Text(verbatim: "MORE").font(.system(.caption, weight: .semibold)).tracking(3)
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge).fixedSize()
+            HStack(spacing: 8) {
+                if !isPaywall {
+                    Button(typeSize.isAccessibilitySize || hasDeveloperAccessButton ? text("Offre", "Offer") : text("Voir l’offre", "View offer")) { move(to: 3) }
+                        .font(.system(.caption, weight: .medium)).frame(minHeight: 44)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .accessibilityIdentifier("onboarding.offer")
+                } else if !hasDeveloperAccessButton {
+                    Text(verbatim: "MORE").font(.system(.caption, weight: .semibold)).tracking(3)
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge).fixedSize()
+                }
+                #if DEBUG
+                if let developerAccess {
+                    Button(action: developerAccess) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: isPaywall ? 27 : 20, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(text("Accès développeur", "Developer access"))
+                    .accessibilityIdentifier(isPaywall ? "paywall.developerAccess" : "onboarding.developerAccess")
+                }
+                #endif
             }
         }
         .buttonStyle(.plain)

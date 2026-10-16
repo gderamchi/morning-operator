@@ -49,6 +49,7 @@
 		3D25D7E50AB57A74D84B2009 /* QuietMorningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3F3A89763BAB2B46F3EEDC /* QuietMorningTests.swift */; };
 		3DAD6D551A8D23872EB45AEF /* MorningStore+UITestObservation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD6C7D6B53E7A1D66705679 /* MorningStore+UITestObservation.swift */; };
 		3E8251A48B7A61848C80FF10 /* MorningCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9BCA4BB59BEA5A48B77C4A6C /* MorningCore */; };
+		3F0C46DBA6BCE559536E80F8 /* MorningDeveloperAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68C0FA21E9EBDF5E90EC399 /* MorningDeveloperAccessTests.swift */; };
 		451BF1167D169184EAA7F0C4 /* PlanBSystemDeviceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698E5DD30A2CEC29D8BD5C75 /* PlanBSystemDeviceTests.swift */; };
 		4546F1E245591EBE41825417 /* OrdinaryWeatherAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA7D5AB68A5334F38F9D03B /* OrdinaryWeatherAcceptanceTests.swift */; };
 		49FB0F85D767E86E152FD756 /* SlackSetupUITestFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E416448902A76CCD6A6C1F0 /* SlackSetupUITestFixture.swift */; };
@@ -362,6 +363,7 @@
 		C5E00F7E37441A95A894E9C5 /* AddStepTimeIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddStepTimeIntent.swift; sourceTree = "<group>"; };
 		C616F28C7176120988082BE5 /* OutlookInboxUITestFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlookInboxUITestFixture.swift; sourceTree = "<group>"; };
 		C62855ECFE0F19EBCDB332FC /* MorningSolarArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningSolarArtwork.swift; sourceTree = "<group>"; };
+		C68C0FA21E9EBDF5E90EC399 /* MorningDeveloperAccessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningDeveloperAccessTests.swift; sourceTree = "<group>"; };
 		C9A3ABFE205E230E3179EC7D /* CalendlyDayMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendlyDayMomentView.swift; sourceTree = "<group>"; };
 		CB01EC0C464A9A8C729788A1 /* AppActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppActivityView.swift; sourceTree = "<group>"; };
 		CC12572B5ED86682F797C645 /* EvidenceRetentionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceRetentionTests.swift; sourceTree = "<group>"; };
@@ -483,6 +485,7 @@
 				E7A3FB65E6F23F27BCD2036A /* LiveMorningDemoTests.swift */,
 				8D494EE3CCAD57763076ED57 /* LocalizationJourneyTests.swift */,
 				B90072D117F6AB3DF784AC2F /* MorningBriefingTests.swift */,
+				C68C0FA21E9EBDF5E90EC399 /* MorningDeveloperAccessTests.swift */,
 				72E79F26B162E0A475EA179A /* MorningEntryTests.swift */,
 				B05B450759EB33E8114C1F64 /* MorningHomePlaybackTests.swift */,
 				8814239D71C55071D657DCCB /* MorningLiveActivityTests.swift */,
@@ -952,6 +955,7 @@
 				AFDC8BC6FB5AD1FBCC4F66A0 /* LiveMorningDemoTests.swift in Sources */,
 				0B3CB519FA43C003457E06CB /* LocalizationJourneyTests.swift in Sources */,
 				613C8FFC0E2ACE7A6276D961 /* MorningBriefingTests.swift in Sources */,
+				3F0C46DBA6BCE559536E80F8 /* MorningDeveloperAccessTests.swift in Sources */,
 				81408D1A55F959D74EF5D631 /* MorningEntryTests.swift in Sources */,
 				2791917410CC55912CD69F2E /* MorningHomePlaybackTests.swift in Sources */,
 				D811F98768A06DD40497FCD6 /* MorningLiveActivityTests.swift in Sources */,

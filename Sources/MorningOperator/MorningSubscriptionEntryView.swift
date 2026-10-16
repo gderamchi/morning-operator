@@ -7,34 +7,36 @@ struct MorningSubscriptionEntryView: View {
     @State private var subscription = MorningSubscriptionStore()
     @State private var legalDocument: MorningSubscriptionLegalDocument?
     @Environment(\.scenePhase) private var scenePhase
+    #if DEBUG
+    @AppStorage(MorningDeveloperAccess.preferenceKey) private var developerAccess = false
+    #endif
+
+    private var hasDeveloperAccess: Bool {
+        #if DEBUG
+        return developerAccess
+        #else
+        return false
+        #endif
+    }
 
     var body: some View {
         Group {
-            if !subscription.hasResolvedAccess {
+            if hasDeveloperAccess || subscription.hasAccess {
+                MorningRootView(store: store)
+            } else if !subscription.hasResolvedAccess {
                 ZStack {
                     MorningQuietLandscape(scene: MorningThemeClock.shared.celestial, animated: false)
                         .ignoresSafeArea()
                     ProgressView().accessibilityLabel(AppLanguage.isFrench ? "Vérification de l’abonnement" : "Checking your subscription")
                 }
-            } else if subscription.hasAccess {
-                MorningRootView(store: store)
             } else {
-                MorningWelcomeFlow(offer: subscription.offer, purchaseState: subscription.state,
-                                   subscribe: { Task { await subscription.purchase() } },
-                                   restore: { Task { await subscription.restore() } },
-                                   retry: {
-                                       Task {
-                                           if subscription.state == .pending { await subscription.retryPendingPurchase() }
-                                           else { await subscription.load() }
-                                       }
-                                   },
-                                   showLegal: { legalDocument = $0 })
+                welcomeFlow
             }
         }
         .sheet(item: $legalDocument) { document in
             MorningSubscriptionLegalSheet(document: document, store: store)
         }
-        .task { await subscription.load() }
+        .task { await loadSubscription() }
         .onChange(of: store.privacyBlocksWork ? nil : store.briefing.currentWeatherLocation, initial: true) { _, location in
             MorningThemeClock.shared.setLocation(location)
         }
@@ -52,18 +54,53 @@ struct MorningSubscriptionEntryView: View {
             }
             if phase == .active {
                 MorningThemeClock.shared.refresh()
-                Task { await subscription.load() }
+                Task { await loadSubscription() }
             }
         }
         .onChange(of: subscription.hasAccess) { wasActive, isActive in
-            guard wasActive && !isActive else { return }
+            guard wasActive && !isActive && !hasDeveloperAccess else { return }
             store.briefing.cancelAndClear()
             if store.session?.status == .running { store.pause() }
             store.speech.stop()
             store.suspendHandsFreeVoice()
         }
     }
+
+    private var welcomeFlow: MorningWelcomeFlow {
+        let flow = MorningWelcomeFlow(offer: subscription.offer, purchaseState: subscription.state,
+                                      subscribe: { Task { await subscription.purchase() } },
+                                      restore: { Task { await subscription.restore() } },
+                                      retry: {
+                                          Task {
+                                              if subscription.state == .pending { await subscription.retryPendingPurchase() }
+                                              else { await subscription.load() }
+                                          }
+                                      },
+                                      showLegal: { legalDocument = $0 })
+        #if DEBUG
+        var developerFlow = flow
+        developerFlow.developerAccess = { developerAccess = true }
+        return developerFlow
+        #else
+        return flow
+        #endif
+    }
+
+    private func loadSubscription() async {
+        guard !hasDeveloperAccess else { return }
+        await subscription.load()
+    }
 }
+
+#if DEBUG
+private enum MorningDeveloperAccess {
+    static var preferenceKey: String {
+        let key = "more.developerAccess.onboardingSkipped"
+        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return key }
+        return key + "." + LocalDataControl.defaultDirectory.lastPathComponent
+    }
+}
+#endif
 
 /// Readable before subscribing; local privacy controls never depend on payment.
 struct MorningSubscriptionLegalSheet: View {
