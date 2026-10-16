@@ -119,8 +119,9 @@ final class MorningHomePlaybackTests: XCTestCase {
         let playback = app.buttons["morning.playback"]
         assertRemainsVisible(playback, for: 3)
         let captions = app.scrollViews["morning.captions"]
-        captions.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
-            .press(forDuration: 0.1, thenDragTo: captions.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
+        // The central floating Play/Pause symbol must not receive this drag.
+        captions.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.65))
+            .press(forDuration: 0.1, thenDragTo: captions.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.2)))
         assertRemainsVisible(playback, for: 3)
         XCTAssertTrue(playback.waitForNonExistence(timeout: 7), "Five seconds restart after the real caption drag ends.")
         attach("home-playback-caption-drag-controls-hidden-after-inactivity", app)

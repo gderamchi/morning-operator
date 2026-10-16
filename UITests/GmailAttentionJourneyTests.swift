@@ -86,9 +86,11 @@ import XCTest
         reveal(app); tap("morning.begin", app)
         let captions = app.scrollViews["morning.captions"]
         XCTAssertTrue(captions.waitForExistence(timeout: 10))
-        if !app.buttons["morning.more"].exists { captions.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap() }
+        if !app.buttons["morning.settings"].exists { captions.coordinate(withNormalizedOffset: .init(dx: 0.25, dy: 0.25)).tap() }
         XCTAssertTrue(app.buttons["morning.playback"].waitForExistence(timeout: 5))
-        tap("morning.more", app); tap("morning.details", app)
+        XCTAssertFalse(app.buttons["morning.more"].exists)
+        XCTAssertFalse(app.buttons["morning.next"].exists)
+        tap("morning.settings", app); tap("morning.details", app)
         XCTAssertTrue(app.buttons["morning.closeDetails"].waitForExistence(timeout: 5))
     }
     private func field(_ identifier: String, _ app: XCUIApplication) -> XCUIElement {

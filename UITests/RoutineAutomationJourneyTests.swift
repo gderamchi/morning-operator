@@ -36,6 +36,7 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertEqual(result, .completed)
         XCTAssertFalse(app.buttons["slackMoment.send"].exists)
         tapVisible("morning.closeDetails", in: app)
+        returnHome(app)
         let homeStatus = app.staticTexts["morning.actionStatus"]
         XCTAssertTrue(homeStatus.waitForExistence(timeout: 5))
         XCTAssertTrue(homeStatus.label.contains(french ? "La publication Slack n’est pas confirmée" : "Slack post is unconfirmed"))
@@ -46,11 +47,15 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["morning.remaining"].exists)
         XCTAssertFalse(app.buttons["morning.actionDetails"].exists)
         revealHomeControls(app)
-        for id in ["morning.playback", "morning.next", "morning.more"] {
+        for id in ["morning.playback", "morning.settings"] {
             XCTAssertTrue(app.buttons[id].isHittable, "The revealed Home control must remain reachable at this text size: \(id)")
         }
         attach(largestText ? "automation-synthetic-slack-uncertain-french-largest-home" : "automation-synthetic-slack-uncertain-state-on-home", app)
-        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["morning.more"])
+        for id in ["morning.next", "morning.more", "morning.details", "morning.stop", "morning.extend"] {
+            XCTAssertFalse(app.buttons[id].exists, "Additional commands belong in Settings, not on Home: \(id)")
+        }
+        XCTAssertEqual(app.navigationBars.count, 0)
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["morning.settings"])
         let hiddenResult = XCTWaiter.wait(for: [hidden], timeout: 8)
         if hiddenResult != .completed { captureFailure("synthetic-slack-home-controls-did-not-hide", app) }
         XCTAssertEqual(hiddenResult, .completed, "Home commands must leave the landscape after five seconds without interaction.")
@@ -1190,8 +1195,8 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["morning.remaining"].exists)
         attach("automation-real-public-feed-cold-morning-restored", app)
         // Home deliberately has no title or timer. Open the same paused page
-        // through its ordinary menu to inspect the retained budget before resume.
-        enabledVisibleButton("morning.more", in: app).tap()
+        // through Settings to inspect the retained budget before resume.
+        enabledVisibleButton("morning.settings", in: app).tap()
         enabledVisibleButton("stepTimer.openPage", in: app).tap()
         XCTAssertTrue(app.buttons["web.resume"].waitForExistence(timeout: 15))
         XCTAssertEqual(app.staticTexts["web.remaining"].label, remaining,
@@ -1251,14 +1256,14 @@ final class RoutineAutomationJourneyTests: XCTestCase {
         }
     }
     private func revealHomeControls(_ app: XCUIApplication) {
-        let more = app.buttons["morning.more"]
-        if more.exists && more.isHittable { return }
+        let settings = app.buttons["morning.settings"]
+        if settings.exists && settings.isHittable { return }
         let passages = app.descendants(matching: .any).matching(identifier: "morning.captions").firstMatch
         XCTAssertTrue(passages.waitForExistence(timeout: 10))
         // The ordinary landscape passage receives this tap. Avoid its bottom
         // edge, where a newly revealed command could otherwise be selected.
         passages.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
-        let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: more)
+        let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: settings)
         let result = XCTWaiter.wait(for: [visible], timeout: 5)
         if result != .completed { captureFailure("home-controls-not-revealed", app) }
         XCTAssertEqual(result, .completed)
@@ -1329,7 +1334,8 @@ final class RoutineAutomationJourneyTests: XCTestCase {
     }
     private func openScreenTimeObservationChoices(_ app: XCUIApplication) {
         reveal(app)
-        app.buttons["morning.review"].tap()
+        enabledVisibleButton("morning.settings", in: app).tap()
+        enabledVisibleButton("setup.routine", in: app).tap()
         tapVisible("learn.refine", in: app)
         XCTAssertTrue(app.textViews["learn.notes"].waitForExistence(timeout: 8))
         tapVisible("learn.screenTime", in: app)
@@ -1342,9 +1348,27 @@ final class RoutineAutomationJourneyTests: XCTestCase {
     private func openHomeInteraction(_ app: XCUIApplication) {
         if app.buttons["morning.closeDetails"].exists { return }
         revealHomeControls(app)
-        enabledVisibleButton("morning.more", in: app).tap()
+        enabledVisibleButton("morning.settings", in: app).tap()
+        _ = visibleButton("morning.next", in: app)
+        _ = visibleButton("morning.stop", in: app)
         enabledVisibleButton("morning.details", in: app).tap()
         XCTAssertTrue(app.buttons["morning.closeDetails"].waitForExistence(timeout: 5))
+    }
+    private func returnHome(_ app: XCUIApplication) {
+        for _ in 0..<5 {
+            let captions = app.scrollViews["morning.captions"]
+            let idleLandscape = app.buttons["morning.actions"]
+            if app.navigationBars.count == 0 && (captions.isHittable || idleLandscape.isHittable) { return }
+            let back = app.navigationBars.buttons.element(boundBy: 0)
+            guard back.waitForExistence(timeout: 5) else {
+                captureFailure("home-navigation-back-missing", app)
+                XCTFail("Expected the real Back route from Settings to Home.")
+                return
+            }
+            back.tap()
+        }
+        captureFailure("home-navigation-did-not-return", app)
+        XCTFail("Expected the landscape without a navigation bar.")
     }
     private func visibleScreenTimeSwitch(_ bundleID: String, in app: XCUIApplication) -> XCUIElement {
         let identifier = "observations.screenTime.app.\(bundleID)"
